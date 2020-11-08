@@ -1,0 +1,12 @@
+[package]
+name = "retrofire"
+version = "0.1.0"
+authors = ["Johannes Dahlström <johannes.dahlstrom@gmail.com>"]
+edition = "2018"
+
+[workspace]
+members = []
+
+[profile.release]
+debug = 1
+opt-level = 3
