@@ -13,3 +13,6 @@ opt-level = 3
 
 [dependencies.math]
 path = "./lib/math"
+
+[dependencies.geom]
+path = "./lib/geom"
