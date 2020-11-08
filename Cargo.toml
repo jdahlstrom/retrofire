@@ -5,8 +5,11 @@ authors = ["Johannes Dahlström <johannes.dahlstrom@gmail.com>"]
 edition = "2018"
 
 [workspace]
-members = []
+members = ["lib/*"]
 
 [profile.release]
 debug = 1
 opt-level = 3
+
+[dependencies.math]
+path = "./lib/math"
