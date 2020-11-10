@@ -1,7 +1,6 @@
 use std::f32::EPSILON;
-use std::fmt::{Display, Formatter, Result};
 use std::mem::swap;
-use std::time::{Duration, Instant};
+use std::time::Instant;
 
 use geom::mesh::{Mesh, VertexAttr};
 use math::{lerp, Linear};
@@ -9,8 +8,11 @@ use math::mat::Mat4;
 use math::vec::*;
 use raster::*;
 
+pub use stats::Stats;
+
 pub mod raster;
 pub mod vary;
+pub mod stats;
 
 pub type Shader<'a, Vary, Uniform> = &'a dyn Fn(Fragment<Vary>, Uniform) -> Vec4;
 pub type Plotter<'a> = &'a mut dyn FnMut(usize, usize, Vec4);
@@ -20,62 +22,6 @@ pub struct Renderer {
     projection: Mat4,
     viewport: Mat4,
     stats: Stats,
-}
-
-#[derive(Copy, Clone, Debug, Default)]
-pub struct Stats {
-    pub frames: usize,
-    pub faces_in: usize,
-    pub faces_out: usize,
-    pub pixels: usize,
-    pub time_used: Duration,
-}
-
-impl Stats {
-    pub fn avg_per_frame(&self) -> Stats {
-        Stats {
-            frames: 1,
-            faces_in: self.faces_in / self.frames,
-            faces_out: self.faces_out / self.frames,
-            pixels: self.pixels / self.frames,
-            time_used: self.time_used / self.frames as u32,
-        }
-    }
-
-    pub fn avg_per_sec(&self) -> Stats {
-        let secs = self.time_used.as_secs_f32();
-        Stats {
-            frames: (self.frames as f32 / secs) as usize,
-            faces_in: (self.faces_in as f32 / secs) as usize,
-            faces_out: (self.faces_out as f32 / secs) as usize,
-            pixels: (self.pixels as f32 / secs) as usize,
-            time_used: Duration::from_secs(1),
-        }
-    }
-}
-
-fn human(n: usize) -> String {
-    if n < 1_000 { format!("{:6}", n) }
-    else if n < 1_000_000 { format!("{:5.1}k", n as f32 / 1_000.) }
-    else if n < 1_000_000_000 { format!("{:5.1}M", n as f32 / 1_000_000.) }
-    else if n < 1_000_000_000_000 { format!("{:5.1}M", n as f32 / 1_000_000.) }
-    else { format!("{:5.1e}", n) }
-}
-
-fn human_time(d: Duration) -> String {
-    let s = d.as_secs_f32();
-    if s < 1.0 { format!("{:4.2}msec", s * 1000.) }
-    else { format!("{:.2}sec ", s) }
-}
-
-impl Display for Stats {
-    fn fmt(&self, f: &mut Formatter<'_>) -> Result {
-        write!(f, "frames: {} │ faces in: {} │ \
-                   faces out: {} │ pixels: {} │ \
-                   time used: {:>9}",
-               human(self.frames), human(self.faces_in), human(self.faces_out),
-               human(self.pixels), human_time(self.time_used))
-    }
 }
 
 impl Renderer {
