@@ -68,7 +68,7 @@ impl<VA, FA> Mesh<VA, FA> {
 
     pub fn gen_normals(self) -> Mesh<Vec4, Vec4> {
         let face_norms = self.face_verts()
-                             .map(|[a, b, c]| (a - b).cross(c - b))
+                             .map(|[a, b, c]| (b - a).cross(c - a))
                              .collect::<Vec<_>>();
 
         let mut vertex_norms = vec![ZERO; self.verts.len()];

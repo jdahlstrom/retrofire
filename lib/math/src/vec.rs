@@ -303,6 +303,8 @@ mod tests {
         assert_eq!(X.reflect(Y), -X);
         assert_eq!((X + Y + Z).reflect(0.01 * Y), -X + Y - Z);
         assert_eq!(Z.reflect(Y + Z), Y);
+        assert_eq!(X.reflect(X + Y), Y);
+        assert_approx_eq((0.9*X + 0.1*Y).reflect(X + Y), 0.9*Y + 0.1*X);
     }
 
     #[test]

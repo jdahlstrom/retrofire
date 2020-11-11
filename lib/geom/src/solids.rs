@@ -131,24 +131,24 @@ pub fn torus(minor_r: f32, pars: usize, mers: usize) -> Mesh {
             verts.push(pt(x, y, z));
             if mer > 0 && par > 0 {
                 let l = verts.len();
-                faces.push([l - 1, l - 2, l - pars - 2]);
-                faces.push([l - 1, l - pars - 2, l - pars - 1]);
+                faces.push([l - 1, l - pars - 2, l - 2]);
+                faces.push([l - 1, l - pars - 1, l - pars - 2]);
             }
         }
         if mer > 0 {
             let l = verts.len();
-            faces.push([l - pars, l - 1, l - 1 - pars]);
-            faces.push([l - pars, l - 1 - pars, l - 2 * pars]);
+            faces.push([l - pars, l - 1 - pars, l - 1]);
+            faces.push([l - pars, l - 2 * pars, l - 1 - pars]);
         }
     }
 
     let l = verts.len();
     for par in 1..pars {
-        faces.push([l - pars + par, par, l - 1 - pars + par]);
-        faces.push([l - 1 - pars + par, par, par - 1])
+        faces.push([par, l - pars + par, l - 1 - pars + par]);
+        faces.push([par, l - 1 - pars + par, par - 1])
     }
-    faces.push([l - pars, 0, pars - 1]);
-    faces.push([l - pars, pars - 1, l - 1]);
+    faces.push([l - pars, pars - 1, 0]);
+    faces.push([l - pars, l - 1, pars - 1]);
 
     Mesh {
         verts,
