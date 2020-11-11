@@ -2,6 +2,7 @@ use std::fmt::{Display, Formatter, Result};
 use std::time::{Duration, Instant};
 
 use geom::mesh::Mesh;
+use math::lerp;
 use math::mat::Mat4;
 use math::vec::*;
 use raster::*;
@@ -157,7 +158,16 @@ impl Renderer {
                     visible_faces.push([a, b, c]);
                 },
                 FaceVis::Clipped => {
-                    // TODO implement clipping
+                    let mut clipped_verts = Self::clip(&verts);
+                    if clipped_verts.is_empty() {
+                        continue;
+                    }
+                    let cn = clipped_verts.len();
+                    let vn = mesh.verts.len();
+                    mesh.verts.append(&mut clipped_verts);
+                    for i in 1..cn - 1 {
+                        visible_faces.push([vn, vn + i, vn + i + 1]);
+                    }
                 }
             }
         }
@@ -165,6 +175,71 @@ impl Renderer {
         mesh.faces = visible_faces;
 
         self.stats.faces_out += mesh.faces.len();
+    }
+
+    fn clip(verts: &[Vec4]) -> Vec<Vec4> {
+
+        let mut verts = verts.to_vec();
+        let mut verts2 = Vec::with_capacity(8);
+        for (&a, &b) in edges(&verts) {
+            let [v, u] = Self::intersect(a, b, a.x, b.x, -1.0, "x");
+            if let Some(v) = v { verts2.push(v); }
+            if let Some(u) = u { verts2.push(u); }
+        }
+
+        verts.clear();
+        for (&a, &b) in edges(&verts2) {
+            let [v, u] = Self::intersect(a, b, a.x, b.x, 1.0, "x");
+            if let Some(v) = v { verts.push(v); }
+            if let Some(u) = u { verts.push(u); }
+        }
+
+        verts2.clear();
+        for (&a, &b) in edges(&verts) {
+            let [v, u] = Self::intersect(a, b, a.y, b.y, -1.0, "y");
+            if let Some(v) = v { verts2.push(v); }
+            if let Some(u) = u { verts2.push(u); }
+        }
+
+        verts.clear();
+        for (&a, &b) in edges(&verts2) {
+            let [v, u] = Self::intersect(a, b, a.y, b.y, 1.0, "y");
+            if let Some(v) = v { verts.push(v); }
+            if let Some(u) = u { verts.push(u); }
+        }
+
+        verts2.clear();
+        for (&a, &b) in edges(&verts) {
+            let [v, u] = Self::intersect(a, b, a.z, b.z, -1.0, "z");
+            if let Some(v) = v { verts2.push(v); }
+            if let Some(u) = u { verts2.push(u); }
+        }
+
+        verts.clear();
+        for (&a, &b) in edges(&verts2) {
+            let [v, u] = Self::intersect(a, b, a.z, b.z, 1.0, "z");
+            if let Some(v) = v { verts.push(v); }
+            if let Some(u) = u { verts.push(u); }
+        }
+
+        verts
+    }
+
+    fn intersect(a: Vec4, b: Vec4, ac: f32, bc: f32, oc: f32, _c: &str) -> [Option<Vec4>; 2] {
+        //eprint!("Intersecting {} = {} .. {} with {}: ", c, ac, bc, oc);
+        let mut res = [None, None];
+        if inside(ac, oc) {
+            //eprint!("a = {:?} ", a);
+            res[0] = Some(a);
+        }
+        if inside(ac, oc) != inside(bc, oc) {
+            let t = (oc - ac) / (bc - ac);
+            let o = lerp(t, a, b);
+            //eprint!("o = {:?}", o);
+            res[1] = Some(o);
+        }
+        //eprintln!();
+        res
     }
 
     pub fn z_sort(&self, mesh: &mut Mesh) {
@@ -210,6 +285,10 @@ fn face_visibility(face: &[Vec4; 3]) -> FaceVis {
     }
 }
 
+fn edges(vs: &[Vec4]) -> impl Iterator<Item=(&Vec4, &Vec4)> {
+    (0..vs.len()).map(move |i| (&vs[i], &vs[(i + 1) % vs.len()]))
+}
+
 fn frontface(&[a, b, c]: &[Vec4; 3]) -> bool {
     (b.x - a.x) * (c.y - a.y) - (b.y - a.y) * (c.x - a.x) > 0.0
 }
@@ -234,6 +313,54 @@ fn frag(v: Vec4, n: Vec4) -> Fragment<Vec4> {
 
 #[cfg(test)]
 mod tests {
-    // use super::*;
-    // TODO tests
+    use math::ApproxEq;
+
+    use super::*;
+
+    #[test]
+    fn clip_fully_outside_triangle() {
+        let expected = Vec::<Vec4>::new();
+        let actual = Renderer::clip(&vec![2.0 * Y, -X + 3.0 * Y, X + 3.0 * Y]);
+
+        assert_eq!(expected, actual);
+    }
+
+    #[test]
+    fn clip_all_vertices_inside() {
+        let expected = vec![Y, -X, X];
+        let actual = Renderer::clip(&expected.clone());
+
+        assert_eq!(expected, actual);
+    }
+
+    #[test]
+    fn clip_vertices_on_bounds() {
+        let expected = vec![-X, Y, X - Y];
+        let actual = Renderer::clip(&expected.clone());
+        assert_eq!(expected, actual);
+    }
+
+    #[test]
+    fn clip_all_vertices_outside() {
+        let expected = vec![0.25 * X + Y, X - 0.5 * Y, X - Y, 0.5 * X - Y, -X - 0.25 * Y, -X + 0.5 * Y, -0.5 * X + Y];
+        let actual = Renderer::clip(&vec![1.5 * Y, 1.5 * (X - Y), -1.5 * X]);
+
+        dbg!(&actual);
+
+        assert_eq!(expected.len(), actual.len());
+        for (e, a) in expected.iter().zip(actual) {
+            assert!(e.approx_eq(a));
+        }
+    }
+
+    #[test]
+    fn clip_screen_filling_triangle() {
+        let expected = vec![X + Y, X - Y, -X - Y, -X + Y];
+        let actual = Renderer::clip(&vec![-20.0 * (X + Y), 20.0 * Y, 20.0 * (X - Y)]);
+
+        assert_eq!(expected.len(), actual.len());
+        for (e, a) in expected.iter().zip(actual) {
+            assert!(e.approx_eq(a));
+        }
+    }
 }
