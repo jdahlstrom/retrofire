@@ -1,9 +1,10 @@
 #![allow(clippy::len_without_is_empty)]
 
-use crate::{ApproxEq, Linear};
 use core::ops::{Add, Index, Mul, Neg, Sub};
 use std::fmt;
 use std::ops::Div;
+
+use crate::{ApproxEq, Linear};
 
 #[derive(Copy, Clone, PartialEq)]
 pub struct Vec4 {
@@ -184,6 +185,18 @@ impl ApproxEq for Vec4 {
     }
 }
 
+impl Default for Vec4 {
+    fn default() -> Self {
+        ZERO
+    }
+}
+
+impl fmt::Display for Vec4 {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "({:.2}, {:.2}, {:.2}, {:.2})", self.x, self.y, self.z, self.w)
+    }
+}
+
 impl fmt::Debug for Vec4 {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(f, "Vec4({}, {}, {}, {})", self.x, self.y, self.z, self.w)
@@ -193,8 +206,9 @@ impl fmt::Debug for Vec4 {
 #[cfg(test)]
 #[allow(unused_must_use)]
 mod tests {
-    use super::*;
     use crate::tests::util::*;
+
+    use super::*;
 
     #[test]
     fn vector_len() {

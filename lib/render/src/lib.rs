@@ -1,17 +1,18 @@
+use std::f32::EPSILON;
 use std::fmt::{Display, Formatter, Result};
+use std::mem::swap;
 use std::time::{Duration, Instant};
 
-use geom::mesh::Mesh;
-use math::lerp;
+use geom::mesh::{Mesh, VertexAttr};
+use math::{lerp, Linear};
 use math::mat::Mat4;
 use math::vec::*;
 use raster::*;
-use std::f32::EPSILON;
 
 pub mod raster;
 pub mod vary;
 
-pub type Shader<'a> = &'a dyn Fn(Fragment<Vec4>) -> Vec4;
+pub type Shader<'a, Vary, Uniform> = &'a dyn Fn(Fragment<Vary>, Uniform) -> Vec4;
 pub type Plotter<'a> = &'a mut dyn FnMut(usize, usize, Vec4);
 
 pub struct Renderer {
@@ -99,14 +100,17 @@ impl Renderer {
         self.viewport = mat;
     }
 
-    pub fn render(&mut self, mut mesh: Mesh, sh: Shader, pl: Plotter) -> Stats {
+    pub fn render<VA, FA>(&mut self, mut mesh: Mesh<VA, FA>, sh: Shader<(Vec4, VA), FA>, pl: Plotter) -> Stats
+    where VA: VertexAttr,
+          FA: Copy + Default
+    {
         let clock = Instant::now();
 
         self.transform(&mut mesh);
-        self.projection(&mut mesh);
-        self.hidden_surface_removal(&mut mesh);
-        self.z_sort(&mut mesh);
-        self.viewport(&mut mesh);
+        self.projection(&mut mesh.verts);
+        Self::hidden_surface_removal(&mut self.stats, &mut mesh);
+        Self::z_sort(&mut mesh);
+
         self.rasterize(mesh, sh, pl);
 
         self.stats.time_used += Instant::now() - clock;
@@ -114,118 +118,107 @@ impl Renderer {
         self.stats
     }
 
-    fn transform(&self, mesh: &mut Mesh) {
+    fn transform<VA: VertexAttr, FA>(&self, mesh: &mut Mesh<VA, FA>) {
         let tf = &self.transform;
-        let Mesh { verts, vertex_norms, .. } = mesh;
+        let Mesh { verts, vertex_attrs, .. } = mesh;
 
         for v in verts {
             *v = tf * *v;
         }
-        for n in vertex_norms.iter_mut().flatten() {
-            *n = (tf * *n).normalize();
+        for va in vertex_attrs.iter_mut().flatten() {
+            va.transform(tf);
         }
     }
 
-    fn projection(&self, mesh: &mut Mesh) {
+    fn projection(&self, verts: &mut Vec<Vec4>) {
         let proj = &self.projection;
-        for v in &mut mesh.verts {
+        for v in verts {
             *v = proj * *v;
             *v = *v / v.w;
         };
     }
 
-    pub fn viewport(&self, mesh: &mut Mesh) {
+    pub fn viewport(&self, verts: &mut Vec<Vec4>) {
         let view = &self.viewport;
-        for v in &mut mesh.verts {
+        for v in verts {
             *v = view * *v;
         }
     }
 
-    fn hidden_surface_removal(&mut self, mesh: &mut Mesh) {
-        self.stats.faces_in += mesh.faces.len();
+    fn hidden_surface_removal<VA, FA>(stats: &mut Stats, mesh: &mut Mesh<VA, FA>)
+    where VA: VertexAttr,
+          FA: Copy
+    {
+        stats.faces_in += mesh.faces.len();
 
-        let mut visible_faces = Vec::with_capacity(mesh.faces.len() / 2);
+        let Mesh { verts, faces, vertex_attrs, face_attrs, .. } = mesh;
 
-        for face in &mesh.faces {
-            let &[a, b, c] = face;
-            let verts = [mesh.verts[a], mesh.verts[b], mesh.verts[c]];
+        let vertex_attrs = vertex_attrs.as_mut().unwrap();
 
-            match face_visibility(&verts) {
+        let mut visible_faces = Vec::with_capacity(faces.len() / 2);
+        let mut visible_attrs = Vec::with_capacity(faces.len() / 2);
+
+        for (&[a, b, c], &fa) in faces.iter().zip(face_attrs.as_ref().unwrap()) {
+
+            let face_verts = [(verts[a], vertex_attrs[a]),
+                              (verts[b], vertex_attrs[b]),
+                              (verts[c], vertex_attrs[c])];
+
+            match face_visibility(&[verts[a], verts[b], verts[c]]) {
                 FaceVis::Hidden => {
                     continue
                 },
                 FaceVis::Unclipped => {
                     visible_faces.push([a, b, c]);
+                    visible_attrs.push(fa);
                 },
                 FaceVis::Clipped => {
-                    let mut clipped_verts = Self::clip(&verts);
+                    let clipped_verts = Self::clip(&face_verts);
                     if clipped_verts.is_empty() {
                         continue;
                     }
                     let cn = clipped_verts.len();
-                    let vn = mesh.verts.len();
-                    mesh.verts.append(&mut clipped_verts);
+                    let vn = verts.len();
+                    verts.extend(clipped_verts.iter().map(|v| v.0));
+                    vertex_attrs.extend(clipped_verts.into_iter().map(|v| v.1));
+
                     for i in 1..cn - 1 {
                         visible_faces.push([vn, vn + i, vn + i + 1]);
+                        visible_attrs.push(fa);
                     }
                 }
             }
         }
 
         mesh.faces = visible_faces;
+        mesh.face_attrs = Some(visible_attrs);
 
-        self.stats.faces_out += mesh.faces.len();
+        stats.faces_out += mesh.faces.len();
     }
 
-    fn clip(verts: &[Vec4]) -> Vec<Vec4> {
-
+    fn clip<VA>(verts: &[(Vec4, VA)]) -> Vec<(Vec4, VA)>
+    where VA: Linear<f32> + Copy
+    {
         let mut verts = verts.to_vec();
         let mut verts2 = Vec::with_capacity(8);
-        for (&a, &b) in edges(&verts) {
-            let [v, u] = Self::intersect(a, b, a.x, b.x, -1.0, "x");
-            if let Some(v) = v { verts2.push(v); }
-            if let Some(u) = u { verts2.push(u); }
-        }
 
-        verts.clear();
-        for (&a, &b) in edges(&verts2) {
-            let [v, u] = Self::intersect(a, b, a.x, b.x, 1.0, "x");
-            if let Some(v) = v { verts.push(v); }
-            if let Some(u) = u { verts.push(u); }
-        }
-
-        verts2.clear();
-        for (&a, &b) in edges(&verts) {
-            let [v, u] = Self::intersect(a, b, a.y, b.y, -1.0, "y");
-            if let Some(v) = v { verts2.push(v); }
-            if let Some(u) = u { verts2.push(u); }
-        }
-
-        verts.clear();
-        for (&a, &b) in edges(&verts2) {
-            let [v, u] = Self::intersect(a, b, a.y, b.y, 1.0, "y");
-            if let Some(v) = v { verts.push(v); }
-            if let Some(u) = u { verts.push(u); }
-        }
-
-        verts2.clear();
-        for (&a, &b) in edges(&verts) {
-            let [v, u] = Self::intersect(a, b, a.z, b.z, -1.0, "z");
-            if let Some(v) = v { verts2.push(v); }
-            if let Some(u) = u { verts2.push(u); }
-        }
-
-        verts.clear();
-        for (&a, &b) in edges(&verts2) {
-            let [v, u] = Self::intersect(a, b, a.z, b.z, 1.0, "z");
-            if let Some(v) = v { verts.push(v); }
-            if let Some(u) = u { verts.push(u); }
+        for i in 0..3 {
+            for &o in &[-1.0, 1.0] {
+                verts2.clear();
+                for (&a, &b) in edges(&verts) {
+                    let vs = Self::intersect(a, b, a.0[i], b.0[i], o, ['x', 'y', 'z'][i]);
+                    verts2.extend(vs.iter().flatten());
+                }
+                swap(&mut verts, &mut verts2);
+            }
         }
 
         verts
     }
 
-    fn intersect(a: Vec4, b: Vec4, ac: f32, bc: f32, oc: f32, _c: &str) -> [Option<Vec4>; 2] {
+    fn intersect<V>(a: V, b: V, ac: f32, bc: f32, oc: f32, _c: char) -> [Option<V>; 2]
+    where V: Copy + Linear<f32>
+    {
         //eprint!("Intersecting {} = {} .. {} with {}: ", c, ac, bc, oc);
         let mut res = [None, None];
         if inside(ac, oc) {
@@ -242,29 +235,67 @@ impl Renderer {
         res
     }
 
-    pub fn z_sort(&self, mesh: &mut Mesh) {
-        let Mesh { verts, faces, .. } = mesh;
-        faces.sort_unstable_by(|a, b| {
-            let az = verts[a[0]].z + verts[a[1]].z + verts[a[2]].z;
-            let bz = verts[b[0]].z + verts[b[1]].z + verts[b[2]].z;
-            bz.partial_cmp(&az).unwrap()
-        });
+    pub fn z_sort<VA, FA: Copy>(mesh: &mut Mesh<VA, FA>) {
+        let Mesh { verts, faces, face_attrs, .. } = mesh;
+
+        if let Some(ref attrs) = face_attrs {
+
+            let mut v = faces.iter().zip(attrs).collect::<Vec<_>>();
+
+            v.sort_unstable_by(|&(a, _), &(b, _)| {
+                let az = verts[a[0]].z + verts[a[1]].z + verts[a[2]].z;
+                let bz = verts[b[0]].z + verts[b[1]].z + verts[b[2]].z;
+                bz.partial_cmp(&az).unwrap()
+            });
+
+            let (f, a): (Vec<_>, Vec<_>) = v.into_iter()
+                .unzip();
+
+            *faces = f.into_iter().copied().collect();
+            *face_attrs = Some(a.into_iter().copied().collect());
+
+        } else {
+            faces.sort_unstable_by(|&a, &b| {
+                let az = verts[a[0]].z + verts[a[1]].z + verts[a[2]].z;
+                let bz = verts[b[0]].z + verts[b[1]].z + verts[b[2]].z;
+                bz.partial_cmp(&az).unwrap()
+            });
+        }
     }
 
-    pub fn rasterize(&mut self, mesh: Mesh, shade: Shader, plot: Plotter) {
-        let Mesh { faces, verts, vertex_norms: norms, .. } = &mesh;
-        for &[a, b, c] in faces {
+    pub fn rasterize<VA, FA>(&mut self, mut mesh: Mesh<VA, FA>, shade: Shader<(Vec4, VA), FA>, plot: Plotter)
+    where VA: VertexAttr,
+          FA: Copy + Default,
+    {
+        let Mesh { faces, verts, vertex_attrs, face_attrs } = &mut mesh;
+
+        let orig_verts = verts.clone();
+
+        self.viewport(verts);
+
+        for (i, &[a, b, c]) in faces.iter().enumerate() {
             let (av, bv, cv) = (verts[a], verts[b], verts[c]);
-            let (an, bn, cn) = if let Some(ns) = norms {
-                (ns[a], ns[b], ns[c])
+            let (ao, bo, co) = (orig_verts[a], orig_verts[b], orig_verts[c]);
+            let (ava, bva, cva) = if let Some(attrs) = vertex_attrs {
+                (attrs[a], attrs[b], attrs[c])
             } else {
-                (ZERO, ZERO, ZERO)
+                Default::default()
             };
-            tri_fill(frag(av, an), frag(bv, bn), frag(cv, cn), |frag| {
-                let col = shade(frag);
-                plot(frag.coord.x as usize, frag.coord.y as usize, col);
-                self.stats.pixels += 1;
-            });
+
+            let fa = if let Some(attrs) = face_attrs {
+                attrs[i]
+            } else {
+                FA::default()
+            };
+
+            tri_fill(Fragment { coord: av, varying: (ao, ava) },
+                     Fragment { coord: bv, varying: (bo, bva) },
+                     Fragment { coord: cv, varying: (co, cva) },
+                     |frag| {
+                         let col = shade(frag, fa);
+                         plot(frag.coord.x as usize, frag.coord.y as usize, col);
+                         self.stats.pixels += 1;
+                     });
         }
     }
 }
@@ -285,8 +316,8 @@ fn face_visibility(face: &[Vec4; 3]) -> FaceVis {
     }
 }
 
-fn edges(vs: &[Vec4]) -> impl Iterator<Item=(&Vec4, &Vec4)> {
-    (0..vs.len()).map(move |i| (&vs[i], &vs[(i + 1) % vs.len()]))
+fn edges<T>(ts: &[T]) -> impl Iterator<Item=(&T, &T)> {
+    (0..ts.len()).map(move |i| (&ts[i], &ts[(i + 1) % ts.len()]))
 }
 
 fn frontface(&[a, b, c]: &[Vec4; 3]) -> bool {
@@ -307,60 +338,79 @@ fn inside(a: f32, o: f32) -> bool {
     }
 }
 
-fn frag(v: Vec4, n: Vec4) -> Fragment<Vec4> {
-    Fragment { coord: v, varying: n }
-}
-
 #[cfg(test)]
 mod tests {
     use math::ApproxEq;
 
     use super::*;
 
+    // TODO Test interpolation of vertex attributes
+
+    type Vtx = (Vec4, ());
+
+    fn assert_approx_eq(expected: Vec<Vtx>, actual: Vec<Vtx>) {
+        assert_eq!(expected.len(), actual.len(), "expected: {:#?}\nactual: {:#?}", expected, actual);
+        for (&e, &a) in expected.iter().zip(&actual) {
+            assert!(e.0.approx_eq(a.0), "expected: {:?}, actual: {:?}", e, a);
+            // TODO assert!(e.1.approx_eq(a.1), "expected: {:?}, actual: {:?}", e, a);
+        }
+    }
+
+    fn v(v: Vec4) -> Vtx { (v, ()) }
+
+    fn vs(vs: &[Vec4]) -> Vec<Vtx> {
+        vs.iter().copied().map(v).collect()
+    }
+
     #[test]
     fn clip_fully_outside_triangle() {
-        let expected = Vec::<Vec4>::new();
-        let actual = Renderer::clip(&vec![2.0 * Y, -X + 3.0 * Y, X + 3.0 * Y]);
+        let expected = Vec::<Vtx>::new();
+        let actual = Renderer::clip(&vs(&[2.0 * Y, -X + 3.0 * Y, X + 3.0 * Y]));
 
         assert_eq!(expected, actual);
     }
 
     #[test]
     fn clip_all_vertices_inside() {
-        let expected = vec![Y, -X, X];
-        let actual = Renderer::clip(&expected.clone());
+        let expected = vs(&[Y, -X, X]);
+        let actual = Renderer::clip(&expected);
 
-        assert_eq!(expected, actual);
+        assert_eq!(expected, actual.as_slice());
     }
 
     #[test]
     fn clip_vertices_on_bounds() {
-        let expected = vec![-X, Y, X - Y];
-        let actual = Renderer::clip(&expected.clone());
-        assert_eq!(expected, actual);
+        let expected = vs(&[-X, Y, X - Y]);
+        let actual = Renderer::clip(&expected);
+        assert_eq!(expected, actual.as_slice());
     }
 
     #[test]
     fn clip_all_vertices_outside() {
-        let expected = vec![0.25 * X + Y, X - 0.5 * Y, X - Y, 0.5 * X - Y, -X - 0.25 * Y, -X + 0.5 * Y, -0.5 * X + Y];
-        let actual = Renderer::clip(&vec![1.5 * Y, 1.5 * (X - Y), -1.5 * X]);
+        let expected = vs(&[
+            0.25 * X + Y,
+            X - 0.5 * Y,
+            X - Y,
+            0.5 * X - Y,
+            -X - 0.25 * Y,
+            -X + 0.5 * Y,
+            -0.5 * X + Y]
+        );
+        let actual = Renderer::clip(&vs(&[
+            1.5 * Y,
+            1.5 * (X - Y),
+            -1.5 * X]
+        ));
 
-        dbg!(&actual);
-
-        assert_eq!(expected.len(), actual.len());
-        for (e, a) in expected.iter().zip(actual) {
-            assert!(e.approx_eq(a));
-        }
+        assert_approx_eq(expected, actual)
     }
+
 
     #[test]
     fn clip_screen_filling_triangle() {
-        let expected = vec![X + Y, X - Y, -X - Y, -X + Y];
-        let actual = Renderer::clip(&vec![-20.0 * (X + Y), 20.0 * Y, 20.0 * (X - Y)]);
+        let expected = vs(&[X + Y, X - Y, -X - Y, -X + Y]);
+        let actual = Renderer::clip(&vs(&[-20.0 * (X + Y), 20.0 * Y, 20.0 * (X - Y)]));
 
-        assert_eq!(expected.len(), actual.len());
-        for (e, a) in expected.iter().zip(actual) {
-            assert!(e.approx_eq(a));
-        }
+        assert_approx_eq(expected, actual)
     }
 }

@@ -1,22 +1,29 @@
 use math::vec::{Vec4, ZERO};
+use math::mat::Mat4;
+use math::Linear;
+
+pub trait VertexAttr : Linear<f32> + Copy + Default {
+    fn transform(&mut self, mat: &Mat4);
+}
+
+impl VertexAttr for Vec4 {
+    fn transform(&mut self, mat: &Mat4) {
+        *self = (mat * *self).normalize(); // TODO only for normals!
+    }
+}
 
 #[derive(Clone)]
-pub struct Mesh {
+pub struct Mesh<VA = (), FA = ()> {
     pub verts: Vec<Vec4>,
     pub faces: Vec<[usize; 3]>,
-    pub vertex_norms: Option<Vec<Vec4>>,
-    pub face_norms: Option<Vec<Vec4>>,
+    pub vertex_attrs: Option<Vec<VA>>,
+    pub face_attrs: Option<Vec<FA>>,
 }
 
-pub struct Face {
-    pub verts: [Vec4; 3],
-    pub vertex_norms: [Vec4; 3],
-    pub normal: Vec4,
-}
 
-impl Mesh {
+impl<VA, FA> Mesh<VA, FA> {
     pub fn new() -> Self {
-        Mesh { verts: vec![], faces: vec![], vertex_norms: None, face_norms: None }
+        Mesh { verts: vec![], faces: vec![], vertex_attrs: None, face_attrs: None }
     }
 
     pub fn faces(&self) -> impl Iterator<Item=&[usize; 3]> + '_ {
@@ -45,21 +52,21 @@ impl Mesh {
             return Err(format!("Unused vertex: {:?}", idx));
         }
 
-        if let Some(norms) = &self.face_norms {
-            if norms.len() != self.faces.len() {
-                return Err(format!("Missing or extra face normals"));
+        if let Some(attrs) = &self.face_attrs {
+            if attrs.len() != self.faces.len() {
+                return Err(format!("Missing or extra face attrs"));
             }
         }
-        if let Some(norms) = &self.vertex_norms {
-            if norms.len() != self.verts.len() {
-                return Err(format!("Missing or extra vertex normals"));
+        if let Some(attrs) = &self.vertex_attrs {
+            if attrs.len() != self.verts.len() {
+                return Err(format!("Missing or extra vertex attrs"));
             }
         }
 
         Ok(self)
     }
 
-    pub fn gen_normals(self) -> Mesh {
+    pub fn gen_normals(self) -> Mesh<Vec4, Vec4> {
         let face_norms = self.face_verts()
                              .map(|[a, b, c]| (a - b).cross(c - b))
                              .collect::<Vec<_>>();
@@ -73,9 +80,10 @@ impl Mesh {
         }
 
         Mesh {
-            vertex_norms: Some(vertex_norms.into_iter().map(Vec4::normalize).collect()),
-            face_norms: Some(face_norms.into_iter().map(Vec4::normalize).collect()),
-            ..self
+            verts: self.verts,
+            faces: self.faces,
+            vertex_attrs: Some(vertex_norms.into_iter().map(Vec4::normalize).collect()),
+            face_attrs: Some(face_norms.into_iter().map(Vec4::normalize).collect()),
         }
     }
 }

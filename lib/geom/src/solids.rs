@@ -32,8 +32,8 @@ pub fn unit_cube() -> Mesh {
             // back
             [0b001, 0b011, 0b111], [0b001, 0b111, 0b101],
         ],
-        vertex_norms: None,
-        face_norms: None,
+        vertex_attrs: None,
+        face_attrs: None,
     }
 }
 
@@ -57,8 +57,8 @@ pub fn unit_octahedron() -> Mesh {
             [5, 4, 3],
             [5, 1, 4],
         ],
-        vertex_norms: None,
-        face_norms: None,
+        vertex_attrs: None,
+        face_attrs: None,
     }
 }
 
@@ -106,8 +106,8 @@ pub fn unit_sphere(parallels: usize, meridians: usize) -> Mesh {
     Mesh {
         verts,
         faces,
-        vertex_norms: None,
-        face_norms: None,
+        vertex_attrs: None,
+        face_attrs: None,
     }
 }
 
@@ -153,8 +153,8 @@ pub fn torus(minor_r: f32, pars: usize, mers: usize) -> Mesh {
     Mesh {
         verts,
         faces,
-        vertex_norms: None,
-        face_norms: None,
+        vertex_attrs: None,
+        face_attrs: None,
     }
 }
 
