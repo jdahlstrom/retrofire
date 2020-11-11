@@ -5,6 +5,7 @@ use geom::mesh::Mesh;
 use math::mat::Mat4;
 use math::vec::*;
 use raster::*;
+use std::f32::EPSILON;
 
 pub mod raster;
 pub mod vary;
@@ -102,6 +103,7 @@ impl Renderer {
 
         self.transform(&mut mesh);
         self.projection(&mut mesh);
+        self.hidden_surface_removal(&mut mesh);
         self.z_sort(&mut mesh);
         self.viewport(&mut mesh);
         self.rasterize(mesh, sh, pl);
@@ -138,6 +140,33 @@ impl Renderer {
         }
     }
 
+    fn hidden_surface_removal(&mut self, mesh: &mut Mesh) {
+        self.stats.faces_in += mesh.faces.len();
+
+        let mut visible_faces = Vec::with_capacity(mesh.faces.len() / 2);
+
+        for face in &mesh.faces {
+            let &[a, b, c] = face;
+            let verts = [mesh.verts[a], mesh.verts[b], mesh.verts[c]];
+
+            match face_visibility(&verts) {
+                FaceVis::Hidden => {
+                    continue
+                },
+                FaceVis::Unclipped => {
+                    visible_faces.push([a, b, c]);
+                },
+                FaceVis::Clipped => {
+                    // TODO implement clipping
+                }
+            }
+        }
+
+        mesh.faces = visible_faces;
+
+        self.stats.faces_out += mesh.faces.len();
+    }
+
     pub fn z_sort(&self, mesh: &mut Mesh) {
         let Mesh { verts, faces, .. } = mesh;
         faces.sort_unstable_by(|a, b| {
@@ -162,6 +191,40 @@ impl Renderer {
                 self.stats.pixels += 1;
             });
         }
+    }
+}
+
+enum FaceVis {
+    Unclipped,
+    Clipped,
+    Hidden
+}
+
+fn face_visibility(face: &[Vec4; 3]) -> FaceVis {
+    if !frontface(face) {
+        FaceVis::Hidden
+    } else if face.iter().all(vertex_in_frustum) {
+        FaceVis::Unclipped
+    } else {
+        FaceVis::Clipped
+    }
+}
+
+fn frontface(&[a, b, c]: &[Vec4; 3]) -> bool {
+    (b.x - a.x) * (c.y - a.y) - (b.y - a.y) * (c.x - a.x) > 0.0
+}
+
+fn vertex_in_frustum(v: &Vec4) -> bool {
+    inside(v.x.abs(), 1.0)
+        && inside(v.y.abs(), 1.0)
+        && inside(v.z.abs(), 1.0)
+}
+
+fn inside(a: f32, o: f32) -> bool {
+    if o > 0.0 {
+        a <= o + EPSILON
+    } else {
+        a >= o - EPSILON
     }
 }
 
