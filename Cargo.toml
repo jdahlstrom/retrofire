@@ -7,9 +7,22 @@ edition = "2018"
 [workspace]
 members = ["lib/*"]
 
+[features]
+default = []
+
+sdl = ["sdl2"]
+ncurses = ["pancurses"]
+
+
 [profile.release]
 debug = 1
 opt-level = 3
+
+
+[dependencies]
+pancurses = { version = "0.16", optional = true }
+sdl2 = { version = "0.34", optional = true }
+
 
 [dependencies.math]
 path = "./lib/math"
@@ -19,3 +32,15 @@ path = "./lib/geom"
 
 [dependencies.render]
 path = "./lib/render"
+
+
+[[example]]
+name = "cursed-tri"
+path = "examples/curses/triangle.rs"
+required-features = ["ncurses"]
+
+
+[[example]]
+name = "cursed-torus"
+path = "examples/curses/torus.rs"
+required-features = ["ncurses"]
