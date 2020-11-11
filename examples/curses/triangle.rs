@@ -1,6 +1,7 @@
-use math::vec::Vec4;
 use pancurses as nc;
 use pancurses::Input::*;
+
+use math::vec::Vec4;
 use render::raster::flat;
 
 fn frag(x: f32, y: f32) -> flat::Fragment {
@@ -14,11 +15,11 @@ fn main() {
     win.nodelay(true);
 
     let mut xs = [(10.0, 0.1), (50.0, 0.2), (30.0, -0.25)];
-    let mut ys = [(30.0, -0.2), (10.0, -0.12), (40.0, 0.4)];
+    let mut ys = [(30.0, -0.2), (10.0, -0.15), (40.0, 0.4)];
     let mut i = 0;
 
     loop {
-        win.mvprintw(0, 0, "Q or ^C to quit");
+        win.mvprintw(0, 0, "Q or ^C to quit, WSAD to change speed of X, space to switch X");
 
         flat::flat_fill(frag(xs[0].0, ys[0].0), frag(xs[1].0, ys[1].0), frag(xs[2].0, ys[2].0),
                         |frag| {
@@ -26,8 +27,10 @@ fn main() {
                             win.addch('*');
                         });
 
-        for i in 0..3 {
-            win.mvaddch(ys[i].0.round() as i32, xs[i].0.round() as i32, 'O');
+        for j in 0..3 {
+            win.mvaddch(ys[j].0.round() as i32,
+                        xs[j].0.round() as i32,
+                        if i == j { 'X' } else { 'O' });
         }
 
         for (x, dx) in &mut xs {
@@ -40,14 +43,12 @@ fn main() {
         }
 
         if let Some(c) = win.getch() {
-            win.mv(0, 0);
-            win.clrtoeol();
             match c {
                 Character('q') => break,
-                Character('w') => ys[i].1 -= 0.01,
-                Character('s') => ys[i].1 += 0.01,
-                Character('a') => xs[i].1 -= 0.01,
-                Character('d') => xs[i].1 += 0.01,
+                Character('w') => ys[i].1 -= 0.05,
+                Character('s') => ys[i].1 += 0.05,
+                Character('a') => xs[i].1 -= 0.05,
+                Character('d') => xs[i].1 += 0.05,
                 Character(' ') => i = (i + 1) % 3,
                 _ => ()
             }

@@ -40,8 +40,12 @@ name = "cursed-tri"
 path = "examples/curses/triangle.rs"
 required-features = ["ncurses"]
 
-
 [[example]]
 name = "cursed-torus"
 path = "examples/curses/torus.rs"
 required-features = ["ncurses"]
+
+[[example]]
+name = "sdl-tri"
+path = "examples/sdl/triangle.rs"
+required-features = ["sdl"]

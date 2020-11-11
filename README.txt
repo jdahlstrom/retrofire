@@ -21,7 +21,7 @@ low-power hardware such as Raspberry PIs and outdated PCs.
 retrofire is completely platform-agnostic and, as of now, has zero non-optional
 third-party dependencies.  Render output is via callbacks or into "naked"  `u8`
 buffers.  The project  comes with  examples  that include  interactive programs
-targetting ncurses and SDL 2. A future goal is to add an HTML5 / WASM example.
+targetting ncurses and SDL 2.  A future goal is to add an HTML5 / WASM example.
 
 
 /////////////////////////////// M O D U L E S /////////////////////////////////
@@ -52,7 +52,16 @@ examples
 |   |-- triangle ........................ A triangle bouncing around the screen
 |   '-- torus ..................... A rotating torus with a psychedelic shading
 |
-'== sdl ........................ Using SDL 2 to render into a GUI window (todo)
+'== sdl ............................... Using SDL 2 to render into a GUI window
+    '-- triangle .................... A Gouraud shaded triangle bouncing around
+
+/////////////////////  R U N N I N G   E X A M P L E S  ///////////////////////
+
+$ cargo run --features=ncurses --example=cursed-tri
+
+$ cargo run --features=ncurses --example=cursed-torus
+
+$ cargo run --features=sdl --example=sdl-tri
 
 
 /////////////////////////////// L I C E N S E /////////////////////////////////

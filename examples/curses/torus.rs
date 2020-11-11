@@ -1,8 +1,9 @@
+use pancurses as nc;
+use pancurses::Input::*;
+
 use geom::solids::*;
 use math::transform::*;
 use math::vec::Vec4;
-use pancurses as nc;
-use pancurses::Input::*;
 use render::raster::gouraud::*;
 
 fn frag(v: Vec4) -> Fragment {
@@ -45,27 +46,24 @@ fn main() {
         tf_mesh.verts.iter_mut().for_each(|v| *v = &tf * *v);
 
         let mut verts = tf_mesh.face_verts()
-            .collect::<Vec<_>>();
+                               .collect::<Vec<_>>();
 
         // z sort
         verts.sort_unstable_by(|a, b| b[0].z.partial_cmp(&a[0].z).unwrap());
 
         for (_i, v) in verts.into_iter().enumerate() {
             gouraud_fill(frag(v[0]), frag(v[1]), frag(v[2]),
-                      |Fragment { coord, varying }| {
-                          win.mvaddch(coord.y as i32,
-                                      coord.x as i32,
-                                      b"..-:;=+<ox*XO@MW"[varying as usize / 0x10 & 0xF] as char);
-                      });
+                         |Fragment { coord, varying }| {
+                             win.mvaddch(coord.y as i32,
+                                         coord.x as i32,
+                                         b"..-:;=+<ox*XO@MW"[varying as usize / 0x10 & 0xF] as char);
+                         });
         }
 
         theta += 0.01;
 
-        if let Some(c) = win.getch() {
-            match c {
-                Character('q') => break,
-                _ => ()
-            }
+        if let Some(Character('q')) = win.getch() {
+            break;
         }
         nc::flushinp();
         nc::napms(33);
