@@ -8,10 +8,11 @@ pub use stats::Stats;
 
 use crate::raster::*;
 
-pub mod raster;
-pub mod vary;
-pub mod stats;
 mod hsr;
+pub mod raster;
+pub mod shade;
+pub mod stats;
+pub mod vary;
 
 pub type Shader<'a, Vary, Uniform> = &'a dyn Fn(Fragment<Vary>, Uniform) -> Vec4;
 pub type Plotter<'a> = &'a mut dyn FnMut(usize, usize, Vec4);
