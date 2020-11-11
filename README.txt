@@ -55,13 +55,31 @@ examples
 '== sdl ............................... Using SDL 2 to render into a GUI window
     '-- triangle .................... A Gouraud shaded triangle bouncing around
 
-/////////////////////  R U N N I N G   E X A M P L E S  ///////////////////////
 
-$ cargo run --features=ncurses --example=cursed-tri
+//////////////////  R U N N I N G  T H E  E X A M P L E S  ////////////////////
 
-$ cargo run --features=ncurses --example=cursed-torus
+// ncurses examples
 
-$ cargo run --features=sdl --example=sdl-tri
+  $ cargo run --release --features=ncurses --example=cursed-tri
+
+A flat-shaded triangle bouncing around the terminal window. Use WASD to control
+the speed of the selected vertex. Cycle selected vertex with space.
+
+  $ cargo run --release --features=ncurses --example=cursed-torus
+
+A rotating torus with a psychedelic shifting pattern created with trigonometric
+functions. Lovingly Gouraud-shaded with ASCII art characters.
+
+// SDL examples
+
+  $ cargo run --release --features=sdl --example=sdl-tri
+
+A color-shifting, Gouraud-shaded triangle bouncing around the window.
+
+  $ cargo run --release --features="sdl teapot" --example=teapot
+
+A  Phong  shaded, exposure-simulated  rendering  of  the  famous  Utah  teapot.
+WASD to move the teapot; left and right arrow keys to rotate the camera.
 
 
 /////////////////////////////// L I C E N S E /////////////////////////////////
@@ -75,6 +93,8 @@ $ cargo run --features=sdl --example=sdl-tri
    (LICENSE-MIT or http://opensource.org/licenses/MIT)
 
 at your option.
+
+// Contribution
 
 Unless you explicitly state otherwise, any contribution intentionally submitted
 for inclusion in the work by you, as defined in the  Apache-2.0  license, shall

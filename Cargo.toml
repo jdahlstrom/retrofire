@@ -9,10 +9,9 @@ license = "MIT OR Apache-2.0"
 members = ["lib/*"]
 
 [features]
-default = []
-
 sdl = ["sdl2"]
 ncurses = ["pancurses"]
+teapot = ["geom/teapot"]
 
 
 [profile.release]
@@ -49,3 +48,8 @@ required-features = ["ncurses"]
 name = "sdl-tri"
 path = "examples/sdl/triangle.rs"
 required-features = ["sdl"]
+
+[[example]]
+name = "teapot"
+path = "examples/sdl/teapot.rs"
+required-features = ["sdl", "teapot"]

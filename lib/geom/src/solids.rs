@@ -158,6 +158,38 @@ pub fn torus(minor_r: f32, pars: usize, mers: usize) -> Mesh {
     }
 }
 
+#[cfg(feature = "teapot")]
+pub fn teapot() -> Mesh<Vec4> {
+    use crate::teapot::*;
+
+    fn make_faces(&[a, b, c, d]: &[[i32; 3]; 4]) -> Vec<[usize; 3]> {
+        let mut vec = vec![];
+        vec.push([a[0] as usize - 1, b[0] as usize - 1, c[0] as usize - 1]);
+
+        if d[0] != -1 {
+            vec.push([c[0] as usize - 1, d[0] as usize - 1, a[0] as usize - 1]);
+        }
+        vec
+    }
+
+    let faces: Vec<_> = FACES.iter()
+                             .flat_map(make_faces)
+                             .collect();
+    let n_faces = faces.len();
+
+    Mesh {
+        faces,
+        verts: VERTICES.iter()
+                       .map(|&[x, y, z]| pt(x, y, z))
+                       .collect(),
+        vertex_attrs: Some(VERTEX_NORMALS.iter()
+                                         .map(|&[x, y, z]| dir(x, y, z))
+                                         .collect()),
+        face_attrs: Some(vec![(); n_faces])
+    }
+}
+
+
 #[cfg(test)]
 mod tests {
     use super::*;
