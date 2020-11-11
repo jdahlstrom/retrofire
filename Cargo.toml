@@ -16,3 +16,6 @@ path = "./lib/math"
 
 [dependencies.geom]
 path = "./lib/geom"
+
+[dependencies.render]
+path = "./lib/render"
