@@ -48,7 +48,7 @@ impl Renderer {
 
     pub fn render<VA, FA>(&mut self, mut mesh: Mesh<VA, FA>, sh: Shader<(Vec4, VA), FA>, pl: Plotter) -> Stats
     where VA: VertexAttr,
-          FA: Copy + Default
+          FA: Copy
     {
         let clock = Instant::now();
 
@@ -71,7 +71,7 @@ impl Renderer {
         for v in verts {
             *v = tf * *v;
         }
-        for va in vertex_attrs.iter_mut().flatten() {
+        for va in vertex_attrs.iter_mut() {
             va.transform(tf);
         }
     }
@@ -98,11 +98,12 @@ impl Renderer {
         self.stats.faces_out += mesh.faces.len();
     }
 
+    // TODO Replace with z-buffering (or s-buffering!)
     pub fn z_sort<VA, FA: Copy>(mesh: &mut Mesh<VA, FA>) {
-        let Mesh { verts, faces, face_attrs, .. } = mesh;
+        let (faces, attrs): (Vec<_>, Vec<_>) = {
+            let Mesh { verts, faces, face_attrs, .. } = &*mesh;
 
-        if let Some(ref attrs) = face_attrs {
-            let mut v = faces.iter().zip(attrs).collect::<Vec<_>>();
+            let mut v = faces.iter().zip(face_attrs).collect::<Vec<_>>();
 
             v.sort_unstable_by(|&(a, _), &(b, _)| {
                 let az = verts[a[0]].z + verts[a[1]].z + verts[a[2]].z;
@@ -110,23 +111,17 @@ impl Renderer {
                 bz.partial_cmp(&az).unwrap()
             });
 
-            let (f, a): (Vec<_>, Vec<_>) = v.into_iter()
-                                            .unzip();
+            (v.iter().map(|(&faces, _)| faces).collect(),
+             v.iter().map(|(_, &attrs)| attrs).collect())
+        };
 
-            *faces = f.into_iter().copied().collect();
-            *face_attrs = Some(a.into_iter().copied().collect());
-        } else {
-            faces.sort_unstable_by(|&a, &b| {
-                let az = verts[a[0]].z + verts[a[1]].z + verts[a[2]].z;
-                let bz = verts[b[0]].z + verts[b[1]].z + verts[b[2]].z;
-                bz.partial_cmp(&az).unwrap()
-            });
-        }
+        mesh.faces = faces;
+        mesh.face_attrs = attrs;
     }
 
     pub fn rasterize<VA, FA>(&mut self, mut mesh: Mesh<VA, FA>, shade: Shader<(Vec4, VA), FA>, plot: Plotter)
     where VA: VertexAttr,
-          FA: Copy + Default,
+          FA: Copy,
     {
         let Mesh { faces, verts, vertex_attrs, face_attrs } = &mut mesh;
 
@@ -135,19 +130,12 @@ impl Renderer {
         self.viewport(verts);
 
         for (i, &[a, b, c]) in faces.iter().enumerate() {
+            // TODO Clean up this mess
             let (av, bv, cv) = (verts[a], verts[b], verts[c]);
             let (ao, bo, co) = (orig_verts[a], orig_verts[b], orig_verts[c]);
-            let (ava, bva, cva) = if let Some(attrs) = vertex_attrs {
-                (attrs[a], attrs[b], attrs[c])
-            } else {
-                Default::default()
-            };
+            let (ava, bva, cva) = (vertex_attrs[a], vertex_attrs[b], vertex_attrs[c]);
 
-            let fa = if let Some(attrs) = face_attrs {
-                attrs[i]
-            } else {
-                FA::default()
-            };
+            let fa = face_attrs[i];
 
             tri_fill(Fragment { coord: av, varying: (ao, ava) },
                      Fragment { coord: bv, varying: (bo, bva) },

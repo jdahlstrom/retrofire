@@ -10,12 +10,10 @@ where VA: Copy + Linear<f32>, FA: Copy, {
 
     let Mesh { verts, faces, vertex_attrs, face_attrs, .. } = mesh;
 
-    let vertex_attrs = vertex_attrs.as_mut().unwrap(); // FIXME
-
     let mut visible_faces = Vec::with_capacity(faces.len() / 2);
     let mut visible_attrs = Vec::with_capacity(faces.len() / 2);
 
-    for (&[a, b, c], &fa) in faces.iter().zip(face_attrs.as_ref().unwrap()) {
+    for (&[a, b, c], &mut fa) in faces.iter().zip(face_attrs) {
         match face_visibility(&[verts[a], verts[b], verts[c]]) {
             FaceVis::Hidden => {
                 continue
@@ -46,7 +44,7 @@ where VA: Copy + Linear<f32>, FA: Copy, {
         }
     }
     mesh.faces = visible_faces;
-    mesh.face_attrs = Some(visible_attrs);
+    mesh.face_attrs = visible_attrs;
 }
 
 
