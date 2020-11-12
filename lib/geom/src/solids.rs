@@ -5,8 +5,8 @@ use math::vec::*;
 use crate::mesh::Mesh;
 
 pub fn unit_cube() -> Mesh {
-    Mesh {
-        verts: vec![
+    Mesh::from_verts_and_faces(
+        vec![
             // left
             pt(-1.0, -1.0, -1.0), // 000
             pt(-1.0, -1.0, 1.0),  // 001
@@ -18,7 +18,7 @@ pub fn unit_cube() -> Mesh {
             pt(1.0, 1.0, -1.0),  // 110
             pt(1.0, 1.0, 1.0),   // 111
         ],
-        faces: vec![
+        vec![
             // left
             [0b000, 0b011, 0b001], [0b000, 0b010, 0b011],
             // right
@@ -31,15 +31,13 @@ pub fn unit_cube() -> Mesh {
             [0b000, 0b110, 0b010], [0b000, 0b100, 0b110],
             // back
             [0b001, 0b011, 0b111], [0b001, 0b111, 0b101],
-        ],
-        vertex_attrs: None,
-        face_attrs: None,
-    }
+        ]
+    )
 }
 
 pub fn unit_octahedron() -> Mesh {
-    Mesh {
-        verts: vec![
+    Mesh::from_verts_and_faces(
+        vec![
             pt(-1.0, 0.0, 0.0),
             pt(0.0, -1.0, 0.0),
             pt(0.0, 0.0, -1.0),
@@ -47,7 +45,7 @@ pub fn unit_octahedron() -> Mesh {
             pt(0.0, 0.0, 1.0),
             pt(1.0, 0.0, 0.0),
         ],
-        faces: vec![
+        vec![
             [0, 1, 2],
             [0, 2, 3],
             [0, 3, 4],
@@ -56,10 +54,8 @@ pub fn unit_octahedron() -> Mesh {
             [5, 3, 2],
             [5, 4, 3],
             [5, 1, 4],
-        ],
-        vertex_attrs: None,
-        face_attrs: None,
-    }
+        ]
+    )
 }
 
 pub fn unit_sphere(parallels: usize, meridians: usize) -> Mesh {
@@ -103,12 +99,7 @@ pub fn unit_sphere(parallels: usize, meridians: usize) -> Mesh {
     }
     faces.push([verts.len() - meridians - 1, verts.len() - 1, verts.len() - 2]);
 
-    Mesh {
-        verts,
-        faces,
-        vertex_attrs: None,
-        face_attrs: None,
-    }
+    Mesh::from_verts_and_faces(verts, faces)
 }
 
 pub fn torus(minor_r: f32, pars: usize, mers: usize) -> Mesh {
@@ -150,12 +141,7 @@ pub fn torus(minor_r: f32, pars: usize, mers: usize) -> Mesh {
     faces.push([l - pars, pars - 1, 0]);
     faces.push([l - pars, l - 1, pars - 1]);
 
-    Mesh {
-        verts,
-        faces,
-        vertex_attrs: None,
-        face_attrs: None,
-    }
+    Mesh::from_verts_and_faces(verts, faces)
 }
 
 #[cfg(feature = "teapot")]
@@ -182,10 +168,10 @@ pub fn teapot() -> Mesh<Vec4> {
         verts: VERTICES.iter()
                        .map(|&[x, y, z]| pt(x, y, z))
                        .collect(),
-        vertex_attrs: Some(VERTEX_NORMALS.iter()
-                                         .map(|&[x, y, z]| dir(x, y, z))
-                                         .collect()),
-        face_attrs: Some(vec![(); n_faces])
+        vertex_attrs: VERTEX_NORMALS.iter()
+                                    .map(|&[x, y, z]| dir(x, y, z))
+                                    .collect(),
+        face_attrs: vec![(); n_faces]
     }
 }
 
