@@ -42,18 +42,29 @@ impl Renderer {
         self.viewport = mat;
     }
 
-    pub fn render<VA, FA>(&mut self, mut mesh: Mesh<VA, FA>, sh: Shader<(Vec4, VA), FA>, pl: Plotter) -> Stats
+    pub fn render<VA, FA>(&mut self, mesh: Mesh<VA, FA>, sh: Shader<(Vec4, Vec4), FA>, pl: Plotter) -> Stats
     where VA: VertexAttr,
           FA: Copy
     {
         let clock = Instant::now();
 
-        self.transform(&mut mesh);
-        self.projection(&mut mesh.verts);
-        self.hidden_surface_removal(&mut mesh);
-        Self::z_sort(&mut mesh);
+        let obj_space_verts = mesh.verts.clone();
 
-        self.rasterize(mesh, sh, pl);
+        let mut tf_mesh = Mesh {
+            verts: mesh.verts,
+            faces: mesh.faces,
+            vertex_attrs: obj_space_verts,
+            face_attrs: mesh.face_attrs
+        };
+
+        self.transform(&mut tf_mesh);
+        self.projection(&mut tf_mesh.verts);
+        //self.hidden_surface_removal(&mut tf_mesh);
+        //Self::z_sort(&mut tf_mesh);
+
+        self.perspective_divide(&mut tf_mesh.verts);
+
+        self.rasterize(tf_mesh, sh, pl);
 
         self.stats.time_used += Instant::now() - clock;
         self.stats.frames += 1;
@@ -75,14 +86,18 @@ impl Renderer {
     }
 
     fn projection(&self, verts: &mut Vec<Vec4>) {
-        let proj = &self.projection;
         for v in verts {
-            *v = proj * *v;
+            *v = &self.projection * *v;
+        };
+    }
+
+    fn perspective_divide(&self, verts: &mut Vec<Vec4>) {
+        for v in verts {
             *v = *v / v.w;
         };
     }
 
-    pub fn viewport(&self, verts: &mut Vec<Vec4>) {
+    fn viewport(&self, verts: &mut Vec<Vec4>) {
         let view = &self.viewport;
         for v in verts {
             *v = view * *v;
@@ -91,9 +106,11 @@ impl Renderer {
 
     fn hidden_surface_removal<VA, FA>(&mut self, mut mesh: &mut Mesh<VA, FA>)
     where VA: Copy + Linear<f32>, FA: Copy {
+        //print!("HSR faces {} -> ", mesh.faces.len());
         self.stats.faces_in += mesh.faces.len();
         hsr::hidden_surface_removal(&mut mesh);
         self.stats.faces_out += mesh.faces.len();
+        //println!("{}", mesh.faces.len());
     }
 
     // TODO Replace with z-buffering (or s-buffering!)
@@ -117,9 +134,8 @@ impl Renderer {
         mesh.face_attrs = attrs;
     }
 
-    pub fn rasterize<VA, FA>(&mut self, mut mesh: Mesh<VA, FA>, shade: Shader<(Vec4, VA), FA>, plot: Plotter)
-    where VA: VertexAttr,
-          FA: Copy,
+    pub fn rasterize<FA>(&mut self, mut mesh: Mesh<Vec4, FA>, shade: Shader<(Vec4, Vec4), FA>, plot: Plotter)
+    where FA: Copy,
     {
         let Mesh { faces, verts, vertex_attrs, face_attrs } = &mut mesh;
 
@@ -144,5 +160,46 @@ impl Renderer {
                          self.stats.pixels += 1;
                      });
         }
+    }
+}
+
+
+#[cfg(test)]
+mod tests {
+    use std::f32::consts::PI;
+
+    use math::transform::perspective;
+
+    use super::*;
+
+    #[test]
+    fn clip_projected_face() {
+        let mut r = Renderer::new();
+        let p = perspective(0.1, 10., 1., 2. * PI / 3.);
+        r.set_projection(p);
+
+        let z = 10.*Z+W;
+        let x = 10.*3.0f32.sqrt()*X;
+        let y = 10.*3.0f32.sqrt()*Y;
+
+        let mut m: Mesh<(), ()> = Mesh {
+            verts: vec![z+x, z, z+y],
+            faces: vec![[0, 1, 2]],
+            vertex_attrs: vec![(), (), ()],
+            face_attrs: vec![()]
+        };
+        dbg!("world", &m.verts);
+
+        r.projection(&mut m.verts);
+
+        dbg!("clip", &m.verts);
+
+        r.perspective_divide(&mut m.verts);
+
+        dbg!("ndc", &m.verts);
+
+        r.hidden_surface_removal(&mut m);
+
+        dbg!((&m.verts, &m.faces));
     }
 }
