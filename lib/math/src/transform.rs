@@ -46,6 +46,18 @@ pub fn translate(x: f32, y: f32, z: f32) -> Mat4 {
     m
 }
 
+/*
+(near, far) -> (-near, far)
+
+(x - near) / (far - near) * (far + near) - near
+
+ x * (far+near)/(far-near) - near*(far+near)/(far-near)-near
+
+  ...
+
+z' =
+*/
+
 pub fn perspective(near: f32, far: f32, aspect: f32, fov: f32) -> Mat4 {
     #![allow(clippy::float_cmp)]
     assert_ne!(near, 0.0, "near cannot be 0");
@@ -53,8 +65,8 @@ pub fn perspective(near: f32, far: f32, aspect: f32, fov: f32) -> Mat4 {
     let m11 = 1.0 / (fov / 2.0).tan();
     let m22 = aspect * m11;
 
-    let m33 = far / (far - near);
-    let m43 = -near * m33;
+    let m33 = (far + near) / (far - near);
+    let m43 = -near * (far + near) / (far - near) - near;
 
     Mat4([
         [m11, 0.0, 0.0, 0.0],
@@ -225,7 +237,11 @@ mod tests {
 
     #[test]
     fn perspective_project_vec() {
-        // TODO test
-        let _m = &perspective(0.01, 10000., 1., PI / 2.);
+        let m = &perspective(2., 100., 1., PI / 2.);
+        let v = pt(0., 0., 0.5);
+        let w = pt(0., 0., -0.001);
+
+        // TODO
+        assert!(false);
     }
 }

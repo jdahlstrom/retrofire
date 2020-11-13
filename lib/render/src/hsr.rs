@@ -1,5 +1,5 @@
 use std::f32::EPSILON;
-use std::mem::swap;
+use std::mem;
 
 use geom::mesh::Mesh;
 use math::{lerp, Linear};
@@ -7,22 +7,29 @@ use math::vec::Vec4;
 
 pub fn hidden_surface_removal<VA, FA>(mesh: &mut Mesh<VA, FA>)
 where VA: Copy + Linear<f32>, FA: Copy, {
-
     let Mesh { verts, faces, vertex_attrs, face_attrs, .. } = mesh;
 
     let mut visible_faces = Vec::with_capacity(faces.len() / 2);
     let mut visible_attrs = Vec::with_capacity(faces.len() / 2);
 
+    let mut hidden = 0;
+    let mut unclipped = 0;
+    let mut clipped = 0;
+    let mut new = 0;
+
     for (&[a, b, c], &mut fa) in faces.iter().zip(face_attrs) {
         match face_visibility(&[verts[a], verts[b], verts[c]]) {
             FaceVis::Hidden => {
+                hidden += 1;
                 continue
             },
             FaceVis::Unclipped => {
+                unclipped += 1;
                 visible_faces.push([a, b, c]);
                 visible_attrs.push(fa);
             },
             FaceVis::Clipped => {
+                clipped += 1;
                 let face_verts = [(verts[a], vertex_attrs[a]),
                     (verts[b], vertex_attrs[b]),
                     (verts[c], vertex_attrs[c])];
@@ -37,17 +44,20 @@ where VA: Copy + Linear<f32>, FA: Copy, {
                 vertex_attrs.extend(clipped_verts.into_iter().map(|v| v.1));
 
                 for i in 1..cn - 1 {
+                    new += 1;
                     visible_faces.push([vn, vn + i, vn + i + 1]);
                     visible_attrs.push(fa);
                 }
             }
         }
     }
+    println!("H={}  U={}  C={}->{}", hidden, unclipped, clipped, new);
+
     mesh.faces = visible_faces;
     mesh.face_attrs = visible_attrs;
 }
 
-
+#[derive(Debug, Eq, PartialEq)]
 enum FaceVis {
     Unclipped,
     Clipped,
@@ -56,6 +66,8 @@ enum FaceVis {
 
 fn face_visibility(face: &[Vec4; 3]) -> FaceVis {
     if !frontface(face) {
+        FaceVis::Hidden
+    } else if face.iter().any(|v| v.w <= 0.0) {
         FaceVis::Hidden
     } else if face.iter().all(vertex_in_frustum) {
         FaceVis::Unclipped
@@ -70,34 +82,30 @@ where VA: Linear<f32> + Copy {
     let mut verts2 = Vec::with_capacity(8);
 
     for i in 0..3 {
-        for &o in &[-1.0, 1.0] {
-            verts2.clear();
+        for &sign in &[-1.0, 1.0] {
             for (&a, &b) in edges(&verts) {
-                let vs = intersect(a, b, a.0[i], b.0[i], o);
+                let vs = intersect(a, b, a.0[i], b.0[i], sign * a.0.w, sign * b.0.w);
                 verts2.extend(vs.iter().flatten());
             }
-            swap(&mut verts, &mut verts2);
+            verts = mem::take(&mut verts2);
         }
     }
-
     verts
 }
 
-fn intersect<V>(a: V, b: V, ac: f32, bc: f32, oc: f32) -> [Option<V>; 2]
+fn intersect<V>(a: V, b: V, ac: f32, bc: f32, aw: f32, bw: f32) -> [Option<V>; 2]
 where V: Copy + Linear<f32> {
-    //eprint!("Intersecting {} = {} .. {} with {}: ", c, ac, bc, oc);
     let mut res = [None, None];
-    if inside(ac, oc) {
-        //eprint!("a = {:?} ", a);
+    if inside(ac, aw) {
         res[0] = Some(a);
     }
-    if inside(ac, oc) != inside(bc, oc) {
-        let t = (oc - ac) / (bc - ac);
+    if inside(ac, aw) != inside(bc, bw) {
+        // If edge intersects frustum bounds,
+        // add intersection point as a new vertex
+        let t = (aw - ac) / (bc - ac - bw + aw);
         let o = lerp(t, a, b);
-        //eprint!("o = {:?}", o);
         res[1] = Some(o);
     }
-    //eprintln!();
     res
 }
 
@@ -106,32 +114,33 @@ fn edges<T>(ts: &[T]) -> impl Iterator<Item=(&T, &T)> {
 }
 
 fn frontface(&[a, b, c]: &[Vec4; 3]) -> bool {
-    (b.x - a.x) * (c.y - a.y) - (b.y - a.y) * (c.x - a.x) < 0.0
+    (b.x / b.w - a.x / a.w) * (c.y / c.w - a.y / a.w)
+        - (b.y / b.w - a.y / a.w) * (c.x / c.w - a.x / a.w) < 0.0
 }
 
 fn vertex_in_frustum(v: &Vec4) -> bool {
-    inside(v.x.abs(), 1.0)
-        && inside(v.y.abs(), 1.0)
-        && inside(v.z.abs(), 1.0)
+    inside(v.x.abs(), v.w)
+        && inside(v.y.abs(), v.w)
+        && inside(v.z.abs(), v.w)
 }
 
-fn inside(a: f32, o: f32) -> bool {
-    if o > 0.0 {
-        a <= o + EPSILON
+fn inside(a: f32, w: f32) -> bool {
+    if w >= 0.0 {
+        a <= w + EPSILON
     } else {
-        a >= o - EPSILON
+        a >= w - EPSILON
     }
 }
 
-
 #[cfg(test)]
 mod tests {
+    use FaceVis::*;
     use math::ApproxEq;
-
-    use super::*;
     use math::vec::*;
 
-    // TODO Test interpolation of vertex attributes
+    use super::*;
+
+// TODO Test interpolation of vertex attributes
 
     fn assert_approx_eq(expected: Vec<Vtx>, actual: Vec<Vtx>) {
         assert_eq!(expected.len(), actual.len(), "expected: {:#?}\nactual: {:#?}", expected, actual);
@@ -142,6 +151,7 @@ mod tests {
     }
 
     type Vtx = (Vec4, ());
+
     fn v(v: Vec4) -> Vtx { (v, ()) }
 
     fn vs(vs: &[Vec4]) -> Vec<Vtx> {
@@ -149,26 +159,89 @@ mod tests {
     }
 
     #[test]
-    fn clip_fully_outside_triangle() {
-        let expected = Vec::<Vtx>::new();
-        let actual = clip(&vs(&[2.0 * Y, -X + 3.0 * Y, X + 3.0 * Y]));
+    fn test_inside() {
+        assert!(inside(0.0, 1.0));
+        assert!(inside(0.0, -1.0));
 
-        assert_eq!(expected, actual);
+        assert!(inside(10.0, -1.0));
+        assert!(inside(-10.0, 1.0));
+
+        assert!(!inside(10.0, 1.0));
+        assert!(!inside(-10.0, -1.0));
+    }
+
+
+    #[test]
+    fn test_vertex_in_frustum() {
+        assert!(vertex_in_frustum(&vec4(0.0, 0.0, 0.0, 0.0)));
+
+        assert!(vertex_in_frustum(&vec4(1.0, 0.0, 0.0, 1.0)));
+        assert!(vertex_in_frustum(&vec4(-2.0, 0.0, 0.0, 3.0)));
+        assert!(vertex_in_frustum(&vec4(0.0, 1.0, 0.0, 1.0)));
+        assert!(vertex_in_frustum(&vec4(0.0, -2.0, 0.0, 3.0)));
+        assert!(vertex_in_frustum(&vec4(0.0, 0.0, 1.0, 1.0)));
+        assert!(vertex_in_frustum(&vec4(0.0, 0.0, -2.0, 3.0)));
+
+        assert!(!vertex_in_frustum(&vec4(2.0, 0.0, 0.0, 1.0)));
+        assert!(!vertex_in_frustum(&vec4(-3.0, 0.0, 0.0, 2.0)));
+        assert!(!vertex_in_frustum(&vec4(0.0, 2.0, 0.0, 1.0)));
+        assert!(!vertex_in_frustum(&vec4(0.0, -3.0, 0.0, 2.0)));
+        assert!(!vertex_in_frustum(&vec4(0.0, 0.0, 2.0, 1.0)));
+        assert!(!vertex_in_frustum(&vec4(0.0, 0.0, -3.0, 2.0)));
+    }
+
+    #[test]
+    fn backface_visibility_hidden() {
+        assert_eq!(Hidden, face_visibility(&[X, Y, Z]));
+        assert_eq!(Hidden, face_visibility(&[2. * X, X + Y, X]));
+        assert_eq!(Hidden, face_visibility(&[X + Z, Y + Z, 2. * Z]));
+    }
+
+    #[test]
+    fn fully_inside_frontface_unclipped() {
+        assert_eq!(Unclipped, face_visibility(&[X + W, Z + W, Y + W]));
+        assert_eq!(Unclipped, face_visibility(&[-X + W, -Z + W, -Y + W]));
+    }
+
+    #[test]
+    fn partially_outside_face_clipped() {
+        assert_eq!(Clipped, face_visibility(&[2. * X, Z, Y]));
+        assert_eq!(Clipped, face_visibility(&[X, -2. * Z, Y]));
+        assert_eq!(Clipped, face_visibility(&[X, Z, 2. * Y]));
+    }
+
+    #[test]
+    fn fully_outside_face_clipped() {
+        assert_eq!(Clipped, face_visibility(&[2. * X, X, Y]));
+        assert_eq!(Clipped, face_visibility(&[X - Z, -2. * Z, Y - Z]));
+        assert_eq!(Clipped, face_visibility(&[X + Z, 2. * Z, Y + Z]));
+    }
+
+    #[test]
+    fn clip_triangle_fully_outside() {
+        for &(a, b) in &[(X, Y), (Y, Z), (X, Z)] {
+            let expected = Vec::<Vtx>::new();
+            let actual = clip(&vs(&[2.0 * b, -a + 3.0 * b, a + 3.0 * b]));
+            assert_eq!(expected, actual);
+        }
     }
 
     #[test]
     fn clip_all_vertices_inside() {
-        let expected = vs(&[Y, -X, X]);
-        let actual = clip(&expected);
-
-        assert_eq!(expected, actual.as_slice());
+        for &(a, b) in &[(X, Y), (Y, Z), (X, Z)] {
+            let expected = vs(&[b + W, -a + W, a + W]);
+            let actual = clip(&expected);
+            assert_eq!(expected, actual);
+        }
     }
 
     #[test]
     fn clip_vertices_on_bounds() {
-        let expected = vs(&[-X, Y, X - Y]);
-        let actual = clip(&expected);
-        assert_eq!(expected, actual.as_slice());
+        for &(a, b) in &[(X, Y), (Y, Z), (X, Z)] {
+            let expected = vs(&[-a, b, a - b]);
+            let actual = clip(&expected);
+            assert_eq!(expected, actual);
+        }
     }
 
     #[test]
@@ -193,9 +266,10 @@ mod tests {
 
     #[test]
     fn clip_screen_filling_triangle() {
-        let expected = vs(&[X + Y, X - Y, -X - Y, -X + Y]);
-        let actual = clip(&vs(&[-20.0 * (X + Y), 20.0 * Y, 20.0 * (X - Y)]));
-
-        assert_approx_eq(expected, actual)
+        for &(a, b) in &[(X, Y), (Y, Z), (X, Z)] {
+            let expected = vs(&[a + b, a - b, -a - b, -a + b]);
+            let actual = clip(&vs(&[-20.0 * (a + b), 20.0 * b, 20.0 * (a - b)]));
+            assert_approx_eq(expected, actual)
+        }
     }
 }

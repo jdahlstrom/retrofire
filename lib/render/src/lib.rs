@@ -17,6 +17,7 @@ pub mod vary;
 pub type Shader<'a, Vary, Uniform> = &'a dyn Fn(Fragment<Vary>, Uniform) -> Vec4;
 pub type Plotter<'a> = &'a mut dyn FnMut(usize, usize, Vec4);
 
+#[derive(Default)]
 pub struct Renderer {
     transform: Mat4,
     projection: Mat4,
@@ -26,12 +27,7 @@ pub struct Renderer {
 
 impl Renderer {
     pub fn new() -> Renderer {
-        Renderer {
-            transform: Mat4::default(),
-            projection: Mat4::default(),
-            viewport: Mat4::default(),
-            stats: Stats::default(),
-        }
+        Self::default()
     }
 
     pub fn set_transform(&mut self, mat: Mat4) {
@@ -57,6 +53,8 @@ impl Renderer {
         self.hidden_surface_removal(&mut mesh);
         Self::z_sort(&mut mesh);
 
+        self.perspective_divide(&mut mesh.verts);
+
         self.rasterize(mesh, sh, pl);
 
         self.stats.time_used += Instant::now() - clock;
@@ -77,14 +75,20 @@ impl Renderer {
     }
 
     fn projection(&self, verts: &mut Vec<Vec4>) {
-        let proj = &self.projection;
         for v in verts {
-            *v = proj * *v;
+            *v = &self.projection * *v;
+            //assert!(v.w > f32::EPSILON, "{}", v.w);
+            //*v = *v / v.w;
+        };
+    }
+
+    fn perspective_divide(&self, verts: &mut Vec<Vec4>) {
+        for v in verts {
             *v = *v / v.w;
         };
     }
 
-    pub fn viewport(&self, verts: &mut Vec<Vec4>) {
+    fn viewport(&self, verts: &mut Vec<Vec4>) {
         let view = &self.viewport;
         for v in verts {
             *v = view * *v;
@@ -93,9 +97,11 @@ impl Renderer {
 
     fn hidden_surface_removal<VA, FA>(&mut self, mut mesh: &mut Mesh<VA, FA>)
     where VA: Copy + Linear<f32>, FA: Copy {
+        //print!("HSR faces {} -> ", mesh.faces.len());
         self.stats.faces_in += mesh.faces.len();
         hsr::hidden_surface_removal(&mut mesh);
         self.stats.faces_out += mesh.faces.len();
+        //println!("{}", mesh.faces.len());
     }
 
     // TODO Replace with z-buffering (or s-buffering!)
@@ -146,5 +152,46 @@ impl Renderer {
                          self.stats.pixels += 1;
                      });
         }
+    }
+}
+
+
+#[cfg(test)]
+mod tests {
+    use std::f32::consts::PI;
+
+    use math::transform::perspective;
+
+    use super::*;
+
+    #[test]
+    fn clip_projected_face() {
+        let mut r = Renderer::new();
+        let p = perspective(0.1, 10., 1., 2. * PI / 3.);
+        r.set_projection(p);
+
+        let z = 10.*Z+W;
+        let x = 10.*3.0f32.sqrt()*X;
+        let y = 10.*3.0f32.sqrt()*Y;
+
+        let mut m: Mesh<(), ()> = Mesh {
+            verts: vec![z+x, z, z+y],
+            faces: vec![[0, 1, 2]],
+            vertex_attrs: vec![(), (), ()],
+            face_attrs: vec![()]
+        };
+        dbg!("world", &m.verts);
+
+        r.projection(&mut m.verts);
+
+        dbg!("clip", &m.verts);
+
+        r.perspective_divide(&mut m.verts);
+
+        dbg!("ndc", &m.verts);
+
+        r.hidden_surface_removal(&mut m);
+
+        dbg!((&m.verts, &m.faces));
     }
 }
