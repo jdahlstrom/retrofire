@@ -5,7 +5,6 @@ use math::vec::{vec4, Vec4};
 
 use crate::vary::Varying;
 
-pub mod color;
 pub mod flat;
 pub mod gouraud;
 
