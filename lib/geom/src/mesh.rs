@@ -41,6 +41,25 @@ impl<VA, FA> Mesh<VA, FA> {
         Mesh { verts: vec![], faces: vec![], vertex_attrs: vec![], face_attrs: vec![] }
     }
 
+    pub fn with_vertex_attrs<A>(self, attrs: Vec<A>) -> Mesh<A, FA> {
+        Mesh {
+            verts: self.verts,
+            faces: self.faces,
+            face_attrs: self.face_attrs,
+            vertex_attrs: attrs,
+        }
+    }
+
+    pub fn with_face_attrs<A>(self, attrs: Vec<A>) -> Mesh<VA, A> {
+        Mesh {
+            verts: self.verts,
+            faces: self.faces,
+            vertex_attrs: self.vertex_attrs,
+            face_attrs: attrs,
+        }
+    }
+
+
     pub fn faces(&self) -> impl Iterator<Item=&[usize; 3]> + '_ {
         self.faces.iter()
     }
