@@ -1,5 +1,5 @@
 use core::fmt;
-use core::ops::Mul;
+use core::ops::{Mul, MulAssign};
 
 use crate::ApproxEq;
 use crate::vec::*;
@@ -58,15 +58,13 @@ impl Mul<&Mat4> for Mat4 {
     type Output = Mat4;
 
     fn mul(self, rhs: &Mat4) -> Mat4 {
-        let mut res = Mat4::identity();
+        &self * rhs
+    }
+}
 
-        for r in 0..4usize {
-            let row = self.row(r);
-            for c in 0..4usize {
-                res.0[r][c] = row.dot(rhs.col(c));
-            }
-        }
-        res
+impl MulAssign<&Mat4> for Mat4 {
+    fn mul_assign(&mut self, rhs: &Mat4) {
+        *self = &*self * rhs
     }
 }
 
@@ -74,7 +72,10 @@ impl Mul<Vec4> for &Mat4 {
     type Output = Vec4;
 
     fn mul(self, rhs: Vec4) -> Vec4 {
-        vec4(self.col(0).dot(rhs), self.col(1).dot(rhs), self.col(2).dot(rhs), self.col(3).dot(rhs))
+        vec4(self.col(0).dot(rhs),
+             self.col(1).dot(rhs),
+             self.col(2).dot(rhs),
+             self.col(3).dot(rhs))
     }
 }
 
