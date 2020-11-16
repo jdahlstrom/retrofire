@@ -17,6 +17,7 @@ pub mod vary;
 pub type Shader<'a, Vary, Uniform> = &'a dyn Fn(Fragment<Vary>, Uniform) -> Vec4;
 pub type Plotter<'a> = &'a mut dyn FnMut(usize, usize, Vec4);
 
+#[derive(Default, Clone)]
 pub struct Renderer {
     transform: Mat4,
     projection: Mat4,
@@ -26,12 +27,7 @@ pub struct Renderer {
 
 impl Renderer {
     pub fn new() -> Renderer {
-        Renderer {
-            transform: Mat4::default(),
-            projection: Mat4::default(),
-            viewport: Mat4::default(),
-            stats: Stats::default(),
-        }
+        Self::default()
     }
 
     pub fn set_transform(&mut self, mat: Mat4) {
