@@ -42,20 +42,29 @@ impl Renderer {
         self.viewport = mat;
     }
 
-    pub fn render<VA, FA>(&mut self, mut mesh: Mesh<VA, FA>, sh: Shader<(Vec4, VA), FA>, pl: Plotter) -> Stats
+    pub fn render<VA, FA>(&mut self, mesh: Mesh<VA, FA>, sh: Shader<(Vec4, Vec4), FA>, pl: Plotter) -> Stats
     where VA: VertexAttr,
           FA: Copy
     {
         let clock = Instant::now();
 
-        self.transform(&mut mesh);
-        self.projection(&mut mesh.verts);
-        self.hidden_surface_removal(&mut mesh);
-        Self::z_sort(&mut mesh);
+        let obj_space_verts = mesh.verts.clone();
 
-        self.perspective_divide(&mut mesh.verts);
+        let mut tf_mesh = Mesh {
+            verts: mesh.verts,
+            faces: mesh.faces,
+            vertex_attrs: obj_space_verts,
+            face_attrs: mesh.face_attrs
+        };
 
-        self.rasterize(mesh, sh, pl);
+        self.transform(&mut tf_mesh);
+        self.projection(&mut tf_mesh.verts);
+        //self.hidden_surface_removal(&mut tf_mesh);
+        //Self::z_sort(&mut tf_mesh);
+
+        self.perspective_divide(&mut tf_mesh.verts);
+
+        self.rasterize(tf_mesh, sh, pl);
 
         self.stats.time_used += Instant::now() - clock;
         self.stats.frames += 1;
@@ -69,16 +78,14 @@ impl Renderer {
         for v in verts {
             *v = tf * *v;
         }
-        for va in vertex_attrs.iter_mut() {
+        /*for va in vertex_attrs.iter_mut() {
             va.transform(tf);
-        }
+        }*/
     }
 
     fn projection(&self, verts: &mut Vec<Vec4>) {
         for v in verts {
             *v = &self.projection * *v;
-            //assert!(v.w > f32::EPSILON, "{}", v.w);
-            //*v = *v / v.w;
         };
     }
 
@@ -125,9 +132,8 @@ impl Renderer {
         mesh.face_attrs = attrs;
     }
 
-    pub fn rasterize<VA, FA>(&mut self, mut mesh: Mesh<VA, FA>, shade: Shader<(Vec4, VA), FA>, plot: Plotter)
-    where VA: VertexAttr,
-          FA: Copy,
+    pub fn rasterize<FA>(&mut self, mut mesh: Mesh<Vec4, FA>, shade: Shader<(Vec4, Vec4), FA>, plot: Plotter)
+    where FA: Copy,
     {
         let Mesh { faces, verts, vertex_attrs, face_attrs } = &mut mesh;
 
