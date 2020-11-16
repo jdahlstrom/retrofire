@@ -53,3 +53,8 @@ required-features = ["sdl"]
 name = "teapot"
 path = "examples/sdl/teapot.rs"
 required-features = ["sdl", "teapot"]
+
+[[example]]
+name = "checkers"
+path = "examples/sdl/checkers.rs"
+required-features = ["sdl"]
