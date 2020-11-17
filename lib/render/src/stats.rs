@@ -12,12 +12,13 @@ pub struct Stats {
 
 impl Stats {
     pub fn avg_per_frame(&self) -> Stats {
+        let frames = self.frames.max(1);
         Stats {
-            frames: 1,
-            faces_in: self.faces_in / self.frames,
-            faces_out: self.faces_out / self.frames,
-            pixels: self.pixels / self.frames,
-            time_used: self.time_used / self.frames as u32,
+            frames,
+            faces_in: self.faces_in / frames,
+            faces_out: self.faces_out / frames,
+            pixels: self.pixels / frames,
+            time_used: self.time_used / frames as u32,
         }
     }
 

@@ -21,7 +21,7 @@ pub struct Renderer {
     transform: Mat4,
     projection: Mat4,
     viewport: Mat4,
-    stats: Stats,
+    pub stats: Stats,
 }
 
 impl Renderer {
@@ -71,6 +71,8 @@ impl Renderer {
         for v in verts {
             *v = tf * *v;
         }
+
+        // TODO this should only be done for normals
         for va in vertex_attrs.iter_mut() {
             va.transform(tf);
         }
