@@ -1,7 +1,7 @@
 use std::mem::swap;
 
-use math::Linear;
-use math::vec::{vec4, Vec4};
+use math::{Linear, ApproxEq};
+use math::vec::{vec4, Vec4, pt};
 
 use crate::vary::Varying;
 
@@ -22,8 +22,7 @@ fn ysort<V: Copy>(a: &mut Fragment<V>, b: &mut Fragment<V>, c: &mut Fragment<V>)
 
 pub fn tri_fill<V>(mut a: Fragment<V>, mut b: Fragment<V>, mut c: Fragment<V>,
                    mut plot: impl FnMut(Fragment<V>))
-where
-    V: Linear<f32> + Copy,
+where V: Linear<f32> + Copy,
 {
     ysort(&mut a, &mut b, &mut c);
 
@@ -67,6 +66,37 @@ where
     } else {
         half_tri(b.y.round(), &mut x_ac, &mut v_ac, &mut x_ab, &mut v_ab);
         half_tri(c.y.round(), &mut x_ac, &mut v_ac, &mut x_bc, &mut v_bc);
+    }
+}
+
+pub fn line(mut a: Vec4, mut b: Vec4, mut plot: impl FnMut(Fragment<()>)) {
+
+    if a.x.abs_diff(b.x) > a.y.abs_diff(b.y) {
+        // More horizontal
+        if a.x > b.x {
+            swap(&mut a, &mut b);
+        }
+
+        let mut x = a.x;
+        let mut y = Varying::between(a.y, b.y, b.x-a.x);
+        while x <= b.x {
+
+            plot(Fragment { coord: pt(x, y.step(), 0.0), varying: ()});
+
+            x += 1.0;
+        }
+    } else {
+        // More vertical
+        if a.y > b.y {
+            swap(&mut a, &mut b);
+        }
+
+        let mut y = a.y;
+        let mut x = Varying::between(a.x, b.x, b.y-a.y);
+        while y <= b.y {
+            plot(Fragment { coord: pt(x.step(), y, 0.0), varying: ()});
+            y += 1.0;
+        }
     }
 }
 

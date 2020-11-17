@@ -22,7 +22,7 @@ pub struct Renderer {
     transform: Mat4,
     projection: Mat4,
     viewport: Mat4,
-    stats: Stats,
+    pub stats: Stats,
 }
 
 impl Renderer {
@@ -59,8 +59,8 @@ impl Renderer {
 
         self.transform(&mut tf_mesh);
         self.projection(&mut tf_mesh.verts);
-        //self.hidden_surface_removal(&mut tf_mesh);
-        //Self::z_sort(&mut tf_mesh);
+        self.hidden_surface_removal(&mut tf_mesh);
+        Self::z_sort(&mut tf_mesh);
 
         self.perspective_divide(&mut tf_mesh.verts);
 
@@ -73,14 +73,11 @@ impl Renderer {
 
     fn transform<VA: VertexAttr, FA>(&self, mesh: &mut Mesh<VA, FA>) {
         let tf = &self.transform;
-        let Mesh { verts, vertex_attrs, .. } = mesh;
+        let Mesh { verts, .. } = mesh;
 
         for v in verts {
             *v = tf * *v;
         }
-        /*for va in vertex_attrs.iter_mut() {
-            va.transform(tf);
-        }*/
     }
 
     fn projection(&self, verts: &mut Vec<Vec4>) {
@@ -157,6 +154,14 @@ impl Renderer {
                          plot(frag.coord.x as usize, frag.coord.y as usize, col);
                          self.stats.pixels += 1;
                      });
+
+            let mut plot1 = |frag: Fragment<()>| {
+                plot(frag.coord.x as usize, frag.coord.y as usize, vec4(1.0, 0.4, 0.2, 0.0));
+            };
+
+            line(av, bv, &mut plot1);
+            line(bv, cv, &mut plot1);
+            line(cv, av, &mut plot1);
         }
     }
 }
