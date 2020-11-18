@@ -91,27 +91,23 @@ where VA: Linear<f32> + Copy {
     let mut verts = verts.to_vec();
     let mut verts2 = Vec::with_capacity(8);
 
+    let planes = &[ClipPlane(1.0, 1.0), ClipPlane(-1.0, 1.0)];
 
     for idx in 0..3 {
-        // -
-        for (&a, &b) in edges(&verts) {
-            let vs = intersect(a, b, idx, ClipPlane(1.0, 1.0));
-            verts2.extend(vs.iter().flatten());
+        for plane in planes {
+            for (&a, &b) in edges(&verts) {
+                let vs = intersect(a, b, idx, plane);
+                verts2.extend(vs.iter().flatten());
+            }
+            verts = mem::take(&mut verts2);
         }
-        verts = mem::take(&mut verts2);
-        // +
-        for (&a, &b) in edges(&verts) {
-            let vs = intersect(a, b, idx, ClipPlane(-1.0, 1.0));
-            verts2.extend(vs.iter().flatten());
-        }
-        verts = mem::take(&mut verts2);
     }
 
     verts
 }
 
 
-fn intersect<VA>(a: (Vec4, VA), b: (Vec4, VA), ci: usize, plane: ClipPlane)
+fn intersect<VA>(a: (Vec4, VA), b: (Vec4, VA), ci: usize, plane: &ClipPlane)
                  -> [Option<(Vec4, VA)>; 2]
 where VA: Copy + Linear<f32>,
 {
@@ -124,7 +120,6 @@ where VA: Copy + Linear<f32>,
         // add intersection point as a new vertex
         let t = plane.intersect((a.0[ci], a.0.w), (b.0[ci], b.0.w));
         let o = lerp(t, a, b);
-        //eprintln!("New vertex t={} o={} between {} and {}", t, o.0, a.0, b.0);
         res[1] = Some(o);
     }
     res

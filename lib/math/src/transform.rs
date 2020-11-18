@@ -46,18 +46,6 @@ pub fn translate(x: f32, y: f32, z: f32) -> Mat4 {
     m
 }
 
-/*
-(near, far) -> (-near, far)
-
-(x - near) / (far - near) * (far + near) - near
-
- x * (far+near)/(far-near) - near*(far+near)/(far-near)-near
-
-  ...
-
-z' =
-*/
-
 pub fn perspective(near: f32, far: f32, aspect: f32, fov: f32) -> Mat4 {
     #![allow(clippy::float_cmp)]
     assert_ne!(near, 0.0, "near cannot be 0");

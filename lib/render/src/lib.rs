@@ -97,11 +97,9 @@ impl Renderer {
 
     fn hidden_surface_removal<VA, FA>(&mut self, mut mesh: &mut Mesh<VA, FA>)
     where VA: Copy + Linear<f32>, FA: Copy {
-        //print!("HSR faces {} -> ", mesh.faces.len());
         self.stats.faces_in += mesh.faces.len();
         hsr::hidden_surface_removal(&mut mesh);
         self.stats.faces_out += mesh.faces.len();
-        //println!("{}", mesh.faces.len());
     }
 
     // TODO Replace with z-buffering (or s-buffering!)
