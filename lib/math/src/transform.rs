@@ -224,12 +224,40 @@ mod tests {
     }
 
     #[test]
-    fn perspective_project_vec() {
-        let m = &perspective(2., 100., 1., PI / 2.);
-        let v = pt(0., 0., 0.5);
-        let w = pt(0., 0., -0.001);
+    fn perspective_project_points_on_frustum_planes() {
+        let m = &perspective(0.1, 100., 1., PI / 2.);
 
-        // TODO
-        assert!(false);
+        // near
+        assert_approx_eq(vec4(0.0, 0.0, -0.1, 0.1), m * pt(0.0, 0.0, 0.1));
+        // far
+        assert_approx_eq(vec4(0.0, 0.0, 100.0, 100.0), m * pt(0.0, 0.0, 100.0));
+        // left
+        assert_approx_eq(vec4(-10.0, 0.0, 9.819819, 10.0), m * pt(-10.0, 0.0, 10.0));
+        // right
+        assert_approx_eq(vec4(10.0, 0.0, 9.819819, 10.0), m * pt(10.0, 0.0, 10.0));
+        // bottom
+        assert_approx_eq(vec4(0.0, -10.0, 9.819819, 10.0), m * pt(0.0, -10.0, 10.0));
+        // top
+        assert_approx_eq(vec4(0.0, 10.0, 9.819819, 10.0), m * pt(0.0, 10.0, 10.0));
+    }
+
+    #[test]
+    fn perspective_project_aspect_ratio() {
+        let m = &perspective(1., 10., 4./3., PI/2.);
+
+        assert_approx_eq(vec4(4.0, 4.0, 10.0, 10.0), m * pt(4.0, 3.0, 10.0));
+    }
+
+    #[test]
+    fn perspective_project_field_of_view() {
+        let m = &perspective(1., 10., 1., 2. * f32::atan(0.5));
+
+        assert_approx_eq(vec4(1.0, 0.0, -1.0, 1.0), m * pt(0.5, 0.0, 1.0));
+        assert_approx_eq(vec4(-10.0, 0.0, 10.0, 10.0), m * pt(-5.0, 0.0, 10.0));
+
+        let m = &perspective(1., 10., 1., 2. * f32::atan(2.0));
+
+        assert_approx_eq(vec4(0.0, 1.0, -1.0, 1.0), m * pt(0.0, 2.0, 1.0));
+        assert_approx_eq(vec4(0.0, -10.0, 10.0, 10.0), m * pt(0.0, -20.0, 10.0));
     }
 }

@@ -33,15 +33,6 @@ pub fn dir(x: f32, y: f32, z: f32) -> Vec4 {
 }
 
 impl Vec4 {
-
-    pub fn as_dir(self) -> Vec4{
-        Vec4 { z: 0.0, ..self }
-    }
-
-    pub fn as_pt(self) -> Vec4{
-        Vec4 { z: 1.0, ..self }
-    }
-
     /// Returns the length of `self`.
     pub fn len(self) -> f32 {
         self.dot(self).sqrt()
