@@ -53,6 +53,8 @@ impl Renderer {
         self.hidden_surface_removal(&mut mesh);
         Self::z_sort(&mut mesh);
 
+        self.perspective_divide(&mut mesh.verts);
+
         self.rasterize(mesh, sh, pl);
 
         self.stats.time_used += Instant::now() - clock;
@@ -75,14 +77,18 @@ impl Renderer {
     }
 
     fn projection(&self, verts: &mut Vec<Vec4>) {
-        let proj = &self.projection;
         for v in verts {
-            *v = proj * *v;
+            *v = &self.projection * *v;
+        };
+    }
+
+    fn perspective_divide(&self, verts: &mut Vec<Vec4>) {
+        for v in verts {
             *v = *v / v.w;
         };
     }
 
-    pub fn viewport(&self, verts: &mut Vec<Vec4>) {
+    fn viewport(&self, verts: &mut Vec<Vec4>) {
         let view = &self.viewport;
         for v in verts {
             *v = view * *v;
