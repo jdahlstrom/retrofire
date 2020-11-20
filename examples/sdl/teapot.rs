@@ -57,7 +57,7 @@ fn main() {
         let mut surf = r.surface().unwrap();
         let buf = surf.without_lock_mut().unwrap();
 
-        rdr.render(mesh.clone(), &shade, &mut |x, y, col: Vec4| {
+        rdr.render(mesh.clone(), shade, |x, y, col: Vec4| {
             let idx = 4 * (w as usize * y + x);
             buf[idx + 0] = col.z as u8;
             buf[idx + 1] = col.y as u8;

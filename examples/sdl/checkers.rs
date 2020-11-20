@@ -64,7 +64,7 @@ fn main() {
     let start = Instant::now();
     SdlRunner::new(w, h).unwrap().run(|r| {
         rdr.set_transform(&model_to_world * &camera);
-        rdr.render(mesh.clone(), &shade, &mut |x, y, col| r.plot(x, y, col));
+        rdr.render(mesh.clone(), shade, |x, y, col| r.plot(x, y, col));
 
         for scancode in r.keystate() {
             use Scancode::*;

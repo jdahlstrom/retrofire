@@ -14,9 +14,6 @@ pub mod shade;
 pub mod stats;
 pub mod vary;
 
-pub type Shader<'a, Vary, Uniform> = &'a dyn Fn(Fragment<Vary>, Uniform) -> Vec4;
-pub type Plotter<'a> = &'a mut dyn FnMut(usize, usize, Vec4);
-
 #[derive(Default, Clone)]
 pub struct Renderer {
     transform: Mat4,
@@ -42,9 +39,13 @@ impl Renderer {
         self.viewport = mat;
     }
 
-    pub fn render<VA, FA>(&mut self, mut mesh: Mesh<VA, FA>, sh: Shader<(Vec4, VA), FA>, pl: Plotter) -> Stats
+    pub fn render<VA, FA, Shade, Plot>(
+        &mut self, mut mesh: Mesh<VA, FA>, shade: Shade, plot: Plot
+    ) -> Stats
     where VA: VertexAttr,
-          FA: Copy
+          FA: Copy,
+          Shade: Fn(Fragment<(Vec4, VA)>, FA) -> Vec4,
+          Plot: FnMut(usize, usize, Vec4),
     {
         let clock = Instant::now();
 
@@ -55,7 +56,7 @@ impl Renderer {
 
         self.perspective_divide(&mut mesh.verts);
 
-        self.rasterize(mesh, sh, pl);
+        self.rasterize(mesh, shade, plot);
 
         self.stats.time_used += Instant::now() - clock;
         self.stats.frames += 1;
@@ -96,7 +97,8 @@ impl Renderer {
     }
 
     fn hidden_surface_removal<VA, FA>(&mut self, mut mesh: &mut Mesh<VA, FA>)
-    where VA: Copy + Linear<f32>, FA: Copy {
+    where VA: Copy + Linear<f32>, FA: Copy
+    {
         self.stats.faces_in += mesh.faces.len();
         hsr::hidden_surface_removal(&mut mesh);
         self.stats.faces_out += mesh.faces.len();
@@ -123,9 +125,11 @@ impl Renderer {
         mesh.face_attrs = attrs;
     }
 
-    pub fn rasterize<VA, FA>(&mut self, mut mesh: Mesh<VA, FA>, shade: Shader<(Vec4, VA), FA>, plot: Plotter)
+    pub fn rasterize<VA, FA, Shade, Plot>(&mut self, mut mesh: Mesh<VA, FA>, shade: Shade, mut plot: Plot)
     where VA: VertexAttr,
           FA: Copy,
+          Shade: Fn(Fragment<(Vec4, VA)>, FA) -> Vec4,
+          Plot: FnMut(usize, usize, Vec4),
     {
         let Mesh { faces, verts, vertex_attrs, face_attrs } = &mut mesh;
 
