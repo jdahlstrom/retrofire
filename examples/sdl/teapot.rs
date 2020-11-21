@@ -21,7 +21,11 @@ fn main() {
 
     let mesh = teapot().gen_normals().validate().expect("Invalid mesh!");
 
-    fn shade(frag: Fragment<(Vec4, Vec4)>, _face_n: Vec4) -> Vec4 {
+    fn vs(tf: &Mat4, (coord, norm): (Vec4, Vec4)) -> (Vec4, Vec4) {
+        (tf * coord, tf * norm)
+    }
+
+    fn fs(frag: Fragment<(Vec4, Vec4)>, _face_n: Vec4) -> Vec4 {
         let Fragment { varying: (coord, normal), .. } = frag;
         let light_dir = (pt(-1.0, 2., -2.) - coord).normalize();
         let view_dir = (pt(0.0, 0.0, 0.0) - coord).normalize();
@@ -57,7 +61,7 @@ fn main() {
         let mut surf = r.surface().unwrap();
         let buf = surf.without_lock_mut().unwrap();
 
-        rdr.render(mesh.clone(), shade, |x, y, col: Vec4| {
+        rdr.render(mesh.clone(), vs, fs, |x, y, col: Vec4| {
             let idx = 4 * (w as usize * y + x);
             buf[idx + 0] = col.z as u8;
             buf[idx + 1] = col.y as u8;

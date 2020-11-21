@@ -39,24 +39,37 @@ impl Renderer {
         self.viewport = mat;
     }
 
-    pub fn render<VA, FA, Shade, Plot>(
-        &mut self, mut mesh: Mesh<VA, FA>, shade: Shade, plot: Plot
+    pub fn render<VA, FA, C, VS, FS, Plot>(
+        &mut self,
+        mut mesh: Mesh<VA, FA>,
+        vs: VS,
+        fs: FS,
+        plot: Plot
     ) -> Stats
-    where VA: VertexAttr,
-          FA: Copy,
-          Shade: Fn(Fragment<(Vec4, VA)>, FA) -> Vec4,
-          Plot: FnMut(usize, usize, Vec4),
+    where
+        VA: VertexAttr,
+        FA: Copy,
+        C: Copy,
+        VS: Fn(&Mat4, (Vec4, VA)) -> (Vec4, VA),
+        FS: Fn(Fragment<(Vec4, VA)>, FA) -> C,
+        Plot: FnMut(usize, usize, C),
     {
         let clock = Instant::now();
 
-        self.transform(&mut mesh);
+
+        for v in mesh.verts.iter_mut().zip(mesh.vertex_attrs.iter_mut()) {
+            let (c, a) = vs(&self.transform, (*v.0, *v.1));
+            *v.0 = c;
+            *v.1 = a;
+        }
+
         self.projection(&mut mesh.verts);
         self.hidden_surface_removal(&mut mesh);
         Self::z_sort(&mut mesh);
 
         self.perspective_divide(&mut mesh.verts);
 
-        self.rasterize(mesh, shade, plot);
+        self.rasterize(mesh, fs, plot);
 
         self.stats.time_used += Instant::now() - clock;
         self.stats.frames += 1;
@@ -125,11 +138,12 @@ impl Renderer {
         mesh.face_attrs = attrs;
     }
 
-    pub fn rasterize<VA, FA, Shade, Plot>(&mut self, mut mesh: Mesh<VA, FA>, shade: Shade, mut plot: Plot)
+    pub fn rasterize<VA, FA, C, Shade, Plot>(&mut self, mut mesh: Mesh<VA, FA>, shade: Shade, mut plot: Plot)
     where VA: VertexAttr,
           FA: Copy,
-          Shade: Fn(Fragment<(Vec4, VA)>, FA) -> Vec4,
-          Plot: FnMut(usize, usize, Vec4),
+          C: Copy,
+          Shade: Fn(Fragment<(Vec4, VA)>, FA) -> C,
+          Plot: FnMut(usize, usize, C),
     {
         let Mesh { faces, verts, vertex_attrs, face_attrs } = &mut mesh;
 
