@@ -27,10 +27,13 @@ fn render<VA: VertexAttr, FA: Copy>(mesh: Mesh<VA, FA>) -> Vec<u8> {
 
     rdr.render(
         mesh,
-        &|_: Fragment<(Vec4, VA)>, _: FA| {
+        |tf, (c, a)| {
+            (tf * c, a)
+        },
+        |_: Fragment<(Vec4, VA)>, _: FA| {
             ZERO
         },
-        &mut |x, y, _col| {
+        |x, y, _col| {
             buf[10 * y + x] = '#' as u8;
         }
     );
