@@ -53,7 +53,6 @@ impl Renderer {
         self.projection(&mut mesh.verts);
         self.hidden_surface_removal(&mut mesh);
         Self::z_sort(&mut mesh);
-
         self.perspective_divide(&mut mesh.verts);
 
         self.rasterize(mesh, shade, plot);

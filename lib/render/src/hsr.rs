@@ -10,13 +10,18 @@ pub fn hidden_surface_removal<VA, FA>(mesh: &mut Mesh<VA, FA>)
 where VA: Copy + Linear<f32>, FA: Copy, {
     let Mesh { verts, faces, vertex_attrs, face_attrs, .. } = mesh;
 
+    let clip_masks = verts.iter().map(clip_vertex).collect::<Vec<_>>();
+
     // Assume roughly 50% of faces visible
     let mut visible_faces = Vec::with_capacity(faces.len() / 2);
     let mut visible_attrs = Vec::with_capacity(faces.len() / 2);
 
     for (&[a, b, c], &mut fa) in faces.iter().zip(face_attrs) {
-        match face_visibility(&[verts[a], verts[b], verts[c]]) {
-            FaceVis::Hidden => {
+
+        let masks = [clip_masks[a], clip_masks[b], clip_masks[c]];
+
+        match face_visibility(&[verts[a], verts[b], verts[c]], &masks) {
+            FaceVis::Hidden | FaceVis::Backface => {
                 continue
             },
             FaceVis::Unclipped => {
@@ -24,19 +29,21 @@ where VA: Copy + Linear<f32>, FA: Copy, {
                 visible_attrs.push(fa);
             },
             FaceVis::Clipped => {
-                let face_verts = [(verts[a], vertex_attrs[a]),
+                let face_verts = [
+                    (verts[a], vertex_attrs[a]),
                     (verts[b], vertex_attrs[b]),
-                    (verts[c], vertex_attrs[c])];
-
+                    (verts[c], vertex_attrs[c])
+                ];
                 let clipped_verts = clip(&face_verts);
                 if clipped_verts.is_empty() {
                     continue;
                 }
-                if !frontface(&[clipped_verts[0].0, clipped_verts[1].0, clipped_verts[2].0]) {
-                    // New faces are coplanar, if any is a backface then all are
+                if !frontface(&[clipped_verts[0].0,
+                                clipped_verts[1].0,
+                                clipped_verts[2].0]) {
+                    // New faces are coplanar, if one is a backface then all are
                     continue;
                 }
-
                 let cn = clipped_verts.len();
                 let vn = verts.len();
                 verts.extend(clipped_verts.iter().map(|v| v.0));
@@ -49,29 +56,8 @@ where VA: Copy + Linear<f32>, FA: Copy, {
             }
         }
     }
-
     mesh.faces = visible_faces;
     mesh.face_attrs = visible_attrs;
-}
-
-#[derive(Debug, Eq, PartialEq)]
-enum FaceVis {
-    Unclipped,
-    Clipped,
-    Hidden
-}
-
-fn face_visibility(face: &[Vec4; 3]) -> FaceVis {
-    // TODO Still should improve handling faces that span w=0
-    if face.iter().all(|v| v.w <= 0.0) {
-        FaceVis::Hidden
-    } else if face.iter().all(|v| v.w > 0.0) && !frontface(face) {
-        FaceVis::Hidden
-    } else if face.iter().all(vertex_in_frustum) {
-        FaceVis::Unclipped
-    } else {
-        FaceVis::Clipped
-    }
 }
 
 struct ClipPlane(f32, f32);
@@ -81,7 +67,6 @@ impl ClipPlane {
         let Self(x1, w1) = self;
         w * w1 + x * x1 > -EPSILON
     }
-
     fn intersect(&self, (x1, w1): (f32, f32), (x2, w2): (f32, f32)) -> Option<f32> {
         let Self(x, w) = self;
         let d1 = w * w1 + x * x1;
@@ -95,15 +80,65 @@ impl ClipPlane {
     }
 }
 
+const CLIP_PLANES: [ClipPlane; 2] = [ClipPlane(1.0, 1.0), ClipPlane(-1.0, 1.0)];
+
+mod clip_mask {
+    pub const LEFT: u8 = 0b1;
+    pub const RIGHT: u8 = 0b10;
+    pub const BOTTOM: u8 = 0b100;
+    pub const TOP: u8 = 0b1000;
+    pub const NEAR: u8 = 0b10000;
+    pub const FAR: u8 = 0b100000;
+
+    pub const ALL: u8 = 0b111111;
+}
+
+#[derive(Debug, Eq, PartialEq)]
+enum FaceVis {
+    Unclipped,
+    Clipped,
+    Hidden,
+    Backface,
+}
+
+fn clip_vertex(v: &Vec4) -> u8 {
+    use clip_mask::*;
+    CLIP_PLANES[0].inside(v.x, v.w) as u8 * LEFT
+        | CLIP_PLANES[1].inside(v.x, v.w) as u8 * RIGHT
+        | CLIP_PLANES[0].inside(v.y, v.w) as u8 * BOTTOM
+        | CLIP_PLANES[1].inside(v.y, v.w) as u8 * TOP
+        | CLIP_PLANES[0].inside(v.z, v.w) as u8 * NEAR
+        | CLIP_PLANES[1].inside(v.z, v.w) as u8 * FAR
+}
+
+fn face_visibility(verts: &[Vec4; 3], masks: &[u8; 3]) -> FaceVis {
+
+    // Mask of planes that all verts are inside of
+    let all_verts_inside = masks[0] & masks[1] & masks[2];
+    // Mask of planes that at least one vert is inside of
+    let any_vert_inside = masks[0] | masks[1] | masks[2];
+
+    if any_vert_inside != clip_mask::ALL {
+        // Face hidden if at least one plane that no vert is inside of
+        FaceVis::Hidden
+    } else if (all_verts_inside & clip_mask::NEAR != 0) && !frontface(verts) {
+        // Backfaces hidden even if inside frustum
+        FaceVis::Backface
+    } else if all_verts_inside == clip_mask::ALL {
+        // If all vertices inside the frustum, the face is unclipped
+        FaceVis::Unclipped
+    } else {
+        FaceVis::Clipped
+    }
+}
+
 fn clip<VA>(verts: &[(Vec4, VA)]) -> Vec<(Vec4, VA)>
 where VA: Linear<f32> + Copy {
     let mut verts = verts.to_vec();
     let mut verts2 = Vec::with_capacity(8);
 
-    let planes = &[ClipPlane(1.0, 1.0), ClipPlane(-1.0, 1.0)];
-
     for idx in 0..3 {
-        for plane in planes {
+        for plane in &CLIP_PLANES {
             for (&a, &b) in edges(&verts) {
                 let vs = intersect(a, b, idx, plane);
                 verts2.extend(vs.iter().flatten());
@@ -111,7 +146,6 @@ where VA: Linear<f32> + Copy {
             verts = mem::take(&mut verts2);
         }
     }
-
     verts
 }
 
@@ -123,6 +157,7 @@ where VA: Copy + Linear<f32>,
     let c1 = v1.0;
     let c2 = v2.0;
     let mut res = [None, None];
+    // TODO Use clip mask information already computed
     if plane.inside(c1[ci], c1.w) {
         res[0] = Some(v1);
     }
@@ -140,22 +175,14 @@ fn edges<T>(ts: &[T]) -> impl Iterator<Item=(&T, &T)> {
 }
 
 fn frontface(&[a, b, c]: &[Vec4; 3]) -> bool {
+    debug_assert!(a.w != 0.0 && b.w != 0.0 && c.w != 0.0, "{:?}", (a,b,c));
+
     // Compute z component of faces's normal in screen space
     let nz = (b.x / b.w - a.x / a.w) * (c.y / c.w - a.y / a.w)
         - (b.y / b.w - a.y / a.w) * (c.x / c.w - a.x / a.w);
 
     // Count degenerate faces (nz==0) as front, at least for now
     return nz <= 0.0;
-}
-
-fn vertex_in_frustum(v: &Vec4) -> bool {
-    inside(v.x, v.w)
-        && inside(v.y, v.w)
-        && inside(v.z, v.w)
-}
-
-fn inside(a: f32, w: f32) -> bool {
-    w + a > -EPSILON && w - a > -EPSILON
 }
 
 #[cfg(test)]
@@ -165,6 +192,7 @@ mod tests {
     use math::vec::*;
 
     use super::*;
+    use super::clip_mask::*;
 
 // TODO Test interpolation of vertex attributes
 
@@ -213,49 +241,80 @@ mod tests {
     }
 
     #[test]
-    fn test_vertex_in_frustum() {
-        assert!(vertex_in_frustum(&vec4(0.0, 0.0, 0.0, 0.0)));
+    fn clip_vertex_inside_frustum() {
+        assert_eq!(ALL, clip_vertex(&vec4(0.0, 0.0, 0.0, 0.0)));
 
-        assert!(vertex_in_frustum(&vec4(1.0, 0.0, 0.0, 1.0)));
-        assert!(vertex_in_frustum(&vec4(-2.0, 0.0, 0.0, 3.0)));
-        assert!(vertex_in_frustum(&vec4(0.0, 1.0, 0.0, 1.0)));
-        assert!(vertex_in_frustum(&vec4(0.0, -2.0, 0.0, 3.0)));
-        assert!(vertex_in_frustum(&vec4(0.0, 0.0, 1.0, 1.0)));
-        assert!(vertex_in_frustum(&vec4(0.0, 0.0, -2.0, 3.0)));
+        assert_eq!(ALL, clip_vertex(&vec4(1.0, 0.0, 0.0, 1.0)));
+        assert_eq!(ALL, clip_vertex(&vec4(-2.0, 0.0, 0.0, 3.0)));
+        assert_eq!(ALL, clip_vertex(&vec4(0.0, 1.0, 0.0, 1.0)));
+        assert_eq!(ALL, clip_vertex(&vec4(0.0, -2.0, 0.0, 3.0)));
+        assert_eq!(ALL, clip_vertex(&vec4(0.0, 0.0, 1.0, 1.0)));
+        assert_eq!(ALL, clip_vertex(&vec4(0.0, 0.0, -2.0, 3.0)));
+    }
 
-        assert!(!vertex_in_frustum(&vec4(2.0, 0.0, 0.0, 1.0)));
-        assert!(!vertex_in_frustum(&vec4(-3.0, 0.0, 0.0, 2.0)));
-        assert!(!vertex_in_frustum(&vec4(0.0, 2.0, 0.0, 1.0)));
-        assert!(!vertex_in_frustum(&vec4(0.0, -3.0, 0.0, 2.0)));
-        assert!(!vertex_in_frustum(&vec4(0.0, 0.0, 2.0, 1.0)));
-        assert!(!vertex_in_frustum(&vec4(0.0, 0.0, -3.0, 2.0)));
+    #[test]
+    fn clip_vertex_outside_single_plane() {
+        assert_eq!(ALL & !RIGHT, clip_vertex(&vec4(2.0, 0.0, 0.0, 1.0)));
+        assert_eq!(ALL & !LEFT, clip_vertex(&vec4(-3.0, 0.0, 0.0, 2.0)));
+        assert_eq!(ALL & !TOP, clip_vertex(&vec4(0.0, 2.0, 0.0, 1.0)));
+        assert_eq!(ALL & !BOTTOM, clip_vertex(&vec4(0.0, -3.0, 0.0, 2.0)));
+        assert_eq!(ALL & !FAR, clip_vertex(&vec4(0.0, 0.0, 2.0, 1.0)));
+        assert_eq!(ALL & !NEAR, clip_vertex(&vec4(0.0, 0.0, -3.0, 2.0)));
+    }
+
+    #[test]
+    fn clip_vertex_outside_several_planes() {
+        assert_eq!(ALL & !(RIGHT|NEAR), clip_vertex(&vec4(2.0, 0.0, -3.0, 1.0)));
+        assert_eq!(ALL & !(LEFT|FAR|TOP), clip_vertex(&vec4(-3.0, 4.0, 5.0, 2.0)));
+    }
+
+
+    fn assert_vis(vis: FaceVis, [a,b,c]: [Vec4; 3]) {
+        let verts = [a+W, b+W, c+W];
+        let [a,b,c] = verts;
+        let masks = [
+            clip_vertex(&a),
+            clip_vertex(&b),
+            clip_vertex(&c)];
+        assert_eq!(vis, face_visibility(&verts, &masks), "verts: {:?}", verts)
     }
 
     #[test]
     fn backface_visibility_hidden() {
-        assert_eq!(Hidden, face_visibility(&[X, Y, Z]));
-        assert_eq!(Hidden, face_visibility(&[2. * X, X + Y, X]));
-        assert_eq!(Hidden, face_visibility(&[X + Z, Y + Z, 2. * Z]));
+        assert_vis(Backface, [X, Y, Z]);
+        assert_vis(Backface, [2. * X, X + Y, X]);
+        assert_vis(Backface, [X + Z, Y + Z, 2. * Z]);
     }
 
     #[test]
     fn fully_inside_frontface_unclipped() {
-        assert_eq!(Unclipped, face_visibility(&[X + W, Z + W, Y + W]));
-        assert_eq!(Unclipped, face_visibility(&[-X + W, -Z + W, -Y + W]));
+        assert_vis(Unclipped, [X, Z, Y]);
+        assert_vis(Unclipped, [X, Z, Y]);
+        assert_vis(Unclipped, [-X, -Z, -Y]);
+
     }
 
     #[test]
     fn partially_outside_face_clipped() {
-        assert_eq!(Clipped, face_visibility(&[2. * X + W, Z + W, Y + W]));
-        assert_eq!(Clipped, face_visibility(&[X + W, -2. * Z + W, Y + W]));
-        assert_eq!(Clipped, face_visibility(&[X + W, Z + W, 2. * Y + W]));
+        assert_vis(Clipped, [2. * X, Z, Y]);
+        assert_vis(Clipped, [X, -2. * Z, Y]);
+        assert_vis(Clipped, [X, Z, 2. * Y]);
     }
 
     #[test]
     fn fully_outside_face_clipped() {
-        assert_eq!(Clipped, face_visibility(&[2. * X + W, X + W, Y + W]));
-        assert_eq!(Clipped, face_visibility(&[X - Z + W, -2. * Z + W, Y - Z + W]));
-        assert_eq!(Clipped, face_visibility(&[X + Z + W, 2. * Z + W, Y + Z + W]));
+        assert_vis(Clipped, [2. * X, X, Y]);
+        assert_vis(Clipped, [X - Z, -2. * Z, Y - Z]);
+        assert_vis(Clipped, [X + Z, 2. * Z, Y + Z]);
+    }
+
+    #[test]
+    fn fully_outside_single_plane_hidden() {
+        assert_vis(Hidden, [-2. * X, -3. * X, -1.1 * X + Y]);
+        assert_vis(Hidden, [2. * X, 1.1 * X, 1.1 * X + Y]);
+        assert_vis(Hidden, [1.1 * Y, 2. * Y, X + 2. * Y]);
+        assert_vis(Hidden, [1.1 * Z, 1.1 * Z + Y, 1.1 * Z + X]);
+        assert_vis(Hidden, [-1.1 * Z, -1.1 * Z + Y, -1.1 * Z + X]);
     }
 
     #[test]
