@@ -144,7 +144,8 @@ fn frontface(&[a, b, c]: &[Vec4; 3]) -> bool {
     let nz = (b.x / b.w - a.x / a.w) * (c.y / c.w - a.y / a.w)
         - (b.y / b.w - a.y / a.w) * (c.x / c.w - a.x / a.w);
 
-    return nz < 0.0;
+    // Count degenerate faces (nz==0) as front, at least for now
+    return nz <= 0.0;
 }
 
 fn vertex_in_frustum(v: &Vec4) -> bool {
