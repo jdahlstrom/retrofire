@@ -154,7 +154,7 @@ impl Div<f32> for Vec4 {
     type Output = Vec4;
 
     fn div(self, rhs: f32) -> Vec4 {
-        self.map(|e| e / rhs)
+        self * (1. / rhs)
     }
 }
 

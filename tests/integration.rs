@@ -1,9 +1,10 @@
+use std::f32::INFINITY;
+
 use geom::mesh::*;
 use geom::solids::unit_cube;
 use math::transform::*;
 use math::vec::*;
 use render::*;
-use render::raster::Fragment;
 use std::fmt::Debug;
 
 static EXPECTED_CUBE: &str =
@@ -19,10 +20,12 @@ static EXPECTED_CUBE: &str =
      ..........";
 
 fn render<VA: VertexAttr, FA: Copy + Debug>(mesh: Mesh<VA, FA>) -> String {
+
     let mut rdr = Renderer::new();
     rdr.set_transform(translate(0.0, 0.0, 4.0));
     rdr.set_projection(perspective(1.0, 10.0, 1., 1.));
     rdr.set_viewport(viewport(0.0, 0.0, 10.0, 10.0));
+    rdr.set_z_buffer(vec![INFINITY; 100], 10);
 
     let mesh = mesh.validate().expect("Invalid mesh!");
 
@@ -30,12 +33,8 @@ fn render<VA: VertexAttr, FA: Copy + Debug>(mesh: Mesh<VA, FA>) -> String {
 
     let stats = rdr.render(
         mesh,
-        &|_: Fragment<(Vec4, VA)>, _: FA| {
-            ZERO
-        },
-        &mut |x, y, _col| {
-            buf[10 * y + x] = '#';
-        }
+        &|_, _| ZERO,
+        &mut |x, y, _| buf[10 * y + x] = '#'
     );
     eprintln!("Stats: {}", stats);
     buf.iter().collect()

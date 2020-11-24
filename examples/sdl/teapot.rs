@@ -1,4 +1,5 @@
 use std::f32::consts::PI;
+use std::f32::INFINITY;
 
 use sdl2::keyboard::Scancode;
 
@@ -6,7 +7,7 @@ use geom::solids::teapot;
 use math::mat::Mat4;
 use math::transform::*;
 use math::vec::*;
-use render::Renderer;
+use render::{Obj, Renderer, Scene};
 use render::raster::*;
 use render::shade::*;
 use runner::*;
@@ -19,7 +20,7 @@ fn main() {
     let margin = 50;
 
     let mesh = teapot().gen_normals().validate().expect("Invalid mesh!");
-    let model_tf =  rotate_x(-PI / 2.) * &translate(0., -5., 0.);
+    let model_tf = rotate_x(-PI / 2.) * &translate(0., -5., 0.);
 
     fn shade(frag: Fragment<(Vec4, Vec4)>, _face_n: Vec4) -> Vec4 {
         let Fragment { varying: (coord, normal), .. } = frag;
@@ -38,11 +39,12 @@ fn main() {
     let mut trans = dir(0.0, 0.0, 40.0);
 
     let mut rdr = Renderer::new();
+    rdr.set_z_buffer(vec![INFINITY; w * h], w);
     rdr.set_projection(perspective(1., 60., w as f32 / h as f32, PI / 3.0));
     rdr.set_viewport(viewport(margin as f32, (h - margin) as f32,
                               (w - margin) as f32, margin as f32));
 
-    let mut runner = SdlRunner::new(w, h).unwrap();
+    let mut runner = SdlRunner::new(w as u32, h as u32).unwrap();
 
     runner.run(|frame| {
         let tf = &model_tf
@@ -50,9 +52,19 @@ fn main() {
             * &rotate_y(theta)
             * &translate(trans.x, trans.y, trans.z)
             * &view_dir;
-        rdr.set_transform(tf);
 
-        rdr.render(mesh.clone(), shade, |x, y, col: Vec4| {
+        let mut mesh = mesh.clone();
+
+        for n in &mut mesh.vertex_attrs {
+            *n = &tf * *n;
+        }
+
+        let scene = Scene {
+            objects: vec![Obj { tf, mesh }],
+            camera: Mat4::identity(),
+        };
+
+        rdr.render_scene(scene, &shade, &mut |x, y, col: Vec4| {
             let idx = 4 * (w as usize * y + x);
             let col = 255. * col;
             frame.buf[idx + 0] = col.z as u8;
@@ -75,6 +87,7 @@ fn main() {
         }
 
         theta += frame.delta_t;
+        rdr.stats.frames += 1;
 
         Ok(Run::Continue)
     }).unwrap();
