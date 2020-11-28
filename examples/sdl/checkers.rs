@@ -1,5 +1,4 @@
 use std::f32::consts::PI;
-use std::time::*;
 
 use sdl2::keyboard::Scancode;
 
@@ -7,7 +6,7 @@ use geom::mesh::Mesh;
 use math::mat::Mat4;
 use math::transform::*;
 use math::vec::*;
-use render::{Renderer, Stats};
+use render::Renderer;
 use render::raster::*;
 use Run::*;
 
@@ -61,21 +60,30 @@ fn main() {
 
     let model_to_world = scale(8.0, 8.0, 8.0) * &translate(0., -4., 20.);
 
-    let start = Instant::now();
-    SdlRunner::new(w, h).unwrap().run(|r| {
-        rdr.set_transform(&model_to_world * &camera);
-        rdr.render(mesh.clone(), shade, |x, y, col| r.plot(x, y, col));
+    let mut runner = SdlRunner::new(w, h).unwrap();
 
-        for scancode in r.keystate() {
+    runner.run(|frame| {
+        rdr.set_transform(&model_to_world * &camera);
+        rdr.render(mesh.clone(), shade, |x, y, col| {
+            let idx = 4 * (w as usize * y + x);
+            let col = 255. * col;
+            frame.buf[idx + 0] = col.z as u8;
+            frame.buf[idx + 1] = col.y as u8;
+            frame.buf[idx + 2] = col.x as u8;
+        });
+
+        for scancode in frame.pressed_keys {
+            let t = -10. * frame.delta_t;
+            let r = -frame.delta_t;
             use Scancode::*;
             match scancode {
-                W => camera *= &translate(0.0, 0.0, -0.2),
-                A => camera *= &translate(0.2, 0.0, 0.0),
-                S => camera *= &translate(0.0, 0.0, 0.2),
-                D => camera *= &translate(-0.2, 0.0, 0.0),
+                W => camera *= &translate(0.0, 0.0, t),
+                A => camera *= &translate(-t, 0.0, 0.0),
+                S => camera *= &translate(0.0, 0.0, -t),
+                D => camera *= &translate(t, 0.0, 0.0),
 
-                Left => camera *= &rotate_y(-0.03),
-                Right => camera *= &rotate_y(0.03),
+                Left => camera *= &rotate_y(r),
+                Right => camera *= &rotate_y(-r),
 
                 _ => {},
             }
@@ -83,17 +91,5 @@ fn main() {
         Ok(Continue)
     }).unwrap();
 
-    let stats = rdr.stats;
-    let Stats { frames, pixels, faces_in, faces_out, .. } = stats;
-    let elapsed = start.elapsed().as_secs_f32();
-    println!("\n S  T  A  T  S");
-    println!("═══════════════╕");
-    println!(" Total         │ {}", stats);
-    println!(" Per sec       │ {}", stats.avg_per_sec());
-    println!(" Per frame     │ {}", stats.avg_per_frame());
-    println!("───────────────┤");
-    println!(" Avg pix/face  │ {}", pixels.checked_div(faces_out).unwrap_or(0));
-    println!(" Avg vis faces │ {}%", (100 * faces_out).checked_div(faces_in).unwrap_or(0));
-    println!(" Elapsed time  │ {:.2}s", elapsed);
-    println!(" Average fps   │ {:.2}\n", frames as f32 / elapsed);
+    runner.print_stats(rdr.stats);
 }
