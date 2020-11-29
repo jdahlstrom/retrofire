@@ -6,7 +6,7 @@ use crate::mesh::Mesh;
 
 pub fn unit_cube() -> Mesh {
     Mesh::from_verts_and_faces(
-        vec![
+        [
             // left
             pt(-1.0, -1.0, -1.0), // 000
             pt(-1.0, -1.0, 1.0),  // 001
@@ -17,8 +17,7 @@ pub fn unit_cube() -> Mesh {
             pt(1.0, -1.0, 1.0),  // 101
             pt(1.0, 1.0, -1.0),  // 110
             pt(1.0, 1.0, 1.0),   // 111
-        ],
-        vec![
+        ].iter().copied(), [
             // left
             [0b000, 0b001, 0b011], [0b000, 0b011, 0b010],
             // right
@@ -31,21 +30,20 @@ pub fn unit_cube() -> Mesh {
             [0b000, 0b010, 0b110], [0b000, 0b110, 0b100],
             // back
             [0b001, 0b111, 0b011], [0b001, 0b101, 0b111],
-        ]
+        ].iter().copied()
     )
 }
 
 pub fn unit_octahedron() -> Mesh {
     Mesh::from_verts_and_faces(
-        vec![
+        [
             pt(-1.0, 0.0, 0.0),
             pt(0.0, -1.0, 0.0),
             pt(0.0, 0.0, -1.0),
             pt(0.0, 1.0, 0.0),
             pt(0.0, 0.0, 1.0),
             pt(1.0, 0.0, 0.0),
-        ],
-        vec![
+        ].iter().copied(), [
             [0, 1, 2],
             [0, 2, 3],
             [0, 3, 4],
@@ -54,7 +52,7 @@ pub fn unit_octahedron() -> Mesh {
             [5, 3, 2],
             [5, 4, 3],
             [5, 1, 4],
-        ]
+        ].iter().copied()
     )
 }
 

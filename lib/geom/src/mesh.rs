@@ -24,12 +24,17 @@ pub struct Mesh<VA = (), FA = ()> {
     pub face_attrs: Vec<FA>,
 }
 
-
 impl Mesh {
-    pub fn from_verts_and_faces(verts: Vec<Vec4>, faces: Vec<[usize; 3]>) -> Mesh {
+    pub fn from_verts_and_faces(verts: impl IntoIterator<Item=Vec4>,
+                                faces: impl IntoIterator<Item=[usize; 3]>)
+                                -> Mesh
+    {
+        let verts = verts.into_iter().collect::<Vec<_>>();
+        let faces = faces.into_iter().collect::<Vec<_>>();
+
         Mesh {
-            face_attrs: vec![(); faces.len()],
             vertex_attrs: vec![(); verts.len()],
+            face_attrs: vec![(); faces.len()],
             verts,
             faces,
         }
@@ -38,24 +43,33 @@ impl Mesh {
 
 impl<VA, FA> Mesh<VA, FA> {
     pub fn new() -> Self {
-        Mesh { verts: vec![], faces: vec![], vertex_attrs: vec![], face_attrs: vec![] }
+        Mesh {
+            verts: vec![],
+            faces: vec![],
+            vertex_attrs: vec![],
+            face_attrs: vec![]
+        }
     }
 
-    pub fn with_vertex_attrs<A>(self, attrs: Vec<A>) -> Mesh<A, FA> {
+    pub fn with_vertex_attrs<A>(self, attrs: impl IntoIterator<Item=A>)
+                                -> Mesh<A, FA> where A: Clone
+    {
         Mesh {
             verts: self.verts,
             faces: self.faces,
             face_attrs: self.face_attrs,
-            vertex_attrs: attrs,
+            vertex_attrs: attrs.into_iter().collect(),
         }
     }
 
-    pub fn with_face_attrs<A>(self, attrs: Vec<A>) -> Mesh<VA, A> {
+    pub fn with_face_attrs<A>(self, attrs: impl IntoIterator<Item=A>)
+                              -> Mesh<VA, A> where A: Clone
+    {
         Mesh {
             verts: self.verts,
             faces: self.faces,
             vertex_attrs: self.vertex_attrs,
-            face_attrs: attrs,
+            face_attrs: attrs.into_iter().collect(),
         }
     }
 
@@ -100,24 +114,21 @@ impl<VA, FA> Mesh<VA, FA> {
     }
 
     pub fn gen_normals(self) -> Mesh<Vec4, Vec4> {
-        let face_norms = self.face_verts()
-                             .map(|[a, b, c]| (b - a).cross(c - a))
-                             .collect::<Vec<_>>();
+        let face_ns = self.face_verts()
+                          .map(|[a, b, c]| (b - a).cross(c - a))
+                          .collect::<Vec<_>>();
 
-        let mut vertex_norms = vec![ZERO; self.verts.len()];
+        let mut vert_ns = vec![ZERO; self.verts.len()];
 
-        for (&[a, b, c], &n) in self.faces.iter().zip(&face_norms) {
-            vertex_norms[a] = vertex_norms[a] + n;
-            vertex_norms[b] = vertex_norms[b] + n;
-            vertex_norms[c] = vertex_norms[c] + n;
+        for (&[a, b, c], &n) in self.faces.iter().zip(&face_ns) {
+            vert_ns[a] = vert_ns[a] + n;
+            vert_ns[b] = vert_ns[b] + n;
+            vert_ns[c] = vert_ns[c] + n;
         }
 
-        Mesh {
-            verts: self.verts,
-            faces: self.faces,
-            vertex_attrs: vertex_norms.into_iter().map(Vec4::normalize).collect(),
-            face_attrs: face_norms.into_iter().map(Vec4::normalize).collect(),
-        }
+        Mesh::from_verts_and_faces(self.verts, self.faces)
+            .with_vertex_attrs(vert_ns.into_iter().map(Vec4::normalize))
+            .with_face_attrs(face_ns.into_iter().map(Vec4::normalize))
     }
 }
 
