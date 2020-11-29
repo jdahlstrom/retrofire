@@ -60,6 +60,24 @@ where VA: Copy + Linear<f32>, FA: Copy, {
     mesh.face_attrs = visible_attrs;
 }
 
+pub fn bbox_test(verts: &[Vec4]) -> u8 {
+   // return 1;
+    let bb_any = verts.iter().map(clip_vertex).fold(0, |a, b| a | b);
+    let bb_all = verts.iter().map(clip_vertex).fold(!0, |a, b| a & b);
+
+    //eprintln!("an {:06b} al {:06b}", bb_any, bb_all);
+
+    if bb_all == clip_mask::ALL {
+        return 2; // fully inside
+    }
+
+    if bb_any != clip_mask::ALL {
+        //eprintln!("Mesh culled! {:?}", bbox);
+        return 0;
+    }
+    return 1;
+}
+
 struct ClipPlane(f32, f32);
 
 impl ClipPlane {
@@ -174,7 +192,7 @@ fn edges<T>(ts: &[T]) -> impl Iterator<Item=(&T, &T)> {
     (0..ts.len()).map(move |i| (&ts[i], &ts[(i + 1) % ts.len()]))
 }
 
-fn frontface(&[a, b, c]: &[Vec4; 3]) -> bool {
+pub fn frontface(&[a, b, c]: &[Vec4; 3]) -> bool {
     debug_assert!(a.w != 0.0 && b.w != 0.0 && c.w != 0.0, "{:?}", (a,b,c));
 
     // Compute z component of faces's normal in screen space

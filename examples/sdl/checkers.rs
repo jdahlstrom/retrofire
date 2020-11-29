@@ -2,8 +2,9 @@ use std::f32::consts::PI;
 
 use sdl2::keyboard::Scancode;
 
+use geom::bbox::BoundingBox;
 use geom::mesh::Mesh;
-use geom::solids::unit_cube;
+use geom::solids::unit_sphere;
 use math::mat::Mat4;
 use math::transform::*;
 use math::vec::*;
@@ -15,7 +16,7 @@ use crate::runner::*;
 mod runner;
 
 fn checkers() -> Mesh<(), Vec4> {
-    let size: usize = 20;
+    let size: usize = 40;
     let isize = size as i32;
 
     let mut vs = vec![];
@@ -48,14 +49,15 @@ fn main() {
     let h = 600;
 
     let mut camera = Mat4::identity();
-
     let mut objects = vec![];
     objects.push(Obj { tf: translate(0., -1., 0.), mesh: checkers() });
-    let face_colors = vec![X, X, Y, Y, ZERO, ZERO, ZERO, ZERO, Z, Z, X+Y, X+Y];
-    for j in -4..=4 {
-        for i in -4..=4 {
-            let mesh = unit_cube().with_face_attrs(
-                face_colors.iter().map(|&c| 255.*c));
+
+    for j in -10..=10 {
+        for i in -10..=10 {
+            let mesh = unit_sphere(9, 9);
+            let mesh = mesh.with_face_attrs(
+                [255. * X, 255. * Y, 255. * Z]
+                    .iter().cycle().take(mesh.faces.len()).copied());
             let tf = translate(4. * i as f32, 0., 4. * j as f32);
             objects.push(Obj { tf, mesh })
         }
@@ -102,6 +104,8 @@ fn main() {
         rdr.stats.frames += 1;
         Ok(Continue)
     }).unwrap();
+
+    //runner.pause();
 
     runner.print_stats(rdr.stats);
 }

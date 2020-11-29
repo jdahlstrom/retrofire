@@ -7,6 +7,7 @@ use math::vec::*;
 pub use stats::Stats;
 
 use crate::raster::*;
+use crate::hsr::frontface;
 
 mod hsr;
 pub mod raster;
@@ -79,7 +80,9 @@ impl Renderer {
         let clock = Instant::now();
 
         self.transform(&mut mesh.verts);
+        mesh.bbox = mesh.bbox.transform(&self.transform);
         self.projection(&mut mesh.verts);
+
         self.hidden_surface_removal(&mut mesh);
 
         if !mesh.faces.is_empty() {
@@ -120,7 +123,38 @@ impl Renderer {
     where VA: Copy + Linear<f32>, FA: Copy
     {
         self.stats.faces_in += mesh.faces.len();
-        hsr::hidden_surface_removal(&mut mesh);
+
+        let mut vs = mesh.bbox.verts();
+
+        for v in &mut vs {
+            *v = &self.projection * *v;
+        }
+
+        match hsr::bbox_test(&vs) {
+            0 => {
+                //eprintln!("Culled");
+                mesh.faces.clear();
+            }, // culled
+            1 => {
+                //eprintln!("Clipped");
+                hsr::hidden_surface_removal(&mut mesh);
+            }
+            _ => {
+                let Mesh { faces, verts, face_attrs, .. } = mesh;
+                let mut visible_faces = Vec::with_capacity(faces.len() / 2);
+                let mut visible_attrs = Vec::with_capacity(faces.len() / 2);
+
+                for (i, &mut [a,b,c]) in faces.into_iter().enumerate() {
+                    if frontface(&[verts[a], verts[b], verts[c]]) {
+                        visible_faces.push([a,b,c]);
+                        visible_attrs.push(face_attrs[i]);
+                    }
+                }
+                mesh.faces = visible_faces;
+                mesh.face_attrs = visible_attrs;
+                //eprintln!("Inside");
+            },
+        }
         self.stats.faces_out += mesh.faces.len();
     }
 
@@ -155,7 +189,7 @@ impl Renderer {
         Shade: Fn(Fragment<VA>, FA) -> Vec4,
         Plot: FnMut(usize, usize, Vec4),
     {
-        let Mesh { faces, verts, vertex_attrs, face_attrs } = &mut mesh;
+        let Mesh { faces, verts, vertex_attrs, face_attrs, .. } = &mut mesh;
 
         self.viewport(verts);
 

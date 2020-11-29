@@ -2,19 +2,19 @@
 #![allow(unused)]
 
 use core::mem;
+use std::mem::replace;
+use std::time::Instant;
 
 use sdl2::{EventPump, Sdl};
 use sdl2::event::{Event, EventPollIterator};
-use sdl2::keyboard::{Keycode, Scancode, KeyboardState, PressedScancodeIterator};
+use sdl2::keyboard::{KeyboardState, Keycode, PressedScancodeIterator, Scancode};
 use sdl2::pixels::Color;
 use sdl2::rect::Rect;
 use sdl2::video::{Window, WindowSurfaceRef};
 
 use math::vec::Vec4;
-use Run::*;
-use std::time::Instant;
-use std::mem::replace;
 use render::Stats;
+use Run::*;
 
 pub struct SdlRunner {
     #[allow(unused)]
@@ -31,6 +31,7 @@ pub struct Frame<'a> {
     pub pressed_keys: Vec<Scancode>,
 }
 
+#[derive(Eq, PartialEq)]
 pub enum Run { Continue, Quit }
 
 impl SdlRunner {
@@ -55,18 +56,12 @@ impl SdlRunner {
         let mut clock = Instant::now();
         loop {
             let events = self.event_pump.poll_iter()
-                .collect::<Vec<_>>();
+                             .collect::<Vec<_>>();
             let pressed_keys = self.event_pump.keyboard_state()
-                .pressed_scancodes().collect();
+                                   .pressed_scancodes().collect();
 
-            for e in events.iter() {
-                match e {
-                    | Event::Quit { .. }
-                    | Event::KeyDown { keycode: Some(Keycode::Escape), .. }
-                    => return Ok(()),
-                    | _
-                    => {}
-                }
+            if events.iter().any(Self::is_quit) {
+                return Ok(())
             }
 
             let mut surf = self.surface()?;
@@ -84,12 +79,17 @@ impl SdlRunner {
                 pressed_keys,
             };
 
-            if matches!(frame_fn(frame)?, Quit) {
+            let res = frame_fn(frame)?;
+            self.surface()?.update_window()?;
+
+            if res == Quit {
                 return Ok(())
             }
-
-            self.surface()?.update_window()?
         }
+    }
+
+    pub fn pause(&mut self) {
+        self.event_pump.wait_iter().find(Self::is_quit);
     }
 
     pub fn print_stats(self, stats: Stats) {
@@ -105,5 +105,10 @@ impl SdlRunner {
         println!(" Avg vis faces │ {}%", 100 * faces_out / faces_in.max(1));
         println!(" Elapsed time  │ {:.2}s", elapsed);
         println!(" Average fps   │ {:.2}\n", frames as f32 / elapsed);
+    }
+
+    fn is_quit(e: &Event) -> bool {
+        matches!(e, Event::Quit { .. }
+            | Event::KeyDown { keycode: Some(Keycode::Escape), .. })
     }
 }
