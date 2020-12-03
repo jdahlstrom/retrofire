@@ -33,7 +33,7 @@ where VA: Copy + Linear<f32>, FA: Copy + Debug
     let mut buf = ['.'; 100];
 
     let stats = rdr.render(
-        mesh,
+        &mesh,
         &|_, _| ZERO,
         &mut |x, y, _| buf[10 * y + x] = '#'
     );
@@ -51,11 +51,10 @@ where VA: Copy + Linear<f32>, FA: Copy
     rdr.set_viewport(viewport(0.0, 0.0, W as f32, H as f32));
 
     let stats = rdr.render_scene(
-        scene,
+        &scene,
         &|_, _| ZERO,
         &mut |_, _, _| ()
     );
-
     eprintln!("Stats: {}", stats);
     stats
 }

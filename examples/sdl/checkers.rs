@@ -2,7 +2,6 @@ use std::f32::consts::PI;
 
 use sdl2::keyboard::Scancode;
 
-use geom::bbox::BoundingBox;
 use geom::mesh::Mesh;
 use geom::solids::unit_sphere;
 use math::mat::Mat4;
@@ -48,25 +47,30 @@ fn main() {
     let w = 800;
     let h = 600;
 
-    let mut camera = Mat4::identity();
+    let camera = Mat4::identity();
     let mut objects = vec![];
     objects.push(Obj { tf: translate(0., -1., 0.), mesh: checkers() });
 
     for j in -10..=10 {
         for i in -10..=10 {
             let mesh = unit_sphere(9, 9);
-            let mesh = mesh.with_face_attrs(
-                [255. * X, 255. * Y, 255. * Z]
-                    .iter().cycle().take(mesh.faces.len()).copied());
+            let colors = [X, Y, Z].iter()
+                                  .map(|&v| 255. * v)
+                                  .cycle()
+                                  .take(mesh.faces.len());
+            let mesh = mesh.with_face_attrs(colors);
             let tf = translate(4. * i as f32, 0., 4. * j as f32);
             objects.push(Obj { tf, mesh })
         }
     }
 
+    let mut scene = Scene { objects, camera };
+
     let mut rdr = Renderer::new();
     rdr.set_projection(perspective(0.1, 50., w as f32 / h as f32, PI / 2.0));
     rdr.set_viewport(viewport(margin as f32, (h - margin) as f32,
                               (w - margin) as f32, margin as f32));
+
 
     let mut runner = SdlRunner::new(w as u32, h as u32).unwrap();
 
@@ -79,24 +83,21 @@ fn main() {
             frame.buf[idx + 2] = col.x as u8;
         };
 
-        let scene = Scene {
-            objects: objects.clone(),
-            camera: camera.clone(),
-        };
-        rdr.render_scene(scene, &shade, &mut plot);
+        rdr.render_scene(&scene, &shade, &mut plot);
 
         for scancode in frame.pressed_keys {
             let t = -8. * frame.delta_t;
             let r = -2. * frame.delta_t;
             use Scancode::*;
+            let cam = &mut scene.camera;
             match scancode {
-                W => camera *= &translate(0.0, 0.0, t),
-                A => camera *= &translate(-t, 0.0, 0.0),
-                S => camera *= &translate(0.0, 0.0, -t),
-                D => camera *= &translate(t, 0.0, 0.0),
+                W => *cam *= &translate(0.0, 0.0, t),
+                A => *cam *= &translate(-t, 0.0, 0.0),
+                S => *cam *= &translate(0.0, 0.0, -t),
+                D => *cam *= &translate(t, 0.0, 0.0),
 
-                Left => camera *= &rotate_y(r),
-                Right => camera *= &rotate_y(-r),
+                Left => *cam *= &rotate_y(r),
+                Right => *cam *= &rotate_y(-r),
 
                 _ => {},
             }

@@ -21,7 +21,7 @@ fn torus(c: &mut Criterion) {
         |b| {
             b.iter(|| {
                 rdr.render(
-                    mesh.clone(),
+                    &mesh,
                     &|_, _| ZERO,
                     &mut |x, y, _| buf[W * y + x] = '#'
                 );
@@ -55,7 +55,7 @@ fn scene(c: &mut Criterion) {
         |b| {
             b.iter(|| {
                 rdr.render_scene(
-                    scene.clone(),
+                    &scene.clone(),
                     &|_, _| ZERO,
                     &mut |x, y, _| buf[W * y + x] = '#'
                 );
