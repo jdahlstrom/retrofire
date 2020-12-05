@@ -14,7 +14,7 @@ impl Stats {
     pub fn avg_per_frame(&self) -> Stats {
         let frames = self.frames.max(1);
         Stats {
-            frames,
+            frames: 1,
             faces_in: self.faces_in / frames,
             faces_out: self.faces_out / frames,
             pixels: self.pixels / frames,
