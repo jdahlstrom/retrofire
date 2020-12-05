@@ -4,49 +4,53 @@ use math::transform::*;
 use math::vec::*;
 use render::*;
 use render::raster::Fragment;
+use std::fmt::Debug;
 
-const EXPECTED_CUBE: &[u8; 100] =
-    b"..........\
-      ..........\
-      ..#######.\
-      ..#######.\
-      ..#######.\
-      ..#######.\
-      ..#######.\
-      ..#######.\
-      ..........\
-      ..........";
+static EXPECTED_CUBE: &str =
+    "..........\
+     ..........\
+     ..#######.\
+     ..#######.\
+     ..#######.\
+     ..#######.\
+     ..#######.\
+     ..#######.\
+     ..........\
+     ..........";
 
-fn render<VA: VertexAttr, FA: Copy>(mesh: Mesh<VA, FA>) -> Vec<u8> {
+fn render<VA: VertexAttr, FA: Copy + Debug>(mesh: Mesh<VA, FA>) -> String {
     let mut rdr = Renderer::new();
     rdr.set_transform(translate(0.0, 0.0, 4.0));
     rdr.set_projection(perspective(1.0, 10.0, 1., 1.));
     rdr.set_viewport(viewport(0.0, 0.0, 10.0, 10.0));
 
-    let mut buf = b".".repeat(100);
+    let mesh = mesh.validate().expect("Invalid mesh!");
 
-    rdr.render(
+    let mut buf = ['.'; 100];
+
+    let stats = rdr.render(
         mesh,
         &|_: Fragment<(Vec4, VA)>, _: FA| {
             ZERO
         },
         &mut |x, y, _col| {
-            buf[10 * y + x] = '#' as u8;
+            buf[10 * y + x] = '#';
         }
     );
-    buf
+    eprintln!("Stats: {}", stats);
+    buf.iter().collect()
 }
 
 #[test]
 fn renderer_works_with_unit_attrs() {
     let actual = render(unit_cube());
 
-    assert_eq!(EXPECTED_CUBE, actual.as_slice());
+    assert_eq!(EXPECTED_CUBE, &actual);
 }
 
 #[test]
 fn renderer_works_with_vector_attrs() {
     let actual = render(unit_cube().gen_normals());
 
-    assert_eq!(EXPECTED_CUBE, actual.as_slice());
+    assert_eq!(EXPECTED_CUBE, &actual);
 }
