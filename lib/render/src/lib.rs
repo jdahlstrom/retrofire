@@ -57,7 +57,8 @@ impl Renderer {
 
     pub fn render_scene<VA, FA, Shade, Plot>(
         &mut self, scene: Scene<VA, FA>, sh: &Shade, pl: &mut Plot
-    ) where
+    ) -> Stats
+    where
         VA: VertexAttr,
         FA: Copy,
         Shade: Fn(Fragment<(Vec4, VA)>, FA) -> Vec4,
@@ -70,6 +71,8 @@ impl Renderer {
             self.set_transform(&obj.tf * &scene.camera);
             self.render(obj.mesh, sh, pl);
         }
+
+        self.stats
     }
 
     pub fn render<VA, FA, Shade, Plot>(
