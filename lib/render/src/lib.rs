@@ -20,6 +20,7 @@ pub struct Obj<VA, FA> {
     pub mesh: Mesh<VA, FA>,
 }
 
+#[derive(Default, Clone)]
 pub struct Scene<VA, FA> {
     pub objects: Vec<Obj<VA, FA>>,
     pub camera: Mat4,

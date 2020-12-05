@@ -23,7 +23,6 @@ opt-level = 3
 pancurses = { version = "0.16", optional = true }
 sdl2 = { version = "0.34", optional = true }
 
-
 [dependencies.math]
 path = "./lib/math"
 
@@ -33,6 +32,8 @@ path = "./lib/geom"
 [dependencies.render]
 path = "./lib/render"
 
+[dev-dependencies]
+criterion = "0.3"
 
 [[example]]
 name = "cursed-tri"
@@ -58,3 +59,7 @@ required-features = ["sdl", "teapot"]
 name = "checkers"
 path = "examples/sdl/checkers.rs"
 required-features = ["sdl"]
+
+[[bench]]
+name = "renderer"
+harness = false
