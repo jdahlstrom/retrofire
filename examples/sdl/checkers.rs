@@ -60,7 +60,7 @@ fn main() {
                                   .take(mesh.faces.len());
             let mesh = mesh.with_face_attrs(colors);
             let tf = translate(4. * i as f32, 0., 4. * j as f32);
-            objects.push(Obj { tf, mesh })
+            objects.push(Obj { tf, mesh });
         }
     }
 
@@ -70,7 +70,6 @@ fn main() {
     rdr.set_projection(perspective(0.1, 50., w as f32 / h as f32, PI / 2.0));
     rdr.set_viewport(viewport(margin as f32, (h - margin) as f32,
                               (w - margin) as f32, margin as f32));
-
 
     let mut runner = SdlRunner::new(w as u32, h as u32).unwrap();
 

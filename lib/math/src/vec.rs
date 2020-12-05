@@ -1,8 +1,8 @@
 #![allow(clippy::len_without_is_empty)]
 
-use core::ops::{Add, Index, Mul, Neg, Sub};
-use std::fmt;
-use std::ops::Div;
+use core::fmt;
+use core::ops::{Add, Div, Mul, Neg, Sub};
+use core::ops::{Index, IndexMut};
 
 use crate::{ApproxEq, Linear};
 
@@ -104,6 +104,13 @@ impl Index<usize> for Vec4 {
     #[inline(always)]
     fn index(&self, i: usize) -> &f32 {
         [&self.x, &self.y, &self.z, &self.w][i]
+    }
+}
+
+impl IndexMut<usize> for Vec4 {
+    #[inline(always)]
+    fn index_mut(&mut self, i: usize) -> &mut Self::Output {
+        [&mut self.x, &mut self.y, &mut self.z, &mut self.w][i]
     }
 }
 

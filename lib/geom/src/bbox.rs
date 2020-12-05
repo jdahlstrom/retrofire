@@ -11,18 +11,19 @@ pub struct BoundingBox {
 
 impl BoundingBox {
     pub fn of(vs: impl IntoIterator<Item=Vec4>) -> BoundingBox {
-        let [mut l, mut b, mut f] = [INFINITY; 3];
-        let [mut r, mut t, mut k] = [-INFINITY; 3];
+        let mut low = pt(INFINITY, INFINITY, INFINITY);
+        let mut upp = pt(-INFINITY, -INFINITY, -INFINITY);
 
-        for Vec4 { x, y, z, .. } in vs {
-            if x < l { l = x; } else if x > r { r = x; }
-            if y < b { b = y; } else if y > t { t = y; }
-            if z < f { f = x; } else if z > k { k = z; }
+        for v in vs {
+            for i in 0..3 {
+                if v[i] < low[i] { low[i] = v[i]; }
+                else if v[i] > upp[i] { upp[i] = v[i]; }
+            }
         }
 
         BoundingBox {
-            left_bot_front: pt(l, b, f),
-            right_top_back: pt(r, t, k)
+            left_bot_front: low,
+            right_top_back: upp,
         }
     }
 
