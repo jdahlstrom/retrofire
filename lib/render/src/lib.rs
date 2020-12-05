@@ -30,7 +30,6 @@ pub struct Renderer {
     transform: Mat4,
     projection: Mat4,
     viewport: Mat4,
-    zbuf: (Vec<f32>, usize),
     pub stats: Stats,
 }
 
@@ -51,10 +50,6 @@ impl Renderer {
         self.viewport = mat;
     }
 
-    pub fn set_z_buffer(&mut self, zbuf: Vec<f32>, pitch: usize) {
-        self.zbuf = (zbuf, pitch);
-    }
-
     pub fn render_scene<VA, FA, Shade, Plot>(
         &mut self, scene: Scene<VA, FA>, sh: &Shade, pl: &mut Plot
     ) -> Stats
@@ -64,14 +59,10 @@ impl Renderer {
         Shade: Fn(Fragment<(Vec4, VA)>, FA) -> Vec4,
         Plot: FnMut(usize, usize, Vec4),
     {
-        // TODO use .fill() once stable
-        for x in &mut self.zbuf.0 { *x = f32::INFINITY; }
-
         for obj in scene.objects {
             self.set_transform(&obj.tf * &scene.camera);
             self.render(obj.mesh, sh, pl);
         }
-
         self.stats
     }
 
@@ -91,7 +82,7 @@ impl Renderer {
         self.hidden_surface_removal(&mut mesh);
 
         if !mesh.faces.is_empty() {
-            //Self::z_sort(&mut mesh);
+            Self::z_sort(&mut mesh);
             self.perspective_divide(&mut mesh.verts);
             self.rasterize(mesh, shade, plot);
         }
@@ -181,13 +172,12 @@ impl Renderer {
                      Fragment { coord: bv, varying: (bo, bva) },
                      Fragment { coord: cv, varying: (co, cva) },
                      |frag| {
-                         let (x, y) = (frag.coord.x as usize, frag.coord.y as usize);
-                         if frag.coord.z < self.zbuf.0[self.zbuf.1 * y + x] {
-                             let col = shade(frag, fa);
-                             plot(x, y, col);
-                             self.zbuf.0[self.zbuf.1 * y + x] = frag.coord.z;
-                             self.stats.pixels += 1;
-                         }
+                         plot(
+                             frag.coord.x as usize,
+                             frag.coord.y as usize,
+                             shade(frag, fa)
+                         );
+                         self.stats.pixels += 1;
                      });
         }
     }

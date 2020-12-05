@@ -7,8 +7,7 @@ use geom::solids::unit_cube;
 use math::mat::Mat4;
 use math::transform::*;
 use math::vec::*;
-use render::{Renderer, Obj, Scene};
-use render::raster::*;
+use render::*;
 use Run::*;
 
 use crate::runner::*;
@@ -62,7 +61,6 @@ fn main() {
     }
 
     let mut rdr = Renderer::new();
-    rdr.set_z_buffer(vec![f32::INFINITY; w * h], w);
     rdr.set_projection(perspective(0.1, 50., w as f32 / h as f32, PI / 2.0));
     rdr.set_viewport(viewport(margin as f32, (h - margin) as f32,
                               (w - margin) as f32, margin as f32));

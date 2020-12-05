@@ -1,4 +1,4 @@
-use std::f32::INFINITY;
+use std::f32::consts::PI;
 use std::fmt::Debug;
 
 use geom::mesh::*;
@@ -6,7 +6,6 @@ use geom::solids::{unit_cube, unit_sphere};
 use math::transform::*;
 use math::vec::*;
 use render::*;
-use std::f32::consts::PI;
 
 static EXPECTED_CUBE: &str =
     "..........\
@@ -27,7 +26,6 @@ where VA: VertexAttr, FA: Copy + Debug
     rdr.set_transform(translate(0.0, 0.0, 4.0));
     rdr.set_projection(perspective(1.0, 10.0, 1., 1.));
     rdr.set_viewport(viewport(0.0, 0.0, 10.0, 10.0));
-    rdr.set_z_buffer(vec![INFINITY; 100], 10);
 
     let mesh = mesh.validate().expect("Invalid mesh!");
 
@@ -50,7 +48,6 @@ where VA: VertexAttr, FA: Copy
     let mut rdr = Renderer::new();
     rdr.set_projection(perspective(1.0, 100.0, 1.0, 0.5 * PI));
     rdr.set_viewport(viewport(0.0, 0.0, W as f32, H as f32));
-    rdr.set_z_buffer(vec![INFINITY; W * H], W);
 
     let stats = rdr.render_scene(
         scene,
@@ -93,5 +90,5 @@ fn render_sphere_field() {
 
     assert_eq!(55566, stats.faces_in);
     assert_eq!(6550, stats.faces_out);
-    assert_eq!(428, stats.pixels);
+    assert_eq!(1216, stats.pixels);
 }

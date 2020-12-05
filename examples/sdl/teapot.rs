@@ -1,5 +1,4 @@
 use std::f32::consts::PI;
-use std::f32::INFINITY;
 
 use sdl2::keyboard::Scancode;
 
@@ -7,7 +6,7 @@ use geom::solids::teapot;
 use math::mat::Mat4;
 use math::transform::*;
 use math::vec::*;
-use render::{Obj, Renderer, Scene};
+use render::*;
 use render::raster::*;
 use render::shade::*;
 use runner::*;
@@ -39,7 +38,6 @@ fn main() {
     let mut trans = dir(0.0, 0.0, 40.0);
 
     let mut rdr = Renderer::new();
-    rdr.set_z_buffer(vec![INFINITY; w * h], w);
     rdr.set_projection(perspective(1., 60., w as f32 / h as f32, PI / 3.0));
     rdr.set_viewport(viewport(margin as f32, (h - margin) as f32,
                               (w - margin) as f32, margin as f32));
