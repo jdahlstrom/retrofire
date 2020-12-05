@@ -46,6 +46,7 @@ fn main() {
     let margin = 50;
     let w = 800;
     let h = 600;
+
     let mut camera = Mat4::identity();
 
     let mut objects = vec![];

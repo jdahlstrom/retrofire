@@ -156,21 +156,12 @@ pub fn teapot() -> Mesh<Vec4> {
         vec
     }
 
-    let faces: Vec<_> = FACES.iter()
-                             .flat_map(make_faces)
-                             .collect();
-    let n_faces = faces.len();
+    let faces = FACES.iter().flat_map(make_faces);
+    let verts = VERTICES.iter().map(|&[x, y, z]| pt(x, y, z));
+    let vattrs = VERTEX_NORMALS.iter().map(|&[x, y, z]| dir(x, y, z));
 
-    Mesh {
-        faces,
-        verts: VERTICES.iter()
-                       .map(|&[x, y, z]| pt(x, y, z))
-                       .collect(),
-        vertex_attrs: VERTEX_NORMALS.iter()
-                                    .map(|&[x, y, z]| dir(x, y, z))
-                                    .collect(),
-        face_attrs: vec![(); n_faces]
-    }
+    Mesh::from_verts_and_faces(verts, faces)
+        .with_vertex_attrs(vattrs)
 }
 
 

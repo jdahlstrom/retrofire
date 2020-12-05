@@ -1,20 +1,4 @@
-use math::Linear;
-use math::mat::Mat4;
 use math::vec::{Vec4, ZERO};
-
-pub trait VertexAttr: Linear<f32> + Copy {
-    fn transform(&mut self, mat: &Mat4);
-}
-
-impl VertexAttr for Vec4 {
-    fn transform(&mut self, mat: &Mat4) {
-        *self = (mat * *self).normalize(); // TODO only for normals!
-    }
-}
-
-impl VertexAttr for () {
-    fn transform(&mut self, _: &Mat4) {}
-}
 
 #[derive(Default, Debug, Clone)]
 pub struct Mesh<VA = (), FA = ()> {

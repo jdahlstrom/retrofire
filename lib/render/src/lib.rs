@@ -1,6 +1,6 @@
 use std::time::Instant;
 
-use geom::mesh::{Mesh, VertexAttr};
+use geom::mesh::Mesh;
 use math::Linear;
 use math::mat::Mat4;
 use math::vec::*;
@@ -55,9 +55,9 @@ impl Renderer {
         &mut self, scene: Scene<VA, FA>, sh: &Shade, pl: &mut Plot
     ) -> Stats
     where
-        VA: VertexAttr,
+        VA: Copy + Linear<f32>,
         FA: Copy,
-        Shade: Fn(Fragment<(Vec4, VA)>, FA) -> Vec4,
+        Shade: Fn(Fragment<VA>, FA) -> Vec4,
         Plot: FnMut(usize, usize, Vec4),
     {
         for obj in scene.objects {
@@ -71,14 +71,14 @@ impl Renderer {
         &mut self, mut mesh: Mesh<VA, FA>, shade: &Shade, plot: &mut Plot
     ) -> Stats
     where
-        VA: VertexAttr,
+        VA: Copy + Linear<f32>,
         FA: Copy,
-        Shade: Fn(Fragment<(Vec4, VA)>, FA) -> Vec4,
+        Shade: Fn(Fragment<VA>, FA) -> Vec4,
         Plot: FnMut(usize, usize, Vec4),
     {
         let clock = Instant::now();
 
-        self.transform(&mut mesh);
+        self.transform(&mut mesh.verts);
         self.projection(&mut mesh.verts);
         self.hidden_surface_removal(&mut mesh);
 
@@ -92,8 +92,8 @@ impl Renderer {
         self.stats
     }
 
-    fn transform<VA: VertexAttr, FA>(&self, mesh: &mut Mesh<VA, FA>) {
-        for v in &mut mesh.verts {
+    fn transform(&self, verts: &mut Vec<Vec4>) {
+        for v in verts {
             *v = &self.transform * *v;
         }
     }
@@ -150,28 +150,26 @@ impl Renderer {
         shade: &Shade,
         plot: &mut Plot
     ) where
-        VA: VertexAttr,
+        VA: Copy + Linear<f32>,
         FA: Copy,
-        Shade: Fn(Fragment<(Vec4, VA)>, FA) -> Vec4,
+        Shade: Fn(Fragment<VA>, FA) -> Vec4,
         Plot: FnMut(usize, usize, Vec4),
     {
         let Mesh { faces, verts, vertex_attrs, face_attrs } = &mut mesh;
 
-        let orig_verts = verts.clone();
-
         self.viewport(verts);
 
-        for (i, &[a, b, c]) in faces.iter().enumerate() {
-            // TODO Clean up this mess
-            let (av, bv, cv) = (verts[a], verts[b], verts[c]);
-            let (ao, bo, co) = (orig_verts[a], orig_verts[b], orig_verts[c]);
-            let (ava, bva, cva) = (vertex_attrs[a], vertex_attrs[b], vertex_attrs[c]);
+        for (i, face) in faces.iter().enumerate() {
+            let frags = face.iter()
+                            .map(|&vi| Fragment {
+                                coord: verts[vi],
+                                varying: vertex_attrs[vi]
+                            })
+                            .collect::<Vec<_>>();
 
             let fa = face_attrs[i];
 
-            tri_fill(Fragment { coord: av, varying: (ao, ava) },
-                     Fragment { coord: bv, varying: (bo, bva) },
-                     Fragment { coord: cv, varying: (co, cva) },
+            tri_fill(frags[0], frags[1], frags[2],
                      |frag| {
                          plot(
                              frag.coord.x as usize,

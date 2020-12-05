@@ -4,7 +4,6 @@ use geom::solids;
 use math::transform::*;
 use math::vec::ZERO;
 use render::{Renderer, Obj, Scene};
-use std::iter::FromIterator;
 
 fn torus(c: &mut Criterion) {
     const W: usize = 128;

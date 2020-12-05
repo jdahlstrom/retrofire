@@ -19,10 +19,17 @@ fn main() {
     let margin = 50;
 
     let mesh = teapot().gen_normals().validate().expect("Invalid mesh!");
+
+    let vattrs = mesh.verts.iter().copied()
+        .zip(mesh.vertex_attrs.iter().copied())
+        .collect::<Vec<_>>();
+
+    let mesh = mesh.with_vertex_attrs(vattrs);
+
     let model_tf = rotate_x(-PI / 2.) * &translate(0., -5., 0.);
 
     fn shade(frag: Fragment<(Vec4, Vec4)>, _face_n: Vec4) -> Vec4 {
-        let Fragment { varying: (coord, normal), .. } = frag;
+        let (coord, normal) = frag.varying;
         let light_dir = (pt(-1.0, 2., -2.) - coord).normalize();
         let view_dir = (pt(0.0, 0.0, 0.0) - coord).normalize();
 
@@ -53,7 +60,8 @@ fn main() {
 
         let mut mesh = mesh.clone();
 
-        for n in &mut mesh.vertex_attrs {
+        for (c, n) in &mut mesh.vertex_attrs {
+            *c = &tf * *c;
             *n = &tf * *n;
         }
 

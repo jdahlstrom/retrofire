@@ -6,6 +6,7 @@ use geom::solids::{unit_cube, unit_sphere};
 use math::transform::*;
 use math::vec::*;
 use render::*;
+use math::Linear;
 
 static EXPECTED_CUBE: &str =
     "..........\
@@ -20,7 +21,7 @@ static EXPECTED_CUBE: &str =
      ..........";
 
 fn render<VA, FA>(mesh: Mesh<VA, FA>) -> String
-where VA: VertexAttr, FA: Copy + Debug
+where VA: Copy + Linear<f32>, FA: Copy + Debug
 {
     let mut rdr = Renderer::new();
     rdr.set_transform(translate(0.0, 0.0, 4.0));
@@ -41,7 +42,7 @@ where VA: VertexAttr, FA: Copy + Debug
 }
 
 fn render_scene<VA, FA>(scene: Scene<VA, FA>) -> Stats
-where VA: VertexAttr, FA: Copy
+where VA: Copy + Linear<f32>, FA: Copy
 {
     const W: usize = 50;
     const H: usize = 20;
@@ -88,7 +89,7 @@ fn render_sphere_field() {
 
     let stats = render_scene(Scene { objects, camera });
 
-    assert_eq!(55566, stats.faces_in);
+    assert_eq!(126 * 21 * 21, stats.faces_in);
     assert_eq!(6550, stats.faces_out);
     assert_eq!(1216, stats.pixels);
 }
