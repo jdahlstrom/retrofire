@@ -7,6 +7,7 @@ use math::mat::Mat4;
 use math::transform::*;
 use math::vec::*;
 use render::*;
+use render::color::Color;
 use render::raster::*;
 use render::shade::*;
 use runner::*;
@@ -28,7 +29,7 @@ fn main() {
 
     let model_tf = rotate_x(-PI / 2.) * &translate(0., -5., 0.);
 
-    fn shade(frag: Fragment<(Vec4, Vec4)>, _face_n: Vec4) -> Vec4 {
+    fn shade(frag: Fragment<(Vec4, Vec4)>, _face_n: Vec4) -> Color {
         let (coord, normal) = frag.varying;
         let light_dir = (pt(-1.0, 2., -2.) - coord).normalize();
         let view_dir = (pt(0.0, 0.0, 0.0) - coord).normalize();
@@ -37,7 +38,7 @@ fn main() {
         let diffuse = 0.6 * vec4(1.0, 0.9, 0.6, 0.0) * lambert(normal, light_dir);
         let specular = 0.6 * vec4(1.0, 1.0, 1.0, 0.0) * phong(normal, view_dir, light_dir, 5);
 
-        expose_rgb(ambient + diffuse + specular, 3.)
+        expose_rgb(ambient + diffuse + specular, 3.).into()
     }
 
     let mut theta = 0.;
@@ -70,12 +71,12 @@ fn main() {
             camera: Mat4::identity(),
         };
 
-        rdr.render_scene(&scene, &shade, &mut |x, y, col: Vec4| {
+        rdr.render_scene(&scene, &shade, &mut |x, y, color| {
             let idx = 4 * (w as usize * y + x);
-            let col = 255. * col;
-            frame.buf[idx + 0] = col.z as u8;
-            frame.buf[idx + 1] = col.y as u8;
-            frame.buf[idx + 2] = col.x as u8;
+            let [_, r, g, b] = color.to_argb();
+            frame.buf[idx + 0] = b;
+            frame.buf[idx + 1] = g;
+            frame.buf[idx + 2] = r;
         });
 
         for scancode in frame.pressed_keys {

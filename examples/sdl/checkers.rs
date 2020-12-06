@@ -8,13 +8,14 @@ use math::mat::Mat4;
 use math::transform::*;
 use math::vec::*;
 use render::*;
+use render::color::*;
 use Run::*;
 
 use crate::runner::*;
 
 mod runner;
 
-fn checkers() -> Mesh<(), Vec4> {
+fn checkers() -> Mesh<(), Color> {
     let size: usize = 40;
     let isize = size as i32;
 
@@ -32,14 +33,12 @@ fn checkers() -> Mesh<(), Vec4> {
             fs.push([w * j + i, w * (j + 1) + i + 1, w * j + i + 1]);
             fs.push([w * j + i, w * (j + 1) + i, w * (j + 1) + i + 1]);
 
-            let c = 255. * (j & 1 ^ i & 1) as f32 * vec4(1.0, 1.0, 1.0, 0.0);
-            colors.push(c);
-            colors.push(c);
+            let c = gray(255 * (j & 1 ^ i & 1) as u8);
+            colors.extend(&[c, c]);
         }
     }
     Mesh::from_verts_and_faces(vs.clone(), fs)
-        .with_face_attrs(colors)
-        .validate().unwrap()
+        .with_face_attrs(colors).validate().unwrap()
 }
 
 fn main() {
@@ -54,11 +53,9 @@ fn main() {
     for j in -10..=10 {
         for i in -10..=10 {
             let mesh = unit_sphere(9, 9);
-            let colors = [X, Y, Z].iter()
-                                  .map(|&v| 255. * v)
-                                  .cycle()
-                                  .take(mesh.faces.len());
-            let mesh = mesh.with_face_attrs(colors);
+            let flen = mesh.faces.len();
+            let mesh = mesh.with_face_attrs(
+                [RED, GREEN, BLUE].iter().copied().cycle().take(flen));
             let tf = translate(4. * i as f32, 0., 4. * j as f32);
             objects.push(Obj { tf, mesh });
         }
@@ -75,11 +72,12 @@ fn main() {
 
     runner.run(|frame| {
         let shade = |_, color| color;
-        let mut plot = |x, y, col: Vec4| {
+        let mut plot = |x, y, c: Color| {
             let idx = 4 * (w as usize * y + x);
-            frame.buf[idx + 0] = col.z as u8;
-            frame.buf[idx + 1] = col.y as u8;
-            frame.buf[idx + 2] = col.x as u8;
+            let [_, r, g, b] = c.to_argb();
+            frame.buf[idx + 0] = b;
+            frame.buf[idx + 1] = g;
+            frame.buf[idx + 2] = r;
         };
 
         rdr.render_scene(&scene, &shade, &mut plot);
@@ -104,8 +102,6 @@ fn main() {
         rdr.stats.frames += 1;
         Ok(Continue)
     }).unwrap();
-
-    //runner.pause();
 
     runner.print_stats(rdr.stats);
 }

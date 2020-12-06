@@ -9,12 +9,14 @@ pub use stats::Stats;
 
 use crate::hsr::Visibility;
 use crate::raster::*;
+use color::Color;
 
 mod hsr;
 pub mod raster;
 pub mod shade;
 pub mod stats;
 pub mod vary;
+pub mod color;
 
 #[derive(Default, Clone)]
 pub struct Obj<VA, FA> {
@@ -59,8 +61,8 @@ impl Renderer {
     where
         VA: Copy + Linear<f32>,
         FA: Copy,
-        Shade: Fn(Fragment<VA>, FA) -> Vec4,
-        Plot: FnMut(usize, usize, Vec4),
+        Shade: Fn(Fragment<VA>, FA) -> Color,
+        Plot: FnMut(usize, usize, Color),
     {
         for obj in &scene.objects {
             self.set_transform(&obj.tf * &scene.camera);
@@ -75,8 +77,8 @@ impl Renderer {
     where
         VA: Copy + Linear<f32>,
         FA: Copy,
-        Shade: Fn(Fragment<VA>, FA) -> Vec4,
-        Plot: FnMut(usize, usize, Vec4),
+        Shade: Fn(Fragment<VA>, FA) -> Color,
+        Plot: FnMut(usize, usize, Color),
     {
         let clock = Instant::now();
 
@@ -172,32 +174,29 @@ impl Renderer {
     ) where
         VA: Copy + Linear<f32>,
         FA: Copy,
-        Shade: Fn(Fragment<VA>, FA) -> Vec4,
-        Plot: FnMut(usize, usize, Vec4),
+        Shade: Fn(Fragment<VA>, FA) -> Color,
+        Plot: FnMut(usize, usize, Color),
     {
         let Mesh { faces, verts, vertex_attrs, face_attrs, .. } = &mut mesh;
 
         self.viewport(verts);
 
         for (i, face) in faces.iter().enumerate() {
-            let frags = face.iter()
-                            .map(|&vi| Fragment {
-                                coord: verts[vi],
-                                varying: vertex_attrs[vi]
-                            })
-                            .collect::<Vec<_>>();
+            let frags = face.iter().map(|&vi| Fragment {
+                coord: verts[vi],
+                varying: vertex_attrs[vi]
+            }).collect::<Vec<_>>();
 
             let fa = face_attrs[i];
 
-            tri_fill(frags[0], frags[1], frags[2],
-                     |frag| {
-                         plot(
-                             frag.coord.x as usize,
-                             frag.coord.y as usize,
-                             shade(frag, fa)
-                         );
-                         self.stats.pixels += 1;
-                     });
+            tri_fill(frags[0], frags[1], frags[2], |frag| {
+                plot(
+                    frag.coord.x as usize,
+                    frag.coord.y as usize,
+                    shade(frag, fa)
+                );
+                self.stats.pixels += 1;
+            });
         }
     }
 }
