@@ -3,14 +3,14 @@ use std::mem::swap;
 use geom::mesh::Vertex;
 use math::Linear;
 
-use crate::vary::Varying;
+use crate::vary::{Bresenham, Varying};
 
 pub mod flat;
 pub mod gouraud;
 
 #[derive(Copy, Clone, Debug)]
-pub struct Fragment<V> {
-    pub coord: (usize, usize),
+pub struct Fragment<V: Copy, C: Copy = (usize, usize)> {
+    pub coord: C,
     pub varying: V,
 }
 
@@ -20,9 +20,10 @@ fn ysort<V>([a, b, c]: &mut [Vertex<V>; 3]) {
     if b.coord.y > c.coord.y { swap(b, c); }
 }
 
-pub fn tri_fill<V>(mut verts: [Vertex<V>; 3],
-                   mut plot: impl FnMut(Fragment<V>))
-where V: Linear<f32> + Copy,
+pub fn tri_fill<V, P>(mut verts: [Vertex<V>; 3], mut plot: P)
+where
+    V: Linear<f32> + Copy,
+    P: FnMut(Fragment<V>)
 {
     ysort(&mut verts);
 
@@ -65,22 +66,81 @@ where V: Linear<f32> + Copy,
     }
 }
 
+pub fn line<V, P>(a: Vertex<V>, b: Vertex<V>, mut plot: P)
+where
+    V: Copy,
+    P: FnMut(Fragment<()>)
+{
+    let (mut a, mut b) = (a.coord, b.coord);
+    let (mut dx, mut dy) = (b.x - a.x, b.y - a.y);
+
+    if dx.abs() >= dy.abs() {
+        // Angle <= diagonal
+        if a.x > b.x { swap(&mut a, &mut b); dx = -dx; }
+
+        let xs = a.x as usize ..= b.x as usize;
+        let ys = Bresenham::between(a.y as usize, b.y as usize, dx as usize);
+
+        for coord in xs.zip(ys) {
+            plot(Fragment { coord, varying: () });
+        }
+    } else {
+        // Angle > diagonal
+        if a.y > b.y { swap(&mut a, &mut b); dy = -dy; }
+
+        let xs = Bresenham::between(a.x as usize, b.x as usize, dy as usize);
+        let ys = a.y as usize ..= b.y as usize;
+
+        for coord in xs.zip(ys) {
+            plot(Fragment { coord, varying: () });
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use std::fmt::*;
 
-    use math::vec::vec4;
+    use math::vec::{pt, vec4};
 
     use super::*;
+
+    fn v(x: f32, y: f32) -> Vertex<()> {
+        Vertex { coord: pt(x, y, 0.0), attr: () }
+    }
+
+    pub fn vert<V: Copy>(x: f32, y: f32, attr: V) -> Vertex<V> {
+        Vertex { coord: vec4(x, y, 0.0, 1.0), attr }
+    }
+
+    #[test]
+    fn line_all_octants() {
+        let endpoints = [
+            (10, 0), (10, 3), (10, 10), (7, 10),
+            (0, 10), (-4, 10), (-10, 10), (-10, 2),
+            (-10, 0), (-10, -9), (-10, -10), (-1, -10),
+            (0, -10), (3, -10), (10, -10), (10, -8),
+        ];
+
+        for &(ex, ey) in &endpoints {
+            let o = 20.0;
+            let mut pts = vec![];
+            line(v(o, o), v(o + ex as f32, o + ey as f32), |frag| {
+                let (x, y) = frag.coord;
+                pts.push((x as i32 - o as i32, y as i32 - o as i32));
+            });
+            if *pts.first().unwrap() != (0, 0) {
+                pts.reverse();
+            }
+            assert_eq!((0, 0), *pts.first().unwrap(), "unexpected first {:?}", pts);
+            assert_eq!((ex, ey), *pts.last().unwrap(), "unexpected last {:?}", pts);
+        }
+    }
 
     pub struct Buf(pub Vec<u8>, usize, usize);
 
     const _MENLO_GRADIENT: &[u8; 16] = b" -.,:;=*o%$O&@MW";
     const IBMPC_GRADIENT: &[u8; 16] = b"..-:;=+<*xoXO@MW";
-
-    pub fn vert<V: Copy>(x: f32, y: f32, attr: V) -> Vertex<V> {
-        Vertex { coord: vec4(x, y, 0.0, 1.0), attr }
-    }
 
     impl Buf {
         pub fn new(w: usize, h: usize) -> Buf {
