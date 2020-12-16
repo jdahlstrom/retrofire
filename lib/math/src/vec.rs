@@ -1,8 +1,8 @@
 #![allow(clippy::len_without_is_empty)]
 
-use core::ops::{Add, Index, Mul, Neg, Sub};
-use std::fmt;
-use std::ops::Div;
+use core::fmt;
+use core::ops::{Add, Div, Mul, Neg, Sub};
+use core::ops::{Index, IndexMut};
 
 use crate::{ApproxEq, Linear};
 
@@ -43,7 +43,7 @@ impl Vec4 {
     #[must_use]
     pub fn normalize(self) -> Vec4 {
         debug_assert_ne!(self, ZERO, "cannot normalize a zero vector");
-        1.0 / self.len() * self
+        self / self.len()
     }
 
     /// Returns `self` component-wise mapped with `f`.
@@ -89,6 +89,7 @@ impl Vec4 {
 
     pub fn clamp(self, min: f32, max: f32) -> Vec4 {
         vec4(
+            // TODO use clamp when stable
             self.x.min(max).max(min),
             self.y.min(max).max(min),
             self.z.min(max).max(min),
@@ -103,6 +104,13 @@ impl Index<usize> for Vec4 {
     #[inline(always)]
     fn index(&self, i: usize) -> &f32 {
         [&self.x, &self.y, &self.z, &self.w][i]
+    }
+}
+
+impl IndexMut<usize> for Vec4 {
+    #[inline(always)]
+    fn index_mut(&mut self, i: usize) -> &mut Self::Output {
+        [&mut self.x, &mut self.y, &mut self.z, &mut self.w][i]
     }
 }
 
@@ -193,13 +201,17 @@ impl Default for Vec4 {
 
 impl fmt::Display for Vec4 {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "({:.2}, {:.2}, {:.2}, {:.2})", self.x, self.y, self.z, self.w)
+        let p = f.precision().unwrap_or(2);
+        write!(f, "({:.p$}, {:p$}, {:p$}, {:p$})",
+               self.x, self.y, self.z, self.w, p = p)
     }
 }
 
 impl fmt::Debug for Vec4 {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "Vec4({}, {}, {}, {})", self.x, self.y, self.z, self.w)
+        let p = f.precision().unwrap_or(4);
+        write!(f, "Vec4({:.p$}, {:.p$}, {:.p$}, {:.p$})",
+               self.x, self.y, self.z, self.w, p = p)
     }
 }
 
@@ -304,7 +316,7 @@ mod tests {
         assert_eq!((X + Y + Z).reflect(0.01 * Y), -X + Y - Z);
         assert_eq!(Z.reflect(Y + Z), Y);
         assert_eq!(X.reflect(X + Y), Y);
-        assert_approx_eq((0.9*X + 0.1*Y).reflect(X + Y), 0.9*Y + 0.1*X);
+        assert_approx_eq((0.9 * X + 0.1 * Y).reflect(X + Y), 0.9 * Y + 0.1 * X);
     }
 
     #[test]

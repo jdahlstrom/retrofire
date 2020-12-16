@@ -70,7 +70,7 @@ fn main() {
             camera: Mat4::identity(),
         };
 
-        rdr.render_scene(scene, &shade, &mut |x, y, col: Vec4| {
+        rdr.render_scene(&scene, &shade, &mut |x, y, col: Vec4| {
             let idx = 4 * (w as usize * y + x);
             let col = 255. * col;
             frame.buf[idx + 0] = col.z as u8;

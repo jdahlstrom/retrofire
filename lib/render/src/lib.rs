@@ -1,11 +1,13 @@
 use std::time::Instant;
 
+use geom::bbox::BoundingBox;
 use geom::mesh::Mesh;
 use math::Linear;
 use math::mat::Mat4;
 use math::vec::*;
 pub use stats::Stats;
 
+use crate::hsr::Visibility;
 use crate::raster::*;
 
 mod hsr;
@@ -52,7 +54,7 @@ impl Renderer {
     }
 
     pub fn render_scene<VA, FA, Shade, Plot>(
-        &mut self, scene: Scene<VA, FA>, sh: &Shade, pl: &mut Plot
+        &mut self, scene: &Scene<VA, FA>, sh: &Shade, pl: &mut Plot
     ) -> Stats
     where
         VA: Copy + Linear<f32>,
@@ -60,15 +62,15 @@ impl Renderer {
         Shade: Fn(Fragment<VA>, FA) -> Vec4,
         Plot: FnMut(usize, usize, Vec4),
     {
-        for obj in scene.objects {
+        for obj in &scene.objects {
             self.set_transform(&obj.tf * &scene.camera);
-            self.render(obj.mesh, sh, pl);
+            self.render(&obj.mesh, sh, pl);
         }
         self.stats
     }
 
     pub fn render<VA, FA, Shade, Plot>(
-        &mut self, mut mesh: Mesh<VA, FA>, shade: &Shade, plot: &mut Plot
+        &mut self, mesh: &Mesh<VA, FA>, shade: &Shade, plot: &mut Plot
     ) -> Stats
     where
         VA: Copy + Linear<f32>,
@@ -78,50 +80,68 @@ impl Renderer {
     {
         let clock = Instant::now();
 
-        self.transform(&mut mesh.verts);
-        self.projection(&mut mesh.verts);
-        self.hidden_surface_removal(&mut mesh);
+        self.stats.objs_in += 1;
+        self.stats.faces_in += mesh.faces.len();
 
-        if !mesh.faces.is_empty() {
-            Self::z_sort(&mut mesh);
-            self.perspective_divide(&mut mesh.verts);
-            self.rasterize(mesh, shade, plot);
+        let bbox_vis = self.bbox_visibility(mesh.bbox);
+        if bbox_vis != Visibility::Hidden {
+            let mut mesh = mesh.clone();
+
+            self.transform(&mut mesh.verts);
+            self.projection(&mut mesh.verts);
+
+            self.hidden_surface_removal(&mut mesh, bbox_vis);
+
+            if !mesh.faces.is_empty() {
+                self.stats.faces_out += mesh.faces.len();
+                self.stats.objs_out += 1;
+
+                Self::z_sort(&mut mesh);
+                self.perspective_divide(&mut mesh.verts);
+                self.rasterize(mesh, shade, plot);
+            }
         }
 
         self.stats.time_used += Instant::now() - clock;
         self.stats
     }
 
-    fn transform(&self, verts: &mut Vec<Vec4>) {
+    fn bbox_visibility(&self, bbox: BoundingBox) -> Visibility {
+        let vs = &mut bbox.verts();
+        self.transform(vs);
+        self.projection(vs);
+
+        hsr::bbox_visibility(vs)
+    }
+
+    fn transform(&self, verts: &mut [Vec4]) {
         for v in verts {
             *v = &self.transform * *v;
         }
     }
 
-    fn projection(&self, verts: &mut Vec<Vec4>) {
+    fn projection(&self, verts: &mut [Vec4]) {
         for v in verts {
             *v = &self.projection * *v;
         };
     }
 
-    fn perspective_divide(&self, verts: &mut Vec<Vec4>) {
+    fn perspective_divide(&self, verts: &mut [Vec4]) {
         for v in verts {
             *v = *v / v.w;
         };
     }
 
-    fn viewport(&self, verts: &mut Vec<Vec4>) {
+    fn viewport(&self, verts: &mut [Vec4]) {
         for v in verts {
             *v = &self.viewport * *v;
         }
     }
 
-    fn hidden_surface_removal<VA, FA>(&mut self, mut mesh: &mut Mesh<VA, FA>)
+    fn hidden_surface_removal<VA, FA>(&mut self, mut mesh: &mut Mesh<VA, FA>, bbox_vis: Visibility)
     where VA: Copy + Linear<f32>, FA: Copy
     {
-        self.stats.faces_in += mesh.faces.len();
-        hsr::hidden_surface_removal(&mut mesh);
-        self.stats.faces_out += mesh.faces.len();
+        hsr::hidden_surface_removal(&mut mesh, bbox_vis);
     }
 
     // TODO Replace with z-buffering (or s-buffering!)
@@ -155,7 +175,7 @@ impl Renderer {
         Shade: Fn(Fragment<VA>, FA) -> Vec4,
         Plot: FnMut(usize, usize, Vec4),
     {
-        let Mesh { faces, verts, vertex_attrs, face_attrs } = &mut mesh;
+        let Mesh { faces, verts, vertex_attrs, face_attrs, .. } = &mut mesh;
 
         self.viewport(verts);
 

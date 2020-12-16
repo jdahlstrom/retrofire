@@ -1,11 +1,14 @@
 use math::vec::{Vec4, ZERO};
 
+use crate::bbox::BoundingBox;
+
 #[derive(Default, Debug, Clone)]
 pub struct Mesh<VA = (), FA = ()> {
     pub verts: Vec<Vec4>,
     pub faces: Vec<[usize; 3]>,
     pub vertex_attrs: Vec<VA>,
     pub face_attrs: Vec<FA>,
+    pub bbox: BoundingBox,
 }
 
 impl Mesh {
@@ -17,6 +20,7 @@ impl Mesh {
         let faces = faces.into_iter().collect::<Vec<_>>();
 
         Mesh {
+            bbox: BoundingBox::of(verts.iter().copied()),
             vertex_attrs: vec![(); verts.len()],
             face_attrs: vec![(); faces.len()],
             verts,
@@ -26,14 +30,6 @@ impl Mesh {
 }
 
 impl<VA, FA> Mesh<VA, FA> {
-    pub fn new() -> Self {
-        Mesh {
-            verts: vec![],
-            faces: vec![],
-            vertex_attrs: vec![],
-            face_attrs: vec![]
-        }
-    }
 
     pub fn with_vertex_attrs<A>(self, attrs: impl IntoIterator<Item=A>)
                                 -> Mesh<A, FA> where A: Clone
@@ -41,7 +37,9 @@ impl<VA, FA> Mesh<VA, FA> {
         Mesh {
             verts: self.verts,
             faces: self.faces,
+            bbox: self.bbox,
             face_attrs: self.face_attrs,
+
             vertex_attrs: attrs.into_iter().collect(),
         }
     }
@@ -52,7 +50,9 @@ impl<VA, FA> Mesh<VA, FA> {
         Mesh {
             verts: self.verts,
             faces: self.faces,
+            bbox: self.bbox,
             vertex_attrs: self.vertex_attrs,
+
             face_attrs: attrs.into_iter().collect(),
         }
     }
@@ -69,7 +69,7 @@ impl<VA, FA> Mesh<VA, FA> {
     }
 
     pub fn validate(self) -> Result<Self, String> {
-        let Mesh { verts, faces, vertex_attrs, face_attrs } = &self;
+        let Mesh { verts, faces, vertex_attrs, face_attrs, .. } = &self;
 
         if let Some(idx) = faces.iter().flatten().find(|&&idx| idx >= verts.len()) {
             return Err(format!("Vertex index out of bounds: {:?}", idx));

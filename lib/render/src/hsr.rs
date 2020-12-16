@@ -6,7 +6,7 @@ use geom::mesh::Mesh;
 use math::{lerp, Linear};
 use math::vec::Vec4;
 
-pub fn hidden_surface_removal<VA, FA>(mesh: &mut Mesh<VA, FA>)
+pub fn hidden_surface_removal<VA, FA>(mesh: &mut Mesh<VA, FA>, bbox_vis: Visibility)
 where VA: Copy + Linear<f32>, FA: Copy, {
     let Mesh { verts, faces, vertex_attrs, face_attrs, .. } = mesh;
 
@@ -16,19 +16,31 @@ where VA: Copy + Linear<f32>, FA: Copy, {
     let mut visible_faces = Vec::with_capacity(faces.len() / 2);
     let mut visible_attrs = Vec::with_capacity(faces.len() / 2);
 
+
+
     for (&[a, b, c], &mut fa) in faces.iter().zip(face_attrs) {
+
+        if bbox_vis == Unclipped {
+            if frontface(&[verts[a], verts[b], verts[c]]) {
+                visible_faces.push([a, b, c]);
+                visible_attrs.push(fa);
+            }
+            continue;
+        }
 
         let masks = [clip_masks[a], clip_masks[b], clip_masks[c]];
 
-        match face_visibility(&[verts[a], verts[b], verts[c]], &masks) {
-            FaceVis::Hidden | FaceVis::Backface => {
+        match face_visibility(&masks) {
+            Hidden => {
                 continue
             },
-            FaceVis::Unclipped => {
-                visible_faces.push([a, b, c]);
-                visible_attrs.push(fa);
+            Unclipped => {
+                if frontface(&[verts[a], verts[b], verts[c]]) {
+                    visible_faces.push([a, b, c]);
+                    visible_attrs.push(fa);
+                }
             },
-            FaceVis::Clipped => {
+            Clipped => {
                 let face_verts = [
                     (verts[a], vertex_attrs[a]),
                     (verts[b], vertex_attrs[b]),
@@ -94,12 +106,12 @@ mod clip_mask {
 }
 
 #[derive(Debug, Eq, PartialEq)]
-enum FaceVis {
+pub enum Visibility {
     Unclipped,
     Clipped,
-    Hidden,
-    Backface,
+    Hidden
 }
+use Visibility::*;
 
 fn clip_vertex(v: &Vec4) -> u8 {
     use clip_mask::*;
@@ -111,7 +123,21 @@ fn clip_vertex(v: &Vec4) -> u8 {
         | CLIP_PLANES[1].inside(v.z, v.w) as u8 * FAR
 }
 
-fn face_visibility(verts: &[Vec4; 3], masks: &[u8; 3]) -> FaceVis {
+
+pub fn bbox_visibility(verts: &[Vec4]) -> Visibility {
+    let (all_inside, any_inside) = verts.iter().map(clip_vertex)
+        .fold((!0, 0), |(a, b), v| (a & v, b | v));
+
+    if all_inside == clip_mask::ALL {
+        Unclipped
+    } else if any_inside != clip_mask::ALL {
+        Hidden
+    } else {
+        Clipped
+    }
+}
+
+fn face_visibility(masks: &[u8; 3]) -> Visibility {
 
     // Mask of planes that all verts are inside of
     let all_verts_inside = masks[0] & masks[1] & masks[2];
@@ -120,15 +146,12 @@ fn face_visibility(verts: &[Vec4; 3], masks: &[u8; 3]) -> FaceVis {
 
     if any_vert_inside != clip_mask::ALL {
         // Face hidden if at least one plane that no vert is inside of
-        FaceVis::Hidden
-    } else if (all_verts_inside & clip_mask::NEAR != 0) && !frontface(verts) {
-        // Backfaces hidden even if inside frustum
-        FaceVis::Backface
+        Hidden
     } else if all_verts_inside == clip_mask::ALL {
         // If all vertices inside the frustum, the face is unclipped
-        FaceVis::Unclipped
+        Unclipped
     } else {
-        FaceVis::Clipped
+        Clipped
     }
 }
 
@@ -174,7 +197,7 @@ fn edges<T>(ts: &[T]) -> impl Iterator<Item=(&T, &T)> {
     (0..ts.len()).map(move |i| (&ts[i], &ts[(i + 1) % ts.len()]))
 }
 
-fn frontface(&[a, b, c]: &[Vec4; 3]) -> bool {
+pub fn frontface(&[a, b, c]: &[Vec4; 3]) -> bool {
     debug_assert!(a.w != 0.0 && b.w != 0.0 && c.w != 0.0, "{:?}", (a,b,c));
 
     // Compute z component of faces's normal in screen space
@@ -187,7 +210,6 @@ fn frontface(&[a, b, c]: &[Vec4; 3]) -> bool {
 
 #[cfg(test)]
 mod tests {
-    use FaceVis::*;
     use math::ApproxEq;
     use math::vec::*;
 
@@ -269,21 +291,14 @@ mod tests {
     }
 
 
-    fn assert_vis(vis: FaceVis, [a,b,c]: [Vec4; 3]) {
+    fn assert_vis(vis: Visibility, [a,b,c]: [Vec4; 3]) {
         let verts = [a+W, b+W, c+W];
         let [a,b,c] = verts;
         let masks = [
             clip_vertex(&a),
             clip_vertex(&b),
             clip_vertex(&c)];
-        assert_eq!(vis, face_visibility(&verts, &masks), "verts: {:?}", verts)
-    }
-
-    #[test]
-    fn backface_visibility_hidden() {
-        assert_vis(Backface, [X, Y, Z]);
-        assert_vis(Backface, [2. * X, X + Y, X]);
-        assert_vis(Backface, [X + Z, Y + Z, 2. * Z]);
+        assert_eq!(vis, face_visibility(&masks), "verts: {:?}", verts)
     }
 
     #[test]
