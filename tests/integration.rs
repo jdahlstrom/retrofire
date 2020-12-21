@@ -3,10 +3,10 @@ use std::fmt::Debug;
 
 use geom::mesh::*;
 use geom::solids::{unit_cube, unit_sphere};
-use math::transform::*;
-use math::vec::*;
-use render::*;
 use math::Linear;
+use math::transform::*;
+use render::*;
+use render::color::BLACK;
 
 static EXPECTED_CUBE: &str =
     "..........\
@@ -34,7 +34,7 @@ where VA: Copy + Linear<f32>, FA: Copy + Debug
 
     let stats = rdr.render(
         &mesh,
-        &|_, _| ZERO,
+        &|_, _| BLACK,
         &mut |x, y, _| buf[10 * y + x] = '#'
     );
     eprintln!("Stats: {}", stats);
@@ -52,7 +52,7 @@ where VA: Copy + Linear<f32>, FA: Copy
 
     let stats = rdr.render_scene(
         &scene,
-        &|_, _| ZERO,
+        &|_, _| BLACK,
         &mut |_, _, _| ()
     );
     eprintln!("Stats: {}", stats);

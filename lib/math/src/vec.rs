@@ -6,7 +6,7 @@ use core::ops::{Index, IndexMut};
 
 use crate::{ApproxEq, Linear};
 
-#[derive(Copy, Clone, PartialEq)]
+#[derive(Copy, Clone, Default, PartialEq)]
 pub struct Vec4 {
     pub x: f32,
     pub y: f32,
@@ -190,12 +190,6 @@ impl ApproxEq for Vec4 {
 
     fn abs_diff(self, rhs: Self) -> f32 {
         self.zip_map(rhs, f32::abs_diff).len()
-    }
-}
-
-impl Default for Vec4 {
-    fn default() -> Self {
-        ZERO
     }
 }
 
