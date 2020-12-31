@@ -10,7 +10,7 @@ use math::vec::*;
 use render::*;
 use render::color::*;
 use render::raster::Fragment;
-use render::tex::{TexCoord, uv};
+use render::tex::*;
 use Run::*;
 
 use crate::runner::*;
@@ -78,31 +78,30 @@ fn main() {
     let mut scene = Scene { objects, camera };
 
     let mut rdr = Renderer::new();
+    rdr.options.perspective_correct = true;
     rdr.set_projection(perspective(0.1, 50., w as f32 / h as f32, PI / 2.0));
     rdr.set_viewport(viewport(margin as f32, (h - margin) as f32,
                               (w - margin) as f32, margin as f32));
 
-    let texw = 8;
-    let texmask = texw-1;
-    let tex = [
-        1,  0, 0, 0, 0, 0, 1, 1,
-        1,  0, 0, 1, 1, 0, 0, 1,
-        1,  0, 0, 1, 1, 0, 0, 1,
-        1,  0, 0, 1, 1, 0, 0, 1,
-        1,  0, 0, 0, 0, 0, 1, 1,
-        1,  0, 0, 1, 1, 0, 0, 1,
-        1,  0, 0, 1, 1, 0, 0, 1,
-        1,  0, 0, 1, 1, 1, 0, 0,
-    ];
+    let tex = {
+        let (b, w) = (gray(0x33), gray(0xFF));
+        Texture::new(8, &[
+            w, b, b, b, b, b, w, w,
+            w, b, b, w, w, b, b, w,
+            w, b, b, w, w, b, b, w,
+            w, b, b, w, w, b, b, w,
+            w, b, b, b, b, b, w, w,
+            w, b, b, w, w, b, b, w,
+            w, b, b, w, w, b, b, w,
+            w, b, b, w, w, w, b, b,
+        ])
+    };
 
     let mut runner = SdlRunner::new(w as u32, h as u32).unwrap();
 
     runner.run(|frame| {
-        let shade = |Fragment::<TexCoord> { varying: tc, .. }, Color(c)| {
-            let w = texw as f32 / tc.w;
-            let u = (w * tc.u) as usize & texmask;
-            let v = (w * tc.v) as usize & texmask;
-            Color(c * tex[texw * v + u])
+        let shade = |frag: Fragment<_>, color: Color| {
+            color * tex.sample(frag.varying)
         };
         let mut plot = |x, y, c: Color| {
             let idx = 4 * (w as usize * y + x);
