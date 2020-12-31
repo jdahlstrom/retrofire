@@ -17,6 +17,7 @@ pub mod shade;
 pub mod stats;
 pub mod vary;
 pub mod color;
+pub mod tex;
 
 #[derive(Default, Clone)]
 pub struct Obj<VA, FA> {
@@ -99,7 +100,13 @@ impl Renderer {
                 self.stats.objs_out += 1;
 
                 Self::z_sort(&mut mesh);
-                self.perspective_divide(&mut mesh.verts);
+
+                for (v, a) in mesh.verts.iter_mut().zip(mesh.vertex_attrs.iter_mut()) {
+                    let w = 1.0 / v.w;
+                    *v = v.mul(w);
+                    *a = a.mul(w);
+                }
+
                 self.rasterize(mesh, shade, plot);
             }
         }
@@ -125,12 +132,6 @@ impl Renderer {
     fn projection(&self, verts: &mut [Vec4]) {
         for v in verts {
             *v = &self.projection * *v;
-        };
-    }
-
-    fn perspective_divide(&self, verts: &mut [Vec4]) {
-        for v in verts {
-            *v = *v / v.w;
         };
     }
 
