@@ -1,5 +1,3 @@
-use std::iter::FromIterator;
-
 use criterion::*;
 
 use geom::solids;

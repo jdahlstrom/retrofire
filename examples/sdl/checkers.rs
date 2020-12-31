@@ -3,26 +3,30 @@ use std::f32::consts::PI;
 use sdl2::keyboard::Scancode;
 
 use geom::mesh::Mesh;
-use geom::solids::unit_sphere;
+use geom::solids::unit_cube;
 use math::mat::Mat4;
 use math::transform::*;
 use math::vec::*;
 use render::*;
 use render::color::*;
+use render::raster::Fragment;
+use render::tex::{TexCoord, uv};
 use Run::*;
 
 use crate::runner::*;
 
 mod runner;
 
-fn checkers() -> Mesh<(), Color> {
+fn checkers() -> Mesh<TexCoord, Color> {
     let size: usize = 40;
     let isize = size as i32;
 
     let mut vs = vec![];
+    let mut texcoords = vec![];
     for j in -isize..=isize {
         for i in -isize..=isize {
             vs.push(pt(i as f32, 0.0, j as f32));
+            texcoords.push(uv(0.0, 0.0));
         }
     }
     let mut fs = vec![];
@@ -38,7 +42,9 @@ fn checkers() -> Mesh<(), Color> {
         }
     }
     Mesh::from_verts_and_faces(vs.clone(), fs)
-        .with_face_attrs(colors).validate().unwrap()
+        .with_vertex_attrs(texcoords)
+        .with_face_attrs(colors)
+        .validate().unwrap()
 }
 
 fn main() {
@@ -52,10 +58,18 @@ fn main() {
 
     for j in -10..=10 {
         for i in -10..=10 {
-            let mesh = unit_sphere(9, 9);
+            let mesh = unit_cube(); //unit_sphere(9, 9);
             let flen = mesh.faces.len();
             let mesh = mesh.with_face_attrs(
-                [RED, GREEN, BLUE].iter().copied().cycle().take(flen));
+                [0xBB6611, 0xBB6611, 0x3399FF, 0x3399FF, 0x229944, 0x229944]
+                    .iter().copied().map(Color).cycle().take(flen));
+
+            // tex coords
+            let mesh = mesh.with_vertex_attrs([
+                uv(1.0, 1.0), uv(0.0, 1.0), uv(1.0, 0.0), uv(0.0, 0.0),
+                uv(0.0, 1.0), uv(1.0, 1.0), uv(0.0, 0.0), uv(1.0, 0.0),
+            ].iter().copied());
+
             let tf = translate(4. * i as f32, 0., 4. * j as f32);
             objects.push(Obj { tf, mesh });
         }
@@ -68,10 +82,28 @@ fn main() {
     rdr.set_viewport(viewport(margin as f32, (h - margin) as f32,
                               (w - margin) as f32, margin as f32));
 
+    let texw = 8;
+    let texmask = texw-1;
+    let tex = [
+        1,  0, 0, 0, 0, 0, 1, 1,
+        1,  0, 0, 1, 1, 0, 0, 1,
+        1,  0, 0, 1, 1, 0, 0, 1,
+        1,  0, 0, 1, 1, 0, 0, 1,
+        1,  0, 0, 0, 0, 0, 1, 1,
+        1,  0, 0, 1, 1, 0, 0, 1,
+        1,  0, 0, 1, 1, 0, 0, 1,
+        1,  0, 0, 1, 1, 1, 0, 0,
+    ];
+
     let mut runner = SdlRunner::new(w as u32, h as u32).unwrap();
 
     runner.run(|frame| {
-        let shade = |_, color| color;
+        let shade = |Fragment::<TexCoord> { varying: tc, .. }, Color(c)| {
+            let w = texw as f32 / tc.w;
+            let u = (w * tc.u) as usize & texmask;
+            let v = (w * tc.v) as usize & texmask;
+            Color(c * tex[texw * v + u])
+        };
         let mut plot = |x, y, c: Color| {
             let idx = 4 * (w as usize * y + x);
             let [_, r, g, b] = c.to_argb();
