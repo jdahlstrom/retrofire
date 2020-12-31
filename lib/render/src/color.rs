@@ -1,5 +1,6 @@
 use math::Linear;
 use math::vec::Vec4;
+use std::ops::Mul;
 
 #[derive(Copy, Clone, Debug, Default, Eq, PartialEq)]
 pub struct Color(pub u32);
@@ -28,6 +29,25 @@ impl Color {
     }
 }
 
+impl Mul<Color> for Color {
+    type Output = Color;
+
+    fn mul(self, rhs: Color) -> Color {
+        let r = (self.r() as u16 * rhs.r() as u16) >> 8;
+        let g = (self.g() as u16 * rhs.g() as u16) >> 8;
+        let b = (self.b() as u16 * rhs.b() as u16) >> 8;
+        rgb(r as u8, g as u8, b as u8)
+    }
+}
+
+impl Mul<u8> for Color {
+    type Output = Color;
+
+    fn mul(self, rhs: u8) -> Color {
+        self * gray(rhs)
+    }
+}
+
 impl Linear<f32> for Color {
     fn add(self, other: Self) -> Self {
         rgb(self.r() + other.r(),
@@ -48,7 +68,6 @@ impl From<Vec4> for Color {
         rgb(c.x as u8, c.y as u8, c.z as u8)
     }
 }
-
 
 #[cfg(test)]
 mod tests {

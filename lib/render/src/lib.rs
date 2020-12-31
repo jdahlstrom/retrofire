@@ -1,5 +1,6 @@
 use std::time::Instant;
 
+use color::Color;
 use geom::bbox::BoundingBox;
 use geom::mesh::Mesh;
 use math::Linear;
@@ -9,7 +10,6 @@ pub use stats::Stats;
 
 use crate::hsr::Visibility;
 use crate::raster::*;
-use color::Color;
 
 mod hsr;
 pub mod raster;
@@ -37,6 +37,12 @@ pub struct Renderer {
     projection: Mat4,
     viewport: Mat4,
     pub stats: Stats,
+    pub options: Options,
+}
+
+#[derive(Copy, Clone, Default)]
+pub struct Options {
+    pub perspective_correct: bool,
 }
 
 impl Renderer {
@@ -101,11 +107,7 @@ impl Renderer {
 
                 Self::z_sort(&mut mesh);
 
-                for (v, a) in mesh.verts.iter_mut().zip(mesh.vertex_attrs.iter_mut()) {
-                    let w = 1.0 / v.w;
-                    *v = v.mul(w);
-                    *a = a.mul(w);
-                }
+                self.perspective_divide(&mut mesh);
 
                 self.rasterize(mesh, shade, plot);
             }
@@ -141,14 +143,16 @@ impl Renderer {
         }
     }
 
-    fn hidden_surface_removal<VA, FA>(&mut self, mut mesh: &mut Mesh<VA, FA>, bbox_vis: Visibility)
+    fn hidden_surface_removal<VA, FA>(
+        &mut self, mut mesh: &mut Mesh<VA, FA>, bbox_vis: Visibility
+    )
     where VA: Copy + Linear<f32>, FA: Copy
     {
         hsr::hidden_surface_removal(&mut mesh, bbox_vis);
     }
 
     // TODO Replace with z-buffering (or s-buffering!)
-    pub fn z_sort<VA, FA: Copy>(mesh: &mut Mesh<VA, FA>) {
+    fn z_sort<VA, FA: Copy>(mesh: &mut Mesh<VA, FA>) {
         let (faces, attrs) = {
             let Mesh { verts, faces, face_attrs, .. } = &*mesh;
 
@@ -165,6 +169,23 @@ impl Renderer {
 
         mesh.faces = faces;
         mesh.face_attrs = attrs;
+    }
+
+    fn perspective_divide<VA, FA>(&self, mesh: &mut Mesh<VA, FA>)
+    where VA: Linear<f32> + Copy
+    {
+        if self.options.perspective_correct {
+            for (v, a) in mesh.verts.iter_mut().zip(mesh.vertex_attrs.iter_mut()) {
+                let w = 1.0 / v.w;
+                *v = v.mul(w);
+                *a = a.mul(w);
+            }
+        } else {
+            for v in mesh.verts.iter_mut() {
+                let w = 1.0 / v.w;
+                *v = v.mul(w);
+            }
+        }
     }
 
     pub fn rasterize<VA, FA, Shade, Plot>(
