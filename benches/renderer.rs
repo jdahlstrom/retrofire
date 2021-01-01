@@ -8,14 +8,14 @@ const W: usize = 128;
 
 fn renderer() -> Renderer {
     let mut rdr = Renderer::new();
-    rdr.set_projection(perspective(1.0, 10.0, 1., 1.));
-    rdr.set_viewport(viewport(0.0, 0.0, W as f32, W as f32));
+    rdr.projection = perspective(1.0, 10.0, 1., 1.);
+    rdr.viewport = viewport(0.0, 0.0, W as f32, W as f32);
     rdr
 }
 
 fn torus(c: &mut Criterion) {
     let mut rdr = renderer();
-    rdr.set_transform(scale(4., 4., 4.));
+    rdr.modelview = scale(4., 4., 4.);
 
     let mesh = solids::torus(0.2, 9, 9);
 
@@ -58,7 +58,7 @@ fn scene(c: &mut Criterion) {
 
 fn gouraud_fillrate(c: &mut Criterion) {
     let mut rdr = renderer();
-    rdr.set_transform(scale(2., 2., 2.) * &translate(0.0, 0.0, 6.0));
+    rdr.modelview = scale(2., 2., 2.) * &translate(0.0, 0.0, 6.0);
     let mesh = solids::unit_cube().with_vertex_attrs([
         RED, GREEN, BLUE, RED, GREEN, BLUE, RED, GREEN
     ].iter().copied());

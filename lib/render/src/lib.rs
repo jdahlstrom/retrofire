@@ -1,23 +1,22 @@
 use std::time::Instant;
 
 use color::Color;
-use geom::bbox::BoundingBox;
 use geom::mesh::Mesh;
 use math::Linear;
 use math::mat::Mat4;
-use math::vec::*;
+use math::transform::Transform;
 pub use stats::Stats;
 
 use crate::hsr::Visibility;
 use crate::raster::*;
 
 mod hsr;
+pub mod color;
 pub mod raster;
 pub mod shade;
 pub mod stats;
-pub mod vary;
-pub mod color;
 pub mod tex;
+pub mod vary;
 
 #[derive(Default, Clone)]
 pub struct Obj<VA, FA> {
@@ -33,9 +32,9 @@ pub struct Scene<VA, FA> {
 
 #[derive(Default, Clone)]
 pub struct Renderer {
-    transform: Mat4,
-    projection: Mat4,
-    viewport: Mat4,
+    pub modelview: Mat4,
+    pub projection: Mat4,
+    pub viewport: Mat4,
     pub stats: Stats,
     pub options: Options,
 }
@@ -50,18 +49,6 @@ impl Renderer {
         Self::default()
     }
 
-    pub fn set_transform(&mut self, mat: Mat4) {
-        self.transform = mat;
-    }
-
-    pub fn set_projection(&mut self, mat: Mat4) {
-        self.projection = mat;
-    }
-
-    pub fn set_viewport(&mut self, mat: Mat4) {
-        self.viewport = mat;
-    }
-
     pub fn render_scene<VA, FA, Shade, Plot>(
         &mut self, scene: &Scene<VA, FA>, sh: &Shade, pl: &mut Plot
     ) -> Stats
@@ -72,7 +59,7 @@ impl Renderer {
         Plot: FnMut(usize, usize, Color),
     {
         for obj in &scene.objects {
-            self.set_transform(&obj.tf * &scene.camera);
+            self.modelview = &obj.tf * &scene.camera;
             self.render(&obj.mesh, sh, pl);
         }
         self.stats
@@ -92,14 +79,20 @@ impl Renderer {
         self.stats.objs_in += 1;
         self.stats.faces_in += mesh.faces.len();
 
-        let bbox_vis = self.bbox_visibility(mesh.bbox);
+        let mvp = &self.modelview * &self.projection;
+
+        let bbox_vis = {
+            let vs = &mut mesh.bbox.verts();
+            vs.transform(&mvp);
+            hsr::bbox_visibility(vs)
+        };
+
         if bbox_vis != Visibility::Hidden {
             let mut mesh = mesh.clone();
 
-            self.transform(&mut mesh.verts);
-            self.projection(&mut mesh.verts);
+            mesh.verts.transform(&mvp);
 
-            self.hidden_surface_removal(&mut mesh, bbox_vis);
+            hsr::hidden_surface_removal(&mut mesh, bbox_vis);
 
             if !mesh.faces.is_empty() {
                 self.stats.faces_out += mesh.faces.len();
@@ -115,40 +108,6 @@ impl Renderer {
 
         self.stats.time_used += Instant::now() - clock;
         self.stats
-    }
-
-    fn bbox_visibility(&self, bbox: BoundingBox) -> Visibility {
-        let vs = &mut bbox.verts();
-        self.transform(vs);
-        self.projection(vs);
-
-        hsr::bbox_visibility(vs)
-    }
-
-    fn transform(&self, verts: &mut [Vec4]) {
-        for v in verts {
-            *v = &self.transform * *v;
-        }
-    }
-
-    fn projection(&self, verts: &mut [Vec4]) {
-        for v in verts {
-            *v = &self.projection * *v;
-        };
-    }
-
-    fn viewport(&self, verts: &mut [Vec4]) {
-        for v in verts {
-            *v = &self.viewport * *v;
-        }
-    }
-
-    fn hidden_surface_removal<VA, FA>(
-        &mut self, mut mesh: &mut Mesh<VA, FA>, bbox_vis: Visibility
-    )
-    where VA: Copy + Linear<f32>, FA: Copy
-    {
-        hsr::hidden_surface_removal(&mut mesh, bbox_vis);
     }
 
     // TODO Replace with z-buffering (or s-buffering!)
@@ -201,7 +160,7 @@ impl Renderer {
     {
         let Mesh { faces, verts, vertex_attrs, face_attrs, .. } = &mut mesh;
 
-        self.viewport(verts);
+        verts.transform(&self.viewport);
 
         for (i, face) in faces.iter().enumerate() {
             let frags = face.iter().map(|&vi| Fragment {

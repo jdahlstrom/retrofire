@@ -24,9 +24,9 @@ fn render<VA, FA>(mesh: Mesh<VA, FA>) -> String
 where VA: Copy + Linear<f32>, FA: Copy + Debug
 {
     let mut rdr = Renderer::new();
-    rdr.set_transform(translate(0.0, 0.0, 4.0));
-    rdr.set_projection(perspective(1.0, 10.0, 1., 1.));
-    rdr.set_viewport(viewport(0.0, 0.0, 10.0, 10.0));
+    rdr.modelview = translate(0.0, 0.0, 4.0);
+    rdr.projection = perspective(1.0, 10.0, 1., 1.);
+    rdr.viewport = viewport(0.0, 0.0, 10.0, 10.0);
 
     let mesh = mesh.validate().expect("Invalid mesh!");
 
@@ -47,8 +47,8 @@ where VA: Copy + Linear<f32>, FA: Copy
     const W: usize = 50;
     const H: usize = 20;
     let mut rdr = Renderer::new();
-    rdr.set_projection(perspective(1.0, 100.0, 1.0, 0.5 * PI));
-    rdr.set_viewport(viewport(0.0, 0.0, W as f32, H as f32));
+    rdr.projection = perspective(1.0, 100.0, 1.0, 0.5 * PI);
+    rdr.viewport = viewport(0.0, 0.0, W as f32, H as f32);
 
     let stats = rdr.render_scene(
         &scene,

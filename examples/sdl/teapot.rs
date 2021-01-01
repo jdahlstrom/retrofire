@@ -46,9 +46,9 @@ fn main() {
     let mut trans = dir(0.0, 0.0, 40.0);
 
     let mut rdr = Renderer::new();
-    rdr.set_projection(perspective(1., 60., w as f32 / h as f32, PI / 3.0));
-    rdr.set_viewport(viewport(margin as f32, (h - margin) as f32,
-                              (w - margin) as f32, margin as f32));
+    rdr.projection = perspective(1., 60., w as f32 / h as f32, PI / 3.0);
+    rdr.viewport = viewport(margin as f32, (h - margin) as f32,
+                            (w - margin) as f32, margin as f32);
 
     let mut runner = SdlRunner::new(w as u32, h as u32).unwrap();
 
