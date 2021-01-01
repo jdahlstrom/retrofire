@@ -79,9 +79,9 @@ fn main() {
 
     let mut rdr = Renderer::new();
     rdr.options.perspective_correct = true;
-    rdr.set_projection(perspective(0.1, 50., w as f32 / h as f32, PI / 2.0));
-    rdr.set_viewport(viewport(margin as f32, (h - margin) as f32,
-                              (w - margin) as f32, margin as f32));
+    rdr.projection = perspective(0.1, 50., w as f32 / h as f32, PI / 2.0);
+    rdr.viewport = viewport(margin as f32, (h - margin) as f32,
+                            (w - margin) as f32, margin as f32);
 
     let tex = {
         let (b, w) = (gray(0x33), gray(0xFF));

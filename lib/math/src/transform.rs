@@ -1,4 +1,20 @@
-use crate::mat::*;
+use crate::{mat::*, vec::Vec4};
+
+pub trait Transform {
+    fn transform(&mut self, m: &Mat4);
+}
+
+impl Transform for Vec4 {
+    fn transform(&mut self, m: &Mat4) {
+        *self = m * *self;
+    }
+}
+
+impl<T: Transform> Transform for [T] {
+    fn transform(&mut self, m: &Mat4) {
+        for x in self { x.transform(m); }
+    }
+}
 
 pub fn scale(x: f32, y: f32, z: f32) -> Mat4 {
     let mut m = Mat4::identity();
