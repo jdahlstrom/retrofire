@@ -52,7 +52,7 @@ fn main() {
 
     let mut runner = SdlRunner::new(w as u32, h as u32).unwrap();
 
-    runner.run(|frame| {
+    runner.run(|mut frame| {
         let tf = &model_tf
             * &rotate_x(theta * -0.57)
             * &rotate_y(theta)
@@ -71,13 +71,7 @@ fn main() {
             camera: Mat4::identity(),
         };
 
-        rdr.render_scene(&scene, &shade, &mut |x, y, color| {
-            let idx = 4 * (w as usize * y + x);
-            let [_, r, g, b] = color.to_argb();
-            frame.buf[idx + 0] = b;
-            frame.buf[idx + 1] = g;
-            frame.buf[idx + 2] = r;
-        });
+        rdr.render_scene(&scene, &shade, &mut frame.buf);
 
         for scancode in frame.pressed_keys {
             use Scancode::*;

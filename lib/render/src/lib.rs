@@ -18,6 +18,16 @@ pub mod stats;
 pub mod tex;
 pub mod vary;
 
+pub trait Plot {
+    fn plot(&mut self, x: usize, y: usize, c: Color);
+}
+
+impl<F: FnMut(usize, usize, Color)> Plot for F {
+    fn plot(&mut self, x: usize, y: usize, c: Color) {
+        self(x, y, c)
+    }
+}
+
 #[derive(Default, Clone)]
 pub struct Obj<VA, FA> {
     pub tf: Mat4,
@@ -49,30 +59,34 @@ impl Renderer {
         Self::default()
     }
 
-    pub fn render_scene<VA, FA, Shade, Plot>(
-        &mut self, scene: &Scene<VA, FA>, sh: &Shade, pl: &mut Plot
+    pub fn render_scene<VA, FA, Shade>(
+        &mut self,
+        scene: &Scene<VA, FA>,
+        shade: &Shade,
+        plot: &mut impl Plot
     ) -> Stats
     where
         VA: Copy + Linear<f32>,
         FA: Copy,
         Shade: Fn(Fragment<VA>, FA) -> Color,
-        Plot: FnMut(usize, usize, Color),
     {
         for obj in &scene.objects {
             self.modelview = &obj.tf * &scene.camera;
-            self.render(&obj.mesh, sh, pl);
+            self.render(&obj.mesh, shade, plot);
         }
         self.stats
     }
 
-    pub fn render<VA, FA, Shade, Plot>(
-        &mut self, mesh: &Mesh<VA, FA>, shade: &Shade, plot: &mut Plot
+    pub fn render<VA, FA, Shade>(
+        &mut self,
+        mesh: &Mesh<VA, FA>,
+        shade: &Shade,
+        plot: &mut impl Plot
     ) -> Stats
     where
         VA: Copy + Linear<f32>,
         FA: Copy,
         Shade: Fn(Fragment<VA>, FA) -> Color,
-        Plot: FnMut(usize, usize, Color),
     {
         let clock = Instant::now();
 
@@ -147,16 +161,15 @@ impl Renderer {
         }
     }
 
-    pub fn rasterize<VA, FA, Shade, Plot>(
+    pub fn rasterize<VA, FA, Shade>(
         &mut self,
         mut mesh: Mesh<VA, FA>,
         shade: &Shade,
-        plot: &mut Plot
+        plot: &mut impl Plot
     ) where
         VA: Copy + Linear<f32>,
         FA: Copy,
         Shade: Fn(Fragment<VA>, FA) -> Color,
-        Plot: FnMut(usize, usize, Color),
     {
         let Mesh { faces, verts, vertex_attrs, face_attrs, .. } = &mut mesh;
 
@@ -170,8 +183,8 @@ impl Renderer {
 
             let fa = face_attrs[i];
 
-            tri_fill(frags[0], frags[1], frags[2], |frag| {
-                plot(
+            tri_fill(frags[0], frags[1], frags[2], |frag: Fragment<_>| {
+                plot.plot(
                     frag.coord.x as usize,
                     frag.coord.y as usize,
                     shade(frag, fa)

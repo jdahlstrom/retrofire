@@ -50,9 +50,9 @@ impl Mul<u8> for Color {
 
 impl Linear<f32> for Color {
     fn add(self, other: Self) -> Self {
-        rgb(self.r() + other.r(),
-            self.g() + other.g(),
-            self.b() + other.b())
+        rgb(self.r().saturating_add(other.r()),
+            self.g().saturating_add(other.g()),
+            self.b().saturating_add(other.b()))
     }
 
     fn mul(self, s: f32) -> Self {

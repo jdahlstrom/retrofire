@@ -37,13 +37,16 @@ fn main() {
         surface.fill_rect(Rect::new(0, 0, width, height), Color::BLACK).unwrap();
 
         let buf = surface.without_lock_mut().unwrap();
-        gouraud_fill(frag(xs[0].0, ys[0].0, a), frag(xs[1].0, ys[1].0, a + 0.5), frag(xs[2].0, ys[2].0, a + 1.0),
-                  |Fragment { coord, varying }| {
-                      let pos = 4 * (coord.y as usize * width as usize + coord.x as usize);
-                      buf[pos + 0] = (127. + 128. * varying.cos()) as u8;
-                      buf[pos + 1] = (127. + 128. * (varying * 0.7).cos()) as u8;
-                      buf[pos + 2] = (127. + 128. * (varying * 1.6).sin()) as u8;
-                  });
+        gouraud_fill(
+            frag(xs[0].0, ys[0].0, a),
+            frag(xs[1].0, ys[1].0, a + 0.5),
+            frag(xs[2].0, ys[2].0, a + 1.0),
+            |Fragment { coord, varying }| {
+                let pos = 4 * (coord.y as usize * width as usize + coord.x as usize);
+                buf[pos + 0] = (127. + 128. * varying.cos()) as u8;
+                buf[pos + 1] = (127. + 128. * (varying * 0.7).cos()) as u8;
+                buf[pos + 2] = (127. + 128. * (varying * 1.6).sin()) as u8;
+            });
 
         for (x, dx) in &mut xs {
             if *x < 1.0 || *x as u32 >= width { *dx = -*dx }

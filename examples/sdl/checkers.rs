@@ -99,19 +99,12 @@ fn main() {
 
     let mut runner = SdlRunner::new(w as u32, h as u32).unwrap();
 
-    runner.run(|frame| {
+    runner.run(|mut frame| {
         let shade = |frag: Fragment<_>, color: Color| {
             color * tex.sample(frag.varying)
         };
-        let mut plot = |x, y, c: Color| {
-            let idx = 4 * (w as usize * y + x);
-            let [_, r, g, b] = c.to_argb();
-            frame.buf[idx + 0] = b;
-            frame.buf[idx + 1] = g;
-            frame.buf[idx + 2] = r;
-        };
 
-        rdr.render_scene(&scene, &shade, &mut plot);
+        rdr.render_scene(&scene, &shade, &mut frame.buf);
 
         for scancode in frame.pressed_keys {
             let t = -8. * frame.delta_t;

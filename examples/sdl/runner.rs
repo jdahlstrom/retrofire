@@ -1,19 +1,13 @@
-#![allow(dead_code)]
-#![allow(unused)]
-
-use core::mem;
-use std::mem::replace;
 use std::time::Instant;
 
 use sdl2::{EventPump, Sdl};
-use sdl2::event::{Event, EventPollIterator};
-use sdl2::keyboard::{KeyboardState, Keycode, PressedScancodeIterator, Scancode};
-use sdl2::pixels::Color;
+use sdl2::event::Event;
+use sdl2::keyboard::{Keycode, Scancode};
+use sdl2::pixels::Color as SdlColor;
 use sdl2::rect::Rect;
 use sdl2::video::{Window, WindowSurfaceRef};
 
-use math::vec::Vec4;
-use render::Stats;
+use render::{color::Color, Plot, Stats};
 use Run::*;
 
 pub struct SdlRunner {
@@ -25,10 +19,27 @@ pub struct SdlRunner {
 }
 
 pub struct Frame<'a> {
+    pub buf: Buf<'a>,
     pub delta_t: f32,
-    pub buf: &'a mut [u8],
     pub events: Vec<Event>,
     pub pressed_keys: Vec<Scancode>,
+}
+
+pub struct Buf<'a> {
+    width: usize,
+    #[allow(unused)]
+    height: usize,
+    data: &'a mut[u8]
+}
+
+impl<'a> Plot for Buf<'a> {
+    fn plot(&mut self, x: usize, y: usize, c: Color) {
+        let idx = 4 * (self.width * y + x);
+        let [_, r, g, b] = c.to_argb();
+        self.data[idx + 0] = b;
+        self.data[idx + 1] = g;
+        self.data[idx + 2] = r;
+    }
 }
 
 #[derive(Eq, PartialEq)]
@@ -44,10 +55,6 @@ impl SdlRunner {
         let event_pump = sdl.event_pump()?;
 
         Ok(SdlRunner { sdl, window, event_pump, start: Instant::now() })
-    }
-
-    pub fn surface(&self) -> Result<WindowSurfaceRef, String> {
-        self.window.surface(&self.event_pump)
     }
 
     pub fn run<F>(&mut self, mut frame_fn: F) -> Result<(), String>
@@ -66,17 +73,19 @@ impl SdlRunner {
 
             let mut surf = self.surface()?;
             let rect = Rect::new(0, 0, surf.width(), surf.height());
-            surf.fill_rect(rect, Color::GREY)?;
+            surf.fill_rect(rect, SdlColor::GREY)?;
 
             let now = Instant::now();
-            let delta_t = now - clock;
+            let delta_t = (now - clock).as_secs_f32();
             clock = now;
 
             let frame = Frame {
-                delta_t: delta_t.as_secs_f32(),
-                buf: surf.without_lock_mut().unwrap(),
-                events,
-                pressed_keys,
+                buf: Buf {
+                    width: surf.width() as usize,
+                    height: surf.height() as usize,
+                    data: surf.without_lock_mut().unwrap(),
+                },
+                delta_t, events, pressed_keys,
             };
 
             let res = frame_fn(frame)?;
@@ -88,6 +97,7 @@ impl SdlRunner {
         }
     }
 
+    #[allow(unused)]
     pub fn pause(&mut self) {
         self.event_pump.wait_iter().find(Self::is_quit);
     }
@@ -105,6 +115,10 @@ impl SdlRunner {
         println!(" Avg vis faces │ {}%", 100 * faces_out / faces_in.max(1));
         println!(" Elapsed time  │ {:.2}s", elapsed);
         println!(" Average fps   │ {:.2}\n", frames as f32 / elapsed);
+    }
+
+    fn surface(&self) -> Result<WindowSurfaceRef, String> {
+        self.window.surface(&self.event_pump)
     }
 
     fn is_quit(e: &Event) -> bool {
