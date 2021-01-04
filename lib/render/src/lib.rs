@@ -98,7 +98,7 @@ impl Renderer {
         let bbox_vis = {
             let vs = &mut mesh.bbox.verts();
             vs.transform(&mvp);
-            hsr::bbox_visibility(vs)
+            hsr::vertex_visibility(vs.iter())
         };
 
         if bbox_vis != Visibility::Hidden {
