@@ -1,15 +1,17 @@
 use criterion::*;
 
 use geom::solids;
+use math::Angle::Rad;
 use math::transform::*;
-use render::{color::*, Obj, Renderer, Scene, Raster};
+use render::{Obj, Raster, Renderer, Scene};
+use render::color::*;
 use render::raster::Fragment;
 
 const W: usize = 128;
 
 fn renderer() -> Renderer {
     let mut rdr = Renderer::new();
-    rdr.projection = perspective(1.0, 10.0, 1., 1.);
+    rdr.projection = perspective(1.0, 10.0, 1.0, Rad(1.0));
     rdr.viewport = viewport(0.0, 0.0, W as f32, W as f32);
     rdr
 }
@@ -38,7 +40,7 @@ fn scene(c: &mut Criterion) {
     let mut rdr = renderer();
 
     let mut objects = vec![];
-    let camera = translate(0., 4., 0.) * &rotate_x(0.5);
+    let camera = translate(0., 4., 0.) * &rotate_x(Rad(0.5));
     for j in -4..=4 {
         for i in -4..=4 {
             objects.push(Obj {

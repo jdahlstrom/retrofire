@@ -1,4 +1,3 @@
-use std::f32::consts::PI;
 use std::fmt::Debug;
 
 use geom::mesh::*;
@@ -7,6 +6,7 @@ use math::Linear;
 use math::transform::*;
 use render::*;
 use render::color::BLACK;
+use math::Angle::{Rad, Deg};
 
 static EXPECTED_CUBE: &str =
     "..........\
@@ -25,7 +25,7 @@ where VA: Copy + Linear<f32>, FA: Copy + Debug
 {
     let mut rdr = Renderer::new();
     rdr.modelview = translate(0.0, 0.0, 4.0);
-    rdr.projection = perspective(1.0, 10.0, 1., 1.);
+    rdr.projection = perspective(1.0, 10.0, 1., Rad(1.0));
     rdr.viewport = viewport(0.0, 0.0, 10.0, 10.0);
 
     let mesh = mesh.validate().expect("Invalid mesh!");
@@ -50,7 +50,7 @@ where VA: Copy + Linear<f32>, FA: Copy
     const W: usize = 50;
     const H: usize = 20;
     let mut rdr = Renderer::new();
-    rdr.projection = perspective(1.0, 100.0, 1.0, 0.5 * PI);
+    rdr.projection = perspective(1.0, 100.0, 1.0, Deg(90.0));
     rdr.viewport = viewport(0.0, 0.0, W as f32, H as f32);
 
     let stats = rdr.render_scene(
@@ -82,7 +82,7 @@ fn render_cube_with_vector_attrs() {
 #[test]
 fn render_sphere_field() {
     let mut objects = vec![];
-    let camera = translate(0., 4., 0.) * &rotate_x(0.5);
+    let camera = translate(0., 4., 0.) * &rotate_x(Rad(0.5));
     for j in -10..=10 {
         for i in -10..=10 {
             objects.push(Obj {

@@ -5,6 +5,7 @@ use geom::solids::*;
 use math::transform::*;
 use math::vec::Vec4;
 use render::raster::gouraud::*;
+use math::Angle::Rad;
 
 fn frag(v: Vec4) -> Fragment {
     Fragment { coord: v, varying: 127. * (v.x * 1.).sin() * (v.y * 1.).cos() + 128. }
@@ -29,7 +30,7 @@ fn main() {
     nc::curs_set(0);
     win.nodelay(true);
 
-    let mut theta = 0.0;
+    let mut theta = Rad(0.0);
     loop {
         win.mvprintw(0, 0, "Q or ^C to quit");
 
@@ -40,7 +41,7 @@ fn main() {
 
         let tf = scale(h / 4.0, h / 4.0, h / 4.0)
             * &rotate_x(theta)
-            * &rotate_z(theta * 0.37)
+            * &rotate_z(0.37 * theta)
             * &translate(w / 2.0, h / 2.0, 0.0);
 
         tf_mesh.verts.iter_mut().for_each(|v| *v = &tf * *v);
@@ -60,7 +61,7 @@ fn main() {
                          });
         }
 
-        theta += 0.01;
+        theta = theta + Rad(0.01);
 
         if let Some(Character('q')) = win.getch() {
             break;

@@ -1,5 +1,3 @@
-use std::f32::consts::PI;
-
 use sdl2::keyboard::Scancode;
 
 use geom::solids::teapot;
@@ -11,6 +9,7 @@ use render::color::Color;
 use render::raster::*;
 use render::shade::*;
 use runner::*;
+use math::Angle::{Rad, Deg};
 
 mod runner;
 
@@ -27,7 +26,7 @@ fn main() {
 
     let mesh = mesh.with_vertex_attrs(vattrs);
 
-    let model_tf = rotate_x(-PI / 2.) * &translate(0., -5., 0.);
+    let model_tf = rotate_x(Deg(-90.0)) * &translate(0., -5., 0.);
 
     fn shade(frag: Fragment<(Vec4, Vec4)>, _face_n: Vec4) -> Color {
         let (coord, normal) = frag.varying;
@@ -41,12 +40,12 @@ fn main() {
         expose_rgb(ambient + diffuse + specular, 3.).into()
     }
 
-    let mut theta = 0.;
+    let mut theta = Rad(0.);
     let mut view_dir = Mat4::identity();
     let mut trans = dir(0.0, 0.0, 40.0);
 
     let mut rdr = Renderer::new();
-    rdr.projection = perspective(1., 60., w as f32 / h as f32, PI / 3.0);
+    rdr.projection = perspective(1., 60., w as f32 / h as f32, Deg(60.0));
     rdr.viewport = viewport(margin as f32, (h - margin) as f32,
                             (w - margin) as f32, margin as f32);
 
@@ -55,7 +54,7 @@ fn main() {
     runner.run(|Frame { mut buf, zbuf, pressed_keys, delta_t, .. }| {
 
         let tf = &model_tf
-            * &rotate_x(theta * -0.57)
+            * &rotate_x(-0.57 * theta)
             * &rotate_y(theta)
             * &translate(trans.x, trans.y, trans.z)
             * &view_dir;
@@ -80,19 +79,20 @@ fn main() {
 
         for scancode in pressed_keys {
             use Scancode::*;
-            let dt = delta_t;
+            let t = 15. * delta_t;
+            let r = Rad(delta_t);
             match scancode {
-                W => trans.z += 15. * dt,
-                S => trans.z -= 15. * dt,
-                D => trans.x += 15. * dt,
-                A => trans.x -= 15. * dt,
-                Left => view_dir *= &rotate_y(dt),
-                Right => view_dir *= &rotate_y(dt),
+                W => trans.z += t,
+                S => trans.z -= t,
+                D => trans.x += t,
+                A => trans.x -= t,
+                Left => view_dir *= &rotate_y(r),
+                Right => view_dir *= &rotate_y(-r),
                 _ => {},
             }
         }
 
-        theta += delta_t;
+        theta = theta + Rad(delta_t);
         rdr.stats.frames += 1;
 
         Ok(Run::Continue)

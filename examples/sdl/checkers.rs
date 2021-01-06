@@ -1,5 +1,3 @@
-use std::f32::consts::PI;
-
 use sdl2::keyboard::Scancode;
 
 use geom::mesh::Mesh;
@@ -14,6 +12,7 @@ use render::tex::*;
 use Run::*;
 
 use crate::runner::*;
+use math::Angle::{Deg, Rad};
 
 mod runner;
 
@@ -79,7 +78,7 @@ fn main() {
 
     let mut rdr = Renderer::new();
     rdr.options.perspective_correct = true;
-    rdr.projection = perspective(0.1, 50., w as f32 / h as f32, PI / 2.0);
+    rdr.projection = perspective(0.1, 50., w as f32 / h as f32, Deg(90.0));
     rdr.viewport = viewport(margin as f32, (h - margin) as f32,
                             (w - margin) as f32, margin as f32);
 
@@ -109,9 +108,9 @@ fn main() {
 
         for scancode in pressed_keys {
             let t = -8. * delta_t;
-            let r = -2. * delta_t;
-            use Scancode::*;
+            let r = -2. * Rad(delta_t);
             let cam = &mut scene.camera;
+            use Scancode::*;
             match scancode {
                 W => *cam *= &translate(0.0, 0.0, t),
                 A => *cam *= &translate(-t, 0.0, 0.0),
