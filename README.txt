@@ -32,7 +32,8 @@ lib
 |
 '== geom ............................. 3D geometry representation and utilities
 |   |-- mesh ....................... Triangle mesh with vertex and face attribs
-|   '-- solids .................. Mesh representations of various solid objects
+|   |-- solids .................. Mesh representations of various solid objects
+|   '-- bbox ................................. Axis-aligned bounding box type
 |
 '== math ........................... Utilities such as lerp and approx equality
 |   |-- vec .................... 4D vectors and related functions and operators
@@ -40,6 +41,7 @@ lib
 |   '-- transform .............. Functions for creating transformation matrices
 |
 '== render ............................... Self-contained 3D rendering pipeline
+    |-- color ......... RGBA color type
     |-- hsr ......................... Backface and frustum culling and clipping
     |-- raster ............................ Scanline rasterization of triangles
     |-- shade ........................ Shading algorithms and related functions

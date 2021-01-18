@@ -1,15 +1,15 @@
 use sdl2::keyboard::Scancode;
 
 use geom::solids::teapot;
+use math::Angle::{Rad, Deg};
 use math::mat::Mat4;
 use math::transform::*;
 use math::vec::*;
 use render::*;
-use render::color::Color;
+use util::color::Color;
 use render::raster::*;
 use render::shade::*;
 use runner::*;
-use math::Angle::{Rad, Deg};
 
 mod runner;
 
@@ -86,8 +86,10 @@ fn main() {
                 S => trans.z -= t,
                 D => trans.x += t,
                 A => trans.x -= t,
+
                 Left => view_dir *= &rotate_y(r),
                 Right => view_dir *= &rotate_y(-r),
+
                 _ => {},
             }
         }

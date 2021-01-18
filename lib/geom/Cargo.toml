@@ -4,8 +4,9 @@ version = "0.1.0"
 authors = ["Johannes Dahlström <johannes.dahlstrom@gmail.com>"]
 edition = "2018"
 
-[dependencies.math]
-path="../math"
+[dependencies]
+math = { path="../math" }
+util = { path="../util" }
 
 [features]
 teapot = []
