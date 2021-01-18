@@ -4,8 +4,7 @@ version = "0.1.0"
 authors = ["Johannes Dahlström <johannes.dahlstrom@gmail.com>"]
 edition = "2018"
 
-[dependencies.math]
-path="../math"
-
-[dependencies.geom]
-path="../geom"
+[dependencies]
+math = { path="../math" }
+geom = { path="../geom" }
+util = { path = "../util" }

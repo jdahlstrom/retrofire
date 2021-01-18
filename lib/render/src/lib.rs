@@ -1,18 +1,17 @@
-use std::ops::DerefMut;
 use std::time::Instant;
 
-use color::Color;
-use geom::mesh::{Mesh, Vertex, Face};
+use geom::mesh::{Face, Mesh, Vertex};
 use math::Linear;
 use math::mat::Mat4;
 use math::transform::Transform;
 pub use stats::Stats;
+use util::Buffer;
+use util::color::Color;
 
 use crate::hsr::Visibility;
 use crate::raster::*;
 
 mod hsr;
-pub mod color;
 pub mod raster;
 pub mod shade;
 pub mod stats;
@@ -67,48 +66,13 @@ pub struct Scene<VA, FA> {
     pub camera: Mat4,
 }
 
-#[derive(Clone)]
-pub struct Buffer<T, B: DerefMut<Target=[T]> = Vec<T>> {
-    pub width: usize,
-    pub height: usize,
-    pub data: B,
-}
-impl<B: DerefMut<Target=[u8]>> Buffer<u8, B> {
-    pub fn plot(&mut self, x: usize, y: usize, c: Color) {
-        let idx = 4 * (self.width * y + x);
-        let [_, r, g, b] = c.to_argb();
-        self.data[idx + 0] = b;
-        self.data[idx + 1] = g;
-        self.data[idx + 2] = r;
-    }
-}
-impl<T> Buffer<T, Vec<T>> {
-    pub fn new(width: usize, height: usize, init: T) -> Self
-    where T: Clone {
-        Self {
-            width, height,
-            data: vec![init; width * height],
-        }
-    }
-}
-impl<'a, T> Buffer<T, &'a mut [T]> {
-    pub fn borrow(width: usize, data: &'a mut [T]) -> Self {
-        let height = data.len() / width;
-        assert_eq!(data.len(), width * height);
-        Self { width, height, data }
-    }
-}
-
 pub struct DepthBuf {
     buf: Buffer<f32>,
 }
 impl DepthBuf {
     pub fn new(width: usize, height: usize) -> Self {
         Self {
-            buf: Buffer {
-                width, height,
-                data: vec![f32::INFINITY; width * height],
-            }
+            buf: Buffer::new(width, height, f32::INFINITY),
         }
     }
 

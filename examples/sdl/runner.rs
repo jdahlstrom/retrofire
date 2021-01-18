@@ -7,8 +7,11 @@ use sdl2::pixels::Color as SdlColor;
 use sdl2::rect::Rect;
 use sdl2::video::Window;
 
-use render::{Buffer, DepthBuf, Stats};
+use render::{DepthBuf, Stats};
 use Run::*;
+use util::Buffer;
+use util::color::{Color, rgb};
+use util::io::save_ppm;
 
 pub struct SdlRunner {
     #[allow(unused)]
@@ -20,11 +23,41 @@ pub struct SdlRunner {
 }
 
 pub struct Frame<'a> {
-    pub buf: Buffer<u8, &'a mut [u8]>,
+    pub buf: ColorBuf<'a>,
     pub zbuf: &'a mut DepthBuf,
     pub delta_t: f32,
     pub events: Vec<Event>,
     pub pressed_keys: Vec<Scancode>,
+}
+
+impl<'a> Frame<'a> {
+    pub fn screenshot(&self, filename: &str) -> Result<(), String> {
+        let buf = self.buf.buffer();
+        let data: Vec<_> = buf.data.chunks(4)
+            .map(|bgra| rgb(bgra[2], bgra[1], bgra[0]))
+            .collect();
+        save_ppm(filename, &Buffer {
+            width: buf.width,
+            height: buf.height / 4,
+            data
+        }).map_err(|e| e.to_string())
+    }
+}
+
+pub struct ColorBuf<'a>(Buffer<u8, &'a mut [u8]>);
+
+impl<'a> ColorBuf<'a> {
+    pub fn plot(&mut self, x: usize, y: usize, c: Color) {
+        let buf = &mut self.0;
+        let idx = 4 * (buf.width * y + x);
+        let [_, r, g, b] = c.to_argb();
+        buf.data[idx + 0] = b;
+        buf.data[idx + 1] = g;
+        buf.data[idx + 2] = r;
+    }
+    pub fn buffer(&self) -> &Buffer<u8, &'a mut [u8]> {
+        &self.0
+    }
 }
 
 #[derive(Eq, PartialEq)]
@@ -74,7 +107,8 @@ impl SdlRunner {
 
             let w = surf.width() as usize;
             let frame = Frame {
-                buf: Buffer::borrow(w, surf.without_lock_mut().unwrap()),
+                buf: ColorBuf(Buffer::borrow(
+                    w, surf.without_lock_mut().unwrap())),
                 zbuf,
                 delta_t,
                 events,
