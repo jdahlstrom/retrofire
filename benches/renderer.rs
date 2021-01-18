@@ -2,7 +2,8 @@ use criterion::*;
 
 use geom::solids;
 use math::transform::*;
-use render::{color::*, Obj, Renderer, Scene};
+use render::{color::*, Obj, Renderer, Scene, Raster};
+use render::raster::Fragment;
 
 const W: usize = 128;
 
@@ -23,8 +24,11 @@ fn torus(c: &mut Criterion) {
     c.bench_function("torus", |b| {
         b.iter(|| rdr.render(
             &mesh,
-            &|_, _| BLACK,
-            &mut |x, y, _| buf[W * y + x] = '#'
+            &mut Raster {
+                shade: |_, _| BLACK,
+                test: |_| true,
+                output: |x, y, _| buf[W * y + x] = '#',
+            }
         ))
     });
     eprintln!("Stats/s: {}", rdr.stats.avg_per_sec());
@@ -49,8 +53,11 @@ fn scene(c: &mut Criterion) {
     c.bench_function("scene", |b| {
         b.iter(|| rdr.render_scene(
             &scene,
-            &|_, _| BLACK,
-            &mut |x, y, _| buf[W * y + x] = '#'
+            &mut Raster {
+                shade: |_, _| BLACK,
+                test: |_| true,
+                output: |x, y, _| buf[W * y + x] = '#'
+            }
         ))
     });
     eprintln!("Stats/s: {}", rdr.stats.avg_per_sec());
@@ -67,8 +74,11 @@ fn gouraud_fillrate(c: &mut Criterion) {
     c.bench_function("gouraud", |b| {
         b.iter(|| rdr.render(
             &mesh,
-            &|frag, _| frag.varying,
-            &mut |x, y, col| buf[W * y + x] = col
+            &mut Raster {
+                shade: |frag: Fragment<_>, _| frag.varying,
+                test: |_| true,
+                output: |x, y, col| buf[W * y + x] = col
+            }
         ))
     });
     eprintln!("Stats/frame: {}", rdr.stats.avg_per_frame());

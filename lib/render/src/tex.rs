@@ -1,5 +1,6 @@
 use math::Linear;
 use crate::color::Color;
+use crate::Buffer;
 
 #[derive(Copy, Clone, Debug)]
 pub struct TexCoord {
@@ -31,17 +32,14 @@ impl Linear<f32> for TexCoord {
     }
 }
 
-#[derive(Debug, Clone)]
+#[derive(Clone)]
 pub struct Texture {
-    width: usize,
-    height: usize,
-    fwidth: f32,
-    fheight: f32,
-    data: Vec<Color>,
+    width: f32,
+    height: f32,
+    buf: Buffer<Color>,
 }
 
 impl Texture {
-
     pub fn new(width: usize, data: &[Color]) -> Texture {
         assert!(width.is_power_of_two());
         let height = data.len() / width;
@@ -49,10 +47,12 @@ impl Texture {
         assert_eq!(height * width, data.len());
 
         Texture {
-            width, height,
-            fwidth: width as f32,
-            fheight: height as f32,
-            data: data.to_vec(),
+            width: width as f32,
+            height: height as f32,
+            buf: Buffer {
+                width, height,
+                data: data.to_vec(),
+            }
         }
     }
 
@@ -61,18 +61,18 @@ impl Texture {
         assert!(height.is_power_of_two());
 
         Texture {
-            width, height,
-            fwidth: width as f32,
-            fheight: height as f32,
-            data: vec![color; width * height],
+            width: width as f32,
+            height: height as f32,
+            buf:  Buffer::new(width, height, color),
         }
     }
 
     pub fn sample(&self, TexCoord { u, v, w }: TexCoord) -> Color {
+        let buf = &self.buf;
         let w = 1.0 / w;
-        let u = (self.fwidth * u * w) as usize & (self.width - 1);
-        let v = (self.fheight * v * w) as usize & (self.height - 1);
+        let u = (self.width * u * w) as usize & (buf.width - 1);
+        let v = (self.height * v * w) as usize & (buf.height - 1);
 
-        self.data[self.width * v + u]
+        buf.data[buf.width * v + u]
     }
 }
