@@ -2,8 +2,6 @@ use std::f32::consts::{PI, TAU};
 use std::fmt;
 use std::ops::{Add, Mul, Neg};
 
-use Angle::*;
-
 pub mod mat;
 pub mod vec;
 pub mod transform;
@@ -56,7 +54,6 @@ impl Linear<f32> for f32 {
     fn add(self, other: Self) -> Self {
         self + other
     }
-
     fn mul(self, s: f32) -> Self {
         self * s
     }
@@ -74,8 +71,8 @@ impl<T> Linear<T> for () {
 impl<S, T, U> Linear<S> for (T, U)
 where S: Copy,
       T: Linear<S>,
-      U: Linear<S> {
-
+      U: Linear<S>
+{
     #[inline(always)]
     fn add(self, other: Self) -> Self {
         (self.0.add(other.0), self.1.add(other.1))
@@ -96,6 +93,7 @@ pub enum Angle {
     /// Multiples of full angle, ie. 2π radians
     Tau(f32),
 }
+use Angle::*;
 
 impl Angle {
     pub fn as_deg(self) -> f32 {

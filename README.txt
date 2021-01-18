@@ -26,25 +26,31 @@ targetting ncurses and SDL 2.  A future goal is to add an HTML5 / WASM example.
 
 /////////////////////////////// M O D U L E S /////////////////////////////////
 
-The module tree of retrofire and a summary of module contents:
+retrofire is composed of the following submodules:
 
 lib
 |
 '== geom ............................. 3D geometry representation and utilities
 |   |-- mesh ....................... Triangle mesh with vertex and face attribs
-|   '-- solids .................. Mesh representations of various solid objects
+|   |-- solids .................. Mesh representations of various solid objects
+|   '-- bbox ................................... Axis-aligned bounding box type
 |
 '== math ........................... Utilities such as lerp and approx equality
+|   |-- random .............. Pseudo-random number generation and distributions
 |   |-- vec .................... 4D vectors and related functions and operators
 |   |-- mat .................. 4x4 matrices and related functions and operators
 |   '-- transform .............. Functions for creating transformation matrices
 |
 '== render ............................... Self-contained 3D rendering pipeline
-    |-- hsr ......................... Backface and frustum culling and clipping
-    |-- raster ............................ Scanline rasterization of triangles
-    |-- shade ........................ Shading algorithms and related functions
-    |-- stats ....................... Collecting and printing render statistics
-    '-- vary ............................... Interpolation of vertex attributes
+|   |-- hsr ......................... Backface and frustum culling and clipping
+|   |-- raster ............................ Scanline rasterization of triangles
+|   |-- shade ........................ Shading algorithms and related functions
+|   |-- stats ....................... Collecting and printing render statistics
+|   '-- vary ............................... Interpolation of vertex attributes
+|
+'== util ................................... Memory buffers and other utilities
+    |-- color ................................ An RGBA color type and utilities
+    '-- io .........................................Image file input and output
 
 examples
 |
@@ -54,6 +60,8 @@ examples
 |
 '== sdl ............................... Using SDL 2 to render into a GUI window
     '-- triangle .................... A Gouraud shaded triangle bouncing around
+    '-- teapot ....................... A classic Utah teapot with Phong shading
+|   '-- checkers ........................ A checkered plane and textured crates
 
 
 //////////////////  R U N N I N G  T H E  E X A M P L E S  ////////////////////
@@ -80,6 +88,10 @@ A color-shifting, Gouraud-shaded triangle bouncing around the window.
 
 A  Phong  shaded, exposure-simulated  rendering  of  the  famous  Utah  teapot.
 WASD to move the teapot; left and right arrow keys to rotate the camera.
+
+  $ cargo run --release --features=sdl --example=checkers
+
+Textured crates lying on a checkered floor. Arrow keys and WASD to move around.
 
 
 /////////////////////////////// L I C E N S E /////////////////////////////////

@@ -4,8 +4,8 @@ use geom::solids;
 use math::Angle::Rad;
 use math::transform::*;
 use render::{Obj, Raster, Renderer, Scene};
-use render::color::*;
 use render::raster::Fragment;
+use util::color::*;
 
 const W: usize = 128;
 
@@ -22,14 +22,19 @@ fn torus(c: &mut Criterion) {
 
     let mesh = solids::torus(0.2, 9, 9);
 
-    let mut buf = ['.'; W * W];
+    let mut buf = vec![0u8; 3 * W * W];
     c.bench_function("torus", |b| {
         b.iter(|| rdr.render(
             &mesh,
             &mut Raster {
                 shade: |_, _| BLACK,
                 test: |_| true,
-                output: |(x, y), _| buf[W * y + x] = '#',
+                output: |(x, y), _| {
+                    let idx = 3 * (W * y + x);
+                    buf[idx] = 0xFF;
+                    buf[idx + 1] = 0xFF;
+                    buf[idx + 2] = 0xFF;
+                }
             }
         ))
     });

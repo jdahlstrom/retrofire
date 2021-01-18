@@ -5,7 +5,7 @@ use geom::solids::{unit_cube, unit_sphere};
 use math::Linear;
 use math::transform::*;
 use render::*;
-use render::color::BLACK;
+use util::color::BLACK;
 use math::Angle::{Rad, Deg};
 
 static EXPECTED_CUBE: &str =

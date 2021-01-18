@@ -1,6 +1,6 @@
+use util::Buffer;
 use math::Linear;
-use crate::color::Color;
-use crate::Buffer;
+use util::color::Color;
 
 #[derive(Copy, Clone, Debug)]
 pub struct TexCoord {
@@ -63,7 +63,7 @@ impl Texture {
         Texture {
             width: width as f32,
             height: height as f32,
-            buf:  Buffer::new(width, height, color),
+            buf: Buffer::new(width, height, color),
         }
     }
 
@@ -73,6 +73,17 @@ impl Texture {
         let u = (self.width * u * w) as usize & (buf.width - 1);
         let v = (self.height * v * w) as usize & (buf.height - 1);
 
+        // TODO enforce invariants and use get_unchecked
         buf.data[buf.width * v + u]
+    }
+}
+
+impl From<Buffer<Color>> for Texture {
+    fn from(buf: Buffer<Color>) -> Self {
+        Self {
+            width: buf.width as f32,
+            height: buf.height as f32,
+            buf
+        }
     }
 }
