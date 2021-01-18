@@ -99,16 +99,17 @@ fn main() {
 
     let mut runner = SdlRunner::new(w as u32, h as u32).unwrap();
 
-    runner.run(|mut frame| {
-        let shade = |frag: Fragment<_>, color: Color| {
-            color * tex.sample(frag.varying)
-        };
+    runner.run(|Frame { mut buf, zbuf, pressed_keys, delta_t, .. }| {
 
-        rdr.render_scene(&scene, &shade, &mut frame.buf);
+        rdr.render_scene(&scene, &mut Raster {
+            shade: |frag: Fragment<_>, c| c * tex.sample(frag.varying),
+            test: |frag| zbuf.test(frag),
+            output: |x, y, c| buf.plot(x, y, c),
+        });
 
-        for scancode in frame.pressed_keys {
-            let t = -8. * frame.delta_t;
-            let r = -2. * frame.delta_t;
+        for scancode in pressed_keys {
+            let t = -8. * delta_t;
+            let r = -2. * delta_t;
             use Scancode::*;
             let cam = &mut scene.camera;
             match scancode {

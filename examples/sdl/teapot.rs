@@ -52,7 +52,8 @@ fn main() {
 
     let mut runner = SdlRunner::new(w as u32, h as u32).unwrap();
 
-    runner.run(|mut frame| {
+    runner.run(|Frame { mut buf, zbuf, pressed_keys, delta_t, .. }| {
+
         let tf = &model_tf
             * &rotate_x(theta * -0.57)
             * &rotate_y(theta)
@@ -71,11 +72,15 @@ fn main() {
             camera: Mat4::identity(),
         };
 
-        rdr.render_scene(&scene, &shade, &mut frame.buf);
+        rdr.render_scene(&scene, &mut Raster {
+            shade,
+            test: |frag| zbuf.test(frag),
+            output: |x, y, col| buf.plot(x, y, col)
+        });
 
-        for scancode in frame.pressed_keys {
+        for scancode in pressed_keys {
             use Scancode::*;
-            let dt = frame.delta_t;
+            let dt = delta_t;
             match scancode {
                 W => trans.z += 15. * dt,
                 S => trans.z -= 15. * dt,
@@ -87,7 +92,7 @@ fn main() {
             }
         }
 
-        theta += frame.delta_t;
+        theta += delta_t;
         rdr.stats.frames += 1;
 
         Ok(Run::Continue)

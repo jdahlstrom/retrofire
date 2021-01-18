@@ -34,8 +34,11 @@ where VA: Copy + Linear<f32>, FA: Copy + Debug
 
     let stats = rdr.render(
         &mesh,
-        &|_, _| BLACK,
-        &mut |x, y, _| buf[10 * y + x] = '#'
+        &mut Raster {
+            shade: &|_, _| BLACK,
+            test: |_| true,
+            output: &mut |x, y, _| buf[10 * y + x] = '#'
+        }
     );
     eprintln!("Stats: {}", stats);
     buf.iter().collect()
@@ -52,8 +55,11 @@ where VA: Copy + Linear<f32>, FA: Copy
 
     let stats = rdr.render_scene(
         &scene,
-        &|_, _| BLACK,
-        &mut |_, _, _| ()
+        &mut Raster {
+            shade: |_, _| BLACK,
+            test: |_| true,
+            output: |_, _, _| ()
+        }
     );
     eprintln!("Stats: {}", stats);
     stats
