@@ -37,7 +37,7 @@ where VA: Copy + Linear<f32>, FA: Copy + Debug
         &mut Raster {
             shade: &|_, _| BLACK,
             test: |_| true,
-            output: &mut |x, y, _| buf[10 * y + x] = '#'
+            output: &mut |(x, y), _| buf[10 * y + x] = '#'
         }
     );
     eprintln!("Stats: {}", stats);
@@ -58,7 +58,7 @@ where VA: Copy + Linear<f32>, FA: Copy
         &mut Raster {
             shade: |_, _| BLACK,
             test: |_| true,
-            output: |_, _, _| ()
+            output: |_, _| ()
         }
     );
     eprintln!("Stats: {}", stats);

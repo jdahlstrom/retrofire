@@ -29,7 +29,7 @@ fn torus(c: &mut Criterion) {
             &mut Raster {
                 shade: |_, _| BLACK,
                 test: |_| true,
-                output: |x, y, _| buf[W * y + x] = '#',
+                output: |(x, y), _| buf[W * y + x] = '#',
             }
         ))
     });
@@ -58,7 +58,7 @@ fn scene(c: &mut Criterion) {
             &mut Raster {
                 shade: |_, _| BLACK,
                 test: |_| true,
-                output: |x, y, _| buf[W * y + x] = '#'
+                output: |(x, y), _| buf[W * y + x] = '#'
             }
         ))
     });
@@ -79,7 +79,7 @@ fn gouraud_fillrate(c: &mut Criterion) {
             &mut Raster {
                 shade: |frag: Fragment<_>, _| frag.varying,
                 test: |_| true,
-                output: |x, y, col| buf[W * y + x] = col
+                output: |(x, y), col| buf[W * y + x] = col
             }
         ))
     });

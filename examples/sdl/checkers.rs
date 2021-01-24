@@ -103,7 +103,7 @@ fn main() {
         rdr.render_scene(&scene, &mut Raster {
             shade: |frag: Fragment<_>, c| c * tex.sample(frag.varying),
             test: |frag| zbuf.test(frag),
-            output: |x, y, c| buf.plot(x, y, c),
+            output: |(x, y), c| buf.plot(x, y, c),
         });
 
         for scancode in pressed_keys {

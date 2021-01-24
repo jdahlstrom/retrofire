@@ -2,30 +2,34 @@ use std::f32::EPSILON;
 use std::mem;
 use std::option::Option::Some;
 
-use geom::mesh::Mesh;
+use geom::mesh::{Mesh, Vertex};
 use math::{lerp, Linear};
 use math::vec::Vec4;
 
 pub fn hidden_surface_removal<VA, FA>(mesh: &mut Mesh<VA, FA>, bbox_vis: Visibility)
 where VA: Copy + Linear<f32>, FA: Copy, {
-    let Mesh { verts, faces, vertex_attrs, face_attrs, .. } = mesh;
 
-    let clip_masks = verts.iter().map(vertex_mask).collect::<Vec<_>>();
+    let clip_masks = mesh.verts.iter().map(vertex_mask).collect::<Vec<_>>();
 
-    // Assume roughly 50% of faces visible
-    let mut visible_faces = Vec::with_capacity(faces.len() / 2);
-    let mut visible_attrs = Vec::with_capacity(faces.len() / 2);
+    let mut mesh2 = Mesh {
+        verts: Vec::with_capacity(16),
+        vertex_attrs: Vec::with_capacity(16),
+        // Assume roughly 50% of faces visible
+        faces: Vec::with_capacity(mesh.faces.len() / 2),
+        face_attrs: Vec::with_capacity(mesh.faces.len() / 2),
+        ..*mesh
+    };
 
-    for (&[a, b, c], &mut fa) in faces.iter().zip(face_attrs) {
-
+    for face in mesh.faces() {
         if bbox_vis == Unclipped {
-            if frontface(&[verts[a], verts[b], verts[c]]) {
-                visible_faces.push([a, b, c]);
-                visible_attrs.push(fa);
+            if frontface(&face.verts) {
+                mesh2.faces.push(face.indices);
+                mesh2.face_attrs.push(face.attr);
             }
             continue;
         }
 
+        let [a, b, c] = face.indices;
         let masks = [clip_masks[a], clip_masks[b], clip_masks[c]];
 
         match visibility(masks.iter().copied()) {
@@ -33,41 +37,36 @@ where VA: Copy + Linear<f32>, FA: Copy, {
                 continue
             },
             Unclipped => {
-                if frontface(&[verts[a], verts[b], verts[c]]) {
-                    visible_faces.push([a, b, c]);
-                    visible_attrs.push(fa);
+                if frontface(&face.verts) {
+                    mesh2.faces.push(face.indices);
+                    mesh2.face_attrs.push(face.attr);
                 }
             },
             Clipped => {
-                let face_verts = [
-                    (verts[a], vertex_attrs[a]),
-                    (verts[b], vertex_attrs[b]),
-                    (verts[c], vertex_attrs[c])
-                ];
-                let clipped_verts = clip(&face_verts);
+                let clipped_verts = clip(&face.verts);
                 if clipped_verts.is_empty() {
                     continue;
                 }
-                if !frontface(&[clipped_verts[0].0,
-                                clipped_verts[1].0,
-                                clipped_verts[2].0]) {
+                if !frontface(&[clipped_verts[0], clipped_verts[1], clipped_verts[2]]) {
                     // New faces are coplanar, if one is a backface then all are
                     continue;
                 }
                 let cn = clipped_verts.len();
-                let vn = verts.len();
-                verts.extend(clipped_verts.iter().map(|v| v.0));
-                vertex_attrs.extend(clipped_verts.into_iter().map(|v| v.1));
+                let vn = mesh.verts.len() + mesh2.verts.len();
+                mesh2.verts.extend(clipped_verts.iter().map(|v| v.coord));
+                mesh2.vertex_attrs.extend(clipped_verts.into_iter().map(|v| v.attr));
 
                 for i in 1..cn - 1 {
-                    visible_faces.push([vn, vn + i, vn + i + 1]);
-                    visible_attrs.push(fa);
+                    mesh2.faces.push([vn, vn + i, vn + i + 1]);
+                    mesh2.face_attrs.push(face.attr);
                 }
             }
         }
     }
-    mesh.faces = visible_faces;
-    mesh.face_attrs = visible_attrs;
+    mesh.faces = mesh2.faces;
+    mesh.face_attrs = mesh2.face_attrs;
+    mesh.verts.extend(&mesh2.verts);
+    mesh.vertex_attrs.extend(&mesh2.vertex_attrs);
 }
 
 struct ClipPlane { sign: f32, coord: u8, bit: u8 }
@@ -76,13 +75,13 @@ impl ClipPlane {
     fn test(&self, v: &Vec4) -> u8 {
         (self.signed_dist(v) > -EPSILON) as u8 * self.bit
     }
-    fn clip<VA>(&self, a: &(Vec4, VA), b: &(Vec4, VA))
-        -> [Option<(Vec4, VA)>; 2]
+    fn clip<VA>(&self, a: &Vertex<VA>, b: &Vertex<VA>)
+        -> [Option<Vertex<VA>>; 2]
     where VA: Copy + Linear<f32>,
     {
         let mut res = [None, None];
-        let da = self.signed_dist(&a.0);
-        let db = self.signed_dist(&b.0);
+        let da = self.signed_dist(&a.coord);
+        let db = self.signed_dist(&b.coord);
         if da > -EPSILON {
             res[0] = Some(*a);
         }
@@ -90,7 +89,10 @@ impl ClipPlane {
             // If edge intersects clipping plane,
             // add intersection point as a new vertex
             let t = da / (da - db);
-            res[1] = Some(lerp(t, *a, *b));
+            res[1] = Some(Vertex {
+                coord: lerp(t, a.coord, b.coord),
+                attr: lerp(t, a.attr, b.attr),
+            });
         }
         res
     }
@@ -148,7 +150,7 @@ pub fn vertex_visibility<'a>(verts: impl IntoIterator<Item=&'a Vec4>) -> Visibil
     visibility(verts.into_iter().map(vertex_mask))
 }
 
-fn clip<VA>(verts: &[(Vec4, VA)]) -> Vec<(Vec4, VA)>
+fn clip<VA>(verts: &[Vertex<VA>]) -> Vec<Vertex<VA>>
 where VA: Linear<f32> + Copy
 {
     let mut verts = verts.to_vec();
@@ -168,7 +170,8 @@ fn edges<T>(ts: &[T]) -> impl Iterator<Item=(&T, &T)> {
     (0..ts.len()).map(move |i| (&ts[i], &ts[(i + 1) % ts.len()]))
 }
 
-pub fn frontface(&[a, b, c]: &[Vec4; 3]) -> bool {
+pub fn frontface<A>(verts: &[Vertex<A>; 3]) -> bool {
+    let (a, b, c) = (verts[0].coord, verts[1].coord, verts[2].coord);
     debug_assert!(a.w != 0.0 && b.w != 0.0 && c.w != 0.0, "{:?}", (a,b,c));
 
     // Compute z component of faces's normal in screen space
@@ -187,22 +190,18 @@ mod tests {
     use super::*;
     use clip_mask::*;
 
-// TODO Test interpolation of vertex attributes
+    // TODO Test interpolation of vertex attributes
 
-    fn assert_approx_eq(expected: Vec<Vtx>, actual: Vec<Vtx>) {
+    fn assert_approx_eq(expected: Vec<Vertex<()>>, actual: Vec<Vertex<()>>) {
         assert_eq!(expected.len(), actual.len(), "expected: {:#?}\nactual: {:#?}", expected, actual);
         for (&e, &a) in expected.iter().zip(&actual) {
-            assert!(e.0.approx_eq(a.0), "expected: {:?}, actual: {:?}", e, a);
+            assert!(e.coord.approx_eq(a.coord), "expected: {:?}, actual: {:?}", e, a);
             // TODO assert!(e.1.approx_eq(a.1), "expected: {:?}, actual: {:?}", e, a);
         }
     }
 
-    type Vtx = (Vec4, ());
-
-    fn v(v: Vec4) -> Vtx { (v+W, ()) }
-
-    fn vs(vs: &[Vec4]) -> Vec<Vtx> {
-        vs.iter().copied().map(v).collect()
+    fn vs(vs: &[Vec4]) -> Vec<Vertex<()>> {
+        vs.iter().map(|&v| Vertex { coord: v + W, attr: () }).collect()
     }
 
     fn vec(x: f32, w: f32) -> Vec4 { vec4(x, 0.0, 0.0, w) }
@@ -227,15 +226,17 @@ mod tests {
     fn clip_plane_intersect() {
         let p = &CLIP_PLANES[0];
 
+        fn v(c: Vec4) -> Vertex<()> { Vertex { coord: c, attr: () } }
+
         // out -> in
-        assert_eq!([None, Some((-1.5*X+1.5*W, ()))], p.clip(&(-2.0*X+W, ()), &(3.0*W, ())));
+        assert_eq!([None, Some(v(-1.5*X+1.5*W))], p.clip(&v(-2.0*X+W), &v(3.0*W)));
         // in -> out
-        assert_eq!([Some((3.0*W, ())), Some((-1.5*X+1.5*W, ()))], p.clip(&(3.0*W, ()), &(-2.0*X+W, ())));
+        assert_eq!([Some(v(3.0*W)), Some(v(-1.5*X+1.5*W))], p.clip(&v(3.0*W), &v(-2.0*X+W)));
 
         // in -> in
-        assert_eq!([Some((X+2.0*W, ())), None], p.clip(&(X+2.0*W, ()), &(2.0*X+3.0*W, ())));
+        assert_eq!([Some(v(X+2.0*W)), None], p.clip(&v(X+2.0*W), &v(2.0*X+3.0*W)));
         // out -> out
-        assert_eq!([None, None], p.clip(&(-3.0*X+2.0*W, ()), &(-2.0*X+W, ())));
+        assert_eq!([None, None], p.clip(&v(-3.0*X+2.0*W), &v(-2.0*X+W)));
     }
 
     #[test]
@@ -311,7 +312,7 @@ mod tests {
     #[test]
     fn clip_triangle_fully_outside() {
         for &(a, b) in &[(X, Y), (Y, Z), (X, Z)] {
-            let expected = Vec::<Vtx>::new();
+            let expected = Vec::<Vertex<()>>::new();
             let actual = clip(&vs(&[2.0 * b, -a + 3.0 * b, a + 3.0 * b]));
             assert_eq!(expected, actual);
         }

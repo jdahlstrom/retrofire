@@ -2,11 +2,10 @@ use std::ops::DerefMut;
 use std::time::Instant;
 
 use color::Color;
-use geom::mesh::Mesh;
+use geom::mesh::{Mesh, Vertex, Face};
 use math::Linear;
 use math::mat::Mat4;
 use math::transform::Transform;
-use math::vec::Vec4;
 pub use stats::Stats;
 
 use crate::hsr::Visibility;
@@ -23,12 +22,12 @@ pub mod vary;
 pub trait RasterOps<VA: Copy, FA> {
     fn shade(&mut self, frag: Fragment<VA>, uniform: FA) -> Color;
 
-    fn test(&mut self, _frag: Fragment<VA>) -> bool { true }
+    fn test(&mut self, _frag: Fragment<(f32, VA)>) -> bool { true }
 
     // TODO
     // fn blend(&mut self, _x: usize, _y: usize, c: Color) -> Color { c }
 
-    fn output(&mut self, x: usize, y: usize, c: Color);
+    fn output(&mut self, coord: (usize, usize), c: Color);
 }
 
 pub struct Raster<Shade, Test, Output> {
@@ -37,26 +36,24 @@ pub struct Raster<Shade, Test, Output> {
     pub output: Output,
 }
 
-
 impl<VA, FA, Shade, Test, Output> RasterOps<VA, FA>
 for Raster<Shade, Test, Output>
 where
     VA: Copy,
     Shade: FnMut(Fragment<VA>, FA) -> Color,
-    Test: FnMut(Fragment<VA>) -> bool,
-    Output: FnMut(usize, usize, Color),
+    Test: FnMut(Fragment<(f32, VA)>) -> bool,
+    Output: FnMut((usize, usize), Color),
 {
     fn shade(&mut self, frag: Fragment<VA>, uniform: FA) -> Color {
         (self.shade)(frag, uniform)
     }
-    fn test(&mut self, frag: Fragment<VA>) -> bool {
+    fn test(&mut self, frag: Fragment<(f32, VA)>) -> bool {
         (self.test)(frag)
     }
-    fn output(&mut self, x: usize, y: usize, c: Color) {
-        (self.output)(x, y, c);
+    fn output(&mut self, coord: (usize, usize), c: Color) {
+        (self.output)(coord, c);
     }
 }
-
 
 #[derive(Default, Clone)]
 pub struct Obj<VA, FA> {
@@ -115,8 +112,8 @@ impl DepthBuf {
         }
     }
 
-    pub fn test<V: Copy>(&mut self, frag: Fragment<V>) -> bool {
-        let Vec4 { x, y, z, .. } = frag.coord;
+    pub fn test<V: Copy>(&mut self, frag: Fragment<(f32, V)>) -> bool {
+        let Fragment { coord: (x, y), varying: (z, _) } = frag;
         let d = &mut self.buf.data[y as usize * self.buf.width + x as usize];
         if *d > z { *d = z; true } else { false }
     }
@@ -211,22 +208,18 @@ impl Renderer {
         self.stats
     }
 
-    // TODO Replace with z-buffering (or s-buffering!)
-    fn depth_sort<VA, FA: Copy>(mesh: &mut Mesh<VA, FA>) {
+    fn depth_sort<VA: Copy, FA: Copy>(mesh: &mut Mesh<VA, FA>) {
         let (faces, attrs) = {
-            let Mesh { verts, faces, face_attrs, .. } = &*mesh;
+            let mut faces = mesh.faces().collect::<Vec<_>>();
 
-            let mut v = faces.iter().zip(face_attrs).collect::<Vec<_>>();
-
-            v.sort_unstable_by(|&(a, _), &(b, _)| {
-                let az = verts[a[0]].z + verts[a[1]].z + verts[a[2]].z;
-                let bz = verts[b[0]].z + verts[b[1]].z + verts[b[2]].z;
+            faces.sort_unstable_by(|a, b| {
+                let az: f32 = a.verts.iter().map(|&v| v.coord.z).sum();
+                let bz: f32 = b.verts.iter().map(|&v| v.coord.z).sum();
                 bz.partial_cmp(&az).unwrap()
             });
 
-            v.into_iter().unzip()
+            faces.into_iter().map(|f| (f.indices, f.attr)).unzip()
         };
-
         mesh.faces = faces;
         mesh.face_attrs = attrs;
     }
@@ -234,14 +227,15 @@ impl Renderer {
     fn perspective_divide<VA, FA>(&self, mesh: &mut Mesh<VA, FA>)
     where VA: Linear<f32> + Copy
     {
+        let Mesh { verts, vertex_attrs, .. } = mesh;
         if self.options.perspective_correct {
-            for (v, a) in mesh.verts.iter_mut().zip(mesh.vertex_attrs.iter_mut()) {
+            for (v, a) in verts.iter_mut().zip(vertex_attrs) {
                 let w = 1.0 / v.w;
                 *v = v.mul(w);
                 *a = a.mul(w);
             }
         } else {
-            for v in mesh.verts.iter_mut() {
+            for v in verts.iter_mut() {
                 let w = 1.0 / v.w;
                 *v = v.mul(w);
             }
@@ -256,25 +250,21 @@ impl Renderer {
         VA: Copy + Linear<f32>,
         FA: Copy,
     {
-        let Mesh { faces, verts, vertex_attrs, face_attrs, .. } = &mut mesh;
+        mesh.verts.transform(&self.viewport);
 
-        verts.transform(&self.viewport);
-
-        for (i, face) in faces.iter().enumerate() {
-            let frags = face.iter().map(|&vi| Fragment {
-                coord: verts[vi],
-                varying: vertex_attrs[vi]
-            }).collect::<Vec<_>>();
-
-            let fa = face_attrs[i];
-
-            tri_fill(frags[0], frags[1], frags[2], |frag: Fragment<_>| {
+        for Face { verts: [a, b, c], attr, .. } in mesh.faces() {
+            let verts = [
+                Vertex { coord: a.coord, attr: (a.coord.z, a.attr) },
+                Vertex { coord: b.coord, attr: (b.coord.z, b.attr) },
+                Vertex { coord: c.coord, attr: (c.coord.z, c.attr) },
+            ];
+            tri_fill(verts, |frag: Fragment<_>| {
                 if raster.test(frag) {
-                    let color = raster.shade(frag, fa);
-                    let x = frag.coord.x as usize;
-                    let y = frag.coord.y as usize;
+                    let frag = Fragment { coord: frag.coord, varying: frag.varying.1 };
+                    let color = raster.shade(frag, attr);
                     // TODO let color = raster.blend(x, y, color);
-                    raster.output(x, y, color);
+                    let coord = (frag.coord.0 as usize, frag.coord.1 as usize);
+                    raster.output(coord, color);
                 }
                 self.stats.pixels += 1;
             });

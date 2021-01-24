@@ -6,11 +6,12 @@ use sdl2::keyboard::Keycode;
 use sdl2::pixels::Color;
 use sdl2::rect::Rect;
 
-use math::vec::Vec4;
+use geom::mesh::Vertex;
+use math::vec::vec4;
 use render::raster::gouraud::*;
 
-fn frag(x: f32, y: f32, c: f32) -> Fragment {
-    Fragment { coord: Vec4 { x, y, z: 0.0, w: 0.0 }, varying: c }
+fn vert(x: f32, y: f32, c: f32) -> Vertex<f32> {
+    Vertex { coord: vec4(x, y, 0.0, 0.0), attr: c }
 }
 
 fn main() {
@@ -38,11 +39,13 @@ fn main() {
 
         let buf = surface.without_lock_mut().unwrap();
         gouraud_fill(
-            frag(xs[0].0, ys[0].0, a),
-            frag(xs[1].0, ys[1].0, a + 0.5),
-            frag(xs[2].0, ys[2].0, a + 1.0),
+            [
+                vert(xs[0].0, ys[0].0, a),
+                vert(xs[1].0, ys[1].0, a + 0.5),
+                vert(xs[2].0, ys[2].0, a + 1.0)
+            ],
             |Fragment { coord, varying }| {
-                let pos = 4 * (coord.y as usize * width as usize + coord.x as usize);
+                let pos = 4 * (coord.1 * width as usize  + coord.0) as usize;
                 buf[pos + 0] = (127. + 128. * varying.cos()) as u8;
                 buf[pos + 1] = (127. + 128. * (varying * 0.7).cos()) as u8;
                 buf[pos + 2] = (127. + 128. * (varying * 1.6).sin()) as u8;
