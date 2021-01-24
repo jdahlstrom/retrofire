@@ -1,12 +1,14 @@
+use geom::mesh::Vertex;
+
 pub type Fragment = super::Fragment<f32>;
 
-pub fn gouraud_fill(a: Fragment, b: Fragment, c: Fragment, plot: impl FnMut(Fragment)) {
-    super::tri_fill(a, b, c, plot)
+pub fn gouraud_fill(vs: [Vertex<f32>; 3], plot: impl FnMut(Fragment)) {
+    super::tri_fill(vs, plot)
 }
 
 #[cfg(test)]
 mod tests {
-    use super::super::tests::{Buf, frag};
+    use super::super::tests::{Buf, vert};
     use super::*;
 
     fn plotter(buf: &mut Buf) -> Box<dyn FnMut(Fragment) + '_> {
@@ -15,7 +17,7 @@ mod tests {
 
     #[test]
     fn test_gouraud_fill_zero() {
-        gouraud_fill(frag(0.0, 0.0, 0.0), frag(0.0, 0.0, 0.0), frag(0.0, 0.0, 0.0), |frag| {
+        gouraud_fill([vert(0.0, 0.0, 0.0), vert(0.0, 0.0, 0.0), vert(0.0, 0.0, 0.0)], |frag| {
             assert!(false, "plot called for {:?}", frag)
         });
     }
@@ -24,9 +26,9 @@ mod tests {
     fn test_gouraud_fill_1x1() {
         let mut buf = Buf::new(2, 2);
         gouraud_fill(
-            frag(0.0, 0.0, 1.0),
-            frag(0.0, 1.0, 1.0),
-            frag(1.0, 0.0, 1.0),
+            [vert(0.0, 0.0, 1.0),
+            vert(0.0, 1.0, 1.0),
+            vert(1.0, 0.0, 1.0)],
             plotter(&mut buf),
         );
 
@@ -38,9 +40,9 @@ mod tests {
     fn test_gouraud_fill_2x2() {
         let mut buf = Buf::new(3, 3);
         gouraud_fill(
-            frag(0.0, 0.0, 255.0),
-            frag(2.0, 0.0, 255.0),
-            frag(0.0, 2.0, 255.0),
+            [vert(0.0, 0.0, 255.0),
+            vert(2.0, 0.0, 255.0),
+            vert(0.0, 2.0, 255.0)],
             plotter(&mut buf),
         );
 
@@ -53,9 +55,9 @@ mod tests {
         let mut buf = Buf::new(5, 5);
 
         gouraud_fill(
-            frag(2.0, 1.0, 255.0),
-            frag(1.0, 3.0, 255.0),
-            frag(4.0, 3.0, 255.0),
+            [vert(2.0, 1.0, 255.0),
+            vert(1.0, 3.0, 255.0),
+            vert(4.0, 3.0, 255.0)],
             plotter(&mut buf),
         );
 
@@ -73,12 +75,12 @@ mod tests {
     #[test]
     #[ignore] // TODO FIX TEST
     fn test_gouraud_fill_7x7() {
-        let (a, b, c) = (frag(2.0, 1.0, 200.0), frag(6.0, 3.0, 250.0), frag(1.0, 5.0, 220.0));
-        let perms = [(a, b, c), (a, c, b), (b, a, c), (b, c, a), (c, a, b), (c, b, a)];
+        let (a, b, c) = (vert(2.0, 1.0, 200.0), vert(6.0, 3.0, 250.0), vert(1.0, 5.0, 220.0));
+        let perms = [[a, b, c], [a, c, b], [b, a, c], [b, c, a], [c, a, b], [c, b, a]];
 
-        for (a, b, c) in &perms {
+        for vs in &perms {
             let mut buf = Buf::new(7, 7);
-            gouraud_fill(*a, *b, *c, plotter(&mut buf));
+            gouraud_fill(*vs, plotter(&mut buf));
 
             assert_eq!(
                 buf.to_string(),
@@ -97,14 +99,14 @@ mod tests {
     #[test]
     fn test_big() {
         let mut buf = Buf::new(80, 40);
-        let (a, b, c) = (frag(50.0, 35.0, 16.0), frag(75.0, 5.0, 255.0), frag(5.0, 10.0, 128.0));
-        let perms = [(a, c, b), (b, a, c), (b, c, a), (c, a, b), (c, b, a)];
+        let (a, b, c) = (vert(50.0, 35.0, 16.0), vert(75.0, 5.0, 255.0), vert(5.0, 10.0, 128.0));
+        let perms = [[a, c, b], [b, a, c], [b, c, a], [c, a, b], [c, b, a]];
 
-        gouraud_fill(a, b, c, plotter(&mut buf));
+        gouraud_fill([a, b, c], plotter(&mut buf));
 
-        for &(a, b, c) in &perms {
+        for vs in &perms {
             let mut buf2 = Buf::new(80, 40);
-            gouraud_fill(a, b, c, plotter(&mut buf2));
+            gouraud_fill(*vs, plotter(&mut buf2));
 
             assert_eq!(buf.to_string(), buf2.to_string());
         }

@@ -1,14 +1,15 @@
 use pancurses as nc;
 use pancurses::Input::*;
 
+use geom::mesh::Vertex;
 use geom::solids::*;
 use math::transform::*;
 use math::vec::Vec4;
 use render::raster::gouraud::*;
 use math::Angle::Rad;
 
-fn frag(v: Vec4) -> Fragment {
-    Fragment { coord: v, varying: 127. * (v.x * 1.).sin() * (v.y * 1.).cos() + 128. }
+fn vert(v: Vec4) -> Vertex<f32> {
+    Vertex { coord: v, attr: 127. * (v.x * 1.).sin() * (v.y * 1.).cos() + 128. }
 }
 
 struct Nc;
@@ -20,9 +21,7 @@ impl Drop for Nc {
 }
 
 fn main() {
-    let mesh = torus(0.35, 9, 13)
-        .gen_normals()
-        .validate().unwrap();
+    let mesh = torus(0.35, 9, 13);
 
     let _scr = Nc;
     let win = nc::initscr();
@@ -46,17 +45,18 @@ fn main() {
 
         tf_mesh.verts.iter_mut().for_each(|v| *v = &tf * *v);
 
-        let mut verts = tf_mesh.face_verts()
+        let mut faces = tf_mesh.faces()
                                .collect::<Vec<_>>();
 
         // z sort
-        verts.sort_unstable_by(|a, b| b[0].z.partial_cmp(&a[0].z).unwrap());
+        faces.sort_unstable_by(|a, b| {
+            b.verts[0].coord.z.partial_cmp(&a.verts[0].coord.z).unwrap()
+        });
 
-        for (_i, v) in verts.into_iter().enumerate() {
-            gouraud_fill(frag(v[0]), frag(v[1]), frag(v[2]),
+        for [a, b, c] in faces.into_iter().map(|f| f.verts) {
+            gouraud_fill([vert(a.coord), vert(b.coord), vert(c.coord)],
                          |Fragment { coord, varying }| {
-                             win.mvaddch(coord.y as i32,
-                                         coord.x as i32,
+                             win.mvaddch(coord.1 as i32, coord.0 as i32,
                                          b"..-:;=+<ox*XO@MW"[varying as usize / 0x10 & 0xF] as char);
                          });
         }

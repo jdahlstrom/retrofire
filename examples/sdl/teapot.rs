@@ -74,7 +74,7 @@ fn main() {
         rdr.render_scene(&scene, &mut Raster {
             shade,
             test: |frag| zbuf.test(frag),
-            output: |x, y, col| buf.plot(x, y, col)
+            output: |(x, y), col| buf.plot(x, y, col)
         });
 
         for scancode in pressed_keys {

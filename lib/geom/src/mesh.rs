@@ -11,6 +11,19 @@ pub struct Mesh<VA = (), FA = ()> {
     pub bbox: BoundingBox,
 }
 
+#[derive(Debug, Copy, Clone, PartialEq)]
+pub struct Vertex<A> {
+    pub coord: Vec4,
+    pub attr: A,
+}
+
+#[derive(Debug, Copy, Clone, PartialEq)]
+pub struct Face<VA, FA> {
+    pub indices: [usize; 3],
+    pub verts: [Vertex<VA>; 3],
+    pub attr: FA,
+}
+
 impl Mesh {
     pub fn from_verts_and_faces(verts: impl IntoIterator<Item=Vec4>,
                                 faces: impl IntoIterator<Item=[usize; 3]>)
@@ -57,14 +70,20 @@ impl<VA, FA> Mesh<VA, FA> {
         }
     }
 
+    pub fn faces(&self) -> impl Iterator<Item=Face<VA, FA>> + '_
+    where VA: Copy, FA: Copy,
+    {
+        self.faces.iter().zip(&self.face_attrs).map(move |(&[a, b, c], &fa)| {
+            Face {
+                indices: [a, b, c],
+                verts: [
+                    Vertex { coord: self.verts[a], attr: self.vertex_attrs[a] },
+                    Vertex { coord: self.verts[b], attr: self.vertex_attrs[b] },
+                    Vertex { coord: self.verts[c], attr: self.vertex_attrs[c] }
+                ],
+                attr: fa,
+            }
 
-    pub fn faces(&self) -> impl Iterator<Item=&[usize; 3]> + '_ {
-        self.faces.iter()
-    }
-
-    pub fn face_verts(&self) -> impl Iterator<Item=[Vec4; 3]> + '_ {
-        self.faces().map(move |&[a, b, c]| {
-            [self.verts[a], self.verts[b], self.verts[c]]
         })
     }
 
@@ -87,19 +106,23 @@ impl<VA, FA> Mesh<VA, FA> {
         }
 
         if face_attrs.len() != faces.len() {
-            return Err(format!("Missing or extra face attrs"));
+            return Err("Missing or extra face attrs".into());
         }
 
         if vertex_attrs.len() != verts.len() {
-            return Err(format!("Missing or extra vertex attrs"));
+            return Err("Missing or extra vertex attrs".into());
         }
 
         Ok(self)
     }
 
-    pub fn gen_normals(self) -> Mesh<Vec4, Vec4> {
-        let face_ns = self.face_verts()
-                          .map(|[a, b, c]| (b - a).cross(c - a))
+    pub fn gen_normals(self) -> Mesh<Vec4, Vec4>
+    where VA: Copy, FA: Copy
+    {
+        let face_ns = self.faces()
+                          .map(|Face { verts: [a, b, c], ..}| {
+                              (b.coord - a.coord).cross(c.coord - a.coord)
+                          })
                           .collect::<Vec<_>>();
 
         let mut vert_ns = vec![ZERO; self.verts.len()];
