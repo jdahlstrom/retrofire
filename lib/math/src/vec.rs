@@ -3,8 +3,10 @@
 use core::fmt;
 use core::ops::{Add, Div, Mul, Neg, Sub};
 use core::ops::{Index, IndexMut};
+use std::ops::Range;
 
 use crate::{ApproxEq, Linear};
+use crate::rand::{Distrib, Random, Uniform};
 
 #[derive(Copy, Clone, Default, PartialEq)]
 pub struct Vec4 {
@@ -209,6 +211,45 @@ impl fmt::Debug for Vec4 {
     }
 }
 
+
+pub struct UnitDir;
+
+impl Distrib<Vec4> for UnitDir {
+    fn from(&self, r: &mut Random) -> Vec4 {
+        let d = Uniform(-1.0..1.0_f32);
+        let x = d.from(r);
+        let y = d.from(r);
+        let z = d.from(r);
+        dir(x, y, z).normalize()
+    }
+}
+
+pub struct InUnitBall;
+
+impl Distrib<Vec4> for InUnitBall {
+    /// Generates a random `Vec4` in the unit ball.
+    fn from(&self, r: &mut Random) -> Vec4 {
+        let unit_box = Uniform(-X-Y-Z .. X+Y+Z);
+        r.iter(unit_box)
+            .skip_while(|&v| v.dot(v) > 1.0)
+            .next().unwrap()
+    }
+}
+
+impl Distrib<Vec4> for Uniform<Range<Vec4>> {
+    /// Generates a random `Vec4` in an axis-aligned box
+    /// given by the lower and upper bounds of `self.0`.
+    fn from(&self, r: &mut Random) -> Vec4 {
+        let Range { start, end } = &self.0;
+        let x = Uniform(start.x..end.x).from(r);
+        let y = Uniform(start.y..end.y).from(r);
+        let z = Uniform(start.z..end.z).from(r);
+        let w = Uniform(start.w..end.w).from(r);
+        Vec4 { x, y, z, w }
+    }
+}
+
+
 #[cfg(test)]
 #[allow(unused_must_use)]
 mod tests {
@@ -328,5 +369,45 @@ mod tests {
         assert_approx_eq(v, v);
         assert_approx_eq(v, u);
         assert_approx_ne(v, w);
+    }
+
+    const ROUNDS: usize = 1 << 16;
+
+    #[test]
+    fn random_uniform_in_box() {
+        let mut r = Random::new();
+        let dist = Uniform(pt(-1.0, 1.0, 0.0)..pt(1.0, 2.0, 3.0));
+
+        for v in r.iter(dist).take(ROUNDS) {
+            assert!(-1.0 <= v.x && v.x <= 1.0, "x={}", v.x);
+            assert!(1.0 <= v.y && v.y <= 2.0, "y={}", v.y);
+            assert!(0.0 <= v.z && v.z <= 3.0, "z={}", v.z);
+            assert_eq!(1.0, v.w);
+        }
+    }
+
+    #[test]
+    fn random_in_unit_ball() {
+        let mut r = Random::new();
+
+        for v in r.iter(InUnitBall).take(ROUNDS) {
+            assert!(v.len() < 1.0, "v={:?}", v);
+        }
+    }
+
+    #[test]
+    fn random_unit_dir() {
+        let mut r = Random::new();
+
+        let avg_len = r.iter(UnitDir)
+            .take(ROUNDS)
+            .inspect(|v| {
+                assert_eq!(0.0, v.w);
+                assert_approx_eq(1.0, v.len());
+            })
+            .fold(ZERO, |a, b| a + b)
+            .len() / ROUNDS as f32;
+
+        assert!(avg_len < 0.05, "len={}", avg_len);
     }
 }
