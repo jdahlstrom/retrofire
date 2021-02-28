@@ -31,38 +31,37 @@ where V: Linear<f32> + Copy,
     let mut half_tri = |y_end,
                         left: &mut Varying<(f32, _)>,
                         right: &mut Varying<(f32, _)>| {
-        while y < y_end {
-            let (x_right, v_right) = right.step();
-            let (x_left, v_left) = left.step();
 
-            let mut x = x_left.round() as usize;
-            let mut v = Varying::between(v_left, v_right, x_right - x_left);
+        for (y, (left, right)) in (y..y_end).zip(left.zip(right)) {
 
-            let x_end = x_right.round() as usize;
-            while x <= x_end {
-                plot(Fragment {
-                    coord: (x, y),
-                    varying: v.step(),
-                });
-                x += 1;
+            let v = Varying::between(left.1, right.1, right.0 - left.0);
+
+            let x_left = left.0.round() as usize;
+            let x_right = right.0.round() as usize;
+
+            for (x, v) in (x_left..=x_right).zip(v) {
+                plot(Fragment { coord: (x, y), varying: v });
             }
-            y += 1;
         }
+        y = y_end;
     };
 
     let [a, b, c] = verts;
-    let (a, av, b, bv, c, cv) = (a.coord, a.attr, b.coord, b.attr, c.coord, c.attr);
 
-    let mut ab = Varying::between((a.x, av), (b.x, bv), b.y - a.y);
-    let mut ac = Varying::between((a.x, av), (c.x, cv), c.y - a.y);
-    let mut bc = Varying::between((b.x, bv), (c.x, cv), c.y - b.y);
+    let (ay, av) = (a.coord.y, (a.coord.x, a.attr));
+    let (by, bv) = (b.coord.y, (b.coord.x, b.attr));
+    let (cy, cv) = (c.coord.y, (c.coord.x, c.attr));
+
+    let ab = &mut Varying::between(av, bv, by - ay);
+    let ac = &mut Varying::between(av, cv, cy - ay);
+    let bc = &mut Varying::between(bv, cv, cy - by);
 
     if ab.step.0 < ac.step.0 {
-        half_tri(b.y.round() as usize, &mut ab, &mut ac);
-        half_tri(c.y.round() as usize, &mut bc, &mut ac);
+        half_tri(by.round() as usize, ab, ac);
+        half_tri(cy.round() as usize, bc, ac);
     } else {
-        half_tri(b.y.round() as usize, &mut ac, &mut ab);
-        half_tri(c.y.round() as usize, &mut ac, &mut bc);
+        half_tri(by.round() as usize, ac, ab);
+        half_tri(cy.round() as usize, ac, bc);
     }
 }
 
