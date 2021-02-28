@@ -1,11 +1,12 @@
 use criterion::*;
 
-use geom::solids;
-use math::Angle::Rad;
-use math::transform::*;
-use render::{Obj, Raster, Renderer, Scene};
-use render::color::*;
-use render::raster::Fragment;
+use retrofire::{
+    geom::solids,
+    math::{Angle::Rad, transform::*},
+    render::{Obj, Raster, Renderer, Scene},
+    render::color::*,
+    render::raster::Fragment,
+};
 
 const W: usize = 128;
 

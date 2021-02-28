@@ -1,6 +1,6 @@
-use math::Linear;
-use math::vec::Vec4;
 use std::ops::Mul;
+
+use crate::math::{Linear, vec::Vec4};
 
 #[derive(Copy, Clone, Debug, Default, Eq, PartialEq)]
 pub struct Color(pub u32);
@@ -72,7 +72,7 @@ impl From<Vec4> for Color {
 #[cfg(test)]
 mod tests {
     use super::*;
-    
+
     #[test]
     fn color_components() {
         assert_eq!(0xFF, RED.r());

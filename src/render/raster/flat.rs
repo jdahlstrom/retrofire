@@ -1,4 +1,4 @@
-use geom::mesh::Vertex;
+use crate::geom::Vertex;
 
 pub type Fragment = super::Fragment<()>;
 
@@ -9,11 +9,10 @@ pub fn flat_fill(verts: [Vertex<()>; 3], plot: impl FnMut(Fragment)) {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
-    use crate::raster::tests::Buf;
+    use super::{*, super::tests::{*, self as st}};
 
     fn vert(x: f32, y: f32) -> Vertex<()> {
-        crate::raster::tests::vert(x, y, ())
+        st::vert(x, y, ())
     }
 
     fn plotter(buf: &mut Buf) -> Box<dyn FnMut(Fragment) + '_> {

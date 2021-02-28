@@ -1,12 +1,11 @@
 use pancurses as nc;
 use pancurses::Input::*;
 
-use geom::mesh::Vertex;
-use geom::solids::*;
-use math::transform::*;
-use math::vec::Vec4;
-use render::raster::gouraud::*;
-use math::Angle::Rad;
+use retrofire::{
+    geom::{solids::torus, Vertex},
+    math::{Angle::Rad, vec::Vec4, transform::*},
+    render::raster::gouraud::*,
+};
 
 fn vert(v: Vec4) -> Vertex<f32> {
     Vertex { coord: v, attr: 127. * (v.x * 1.).sin() * (v.y * 1.).cos() + 128. }

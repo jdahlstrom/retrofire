@@ -1,12 +1,10 @@
 use std::fmt::Debug;
 
-use geom::mesh::*;
-use geom::solids::{unit_cube, unit_sphere};
-use math::Linear;
-use math::transform::*;
-use render::*;
-use render::color::BLACK;
-use math::Angle::{Rad, Deg};
+use retrofire::{
+    geom::{mesh::Mesh, solids::*},
+    math::{Angle::*, Linear, transform::*},
+    render::{*, color::BLACK},
+};
 
 static EXPECTED_CUBE: &str =
     "..........\

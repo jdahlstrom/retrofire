@@ -1,18 +1,24 @@
 use sdl2::keyboard::Scancode;
 
-use geom::mesh::Mesh;
-use geom::solids::unit_cube;
-use math::mat::Mat4;
-use math::transform::*;
-use math::vec::*;
-use render::*;
-use render::color::*;
-use render::raster::Fragment;
-use render::tex::*;
+use retrofire::geom::{
+    mesh::Mesh,
+    solids::unit_cube
+};
+use retrofire::math::{
+    Angle::{Deg, Rad},
+    mat::Mat4,
+    transform::*,
+    vec::*,
+};
+use retrofire::render::{
+    *,
+    color::*,
+    raster::Fragment,
+    tex::*,
+};
 use Run::*;
 
-use crate::runner::*;
-use math::Angle::{Deg, Rad};
+use runner::*;
 
 mod runner;
 

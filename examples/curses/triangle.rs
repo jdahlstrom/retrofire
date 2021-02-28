@@ -1,9 +1,11 @@
 use pancurses as nc;
 use pancurses::Input::*;
 
-use math::vec::vec4;
-use render::raster::flat;
-use geom::mesh::Vertex;
+use retrofire::{
+    geom::Vertex,
+    math::vec::vec4,
+    render::raster::flat,
+};
 
 fn vert(x: f32, y: f32) -> Vertex<()> {
     Vertex { coord: vec4(x, y, 0.0, 0.0), attr: () }

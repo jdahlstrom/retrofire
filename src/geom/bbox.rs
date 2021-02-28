@@ -1,7 +1,9 @@
 use std::f32::INFINITY;
 
-use math::mat::Mat4;
-use math::vec::{pt, Vec4};
+use crate::math::{
+    vec::{Vec4, pt},
+    mat::Mat4,
+};
 
 #[derive(Copy, Clone, Debug, Default)]
 pub struct BoundingBox {

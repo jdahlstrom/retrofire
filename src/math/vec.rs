@@ -1,12 +1,16 @@
 #![allow(clippy::len_without_is_empty)]
 
 use core::fmt;
-use core::ops::{Add, Div, Mul, Neg, Sub};
-use core::ops::{Index, IndexMut};
-use std::ops::Range;
+use core::ops::{
+    Add, Div, Mul, Neg, Sub,
+    Index, IndexMut, Range,
+};
 
-use crate::{ApproxEq, Linear};
-use crate::rand::{Distrib, Random, Uniform};
+use crate::math::{
+    ApproxEq,
+    Linear,
+    rand::{Distrib, Random, Uniform},
+};
 
 #[derive(Copy, Clone, Default, PartialEq)]
 pub struct Vec4 {
@@ -253,9 +257,8 @@ impl Distrib<Vec4> for Uniform<Range<Vec4>> {
 #[cfg(test)]
 #[allow(unused_must_use)]
 mod tests {
-    use crate::tests::util::*;
-
     use super::*;
+    use crate::math::tests::util::*;
 
     #[test]
     fn vector_len() {

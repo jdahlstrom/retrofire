@@ -8,6 +8,7 @@ pub mod mat;
 pub mod vec;
 pub mod transform;
 pub mod rand;
+pub mod vary;
 
 pub trait ApproxEq: Sized + Copy {
     type Scalar: PartialOrd + Copy;
@@ -176,7 +177,7 @@ impl Add for Angle {
 ///
 /// Example:
 /// ```
-/// # use math::lerp;
+/// # use retrofire::math::lerp;
 /// assert_eq!(1.6, lerp(0.7, 3.0, 1.0))
 /// ```
 pub fn lerp<T: Linear<f32>>(t: f32, a: T, b: T) -> T {
@@ -188,7 +189,7 @@ mod tests {
     pub mod util {
         use core::fmt::Debug;
 
-        use crate::ApproxEq;
+        use crate::math::ApproxEq;
 
         #[derive(Debug, Copy, Clone)]
         struct Approx<T>(T);
@@ -233,7 +234,7 @@ mod tests {
 
     #[test]
     fn lerp_float() {
-        use crate::lerp;
+        use crate::math::lerp;
         assert_eq!(0.0, lerp(0.0, 0.0, 1.0));
         assert_eq!(1.0, lerp(1.0, 0.0, 1.0));
 
