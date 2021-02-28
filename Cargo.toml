@@ -5,13 +5,10 @@ authors = ["Johannes Dahlström <johannes.dahlstrom@gmail.com>"]
 edition = "2018"
 license = "MIT OR Apache-2.0"
 
-[workspace]
-members = ["lib/*"]
-
 [features]
 sdl = ["sdl2"]
 ncurses = ["pancurses"]
-teapot = ["geom/teapot"]
+teapot = []
 
 
 [profile.release]
@@ -23,15 +20,6 @@ lto = "thin"
 [dependencies]
 pancurses = { version = "0.16", optional = true }
 sdl2 = { version = "0.34", optional = true }
-
-[dependencies.math]
-path = "./lib/math"
-
-[dependencies.geom]
-path = "./lib/geom"
-
-[dependencies.render]
-path = "./lib/render"
 
 [dev-dependencies]
 criterion = "0.3"

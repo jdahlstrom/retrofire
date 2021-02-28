@@ -1,9 +1,7 @@
 use std::mem::swap;
 
-use geom::mesh::Vertex;
-use math::Linear;
-
-use crate::vary::Varying;
+use crate::geom::Vertex;
+use crate::math::{Linear, vary::Varying};
 
 pub mod flat;
 pub mod gouraud;
@@ -69,9 +67,8 @@ where V: Linear<f32> + Copy,
 mod tests {
     use std::fmt::*;
 
-    use math::vec::vec4;
-
     use super::*;
+    use crate::math::vec::vec4;
 
     pub struct Buf(pub Vec<u8>, usize, usize);
 

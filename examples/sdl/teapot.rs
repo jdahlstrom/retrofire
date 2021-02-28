@@ -1,15 +1,22 @@
 use sdl2::keyboard::Scancode;
 
-use geom::solids::teapot;
-use math::mat::Mat4;
-use math::transform::*;
-use math::vec::*;
-use render::*;
-use render::color::Color;
-use render::raster::*;
-use render::shade::*;
+use retrofire::geom::{
+    solids::teapot
+};
+use retrofire::math::{
+    Angle::{Deg, Rad},
+    mat::Mat4,
+    transform::*,
+    vec::*,
+};
+use retrofire::render::{
+    *,
+    color::*,
+    raster::Fragment,
+    shade::*,
+};
+
 use runner::*;
-use math::Angle::{Rad, Deg};
 
 mod runner;
 

@@ -1,4 +1,4 @@
-use geom::mesh::Vertex;
+use crate::geom::Vertex;
 
 pub type Fragment = super::Fragment<f32>;
 

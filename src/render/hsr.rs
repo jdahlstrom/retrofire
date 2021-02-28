@@ -1,10 +1,10 @@
 use std::f32::EPSILON;
 use std::mem;
-use std::option::Option::Some;
 
-use geom::mesh::{Mesh, Vertex};
-use math::{lerp, Linear};
-use math::vec::Vec4;
+use Visibility::*;
+
+use crate::geom::{mesh::Mesh, Vertex};
+use crate::math::{lerp, Linear, vec::*};
 
 pub fn hidden_surface_removal<VA, FA>(mesh: &mut Mesh<VA, FA>, bbox_vis: Visibility)
 where VA: Copy + Linear<f32>, FA: Copy, {
@@ -127,7 +127,6 @@ pub enum Visibility {
     Clipped,
     Hidden
 }
-use Visibility::*;
 
 fn vertex_mask(v: &Vec4) -> u8 {
       CLIP_PLANES.iter().fold(0, |mask, p| mask | p.test(v))
@@ -184,13 +183,13 @@ pub fn frontface<A>(verts: &[Vertex<A>; 3]) -> bool {
 
 #[cfg(test)]
 mod tests {
-    use math::ApproxEq;
-    use math::vec::*;
-
-    use super::*;
     use clip_mask::*;
 
-    // TODO Test interpolation of vertex attributes
+    use crate::math::ApproxEq;
+
+    use super::*;
+
+// TODO Test interpolation of vertex attributes
 
     fn assert_approx_eq(expected: Vec<Vertex<()>>, actual: Vec<Vertex<()>>) {
         assert_eq!(expected.len(), actual.len(), "expected: {:#?}\nactual: {:#?}", expected, actual);

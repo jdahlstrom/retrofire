@@ -1,8 +1,7 @@
 use std::f32::consts::PI;
 
-use math::vec::*;
-
-use crate::mesh::Mesh;
+use crate::geom::mesh::Mesh;
+use crate::math::vec::*;
 
 pub fn unit_cube() -> Mesh {
     Mesh::from_verts_and_faces(
@@ -144,7 +143,7 @@ pub fn torus(minor_r: f32, pars: usize, mers: usize) -> Mesh {
 
 #[cfg(feature = "teapot")]
 pub fn teapot() -> Mesh<Vec4> {
-    use crate::teapot::*;
+    use crate::geom::teapot::*;
 
     fn make_faces(&[a, b, c, d]: &[[i32; 3]; 4]) -> Vec<[usize; 3]> {
         let mut vec = vec![];

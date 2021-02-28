@@ -1,8 +1,9 @@
 use core::fmt;
 use core::ops::{Mul, MulAssign};
 
-use crate::ApproxEq;
-use crate::vec::*;
+use crate::math;
+use math::ApproxEq;
+use math::vec::*;
 
 #[derive(Clone, PartialEq)]
 pub struct Mat4(pub(crate) [[f32; 4]; 4]);

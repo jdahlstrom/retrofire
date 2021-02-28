@@ -3,7 +3,7 @@ use std::num::Wrapping;
 use std::ops::{Range, RangeFull};
 use std::time::SystemTime;
 
-use crate::lerp;
+use crate::math::lerp;
 
 pub struct Random { state: Wrapping<u64> }
 
@@ -96,7 +96,7 @@ impl Distrib<f64> for Uniform<Range<f64>> {
 
 #[cfg(test)]
 mod tests {
-    use crate::ApproxEq;
+    use crate::math::ApproxEq;
 
     use super::*;
 

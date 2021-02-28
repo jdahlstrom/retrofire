@@ -1,4 +1,4 @@
-use math::vec::*;
+use crate::math::vec::*;
 
 pub fn lambert(normal: Vec4, light_dir: Vec4) -> f32 {
     normal.dot(light_dir).max(0.0)
@@ -24,9 +24,8 @@ pub fn expose_rgb(rgb: Vec4, tau: f32) -> Vec4 {
 
 #[cfg(test)]
 mod tests {
-    use math::ApproxEq;
-
     use super::*;
+    use crate::math::ApproxEq;
 
     fn v() -> Vec4 {
         dir(0.1, -0.8, 0.3).normalize()

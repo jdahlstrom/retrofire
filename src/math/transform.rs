@@ -1,4 +1,4 @@
-use crate::{mat::*, vec::Vec4, Angle};
+use crate::math::{mat::*, vec::Vec4, Angle};
 
 pub trait Transform {
     fn transform(&mut self, m: &Mat4);
@@ -94,11 +94,9 @@ pub fn viewport(left: f32, top: f32, right: f32, bottom: f32) -> Mat4 {
 
 #[cfg(test)]
 mod tests {
-    use crate::Angle::*;
-    use crate::tests::util::*;
-    use crate::vec::*;
-
     use super::*;
+
+    use crate::math::{Angle::*, vec::*, tests::util::*};
 
     #[test]
     pub fn scale_matrix() {

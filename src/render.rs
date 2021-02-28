@@ -2,14 +2,15 @@ use std::ops::DerefMut;
 use std::time::Instant;
 
 use color::Color;
-use geom::mesh::{Mesh, Vertex, Face};
-use math::Linear;
-use math::mat::Mat4;
-use math::transform::Transform;
+use hsr::Visibility;
+use raster::Fragment;
+use raster::tri_fill;
 pub use stats::Stats;
 
-use crate::hsr::Visibility;
-use crate::raster::*;
+use crate::{
+    geom::{mesh::Mesh, Face, Vertex},
+    math::{Linear, mat::Mat4, transform::Transform},
+};
 
 mod hsr;
 pub mod color;
@@ -17,7 +18,6 @@ pub mod raster;
 pub mod shade;
 pub mod stats;
 pub mod tex;
-pub mod vary;
 
 pub trait RasterOps<VA: Copy, FA> {
     fn shade(&mut self, frag: Fragment<VA>, uniform: FA) -> Color;

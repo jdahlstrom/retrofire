@@ -7,7 +7,7 @@ use sdl2::pixels::Color as SdlColor;
 use sdl2::rect::Rect;
 use sdl2::video::Window;
 
-use render::{Buffer, DepthBuf, Stats};
+use retrofire::render::{Buffer, DepthBuf, Stats};
 use Run::*;
 
 pub struct SdlRunner {

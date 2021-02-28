@@ -1,4 +1,4 @@
-use math::Linear;
+use crate::math::Linear;
 
 #[derive(Debug)]
 pub struct Varying<T> {
@@ -33,7 +33,7 @@ impl<T> Iterator for Varying<T>
 
 #[cfg(test)]
 mod tests {
-    use crate::vary::Varying;
+    use super::*;
 
     #[test]
     fn test_varying_f32() {

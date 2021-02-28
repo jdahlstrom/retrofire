@@ -1,6 +1,5 @@
-use math::vec::{Vec4, ZERO};
-
-use crate::bbox::BoundingBox;
+use crate::geom::{Face, Vertex, bbox::BoundingBox};
+use crate::math::vec::{Vec4, ZERO};
 
 #[derive(Default, Debug, Clone)]
 pub struct Mesh<VA = (), FA = ()> {
@@ -9,19 +8,6 @@ pub struct Mesh<VA = (), FA = ()> {
     pub vertex_attrs: Vec<VA>,
     pub face_attrs: Vec<FA>,
     pub bbox: BoundingBox,
-}
-
-#[derive(Debug, Copy, Clone, PartialEq)]
-pub struct Vertex<A> {
-    pub coord: Vec4,
-    pub attr: A,
-}
-
-#[derive(Debug, Copy, Clone, PartialEq)]
-pub struct Face<VA, FA> {
-    pub indices: [usize; 3],
-    pub verts: [Vertex<VA>; 3],
-    pub attr: FA,
 }
 
 impl Mesh {
