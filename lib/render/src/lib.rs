@@ -114,14 +114,12 @@ impl DepthBuf {
 
     pub fn test<V: Copy>(&mut self, frag: Fragment<(f32, V)>) -> bool {
         let Fragment { coord: (x, y), varying: (z, _) } = frag;
-        let d = &mut self.buf.data[y as usize * self.buf.width + x as usize];
+        let d = &mut self.buf.data[y * self.buf.width + x];
         if *d > z { *d = z; true } else { false }
     }
 
     pub fn clear(&mut self) {
-        let buf = &mut self.buf;
-        buf.data.clear();
-        buf.data.resize(buf.width * buf.height, f32::INFINITY);
+        self.buf.data.fill(f32::INFINITY);
     }
 }
 
@@ -147,16 +145,16 @@ impl Renderer {
 
     pub fn render_scene<VA, FA>(
         &mut self,
-        scene: &Scene<VA, FA>,
+        Scene { objects, camera }: &Scene<VA, FA>,
         raster: &mut impl RasterOps<VA, FA>,
     ) -> Stats
     where
         VA: Copy + Linear<f32>,
         FA: Copy,
     {
-        for obj in &scene.objects {
-            self.modelview = &obj.tf * &scene.camera;
-            self.render(&obj.mesh, raster);
+        for Obj { tf, mesh } in objects {
+            self.modelview = tf * camera;
+            self.render(mesh, raster);
         }
         self.stats
     }
@@ -170,15 +168,20 @@ impl Renderer {
         VA: Copy + Linear<f32>,
         FA: Copy,
     {
+        let Self {
+            ref modelview, ref projection, ref viewport,
+            ref options, stats
+        } = self;
+
         let clock = Instant::now();
 
-        self.stats.objs_in += 1;
-        self.stats.faces_in += mesh.faces.len();
+        stats.objs_in += 1;
+        stats.faces_in += mesh.faces.len();
 
-        let mvp = &self.modelview * &self.projection;
+        let mvp = modelview * projection;
 
         let bbox_vis = {
-            let vs = &mut mesh.bbox.verts();
+            let mut vs = mesh.bbox.verts();
             vs.transform(&mvp);
             hsr::vertex_visibility(vs.iter())
         };
@@ -191,21 +194,24 @@ impl Renderer {
             hsr::hidden_surface_removal(&mut mesh, bbox_vis);
 
             if !mesh.faces.is_empty() {
-                self.stats.faces_out += mesh.faces.len();
-                self.stats.objs_out += 1;
+                stats.objs_out += 1;
+                stats.faces_out += mesh.faces.len();
 
-                if self.options.depth_sort {
+                if options.depth_sort {
                     Self::depth_sort(&mut mesh);
                 }
 
-                self.perspective_divide(&mut mesh);
+                Self::perspective_divide(
+                    &mut mesh, options.perspective_correct);
 
-                self.rasterize(mesh, raster);
+                mesh.verts.transform(viewport);
+
+                Self::rasterize(mesh.faces(), raster, stats);
             }
         }
+        stats.time_used += clock.elapsed();
 
-        self.stats.time_used += Instant::now() - clock;
-        self.stats
+        *stats
     }
 
     fn depth_sort<VA: Copy, FA: Copy>(mesh: &mut Mesh<VA, FA>) {
@@ -224,11 +230,11 @@ impl Renderer {
         mesh.face_attrs = attrs;
     }
 
-    fn perspective_divide<VA, FA>(&self, mesh: &mut Mesh<VA, FA>)
+    fn perspective_divide<VA, FA>(mesh: &mut Mesh<VA, FA>, pc: bool)
     where VA: Linear<f32> + Copy
     {
         let Mesh { verts, vertex_attrs, .. } = mesh;
-        if self.options.perspective_correct {
+        if pc {
             for (v, a) in verts.iter_mut().zip(vertex_attrs) {
                 let w = 1.0 / v.w;
                 *v = v.mul(w);
@@ -243,16 +249,14 @@ impl Renderer {
     }
 
     pub fn rasterize<VA, FA>(
-        &mut self,
-        mut mesh: Mesh<VA, FA>,
+        faces: impl Iterator<Item=Face<VA, FA>>,
         raster: &mut impl RasterOps<VA, FA>,
+        stats: &mut Stats
     ) where
         VA: Copy + Linear<f32>,
         FA: Copy,
     {
-        mesh.verts.transform(&self.viewport);
-
-        for Face { verts: [a, b, c], attr, .. } in mesh.faces() {
+        for Face { verts: [a, b, c], attr, .. } in faces {
             let verts = [
                 Vertex { coord: a.coord, attr: (a.coord.z, a.attr) },
                 Vertex { coord: b.coord, attr: (b.coord.z, b.attr) },
@@ -263,10 +267,9 @@ impl Renderer {
                     let frag = Fragment { coord: frag.coord, varying: frag.varying.1 };
                     let color = raster.shade(frag, attr);
                     // TODO let color = raster.blend(x, y, color);
-                    let coord = (frag.coord.0 as usize, frag.coord.1 as usize);
-                    raster.output(coord, color);
+                    raster.output(frag.coord, color);
                 }
-                self.stats.pixels += 1;
+                stats.pixels += 1;
             });
         }
     }

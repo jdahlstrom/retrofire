@@ -29,8 +29,8 @@ impl Mesh {
                                 faces: impl IntoIterator<Item=[usize; 3]>)
                                 -> Mesh
     {
-        let verts = verts.into_iter().collect::<Vec<_>>();
-        let faces = faces.into_iter().collect::<Vec<_>>();
+        let verts: Vec<_> = verts.into_iter().collect();
+        let faces: Vec<_> = faces.into_iter().collect();
 
         Mesh {
             bbox: BoundingBox::of(verts.iter().copied()),
@@ -76,15 +76,14 @@ impl<VA, FA> Mesh<VA, FA> {
         self.faces.iter().zip(&self.face_attrs).map(move |(&[a, b, c], &fa)| {
             Face {
                 indices: [a, b, c],
-                verts: [
-                    Vertex { coord: self.verts[a], attr: self.vertex_attrs[a] },
-                    Vertex { coord: self.verts[b], attr: self.vertex_attrs[b] },
-                    Vertex { coord: self.verts[c], attr: self.vertex_attrs[c] }
-                ],
+                verts: [self.vertex(a), self.vertex(b), self.vertex(c)],
                 attr: fa,
             }
-
         })
+    }
+
+    fn vertex(&self, i: usize) -> Vertex<VA> where VA: Copy {
+        Vertex { coord: self.verts[i], attr: self.vertex_attrs[i] }
     }
 
     pub fn validate(self) -> Result<Self, String> {
@@ -117,13 +116,13 @@ impl<VA, FA> Mesh<VA, FA> {
     }
 
     pub fn gen_normals(self) -> Mesh<Vec4, Vec4>
-    where VA: Copy, FA: Copy
+        where VA: Copy, FA: Copy
     {
-        let face_ns = self.faces()
-                          .map(|Face { verts: [a, b, c], ..}| {
-                              (b.coord - a.coord).cross(c.coord - a.coord)
-                          })
-                          .collect::<Vec<_>>();
+        let face_ns: Vec<_> = self.faces()
+            .map(|Face { verts: [a, b, c], .. }| {
+                (b.coord - a.coord).cross(c.coord - a.coord)
+            })
+            .collect();
 
         let mut vert_ns = vec![ZERO; self.verts.len()];
 
