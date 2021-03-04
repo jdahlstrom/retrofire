@@ -1,6 +1,9 @@
+use core::fmt::{Display, Formatter};
+use core::fmt;
+use core::ops::Mul;
+
 use math::Linear;
 use math::vec::Vec4;
-use std::ops::Mul;
 
 #[derive(Copy, Clone, Debug, Default, Eq, PartialEq)]
 pub struct Color(pub u32);
@@ -29,6 +32,12 @@ impl Color {
     }
 }
 
+impl Display for Color {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        write!(f, "Color({}, {}, {})", self.r(), self.g(), self.b())
+    }
+}
+
 impl Mul<Color> for Color {
     type Output = Color;
 
@@ -50,15 +59,15 @@ impl Mul<u8> for Color {
 
 impl Linear<f32> for Color {
     fn add(self, other: Self) -> Self {
-        rgb(self.r().saturating_add(other.r()),
-            self.g().saturating_add(other.g()),
-            self.b().saturating_add(other.b()))
+        rgb(self.r().wrapping_add(other.r()),
+            self.g().wrapping_add(other.g()),
+            self.b().wrapping_add(other.b()))
     }
 
     fn mul(self, s: f32) -> Self {
-        rgb((self.r() as f32 * s) as u8,
-            (self.g() as f32 * s) as u8,
-            (self.b() as f32 * s) as u8)
+        rgb((self.r() as f32 * s) as i16 as u8,
+            (self.g() as f32 * s) as i16 as u8,
+            (self.b() as f32 * s) as i16 as u8)
     }
 }
 
@@ -72,7 +81,7 @@ impl From<Vec4> for Color {
 #[cfg(test)]
 mod tests {
     use super::*;
-    
+
     #[test]
     fn color_components() {
         assert_eq!(0xFF, RED.r());
@@ -96,5 +105,25 @@ mod tests {
     fn color_to_argb() {
         assert_eq!([0x01, 0x23, 0x45, 0x67], Color(0x01234567).to_argb());
         assert_eq!([0x00, 0x01, 0x23, 0x45], rgb(0x01, 0x23, 0x45).to_argb());
+    }
+
+    #[test]
+    fn color_varying() {
+        let from = BLACK;
+        let to = RED;
+        let steps = 10.0;
+
+        let step =
+            Linear::mul(to, 1.0 / steps)
+                .add(Linear::mul(from, -1.0 / steps));
+
+        println!("step={}", step);
+
+        let mut c = from;
+        for _ in 0..=10 {
+            println!("{}", c);
+            c = c.add(step);
+        }
+
     }
 }

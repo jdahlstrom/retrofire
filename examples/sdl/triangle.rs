@@ -3,14 +3,15 @@ use std::time::Duration;
 
 use sdl2::event::Event;
 use sdl2::keyboard::Keycode;
-use sdl2::pixels::Color;
+use sdl2::pixels::Color as SdlColor;
 use sdl2::rect::Rect;
 
 use geom::mesh::Vertex;
-use math::vec::vec4;
-use render::raster::gouraud::*;
+use math::vec::*;
+use render::raster::{Fragment, tri_fill};
+use util::color::*;
 
-fn vert(x: f32, y: f32, c: f32) -> Vertex<f32> {
+fn vert(x: f32, y: f32, c: Color) -> Vertex<Color> {
     Vertex { coord: vec4(x, y, 0.0, 0.0), attr: c }
 }
 
@@ -21,9 +22,9 @@ fn main() {
     let video = sdl.video().unwrap();
 
     let window = video.window("rust-sdl2 demo", 800, 600)
-                      .position_centered()
-                      .build()
-                      .unwrap();
+        .position_centered()
+        .build()
+        .unwrap();
 
     let mut event_pump = sdl.event_pump().unwrap();
 
@@ -35,20 +36,21 @@ fn main() {
         let mut surface = window.surface(&event_pump).unwrap();
         let (width, height) = surface.size();
 
-        surface.fill_rect(Rect::new(0, 0, width, height), Color::BLACK).unwrap();
+        surface.fill_rect(Rect::new(0, 0, width, height), SdlColor::BLACK).unwrap();
 
         let buf = surface.without_lock_mut().unwrap();
-        gouraud_fill(
+        tri_fill(
             [
-                vert(xs[0].0, ys[0].0, a),
-                vert(xs[1].0, ys[1].0, a + 0.5),
-                vert(xs[2].0, ys[2].0, a + 1.0)
+                vert(xs[0].0, ys[0].0, RED),
+                vert(xs[1].0, ys[1].0, GREEN),
+                vert(xs[2].0, ys[2].0, BLUE) //Z + 0.25 * (X + Y))
             ],
             |Fragment { coord, varying }| {
                 let pos = 4 * (coord.1 * width as usize  + coord.0) as usize;
-                buf[pos + 0] = (127. + 128. * varying.cos()) as u8;
-                buf[pos + 1] = (127. + 128. * (varying * 0.7).cos()) as u8;
-                buf[pos + 2] = (127. + 128. * (varying * 1.6).sin()) as u8;
+                let [_, r, g, b] = Color::from(varying).to_argb();
+                buf[pos + 0] = b; //(127. + 128. * varying.cos()) as u8;
+                buf[pos + 1] = g; // (127. + 128. * (varying * 0.7).cos()) as u8;
+                buf[pos + 2] = r; // (127. + 128. * (varying * 1.6).sin()) as u8;
             });
 
         for (x, dx) in &mut xs {
