@@ -15,6 +15,7 @@ use crate::hsr::Visibility;
 use crate::raster::*;
 
 mod hsr;
+pub mod fx;
 pub mod raster;
 pub mod scene;
 pub mod shade;
@@ -45,6 +46,7 @@ pub trait RasterOps<VA: Copy, FA> {
     }
 }
 
+#[derive(Clone)]
 pub struct Raster<Shade, Test, Output> {
     pub shade: Shade,
     pub test: Test,
@@ -211,18 +213,21 @@ where
     }
 }
 
-impl<A> Render<A, ()> for Sprite<A>
+impl<VA, FA> Render<VA, FA> for Sprite<VA, FA>
 where
-    A: Linear<f32> + Copy
+    VA: Linear<f32> + Copy,
+    FA: Copy,
 {
     fn render<R>(&self, rdr: &mut Renderer, raster: &mut R)
     where
-        R: RasterOps<A, ()>
+        R: RasterOps<VA, FA>
     {
         rdr.stats.faces_in += 1;
 
         let mut this = *self;
         this.center.transform(&rdr.modelview);
+        this.width *= &rdr.modelview.row(0).len();
+        this.height *= &rdr.modelview.row(0).len();
 
         let vs: Vec<_> = this.verts()
                 .map(|mut v| { v.coord.transform(&rdr.projection); v })
@@ -235,11 +240,11 @@ where
         if !vs.is_empty() {
             rdr.stats.faces_out += 1;
             tri_fill([vs[0], vs[1], vs[2]], |frag|
-                if raster.rasterize(frag, ()) {
+                if raster.rasterize(frag, self.face_attr) {
                     rdr.stats.pixels += 1;
                 });
             tri_fill([vs[0], vs[2], vs[3]], |frag|
-                if raster.rasterize(frag, ()) {
+                if raster.rasterize(frag, self.face_attr) {
                     rdr.stats.pixels += 1;
                 });
         }
@@ -268,19 +273,21 @@ impl Renderer {
         Self::default()
     }
 
-    pub fn render_scene<VA, FA>(
-        &mut self,
-        Scene { objects, camera }: &Scene<VA, FA>,
-        raster: &mut impl RasterOps<VA, FA>,
+    pub fn render_scene<'a, VA, FA, Re, Ra>(
+        &'a mut self,
+        Scene { objects, camera }: &Scene<Re>,
+        raster: &mut Ra,
     ) -> Stats
     where
-        VA: Copy + Linear<f32>,
+        VA: Copy,
         FA: Copy,
+        Re: Render<VA, FA>,
+        Ra: RasterOps<VA, FA> + 'a
     {
         let clock = Instant::now();
-        for Obj { tf, mesh } in objects {
+        for Obj { tf, geom, .. } in objects {
             self.modelview = tf * camera;
-            mesh.render(self, raster);
+            geom.render(self, raster);
         }
         self.stats.objs_in += objects.len();
         self.stats.time_used += clock.elapsed();
@@ -299,7 +306,7 @@ impl Renderer {
         let clock = Instant::now();
 
         mesh.render(self, raster);
-        
+
         self.stats.objs_in += 1;
         self.stats.time_used += clock.elapsed();
         self.stats

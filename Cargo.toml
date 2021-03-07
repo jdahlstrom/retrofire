@@ -21,6 +21,7 @@ lto = "thin"
 
 [profile.dev]
 split-debuginfo = "unpacked"
+opt-level = 1
 
 [dependencies]
 pancurses = { version = "0.16", optional = true }
@@ -30,7 +31,6 @@ math = { path = "./lib/math" }
 geom = { path = "./lib/geom" }
 render = { path = "./lib/render" }
 util = { path = "./lib/util" }
-
 
 [[example]]
 name = "cursed-tri"
@@ -57,3 +57,7 @@ name = "checkers"
 path = "examples/sdl/checkers.rs"
 required-features = ["sdl"]
 
+[[example]]
+name = "ptx"
+path = "examples/sdl/ptx.rs"
+required-features = ["sdl"]

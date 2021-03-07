@@ -60,15 +60,13 @@ fn main() {
             * &translate(trans)
             * &view_dir;
 
-        let mut mesh = mesh.clone();
-
-        for (c, n) in &mut mesh.vertex_attrs {
+        let mut geom = mesh.clone();
+        for (c, n) in &mut geom.vertex_attrs {
             *c *= &tf;
             *n *= &tf;
         }
-
         let scene = Scene {
-            objects: vec![Obj { tf, mesh }],
+            objects: vec![Obj { tf, geom }],
             camera: Mat4::identity(),
         };
 
