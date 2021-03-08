@@ -91,7 +91,7 @@ impl Vec4 {
         vec4(f(self.x), f(self.y), f(self.z), f(self.w))
     }
     /// Returns the result of `f` applied component-wise to `self` and `rhs`.
-    pub fn zip_map(self, rhs: Vec4, f: impl Fn(f32, f32) -> f32) -> Vec4 {
+    pub fn zip_with(self, rhs: Vec4, f: impl Fn(f32, f32) -> f32) -> Vec4 {
         vec4(f(self.x, rhs.x), f(self.y, rhs.y), f(self.z, rhs.z), f(self.w, rhs.w))
     }
 
@@ -170,7 +170,7 @@ impl Add<Vec4> for Vec4 {
     type Output = Vec4;
 
     fn add(self, rhs: Vec4) -> Vec4 {
-        self.zip_map(rhs, Add::add)
+        self.zip_with(rhs, Add::add)
     }
 }
 impl AddAssign<Vec4> for Vec4 {
@@ -183,7 +183,7 @@ impl Sub<Vec4> for Vec4 {
     type Output = Vec4;
 
     fn sub(self, rhs: Vec4) -> Vec4 {
-        self.zip_map(rhs, Sub::sub)
+        self.zip_with(rhs, Sub::sub)
     }
 }
 impl SubAssign<Vec4> for Vec4 {
@@ -255,7 +255,7 @@ impl ApproxEq for Vec4 {
         self.len().epsilon()
     }
     fn abs_diff(self, rhs: Self) -> f32 {
-        self.zip_map(rhs, f32::abs_diff).len()
+        self.zip_with(rhs, f32::abs_diff).len()
     }
 }
 
@@ -274,7 +274,6 @@ impl fmt::Debug for Vec4 {
                self.x, self.y, self.z, self.w, p = p)
     }
 }
-
 
 pub struct UnitDir;
 

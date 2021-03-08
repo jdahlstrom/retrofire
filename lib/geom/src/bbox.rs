@@ -16,8 +16,8 @@ impl BoundingBox {
         let mut rtb = Vec4::from([f32::NEG_INFINITY; 4]);
 
         for &v in vs.into_iter() {
-            lbf = lbf.zip_map(v, f32::min);
-            rtb = rtb.zip_map(v, f32::max);
+            lbf = lbf.zip_with(v, f32::min);
+            rtb = rtb.zip_with(v, f32::max);
         }
 
         Self { left_bot_front: lbf, right_top_back: rtb }
