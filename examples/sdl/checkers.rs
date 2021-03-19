@@ -1,8 +1,10 @@
+use sdl2::event::Event;
 use sdl2::keyboard::Scancode;
 
 use geom::mesh::Mesh;
 use geom::solids::unit_cube;
-use math::Angle::{Deg, Rad};
+use math::Angle::Deg;
+use math::Angle;
 use math::mat::Mat4;
 use math::transform::*;
 use math::vec::*;
@@ -86,6 +88,8 @@ fn main() {
 
     let mut runner = SdlRunner::new(w as u32, h as u32).unwrap();
 
+    let mut cam = FpsCamera::new(pt(0.0, 0.0, -2.5), Angle::ZERO);
+
     runner.run(|mut frame| {
         {
             let Frame { buf, zbuf, .. } = &mut frame;
@@ -95,28 +99,47 @@ fn main() {
                 output: |(x, y), c| buf.plot(x, y, c),
             });
         }
-        {
-            let t = -8. * frame.delta_t;
-            let r = -2. * Rad(frame.delta_t);
-            let cam = &mut scene.camera;
-            for scancode in &frame.pressed_keys {
-                use Scancode::*;
-                match scancode {
-                    W => *cam *= &translate(0.0, 0.0, t),
-                    A => *cam *= &translate(-t, 0.0, 0.0),
-                    S => *cam *= &translate(0.0, 0.0, -t),
-                    D => *cam *= &translate(t, 0.0, 0.0),
 
-                    Left => *cam *= &rotate_y(r),
-                    Right => *cam *= &rotate_y(-r),
+
+        let mut cam_move = ZERO;
+        {
+            use Scancode::*;
+            for scancode in &frame.pressed_keys {
+                match scancode {
+                    W => cam_move.z += 4.0,
+                    S => cam_move.z -= 2.0,
+                    D => cam_move.x += 3.0,
+                    A => cam_move.x -= 3.0,
 
                     P => frame.screenshot("screenshot.ppm")?,
 
                     _ => {}
                 }
             }
+            for e in frame.events {
+                match e {
+                    Event::MouseMotion { xrel, yrel, .. } => {
+                        cam.rotate(
+                            0.6 * Deg(xrel as f32),
+                            0.6 * Deg(yrel as f32)
+                        );
+                    }
+                    Event::KeyDown { scancode: Some(M), .. } => {
+                        println!(
+                            "pos={} az={} alt={}",
+                            cam.pos, cam.azimuth, cam.altitude
+                        );
+                    }
+                    _ => (),
+                }
+            }
         }
+
+        cam.translate(frame.delta_t * cam_move);
+        scene.camera = cam.world_to_view();
+
         rdr.stats.frames += 1;
+
         Ok(Run::Continue)
     }).unwrap();
 

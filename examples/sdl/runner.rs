@@ -36,6 +36,7 @@ impl<'a> Frame<'a> {
         let data: Vec<_> = buf.data.chunks(4)
             .map(|bgra| rgb(bgra[2], bgra[1], bgra[0]))
             .collect();
+
         save_ppm(filename, &Buffer {
             width: buf.width,
             height: buf.height / 4,
@@ -71,6 +72,7 @@ impl SdlRunner {
             .build()
             .map_err(|e| e.to_string())?;
         let event_pump = sdl.event_pump()?;
+        sdl.mouse().set_relative_mouse_mode(true);
 
         Ok(SdlRunner {
             sdl,
