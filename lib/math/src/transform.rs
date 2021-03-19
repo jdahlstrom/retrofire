@@ -37,9 +37,9 @@ pub fn rotate_x(a: Angle) -> Mat4 {
 pub fn rotate_y(a: Angle) -> Mat4 {
     let (sin, cos) = a.sin_cos();
     Mat4([
-        [cos, 0.0, sin, 0.0], //
+        [cos, 0.0, -sin, 0.0], //
         [0.0, 1.0, 0.0, 0.0],
-        [-sin, 0.0, cos, 0.0],
+        [sin, 0.0, cos, 0.0],
         [0.0, 0.0, 0.0, 1.0],
     ])
 }
@@ -145,9 +145,9 @@ mod tests {
     #[test]
     pub fn rotate_y_matrix() {
         let expected = Mat4([
-            [0., 0., 1., 0.],
+            [0., 0., -1., 0.],
             [0., 1., 0., 0.],
-            [-1., 0., 0., 0.],
+            [1., 0., 0., 0.],
             [0., 0., 0., 1.],
         ]);
         let actual = rotate_y(Tau(0.25));
@@ -219,10 +219,27 @@ mod tests {
     }
 
     #[test]
-    fn rotate_vector() {
-        let m = rotate_z(Tau(0.25));
-        assert_approx_eq(&m * X, Y);
-        assert_eq!(&m * Z, Z);
+    fn rotate_z_vector() {
+        let m = &rotate_z(Deg(90.0));
+        assert_approx_eq(m * X, Y);
+        assert_approx_eq(m * Y, -X);
+        assert_eq!(m * Z, Z);
+    }
+
+    #[test]
+    fn rotate_y_vector() {
+        let m = &rotate_y(Deg(90.0));
+        assert_approx_eq(m * Z, X);
+        assert_approx_eq(m * X, -Z);
+        assert_eq!(m * Y, Y);
+    }
+
+    #[test]
+    fn rotate_x_vector() {
+        let m = &rotate_x(Deg(90.0));
+        assert_approx_eq(m * Y, Z);
+        assert_approx_eq(m * Z, -Y);
+        assert_eq!(m * X, X);
     }
 
     #[test]

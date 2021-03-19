@@ -3,10 +3,10 @@ use pancurses::Input::*;
 
 use geom::mesh::Vertex;
 use geom::solids::*;
+use math::Angle::Rad;
 use math::transform::*;
 use math::vec::Vec4;
 use render::raster::gouraud::*;
-use math::Angle::Rad;
 
 fn vert(v: Vec4) -> Vertex<f32> {
     Vertex { coord: v, attr: 127. * (v.x * 1.).sin() * (v.y * 1.).cos() + 128. }
@@ -38,12 +38,13 @@ fn main() {
 
         let mut tf_mesh = mesh.clone();
 
-        let tf = scale(h / 4.0, h / 4.0, h / 4.0)
-            * &rotate_x(theta)
-            * &rotate_z(0.37 * theta)
-            * &translate(w / 2.0, h / 2.0, 0.0);
+        let tf = scale(h / 2.0, h / 2.0, h / 2.0)
+            * rotate_x(theta)
+            * rotate_z(0.37 * theta)
+            * scale(1.0, 0.5, 1.0)
+            * translate(w / 2.0, h / 2.0, 0.0);
 
-        tf_mesh.verts.iter_mut().for_each(|v| *v = &tf * *v);
+        tf_mesh.verts.iter_mut().for_each(|v| *v *= &tf);
 
         let mut faces = tf_mesh.faces()
                                .collect::<Vec<_>>();
@@ -54,11 +55,15 @@ fn main() {
         });
 
         for [a, b, c] in faces.into_iter().map(|f| f.verts) {
-            gouraud_fill([vert(a.coord), vert(b.coord), vert(c.coord)],
-                         |Fragment { coord, varying }| {
-                             win.mvaddch(coord.1 as i32, coord.0 as i32,
-                                         b"..-:;=+<ox*XO@MW"[varying as usize / 0x10 & 0xF] as char);
-                         });
+            gouraud_fill(
+                [vert(a.coord), vert(b.coord), vert(c.coord)],
+                |Fragment { coord: (x, y), varying: v }| {
+                    win.mvaddch(
+                        y as i32, x as i32,
+                        b"..-:;=+<ox*XO@MW"[v as usize / 0x10 & 0xF] as char
+                    );
+                }
+            );
         }
 
         theta = theta + Rad(0.01);
