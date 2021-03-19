@@ -81,8 +81,10 @@ impl Mul<Vec4> for &Mat4 {
 
 impl ApproxEq for &Mat4 {
     type Scalar = f32;
-    const EPSILON: f32 = 1e-6;
 
+    fn epsilon(self) -> f32 {
+        1e-4 // TODO
+    }
     fn abs_diff(self, rhs: Self) -> f32 {
         (0..4)
             .map(|i| (self.row(i), rhs.row(i))) //
