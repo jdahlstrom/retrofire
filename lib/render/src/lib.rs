@@ -1,15 +1,16 @@
 use std::time::Instant;
 
 use geom::mesh::{Face, Mesh, Vertex};
-use math::Linear;
+use math::{Linear, Angle};
 use math::mat::Mat4;
-use math::transform::Transform;
+use math::transform::{Transform, rotate_y, rotate_x, translate};
 pub use stats::Stats;
 use util::Buffer;
 use util::color::Color;
 
 use crate::hsr::Visibility;
 use crate::raster::*;
+use math::vec::*;
 
 mod hsr;
 pub mod raster;
@@ -64,6 +65,47 @@ pub struct Obj<VA, FA> {
 pub struct Scene<VA, FA> {
     pub objects: Vec<Obj<VA, FA>>,
     pub camera: Mat4,
+}
+
+
+#[derive(Clone, Debug, Default)]
+pub struct FpsCamera {
+    pub pos: Vec4,
+    pub azimuth: Angle,
+    pub altitude: Angle,
+}
+
+impl FpsCamera {
+    pub fn new(pos: Vec4, azimuth: Angle) -> Self {
+        Self { pos, azimuth, ..Self::default() }
+    }
+
+    pub fn translate(&mut self, dir: Vec4) {
+        let fwd = &rotate_y(self.azimuth) * Z;
+        let right = Y.cross(fwd);
+        self.pos += Vec4::lincomb(fwd, dir.z, right, dir.x);
+    }
+
+    pub fn rotate(&mut self, az: Angle, alt: Angle) {
+        self.azimuth = (self.azimuth + az)
+            .wrap(-Angle::STRAIGHT, Angle::STRAIGHT);
+        self.altitude = (self.altitude + alt)
+            .clamp(-Angle::RIGHT, Angle::RIGHT);
+    }
+
+    pub fn world_to_view(&self) -> Mat4 {
+
+        let rot_y = &rotate_y(self.azimuth);
+        let fwd = rot_y * (&rotate_x(self.altitude) * Z);
+        let fwd_move = rot_y * Z;
+        let right = Y.cross(fwd_move);
+        let up = fwd.cross(right);
+
+        let orient = Mat4::from_cols([right, up, fwd, W]);
+        let transl = translate(-self.pos.x, -self.pos.y, -self.pos.z);
+
+        transl * &orient
+    }
 }
 
 pub struct DepthBuf {
