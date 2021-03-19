@@ -26,7 +26,7 @@ fn main() {
 
     let mesh = mesh.with_vertex_attrs(vattrs);
 
-    let model_tf = rotate_x(Deg(-90.0)) * &translate(0., -5., 0.);
+    let model_tf = rotate_x(Deg(-90.0)) * translate(0., -5., 0.);
 
     fn shade(frag: Fragment<(Vec4, Vec4)>, _face_n: Vec4) -> Color {
         let (coord, normal) = frag.varying;
@@ -62,8 +62,8 @@ fn main() {
         let mut mesh = mesh.clone();
 
         for (c, n) in &mut mesh.vertex_attrs {
-            *c = &tf * *c;
-            *n = &tf * *n;
+            *c *= &tf;
+            *n *= &tf;
         }
 
         let scene = Scene {
@@ -87,7 +87,7 @@ fn main() {
                 D => trans.x += t,
                 A => trans.x -= t,
 
-                Left => view_dir *= &rotate_y(r),
+                Left => view_dir *= rotate_y(r),
                 Right => view_dir *= &rotate_y(-r),
 
                 _ => {},

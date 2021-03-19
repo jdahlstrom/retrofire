@@ -1,9 +1,10 @@
 #![allow(clippy::len_without_is_empty)]
 
 use core::fmt;
-use core::ops::{Add, Div, Mul, Neg, Sub};
-use core::ops::{Index, IndexMut};
-use std::ops::Range;
+use core::ops::{
+    Add, AddAssign, Div, DivAssign, Index, IndexMut,
+    Mul, MulAssign, Neg, Range, Sub, SubAssign
+};
 
 use crate::{ApproxEq, Linear};
 use crate::rand::{Distrib, Random, Uniform};
@@ -16,21 +17,23 @@ pub struct Vec4 {
     pub w: f32,
 }
 
-pub const ZERO: Vec4 = Vec4 { x: 0.0, y: 0.0, z: 0.0, w: 0.0 };
-pub const X: Vec4 = Vec4 { x: 1.0, y: 0.0, z: 0.0, w: 0.0 };
-pub const Y: Vec4 = Vec4 { x: 0.0, y: 1.0, z: 0.0, w: 0.0 };
-pub const Z: Vec4 = Vec4 { x: 0.0, y: 0.0, z: 1.0, w: 0.0 };
-pub const W: Vec4 = Vec4 { x: 0.0, y: 0.0, z: 0.0, w: 1.0 };
+pub const ZERO: Vec4 = dir(0.0, 0.0, 0.0);
+pub const ORIGIN: Vec4 = pt(0.0, 0.0, 0.0);
 
-pub fn vec4(x: f32, y: f32, z: f32, w: f32) -> Vec4 {
+pub const X: Vec4 = vec4(1.0, 0.0, 0.0, 0.0);
+pub const Y: Vec4 = vec4(0.0, 1.0, 0.0, 0.0);
+pub const Z: Vec4 = vec4(0.0, 0.0, 1.0, 0.0);
+pub const W: Vec4 = vec4(0.0, 0.0, 0.0, 1.0);
+
+pub const fn vec4(x: f32, y: f32, z: f32, w: f32) -> Vec4 {
     Vec4 { x, y, z, w }
 }
 
-pub fn pt(x: f32, y: f32, z: f32) -> Vec4 {
+pub const fn pt(x: f32, y: f32, z: f32) -> Vec4 {
     vec4(x, y, z, 1.0)
 }
 
-pub fn dir(x: f32, y: f32, z: f32) -> Vec4 {
+pub const fn dir(x: f32, y: f32, z: f32) -> Vec4 {
     vec4(x, y, z, 0.0)
 }
 
@@ -90,13 +93,7 @@ impl Vec4 {
     }
 
     pub fn clamp(self, min: f32, max: f32) -> Vec4 {
-        vec4(
-            // TODO use clamp when stable
-            self.x.min(max).max(min),
-            self.y.min(max).max(min),
-            self.z.min(max).max(min),
-            self.w.min(max).max(min),
-        )
+        self.map(|c| c.clamp(min, max))
     }
 }
 
@@ -128,11 +125,22 @@ impl From<[f32; 4]> for Vec4 {
     }
 }
 
+impl From<Vec4> for [f32; 4] {
+    fn from(Vec4 { x, y, z, w }: Vec4) -> Self {
+        [x, y, z, w]
+    }
+}
+
 impl Add<Vec4> for Vec4 {
     type Output = Vec4;
 
     fn add(self, rhs: Vec4) -> Vec4 {
         self.zip_map(rhs, Add::add)
+    }
+}
+impl AddAssign<Vec4> for Vec4 {
+    fn add_assign(&mut self, rhs: Vec4) {
+        *self = *self + rhs;
     }
 }
 
@@ -141,6 +149,11 @@ impl Sub<Vec4> for Vec4 {
 
     fn sub(self, rhs: Vec4) -> Vec4 {
         self.zip_map(rhs, Sub::sub)
+    }
+}
+impl SubAssign<Vec4> for Vec4 {
+    fn sub_assign(&mut self, rhs: Vec4) {
+        *self = *self - rhs;
     }
 }
 
@@ -159,6 +172,11 @@ impl Mul<f32> for Vec4 {
         self.map(|e| e * rhs)
     }
 }
+impl MulAssign<f32> for Vec4 {
+    fn mul_assign(&mut self, rhs: f32) {
+        *self = *self * rhs;
+    }
+}
 
 impl Div<f32> for Vec4 {
     type Output = Vec4;
@@ -167,12 +185,17 @@ impl Div<f32> for Vec4 {
         self * (1. / rhs)
     }
 }
+impl DivAssign<f32> for Vec4 {
+    fn div_assign(&mut self, rhs: f32) {
+        *self = *self / rhs;
+    }
+}
 
 impl Mul<Vec4> for f32 {
     type Output = Vec4;
 
     fn mul(self, rhs: Vec4) -> Vec4 {
-        rhs.map(|e| self * e)
+        rhs * self
     }
 }
 
@@ -200,7 +223,7 @@ impl ApproxEq for Vec4 {
 impl fmt::Display for Vec4 {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         let p = f.precision().unwrap_or(2);
-        write!(f, "({:.p$}, {:p$}, {:p$}, {:p$})",
+        write!(f, "({:.p$}, {:.p$}, {:.p$}, {:.p$})",
                self.x, self.y, self.z, self.w, p = p)
     }
 }
