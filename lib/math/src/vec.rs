@@ -188,8 +188,10 @@ impl Linear<f32> for Vec4 {
 
 impl ApproxEq for Vec4 {
     type Scalar = f32;
-    const EPSILON: f32 = 1e-6;
 
+    fn epsilon(self) -> f32 {
+        self.len().epsilon()
+    }
     fn abs_diff(self, rhs: Self) -> f32 {
         self.zip_map(rhs, f32::abs_diff).len()
     }
