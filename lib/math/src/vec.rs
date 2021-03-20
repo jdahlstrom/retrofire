@@ -214,6 +214,10 @@ impl Linear<f32> for Vec4 {
     fn mul(self, s: f32) -> Self {
         s * self
     }
+
+    fn neg(self) -> Self {
+        Neg::neg(self)
+    }
 }
 
 impl ApproxEq for Vec4 {

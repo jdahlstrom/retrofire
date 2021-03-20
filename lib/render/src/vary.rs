@@ -14,7 +14,7 @@ impl<T> Varying<T>
     }
 
     pub fn between(a: T, b: T, steps: f32) -> Self {
-        let step = (b.add(a.mul(-1.0))).mul(1.0 / steps);
+        let step = b.sub(a).mul(1.0 / steps);
         Self { val: a, step }
     }
 }

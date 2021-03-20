@@ -48,6 +48,7 @@ impl Mul<u8> for Color {
     }
 }
 
+// TODO This impl is fundamentally broken
 impl Linear<f32> for Color {
     fn add(self, other: Self) -> Self {
         rgb(self.r().saturating_add(other.r()),
@@ -59,6 +60,12 @@ impl Linear<f32> for Color {
         rgb((self.r() as f32 * s) as u8,
             (self.g() as f32 * s) as u8,
             (self.b() as f32 * s) as u8)
+    }
+
+    fn neg(self) -> Self {
+        rgb(self.r().wrapping_neg(),
+            self.g().wrapping_neg(),
+            self.b().wrapping_neg())
     }
 }
 
