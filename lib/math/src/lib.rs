@@ -42,13 +42,11 @@ impl ApproxEq for f64 {
     }
 }
 
-pub trait Linear<Scalar>
-where
-    Self: Sized,
-    Scalar: Sized,
-{
+pub trait Linear<Scalar> where Self: Sized {
     fn add(self, other: Self) -> Self;
     fn mul(self, s: Scalar) -> Self;
+    fn neg(self) -> Self;
+    fn sub(self, other: Self) -> Self { self.add(other.neg()) }
 
     /// # Linear combination of `self` and `other`.
     fn lincomb(self, s: Scalar, other: Self, r: Scalar) -> Self {
@@ -63,15 +61,15 @@ impl Linear<f32> for f32 {
     fn mul(self, s: f32) -> Self {
         self * s
     }
+    fn neg(self) -> Self {
+        -self
+    }
 }
 
 impl<T> Linear<T> for () {
-    fn add(self, _: Self) -> Self {
-        self
-    }
-    fn mul(self, _: T) -> Self {
-        self
-    }
+    fn add(self, _: Self) -> Self { self }
+    fn mul(self, _: T) -> Self { self }
+    fn neg(self) -> Self { self }
 }
 
 impl<S, T, U> Linear<S> for (T, U)
@@ -87,6 +85,11 @@ where S: Copy,
     #[inline(always)]
     fn mul(self, s: S) -> Self {
         (self.0.mul(s), self.1.mul(s))
+    }
+
+    #[inline(always)]
+    fn neg(self) -> Self {
+        (self.0.neg(), self.1.neg())
     }
 }
 
