@@ -9,6 +9,7 @@ pub mod mat;
 pub mod vec;
 pub mod transform;
 pub mod rand;
+pub mod spline;
 
 pub trait ApproxEq: Sized + Copy {
     type Scalar: PartialOrd + Copy;
