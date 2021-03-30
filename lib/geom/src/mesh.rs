@@ -1,6 +1,8 @@
 use math::vec::{Vec4, ZERO};
 
 use crate::bbox::BoundingBox;
+use math::transform::Transform;
+use math::mat::Mat4;
 
 #[derive(Default, Debug, Clone)]
 pub struct Mesh<VA = (), FA = ()> {
@@ -135,6 +137,13 @@ impl<VA, FA> Mesh<VA, FA> {
         Mesh::from_verts_and_faces(self.verts, self.faces)
             .with_vertex_attrs(vert_ns.into_iter().map(Vec4::normalize))
             .with_face_attrs(face_ns.into_iter().map(Vec4::normalize))
+    }
+}
+
+impl Transform for Mesh {
+    fn transform(&mut self, tf: &Mat4) {
+        self.bbox.transform(tf);
+        self.verts.transform(tf);
     }
 }
 
