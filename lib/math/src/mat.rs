@@ -3,7 +3,6 @@ use core::ops::{Mul, MulAssign};
 
 use crate::ApproxEq;
 use crate::vec::*;
-use std::mem::swap;
 
 #[derive(Clone, PartialEq)]
 pub struct Mat4(pub(crate) [[f32; 4]; 4]);
@@ -34,14 +33,92 @@ impl Mat4 {
         vec4(self.0[0][idx], self.0[1][idx], self.0[2][idx], self.0[3][idx])
     }
 
-    pub fn transpose(mut self) -> Mat4 {
-        for r in 1..4 {
-            let (top, bot) = self.0.split_at_mut(r);
-            for c in r..4 {
-                swap(&mut top[r - 1][c], &mut bot[c - r][r - 1]);
+    pub fn determinant(&self) -> f32 {
+        let [a, b, c, d] = self.0[0];
+
+        let det3 = |j, k, l| {
+            let [_, r, s, t] = self.0;
+            let [a, b, c] = [r[j], r[k], r[l]];
+            let [d, e, f] = [s[j], s[k], s[l]];
+            let [g, h, i] = [t[j], t[k], t[l]];
+
+            a * (e * i - f * h) + b * (f * g - d * i) + c * (d * h - e * g)
+        };
+
+        a * det3(1, 2, 3) - b * det3(0, 2, 3) + c * det3(0, 1, 3) - d * det3(0, 1, 2)
+    }
+
+    pub fn transpose(&self) -> Mat4 {
+        Mat4::from_rows([self.col(0), self.col(1), self.col(2), self.col(3)])
+    }
+
+    fn sub_row(&mut self, from: usize, to: usize, mul: f32) {
+        self.0[to] = (self.row(to) - mul * self.row(from)).into();
+    }
+
+    fn mul_row(&mut self, row: usize, mul: f32) {
+        self.0[row] = (mul * self.row(row)).into();
+    }
+
+    pub fn invert(&self) -> Mat4 {
+        debug_assert_ne!(0.0, self.determinant(),
+            "Singular matrix has no inverse");
+
+        let mut inv = Mat4::identity();
+        let mut this = self.clone();
+
+        //eprintln!("start\nself={:?}", this);
+
+        for idx in 0..4 {
+            let pivot = (idx..4).max_by(|&r1, &r2| {
+                let v1 = this.0[r1][idx].abs();
+                let v2 = this.0[r2][idx].abs();
+                v1.partial_cmp(&v2).unwrap()
+            }).unwrap();
+
+            //eprintln!("pivot={},{}, val={}", pivot, col, this.0[pivot][col]);
+
+            if this.0[pivot][idx] != 0.0 {
+                //eprintln!("swapping rows {} and {}", row, pivot);
+                this.0.swap(idx, pivot);
+                inv.0.swap(idx, pivot);
+
+                let div = 1.0 / this.0[idx][idx];
+                for r in idx+1..4 {
+                    let x = this.0[r][idx] * div;
+
+                    this.sub_row(idx, r, x);
+                    inv.sub_row(idx, r, x);
+                }
+            }
+            //eprintln!("idx={}\nthis={:?}\ninv={:?}", idx, this, inv);
+        }
+
+        //eprintln!("echelon\nthis={:?}\ninv={:?}", this, inv);
+
+        // now in upper echelon form, backsubstitute variables
+        for &idx in &[3, 2, 1] {
+            let diag = this.0[idx][idx];
+            for r in 0..idx {
+                let x = this.0[r][idx] / diag;
+
+                this.sub_row(idx, r, x);
+                inv.sub_row(idx, r, x);
             }
         }
-        self
+
+        //eprintln!("backsubst\nthis={:?}\ninv={:?}", this, inv);
+
+        // normalize
+        for r in 0..4 {
+            let x = 1.0 / this.0[r][r];
+            this.mul_row(r, x);
+            inv.mul_row(r, x);
+        }
+
+        //eprintln!("normalized\nthis={:?}\ninv={:?}", this, inv);
+
+        inv
     }
 }
 
@@ -139,6 +216,7 @@ impl fmt::Debug for Mat4 {
 
 #[cfg(test)]
 mod tests {
+    use crate::rand::*;
     use super::*;
 
     #[test]
@@ -218,10 +296,96 @@ mod tests {
     }
 
     #[test]
-    fn matrix_identity_multiply() {
-        let i = &Mat4::identity();
+    fn identity_matrix_determinant_is_one() {
+        assert_eq!(1.0, Mat4::identity().determinant());
+    }
 
-        assert_eq!(i * i, Mat4::identity());
+    #[test]
+    fn singular_matrix_determinant_is_zero() {
+        assert_eq!(0.0, Mat4::from_rows([X, X, Y, W]).determinant());
+        assert_eq!(0.0, Mat4::from_rows([Y, Z, Z, W]).determinant());
+        assert_eq!(0.0, Mat4::from_rows([W, Y, Z, W]).determinant());
+    }
+
+    #[test]
+    fn scale_matrix_determinant_is_product_of_diagonals() {
+        let scale = Mat4::from_rows([2.0 * X, 3.0 * Y, 4.0 * Z, W]);
+        assert_eq!(2.0 * 3.0 * 4.0, scale.determinant())
+    }
+
+    #[test]
+    fn rotation_matrix_determinant_is_one() {
+        assert_eq!(1.0, Mat4::from_rows([Y, Z, X, W]).determinant());
+        assert_eq!(1.0, Mat4::from_rows([X, Z, -Y, W]).determinant());
+        assert_eq!(1.0, Mat4::from_rows([-X, Y, -Z, W]).determinant());
+    }
+
+    #[test]
+    fn reflection_matrix_determinant_is_negative() {
+        assert_eq!(-1.0, Mat4::from_rows([-X, Y, Z, W]).determinant());
+        assert_eq!(-1.0, Mat4::from_rows([Y, X, Z, W]).determinant());
+        assert_eq!(-1.0, Mat4::from_rows([X, -Y, Z, W]).determinant());
+        assert_eq!(-1.0, Mat4::from_rows([X, Z, Y, W]).determinant());
+    }
+
+    #[test]
+    fn identity_matrix_invert_gives_identity() {
+        let id = Mat4::identity();
+        assert_eq!(id, id.invert());
+    }
+
+    #[test]
+    fn matrix_invert_pathological_case() {
+        let m = Mat4([
+            [   -0.494283,     0.164862,     0.853525,     0.000000],
+            [   -0.313925,     0.235620,     0.919747,     0.000000],
+            [   -0.549284,    -0.399912,    -0.733729,     0.000000],
+            [    4.844985,     7.986494,    -3.569597,     1.000000],
+        ]);
+
+        let _m = Mat4([
+            [   -0.5,     0.16,     0.85,     0.000000],
+            [   -0.3,     0.23,     0.92,     0.000000],
+            [   -0.55,    -0.4,    -0.73,     0.000000],
+            [    4.84,     7.99,    -3.57,     1.000000],
+        ]);
+
+        let inv = m.invert();
+        println!("m.det = {}, inv.det = {}", m.determinant(), inv.determinant());
+        dbg!(&inv);
+        println!("{:15.5?}", m * inv);
+    }
+
+    #[test]
+    fn rot_trans_matrix_invert_stress_test() {
+
+        let expected = Mat4::identity();
+        let mut rng = Random::new();
+        let dist = UnitDir;
+
+        for i in 0..1000 {
+            let x = rng.next(&dist);
+            let y = x.cross(Z).normalize();
+            let z = y.cross(x);
+            let m = Mat4::from_rows([
+                x, y, z,
+                W + 1000.0 * rng.next(&dist),
+            ]);
+            let inv = m.invert();
+            let actual = &m * &inv;
+            if !expected.approx_eq_eps(&actual, 0.05) {
+                eprintln!("i={} det(m)={} det(inv)={}", i, m.determinant(), inv.determinant());
+                eprintln!("m={:12.6?}\ninv={:12.6?}\nm*inv={:12.6?}", m, inv, actual);
+                panic!("Inaccurate inverse");
+            }
+        }
+    }
+
+    #[test]
+    fn matrix_multiply_with_identity_is_identity_op() {
+        let id = &Mat4::identity();
+
+        assert_eq!(id * id, id.clone());
 
         let m = &Mat4([
             [1.1, 1.2, 1.3, 1.4],
@@ -230,8 +394,8 @@ mod tests {
             [4.1, 4.2, 4.3, 4.4],
         ]);
 
-        assert_eq!(m * i, m.clone());
-        assert_eq!(i * m, m.clone());
+        assert_eq!(m * id, m.clone());
+        assert_eq!(id * m, m.clone());
     }
 
     #[test]

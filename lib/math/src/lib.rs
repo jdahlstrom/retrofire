@@ -15,7 +15,11 @@ pub trait ApproxEq: Sized + Copy {
     type Scalar: PartialOrd + Copy;
 
     fn approx_eq(self, rhs: Self) -> bool {
-        self.abs_diff(rhs) <= self.epsilon()
+        self.approx_eq_eps(rhs, self.epsilon())
+    }
+
+    fn approx_eq_eps(self, rhs: Self, epsilon: Self::Scalar) -> bool {
+        self.abs_diff(rhs) <= epsilon
     }
 
     fn epsilon(self) -> Self::Scalar;
