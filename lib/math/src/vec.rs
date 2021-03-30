@@ -38,9 +38,16 @@ pub const fn dir(x: f32, y: f32, z: f32) -> Vec4 {
 }
 
 impl Vec4 {
+    /// Returns the norm (length squared) of `self`.
+    #[inline(always)]
+    pub fn norm(self) -> f32 {
+        self.dot(self)
+    }
+
     /// Returns the length of `self`.
+    #[inline(always)]
     pub fn len(self) -> f32 {
-        self.dot(self).sqrt()
+        self.norm().sqrt()
     }
 
     /// Returns self divided by `self.len()`.
@@ -240,6 +247,7 @@ impl fmt::Debug for Vec4 {
 pub struct UnitDir;
 
 impl Distrib<Vec4> for UnitDir {
+    /// Generates a random direction vector of unit length.
     fn from(&self, r: &mut Random) -> Vec4 {
         let d = Uniform(-1.0..1.0_f32);
         let x = d.from(r);
@@ -252,18 +260,16 @@ impl Distrib<Vec4> for UnitDir {
 pub struct InUnitBall;
 
 impl Distrib<Vec4> for InUnitBall {
-    /// Generates a random `Vec4` in the unit ball.
+    /// Generates a random point in the unit ball.
     fn from(&self, r: &mut Random) -> Vec4 {
-        let unit_box = Uniform(-X-Y-Z .. X+Y+Z);
-        r.iter(unit_box)
-            .skip_while(|&v| v.dot(v) > 1.0)
-            .next().unwrap()
+        let unit_box = Uniform(dir(-1.0, -1.0, -1.0)..dir(1.0, 1.0, 1.0));
+        r.iter(unit_box).find(|&v| v.norm() <= 1.0).unwrap() + W
     }
 }
 
 impl Distrib<Vec4> for Uniform<Range<Vec4>> {
-    /// Generates a random `Vec4` in an axis-aligned box
-    /// given by the lower and upper bounds of `self.0`.
+    /// Generates a random point in the axis-aligned box
+    /// specified by the bounds of this `Uniform`.
     fn from(&self, r: &mut Random) -> Vec4 {
         let Range { start, end } = &self.0;
         let x = Uniform(start.x..end.x).from(r);
@@ -416,7 +422,8 @@ mod tests {
         let mut r = Random::new();
 
         for v in r.iter(InUnitBall).take(ROUNDS) {
-            assert!(v.len() < 1.0, "v={:?}", v);
+            assert_eq!(1.0, v.w);
+            assert!(dir(v.x, v.y, v.z).norm() <= 1.0, "v={:?}", v);
         }
     }
 
