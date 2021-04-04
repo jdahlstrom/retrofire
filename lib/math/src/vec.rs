@@ -6,7 +6,7 @@ use core::ops::{
     Mul, MulAssign, Neg, Range, Sub, SubAssign
 };
 
-use crate::{ApproxEq, Linear};
+use crate::{Angle, ApproxEq, Linear};
 use crate::rand::{Distrib, Random, Uniform};
 
 #[derive(Copy, Clone, Default, PartialEq)]
@@ -35,6 +35,17 @@ pub const fn pt(x: f32, y: f32, z: f32) -> Vec4 {
 
 pub const fn dir(x: f32, y: f32, z: f32) -> Vec4 {
     vec4(x, y, z, 0.0)
+}
+
+pub fn polar(r: f32, az: Angle) -> Vec4 {
+    assert!(r >= 0.0);
+    let (sin, cos) = az.sin_cos();
+    dir(r * sin, 0.0, r * cos)
+}
+
+pub fn spherical(r: f32, az: Angle, alt: Angle) -> Vec4 {
+    let (sin, cos) = alt.sin_cos();
+    polar(r * cos, az) + r * sin * Y
 }
 
 impl Vec4 {
@@ -291,6 +302,38 @@ mod tests {
     use crate::tests::util::*;
 
     use super::*;
+
+
+    #[test]
+    fn vec_from_polar() {
+        let v = polar(3.0, Angle::Deg(45.0));
+        assert_approx_eq(1.5 * dir(f32::sqrt(2.0), 0.0, f32::sqrt(2.0)), v);
+    }
+
+    #[test]
+    fn vec_from_polar_neg_angle() {
+        let v = polar(3.0, Angle::Deg(-60.0));
+        assert_approx_eq(1.5 * dir(-f32::sqrt(3.0), 0.0, 1.0), v);
+    }
+
+    #[test]
+    fn vec_from_polar_zero_r() {
+        let v = polar(0.0, Angle::Deg(123.45));
+        assert_eq!(ZERO, v);
+    }
+
+    #[test]
+    fn vec_from_spherical() {
+        let v = spherical(3.0, Angle::Deg(90.0), Angle::Deg(60.0));
+        assert_approx_eq(1.5 * dir(1.0, f32::sqrt(3.0), 0.0), v);
+    }
+
+    #[test]
+    fn vec_from_spherical_zero_r() {
+        let v = spherical(0.0, Angle::Deg(12.34), Angle::Deg(56.78));
+        assert_eq!(ZERO, v);
+    }
+
 
     #[test]
     fn vector_len() {
