@@ -1,8 +1,10 @@
+use std::fmt::Debug;
+
+use math::mat::Mat4;
+use math::transform::Transform;
 use math::vec::{Vec4, ZERO};
 
 use crate::bbox::BoundingBox;
-use math::transform::Transform;
-use math::mat::Mat4;
 
 #[derive(Default, Debug, Clone)]
 pub struct Mesh<VA = (), FA = ()> {
@@ -26,65 +28,167 @@ pub struct Face<VA, FA> {
     pub attr: FA,
 }
 
-impl Mesh {
-    pub fn from_verts_and_faces(verts: impl IntoIterator<Item=Vec4>,
-                                faces: impl IntoIterator<Item=[usize; 3]>)
-                                -> Mesh
-    {
-        let verts: Vec<_> = verts.into_iter().collect();
-        let faces: Vec<_> = faces.into_iter().collect();
+#[derive(Default, Debug, Clone)]
+pub struct Builder<VA = (), FA = ()> {
+    pub mesh: Mesh<VA, FA>
+}
 
-        Mesh {
-            bbox: BoundingBox::of(verts.iter().copied()),
-            vertex_attrs: vec![(); verts.len()],
-            face_attrs: vec![(); faces.len()],
-            verts,
-            faces,
+pub enum FaceVert {
+    New(Vec4),
+    Existing(isize),
+}
+
+impl From<Vec4> for FaceVert {
+    fn from(v: Vec4) -> Self { Self::New(v) }
+}
+
+impl From<isize> for FaceVert {
+    fn from(i: isize) -> Self { Self::Existing(i) }
+}
+
+impl Mesh {
+    pub fn builder() -> Builder {
+        Builder { mesh: Self::default() }
+    }
+}
+
+impl Builder {
+    pub fn vert(&mut self, v: Vec4) -> &mut Self {
+        self.mesh.verts.push(v.to_pt());
+        self.mesh.vertex_attrs.push(());
+        self
+    }
+
+    pub fn face<T, U, V>(&mut self, a: T, b: U, c: V) -> &mut Self
+    where
+        T: Into<FaceVert>, U: Into<FaceVert>, V: Into<FaceVert>,
+    {
+        let verts = &mut self.mesh.verts;
+        let len = verts.len() as isize;
+        let mut idx = |v| match v {
+            FaceVert::New(v) => {
+                verts.push(v.to_pt());
+                verts.len()
+            }
+            FaceVert::Existing(i) => i.rem_euclid(len) as usize
+        };
+        self.mesh.faces.push([idx(a.into()), idx(b.into()), idx(c.into())]);
+        self.mesh.face_attrs.push(());
+        self
+    }
+
+    pub fn verts(self, verts: impl IntoIterator<Item=Vec4>) -> Self {
+        let verts: Vec<_> = verts.into_iter().collect();
+        let vertex_attrs = vec![(); verts.len()];
+        Builder {
+            mesh: Mesh {
+                verts,
+                vertex_attrs,
+                faces: self.mesh.faces,
+                face_attrs: self.mesh.face_attrs,
+                bbox: BoundingBox::default(),
+            }
+        }
+    }
+
+    pub fn faces(self, faces: impl IntoIterator<Item=[usize; 3]>) -> Self {
+        let faces: Vec<_> = faces.into_iter().collect();
+        let face_attrs = vec![(); faces.len()];
+        Builder {
+            mesh: Mesh {
+                faces,
+                face_attrs,
+                verts: self.mesh.verts,
+                vertex_attrs: self.mesh.vertex_attrs,
+                bbox: self.mesh.bbox,
+            }
         }
     }
 }
 
-impl<VA, FA> Mesh<VA, FA> {
-
-    pub fn with_vertex_attrs<A>(self, attrs: impl IntoIterator<Item=A>)
-                                -> Mesh<A, FA> where A: Clone
+impl<VA, FA> Builder<VA, FA> {
+    pub fn vertex_attrs<A>(self, attrs: impl IntoIterator<Item=A>)
+        -> Builder<A, FA> where A: Clone
     {
-        Mesh {
-            verts: self.verts,
-            faces: self.faces,
-            bbox: self.bbox,
-            face_attrs: self.face_attrs,
-
-            vertex_attrs: attrs.into_iter().collect(),
+        let Mesh { verts, faces, face_attrs, bbox, .. } = self.mesh;
+        let vertex_attrs = attrs.into_iter().take(verts.len()).collect();
+        Builder {
+            mesh: Mesh {
+                verts,
+                vertex_attrs,
+                faces,
+                face_attrs,
+                bbox,
+            }
         }
     }
 
-    pub fn with_face_attrs<A>(self, attrs: impl IntoIterator<Item=A>)
-                              -> Mesh<VA, A> where A: Clone
+    pub fn vertex_attrs_with<A>(self, f: impl FnMut(Vertex<VA>) -> A)
+        -> Builder<A, FA>
+    where A: Clone, VA: Copy, FA: Copy
     {
-        Mesh {
-            verts: self.verts,
-            faces: self.faces,
-            bbox: self.bbox,
-            vertex_attrs: self.vertex_attrs,
+        let attrs: Vec<_> = self.mesh.verts().map(f).collect();
+        self.vertex_attrs(attrs)
+    }
 
-            face_attrs: attrs.into_iter().collect(),
+    pub fn face_attrs<A>(self, attrs: impl IntoIterator<Item=A>)
+        -> Builder<VA, A> where A: Clone
+    {
+        let Mesh { verts, vertex_attrs, faces, bbox, .. } = self.mesh;
+        let face_attrs = attrs.into_iter().take(faces.len()).collect();
+        Builder {
+            mesh: Mesh {
+                verts,
+                vertex_attrs,
+                faces,
+                face_attrs,
+                bbox,
+            }
         }
+    }
+
+    pub fn face_attrs_with<A>(self, f: impl FnMut(Face<VA, FA>) -> A)
+        -> Builder<VA, A>
+    where A: Clone, VA: Copy, FA: Copy
+    {
+        let attrs: Vec<_> = self.mesh.faces().map(f).collect();
+        self.face_attrs(attrs)
+    }
+}
+
+impl<VA: Debug, FA: Debug> Builder<VA, FA> {
+    pub fn build(self) -> Mesh<VA, FA> {
+        let mut mesh = self.mesh;
+        mesh.bbox = BoundingBox::of(mesh.verts.iter().copied());
+        mesh
+    }
+}
+
+impl<VA, FA> Mesh<VA, FA> {
+    pub fn verts(&self) -> impl Iterator<Item=Vertex<VA>> + '_
+    where VA: Copy
+    {
+        self.verts.iter().zip(&self.vertex_attrs)
+            .map(|(&coord, &attr)| Vertex { coord, attr })
     }
 
     pub fn faces(&self) -> impl Iterator<Item=Face<VA, FA>> + '_
     where VA: Copy, FA: Copy,
     {
-        self.faces.iter().zip(&self.face_attrs).map(move |(&[a, b, c], &fa)| {
-            Face {
-                indices: [a, b, c],
-                verts: [self.vertex(a), self.vertex(b), self.vertex(c)],
-                attr: fa,
-            }
-        })
+        self.faces.iter().zip(&self.face_attrs)
+            .map(move |(&indices, &attr)| {
+                let [a, b, c] = indices;
+                Face {
+                    indices,
+                    verts: [self.vertex(a), self.vertex(b), self.vertex(c)],
+                    attr,
+                }
+            })
     }
 
-    fn vertex(&self, i: usize) -> Vertex<VA> where VA: Copy {
+    fn vertex(&self, i: usize) -> Vertex<VA>
+    where VA: Copy
+    {
         Vertex { coord: self.verts[i], attr: self.vertex_attrs[i] }
     }
 
@@ -118,7 +222,7 @@ impl<VA, FA> Mesh<VA, FA> {
     }
 
     pub fn gen_normals(self) -> Mesh<Vec4, Vec4>
-        where VA: Copy, FA: Copy
+    where VA: Copy, FA: Copy
     {
         let face_ns: Vec<_> = self.faces()
             .map(|Face { verts: [a, b, c], .. }| {
@@ -134,9 +238,12 @@ impl<VA, FA> Mesh<VA, FA> {
             vert_ns[c] = vert_ns[c] + n;
         }
 
-        Mesh::from_verts_and_faces(self.verts, self.faces)
-            .with_vertex_attrs(vert_ns.into_iter().map(Vec4::normalize))
-            .with_face_attrs(face_ns.into_iter().map(Vec4::normalize))
+        Mesh::builder()
+            .verts(self.verts)
+            .faces(self.faces)
+            .vertex_attrs(vert_ns.into_iter().map(Vec4::normalize))
+            .face_attrs(face_ns.into_iter().map(Vec4::normalize))
+            .build()
     }
 }
 

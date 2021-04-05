@@ -67,14 +67,14 @@ where VA: Copy + Linear<f32>, FA: Copy
 
 #[test]
 fn render_cube_with_unit_attrs() {
-    let actual = render(unit_cube());
+    let actual = render(unit_cube().build());
 
     assert_eq!(EXPECTED_CUBE, &actual);
 }
 
 #[test]
 fn render_cube_with_vector_attrs() {
-    let actual = render(unit_cube().gen_normals());
+    let actual = render(unit_cube().build().gen_normals());
 
     assert_eq!(EXPECTED_CUBE, &actual);
 }
@@ -87,7 +87,7 @@ fn render_sphere_field() {
         for i in -10..=10 {
             objects.push(Obj {
                 tf: translate(4. * i as f32, 0., 4. * j as f32),
-                mesh: unit_sphere(9, 9)
+                mesh: unit_sphere(9, 9).build()
             });
         }
     }
@@ -95,6 +95,6 @@ fn render_sphere_field() {
     let stats = render_scene(Scene { objects, camera });
 
     assert_eq!(126 * 21 * 21, stats.faces_in);
-    assert_eq!(6550, stats.faces_out);
-    assert_eq!(1216, stats.pixels);
+    assert_eq!(6626, stats.faces_out);
+    assert_eq!(1248, stats.pixels);
 }

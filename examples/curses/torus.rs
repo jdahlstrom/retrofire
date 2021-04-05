@@ -21,7 +21,7 @@ impl Drop for Nc {
 }
 
 fn main() {
-    let mesh = torus(0.35, 9, 13);
+    let mesh = torus(0.35, 9, 13).build();
 
     let _scr = Nc;
     let win = nc::initscr();
