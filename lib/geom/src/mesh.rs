@@ -63,14 +63,19 @@ impl Builder {
     where
         T: Into<FaceVert>, U: Into<FaceVert>, V: Into<FaceVert>,
     {
-        let verts = &mut self.mesh.verts;
+        let Mesh { ref mut verts, ref mut vertex_attrs, .. } = self.mesh;
         let len = verts.len() as isize;
-        let mut idx = |v| match v {
-            FaceVert::New(v) => {
-                verts.push(v.to_pt());
-                verts.len()
-            }
-            FaceVert::Existing(i) => i.rem_euclid(len) as usize
+        let mut idx = |v| {
+            let i = match v {
+                FaceVert::New(v) => {
+                    verts.push(v.to_pt());
+                    vertex_attrs.push(());
+                    verts.len() - 1
+                }
+                FaceVert::Existing(i) => i.rem_euclid(len) as usize
+            };
+            debug_assert!(i < verts.len(), "i={} len={}", i, verts.len());
+            i
         };
         self.mesh.faces.push([idx(a.into()), idx(b.into()), idx(c.into())]);
         self.mesh.face_attrs.push(());
