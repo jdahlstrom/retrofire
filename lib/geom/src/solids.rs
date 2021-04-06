@@ -69,37 +69,37 @@ pub fn unit_sphere(parallels: usize, meridians: usize) -> Builder {
         .map(Deg);
 
     // bottom cap
-    bld.vert(-Y);
+    bld.add_vert(-Y);
     let alt = altitudes.next().unwrap();
-    bld.vert(spherical(1.0, Deg(0.0), alt));
+    bld.add_vert(spherical(1.0, Deg(0.0), alt));
 
     for az in azimuths.clone() {
-        bld.vert(spherical(1.0, az, alt));
-        bld.face(0, -1, -2);
+        bld.add_vert(spherical(1.0, az, alt));
+        bld.add_face(0, -1, -2);
     }
-    bld.face(0, 1, -1);
+    bld.add_face(0, 1, -1);
 
     // body
     for alt in altitudes {
-        bld.vert(spherical(1.0, Deg(0.0), alt));
+        bld.add_vert(spherical(1.0, Deg(0.0), alt));
 
         for az in azimuths.clone() {
-            bld.vert(spherical(1.0, az, alt));
+            bld.add_vert(spherical(1.0, az, alt));
 
-            bld.face(-1, -2, -meridians - 2);
-            bld.face(-1, -meridians - 2, -meridians - 1);
+            bld.add_face(-1, -2, -meridians - 2);
+            bld.add_face(-1, -meridians - 2, -meridians - 1);
         }
 
-        bld.face(-1, -meridians - 1, -meridians);
-        bld.face(-meridians, -meridians - 1, -2 * meridians);
+        bld.add_face(-1, -meridians - 1, -meridians);
+        bld.add_face(-meridians, -meridians - 1, -2 * meridians);
     }
 
     // top cap
-    bld.vert(Y);
+    bld.add_vert(Y);
     for mer in 1..meridians {
-        bld.face(-2 - meridians + mer, -1 - meridians + mer, -1);
+        bld.add_face(-2 - meridians + mer, -1 - meridians + mer, -1);
     }
-    bld.face(-meridians - 1, -1, -2);
+    bld.add_face(-meridians - 1, -1, -2);
 
     bld
 }
@@ -121,25 +121,25 @@ pub fn torus(minor_r: f32, pars: usize, mers: usize) -> Builder {
             let z = theta.cos() + minor_r * theta.cos() * phi.cos();
             let y = minor_r * phi.sin();
 
-            bld.vert(pt(x, y, z));
+            bld.add_vert(pt(x, y, z));
             if theta > Angle::ZERO && phi > Angle::ZERO {
-                bld.face(-1, -pars - 2, -2);
-                bld.face(-1, -pars - 1, -pars - 2);
+                bld.add_face(-1, -pars - 2, -2);
+                bld.add_face(-1, -pars - 1, -pars - 2);
             }
         }
         if theta > Angle::ZERO {
-            bld.face(-pars, -1 - pars, -1);
-            bld.face(-pars, -2 * pars, -1 - pars);
+            bld.add_face(-pars, -1 - pars, -1);
+            bld.add_face(-pars, -2 * pars, -1 - pars);
         }
     }
 
     // Connect the last sector to the first
     for par in 1..pars {
-        bld.face(par, -pars + par, -1 - pars + par);
-        bld.face(par, -1 - pars + par, par - 1);
+        bld.add_face(par, -pars + par, -1 - pars + par);
+        bld.add_face(par, -1 - pars + par, par - 1);
     }
-    bld.face(-pars, pars - 1, 0);
-    bld.face(-pars, -1, pars - 1);
+    bld.add_face(-pars, pars - 1, 0);
+    bld.add_face(-pars, -1, pars - 1);
 
     bld
 }

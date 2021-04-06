@@ -53,13 +53,13 @@ impl Mesh {
 }
 
 impl Builder {
-    pub fn vert(&mut self, v: Vec4) -> &mut Self {
+    pub fn add_vert(&mut self, v: Vec4) -> &mut Self {
         self.mesh.verts.push(v.to_pt());
         self.mesh.vertex_attrs.push(());
         self
     }
 
-    pub fn face<T, U, V>(&mut self, a: T, b: U, c: V) -> &mut Self
+    pub fn add_face<T, U, V>(&mut self, a: T, b: U, c: V) -> &mut Self
     where
         T: Into<FaceVert>, U: Into<FaceVert>, V: Into<FaceVert>,
     {
