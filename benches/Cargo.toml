@@ -1,0 +1,22 @@
+[package]
+name = "retrofire-benches"
+version = "0.1.0"
+authors = ["Johannes Dahlström <johannes.dahlstrom@gmail.com>"]
+edition = "2018"
+
+[workspace]
+
+[dependencies]
+math = { path = "../lib/math" }
+geom = { path = "../lib/geom" }
+render = { path = "../lib/render" }
+util = { path = "../lib/util" }
+
+[dev-dependencies]
+criterion = { version = "0.3", features = ["html_reports"] }
+
+[[bench]]
+name = "renderer-bench"
+path = "src/renderer.rs"
+bench = true
+harness = false

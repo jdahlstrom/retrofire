@@ -24,20 +24,10 @@ lto = "thin"
 pancurses = { version = "0.16", optional = true }
 sdl2 = { version = "0.34", optional = true }
 
-[dependencies.math]
-path = "./lib/math"
-
-[dependencies.geom]
-path = "./lib/geom"
-
-[dependencies.render]
-path = "./lib/render"
-
-[dependencies.util]
-path = "./lib/util"
-
-[dev-dependencies]
-criterion = "0.3"
+math = { path = "./lib/math" }
+geom = { path = "./lib/geom" }
+render = { path = "./lib/render" }
+util = { path = "./lib/util" }
 
 
 [[example]]
@@ -65,6 +55,3 @@ name = "checkers"
 path = "examples/sdl/checkers.rs"
 required-features = ["sdl"]
 
-[[bench]]
-name = "renderer"
-harness = false

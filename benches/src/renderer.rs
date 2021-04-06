@@ -34,8 +34,8 @@ fn torus(c: &mut Criterion) {
                     buf[idx] = 0xFF;
                     buf[idx + 1] = 0xFF;
                     buf[idx + 2] = 0xFF;
-                }
-            }
+                },
+            },
         ))
     });
     eprintln!("Stats/s: {}", rdr.stats.avg_per_sec());
@@ -50,7 +50,7 @@ fn scene(c: &mut Criterion) {
         for i in -4..=4 {
             objects.push(Obj {
                 tf: translate(4. * i as f32, 0., 4. * j as f32),
-                mesh: solids::unit_sphere(9, 9).build()
+                mesh: solids::unit_sphere(9, 9).build(),
             });
         }
     }
@@ -63,8 +63,8 @@ fn scene(c: &mut Criterion) {
             &mut Raster {
                 shade: |_, _| BLACK,
                 test: |_| true,
-                output: |(x, y), _| buf[W * y + x] = '#'
-            }
+                output: |(x, y), _| buf[W * y + x] = '#',
+            },
         ))
     });
     eprintln!("Stats/s: {}", rdr.stats.avg_per_sec());
@@ -84,8 +84,8 @@ fn gouraud_fillrate(c: &mut Criterion) {
             &mut Raster {
                 shade: |frag: Fragment<_>, _| frag.varying,
                 test: |_| true,
-                output: |(x, y), col| buf[W * y + x] = col
-            }
+                output: |(x, y), col| buf[W * y + x] = col,
+            },
         ))
     });
     eprintln!("Stats/frame: {}", rdr.stats.avg_per_frame());
