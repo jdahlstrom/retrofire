@@ -20,7 +20,7 @@ fn torus(c: &mut Criterion) {
     let mut rdr = renderer();
     rdr.modelview = scale(4., 4., 4.);
 
-    let mesh = solids::torus(0.2, 9, 9);
+    let mesh = solids::torus(0.2, 9, 9).build();
 
     let mut buf = vec![0u8; 3 * W * W];
     c.bench_function("torus", |b| {
@@ -50,7 +50,7 @@ fn scene(c: &mut Criterion) {
         for i in -4..=4 {
             objects.push(Obj {
                 tf: translate(4. * i as f32, 0., 4. * j as f32),
-                mesh: solids::unit_sphere(9, 9)
+                mesh: solids::unit_sphere(9, 9).build()
             });
         }
     }
@@ -73,9 +73,9 @@ fn scene(c: &mut Criterion) {
 fn gouraud_fillrate(c: &mut Criterion) {
     let mut rdr = renderer();
     rdr.modelview = scale(2., 2., 2.) * &translate(0.0, 0.0, 6.0);
-    let mesh = solids::unit_cube().with_vertex_attrs([
-        RED, GREEN, BLUE, RED, GREEN, BLUE, RED, GREEN
-    ].iter().copied());
+    let mesh = solids::unit_cube()
+        .vertex_attrs([RED, GREEN, BLUE].iter().copied().cycle())
+        .build();
 
     let mut buf = [BLACK; W * W];
     c.bench_function("gouraud", |b| {

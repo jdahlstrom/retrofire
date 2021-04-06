@@ -17,7 +17,7 @@ use crate::runner::*;
 
 mod runner;
 
-fn checkers() -> Mesh<TexCoord, Vec4> {
+fn checkers() -> Mesh<TexCoord, ()> {
     let size: usize = 40;
     let isize = size as i32;
 
@@ -37,27 +37,26 @@ fn checkers() -> Mesh<TexCoord, Vec4> {
             fs.push([w * j + i, w * (j + 1) + i, w * (j + 1) + i + 1]);
         }
     }
-    Mesh::from_verts_and_faces(vs.clone(), fs)
-        .gen_normals()
-        .with_vertex_attrs(texcoords)
+    Mesh::builder().verts(vs.clone()).faces(fs)
+        .vertex_attrs(texcoords)
+        .build()
         .validate().unwrap()
 }
 
 
-fn crates() -> Vec<Obj<TexCoord, Vec4>> {
+fn crates() -> Vec<Obj<TexCoord, ()>> {
     let mut objects = vec![];
     objects.push(Obj { tf: translate(0., -1., 0.), mesh: checkers() });
 
     for j in -10..=10 {
         for i in -10..=10 {
-            let mesh = unit_cube().gen_normals();
-
-            // tex coords
-            let mesh = mesh.with_vertex_attrs([
-                uv(1.0, 1.0), uv(0.0, 1.0), uv(1.0, 0.0), uv(0.0, 0.0),
-                uv(0.0, 1.0), uv(1.0, 1.0), uv(0.0, 0.0), uv(1.0, 0.0),
-            ].iter().copied());
-
+            let mesh = unit_cube()
+                // Texcoords
+                .vertex_attrs([
+                    uv(1.0, 1.0), uv(0.0, 1.0), uv(1.0, 0.0), uv(0.0, 0.0),
+                    uv(0.0, 1.0), uv(1.0, 1.0), uv(0.0, 0.0), uv(1.0, 0.0),
+                ].iter().copied())
+                .build();
             let tf = translate(4. * i as f32, 0., 4. * j as f32);
             objects.push(Obj { tf, mesh });
         }

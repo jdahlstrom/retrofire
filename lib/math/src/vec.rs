@@ -6,7 +6,7 @@ use core::ops::{
     Mul, MulAssign, Neg, Range, Sub, SubAssign
 };
 
-use crate::{ApproxEq, Linear};
+use crate::{Angle, ApproxEq, Linear};
 use crate::rand::{Distrib, Random, Uniform};
 
 #[derive(Copy, Clone, Default, PartialEq)]
@@ -37,7 +37,33 @@ pub const fn dir(x: f32, y: f32, z: f32) -> Vec4 {
     vec4(x, y, z, 0.0)
 }
 
+pub fn polar(r: f32, az: Angle) -> Vec4 {
+    assert!(r >= 0.0);
+    let (sin, cos) = az.sin_cos();
+    dir(r * sin, 0.0, r * cos)
+}
+
+pub fn spherical(r: f32, az: Angle, alt: Angle) -> Vec4 {
+    assert!(r >= 0.0);
+    dir(r * alt.cos() * az.sin(), r * alt.sin(), r * alt.cos() * az.cos())
+}
+
 impl Vec4 {
+
+    /// Returns `self` as a direction vector (w = 0.0).
+    #[must_use]
+    pub fn to_dir(mut self) -> Vec4 {
+        self.w = 0.0;
+        self
+    }
+
+    /// Returns `self` as a point (w = 1.0).
+    #[must_use]
+    pub fn to_pt(mut self) -> Vec4 {
+        self.w = 1.0;
+        self
+    }
+
     /// Returns the norm (length squared) of `self`.
     #[inline(always)]
     pub fn norm(self) -> f32 {
@@ -291,6 +317,56 @@ mod tests {
     use crate::tests::util::*;
 
     use super::*;
+    use crate::Angle::Deg;
+
+    #[test]
+    fn vec_from_polar() {
+        let v = polar(3.0, Deg(45.0));
+        assert_approx_eq(1.5 * dir(f32::sqrt(2.0), 0.0, f32::sqrt(2.0)), v);
+    }
+
+    #[test]
+    fn vec_from_polar_neg_angle() {
+        let v = polar(3.0, Deg(-60.0));
+        assert_approx_eq(1.5 * dir(-f32::sqrt(3.0), 0.0, 1.0), v);
+    }
+
+    #[test]
+    fn vec_from_polar_obtuse_angle() {
+        let v = polar(3.0, Deg(120.0));
+        assert_approx_eq(1.5 * dir(f32::sqrt(3.0), 0.0, -1.0), v);
+    }
+
+    #[test]
+    fn vec_from_polar_zero_r() {
+        let v = polar(0.0, Deg(123.45));
+        assert_eq!(ZERO, v);
+    }
+
+    #[test]
+    fn vec_from_spherical() {
+        let v = spherical(3.0, Deg(90.0), Deg(60.0));
+        assert_approx_eq(1.5 * dir(1.0, f32::sqrt(3.0), 0.0), v);
+    }
+
+    #[test]
+    fn vec_from_spherical_neg_alt() {
+        let v = spherical(1.0, Deg(0.0), Deg(-45.0));
+        assert_approx_eq(dir(0.0, -f32::sqrt(2.0)/2.0, f32::sqrt(2.0)/2.0), v);
+    }
+
+    #[test]
+    fn vec_from_spherical_obtuse_alt() {
+        let v = spherical(1.0, Deg(0.0), Deg(135.0));
+        assert_approx_eq(dir(0.0, f32::sqrt(2.0)/2.0, -f32::sqrt(2.0)/2.0), v);
+    }
+
+    #[test]
+    fn vec_from_spherical_zero_r() {
+        let v = spherical(0.0, Deg(12.34), Deg(56.78));
+        assert_eq!(ZERO, v);
+    }
+
 
     #[test]
     fn vector_len() {

@@ -18,17 +18,17 @@ fn main() {
     let h = 600;
     let margin = 50;
 
-    let mesh = teapot().gen_normals().validate().expect("Invalid mesh!");
+    let bld = teapot();
 
-    let vattrs = mesh.verts.iter().copied()
-        .zip(mesh.vertex_attrs.iter().copied())
+    let vattrs = bld.mesh.verts.iter().copied()
+        .zip(bld.mesh.vertex_attrs.iter().copied())
         .collect::<Vec<_>>();
 
-    let mesh = mesh.with_vertex_attrs(vattrs);
+    let mesh = bld.vertex_attrs(vattrs).build();
 
     let model_tf = rotate_x(Deg(-90.0)) * translate(0., -5., 0.);
 
-    fn shade(frag: Fragment<(Vec4, Vec4)>, _face_n: Vec4) -> Color {
+    fn shade(frag: Fragment<(Vec4, Vec4)>, _: ()) -> Color {
         let (coord, normal) = frag.varying;
         let light_dir = (pt(-1.0, 2., -2.) - coord).normalize();
         let view_dir = (pt(0.0, 0.0, 0.0) - coord).normalize();
