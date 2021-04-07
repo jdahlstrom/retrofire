@@ -1,7 +1,6 @@
-use std::f32::INFINITY;
-
 use math::mat::Mat4;
-use math::vec::{pt, Vec4};
+use math::transform::Transform;
+use math::vec::{Vec4, vec4};
 
 #[derive(Copy, Clone, Debug, Default)]
 pub struct BoundingBox {
@@ -10,45 +9,41 @@ pub struct BoundingBox {
 }
 
 impl BoundingBox {
-    pub fn of(vs: impl IntoIterator<Item=Vec4>) -> BoundingBox {
-        let mut low = pt(INFINITY, INFINITY, INFINITY);
-        let mut upp = pt(-INFINITY, -INFINITY, -INFINITY);
+    /// Returns the smallest (axis-aligned) bounding box
+    /// that contains every point in `vs`.
+    pub fn of<'a>(vs: impl IntoIterator<Item=&'a Vec4>) -> Self {
+        let mut lbf = Vec4::from([f32::INFINITY; 4]);
+        let mut rtb = Vec4::from([f32::NEG_INFINITY; 4]);
 
-        for v in vs {
-            for i in 0..3 {
-                if v[i] < low[i] { low[i] = v[i]; }
-                else if v[i] > upp[i] { upp[i] = v[i]; }
-            }
+        for &v in vs.into_iter() {
+            lbf = lbf.zip_map(v, f32::min);
+            rtb = rtb.zip_map(v, f32::max);
         }
 
-        BoundingBox {
-            left_bot_front: low,
-            right_top_back: upp,
-        }
+        Self { left_bot_front: lbf, right_top_back: rtb }
     }
 
+    /// Returns the vertex coordinates of `self`.
     pub fn verts(&self) -> [Vec4; 8] {
         let lbf = self.left_bot_front;
         let rtb = self.right_top_back;
         [
-            pt(lbf.x, lbf.y, lbf.z),
-            pt(lbf.x, lbf.y, rtb.z),
-            pt(lbf.x, rtb.y, lbf.z),
-            pt(lbf.x, rtb.y, rtb.z),
-            pt(rtb.x, lbf.y, lbf.z),
-            pt(rtb.x, lbf.y, rtb.z),
-            pt(rtb.x, rtb.y, lbf.z),
-            pt(rtb.x, rtb.y, rtb.z),
+            vec4(lbf.x, lbf.y, lbf.z, lbf.w),
+            vec4(lbf.x, lbf.y, rtb.z, rtb.w),
+            vec4(lbf.x, rtb.y, lbf.z, lbf.w),
+            vec4(lbf.x, rtb.y, rtb.z, rtb.w),
+            vec4(rtb.x, lbf.y, lbf.z, lbf.w),
+            vec4(rtb.x, lbf.y, rtb.z, rtb.w),
+            vec4(rtb.x, rtb.y, lbf.z, lbf.w),
+            vec4(rtb.x, rtb.y, rtb.z, rtb.w),
         ]
     }
+}
 
-    pub fn transform(self, tf: &Mat4) -> BoundingBox {
-        let a = tf * self.left_bot_front;
-        let b = tf * self.right_top_back;
-
-        BoundingBox {
-            left_bot_front: a.zip_map(b, f32::min),
-            right_top_back: a.zip_map(b, f32::max),
-        }
+impl Transform for BoundingBox {
+    fn transform(&mut self, tf: &Mat4) {
+        let mut verts = self.verts();
+        verts.transform(tf);
+        *self = BoundingBox::of(&verts)
     }
 }
