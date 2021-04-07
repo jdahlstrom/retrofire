@@ -161,10 +161,10 @@ impl<VA, FA> Builder<VA, FA> {
     }
 }
 
-impl<VA: Debug, FA: Debug> Builder<VA, FA> {
+impl<VA, FA> Builder<VA, FA> {
     pub fn build(self) -> Mesh<VA, FA> {
         let mut mesh = self.mesh;
-        mesh.bbox = BoundingBox::of(mesh.verts.iter().copied());
+        mesh.bbox = BoundingBox::of(&mesh.verts);
         mesh
     }
 }
