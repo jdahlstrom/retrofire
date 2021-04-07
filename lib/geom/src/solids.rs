@@ -46,8 +46,8 @@ pub fn unit_octahedron() -> Builder {
         pt(1.0, 0.0, 0.0),
     ];
     const FACES: [[usize; 3]; 8] = [
-        [0, 1, 2], [0, 2, 3], [0, 3, 4], [0, 4, 1],
-        [5, 2, 1], [5, 3, 2], [5, 4, 3], [5, 1, 4],
+        [0, 2, 1], [0, 3, 2], [0, 4, 3], [0, 1, 4],
+        [5, 1, 2], [5, 2, 3], [5, 3, 4], [5, 4, 1],
     ];
     Mesh::builder()
         .verts(VERTS.iter().copied())
@@ -110,7 +110,7 @@ pub fn torus(minor_r: f32, pars: usize, mers: usize) -> Builder {
     let mers = mers as isize;
 
     fn angle(n: isize, max: isize) -> Angle {
-        Tau((n % max) as f32 / max as f32)
+        Tau(n as f32 / max as f32)
     }
 
     for theta in (0..mers).map(|mer| angle(mer, mers)) {
@@ -152,11 +152,11 @@ pub fn unit_cone(minor_r: f32, sectors: usize) -> Builder {
 
     if minor_r > 0.0 {
         // Top cap
-        bld.add_vert(pt(0.0, 1.0, 1.0));
+        bld.add_vert(pt(0.0, 1.0, minor_r));
         for az in azimuths.clone() {
-            bld.add_face(0, New(polar(minor_r, az) + Y), -1);
+            bld.add_face(0, -1, New(polar(minor_r, az) + Y));
         }
-        bld.add_face(0, 1, -1);
+        bld.add_face(0, -1, 1);
 
         // Body
         bld.add_vert(pt(0.0, 1.0, minor_r));
@@ -164,18 +164,18 @@ pub fn unit_cone(minor_r: f32, sectors: usize) -> Builder {
         for az in azimuths.clone() {
             bld.add_vert(polar(minor_r, az) + Y);
             bld.add_vert(polar(1.0, az) - Y);
-            bld.add_face(-4, -1, -3);
-            bld.add_face(-4, -2, -1);
+            bld.add_face(-4, -3, -1);
+            bld.add_face(-4, -1, -2);
         }
-        bld.add_face(-2, sectors + 2, -1);
-        bld.add_face(-2, sectors + 1, sectors + 2);
+        bld.add_face(-2, -1, sectors + 2);
+        bld.add_face(-2, sectors + 2, sectors + 1);
     } else {
         // Body
         bld.add_vert(pt(0.0, -1.0, 1.0));
         for az in azimuths.clone() {
-            bld.add_face(0, New(polar(1.0, az) - Y), -1);
+            bld.add_face(0, -1, New(polar(1.0, az) - Y));
         }
-        bld.add_face(0, 1, -1);
+        bld.add_face(0, -1, 1);
     }
 
     // Bottom cap
@@ -183,10 +183,10 @@ pub fn unit_cone(minor_r: f32, sectors: usize) -> Builder {
     bld.add_vert(pt(0.0, -1.0, 0.0));
     bld.add_vert(pt(0.0, -1.0, 1.0));
 
-    for az in azimuths.clone().skip(1) {
-        bld.add_face(c, -1, New(polar(1.0, az) - Y));
+    for az in azimuths.clone() {
+        bld.add_face(c, New(polar(1.0, az) - Y), -1);
     }
-    bld.add_face(c, -1, c + 1);
+    bld.add_face(c, c + 1, -1);
 
     bld
 }
