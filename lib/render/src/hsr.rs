@@ -150,8 +150,9 @@ pub fn vertex_visibility<'a>(verts: impl IntoIterator<Item=&'a Vec4>) -> Visibil
     visibility(verts.into_iter().map(vertex_mask))
 }
 
-fn clip<VA>(verts: &[Vertex<VA>]) -> Vec<Vertex<VA>>
-where VA: Linear<f32> + Copy
+pub fn clip<VA>(verts: &[Vertex<VA>]) -> Vec<Vertex<VA>>
+where
+    VA: Linear<f32> + Copy
 {
     let mut verts = verts.to_vec();
     let mut verts2 = Vec::with_capacity(8);

@@ -1,16 +1,17 @@
 use std::time::Instant;
 
+use geom::LineSeg;
 use geom::mesh::{Face, Mesh, Vertex};
-use math::{Linear, Angle};
+use math::{Angle, Linear};
 use math::mat::Mat4;
-use math::transform::{Transform, rotate_y, rotate_x, translate};
+use math::transform::{rotate_x, rotate_y, Transform, translate};
+use math::vec::*;
 pub use stats::Stats;
 use util::Buffer;
 use util::color::Color;
 
 use crate::hsr::Visibility;
 use crate::raster::*;
-use math::vec::*;
 
 mod hsr;
 pub mod raster;
@@ -22,12 +23,25 @@ pub mod vary;
 pub trait RasterOps<VA: Copy, FA> {
     fn shade(&mut self, frag: Fragment<VA>, uniform: FA) -> Color;
 
+    #[inline(always)]
     fn test(&mut self, _frag: Fragment<(f32, VA)>) -> bool { true }
 
     // TODO
     // fn blend(&mut self, _x: usize, _y: usize, c: Color) -> Color { c }
 
     fn output(&mut self, coord: (usize, usize), c: Color);
+
+    #[inline(always)]
+    fn rasterize(&mut self, frag: Fragment<(f32, VA)>, uniform: FA) -> bool {
+        if self.test(frag) {
+            let frag = without_depth(frag);
+            let color = self.shade(frag, uniform);
+            // TODO let color = self.blend(x, y, color);
+            self.output(frag.coord, color);
+            true
+        } else { false }
+    }
+
 }
 
 pub struct Raster<Shade, Test, Output> {
@@ -129,6 +143,99 @@ impl DepthBuf {
     }
 }
 
+pub trait Render<VA: Copy, FA: Copy> {
+    fn render<R>(&self, rdr: &mut Renderer, raster: &mut R)
+    where
+        R: RasterOps<VA, FA>;
+}
+
+impl<VA, FA> Render<VA, FA> for Mesh<VA, FA>
+where
+    VA: Linear<f32> + Copy,
+    FA: Copy,
+{
+    fn render<R>(&self, rdr: &mut Renderer, raster: &mut R)
+    where
+        R: RasterOps<VA, FA>
+    {
+        let Renderer {
+            ref modelview, ref projection, ref viewport, ref options, stats,
+        } = rdr;
+
+        stats.faces_in += self.faces.len();
+
+        let mvp = modelview * projection;
+
+        let bbox_vis = {
+            let mut vs = self.bbox.verts();
+            vs.transform(&mvp);
+            hsr::vertex_visibility(vs.iter())
+        };
+
+        if bbox_vis != Visibility::Hidden {
+            let mut mesh = (*self).clone();
+
+            mesh.verts.transform(&mvp);
+
+            hsr::hidden_surface_removal(&mut mesh, bbox_vis);
+
+            if !mesh.faces.is_empty() {
+                stats.objs_out += 1;
+                stats.faces_out += mesh.faces.len();
+
+                if options.depth_sort { depth_sort(&mut mesh); }
+                perspective_divide(&mut mesh, options.perspective_correct);
+
+                mesh.verts.transform(viewport);
+
+                for Face { verts: [a, b, c], attr, .. } in mesh.faces() {
+                    let verts = [with_depth(a), with_depth(b), with_depth(c)];
+                    tri_fill(verts, |frag: Fragment<_>| {
+                        raster.rasterize(frag, attr);
+                        stats.pixels += 1;
+                    });
+                }
+            }
+        }
+    }
+}
+
+impl<VA> Render<VA, ()> for LineSeg<VA>
+where
+    VA: Linear<f32> + Copy
+{
+    fn render<R>(&self, rdr: &mut Renderer, raster: &mut R)
+    where
+        R: RasterOps<VA, ()>
+    {
+        let Renderer {
+            ref modelview, ref projection, ref viewport, stats, ..
+        } = rdr;
+
+        stats.faces_in += 1;
+
+        let mut verts = self.0;
+        let mvp = modelview * projection;
+        verts[0].coord.transform(&mvp);
+        verts[1].coord.transform(&mvp);
+
+        if let Some(&[mut a, mut b]) = hsr::clip(&verts).get(0..2) {
+            stats.faces_out += 1;
+
+            a.coord /= a.coord.w;
+            b.coord /= b.coord.w;
+            a.coord.transform(&viewport);
+            b.coord.transform(&viewport);
+            let verts = [ with_depth(a), with_depth(b) ];
+            line(verts, |frag: Fragment<_>| {
+                if raster.rasterize(frag, ()) {
+                    stats.pixels += 1;
+                }
+            });
+        }
+    }
+}
+
 #[derive(Default, Clone)]
 pub struct Renderer {
     pub modelview: Mat4,
@@ -158,125 +265,73 @@ impl Renderer {
         VA: Copy + Linear<f32>,
         FA: Copy,
     {
+        let clock = Instant::now();
         for Obj { tf, mesh } in objects {
             self.modelview = tf * camera;
-            self.render(mesh, raster);
+            mesh.render(self, raster);
         }
+        self.stats.objs_in += objects.len();
+        self.stats.time_used += clock.elapsed();
         self.stats
     }
 
     pub fn render<VA, FA>(
         &mut self,
         mesh: &Mesh<VA, FA>,
-        raster: &mut impl RasterOps<VA, FA>,
+        raster: &mut impl RasterOps<VA, FA>
     ) -> Stats
     where
         VA: Copy + Linear<f32>,
         FA: Copy,
     {
-        let Self {
-            ref modelview, ref projection, ref viewport,
-            ref options, stats
-        } = self;
-
         let clock = Instant::now();
+        mesh.render(self, raster);
+        self.stats.objs_in += 1;
+        self.stats.time_used += clock.elapsed();
+        self.stats
+    }
+}
 
-        stats.objs_in += 1;
-        stats.faces_in += mesh.faces.len();
+fn depth_sort<VA: Copy, FA: Copy>(mesh: &mut Mesh<VA, FA>) {
+    let (faces, attrs) = {
+        let mut faces = mesh.faces().collect::<Vec<_>>();
 
-        let mvp = modelview * projection;
+        faces.sort_unstable_by(|a, b| {
+            let az: f32 = a.verts.iter().map(|&v| v.coord.z).sum();
+            let bz: f32 = b.verts.iter().map(|&v| v.coord.z).sum();
+            bz.partial_cmp(&az).unwrap()
+        });
 
-        let bbox_vis = {
-            let mut vs = mesh.bbox.verts();
-            vs.transform(&mvp);
-            hsr::vertex_visibility(vs.iter())
-        };
+        faces.into_iter().map(|f| (f.indices, f.attr)).unzip()
+    };
+    mesh.faces = faces;
+    mesh.face_attrs = attrs;
+}
 
-        if bbox_vis != Visibility::Hidden {
-            let mut mesh = mesh.clone();
-
-            mesh.verts.transform(&mvp);
-
-            hsr::hidden_surface_removal(&mut mesh, bbox_vis);
-
-            if !mesh.faces.is_empty() {
-                stats.objs_out += 1;
-                stats.faces_out += mesh.faces.len();
-
-                if options.depth_sort {
-                    Self::depth_sort(&mut mesh);
-                }
-
-                Self::perspective_divide(
-                    &mut mesh, options.perspective_correct);
-
-                mesh.verts.transform(viewport);
-
-                Self::rasterize(mesh.faces(), raster, stats);
-            }
+fn perspective_divide<VA, FA>(mesh: &mut Mesh<VA, FA>, pc: bool)
+where VA: Linear<f32> + Copy
+{
+    let Mesh { verts, vertex_attrs, .. } = mesh;
+    if pc {
+        for (v, a) in verts.iter_mut().zip(vertex_attrs) {
+            let w = 1.0 / v.w;
+            *v = v.mul(w);
+            *a = a.mul(w);
         }
-        stats.time_used += clock.elapsed();
-
-        *stats
-    }
-
-    fn depth_sort<VA: Copy, FA: Copy>(mesh: &mut Mesh<VA, FA>) {
-        let (faces, attrs) = {
-            let mut faces = mesh.faces().collect::<Vec<_>>();
-
-            faces.sort_unstable_by(|a, b| {
-                let az: f32 = a.verts.iter().map(|&v| v.coord.z).sum();
-                let bz: f32 = b.verts.iter().map(|&v| v.coord.z).sum();
-                bz.partial_cmp(&az).unwrap()
-            });
-
-            faces.into_iter().map(|f| (f.indices, f.attr)).unzip()
-        };
-        mesh.faces = faces;
-        mesh.face_attrs = attrs;
-    }
-
-    fn perspective_divide<VA, FA>(mesh: &mut Mesh<VA, FA>, pc: bool)
-    where VA: Linear<f32> + Copy
-    {
-        let Mesh { verts, vertex_attrs, .. } = mesh;
-        if pc {
-            for (v, a) in verts.iter_mut().zip(vertex_attrs) {
-                let w = 1.0 / v.w;
-                *v = v.mul(w);
-                *a = a.mul(w);
-            }
-        } else {
-            for v in verts.iter_mut() {
-                let w = 1.0 / v.w;
-                *v = v.mul(w);
-            }
+    } else {
+        for v in verts.iter_mut() {
+            let w = 1.0 / v.w;
+            *v = v.mul(w);
         }
     }
+}
 
-    pub fn rasterize<VA, FA>(
-        faces: impl Iterator<Item=Face<VA, FA>>,
-        raster: &mut impl RasterOps<VA, FA>,
-        stats: &mut Stats
-    ) where
-        VA: Copy + Linear<f32>,
-        FA: Copy,
-    {
-        for Face { verts: [a, b, c], attr, .. } in faces {
-            let verts = [
-                Vertex { coord: a.coord, attr: (a.coord.z, a.attr) },
-                Vertex { coord: b.coord, attr: (b.coord.z, b.attr) },
-                Vertex { coord: c.coord, attr: (c.coord.z, c.attr) },
-            ];
-            tri_fill(verts, |frag: Fragment<_>| {
-                if raster.test(frag) {
-                    let frag = Fragment { coord: frag.coord, varying: frag.varying.1 };
-                    let color = raster.shade(frag, attr);
-                    // TODO let color = raster.blend(x, y, color);
-                    raster.output(frag.coord, color);
-                }
-                stats.pixels += 1;
-            });
-        }
-    }
+#[inline(always)]
+fn with_depth<VA: Copy>(v: Vertex<VA>) -> Vertex<(f32, VA)> {
+    Vertex { coord: v.coord, attr: (v.coord.z, v.attr) }
+}
+
+#[inline(always)]
+fn without_depth<V: Copy>(f: Fragment<(f32, V)>) -> Fragment<V> {
+    Fragment { coord: f.coord, varying: f.varying.1 }
 }
