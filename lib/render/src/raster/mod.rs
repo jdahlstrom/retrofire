@@ -9,8 +9,8 @@ pub mod flat;
 pub mod gouraud;
 
 #[derive(Copy, Clone, Debug)]
-pub struct Fragment<V: Copy, C: Copy = (usize, usize)> {
-    pub coord: C,
+pub struct Fragment<V: Copy> {
+    pub coord: (usize, usize),
     pub varying: V,
 }
 
@@ -66,33 +66,34 @@ where
     }
 }
 
-pub fn line<V, P>(a: Vertex<V>, b: Vertex<V>, mut plot: P)
+pub fn line<V, P>([mut a, mut b]: [Vertex<V>; 2], mut plot: P)
 where
-    V: Copy,
-    P: FnMut(Fragment<()>)
+    V: Copy + Linear<f32>,
+    P: FnMut(Fragment<V>)
 {
-    let (mut a, mut b) = (a.coord, b.coord);
-    let (mut dx, mut dy) = (b.x - a.x, b.y - a.y);
+    let mut d = b.coord - a.coord;
 
-    if dx.abs() >= dy.abs() {
+    if d.x.abs() >= d.y.abs() {
         // Angle <= diagonal
-        if a.x > b.x { swap(&mut a, &mut b); dx = -dx; }
+        if d.x < 0.0 { swap(&mut a, &mut b); d.x = -d.x; }
 
-        let xs = a.x as usize ..= b.x as usize;
-        let ys = Bresenham::between(a.y as usize, b.y as usize, dx as usize);
+        let xs = a.coord.x as usize ..= b.coord.x as usize;
+        let ys = Bresenham::between(a.coord.y as usize, b.coord.y as usize, d.x as usize);
+        let vs = Varying::between(a.attr, b.attr, d.x);
 
-        for coord in xs.zip(ys) {
-            plot(Fragment { coord, varying: () });
+        for (coord, varying) in xs.zip(ys).zip(vs) {
+            plot(Fragment { coord, varying });
         }
     } else {
         // Angle > diagonal
-        if a.y > b.y { swap(&mut a, &mut b); dy = -dy; }
+        if d.y < 0.0 { swap(&mut a, &mut b); d.y = -d.y; }
 
-        let xs = Bresenham::between(a.x as usize, b.x as usize, dy as usize);
-        let ys = a.y as usize ..= b.y as usize;
+        let xs = Bresenham::between(a.coord.x as usize, b.coord.x as usize, d.y as usize);
+        let ys = a.coord.y as usize ..= b.coord.y as usize;
+        let vs = Varying::between(a.attr, b.attr, d.x);
 
-        for coord in xs.zip(ys) {
-            plot(Fragment { coord, varying: () });
+        for (coord, varying) in xs.zip(ys).zip(vs) {
+            plot(Fragment { coord, varying });
         }
     }
 }
@@ -125,7 +126,7 @@ mod tests {
         for &(ex, ey) in &endpoints {
             let o = 20.0;
             let mut pts = vec![];
-            line(v(o, o), v(o + ex as f32, o + ey as f32), |frag| {
+            line([v(o, o), v(o + ex as f32, o + ey as f32)], |frag| {
                 let (x, y) = frag.coord;
                 pts.push((x as i32 - o as i32, y as i32 - o as i32));
             });
