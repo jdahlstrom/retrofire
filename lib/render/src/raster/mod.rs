@@ -90,7 +90,7 @@ where
 
         let xs = Bresenham::between(a.coord.x as usize, b.coord.x as usize, d.y as usize);
         let ys = a.coord.y as usize ..= b.coord.y as usize;
-        let vs = Varying::between(a.attr, b.attr, d.x);
+        let vs = Varying::between(a.attr, b.attr, d.y);
 
         for (coord, varying) in xs.zip(ys).zip(vs) {
             plot(Fragment { coord, varying });
