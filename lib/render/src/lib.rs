@@ -214,12 +214,11 @@ where
 
         stats.faces_in += 1;
 
-        let mut verts = self.0;
+        let mut this = (*self).clone();
         let mvp = modelview * projection;
-        verts[0].coord.transform(&mvp);
-        verts[1].coord.transform(&mvp);
+        this.transform(&mvp);
 
-        if let Some(&[mut a, mut b]) = hsr::clip(&verts).get(0..2) {
+        if let Some(&[mut a, mut b]) = hsr::clip(&this.0).get(0..2) {
             stats.faces_out += 1;
 
             a.coord /= a.coord.w;
@@ -250,13 +249,11 @@ where
 
         stats.faces_in += 1;
 
-        let mut verts = self.0.clone();
+        let mut this = self.clone();
         let mvp = modelview * projection;
-        for v in verts.iter_mut() {
-            v.coord.transform(&mvp);
-        }
+        this.transform(&mvp);
 
-        for edge in verts.windows(2) {
+        for edge in this.edges() {
             if let Some(&[mut a, mut b]) = hsr::clip(&edge).get(0..2) {
                 stats.faces_out += 1;
 
