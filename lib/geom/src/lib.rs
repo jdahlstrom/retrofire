@@ -8,3 +8,5 @@ pub mod bbox;
 mod teapot;
 
 pub struct LineSeg<VA>(pub [Vertex<VA>; 2]);
+
+pub struct Polyline<VA>(pub Vec<Vertex<VA>>);

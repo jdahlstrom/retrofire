@@ -1,6 +1,6 @@
 use std::time::Instant;
 
-use geom::LineSeg;
+use geom::{LineSeg, Polyline};
 use geom::mesh::{Face, Mesh, Vertex};
 use math::{Angle, Linear};
 use math::mat::Mat4;
@@ -226,12 +226,51 @@ where
             b.coord /= b.coord.w;
             a.coord.transform(&viewport);
             b.coord.transform(&viewport);
-            let verts = [ with_depth(a), with_depth(b) ];
+            let verts = [with_depth(a), with_depth(b)];
             line(verts, |frag: Fragment<_>| {
                 if raster.rasterize(frag, ()) {
                     stats.pixels += 1;
                 }
             });
+        }
+    }
+}
+
+impl<VA> Render<VA, ()> for Polyline<VA>
+where
+    VA: Linear<f32> + Copy
+{
+    fn render<R>(&self, rdr: &mut Renderer, raster: &mut R)
+    where
+        R: RasterOps<VA, ()>
+    {
+        let Renderer {
+            ref modelview, ref projection, ref viewport, stats, ..
+        } = rdr;
+
+        stats.faces_in += 1;
+
+        let mut verts = self.0.clone();
+        let mvp = modelview * projection;
+        for v in verts.iter_mut() {
+            v.coord.transform(&mvp);
+        }
+
+        for edge in verts.windows(2) {
+            if let Some(&[mut a, mut b]) = hsr::clip(&edge).get(0..2) {
+                stats.faces_out += 1;
+
+                a.coord /= a.coord.w;
+                b.coord /= b.coord.w;
+                a.coord.transform(&viewport);
+                b.coord.transform(&viewport);
+                let verts = [with_depth(a), with_depth(b)];
+                line(verts, |frag: Fragment<_>| {
+                    if raster.rasterize(frag, ()) {
+                        stats.pixels += 1;
+                    }
+                });
+            }
         }
     }
 }
