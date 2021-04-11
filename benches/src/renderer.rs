@@ -6,6 +6,7 @@ use math::transform::*;
 use render::{Obj, Raster, Renderer, Scene};
 use render::raster::Fragment;
 use util::color::*;
+use math::vec::dir;
 
 const W: usize = 128;
 
@@ -18,7 +19,7 @@ fn renderer() -> Renderer {
 
 fn torus(c: &mut Criterion) {
     let mut rdr = renderer();
-    rdr.modelview = scale(4., 4., 4.);
+    rdr.modelview = scale(4.0);
 
     let mesh = solids::torus(0.2, 9, 9).build();
 
@@ -45,11 +46,11 @@ fn scene(c: &mut Criterion) {
     let mut rdr = renderer();
 
     let mut objects = vec![];
-    let camera = translate(0., 4., 0.) * &rotate_x(Rad(0.5));
+    let camera = translate(4.0 * Y) * &rotate_x(Rad(0.5));
     for j in -4..=4 {
         for i in -4..=4 {
             objects.push(Obj {
-                tf: translate(4. * i as f32, 0., 4. * j as f32),
+                tf: translate(dir(4. * i as f32, 0., 4. * j as f32)),
                 mesh: solids::unit_sphere(9, 9).build(),
             });
         }
@@ -72,7 +73,7 @@ fn scene(c: &mut Criterion) {
 
 fn gouraud_fillrate(c: &mut Criterion) {
     let mut rdr = renderer();
-    rdr.modelview = scale(2., 2., 2.) * &translate(0.0, 0.0, 6.0);
+    rdr.modelview = scale(2.0) * &translate(6.0 * Z);
     let mesh = solids::unit_cube()
         .vertex_attrs([RED, GREEN, BLUE].iter().copied().cycle())
         .build();

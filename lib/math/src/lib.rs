@@ -243,6 +243,17 @@ impl SubAssign for Angle {
     }
 }
 
+pub fn total_ord_f32(a: &f32, b: &f32) -> Ordering {
+    a.partial_cmp(b).unwrap_or_else(|| {
+        match (a.is_nan(), b.is_nan()) {
+            (true, true) => Ordering::Equal,
+            (true, false) => Ordering::Less,
+            (false, true) => Ordering::Greater,
+            _ => unreachable!()
+        }
+    })
+}
+
 /// Linear interpolation between `a` and `b`.
 ///
 /// Example:

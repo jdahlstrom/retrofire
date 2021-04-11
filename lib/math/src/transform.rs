@@ -16,7 +16,11 @@ impl<T: Transform> Transform for [T] {
     }
 }
 
-pub fn scale(x: f32, y: f32, z: f32) -> Mat4 {
+pub fn scale(factor: f32) -> Mat4 {
+    scale_axes(factor, factor, factor)
+}
+
+pub fn scale_axes(x: f32, y: f32, z: f32) -> Mat4 {
     let mut m = Mat4::identity();
     m.0[0][0] = x;
     m.0[1][1] = y;
@@ -54,8 +58,8 @@ pub fn rotate_z(a: Angle) -> Mat4 {
     ])
 }
 
-pub fn translate(x: f32, y: f32, z: f32) -> Mat4 {
-    Mat4::from_rows([X, Y, Z, vec4(x, y, z, 1.0)])
+pub fn translate(offset: Vec4) -> Mat4 {
+    Mat4::from_rows([X, Y, Z, offset.to_pt()])
 }
 
 pub fn orient_y(new_y: Vec4, x: Vec4) -> Mat4 {
@@ -133,7 +137,7 @@ mod tests {
             [0., 0., 4., 0.],
             [0., 0., 0., 1.],
         ]);
-        let actual = scale(2., -3., 4.);
+        let actual = scale_axes(2., -3., 4.);
         assert_eq!(expected, actual);
     }
 
@@ -270,19 +274,19 @@ mod tests {
 
     #[test]
     fn scale_vector() {
-        let m = &scale(2., 3., 4.);
+        let m = &scale_axes(2., 3., 4.);
         assert_eq!(m * Y, 3. * Y);
         assert_eq!(m * vec4(-2., 1., 3., 0.), vec4(-4., 3., 12., 0.));
     }
 
     #[test]
     fn translate_point() {
-        let m = &translate(2., -1., 3.);
+        let m = &translate(dir(2., -1., 3.));
         assert_eq!(m * (Y + W), vec4(2., 0., 3., 1.));
     }
     #[test]
     fn translate_dir_is_noop() {
-        let m = &translate(2., -1., 3.);
+        let m = &translate(dir(2., -1., 3.));
         assert_eq!(m * X, X);
         assert_eq!(m * Y, Y);
         assert_eq!(m * Z, Z);

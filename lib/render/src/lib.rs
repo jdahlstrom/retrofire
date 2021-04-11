@@ -113,7 +113,7 @@ impl FpsCamera {
         let right = Y.cross(fwd_move);
 
         let orient = orient_z(fwd, right).transpose();
-        let transl = translate(-self.pos.x, -self.pos.y, -self.pos.z);
+        let transl = translate(-self.pos);
 
         transl * orient
     }

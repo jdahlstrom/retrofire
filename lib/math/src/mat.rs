@@ -1,7 +1,7 @@
 use core::fmt;
 use core::ops::{Mul, MulAssign};
 
-use crate::ApproxEq;
+use crate::{ApproxEq, total_ord_f32};
 use crate::vec::*;
 
 #[derive(Clone, PartialEq)]
@@ -186,15 +186,18 @@ impl MulAssign<&Mat4> for Vec4 {
 impl ApproxEq for &Mat4 {
     type Scalar = f32;
 
+    fn approx_eq(self, rhs: Self) -> bool {
+        (0..4)
+            .map(|i| (self.row(i), rhs.row(i)))
+            .map(|(s, r)| s.approx_eq_eps(r, self.epsilon()))
+            .all(|b| b)
+    }
     fn epsilon(self) -> f32 {
-        1e-4 // TODO
+        1e-3 // TODO
     }
     fn abs_diff(self, rhs: Self) -> f32 {
-        (0..4)
-            .map(|i| (self.row(i), rhs.row(i))) //
-            .map(|(s, r)| s.abs_diff(r))
-            .sum::<f32>()
-            / 4.0
+        (0..4).map(|i| self.row(i).abs_diff(rhs.row(i)))
+            .max_by(total_ord_f32).unwrap()
     }
 }
 
@@ -206,10 +209,12 @@ impl Default for Mat4 {
 
 impl fmt::Debug for Mat4 {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        let w = f.width().unwrap_or(5);
+        let p = f.precision().unwrap_or(2);
         write!(
             f,
-            "Mat4\n{:>5.2?}\n{:>5.2?}\n{:>5.2?}\n{:>5.2?}",
-            self.0[0], self.0[1], self.0[2], self.0[3]
+            "Mat4\n{:>w$.p$?}\n{:>w$.p$?}\n{:>w$.p$?}\n{:>w$.p$?}",
+            self.0[0], self.0[1], self.0[2], self.0[3], w=w, p=p
         )
     }
 }
@@ -220,7 +225,7 @@ mod tests {
     use super::*;
 
     #[test]
-    fn matrix_from_rows() {
+    fn matrix_from_rows_gives_matrix_with_given_rows() {
         let m = Mat4::from_rows([
             vec4(1.1, 1.2, 1.3, 1.4),
             vec4(2.1, 2.2, 2.3, 2.4),
@@ -237,7 +242,7 @@ mod tests {
     }
 
     #[test]
-    fn matrix_from_cols() {
+    fn matrix_from_cols_gives_matrix_with_given_cols() {
         let m = Mat4::from_cols([
             vec4(1.1, 1.2, 1.3, 1.4),
             vec4(2.1, 2.2, 2.3, 2.4),
@@ -254,7 +259,7 @@ mod tests {
     }
 
     #[test]
-    fn matrix_rows() {
+    fn matrix_row_n_gives_nth_row() {
         let m = Mat4([
             [0.0, 0.1, 0.2, 0.3],
             [1.0, 1.1, 1.2, 1.3],
@@ -266,7 +271,7 @@ mod tests {
     }
 
     #[test]
-    fn matrix_cols() {
+    fn matrix_col_n_gives_nth_column() {
         let m = Mat4([
             [0.0, 0.1, 0.2, 0.3],
             [1.0, 1.1, 1.2, 1.3],
@@ -278,7 +283,7 @@ mod tests {
     }
 
     #[test]
-    fn matrix_transpose() {
+    fn matrix_transpose_swaps_rows_and_cols() {
         let m = Mat4([
             [1.1, 1.2, 1.3, 1.4],
             [2.1, 2.2, 2.3, 2.4],
@@ -399,7 +404,7 @@ mod tests {
     }
 
     #[test]
-    fn matrix_matrix_multiply() {
+    fn matrix_matrix_multiply_gives_rows_dot_cols() {
         let a = &Mat4([
             [1.0, 0.0, 0.0, 0.0],
             [0.0, 1.0, 0.0, 0.0],
@@ -429,7 +434,7 @@ mod tests {
     }
 
     #[test]
-    fn matrix_vector_multiply() {
+    fn matrix_vector_multiply_gives_cols_dot_vec() {
         let v = vec4(1.0, 2.0, 3.0, 4.0);
 
         let m = &Mat4::identity();
