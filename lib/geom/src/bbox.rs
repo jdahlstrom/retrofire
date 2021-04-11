@@ -38,6 +38,16 @@ impl BoundingBox {
             vec4(rtb.x, rtb.y, rtb.z, rtb.w),
         ]
     }
+
+    /// Returns the edges of `self`.
+    pub fn edges(&self) -> Vec<[Vec4; 2]> {
+        let vs = self.verts();
+        vec![
+            [vs[0], vs[1]], [vs[0], vs[2]], [vs[1], vs[3]], [vs[2], vs[3]],
+            [vs[4], vs[5]], [vs[4], vs[6]], [vs[5], vs[7]], [vs[6], vs[7]],
+            [vs[0], vs[4]], [vs[1], vs[5]], [vs[2], vs[6]], [vs[3], vs[7]]
+        ]
+    }
 }
 
 impl Transform for BoundingBox {
