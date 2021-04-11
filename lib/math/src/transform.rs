@@ -1,4 +1,4 @@
-use crate::{mat::*, vec::Vec4, Angle};
+use crate::{Angle, mat::*, vec::*};
 
 pub trait Transform {
     fn transform(&mut self, m: &Mat4);
@@ -55,11 +55,36 @@ pub fn rotate_z(a: Angle) -> Mat4 {
 }
 
 pub fn translate(x: f32, y: f32, z: f32) -> Mat4 {
-    let mut m = Mat4::identity();
-    m.0[3][0] = x;
-    m.0[3][1] = y;
-    m.0[3][2] = z;
-    m
+    Mat4::from_rows([X, Y, Z, vec4(x, y, z, 1.0)])
+}
+
+pub fn orient_y(new_y: Vec4, x: Vec4) -> Mat4 {
+    orient(new_y, x.cross(new_y), x)
+}
+
+pub fn orient_z(new_z: Vec4, x: Vec4) -> Mat4 {
+    orient(new_z.cross(x), new_z, x)
+}
+
+fn orient(new_y: Vec4, new_z: Vec4, x: Vec4) -> Mat4 {
+    assert!(new_y.w == 0.0 && new_z.w == 0.0 && x.w == 0.0);
+    assert!(new_y != ZERO && new_z != ZERO && x != ZERO);
+
+    let new_x = new_y.cross(new_z);
+    Mat4::from_rows([
+        new_x.normalize(),
+        new_y.normalize(),
+        new_z.normalize(),
+        W,
+    ])
+}
+
+pub fn orthogonal(low: Vec4, upp: Vec4) -> Mat4 {
+    let d = upp - low;
+    let (x, y, z) = (2.0 / d.x, 2.0 / d.y, 2.0 / d.z);
+    let tr = pt(-x * low.x - 1.0, -y * low.y - 1.0, -z * low.z - 1.0);
+
+    Mat4::from_rows([x * X, y * Y, z * Z, tr])
 }
 
 pub fn perspective(near: f32, far: f32, aspect: f32, fov: Angle) -> Mat4 {
@@ -221,6 +246,7 @@ mod tests {
     #[test]
     fn rotate_z_vector() {
         let m = &rotate_z(Deg(90.0));
+        dbg!(m);
         assert_approx_eq(m * X, Y);
         assert_approx_eq(m * Y, -X);
         assert_eq!(m * Z, Z);
@@ -250,10 +276,45 @@ mod tests {
     }
 
     #[test]
-    fn translate_vector() {
+    fn translate_point() {
         let m = &translate(2., -1., 3.);
-        assert_eq!(m * Y, Y);
         assert_eq!(m * (Y + W), vec4(2., 0., 3., 1.));
+    }
+    #[test]
+    fn translate_dir_is_noop() {
+        let m = &translate(2., -1., 3.);
+        assert_eq!(m * X, X);
+        assert_eq!(m * Y, Y);
+        assert_eq!(m * Z, Z);
+    }
+
+    #[test]
+    fn orient_y_vector() {
+        let m = &orient_y(Y+Z, X);
+        assert_eq!((Y+Z).normalize(), m * Y);
+        assert_eq!((Z-Y).normalize(), m * Z);
+        assert_eq!(X, m * X);
+        assert_eq!(ZERO, m * ZERO);
+    }
+
+    #[test]
+    fn orient_z_vector() {
+        let m = &orient_z(Y+Z, X);
+        assert_eq!((Y-Z).normalize(), m * Y);
+        assert_eq!((Y+Z).normalize(), m * Z);
+        assert_eq!(X, m * X);
+        assert_eq!(ZERO, m * ZERO);
+    }
+
+    #[test]
+    fn orthogonal_project_points_to_unit_cube() {
+        let m = &orthogonal(dir(-10.0, -5.0, 0.0), dir(10.0, 5.0, 1.0));
+
+        assert_eq!(pt(0.0, 0.0, -1.0), m * pt(0.0, 0.0, 0.0));
+        assert_eq!(pt(-1.0, 0.0, -1.0), m * pt(-10.0, 0.0, 0.0));
+        assert_eq!(pt(0.0, 1.0, 0.0), m * pt(0.0, 5.0, 0.5));
+        assert_eq!(pt(0.0, 0.0, 1.0), m * pt(0.0, 0.0, 1.0));
+
     }
 
     #[test]
