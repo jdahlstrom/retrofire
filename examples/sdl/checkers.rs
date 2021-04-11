@@ -3,13 +3,14 @@ use sdl2::keyboard::Scancode;
 
 use geom::mesh::Mesh;
 use geom::solids::unit_cube;
-use math::Angle::Deg;
 use math::Angle;
+use math::Angle::Deg;
 use math::mat::Mat4;
 use math::transform::*;
 use math::vec::*;
 use render::*;
 use render::raster::Fragment;
+use render::scene::*;
 use render::tex::*;
 use util::io::load_ppm;
 
