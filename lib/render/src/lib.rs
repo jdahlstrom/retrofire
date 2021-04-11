@@ -1,10 +1,10 @@
 use std::time::Instant;
 
 use geom::{LineSeg, Polyline};
-use geom::mesh::{Face, Mesh, Vertex, vertex};
+use geom::mesh::*;
 use math::{Angle, Linear};
 use math::mat::Mat4;
-use math::transform::{rotate_x, rotate_y, Transform, translate};
+use math::transform::*;
 use math::vec::*;
 pub use stats::Stats;
 use util::Buffer;
@@ -108,17 +108,14 @@ impl FpsCamera {
     }
 
     pub fn world_to_view(&self) -> Mat4 {
-
-        let rot_y = &rotate_y(self.azimuth);
-        let fwd = rot_y * (&rotate_x(self.altitude) * Z);
-        let fwd_move = rot_y * Z;
+        let fwd_move = polar(1.0, self.azimuth);
+        let fwd = spherical(1.0, self.azimuth, -self.altitude);
         let right = Y.cross(fwd_move);
-        let up = fwd.cross(right);
 
-        let orient = Mat4::from_cols([right, up, fwd, W]);
+        let orient = orient_z(fwd, right).transpose();
         let transl = translate(-self.pos.x, -self.pos.y, -self.pos.z);
 
-        transl * &orient
+        transl * orient
     }
 }
 
