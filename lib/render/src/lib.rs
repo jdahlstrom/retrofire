@@ -1,7 +1,7 @@
 use std::time::Instant;
 
 use geom::{LineSeg, Polyline};
-use geom::mesh::{Face, Mesh, Vertex};
+use geom::mesh::{Face, Mesh, Vertex, vertex};
 use math::{Angle, Linear};
 use math::mat::Mat4;
 use math::transform::{rotate_x, rotate_y, Transform, translate};
@@ -159,8 +159,9 @@ where
         R: RasterOps<VA, FA>
     {
         let Renderer {
-            ref modelview, ref projection, ref viewport, ref options, stats,
+            ref modelview, ref projection, ref viewport, stats, ..
         } = rdr;
+        let options = rdr.options;
 
         stats.faces_in += self.faces.len();
 
@@ -195,6 +196,25 @@ where
                         stats.pixels += 1;
                     });
                 }
+            }
+
+            let mut render_edges = |edges: Vec<[Vec4; 2]>, color| {
+                for edge in edges.into_iter()
+                    .map(|[a, b]| [vertex(a, ()), vertex(b, ())])
+                {
+                    LineSeg(edge).render(rdr, &mut Raster {
+                        shade: |_, _| color,
+                        test: |_| true,
+                        output: |crd, clr| raster.output(crd, clr),
+                    });
+                }
+            };
+
+            if let Some(color) = options.wireframes {
+                render_edges(self.edges(), color);
+            }
+            if let Some(color) = options.bounding_boxes {
+                render_edges(self.bbox.edges(), color);
             }
         }
     }
@@ -243,31 +263,8 @@ where
     where
         R: RasterOps<VA, ()>
     {
-        let Renderer {
-            ref modelview, ref projection, ref viewport, stats, ..
-        } = rdr;
-
-        stats.faces_in += 1;
-
-        let mut this = self.clone();
-        let mvp = modelview * projection;
-        this.transform(&mvp);
-
-        for edge in this.edges() {
-            if let Some(&[mut a, mut b]) = hsr::clip(&edge).get(0..2) {
-                stats.faces_out += 1;
-
-                a.coord /= a.coord.w;
-                b.coord /= b.coord.w;
-                a.coord.transform(&viewport);
-                b.coord.transform(&viewport);
-                let verts = [with_depth(a), with_depth(b)];
-                line(verts, |frag: Fragment<_>| {
-                    if raster.rasterize(frag, ()) {
-                        stats.pixels += 1;
-                    }
-                });
-            }
+        for seg in self.edges().map(LineSeg) {
+            seg.render(rdr, raster);
         }
     }
 }
@@ -285,6 +282,8 @@ pub struct Renderer {
 pub struct Options {
     pub perspective_correct: bool,
     pub depth_sort: bool,
+    pub wireframes: Option<Color>,
+    pub bounding_boxes: Option<Color>,
 }
 
 impl Renderer {
@@ -321,7 +320,9 @@ impl Renderer {
         FA: Copy,
     {
         let clock = Instant::now();
+
         mesh.render(self, raster);
+        
         self.stats.objs_in += 1;
         self.stats.time_used += clock.elapsed();
         self.stats

@@ -5,6 +5,7 @@ use math::transform::Transform;
 use math::vec::{Vec4, ZERO};
 
 use crate::bbox::BoundingBox;
+use std::collections::HashSet;
 
 #[derive(Default, Debug, Clone)]
 pub struct Mesh<VA = (), FA = ()> {
@@ -19,6 +20,10 @@ pub struct Mesh<VA = (), FA = ()> {
 pub struct Vertex<A> {
     pub coord: Vec4,
     pub attr: A,
+}
+
+pub fn vertex<A>(coord: Vec4, attr: A) -> Vertex<A> {
+    Vertex { coord, attr }
 }
 
 #[derive(Debug, Copy, Clone, PartialEq)]
@@ -169,17 +174,14 @@ impl<VA, FA> Builder<VA, FA> {
     }
 }
 
-impl<VA, FA> Mesh<VA, FA> {
-    pub fn verts(&self) -> impl Iterator<Item=Vertex<VA>> + '_
-    where VA: Copy
-    {
+impl<VA: Copy, FA: Copy> Mesh<VA, FA> {
+
+    pub fn verts(&self) -> impl Iterator<Item=Vertex<VA>> + '_ {
         self.verts.iter().zip(&self.vertex_attrs)
             .map(|(&coord, &attr)| Vertex { coord, attr })
     }
 
-    pub fn faces(&self) -> impl Iterator<Item=Face<VA, FA>> + '_
-    where VA: Copy, FA: Copy,
-    {
+    pub fn faces(&self) -> impl Iterator<Item=Face<VA, FA>> + '_ {
         self.faces.iter().zip(&self.face_attrs)
             .map(move |(&indices, &attr)| {
                 let [a, b, c] = indices;
@@ -191,10 +193,22 @@ impl<VA, FA> Mesh<VA, FA> {
             })
     }
 
-    fn vertex(&self, i: usize) -> Vertex<VA>
-    where VA: Copy
-    {
-        Vertex { coord: self.verts[i], attr: self.vertex_attrs[i] }
+    fn vertex(&self, i: usize) -> Vertex<VA> {
+        vertex(self.verts[i], self.vertex_attrs[i])
+    }
+
+    pub fn edges(&self) -> Vec<[Vec4; 2]> {
+        let mut edges = HashSet::new();
+
+        for &[a, b, c] in &self.faces {
+            edges.insert([a, b]);
+            edges.insert([b, c]);
+            edges.insert([c, a]);
+        }
+
+        edges.into_iter()
+            .map(|[a, b]| [self.verts[a], self.verts[b]])
+            .collect()
     }
 
     pub fn validate(self) -> Result<Self, String> {
@@ -226,9 +240,7 @@ impl<VA, FA> Mesh<VA, FA> {
         Ok(self)
     }
 
-    pub fn gen_normals(self) -> Mesh<Vec4, Vec4>
-    where VA: Copy, FA: Copy
-    {
+    pub fn gen_normals(self) -> Mesh<Vec4, Vec4> {
         let face_ns: Vec<_> = self.faces()
             .map(|Face { verts: [a, b, c], .. }| {
                 (b.coord - a.coord).cross(c.coord - a.coord)

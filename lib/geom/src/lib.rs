@@ -1,7 +1,9 @@
-use crate::mesh::Vertex;
-use math::transform::Transform;
-use math::mat::Mat4;
 use std::iter::FromIterator;
+
+use math::mat::Mat4;
+use math::transform::Transform;
+
+use crate::mesh::Vertex;
 
 pub mod mesh;
 pub mod solids;
@@ -19,12 +21,15 @@ impl<VA> Transform for LineSeg<VA> {
         self.0[1].coord.transform(tf);
     }
 }
+
 #[derive(Clone, Debug, Default)]
 pub struct Polyline<VA>(pub Vec<Vertex<VA>>);
 
-impl<VA> Polyline<VA> {
-    pub fn edges(&self) -> impl Iterator<Item=&[Vertex<VA>]> {
-        self.0.windows(2)
+impl<VA: Copy> Polyline<VA> {
+    pub fn edges<'a>(&'a self) ->
+        impl Iterator<Item=[Vertex<VA>; 2]> + 'a
+    {
+        self.0.windows(2).map(|vs| [vs[0], vs[1]])
     }
 }
 
@@ -39,7 +44,7 @@ impl<VA> FromIterator<Vertex<VA>> for Polyline<VA> {
 
 impl<VA> Transform for Polyline<VA> {
     fn transform(&mut self, tf: &Mat4) {
-        for v in self.0.iter_mut() {
+        for v in &mut self.0 {
             v.coord.transform(tf);
         }
     }

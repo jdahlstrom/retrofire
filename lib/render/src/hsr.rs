@@ -121,7 +121,7 @@ const CLIP_PLANES: [ClipPlane; 6] = [
     ClipPlane { sign: -1.0, coord: 2, bit: clip_mask::FAR, },
 ];
 
-#[derive(Debug, Eq, PartialEq)]
+#[derive(Copy, Clone, Debug, Eq, PartialEq)]
 pub enum Visibility {
     Unclipped,
     Clipped,
