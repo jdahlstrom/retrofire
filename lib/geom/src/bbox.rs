@@ -41,11 +41,11 @@ impl BoundingBox {
 
     /// Returns the edges of `self`.
     pub fn edges(&self) -> Vec<[Vec4; 2]> {
-        let vs = self.verts();
+        let [v0, v1, v2, v3, v4, v5, v6, v7] = self.verts();
         vec![
-            [vs[0], vs[1]], [vs[0], vs[2]], [vs[1], vs[3]], [vs[2], vs[3]],
-            [vs[4], vs[5]], [vs[4], vs[6]], [vs[5], vs[7]], [vs[6], vs[7]],
-            [vs[0], vs[4]], [vs[1], vs[5]], [vs[2], vs[6]], [vs[3], vs[7]]
+            [v0, v1], [v0, v2], [v1, v3], [v2, v3],
+            [v4, v5], [v4, v6], [v5, v7], [v6, v7],
+            [v0, v4], [v1, v5], [v2, v6], [v3, v7]
         ]
     }
 }
