@@ -26,7 +26,7 @@ fn main() {
 
     let mesh = bld.vertex_attrs(vattrs).build();
 
-    let model_tf = rotate_x(Deg(-90.0)) * translate(0., -5., 0.);
+    let model_tf = rotate_x(Deg(-90.0)) * translate(-5.0 * Y);
 
     fn shade(frag: Fragment<(Vec4, Vec4)>, _: ()) -> Color {
         let (coord, normal) = frag.varying;
@@ -56,7 +56,7 @@ fn main() {
         let tf = &model_tf
             * &rotate_x(-0.57 * theta)
             * &rotate_y(theta)
-            * &translate(trans.x, trans.y, trans.z)
+            * &translate(trans)
             * &view_dir;
 
         let mut mesh = mesh.clone();

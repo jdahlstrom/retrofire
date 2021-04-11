@@ -2,11 +2,12 @@ use std::fmt::Debug;
 
 use geom::mesh::*;
 use geom::solids::{unit_cube, unit_sphere};
+use math::Angle::{Deg, Rad};
 use math::Linear;
 use math::transform::*;
+use math::vec::{dir, Y, Z};
 use render::*;
 use util::color::BLACK;
-use math::Angle::{Rad, Deg};
 
 static EXPECTED_CUBE: &str =
     "..........\
@@ -24,7 +25,7 @@ fn render<VA, FA>(mesh: Mesh<VA, FA>) -> String
 where VA: Copy + Linear<f32>, FA: Copy + Debug
 {
     let mut rdr = Renderer::new();
-    rdr.modelview = translate(0.0, 0.0, 4.0);
+    rdr.modelview = translate(4.0 * Z);
     rdr.projection = perspective(1.0, 10.0, 1., Rad(1.0));
     rdr.viewport = viewport(0.0, 0.0, 10.0, 10.0);
 
@@ -82,11 +83,11 @@ fn render_cube_with_vector_attrs() {
 #[test]
 fn render_sphere_field() {
     let mut objects = vec![];
-    let camera = translate(0., 4., 0.) * &rotate_x(Rad(0.5));
+    let camera = translate(4.0 * Y) * &rotate_x(Rad(0.5));
     for j in -10..=10 {
         for i in -10..=10 {
             objects.push(Obj {
-                tf: translate(4. * i as f32, 0., 4. * j as f32),
+                tf: translate(dir(4. * i as f32, 0., 4. * j as f32)),
                 mesh: unit_sphere(9, 9).build()
             });
         }

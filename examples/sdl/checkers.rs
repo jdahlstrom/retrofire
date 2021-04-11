@@ -46,7 +46,7 @@ fn checkers() -> Mesh<TexCoord, ()> {
 
 fn crates() -> Vec<Obj<TexCoord, ()>> {
     let mut objects = vec![];
-    objects.push(Obj { tf: translate(0., -1., 0.), mesh: checkers() });
+    objects.push(Obj { tf: translate(-Y), mesh: checkers() });
 
     for j in -10..=10 {
         for i in -10..=10 {
@@ -57,7 +57,7 @@ fn crates() -> Vec<Obj<TexCoord, ()>> {
                     uv(0.0, 1.0), uv(1.0, 1.0), uv(0.0, 0.0), uv(1.0, 0.0),
                 ].iter().copied())
                 .build();
-            let tf = translate(4. * i as f32, 0., 4. * j as f32);
+            let tf = translate(dir(4. * i as f32, 0., 4. * j as f32));
             objects.push(Obj { tf, mesh });
         }
     }

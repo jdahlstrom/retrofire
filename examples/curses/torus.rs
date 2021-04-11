@@ -5,7 +5,7 @@ use geom::mesh::Vertex;
 use geom::solids::*;
 use math::Angle::Rad;
 use math::transform::*;
-use math::vec::Vec4;
+use math::vec::{Vec4, dir};
 use render::raster::gouraud::*;
 
 fn vert(v: Vec4) -> Vertex<f32> {
@@ -38,11 +38,11 @@ fn main() {
 
         let mut tf_mesh = mesh.clone();
 
-        let tf = scale(h / 2.0, h / 2.0, h / 2.0)
+        let tf = scale(h / 2.0)
             * rotate_x(theta)
             * rotate_z(0.37 * theta)
-            * scale(1.0, 0.5, 1.0)
-            * translate(w / 2.0, h / 2.0, 0.0);
+            * scale_axes(1.0, 0.5, 1.0)
+            * translate(dir(w / 2.0, h / 2.0, 0.0));
 
         tf_mesh.verts.iter_mut().for_each(|v| *v *= &tf);
 
