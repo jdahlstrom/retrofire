@@ -3,10 +3,11 @@ use criterion::*;
 use geom::solids;
 use math::Angle::Rad;
 use math::transform::*;
-use render::{Obj, Raster, Renderer, Scene};
-use render::raster::Fragment;
-use util::color::*;
 use math::vec::dir;
+use render::{Raster, Renderer};
+use render::raster::Fragment;
+use render::scene::{Obj, Scene};
+use util::color::*;
 
 const W: usize = 128;
 

@@ -1,15 +1,16 @@
 use sdl2::keyboard::Scancode;
 
 use geom::solids::teapot;
-use math::Angle::{Rad, Deg};
+use math::Angle::{Deg, Rad};
 use math::mat::Mat4;
 use math::transform::*;
 use math::vec::*;
 use render::*;
-use util::color::Color;
 use render::raster::*;
+use render::scene::{Obj, Scene};
 use render::shade::*;
 use runner::*;
+use util::color::Color;
 
 mod runner;
 

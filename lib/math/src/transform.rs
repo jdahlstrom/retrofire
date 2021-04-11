@@ -1,18 +1,18 @@
 use crate::{Angle, mat::*, vec::*};
 
 pub trait Transform {
-    fn transform(&mut self, m: &Mat4);
+    fn transform(&mut self, tf: &Mat4);
 }
 
 impl Transform for Vec4 {
-    fn transform(&mut self, m: &Mat4) {
-        *self = m * *self;
+    fn transform(&mut self, tf: &Mat4) {
+        *self = tf * *self;
     }
 }
 
 impl<T: Transform> Transform for [T] {
-    fn transform(&mut self, m: &Mat4) {
-        for x in self { x.transform(m); }
+    fn transform(&mut self, tf: &Mat4) {
+        for x in self { x.transform(tf); }
     }
 }
 

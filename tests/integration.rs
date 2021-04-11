@@ -7,6 +7,7 @@ use math::Linear;
 use math::transform::*;
 use math::vec::{dir, Y, Z};
 use render::*;
+use render::scene::{Obj, Scene};
 use util::color::BLACK;
 
 static EXPECTED_CUBE: &str =
