@@ -1,8 +1,8 @@
 use std::time::Instant;
 
-use geom::{LineSeg, Polyline};
+use geom::{LineSeg, Polyline, Sprite};
 use geom::mesh::*;
-use math::{Angle, Linear};
+use math::Linear;
 use math::mat::Mat4;
 use math::transform::*;
 use math::vec::*;
@@ -176,27 +176,21 @@ where
     where
         R: RasterOps<VA, ()>
     {
-        let Renderer {
-            ref modelview, ref projection, ref viewport, stats, ..
-        } = rdr;
-
-        stats.faces_in += 1;
+        rdr.stats.faces_in += 1;
 
         let mut this = (*self).clone();
-        let mvp = modelview * projection;
+        let mvp = &rdr.modelview * &rdr.projection;
         this.transform(&mvp);
 
-        if let Some(&[mut a, mut b]) = hsr::clip(&this.0).get(0..2) {
-            stats.faces_out += 1;
-
-            a.coord /= a.coord.w;
-            b.coord /= b.coord.w;
-            a.coord.transform(&viewport);
-            b.coord.transform(&viewport);
-            let verts = [with_depth(a), with_depth(b)];
+        if let Some(&[a, b]) = hsr::clip(&this.0).get(0..2) {
+            rdr.stats.faces_out += 1;
+            let verts = [
+                clip_to_screen(a, &rdr.viewport),
+                clip_to_screen(b, &rdr.viewport)
+            ];
             line(verts, |frag: Fragment<_>| {
                 if raster.rasterize(frag, ()) {
-                    stats.pixels += 1;
+                    rdr.stats.pixels += 1;
                 }
             });
         }
@@ -213,6 +207,41 @@ where
     {
         for seg in self.edges().map(LineSeg) {
             seg.render(rdr, raster);
+        }
+    }
+}
+
+impl<A> Render<A, ()> for Sprite<A>
+where
+    A: Linear<f32> + Copy
+{
+    fn render<R>(&self, rdr: &mut Renderer, raster: &mut R)
+    where
+        R: RasterOps<A, ()>
+    {
+        rdr.stats.faces_in += 1;
+
+        let mut this = *self;
+        this.center.transform(&rdr.modelview);
+
+        let vs: Vec<_> = this.verts()
+                .map(|mut v| { v.coord.transform(&rdr.projection); v })
+                .collect();
+
+        let vs: Vec<_> = hsr::clip(&vs).into_iter()
+            .map(|v| clip_to_screen(v, &rdr.viewport))
+            .collect();
+
+        if !vs.is_empty() {
+            rdr.stats.faces_out += 1;
+            tri_fill([vs[0], vs[1], vs[2]], |frag|
+                if raster.rasterize(frag, ()) {
+                    rdr.stats.pixels += 1;
+                });
+            tri_fill([vs[0], vs[2], vs[3]], |frag|
+                if raster.rasterize(frag, ()) {
+                    rdr.stats.pixels += 1;
+                });
         }
     }
 }
@@ -312,11 +341,17 @@ where VA: Linear<f32> + Copy
 }
 
 #[inline(always)]
-fn with_depth<VA: Copy>(v: Vertex<VA>) -> Vertex<(f32, VA)> {
+fn with_depth<VA>(v: Vertex<VA>) -> Vertex<(f32, VA)> {
     Vertex { coord: v.coord, attr: (v.coord.z, v.attr) }
 }
 
 #[inline(always)]
-fn without_depth<V: Copy>(f: Fragment<(f32, V)>) -> Fragment<V> {
+fn without_depth<V>(f: Fragment<(f32, V)>) -> Fragment<V> {
     Fragment { coord: f.coord, varying: f.varying.1 }
+}
+
+fn clip_to_screen<A>(mut v: Vertex<A>, viewport: &Mat4) -> Vertex<(f32, A)> {
+    v.coord /= v.coord.w;
+    v.coord.transform(viewport);
+    with_depth(v)
 }
