@@ -1,7 +1,9 @@
+use std::array::IntoIter;
 use std::iter::FromIterator;
 
 use math::mat::Mat4;
 use math::transform::Transform;
+use math::vec::{dir, Vec4};
 
 use crate::mesh::Vertex;
 
@@ -47,5 +49,31 @@ impl<VA> Transform for Polyline<VA> {
         for v in &mut self.0 {
             v.coord.transform(tf);
         }
+    }
+}
+
+#[derive(Copy, Clone, Debug)]
+pub struct Sprite<A> {
+    pub center: Vec4,
+    pub width: f32,
+    pub height: f32,
+    pub attrs: [A; 4],
+}
+
+impl<A: Copy> Sprite<A> {
+    pub fn verts<'a>(&'a self) -> impl Iterator<Item=Vertex<A>> + 'a {
+        let (hw, hh) = (0.5 * self.width, 0.5 * self.height);
+        IntoIter::new([(-hw, hh), (hw, hh), (hw, -hh), (-hw, -hh)])
+            .zip(&self.attrs)
+            .map(move |((w, h), &attr)| {
+                let coord = self.center + dir(w, h, 0.0);
+                Vertex { coord, attr }
+            })
+    }
+}
+
+impl<A> Transform for Sprite<A> {
+    fn transform(&mut self, tf: &Mat4) {
+        self.center.transform(tf);
     }
 }

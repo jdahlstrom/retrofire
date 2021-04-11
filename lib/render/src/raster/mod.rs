@@ -9,7 +9,7 @@ pub mod flat;
 pub mod gouraud;
 
 #[derive(Copy, Clone, Debug)]
-pub struct Fragment<V: Copy> {
+pub struct Fragment<V> {
     pub coord: (usize, usize),
     pub varying: V,
 }
