@@ -1,3 +1,4 @@
+use std::collections::HashSet;
 use std::fmt::Debug;
 
 use math::mat::Mat4;
@@ -5,7 +6,6 @@ use math::transform::Transform;
 use math::vec::{Vec4, ZERO};
 
 use crate::bbox::BoundingBox;
-use std::collections::HashSet;
 
 #[derive(Default, Debug, Clone)]
 pub struct Mesh<VA = (), FA = ()> {
@@ -61,6 +61,7 @@ impl Builder {
     pub fn add_vert(&mut self, v: Vec4) -> &mut Self {
         self.mesh.verts.push(v.to_pt());
         self.mesh.vertex_attrs.push(());
+        // TODO index of pushed vertex would be more useful
         self
     }
 
@@ -70,19 +71,22 @@ impl Builder {
     {
         let Mesh { ref mut verts, ref mut vertex_attrs, .. } = self.mesh;
         let len = verts.len() as isize;
-        let mut idx = |v| {
-            let i = match v {
-                FaceVert::New(v) => {
-                    verts.push(v.to_pt());
-                    vertex_attrs.push(());
-                    verts.len() - 1
-                }
-                FaceVert::Existing(i) => i.rem_euclid(len) as usize
-            };
-            debug_assert!(i < verts.len(), "i={} len={}", i, verts.len());
-            i
+        let mut idx = |v| match v {
+            FaceVert::New(v) => {
+                verts.push(v.to_pt());
+                vertex_attrs.push(());
+                verts.len() - 1
+            }
+            FaceVert::Existing(i) => {
+                debug_assert!(-len <= i && i < len,
+                              "invalid index i={} len={}", i, len);
+                i.rem_euclid(len) as usize
+            }
         };
-        self.mesh.faces.push([idx(a.into()), idx(b.into()), idx(c.into())]);
+        let is = [idx(a.into()), idx(b.into()), idx(c.into())];
+        debug_assert!(is[0] != is[1] && is[0] != is[2] && is[1] != is[2],
+                      "degenerate face {:?}", is);
+        self.mesh.faces.push(is);
         self.mesh.face_attrs.push(());
         self
     }
