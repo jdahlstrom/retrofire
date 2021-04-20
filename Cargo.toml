@@ -13,7 +13,6 @@ sdl = ["sdl2"]
 ncurses = ["pancurses"]
 teapot = ["geom/teapot"]
 
-
 [profile.release]
 debug = 1
 opt-level = 2
@@ -54,4 +53,9 @@ required-features = ["sdl", "teapot"]
 [[example]]
 name = "checkers"
 path = "examples/sdl/checkers.rs"
+required-features = ["sdl"]
+
+[[example]]
+name = "ptx"
+path = "examples/sdl/ptx.rs"
 required-features = ["sdl"]
