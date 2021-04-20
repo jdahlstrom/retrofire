@@ -16,9 +16,11 @@ teapot = ["geom/teapot"]
 
 [profile.release]
 debug = 1
-opt-level = 3
+opt-level = 2
 lto = "thin"
 
+[profile.dev]
+split-debuginfo = "unpacked"
 
 [dependencies]
 pancurses = { version = "0.16", optional = true }
