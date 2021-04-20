@@ -38,14 +38,16 @@ pub const fn dir(x: f32, y: f32, z: f32) -> Vec4 {
 }
 
 pub fn polar(r: f32, az: Angle) -> Vec4 {
-    assert!(r >= 0.0);
+    assert!(r > -f32::EPSILON, "r must be positive, was {}", r);
     let (sin, cos) = az.sin_cos();
     dir(r * sin, 0.0, r * cos)
 }
 
 pub fn spherical(r: f32, az: Angle, alt: Angle) -> Vec4 {
-    assert!(r >= 0.0);
-    dir(r * alt.cos() * az.sin(), r * alt.sin(), r * alt.cos() * az.cos())
+    assert!(r > -f32::EPSILON, "r must be positive, was {}", r);
+    let (azs, azc) = az.sin_cos();
+    let (alts, altc) = alt.sin_cos();
+    dir(r * altc * azs, r * alts, r * altc * azc)
 }
 
 impl Vec4 {
@@ -111,7 +113,7 @@ impl Vec4 {
     #[must_use]
     pub fn scalar_project(self, onto: Vec4) -> f32 {
         debug_assert_ne!(onto, ZERO, "cannot project onto a zero vector");
-        self.dot(onto) / onto.dot(onto)
+        self.dot(onto) / onto.norm()
     }
     /// Returns the vector projection of self onto the argument.
     #[must_use]
