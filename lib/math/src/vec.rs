@@ -3,7 +3,7 @@
 use core::fmt;
 use core::ops::{
     Add, AddAssign, Div, DivAssign, Index, IndexMut,
-    Mul, MulAssign, Neg, Range, Sub, SubAssign
+    Mul, MulAssign, Neg, Range, Rem, Sub, SubAssign,
 };
 
 use crate::{Angle, ApproxEq, Linear};
@@ -234,6 +234,14 @@ impl Mul<Vec4> for f32 {
     }
 }
 
+impl Rem for Vec4 {
+    type Output = Vec4;
+
+    fn rem(self, rhs: Vec4) -> Vec4 {
+        self.zip_map(rhs, |a, b| a % b)
+    }
+}
+
 impl Linear<f32> for Vec4 {
     fn add(self, other: Self) -> Self {
         self + other
@@ -316,10 +324,10 @@ impl Distrib<Vec4> for Uniform<Range<Vec4>> {
 #[cfg(test)]
 #[allow(unused_must_use)]
 mod tests {
+    use crate::Angle::Deg;
     use crate::tests::util::*;
 
     use super::*;
-    use crate::Angle::Deg;
 
     #[test]
     fn vec_from_polar() {

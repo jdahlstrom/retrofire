@@ -13,12 +13,16 @@ sdl = ["sdl2"]
 ncurses = ["pancurses"]
 teapot = ["geom/teapot"]
 
-
 [profile.release]
 debug = 1
-opt-level = 3
+opt-level = 2
 lto = "thin"
 
+[profile.dev]
+opt-level = 1
+
+[profile.test]
+opt-level = 0
 
 [dependencies]
 pancurses = { version = "0.16", optional = true }
@@ -27,6 +31,7 @@ sdl2 = { version = "0.34", optional = true }
 math = { path = "./lib/math" }
 geom = { path = "./lib/geom" }
 render = { path = "./lib/render" }
+synth = { path = "./lib/synth" }
 util = { path = "./lib/util" }
 
 

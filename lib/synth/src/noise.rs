@@ -1,7 +1,7 @@
 use math::lerp;
 use math::spline::smoothstep;
 use math::vec::*;
-use crate::Signal;
+use crate::{Signal, from_fn};
 
 const GRADIENTS: [Vec4; 256] = [
     vec4(-0.2759, 0.7064, 0.6518, 0.0000),
@@ -260,19 +260,23 @@ const GRADIENTS: [Vec4; 256] = [
     vec4(-0.8876, -0.0072, -0.4606, 0.0000),
     vec4(-0.2564, -0.7359, -0.6266, 0.0000),
     vec4(0.6018, 0.4833, -0.6358, 0.0000),
-
-];
-
-const _PERMS: [usize; 8] = [
-    1, 4, 5, 0, 7, 3, 6, 2,
 ];
 
 fn grad1(a: f32) -> f32 {
     grad2(a, 0.0).x
 }
 
+fn _grad2(x: f32, y: f32) -> Vec4 {
+    GRADIENTS[(2920.0 * x * (21942.0 * x + 171324.0 * y + 8912.0)) as usize & 0xFF]
+}
+
 fn grad2(x: f32, y: f32) -> Vec4 {
-    GRADIENTS[(83.0 * x + 29.0 * y) as usize & 0xFF]
+    let r = 31337.0
+        * f32::sin(x * 21942.0 + y * 171324.0 + 8912.0)
+        * f32::cos(x * 23157.0 * y * 217832.0 + 9758.0);
+    //vec4(r.sin(), r.cos(), 0.0, 0.0)
+    let g = GRADIENTS[r as isize as usize & 0xFF];
+    vec4(g.x, g.y, 0.0, 0.0)
 }
 
 pub fn perlin_noise1(x: f32) -> f32 {
@@ -280,7 +284,6 @@ pub fn perlin_noise1(x: f32) -> f32 {
 
     let g0 = grad1(x0);
     let g1 = grad1(x0 + 1.0);
-
 
     lerp(smoothstep(x), g0, g1)
 }
@@ -291,7 +294,8 @@ fn dot(x0: f32, y0: f32, x: f32, y: f32) -> f32 {
     g.x * dx + g.y * dy
 }
 
-pub fn perlin_noise2(x: f32, y: f32) -> f32 {
+pub fn perlin_noise2(v: Vec4) -> f32 {
+    let (x, y) = (v.x, v.y);
     let (x0, y0) = (x.floor(), y.floor());
     let (x1, y1) = (x0 + 1.0, y0 + 1.0);
 
@@ -300,8 +304,8 @@ pub fn perlin_noise2(x: f32, y: f32) -> f32 {
     let g10 = dot(x1, y0, x, y);
     let g11 = dot(x1, y1, x, y);
 
-    let x = smoothstep(x.fract());
-    let y = smoothstep(y.fract());
+    let x = smoothstep(x - x0);
+    let y = smoothstep(y - y0);
 
     lerp(y,
         lerp(x, g00, g10),
@@ -309,16 +313,12 @@ pub fn perlin_noise2(x: f32, y: f32) -> f32 {
     )
 }
 
-pub fn perlin_noise(pt: Vec4) -> f32 {
-    perlin_noise2(pt.x, pt.y)
-}
-
 pub fn fractal_noise<S>(o: u32, f: f32, a: f32, source: S)
     -> impl Signal<Vec4, R=f32>
 where
     S: Signal<Vec4, R=f32> + Copy,
 {
-    move |v| {
+    let f = move |v: Vec4| {
         let mut freq = 1.0;
         let mut amp = 1.0;
         let mut res = 0.0;
@@ -328,11 +328,31 @@ where
             amp *= a;
         }
         res
-    }
+    };
+    from_fn(f)
 }
 
-pub fn vector_noise2(x: f32, y: f32) -> Vec4 {
-    let (x0, y0) = (x.floor(), y.floor());
+pub fn fractal_noise1<S>(o: u32, f: f32, a: f32, source: S)
+    -> impl Signal<f32, R=f32>
+where
+    S: Signal<f32, R=f32> + Copy,
+{
+    let f = move |v: f32| {
+        let mut freq = 1.0;
+        let mut amp = 1.0;
+        let mut res = 0.0;
+        for _ in 0..o {
+            res += amp * source.sample(freq * v);
+            freq *= f;
+            amp *= a;
+        }
+        res
+    };
+    from_fn(f)
+}
+
+pub fn vector_noise2(v: Vec4) -> Vec4 {
+    let (x0, y0) = (v.x.floor(), v.y.floor());
     let (x1, y1) = (x0 + 1.0, y0 + 1.0);
 
     let g00 = grad2(x0, y0);
@@ -340,8 +360,8 @@ pub fn vector_noise2(x: f32, y: f32) -> Vec4 {
     let g10 = grad2(x1, y0);
     let g11 = grad2(x1, y1);
 
-    let x = smoothstep(x.fract());
-    let y = smoothstep(y.fract());
+    let x = smoothstep(v.x - x0);
+    let y = smoothstep(v.y - y0);
 
     lerp(y,
          lerp(x, g00, g10),
@@ -349,8 +369,22 @@ pub fn vector_noise2(x: f32, y: f32) -> Vec4 {
     )
 }
 
-pub fn vector_noise(v: Vec4) -> Vec4 {
-    vector_noise2(v.x, v.y)
+pub fn voronoi_noise2(v: Vec4) -> f32 {
+
+    let v0 = v.map(f32::floor);
+
+    let mut ds: Vec<_> = [
+        v0 - X - Y, v0 - Y, v0 + X - Y,
+        v0 - X, v0, v0 + X,
+        v0 - X + Y, v0 + Y, v0 + X + Y,
+    ].iter()
+        .map(|&p| p + grad2(p.x, p.y).map(f32::abs))
+        .map(|p| (v - p).norm())
+        .collect();
+
+    ds.sort_by(|a, b| a.partial_cmp(b).unwrap());
+
+    ds[0].sqrt()
 }
 
 #[cfg(test)]
