@@ -419,7 +419,7 @@ mod tests {
                 let x = i as f32 / 4.0;
                 let y = j as f32 / 4.0;
 
-                let n = perlin_noise2(x, y);
+                let n = perlin_noise2(pt(x, y, 0.0));
                 let i = (n * 96.0) as i8;
                 eprint!("{:4}", i);
             }
