@@ -318,7 +318,7 @@ pub fn fractal_noise<S>(o: u32, f: f32, a: f32, source: S)
 where
     S: Signal<Vec4, R=f32> + Copy,
 {
-    let f = move |v: Vec4| {
+    from_fn(move |v: Vec4| {
         let mut freq = 1.0;
         let mut amp = 1.0;
         let mut res = 0.0;
@@ -328,8 +328,7 @@ where
             amp *= a;
         }
         res
-    };
-    from_fn(f)
+    })
 }
 
 pub fn fractal_noise1<S>(o: u32, f: f32, a: f32, source: S)

@@ -6,6 +6,14 @@ pub trait Signal<D> {
     type R;
     fn sample(&self, t: D) -> Self::R;
 
+    fn quantize(self, dt: D) -> Quantize<Self, D>
+    where
+        Self: Sized,
+        D: Default,
+    {
+        Quantize { sig: self, n: 0, dt }
+    }
+
     fn scale<F>(self, factor: F) -> Scale<Self, F>
     where
         Self: Sized,
@@ -60,6 +68,26 @@ pub trait Signal<D> {
         Self: Sized,
     {
         Map { sig: self, func }
+    }
+}
+
+pub struct Quantize<S, D> {
+    sig: S,
+    dt: D,
+    n: usize,
+}
+
+impl<S, D> Iterator for Quantize<S, D>
+where
+    S: Signal<D>,
+    D: AddAssign + Mul<f32, Output=D> + Copy,
+{
+    type Item = S::R;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        let sample = self.sig.sample(self.dt * self.n as f32);
+        self.n += 1;
+        Some(sample)
     }
 }
 
