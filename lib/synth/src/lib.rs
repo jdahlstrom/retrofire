@@ -11,7 +11,11 @@ pub trait Signal<D> {
         Self: Sized,
         D: Default,
     {
-        Quantize { sig: self, n: 0, dt }
+        Quantize {
+            sig: self,
+            n: 0,
+            dt,
+        }
     }
 
     fn scale<F>(self, factor: F) -> Scale<Self, F>
@@ -28,7 +32,7 @@ pub trait Signal<D> {
     }
     fn repeat(self, range: Range<D>) -> Repeat<Self, D>
     where
-        Self: Sized
+        Self: Sized,
     {
         Repeat { sig: self, range }
     }
@@ -63,6 +67,12 @@ pub trait Signal<D> {
     {
         Modulate { sig: self, with }
     }
+    fn crossfade<S>(self, to: S, at: Range<D>) -> Crossfade<Self, S, D>
+    where
+        Self: Sized,
+    {
+        Crossfade { sig: self, to, at }
+    }
     fn map<F>(self, func: F) -> Map<Self, F>
     where
         Self: Sized,
@@ -80,7 +90,7 @@ pub struct Quantize<S, D> {
 impl<S, D> Iterator for Quantize<S, D>
 where
     S: Signal<D>,
-    D: AddAssign + Mul<f32, Output=D> + Copy,
+    D: AddAssign + Mul<f32, Output = D> + Copy,
 {
     type Item = S::R;
 
@@ -97,6 +107,13 @@ pub trait Bounds<D> {
 
 pub fn from_fn<F>(f: F) -> FromFn<F> {
     FromFn(f)
+}
+
+pub fn constant<D, T>(val: T) -> impl Signal<D>
+where
+    T: Copy,
+{
+    from_fn(move |_| val)
 }
 
 #[derive(Copy, Clone)]
@@ -284,6 +301,37 @@ where
     type R = S::R;
     fn sample(&self, t: D) -> Self::R {
         self.sig.sample(t) * self.with.sample(t)
+    }
+}
+
+#[derive(Clone)]
+pub struct Crossfade<S, T, D> {
+    sig: S,
+    to: T,
+    at: Range<D>,
+}
+
+impl<S, T, D> Signal<D> for Crossfade<S, T, D>
+where
+    S: Signal<D>,
+    T: Signal<D, R = S::R>,
+    S::R:
+        Mul<D, Output = S::R> + Add<Output = S::R> + Sub<Output = S::R> + Copy + Default,
+    D: PartialOrd + Sub<Output = D> + Div<Output = D> + Copy,
+{
+    type R = S::R;
+    fn sample(&self, t: D) -> Self::R {
+        let Range { start, end } = self.at;
+        let from = self.sig.sample(t);
+        let to = self.to.sample(t);
+        if t < start {
+            from
+        } else if end < t {
+            to
+        } else {
+            let fade = (t - start) / (end - start);
+            from + (to - from) * fade
+        }
     }
 }
 
