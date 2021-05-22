@@ -45,13 +45,13 @@ fn checkers() -> Mesh<TexCoord, ()> {
 }
 
 
-fn crates() -> Vec<Obj<TexCoord, ()>> {
+fn crates() -> Vec<Obj<Mesh<TexCoord, ()>>> {
     let mut objects = vec![];
-    objects.push(Obj { tf: translate(-Y), mesh: checkers() });
+    objects.push(Obj { tf: translate(-Y), geom: checkers() });
 
     for j in -10..=10 {
         for i in -10..=10 {
-            let mesh = unit_cube()
+            let geom = unit_cube()
                 // Texcoords
                 .vertex_attrs([
                     uv(1.0, 1.0), uv(0.0, 1.0), uv(1.0, 0.0), uv(0.0, 0.0),
@@ -59,7 +59,7 @@ fn crates() -> Vec<Obj<TexCoord, ()>> {
                 ].iter().copied())
                 .build();
             let tf = translate(dir(4. * i as f32, 0., 4. * j as f32));
-            objects.push(Obj { tf, mesh });
+            objects.push(Obj { tf, geom });
         }
     }
     objects
@@ -74,7 +74,7 @@ fn main() {
     let camera = Mat4::identity();
 
     let mut objects = crates();
-    objects.push(Obj { tf: Mat4::identity(), mesh: checkers() });
+    objects.push(Obj { tf: Mat4::identity(), geom: checkers() });
 
     let mut scene = Scene { objects, camera };
 
@@ -91,15 +91,13 @@ fn main() {
     let mut cam = FpsCamera::new(pt(0.0, 0.0, -2.5), Angle::ZERO);
 
     runner.run(|mut frame| {
-        {
-            let Frame { buf, zbuf, .. } = &mut frame;
-            rdr.render_scene(&scene, &mut Raster {
-                shade: |frag: Fragment<_>, _| tex.sample(frag.varying),
-                test: |frag| zbuf.test(frag),
-                output: |(x, y), c| buf.plot(x, y, c),
-            });
-        }
 
+        {
+            let raster = &mut frame.raster(|frag: Fragment<_>, _| {
+                tex.sample(frag.varying)
+            });
+            rdr.render_scene(&scene, raster);
+        }
 
         let mut cam_move = ZERO;
         {

@@ -118,6 +118,11 @@ impl Builder {
             }
         }
     }
+
+    pub fn transform(mut self, tf: &Mat4) -> Self {
+        self.mesh.transform(tf);
+        self
+    }
 }
 
 impl<VA, FA> Builder<VA, FA> {
@@ -268,7 +273,7 @@ impl<VA: Copy, FA: Copy> Mesh<VA, FA> {
     }
 }
 
-impl Transform for Mesh {
+impl<VA, FA> Transform for Mesh<VA, FA> {
     fn transform(&mut self, tf: &Mat4) {
         self.bbox.transform(tf);
         self.verts.transform(tf);

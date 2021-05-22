@@ -7,11 +7,12 @@ use sdl2::pixels::Color as SdlColor;
 use sdl2::rect::Rect;
 use sdl2::video::Window;
 
-use render::{DepthBuf, Stats};
+use render::{DepthBuf, Stats, RasterOps, Raster};
 use Run::*;
 use util::Buffer;
 use util::color::{Color, rgb};
 use util::io::save_ppm;
+use render::raster::Fragment;
 
 pub struct SdlRunner {
     #[allow(unused)]
@@ -31,6 +32,23 @@ pub struct Frame<'a> {
 }
 
 impl<'a> Frame<'a> {
+
+    pub fn raster<'b, S, VA, FA>(&'b mut self, shade: S) ->
+        impl RasterOps<VA, FA> + 'b
+    where
+        'a: 'b,
+        VA: Copy,
+        S: FnMut(Fragment<VA>, FA) -> Color + 'b,
+    {
+        let zbuf = &mut *self.zbuf;
+        let mut buf = self.buf.borrow();
+        Raster {
+            shade,
+            test: move |frag| zbuf.test(frag),
+            output: move |(x, y), c| buf.plot(x, y, c),
+        }
+    }
+
     pub fn screenshot(&self, filename: &str) -> Result<(), String> {
         let buf = self.buf.buffer();
         let data: Vec<_> = buf.data.chunks(4)
@@ -58,6 +76,10 @@ impl<'a> ColorBuf<'a> {
     }
     pub fn buffer(&self) -> &Buffer<u8, &'a mut [u8]> {
         &self.0
+    }
+
+    fn borrow<'b>(&'b mut self) -> ColorBuf<'b> where 'a: 'b {
+        ColorBuf(Buffer::borrow(self.0.width, self.0.data))
     }
 }
 

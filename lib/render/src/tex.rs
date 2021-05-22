@@ -2,7 +2,7 @@ use util::Buffer;
 use math::Linear;
 use util::color::Color;
 
-#[derive(Copy, Clone, Debug)]
+#[derive(Copy, Clone, Debug, Default)]
 pub struct TexCoord {
     pub u: f32, pub v: f32, pub w: f32
 }
