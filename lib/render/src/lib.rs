@@ -13,6 +13,7 @@ use util::color::Color;
 
 use crate::hsr::Visibility;
 use crate::raster::*;
+use crate::vary::Varying;
 
 mod hsr;
 pub mod raster;
@@ -20,6 +21,7 @@ pub mod scene;
 pub mod shade;
 pub mod stats;
 pub mod tex;
+pub mod text;
 pub mod vary;
 
 pub trait RasterOps<VA: Copy, FA> {
@@ -223,6 +225,9 @@ where
 
         let mut this = *self;
         this.center.transform(&rdr.modelview);
+        let scale = &rdr.modelview.row(0).len();
+        this.width *= scale;
+        this.height *= scale;
 
         let vs: Vec<_> = this.verts()
                 .map(|mut v| { v.coord.transform(&rdr.projection); v })
@@ -232,16 +237,22 @@ where
             .map(|v| clip_to_screen(v, &rdr.viewport))
             .collect();
 
-        if !vs.is_empty() {
+        if let &[v0, v1, v2, v3] = &vs[..] {
             rdr.stats.faces_out += 1;
-            tri_fill([vs[0], vs[1], vs[2]], |frag|
-                if raster.rasterize(frag, ()) {
-                    rdr.stats.pixels += 1;
-                });
-            tri_fill([vs[0], vs[2], vs[3]], |frag|
-                if raster.rasterize(frag, ()) {
-                    rdr.stats.pixels += 1;
-                });
+
+            let (x0, y0) = (v0.coord.x.round(), v0.coord.y.round());
+            let (x1, y1) = (v2.coord.x.round(), v2.coord.y.round());
+            let v = Varying::between((v0.attr, v1.attr), (v3.attr, v2.attr), y1 - y0);
+
+            for (y, (v0, v1)) in (y0 as usize .. y1 as usize).zip(v) {
+                let v = Varying::between(v0, v1, x1 - x0);
+                for (x, v) in (x0 as usize .. x1 as usize).zip(v) {
+                    let frag = Fragment { coord: (x, y), varying: v };
+                    if raster.rasterize(frag, ()) {
+                        rdr.stats.pixels += 1;
+                    }
+                }
+            }
         }
     }
 }
@@ -299,7 +310,7 @@ impl Renderer {
         let clock = Instant::now();
 
         mesh.render(self, raster);
-        
+
         self.stats.objs_in += 1;
         self.stats.time_used += clock.elapsed();
         self.stats
