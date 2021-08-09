@@ -33,15 +33,13 @@ pub struct Frame<'a> {
 impl<'a> Frame<'a> {
     pub fn screenshot(&self, filename: &str) -> Result<(), String> {
         let buf = self.buf.buffer();
-        let data: Vec<_> = buf.data.chunks(4)
+        let data: Vec<_> = buf.data().chunks(4)
             .map(|bgra| rgb(bgra[2], bgra[1], bgra[0]))
             .collect();
 
-        save_ppm(filename, &Buffer {
-            width: buf.width,
-            height: buf.height / 4,
-            data
-        }).map_err(|e| e.to_string())
+        // TODO Better way to map Buf<u8> to Buf<Color>
+        save_ppm(filename, &Buffer::from_vec(buf.width(), data))
+            .map_err(|e| e.to_string())
     }
 }
 
@@ -50,11 +48,11 @@ pub struct ColorBuf<'a>(Buffer<u8, &'a mut [u8]>);
 impl<'a> ColorBuf<'a> {
     pub fn plot(&mut self, x: usize, y: usize, c: Color) {
         let buf = &mut self.0;
-        let idx = 4 * (buf.width * y + x);
+        let idx = 4 * (buf.width() * y + x);
         let [_, r, g, b] = c.to_argb();
-        buf.data[idx + 0] = b;
-        buf.data[idx + 1] = g;
-        buf.data[idx + 2] = r;
+        buf.data_mut()[idx + 0] = b;
+        buf.data_mut()[idx + 1] = g;
+        buf.data_mut()[idx + 2] = r;
     }
     pub fn buffer(&self) -> &Buffer<u8, &'a mut [u8]> {
         &self.0
