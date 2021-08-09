@@ -1,15 +1,13 @@
 use std::time::Instant;
 
-use geom::{LineSeg, Polyline, Sprite};
-use geom::mesh::*;
+use geom::{LineSeg, mesh::*, Polyline, Sprite};
 use math::Linear;
 use math::mat::Mat4;
 use math::transform::*;
 use math::vec::*;
 use scene::{Obj, Scene};
 pub use stats::Stats;
-use util::Buffer;
-use util::color::Color;
+use util::{Buffer, color::Color};
 
 use crate::hsr::Visibility;
 use crate::raster::*;
@@ -25,10 +23,10 @@ pub mod text;
 pub mod vary;
 
 pub trait RasterOps<VA: Copy, FA> {
-    fn shade(&mut self, frag: Fragment<VA>, uniform: FA) -> Color;
+    fn shade(&mut self, _: Fragment<VA>, uniform: FA) -> Color;
 
     #[inline(always)]
-    fn test(&mut self, _frag: Fragment<(f32, VA)>) -> bool { true }
+    fn test(&mut self, _: Fragment<(f32, VA)>) -> bool { true }
 
     // TODO
     // fn blend(&mut self, _x: usize, _y: usize, c: Color) -> Color { c }
@@ -37,13 +35,13 @@ pub trait RasterOps<VA: Copy, FA> {
 
     #[inline(always)]
     fn rasterize(&mut self, frag: Fragment<(f32, VA)>, uniform: FA) -> bool {
-        if self.test(frag) {
+        self.test(frag) && {
             let frag = without_depth(frag);
             let color = self.shade(frag, uniform);
             // TODO let color = self.blend(x, y, color);
             self.output(frag.coord, color);
             true
-        } else { false }
+        }
     }
 }
 
@@ -108,14 +106,9 @@ where
     where
         R: RasterOps<VA, FA>
     {
-        let Renderer {
-            ref modelview, ref projection, ref viewport, stats, ..
-        } = rdr;
-        let options = rdr.options;
+        rdr.stats.faces_in += self.faces.len();
 
-        stats.faces_in += self.faces.len();
-
-        let mvp = modelview * projection;
+        let mvp = &rdr.modelview * &rdr.projection;
 
         let bbox_vis = {
             let mut vs = self.bbox.verts();
@@ -131,24 +124,24 @@ where
             hsr::hidden_surface_removal(&mut mesh, bbox_vis);
 
             if !mesh.faces.is_empty() {
-                stats.objs_out += 1;
-                stats.faces_out += mesh.faces.len();
+                rdr.stats.objs_out += 1;
+                rdr.stats.faces_out += mesh.faces.len();
 
-                if options.depth_sort { depth_sort(&mut mesh); }
-                perspective_divide(&mut mesh, options.perspective_correct);
+                if rdr.options.depth_sort { depth_sort(&mut mesh); }
+                perspective_divide(&mut mesh, rdr.options.perspective_correct);
 
-                mesh.verts.transform(viewport);
+                mesh.verts.transform(&rdr.viewport);
 
                 for Face { verts: [a, b, c], attr, .. } in mesh.faces() {
                     let verts = [with_depth(a), with_depth(b), with_depth(c)];
                     tri_fill(verts, |frag: Fragment<_>| {
                         raster.rasterize(frag, attr);
-                        stats.pixels += 1;
+                        rdr.stats.pixels += 1;
                     });
                 }
             }
 
-            let mut render_edges = |edges: Vec<[Vec4; 2]>, color| {
+            let mut render_edges = |rdr: &mut Renderer, edges: Vec<[Vec4; 2]>, color| {
                 for edge in edges.into_iter()
                     .map(|[a, b]| [vertex(a, ()), vertex(b, ())])
                 {
@@ -160,11 +153,11 @@ where
                 }
             };
 
-            if let Some(color) = options.wireframes {
-                render_edges(self.edges(), color);
+            if let Some(color) = rdr.options.wireframes {
+                render_edges(rdr, self.edges(), color);
             }
-            if let Some(color) = options.bounding_boxes {
-                render_edges(self.bbox.edges(), color);
+            if let Some(color) = rdr.options.bounding_boxes {
+                render_edges(rdr, self.bbox.edges(), color);
             }
         }
     }
