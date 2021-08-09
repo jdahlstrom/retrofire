@@ -84,12 +84,12 @@ impl DepthBuf {
 
     pub fn test<V: Copy>(&mut self, frag: Fragment<(f32, V)>) -> bool {
         let Fragment { coord: (x, y), varying: (z, _) } = frag;
-        let d = &mut self.buf.data[y * self.buf.width + x];
+        let d = self.buf.get_mut(x, y);
         if *d > z { *d = z; true } else { false }
     }
 
     pub fn clear(&mut self) {
-        self.buf.data.fill(f32::INFINITY);
+        self.buf.data_mut().fill(f32::INFINITY);
     }
 }
 

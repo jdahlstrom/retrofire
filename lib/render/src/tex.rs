@@ -57,10 +57,7 @@ impl Texture {
         Texture {
             w: width as f32,
             h: height as f32,
-            buf: Buffer {
-                width, height,
-                data: data.to_vec(),
-            }
+            buf: Buffer::from_vec(width, data.to_vec()),
         }
     }
 
@@ -85,19 +82,19 @@ impl Texture {
     pub fn sample(&self, TexCoord { u, v, w }: TexCoord) -> Color {
         let buf = &self.buf;
         let w = 1.0 / w;
-        let u = (self.w * u * w) as isize as usize & (buf.width - 1);
-        let v = (self.h * v * w) as isize as usize & (buf.height - 1);
+        let u = (self.w * u * w) as isize as usize & (buf.width() - 1);
+        let v = (self.h * v * w) as isize as usize & (buf.height() - 1);
 
         // TODO enforce invariants and use get_unchecked
-        buf.data[buf.width * v + u]
+        *buf.get(u, v)
     }
 }
 
 impl From<Buffer<Color>> for Texture {
     fn from(buf: Buffer<Color>) -> Self {
         Self {
-            w: buf.width as f32,
-            h: buf.height as f32,
+            w: buf.width() as f32,
+            h: buf.height() as f32,
             buf
         }
     }
