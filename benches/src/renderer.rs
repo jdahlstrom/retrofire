@@ -3,7 +3,7 @@ use criterion::*;
 use geom::solids;
 use math::Angle::Rad;
 use math::transform::*;
-use math::vec::dir;
+use math::vec::{dir, Y, Z};
 use render::{Raster, Renderer};
 use render::raster::Fragment;
 use render::scene::{Obj, Scene};
