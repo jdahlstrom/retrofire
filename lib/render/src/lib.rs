@@ -14,6 +14,7 @@ use crate::raster::*;
 use crate::vary::Varying;
 
 mod hsr;
+pub mod fx;
 pub mod raster;
 pub mod scene;
 pub mod shade;

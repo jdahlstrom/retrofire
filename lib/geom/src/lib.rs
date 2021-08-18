@@ -52,7 +52,7 @@ impl<VA> Transform for Polyline<VA> {
     }
 }
 
-#[derive(Copy, Clone, Debug)]
+#[derive(Copy, Clone, Debug, Default)]
 pub struct Sprite<VA, FA = ()> {
     pub center: Vec4,
     pub width: f32,
