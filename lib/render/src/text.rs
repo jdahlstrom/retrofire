@@ -1,9 +1,13 @@
-use crate::tex::{uv, TexCoord, Texture};
-use crate::{RasterOps, Render, Renderer};
 use geom::Sprite;
 use math::mat::Mat4;
 use math::transform::Transform;
 use math::vec::pt;
+use util::color::Color;
+
+use crate::{RasterOps, Render, Renderer};
+use crate::raster::Fragment;
+use crate::shade::{Shader, ShaderImpl};
+use crate::tex::{TexCoord, Texture, uv};
 
 pub struct Font {
     pub glyph_w: u16,
@@ -69,26 +73,35 @@ impl<'a> Transform for Text<'a> {
     }
 }
 
-impl<'a> Render<TexCoord, ()> for Text<'a> {
-    fn render<R>(&self, rdr: &mut Renderer, raster: &mut R)
+impl<'a> Render<(), TexCoord, Color> for Text<'a> {
+    fn render<S, R>(&self, rdr: &mut Renderer, shader: &mut S, raster: &mut R)
     where
-        R: RasterOps<TexCoord, ()>,
+        S: Shader<(), TexCoord, TexCoord, Color>,
+        R: RasterOps,
     {
         for s in &self.x {
-            s.render(rdr, raster);
+            s.render(rdr, &mut ShaderImpl {
+                vs: |v| shader.shade_vertex(v),
+                fs: |f: Fragment<TexCoord>| {
+                    let col = self.font.glyphs.sample(f.varying);
+                    shader.shade_fragment(f.varying(col))
+                },
+            }, raster);
         }
     }
 }
 
 #[cfg(test)]
 mod tests {
-    use super::*;
-    use crate::raster::Fragment;
-    use crate::Raster;
-    use util::color::BLACK;
-    use util::io::load_ppm;
-    use math::transform::{orthogonal, viewport, translate};
+    use math::transform::{orthogonal, translate, viewport};
     use math::vec::dir;
+    use util::color::{BLACK, Color};
+    use util::io::load_ppm;
+
+    use crate::Raster;
+    use crate::raster::Fragment;
+
+    use super::*;
 
     #[test]
     fn render_text() {
@@ -107,13 +120,16 @@ mod tests {
         let mut out = [[BLACK; 80]; 10];
         txt.render(
             rdr,
-            &mut Raster {
-                shade: |frag: Fragment<TexCoord>, _| {
-                    txt.font.glyphs.sample(frag.varying)
+            &mut ShaderImpl {
+                vs: |v| v,
+                fs: |frag: Fragment<_>| {
+                    Some(frag.varying)
                 },
+            },
+            &mut Raster {
                 test: |_| true,
-                output: |(x, y): (usize, usize), c| {
-                    out[y][x] = c;
+                output: |frag: Fragment<(f32, Color)>| {
+                    out[frag.coord.1][frag.coord.0] = frag.varying.1;
                 },
             },
         );

@@ -9,9 +9,29 @@ pub mod flat;
 pub mod gouraud;
 
 #[derive(Copy, Clone, Debug)]
-pub struct Fragment<V> {
+pub struct Fragment<V, U = ()> {
     pub coord: (usize, usize),
     pub varying: V,
+    pub uniform: U,
+}
+
+impl<V, U> Fragment<V, U> {
+    pub fn varying<W>(&self, v: W) -> Fragment<W, U>
+    where U: Copy {
+        Fragment {
+            varying: v,
+            uniform: self.uniform,
+            coord: self.coord,
+        }
+    }
+    pub fn uniform<T>(&self, u: T) -> Fragment<V, T>
+    where V: Copy {
+        Fragment {
+            uniform: u,
+            varying: self.varying,
+            coord: self.coord,
+        }
+    }
 }
 
 fn ysort<V>([a, b, c]: &mut [Vertex<V>; 3]) {
@@ -41,7 +61,7 @@ where
             let x_right = right.0.round() as usize;
 
             for (x, v) in (x_left..=x_right).zip(v) {
-                plot(Fragment { coord: (x, y), varying: v });
+                plot(Fragment { coord: (x, y), varying: v, uniform: () });
             }
         }
         y = y_end;
@@ -82,7 +102,7 @@ where
         let vs = Varying::between(a.attr, b.attr, d.x);
 
         for (coord, varying) in xs.zip(ys).zip(vs) {
-            plot(Fragment { coord, varying });
+            plot(Fragment { coord, varying, uniform: () });
         }
     } else {
         // Angle > diagonal
@@ -93,7 +113,7 @@ where
         let vs = Varying::between(a.attr, b.attr, d.y);
 
         for (coord, varying) in xs.zip(ys).zip(vs) {
-            plot(Fragment { coord, varying });
+            plot(Fragment { coord, varying, uniform: () });
         }
     }
 }

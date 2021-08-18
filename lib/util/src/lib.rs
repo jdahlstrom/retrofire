@@ -13,7 +13,9 @@ where B: DerefMut<Target=[T]>
 }
 
 impl<T, B> Buffer<T, B>
-where B: DerefMut<Target=[T]>
+where
+    T: Clone,
+    B: DerefMut<Target=[T]>
 {
     pub fn width(&self) -> usize {
         self.width
@@ -41,6 +43,10 @@ where B: DerefMut<Target=[T]>
     #[inline(always)]
     pub fn put(&mut self, x: usize, y: usize, val: T) {
         (&mut self.data)[self.width * y + x] = val;
+    }
+
+    pub fn fill(&mut self, val: T) {
+        self.data.fill(val);
     }
 }
 

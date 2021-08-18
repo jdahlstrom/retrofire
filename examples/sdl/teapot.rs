@@ -11,6 +11,7 @@ use render::scene::{Obj, Scene};
 use render::shade::*;
 use runner::*;
 use util::color::Color;
+use std::convert::identity;
 
 mod runner;
 
@@ -29,7 +30,7 @@ fn main() {
 
     let model_tf = rotate_x(Deg(-90.0)) * translate(-5.0 * Y);
 
-    fn shade(frag: Fragment<(Vec4, Vec4)>, _: ()) -> Color {
+    fn shade(frag: Fragment<(Vec4, Vec4)>) -> Option<Color> {
         let (coord, normal) = frag.varying;
         let light_dir = (pt(-1.0, 2., -2.) - coord).normalize();
         let view_dir = (pt(0.0, 0.0, 0.0) - coord).normalize();
@@ -38,7 +39,7 @@ fn main() {
         let diffuse = 0.6 * vec4(1.0, 0.9, 0.6, 0.0) * lambert(normal, light_dir);
         let specular = 0.6 * vec4(1.0, 1.0, 1.0, 0.0) * phong(normal, view_dir, light_dir, 5);
 
-        expose_rgb(ambient + diffuse + specular, 3.).into()
+        Some(expose_rgb(ambient + diffuse + specular, 3.).into())
     }
 
     let mut theta = Rad(0.);
@@ -52,7 +53,7 @@ fn main() {
 
     let mut runner = SdlRunner::new(w as u32, h as u32).unwrap();
 
-    runner.run(|Frame { mut buf, zbuf, pressed_keys, delta_t, .. }| {
+    runner.run(|Frame { mut buf, pressed_keys, delta_t, .. }| {
 
         let tf = &model_tf
             * &rotate_x(-0.57 * theta)
@@ -70,11 +71,10 @@ fn main() {
             camera: Mat4::identity(),
         };
 
-        rdr.render_scene(&scene, &mut Raster {
-            shade,
-            test: |frag| zbuf.test(frag),
-            output: |(x, y), col| buf.plot(x, y, col)
-        });
+        rdr.render_scene(&scene, &mut ShaderImpl {
+            vs: identity,
+            fs: shade,
+        }, &mut buf);
 
         for scancode in pressed_keys {
             use Scancode::*;

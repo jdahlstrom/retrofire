@@ -1,6 +1,5 @@
 use std::f32::EPSILON;
 use std::mem;
-use std::option::Option::Some;
 
 use geom::mesh::{Mesh, Vertex};
 use math::{lerp, Linear};
@@ -146,7 +145,9 @@ fn visibility(masks: impl IntoIterator<Item=u8>) -> Visibility {
     }
 }
 
-pub fn vertex_visibility<'a>(verts: impl IntoIterator<Item=&'a Vec4>) -> Visibility {
+pub fn vertex_visibility<'a, VI>(verts: VI) -> Visibility
+where VI: IntoIterator<Item=&'a Vec4>
+{
     visibility(verts.into_iter().map(vertex_mask))
 }
 

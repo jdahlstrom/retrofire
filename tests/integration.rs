@@ -9,6 +9,9 @@ use math::vec::{dir, Y, Z};
 use render::*;
 use render::scene::{Obj, Scene};
 use util::color::BLACK;
+use render::shade::ShaderImpl;
+use std::convert::identity;
+use render::raster::Fragment;
 
 static EXPECTED_CUBE: &str =
     "..........\
@@ -34,15 +37,18 @@ where VA: Copy + Linear<f32>, FA: Copy + Debug
 
     let mut buf = ['.'; 100];
 
-    let stats = rdr.render(
-        &mesh,
+    mesh.render(
+        &mut rdr,
+        &mut ShaderImpl {
+            vs: identity,
+            fs: |_| Some(BLACK),
+        },
         &mut Raster {
-            shade: &|_, _| BLACK,
             test: |_| true,
-            output: &mut |(x, y), _| buf[10 * y + x] = '#'
+            output: &mut |frag: Fragment<_>| buf[10 * frag.coord.1 + frag.coord.0] = '#'
         }
     );
-    eprintln!("Stats: {}", stats);
+    eprintln!("Stats: {}", rdr.stats);
     buf.iter().collect()
 }
 
@@ -57,13 +63,16 @@ where VA: Copy + Linear<f32>, FA: Copy
 
     let stats = rdr.render_scene(
         &scene,
+        &mut ShaderImpl {
+            vs: identity,
+            fs: |_| Some(BLACK),
+        },
         &mut Raster {
-            shade: |_, _| BLACK,
             test: |_| true,
-            output: |_, _| ()
+            output: |_| {}
         }
     );
-    eprintln!("Stats: {}", stats);
+    eprintln!("Stats: {}", rdr.stats);
     stats
 }
 

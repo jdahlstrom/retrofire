@@ -28,10 +28,8 @@ impl<VA> Transform for LineSeg<VA> {
 pub struct Polyline<VA>(pub Vec<Vertex<VA>>);
 
 impl<VA: Copy> Polyline<VA> {
-    pub fn edges<'a>(&'a self) ->
-        impl Iterator<Item=[Vertex<VA>; 2]> + 'a
-    {
-        self.0.windows(2).map(|vs| [vs[0], vs[1]])
+    pub fn edges<'a>(&'a self) -> impl Iterator<Item=LineSeg<VA>> + 'a {
+        self.0.windows(2).map(|vs| LineSeg([vs[0], vs[1]]))
     }
 }
 

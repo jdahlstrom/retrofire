@@ -7,7 +7,7 @@ use sdl2::pixels::Color as SdlColor;
 use sdl2::rect::Rect;
 use sdl2::video::Window;
 
-use render::{DepthBuf, Stats};
+use render::{Framebuf, Stats};
 use Run::*;
 use util::Buffer;
 use util::color::{Color, rgb};
@@ -17,14 +17,13 @@ pub struct SdlRunner {
     #[allow(unused)]
     sdl: Sdl,
     window: Window,
-    zbuf: DepthBuf,
+    zbuf: Buffer<f32>,
     event_pump: EventPump,
     start: Instant,
 }
 
 pub struct Frame<'a> {
-    pub buf: ColorBuf<'a>,
-    pub zbuf: &'a mut DepthBuf,
+    pub buf: Framebuf<'a>,
     pub delta_t: f32,
     pub events: Vec<Event>,
     pub pressed_keys: Vec<Scancode>,
@@ -32,7 +31,7 @@ pub struct Frame<'a> {
 
 impl<'a> Frame<'a> {
     pub fn screenshot(&self, filename: &str) -> Result<(), String> {
-        let buf = self.buf.buffer();
+        let buf = &self.buf.color;
         let data: Vec<_> = buf.data().chunks(4)
             .map(|bgra| rgb(bgra[2], bgra[1], bgra[0]))
             .collect();
@@ -46,7 +45,7 @@ impl<'a> Frame<'a> {
 pub struct ColorBuf<'a>(Buffer<u8, &'a mut [u8]>);
 
 impl<'a> ColorBuf<'a> {
-    pub fn plot(&mut self, x: usize, y: usize, c: Color) {
+    pub fn put(&mut self, x: usize, y: usize, c: Color) {
         let buf = &mut self.0;
         let idx = 4 * (buf.width() * y + x);
         let [_, r, g, b] = c.to_argb();
@@ -76,7 +75,7 @@ impl SdlRunner {
             sdl,
             window,
             event_pump,
-            zbuf: DepthBuf::new(win_w as usize, win_h as usize),
+            zbuf: Buffer::new(win_w as usize, win_h as usize, f32::INFINITY),
             start: Instant::now(),
         })
     }
@@ -100,16 +99,17 @@ impl SdlRunner {
             surf.fill_rect(rect, SdlColor::GREY)?;
 
             let zbuf = &mut self.zbuf;
-            zbuf.clear();
+            zbuf.fill(f32::INFINITY);
 
             let delta_t = clock.elapsed().as_secs_f32();
             clock = Instant::now();
 
             let w = surf.width() as usize;
             let frame = Frame {
-                buf: ColorBuf(Buffer::borrow(
-                    w, surf.without_lock_mut().unwrap())),
-                zbuf,
+                buf: Framebuf {
+                    color: Buffer::borrow(w, surf.without_lock_mut().unwrap()),
+                    depth: zbuf,
+                },
                 delta_t,
                 events,
                 pressed_keys,

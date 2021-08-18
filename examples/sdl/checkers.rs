@@ -1,3 +1,5 @@
+use std::convert::identity;
+
 use sdl2::event::Event;
 use sdl2::keyboard::Scancode;
 
@@ -11,6 +13,7 @@ use math::vec::*;
 use render::*;
 use render::raster::Fragment;
 use render::scene::*;
+use render::shade::ShaderImpl;
 use render::tex::*;
 use util::io::load_ppm;
 
@@ -90,16 +93,14 @@ fn main() {
 
     let mut cam = FpsCamera::new(pt(0.0, 0.0, -2.5), Angle::ZERO);
 
-    runner.run(|mut frame| {
-        {
-            let Frame { buf, zbuf, .. } = &mut frame;
-            rdr.render_scene(&scene, &mut Raster {
-                shade: |frag: Fragment<_>, _| tex.sample(frag.varying),
-                test: |frag| zbuf.test(frag),
-                output: |(x, y), c| buf.plot(x, y, c),
-            });
-        }
+    let shader = &mut ShaderImpl {
+        vs: identity,
+        fs: |frag: Fragment<_>| Some(tex.sample(frag.varying)),
+    };
 
+    runner.run(|mut frame| {
+
+        rdr.render_scene(&scene, shader, &mut frame.buf);
 
         let mut cam_move = ZERO;
         {

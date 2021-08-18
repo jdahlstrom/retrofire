@@ -57,7 +57,7 @@ fn main() {
         for [a, b, c] in faces.into_iter().map(|f| f.verts) {
             gouraud_fill(
                 [vert(a.coord), vert(b.coord), vert(c.coord)],
-                |Fragment { coord: (x, y), varying: v }| {
+                |Fragment { coord: (x, y), varying: v, .. }| {
                     win.mvaddch(
                         y as i32, x as i32,
                         b"..-:;=+<ox*XO@MW"[v as usize / 0x10 & 0xF] as char
