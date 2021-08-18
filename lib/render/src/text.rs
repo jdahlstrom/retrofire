@@ -48,11 +48,12 @@ impl<'a> Text<'a> {
             .map(|c| font.glyph_bounds(c))
             .flatten()
             .enumerate()
-            .map(|(i, bds)| Sprite {
+            .map(|(i, bounds)| Sprite {
                 center: pt((i as u16 * font.glyph_w) as f32, 0.0, 0.0),
                 width: font.glyph_w as f32,
                 height: font.glyph_h as f32,
-                attrs: bds,
+                vertex_attrs: bounds,
+                face_attr: (),
             })
             .collect();
 

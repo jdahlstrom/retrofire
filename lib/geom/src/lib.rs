@@ -53,18 +53,19 @@ impl<VA> Transform for Polyline<VA> {
 }
 
 #[derive(Copy, Clone, Debug)]
-pub struct Sprite<A> {
+pub struct Sprite<VA, FA = ()> {
     pub center: Vec4,
     pub width: f32,
     pub height: f32,
-    pub attrs: [A; 4],
+    pub vertex_attrs: [VA; 4],
+    pub face_attr: FA,
 }
 
-impl<A: Copy> Sprite<A> {
-    pub fn verts<'a>(&'a self) -> impl Iterator<Item=Vertex<A>> + 'a {
+impl<VA: Copy, FA> Sprite<VA, FA> {
+    pub fn verts<'a>(&'a self) -> impl Iterator<Item=Vertex<VA>> + 'a {
         let (hw, hh) = (0.5 * self.width, 0.5 * self.height);
         IntoIter::new([(-hw, hh), (hw, hh), (hw, -hh), (-hw, -hh)])
-            .zip(&self.attrs)
+            .zip(&self.vertex_attrs)
             .map(move |((w, h), &attr)| {
                 let coord = self.center + dir(w, h, 0.0);
                 Vertex { coord, attr }
@@ -72,7 +73,7 @@ impl<A: Copy> Sprite<A> {
     }
 }
 
-impl<A> Transform for Sprite<A> {
+impl<VA, FA> Transform for Sprite<VA, FA> {
     fn transform(&mut self, tf: &Mat4) {
         self.center.transform(tf);
     }
