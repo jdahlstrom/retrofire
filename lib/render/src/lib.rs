@@ -206,13 +206,14 @@ where
     }
 }
 
-impl<A> Render<A, ()> for Sprite<A>
+impl<VA, FA> Render<VA, FA> for Sprite<VA, FA>
 where
-    A: Linear<f32> + Copy
+    VA: Linear<f32> + Copy,
+    FA: Copy,
 {
     fn render<R>(&self, rdr: &mut Renderer, raster: &mut R)
     where
-        R: RasterOps<A, ()>
+        R: RasterOps<VA, FA>
     {
         rdr.stats.faces_in += 1;
 
@@ -241,7 +242,7 @@ where
                 let v = Varying::between(v0, v1, x1 - x0);
                 for (x, v) in (x0 as usize .. x1 as usize).zip(v) {
                     let frag = Fragment { coord: (x, y), varying: v };
-                    if raster.rasterize(frag, ()) {
+                    if raster.rasterize(frag, self.face_attr) {
                         rdr.stats.pixels += 1;
                     }
                 }
