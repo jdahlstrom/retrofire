@@ -1,24 +1,23 @@
-use geom::mesh::Mesh;
 use math::{Angle, Linear};
 use math::mat::Mat4;
-use math::transform::{orient_z, rotate_y, translate, Transform};
+use math::transform::*;
 use math::vec::*;
 
 #[derive(Default, Clone)]
-pub struct Obj<VA, FA> {
+pub struct Obj<G> {
     pub tf: Mat4,
-    pub mesh: Mesh<VA, FA>,
+    pub geom: G,
 }
 
-impl<VA, FA> Transform for Obj<VA, FA> {
+impl<G> Transform for Obj<G> {
     fn transform(&mut self, tf: &Mat4) {
         self.tf *= tf;
     }
 }
 
 #[derive(Default, Clone)]
-pub struct Scene<VA, FA> {
-    pub objects: Vec<Obj<VA, FA>>,
+pub struct Scene<G> {
+    pub objects: Vec<Obj<G>>,
     pub camera: Mat4,
 }
 
