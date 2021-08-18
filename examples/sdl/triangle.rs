@@ -44,7 +44,7 @@ fn main() {
                 vert(xs[1].0, ys[1].0, a + 0.5),
                 vert(xs[2].0, ys[2].0, a + 1.0)
             ],
-            |Fragment { coord, varying }| {
+            |Fragment { coord, varying, .. }| {
                 let pos = 4 * (coord.1 * width as usize  + coord.0) as usize;
                 buf[pos + 0] = (127. + 128. * varying.cos()) as u8;
                 buf[pos + 1] = (127. + 128. * (varying * 0.7).cos()) as u8;

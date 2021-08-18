@@ -22,6 +22,7 @@ use render::{
 use util::color::*;
 
 use crate::runner::*;
+use render::shade::ShaderImpl;
 
 mod runner;
 
@@ -117,18 +118,17 @@ fn main() {
             }
             // Render
             {
-                let raster = &mut Raster {
-                    shade: |frag: Fragment<VA>, idx: FA| {
-                        textures[idx].sample(frag.varying)
+                let shade = &mut ShaderImpl {
+                    vs: |v| v,
+                    fs: |frag: Fragment<VA, FA>| {
+                        Some(textures[frag.uniform].sample(frag.varying))
                     },
-                    test: |_| true,
-                    output: |(x, y), c| frame.buf.plot(x, y, c)
                 };
 
-                rdr.render_scene(&scene, raster);
+                rdr.render_scene(&scene, shade, &mut frame.buf);
 
                 rdr.modelview = scene.camera.clone();
-                ptx.borrow().render(&mut rdr, raster);
+                ptx.borrow().render(&mut rdr, shade, &mut frame.buf);
             }
             // Input
             {

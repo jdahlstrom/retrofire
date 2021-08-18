@@ -2,6 +2,7 @@ use math::transform::translate;
 use math::vec::Vec4;
 
 use crate::{RasterOps, Render, Renderer};
+use crate::shade::Shader;
 
 #[derive(Copy, Clone, Debug, Default)]
 pub struct Particle {
@@ -74,10 +75,11 @@ impl<G> ParticleSys<G> {
     }
 }
 
-impl<V: Copy, F: Copy, R: Render<V, F> + Clone> Render<V, F> for ParticleSys<R> {
-    fn render<Rs>(&self, rdr: &mut Renderer, raster: &mut Rs)
+impl<U: Copy, V: Copy, R: Render<U, V> + Clone> Render<U, V> for ParticleSys<R> {
+    fn render<S, Ra>(&self, rdr: &mut Renderer, shade: &mut S, raster: &mut Ra)
     where
-        Rs: RasterOps<V, F>
+        S: Shader<U, V>,
+        Ra: RasterOps,
     {
         for p in self.live_particles() {
             let tf = translate(p.pos) * &rdr.modelview;
@@ -86,7 +88,7 @@ impl<V: Copy, F: Copy, R: Render<V, F> + Clone> Render<V, F> for ParticleSys<R> 
                 modelview: tf,
                 ..rdr.clone()
             };
-            self.geom.render(rdr, raster);
+            self.geom.render(rdr, shade, raster);
         }
     }
 }

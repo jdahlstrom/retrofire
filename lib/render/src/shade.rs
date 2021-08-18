@@ -1,4 +1,57 @@
 use math::vec::*;
+use geom::mesh::Vertex;
+use crate::raster::Fragment;
+use util::color::Color;
+
+pub trait VertexShader<In, Out=In> {
+    fn shade_vertex(&self, _: Vertex<In>) -> Vertex<Out>;
+}
+
+pub trait FragmentShader<F, U> {
+    fn shade_fragment(&self, _: Fragment<F, U>) -> Option<Color>;
+}
+
+pub trait Shader<U, VI, VO=VI, FI=VO>: VertexShader<VI, VO> + FragmentShader<FI, U> {}
+
+impl<T, U, VI, VO, FI> Shader<U, VI, VO, FI> for T
+where T: VertexShader<VI, VO> + FragmentShader<FI, U> {}
+
+pub struct ShaderImpl<VS, FS> {
+    pub vs: VS,
+    pub fs: FS,
+}
+
+impl<F, In, Out> VertexShader<In, Out> for F
+where F: Fn(Vertex<In>) -> Vertex<Out>
+{
+    fn shade_vertex(&self, v: Vertex<In>) -> Vertex<Out> {
+        self(v)
+    }
+}
+
+impl<F, U, In> FragmentShader<In, U> for F
+where F: Fn(Fragment<In, U>) -> Option<Color>
+{
+    fn shade_fragment(&self, f: Fragment<In, U>) -> Option<Color> {
+        self(f)
+    }
+}
+
+impl<VS, FS, In, Out> VertexShader<In, Out> for ShaderImpl<VS, FS>
+where VS: VertexShader<In, Out>
+{
+    fn shade_vertex(&self, v: Vertex<In>) -> Vertex<Out> {
+        self.vs.shade_vertex(v)
+    }
+}
+
+impl<VS, FS, U, In> FragmentShader<In, U> for ShaderImpl<VS, FS>
+where FS: FragmentShader<In, U>
+{
+    fn shade_fragment(&self, f: Fragment<In, U>) -> Option<Color> {
+        self.fs.shade_fragment(f)
+    }
+}
 
 pub fn lambert(normal: Vec4, light_dir: Vec4) -> f32 {
     normal.dot(light_dir).max(0.0)
@@ -20,7 +73,6 @@ pub fn expose_rgb(rgb: Vec4, tau: f32) -> Vec4 {
         w: rgb.w
     }
 }
-
 
 #[cfg(test)]
 mod tests {

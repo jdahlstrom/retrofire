@@ -7,7 +7,7 @@ use math::vec::{Vec4, ZERO};
 
 use crate::bbox::BoundingBox;
 
-#[derive(Default, Debug, Clone)]
+#[derive(Debug, Clone)]
 pub struct Mesh<VA = (), FA = ()> {
     pub verts: Vec<Vec4>,
     pub faces: Vec<[usize; 3]>,
@@ -53,7 +53,19 @@ impl From<isize> for FaceVert {
 
 impl Mesh {
     pub fn builder() -> Builder {
-        Builder { mesh: Self::default() }
+        Builder::default()
+    }
+}
+
+impl<VA, FA> Default for Mesh<VA, FA> {
+    fn default() -> Self {
+        Mesh {
+            verts: vec![],
+            faces: vec![],
+            vertex_attrs: vec![],
+            face_attrs: vec![],
+            bbox: BoundingBox::default()
+        }
     }
 }
 

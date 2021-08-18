@@ -12,7 +12,9 @@ impl Transform for Vec4 {
 
 impl<T: Transform> Transform for [T] {
     fn transform(&mut self, tf: &Mat4) {
-        for x in self { x.transform(tf); }
+        for x in self {
+            x.transform(tf);
+        }
     }
 }
 

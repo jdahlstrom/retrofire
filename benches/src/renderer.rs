@@ -4,9 +4,10 @@ use geom::solids;
 use math::Angle::Rad;
 use math::transform::*;
 use math::vec::{dir, Y, Z};
-use render::{Raster, Renderer};
+use render::{Raster, Render, Renderer};
 use render::raster::Fragment;
 use render::scene::{Obj, Scene};
+use render::shade::ShaderImpl;
 use util::color::*;
 
 const W: usize = 128;
@@ -26,12 +27,16 @@ fn torus(c: &mut Criterion) {
 
     let mut buf = vec![0u8; 3 * W * W];
     c.bench_function("torus", |b| {
-        b.iter(|| rdr.render(
-            &mesh,
+        b.iter(|| mesh.render(
+            &mut rdr,
+            &mut ShaderImpl {
+                vs: |v| v,
+                fs: |_| Some(BLACK),
+            },
             &mut Raster {
-                shade: |_, _| BLACK,
                 test: |_| true,
-                output: |(x, y), _| {
+                output: |frag: Fragment<_>| {
+                    let (x, y) = frag.coord;
                     let idx = 3 * (W * y + x);
                     buf[idx] = 0xFF;
                     buf[idx + 1] = 0xFF;
@@ -62,10 +67,16 @@ fn scene(c: &mut Criterion) {
     c.bench_function("scene", |b| {
         b.iter(|| rdr.render_scene(
             &scene,
+            &mut ShaderImpl {
+                vs: |v| v,
+                fs: |_| Some(BLACK),
+            },
             &mut Raster {
-                shade: |_, _| BLACK,
                 test: |_| true,
-                output: |(x, y), _| buf[W * y + x] = '#',
+                output: |frag: Fragment<_>| {
+                    let (x, y) = frag.coord;
+                    buf[W * y + x] = '#'
+                },
             },
         ))
     });
@@ -81,12 +92,18 @@ fn gouraud_fillrate(c: &mut Criterion) {
 
     let mut buf = [BLACK; W * W];
     c.bench_function("gouraud", |b| {
-        b.iter(|| rdr.render(
-            &mesh,
+        b.iter(|| mesh.render(
+            &mut rdr,
+            &mut ShaderImpl {
+                vs: |v| v,
+                fs: |_| Some(BLACK),
+            },
             &mut Raster {
-                shade: |frag: Fragment<_>, _| frag.varying,
                 test: |_| true,
-                output: |(x, y), col| buf[W * y + x] = col,
+                output: |frag: Fragment<_>| {
+                    let (x, y) = frag.coord;
+                    buf[W * y + x] = WHITE
+                },
             },
         ))
     });
