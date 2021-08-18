@@ -31,7 +31,6 @@ geom = { path = "./lib/geom" }
 render = { path = "./lib/render" }
 util = { path = "./lib/util" }
 
-
 [[example]]
 name = "cursed-tri"
 path = "examples/curses/triangle.rs"
@@ -56,4 +55,3 @@ required-features = ["sdl", "teapot"]
 name = "checkers"
 path = "examples/sdl/checkers.rs"
 required-features = ["sdl"]
-

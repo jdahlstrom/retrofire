@@ -47,6 +47,30 @@ impl ApproxEq for f64 {
     }
 }
 
+impl<T> ApproxEq for &[T]
+where
+    T: ApproxEq,
+    <T as ApproxEq>::Scalar: PartialOrd,
+{
+    type Scalar = <T as ApproxEq>::Scalar;
+
+    fn epsilon(self) -> Self::Scalar {
+        // TODO
+        self[0].epsilon()
+    }
+
+    fn abs_diff(self, rhs: Self) -> Self::Scalar {
+        assert!(!self.is_empty());
+        assert_eq!(self.len(), rhs.len());
+
+        self.iter().zip(rhs.iter())
+            .map(|(a, b)| a.abs_diff(*b))
+            .max_by(|c, d| c.partial_cmp(d).unwrap())
+            .unwrap()
+    }
+}
+
+
 pub trait Linear<Scalar> where Self: Sized {
     fn add(self, other: Self) -> Self;
     fn mul(self, s: Scalar) -> Self;
