@@ -2,3 +2,6 @@
 /.idea
 /Cargo.lock
 /retrofire.iml
+/playground
+/.rustfmt.toml
+/flamegraph.svg
