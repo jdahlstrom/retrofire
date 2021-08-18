@@ -272,19 +272,21 @@ impl Renderer {
         Self::default()
     }
 
-    pub fn render_scene<VA, FA>(
-        &mut self,
-        Scene { objects, camera }: &Scene<VA, FA>,
-        raster: &mut impl RasterOps<VA, FA>,
+    pub fn render_scene<'a, VA, FA, Re, Ra>(
+        &'a mut self,
+        Scene { objects, camera }: &Scene<Re>,
+        raster: &mut Ra,
     ) -> Stats
     where
-        VA: Copy + Linear<f32>,
+        VA: Copy,
         FA: Copy,
+        Re: Render<VA, FA>,
+        Ra: RasterOps<VA, FA> + 'a
     {
         let clock = Instant::now();
-        for Obj { tf, mesh } in objects {
+        for Obj { tf, geom, .. } in objects {
             self.modelview = tf * camera;
-            mesh.render(self, raster);
+            geom.render(self, raster);
         }
         self.stats.objs_in += objects.len();
         self.stats.time_used += clock.elapsed();

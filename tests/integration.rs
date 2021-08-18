@@ -46,7 +46,7 @@ where VA: Copy + Linear<f32>, FA: Copy + Debug
     buf.iter().collect()
 }
 
-fn render_scene<VA, FA>(scene: Scene<VA, FA>) -> Stats
+fn render_scene<VA, FA>(scene: Scene<Mesh<VA, FA>>) -> Stats
 where VA: Copy + Linear<f32>, FA: Copy
 {
     const W: usize = 50;
@@ -89,7 +89,7 @@ fn render_sphere_field() {
         for i in -10..=10 {
             objects.push(Obj {
                 tf: translate(dir(4. * i as f32, 0., 4. * j as f32)),
-                mesh: unit_sphere(9, 9).build()
+                geom: unit_sphere(9, 9).build()
             });
         }
     }
