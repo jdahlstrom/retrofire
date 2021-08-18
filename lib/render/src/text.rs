@@ -1,3 +1,5 @@
+use std::mem::replace;
+
 use geom::Sprite;
 use math::mat::Mat4;
 use math::transform::Transform;
@@ -17,15 +19,10 @@ pub struct Font {
 
 impl Font {
     pub fn glyph_bounds(&self, c: char) -> Option<[TexCoord; 4]> {
-        if c.is_ascii_control() || !c.is_ascii() {
+        if !c.is_ascii() || c.is_ascii_control() {
             return None;
         }
-        let Font {
-            glyph_w: gw,
-            glyph_h: gh,
-            glyphs,
-        } = self;
-
+        let Font { glyph_w: gw, glyph_h: gh, glyphs, } = self;
         let (tw, th) = (glyphs.width(), glyphs.height());
 
         let c = c as u16 - 0x20;
@@ -42,33 +39,43 @@ impl Font {
 
 pub struct Text<'a> {
     pub font: &'a Font,
-    x: Vec<Sprite<TexCoord>>,
+    geom: Vec<Sprite<TexCoord>>,
 }
 
 impl<'a> Text<'a> {
     pub fn new(font: &'a Font, text: &str) -> Text<'a> {
-        let x = text
-            .chars()
-            .map(|c| font.glyph_bounds(c))
-            .flatten()
-            .enumerate()
-            .map(|(i, bounds)| Sprite {
-                center: pt((i as u16 * font.glyph_w) as f32, 0.0, 0.0),
-                width: font.glyph_w as f32,
-                height: font.glyph_h as f32,
-                vertex_attrs: bounds,
-                face_attr: (),
+        let pos = (0, 0);
+        let geom = text.chars()
+            .scan(pos, |(x, y), c| {
+                let ch = if c == '\n' {
+                    *x = 0;
+                    *y += font.glyph_h;
+                    None
+                } else if let Some(bounds) = font.glyph_bounds(c) {
+                    let oldx = replace(x, *x + font.glyph_w);
+                    Some(Sprite {
+                        center: pt(oldx as f32, *y as f32, 0.0),
+                        width: font.glyph_w as f32,
+                        height: font.glyph_h as f32,
+                        vertex_attrs: bounds,
+                        face_attr: (),
+                    })
+                } else {
+                    None
+                };
+                Some(ch)
             })
+            .flatten()
             .collect();
 
-        Text { font, x }
+        Text { font, geom }
     }
 }
 
 impl<'a> Transform for Text<'a> {
     fn transform(&mut self, tf: &Mat4) {
-        for c in &mut self.x {
-            c.transform(tf);
+        for s in &mut self.geom {
+            s.transform(tf);
         }
     }
 }
@@ -79,7 +86,7 @@ impl<'a> Render<(), TexCoord, Color> for Text<'a> {
         S: Shader<(), TexCoord, TexCoord, Color>,
         R: RasterOps,
     {
-        for s in &self.x {
+        for s in &self.geom {
             s.render(rdr, &mut ShaderImpl {
                 vs: |v| shader.shade_vertex(v),
                 fs: |f: Fragment<TexCoord>| {
