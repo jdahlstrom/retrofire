@@ -109,22 +109,31 @@ mod tests {
     use crate::raster::Fragment;
 
     use super::*;
+    use std::collections::hash_map::DefaultHasher;
+    use std::hash::{Hash, Hasher};
 
     #[test]
     fn render_text() {
+        const STR: &str = "Hello, World!";
+        const GW: usize = 6;
+        const GH: usize = 10;
+        const BW: usize = GW * STR.len();
+        const BH: usize = GH;
+
         let fnt = &Font {
-            glyph_w: 6,
-            glyph_h: 10,
+            glyph_w: GW as u16,
+            glyph_h: GH as u16,
             glyphs: Texture::from(
-                load_ppm("../../resources/font_6x10.ppm").unwrap(),
+                load_ppm(&format!("../../resources/font_{}x{}.ppm", GW, GH))
+                    .unwrap(),
             ),
         };
         let txt = Text::new(fnt, "Hello, World!");
         let rdr = &mut Renderer::default();
-        rdr.modelview = translate(dir(3.0, 5.0, 0.0));
-        rdr.projection = orthogonal(pt(0.0, 0.0, -1.0), pt(80.0, 10.0, 1.0));
-        rdr.viewport = viewport(0.0, 10.0, 80.0, 0.0);
-        let mut out = [[BLACK; 80]; 10];
+        rdr.modelview = translate(dir(GW as f32 / 2.0, GH as f32 / 2.0, 0.0));
+        rdr.projection = orthogonal(pt(0.0, 0.0, -1.0), pt(BW as f32, BH as f32, 1.0));
+        rdr.viewport = viewport(0.0, BH as f32, BW as f32, 0.0);
+        let mut out = [[BLACK; BW]; BH];
         txt.render(
             rdr,
             &mut ShaderImpl {
@@ -140,15 +149,18 @@ mod tests {
                 },
             },
         );
-        let mut hash: u32 = 0;
+
+
         for row in &out {
-            for &c in row {
-                hash = hash.wrapping_mul(31)
-                    .wrapping_add(c.0).wrapping_add(1);
-                eprint!("{}", if c == BLACK { ' ' } else { '#' })
-            }
-            eprintln!();
+            let row = row.iter()
+                .map(|&c| ['█', ' '][(c == BLACK) as usize])
+                .collect::<String>();
+            eprintln!("{}", row);
         }
-        assert_eq!(1810526532, hash);
+        let hasher = &mut DefaultHasher::new();
+        out.hash(hasher);
+        let hash = hasher.finish();
+
+        assert_eq!(17958590720944474459, hash);
     }
 }
