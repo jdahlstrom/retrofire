@@ -19,15 +19,15 @@ pub struct Font {
 
 impl Font {
     pub fn glyph_bounds(&self, c: char) -> Option<[TexCoord; 4]> {
-        if !c.is_ascii() || c.is_ascii_control() {
+        if !c.is_ascii() {
             return None;
         }
         let Font { glyph_w: gw, glyph_h: gh, glyphs, } = self;
         let (tw, th) = (glyphs.width(), glyphs.height());
 
-        let c = c as u16 - 0x20;
-        let (x0, y0) = ((c & 0xF) * gw, c / 0x10 * gh);
-        let (x1, y1) = (((c & 0xF) + 1) * gw, (c / 0x10 + 1) * gh);
+        let c = c as u16;
+        let (x0, y0) = ((c % 0x10) * gw, c / 0x10 * gh);
+        let (x1, y1) = (((c % 0x10) + 1) * gw, (c / 0x10 + 1) * gh);
         Some([
             uv(x0 as f32 / tw, y0 as f32 / th),
             uv(x1 as f32 / tw, y0 as f32 / th),
@@ -149,6 +149,6 @@ mod tests {
             }
             eprintln!();
         }
-        assert_eq!(2712754115, hash);
+        assert_eq!(1810526532, hash);
     }
 }
