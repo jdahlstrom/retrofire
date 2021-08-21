@@ -14,9 +14,11 @@ use render::raster::Fragment;
 use render::scene::*;
 use render::shade::ShaderImpl;
 use render::tex::*;
+use render::text::{Font, Text};
 use util::io::load_pnm;
 
 use crate::runner::*;
+use util::color::WHITE;
 
 mod runner;
 
@@ -97,9 +99,44 @@ fn main() {
         fs: |frag: Fragment<_>| Some(tex.sample(frag.varying)),
     };
 
+    let font = &Font {
+        glyph_w: 6,
+        glyph_h: 10,
+        glyphs: Texture::from(
+            load_pnm("resources/font_6x10.pbm").unwrap(),
+        ),
+    };
+
+    let mut t = 0.0;
+    let mut sample = Stats::default();
+    let sample_interval = 0.1;
+    let mut text = Text::new(font, "");
+
     runner.run(|mut frame| {
 
         rdr.render_scene(&scene, shader, &mut frame.buf);
+
+        let mut hud = Renderer::new();
+        hud.projection = orthogonal(pt(0.0, 0.0, -1.0), pt(w as f32, h as f32, 1.0));
+        hud.viewport = viewport(0.0, h as f32, w as f32, 0.0);
+        hud.modelview = translate(dir(20.0, 20.0, 0.0));
+
+        t += frame.delta_t;
+        if t > sample_interval {
+            let stats = rdr.stats.diff(&sample);
+            text = Text::new(font, &stats.to_string().to_ascii_uppercase());
+            sample = rdr.stats;
+            t = 0.0;
+        }
+
+        text.render(
+            &mut hud,
+            &mut ShaderImpl {
+                vs: identity,
+                fs: |frag: Fragment<_>| (frag.varying == WHITE).then(|| WHITE),
+            },
+            &mut frame.buf
+        );
 
         let mut cam_move = ZERO;
         {
