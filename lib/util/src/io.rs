@@ -1,4 +1,3 @@
-use std::array::IntoIter;
 use std::error::Error;
 use std::fmt::{Debug, Display, Formatter};
 use std::fs::File;
@@ -13,6 +12,7 @@ struct PnmHeader {
     magic: [u8; 2],
     width: usize,
     height: usize,
+    #[allow(unused)]
     max: u16,
 }
 
