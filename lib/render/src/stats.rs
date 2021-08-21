@@ -38,6 +38,18 @@ impl Stats {
             time_used: Duration::from_secs(1),
         }
     }
+
+    pub fn diff(&self, other: &Stats) -> Stats {
+        Stats {
+            frames: self.frames - other.frames,
+            objs_in: self.objs_in - other.objs_in,
+            objs_out: self.objs_out - other.objs_out,
+            faces_in: self.faces_in - other.faces_in,
+            faces_out: self.faces_out - other.faces_out,
+            pixels: self.pixels - other.pixels,
+            time_used: self.time_used - other.time_used,
+        }
+    }
 }
 
 fn human_num(n: usize) -> String {
