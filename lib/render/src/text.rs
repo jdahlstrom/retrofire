@@ -161,6 +161,6 @@ mod tests {
         out.hash(hasher);
         let hash = hasher.finish();
 
-        assert_eq!(17958590720944474459, hash);
+        assert_eq!(10889892750907716637, hash);
     }
 }
