@@ -124,7 +124,7 @@ mod tests {
             glyph_w: GW as u16,
             glyph_h: GH as u16,
             glyphs: Texture::from(
-                load_pnm(&format!("../../resources/font_{}x{}.ppm", GW, GH))
+                load_pnm(&format!("../../resources/font_{}x{}.pbm", GW, GH))
                     .unwrap(),
             ),
         };
