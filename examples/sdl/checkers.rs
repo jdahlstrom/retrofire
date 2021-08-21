@@ -5,8 +5,7 @@ use sdl2::keyboard::Scancode;
 
 use geom::mesh::Mesh;
 use geom::solids::unit_cube;
-use math::Angle;
-use math::Angle::Deg;
+use math::Angle::{self, Deg};
 use math::mat::Mat4;
 use math::transform::*;
 use math::vec::*;
@@ -15,7 +14,7 @@ use render::raster::Fragment;
 use render::scene::*;
 use render::shade::ShaderImpl;
 use render::tex::*;
-use util::io::load_ppm;
+use util::io::load_pnm;
 
 use crate::runner::*;
 
@@ -87,7 +86,7 @@ fn main() {
     rdr.viewport = viewport(margin as f32, (h - margin) as f32,
                             (w - margin) as f32, margin as f32);
 
-    let tex = Texture::from(load_ppm("examples/sdl/crate.ppm").unwrap());
+    let tex = Texture::from(load_pnm("examples/sdl/crate.ppm").unwrap());
 
     let mut runner = SdlRunner::new(w as u32, h as u32).unwrap();
 

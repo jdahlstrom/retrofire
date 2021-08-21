@@ -1,43 +1,117 @@
+use std::array::IntoIter;
 use std::error::Error;
+use std::fmt::{Debug, Display, Formatter};
 use std::fs::File;
-use std::io::{BufRead, BufReader, BufWriter, Read, Write};
+use std::io::{BufReader, BufWriter, Read, Write};
 use std::ops::DerefMut;
+use std::str::FromStr;
 
 use crate::Buffer;
-use crate::color::{Color, rgb};
+use crate::color::{BLACK, Color, gray, rgb, WHITE};
 
-pub fn load_ppm(filename: &str) -> Result<Buffer<Color>, Box<dyn Error>> {
-    let mut r = BufReader::new(File::open(filename)?);
-
-    let mut head = String::new();
-    for _ in 0..4 {
-        r.read_line(&mut head)?;
-    }
-    let mut head = head.split_whitespace();
-
-    assert_eq!("P6", head.next().unwrap());
-    let width: usize = head.next().unwrap().parse()?;
-    let height: usize = head.next().unwrap().parse()?;
-    assert_eq!(255, head.next().unwrap().parse::<usize>()?);
-    assert_eq!(None, head.next());
-
-    let mut data = Vec::with_capacity(3 * width * height);
-    r.read_to_end(&mut data)?;
-
-    assert_eq!(3 * width * height, data.len());
-
-    let data = data
-        .chunks(3)
-        .map(|c| rgb(c[0], c[1], c[2]))
-        .collect();
-
-    Ok(Buffer { width, height, data })
+struct PnmHeader {
+    magic: [u8; 2],
+    width: usize,
+    height: usize,
+    max: u16,
 }
 
-pub fn save_ppm<B>(filename: &str, buf: &Buffer<Color, B>)
-                   -> Result<(), Box<dyn Error>>
-    where
-        B: DerefMut<Target=[Color]>,
+#[derive(Debug)]
+struct ParseError(String);
+
+impl Display for ParseError {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        write!(f, "Error parsing PNM image: {}", self.0)
+    }
+}
+
+impl Error for ParseError {}
+
+fn parse_ssv<T>(src: &mut dyn Read) -> Result<T, Box<dyn Error>>
+where
+    T: FromStr,
+    T::Err: ToString
+{
+    let mut res = String::new();
+    let c = &mut [0];
+
+    loop {
+        src.read_exact(c)?;
+        if !c[0].is_ascii_whitespace() { break }
+    }
+    loop {
+        res.push(c[0] as char);
+        src.read_exact(c)?;
+        if c[0].is_ascii_whitespace() { break }
+    }
+
+    res.parse().map_err(|e| pnm_parse_err(e))
+}
+
+fn pnm_parse_err(reason: impl ToString) -> Box<dyn Error> {
+    Box::new(ParseError(reason.to_string()))
+}
+
+impl PnmHeader {
+    fn parse(src: &mut dyn Read) -> Result<PnmHeader, Box<dyn Error>> {
+
+        let mut magic = [0u8; 2];
+        src.read_exact(&mut magic)?;
+        if ![b"P4", b"P5", b"P6"].contains(&&magic) {
+            return Err(pnm_parse_err("Invalid magic number"));
+        }
+
+        let width: usize = parse_ssv(src)?;
+        let height: usize = parse_ssv(src)?;
+        let max: u16 = if magic == *b"P4" { 1 } else { parse_ssv(src)? };
+
+        Ok(PnmHeader { magic, width, height, max })
+    }
+}
+
+pub fn load_pnm(filename: &str) -> Result<Buffer<Color>, Box<dyn Error>> {
+    let r = &mut BufReader::new(File::open(filename)?);
+    let h = PnmHeader::parse(r)?;
+
+    let mut read_data = |len| {
+        let mut data = Vec::with_capacity(len);
+        r.read_to_end(&mut data)?;
+        (data.len() == len).then(|| data)
+            .ok_or_else(|| pnm_parse_err("Invalid data length"))
+    };
+
+    let data = match &h.magic {
+        b"P6" => {
+            read_data(3 * h.width * h.height)?
+                .chunks(3)
+                .map(|c| rgb(c[0], c[1], c[2]))
+                .collect()
+        }
+        b"P5" => {
+            read_data(h.width * h.height)?
+                .into_iter()
+                .map(gray)
+                .collect()
+        }
+        b"P4" => {
+            read_data(h.width * h.height / 8)?
+                .into_iter()
+                .flat_map(|c| (0..8).rev().map(move |i| c & (1 << i) != 0))
+                .map(|c| if c { BLACK } else { WHITE })
+                .collect()
+        }
+        _ => unreachable!()
+    };
+
+    Ok(Buffer::from_vec(h.width, data))
+}
+
+pub fn save_ppm<B>(
+    filename: &str,
+    buf: &Buffer<Color, B>,
+) -> Result<(), Box<dyn Error>>
+where
+    B: DerefMut<Target=[Color]>,
 {
     let mut w = BufWriter::new(File::create(filename)?);
     writeln!(w, "P6 {} {} 255", buf.width, buf.height)?;
