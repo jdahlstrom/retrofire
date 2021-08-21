@@ -123,3 +123,54 @@ where
     w.write_all(&bytes)?;
     Ok(())
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn parse_header_whitespace() {
+        let mut hdr: &[u8] = b"P6 123\t \n\r321                      255 ";
+        let hdr = PnmHeader::parse(&mut hdr).unwrap();
+
+        assert_eq!(*b"P6", hdr.magic);
+        assert_eq!(123, hdr.width);
+        assert_eq!(321, hdr.height);
+        assert_eq!(255, hdr.max);
+    }
+
+    #[test]
+    fn parse_header_p5() {
+        let hdr = PnmHeader::parse(&mut &b"P5 123 456 64 "[..]).unwrap();
+
+        assert_eq!(*b"P5", hdr.magic);
+        assert_eq!(123, hdr.width);
+        assert_eq!(456, hdr.height);
+        assert_eq!(64, hdr.max);
+    }
+
+    #[test]
+    fn parse_header_p4() {
+        let hdr = PnmHeader::parse(&mut &b"P4 111 222 "[..]).unwrap();
+        assert_eq!(*b"P4", hdr.magic);
+        assert_eq!(111, hdr.width);
+        assert_eq!(222, hdr.height);
+        assert_eq!(1, hdr.max);
+    }
+
+    #[test]
+    fn parse_header_invalid_magic() {
+        let res = PnmHeader::parse(&mut &b"P1 1 1 1 "[..]);
+        assert!(res.is_err());
+    }
+
+    #[test]
+    fn parse_header_invalid_dims() {
+        let res = PnmHeader::parse(&mut &b"P5 abc 1 1 "[..]);
+        assert!(res.is_err());
+        let res = PnmHeader::parse(&mut &b"P5 1 1 "[..]);
+        assert!(res.is_err());
+        let res = PnmHeader::parse(&mut &b"P6 1 -1 1 "[..]);
+        assert!(res.is_err());
+    }
+}
