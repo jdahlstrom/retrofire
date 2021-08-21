@@ -103,7 +103,7 @@ mod tests {
     use math::transform::{orthogonal, translate, viewport};
     use math::vec::dir;
     use util::color::{BLACK, Color};
-    use util::io::load_ppm;
+    use util::io::load_pnm;
 
     use crate::Raster;
     use crate::raster::Fragment;
@@ -124,7 +124,7 @@ mod tests {
             glyph_w: GW as u16,
             glyph_h: GH as u16,
             glyphs: Texture::from(
-                load_ppm(&format!("../../resources/font_{}x{}.ppm", GW, GH))
+                load_pnm(&format!("../../resources/font_{}x{}.ppm", GW, GH))
                     .unwrap(),
             ),
         };
