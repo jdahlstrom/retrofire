@@ -18,11 +18,13 @@ use render::text::{Font, Text};
 use util::io::load_pnm;
 
 use crate::runner::*;
-use util::color::WHITE;
+use util::color::{WHITE, BLACK};
+use util::Buffer;
+use core::iter;
 
 mod runner;
 
-fn checkers() -> Mesh<TexCoord, ()> {
+fn checkers() -> Mesh<TexCoord, usize> {
     let size: usize = 40;
     let isize = size as i32;
 
@@ -31,7 +33,7 @@ fn checkers() -> Mesh<TexCoord, ()> {
     for j in -isize..=isize {
         for i in -isize..=isize {
             vs.push(pt(i as f32, 0.0, j as f32));
-            texcoords.push(uv(0.0, 0.0));
+            texcoords.push(uv(i as f32, j as f32));
         }
     }
     let mut fs = vec![];
@@ -44,12 +46,13 @@ fn checkers() -> Mesh<TexCoord, ()> {
     }
     Mesh::builder().verts(vs.clone()).faces(fs)
         .vertex_attrs(texcoords)
+        .face_attrs(iter::repeat(1))
         .build()
         .validate().unwrap()
 }
 
 
-fn crates() -> Vec<Obj<Mesh<TexCoord, ()>>> {
+fn crates() -> Vec<Obj<Mesh<TexCoord, usize>>> {
     let mut objects = vec![];
     objects.push(Obj { tf: translate(-Y), geom: checkers() });
 
@@ -60,7 +63,8 @@ fn crates() -> Vec<Obj<Mesh<TexCoord, ()>>> {
                 .vertex_attrs([
                     uv(1.0, 1.0), uv(0.0, 1.0), uv(1.0, 0.0), uv(0.0, 0.0),
                     uv(0.0, 1.0), uv(1.0, 1.0), uv(0.0, 0.0), uv(1.0, 0.0),
-                ].iter().copied())
+                ])
+                .face_attrs(iter::repeat(0))
                 .build();
             let tf = translate(dir(4. * i as f32, 0., 4. * j as f32));
             objects.push(Obj { tf, geom });
@@ -88,7 +92,10 @@ fn main() {
     rdr.viewport = viewport(margin as f32, (h - margin) as f32,
                             (w - margin) as f32, margin as f32);
 
-    let tex = Texture::from(load_pnm("examples/sdl/crate.ppm").unwrap());
+    let tex = [
+        Texture::from(load_pnm("examples/sdl/crate.ppm").unwrap()),
+        Texture::from(Buffer::from_vec(2, vec![BLACK, WHITE, WHITE, BLACK])),
+    ];
 
     let mut runner = SdlRunner::new(w as u32, h as u32).unwrap();
 
@@ -96,7 +103,7 @@ fn main() {
 
     let shader = &mut ShaderImpl {
         vs: identity,
-        fs: |frag: Fragment<_>| Some(tex.sample(frag.varying)),
+        fs: |frag: Fragment<_, usize>| Some(tex[frag.uniform].sample(frag.varying)),
     };
 
     let font = &Font {
