@@ -256,7 +256,7 @@ where
         rdr.stats.faces_in += 1;
 
         let mut this = *self;
-        this.center.transform(&rdr.modelview);
+        this.anchor.transform(&rdr.modelview);
         let scale = &rdr.modelview.row(0).len();
         this.width *= scale;
         this.height *= scale;

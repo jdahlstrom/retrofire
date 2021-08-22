@@ -50,9 +50,23 @@ impl<VA> Transform for Polyline<VA> {
     }
 }
 
+#[derive(Copy, Clone, Debug)]
+pub enum Align {
+    TopLeft, TopCenter, TopRight,
+    Left, Center, Right,
+    BottomLeft, BottomCenter, BottomRight,
+}
+
+impl Default for Align {
+    fn default() -> Self {
+        Self::Center
+    }
+}
+
 #[derive(Copy, Clone, Debug, Default)]
 pub struct Sprite<VA, FA = ()> {
-    pub center: Vec4,
+    pub anchor: Vec4,
+    pub align: Align,
     pub width: f32,
     pub height: f32,
     pub vertex_attrs: [VA; 4],
@@ -61,11 +75,21 @@ pub struct Sprite<VA, FA = ()> {
 
 impl<VA: Copy, FA> Sprite<VA, FA> {
     pub fn verts<'a>(&'a self) -> impl Iterator<Item=Vertex<VA>> + 'a {
-        let (hw, hh) = (0.5 * self.width, 0.5 * self.height);
-        IntoIter::new([(-hw, hh), (hw, hh), (hw, -hh), (-hw, -hh)])
+        let (x, y) = match self.align {
+            Align::TopLeft => (0.0, 1.0),
+            Align::TopCenter => (0.5, 1.0),
+            Align::TopRight => (1.0, 1.0),
+            Align::Left => (0.0, 0.5),
+            Align::Center => (0.5, 0.5),
+            Align::Right => (1.0, 0.5),
+            Align::BottomLeft => (0.0, 0.0),
+            Align::BottomCenter => (0.5, 0.0),
+            Align::BottomRight => (1.0, 0.0),
+        };
+        IntoIter::new([(x - 1.0, y), (x, y), (x, y - 1.0), (x - 1.0, y - 1.0)])
             .zip(&self.vertex_attrs)
-            .map(move |((w, h), &attr)| {
-                let coord = self.center + dir(w, h, 0.0);
+            .map(move |((x, y), &attr)| {
+                let coord = self.anchor + dir(x * self.width, y * self.height, 0.0);
                 Vertex { coord, attr }
             })
     }
@@ -73,6 +97,6 @@ impl<VA: Copy, FA> Sprite<VA, FA> {
 
 impl<VA, FA> Transform for Sprite<VA, FA> {
     fn transform(&mut self, tf: &Mat4) {
-        self.center.transform(tf);
+        self.anchor.transform(tf);
     }
 }

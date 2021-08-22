@@ -1,6 +1,6 @@
 use std::mem::replace;
 
-use geom::Sprite;
+use geom::{Sprite, Align};
 use math::mat::Mat4;
 use math::transform::Transform;
 use math::vec::pt;
@@ -54,7 +54,8 @@ impl<'a> Text<'a> {
                 } else if let Some(bounds) = font.glyph_bounds(c) {
                     let oldx = replace(x, *x + font.glyph_w);
                     Some(Sprite {
-                        center: pt(oldx as f32, *y as f32, 0.0),
+                        anchor: pt(oldx as f32, *y as f32, 0.0),
+                        align: Align::TopRight,
                         width: font.glyph_w as f32,
                         height: font.glyph_h as f32,
                         vertex_attrs: bounds,
@@ -111,6 +112,7 @@ mod tests {
     use super::*;
     use std::collections::hash_map::DefaultHasher;
     use std::hash::{Hash, Hasher};
+    use std::convert::identity;
 
     #[test]
     fn render_text() {
@@ -130,7 +132,6 @@ mod tests {
         };
         let txt = Text::new(fnt, "Hello, World!");
         let rdr = &mut Renderer::default();
-        rdr.modelview = translate(dir(GW as f32 / 2.0, GH as f32 / 2.0, 0.0));
         rdr.projection = orthogonal(pt(0.0, 0.0, -1.0), pt(BW as f32, BH as f32, 1.0));
         rdr.viewport = viewport(0.0, BH as f32, BW as f32, 0.0);
         let mut out = [[BLACK; BW]; BH];

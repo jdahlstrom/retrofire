@@ -75,9 +75,9 @@ fn crates() -> Vec<Obj<Mesh<TexCoord, usize>>> {
 
 
 fn main() {
-    let margin = 50;
-    let w = 800;
-    let h = 600;
+    let margin = 50.0;
+    let w = 800.0;
+    let h = 600.0;
 
     let camera = Mat4::identity();
 
@@ -88,9 +88,8 @@ fn main() {
 
     let mut rdr = Renderer::new();
     rdr.options.perspective_correct = true;
-    rdr.projection = perspective(0.1, 50., w as f32 / h as f32, Deg(90.0));
-    rdr.viewport = viewport(margin as f32, (h - margin) as f32,
-                            (w - margin) as f32, margin as f32);
+    rdr.projection = perspective(0.1, 50., w / h, Deg(90.0));
+    rdr.viewport = viewport(margin, h - margin, w - margin, margin);
 
     let tex = [
         Texture::from(load_pnm("examples/sdl/crate.ppm").unwrap()),
@@ -124,9 +123,9 @@ fn main() {
         rdr.render_scene(&scene, shader, &mut frame.buf);
 
         let mut hud = Renderer::new();
-        hud.projection = orthogonal(pt(0.0, 0.0, -1.0), pt(w as f32, h as f32, 1.0));
-        hud.viewport = viewport(0.0, h as f32, w as f32, 0.0);
-        hud.modelview = translate(dir(20.0, 20.0, 0.0));
+        hud.projection = orthogonal(pt(0.0, 0.0, -1.0), pt(w, h, 1.0));
+        hud.viewport = viewport(0.0, h, w, 0.0);
+        hud.modelview = translate(dir(margin + 2.0, margin - 12.0, 0.0));
 
         t += frame.delta_t;
         if t > sample_interval {
