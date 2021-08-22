@@ -82,8 +82,8 @@ impl Texture {
     pub fn sample(&self, TexCoord { u, v, w }: TexCoord) -> Color {
         let buf = &self.buf;
         let w = 1.0 / w;
-        let u = (self.w * u * w) as isize as usize & (buf.width() - 1);
-        let v = (self.h * v * w) as isize as usize & (buf.height() - 1);
+        let u = (self.w * u * w).floor() as isize as usize & (buf.width() - 1);
+        let v = (self.h * v * w).floor() as isize as usize & (buf.height() - 1);
 
         // TODO enforce invariants and use get_unchecked
         *buf.get(u, v)
