@@ -2,7 +2,7 @@ use std::cell::RefCell;
 
 use sdl2::keyboard::Scancode;
 
-use geom::{mesh::Mesh, Sprite};
+use geom::{mesh::Mesh, Sprite, Align};
 use math::{
     Angle::*,
     rand::{Distrib, Random, Uniform},
@@ -12,17 +12,16 @@ use math::{
 };
 use render::{
     fx::{anim, anim::*, particle::*},
-    Raster,
     raster::Fragment,
     Render,
     Renderer,
     scene::{Obj, Scene},
     tex::{TexCoord, Texture, uv}
 };
+use render::shade::ShaderImpl;
 use util::color::*;
 
 use crate::runner::*;
-use render::shade::ShaderImpl;
 
 mod runner;
 
@@ -63,7 +62,8 @@ fn main() {
     let ptx = ParticleSys::new(
         10000,
         Sprite {
-            center: ORIGIN,
+            anchor: ORIGIN,
+            align: Align::Center,
             width: 0.1,
             height: 0.1,
             vertex_attrs: [
