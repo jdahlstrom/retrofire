@@ -1,3 +1,5 @@
+use std::time::Instant;
+
 use criterion::*;
 
 use geom::solids;
@@ -8,7 +10,10 @@ use render::{Raster, Render, Renderer};
 use render::raster::Fragment;
 use render::scene::{Obj, Scene};
 use render::shade::ShaderImpl;
+use render::tex::{Texture, uv, TexCoord};
+use util::Buffer;
 use util::color::*;
+use util::io::{load_pnm, save_ppm};
 
 const W: usize = 128;
 
@@ -45,7 +50,7 @@ fn torus(c: &mut Criterion) {
             },
         ))
     });
-    eprintln!("Stats/s: {}", rdr.stats.avg_per_sec());
+    eprintln!("Stats/s: {}\n", rdr.stats.avg_per_sec());
 }
 
 fn scene(c: &mut Criterion) {
@@ -57,7 +62,7 @@ fn scene(c: &mut Criterion) {
         for i in -4..=4 {
             objects.push(Obj {
                 tf: translate(dir(4. * i as f32, 0., 4. * j as f32)),
-                mesh: solids::unit_sphere(9, 9).build(),
+                geom: solids::unit_sphere(9, 9).build(),
             });
         }
     }
@@ -80,7 +85,7 @@ fn scene(c: &mut Criterion) {
             },
         ))
     });
-    eprintln!("Stats/s: {}", rdr.stats.avg_per_sec());
+    eprintln!("Stats/s: {}\n", rdr.stats.avg_per_sec());
 }
 
 fn gouraud_fillrate(c: &mut Criterion) {
@@ -96,23 +101,70 @@ fn gouraud_fillrate(c: &mut Criterion) {
             &mut rdr,
             &mut ShaderImpl {
                 vs: |v| v,
-                fs: |_| Some(BLACK),
+                fs: |frag: Fragment<Color>| Some(frag.varying),
             },
             &mut Raster {
                 test: |_| true,
-                output: |frag: Fragment<_>| {
+                output: |frag: Fragment<(f32, Color)>| {
                     let (x, y) = frag.coord;
-                    buf[W * y + x] = WHITE
+                    buf[W * y + x] = frag.varying.1
                 },
             },
         ))
     });
-    eprintln!("Stats/frame: {}", rdr.stats.avg_per_frame());
+    save_ppm("gouraud.ppm", &Buffer::borrow(W, &mut buf)).unwrap();
+    eprintln!("Stats/frame: {}\n", rdr.stats.avg_per_frame());
+}
+
+fn texture_fillrate(c: &mut Criterion) {
+    let mut rdr = renderer();
+
+    rdr.modelview = scale(2.0) * &translate(6.0 * Z);
+    let mesh = solids::unit_cube()
+        .vertex_attrs([
+            uv(1.0, 1.0), uv(0.0, 1.0), uv(1.0, 0.0), uv(0.0, 0.0),
+            uv(0.0, 1.0), uv(1.0, 1.0), uv(0.0, 0.0), uv(1.0, 0.0),
+        ])
+        //].iter().map(|&tc| tc.mul(256.0)))
+        .build();
+
+    //let tex = Texture::from(Buffer::from_vec(2, vec![RED, BLUE, BLUE, GREEN]));
+    let tex = Texture::from(load_pnm("../examples/sdl/crate.ppm").unwrap());
+
+    let mut buf = [BLACK; W * W];
+    c.bench_function("texture", |b| {
+        b.iter(|| {
+            let clock = Instant::now();
+            mesh.render(
+                &mut rdr,
+                &mut ShaderImpl {
+                    vs: |v| v,
+                    fs: |f: Fragment<TexCoord>| {
+                        Some(tex.sample(f.varying))
+                    }
+                },
+                &mut Raster {
+                    test: |_| true,
+                    output: |frag: Fragment<(f32, Color)>| {
+                        let (x, y) = frag.coord;
+                        buf[W * y + x] = frag.varying.1;
+                    },
+                },
+            );
+            rdr.stats.time_used += clock.elapsed();
+            rdr.stats.frames += 1;
+        })
+    });
+    save_ppm("texture.ppm", &Buffer::borrow(W, &mut buf)).unwrap();
+    eprintln!("Stats:     {}", rdr.stats);
+    eprintln!("Stats/sec: {}\n", rdr.stats.avg_per_sec());
 }
 
 criterion_group!(benches,
     torus,
     scene,
-    gouraud_fillrate);
+    gouraud_fillrate,
+    texture_fillrate
+);
 
 criterion_main!(benches);
