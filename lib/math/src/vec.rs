@@ -235,14 +235,15 @@ impl Mul<Vec4> for f32 {
 }
 
 impl Linear<f32> for Vec4 {
+    #[inline]
     fn add(self, other: Self) -> Self {
         self + other
     }
-
+    #[inline]
     fn mul(self, s: f32) -> Self {
         s * self
     }
-
+    #[inline]
     fn neg(self) -> Self {
         Neg::neg(self)
     }

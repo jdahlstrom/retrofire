@@ -84,12 +84,15 @@ pub trait Linear<Scalar> where Self: Sized {
 }
 
 impl Linear<f32> for f32 {
+    #[inline]
     fn add(self, other: Self) -> Self {
         self + other
     }
+    #[inline]
     fn mul(self, s: f32) -> Self {
         self * s
     }
+    #[inline]
     fn neg(self) -> Self {
         -self
     }

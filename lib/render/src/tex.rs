@@ -15,6 +15,7 @@ pub const U: TexCoord = uv(1.0, 0.0);
 pub const V: TexCoord = uv(0.0, 1.0);
 
 impl Linear<f32> for TexCoord {
+    #[inline]
     fn add(self, other: Self) -> Self {
         Self {
             u: self.u + other.u,
@@ -22,7 +23,7 @@ impl Linear<f32> for TexCoord {
             w: self.w + other.w,
         }
     }
-
+    #[inline]
     fn mul(self, s: f32) -> Self {
         Self {
             u: s * self.u,
@@ -30,7 +31,7 @@ impl Linear<f32> for TexCoord {
             w: s * self.w,
         }
     }
-
+    #[inline]
     fn neg(self) -> Self {
         Self {
             u: -self.u,

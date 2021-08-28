@@ -17,30 +17,31 @@ where
     T: Clone,
     B: DerefMut<Target=[T]>
 {
+    #[inline]
     pub fn width(&self) -> usize {
         self.width
     }
+    #[inline]
     pub fn height(&self) -> usize {
         self.height
     }
+    #[inline]
     pub fn data(&self) -> &B {
         &self.data
     }
+    #[inline]
     pub fn data_mut(&mut self) -> &mut B {
         &mut self.data
     }
-
-    #[inline(always)]
+    #[inline]
     pub fn get(&self, x: usize, y: usize) -> &T {
         &self.data[self.width * y + x]
     }
-
-    #[inline(always)]
+    #[inline]
     pub fn get_mut(&mut self, x: usize, y: usize) -> &mut T {
         &mut self.data[self.width * y + x]
     }
-
-    #[inline(always)]
+    #[inline]
     pub fn put(&mut self, x: usize, y: usize, val: T) {
         (&mut self.data)[self.width * y + x] = val;
     }
