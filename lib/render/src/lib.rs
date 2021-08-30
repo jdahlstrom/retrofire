@@ -213,7 +213,9 @@ where
         for v in &mut this.0 {
             *v = shader.shade_vertex(*v);
         }
-        if let Some(&[a, b]) = hsr::clip(&this.0).get(0..2) {
+        let mut clip_out = Vec::new();
+        hsr::clip(&mut this.0.to_vec(), &mut clip_out);
+        if let &[a, b] = clip_out.as_slice() {
             rdr.stats.faces_out += 1;
             let verts = [
                 clip_to_screen(a, &rdr.viewport),
@@ -261,7 +263,7 @@ where
         this.width *= scale;
         this.height *= scale;
 
-        let vs: Vec<_> = this.verts()
+        let mut vs: Vec<_> = this.verts()
                 .map(|v| {
                     let mut v = shader.shade_vertex(v);
                     v.coord.transform(&rdr.projection);
@@ -269,11 +271,13 @@ where
                 })
                 .collect();
 
-        let mut vs: Vec<_> = hsr::clip(&vs).into_iter()
+        let mut clip_out = Vec::new();
+        hsr::clip(&mut vs, &mut clip_out);
+        let mut vs: Vec<_> = clip_out.into_iter()
             .map(|v| clip_to_screen(v, &rdr.viewport))
             .collect();
 
-        match &mut vs[..] {
+        match vs.as_mut_slice() {
             [] => {}
             [v0, v1, v2, v3] => {
                 rdr.stats.faces_out += 1;

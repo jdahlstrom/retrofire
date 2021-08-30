@@ -1,15 +1,16 @@
 use std::f32::EPSILON;
-use std::mem;
+use std::mem::swap;
 
 use geom::mesh::{Mesh, Vertex};
 use math::{lerp, Linear};
 use math::vec::Vec4;
+use Visibility::*;
 
 pub fn hidden_surface_removal<VA, FA>(mesh: &mut Mesh<VA, FA>, bbox_vis: Visibility)
-where VA: Copy + Linear<f32>, FA: Copy, {
-
-    let clip_masks = mesh.verts.iter().map(vertex_mask).collect::<Vec<_>>();
-
+where
+    VA: Copy + Linear<f32>,
+    FA: Copy,
+{
     let mut mesh2 = Mesh {
         verts: Vec::with_capacity(16),
         vertex_attrs: Vec::with_capacity(16),
@@ -18,6 +19,13 @@ where VA: Copy + Linear<f32>, FA: Copy, {
         face_attrs: Vec::with_capacity(mesh.faces.len() / 2),
         ..*mesh
     };
+
+    let clip_masks: Vec<_> = mesh.verts.iter()
+        .map(vertex_mask)
+        .collect();
+
+    let mut clip_in = Vec::with_capacity(8);
+    let mut clip_out = Vec::with_capacity(8);
 
     for face in mesh.faces() {
         if bbox_vis == Unclipped {
@@ -42,18 +50,20 @@ where VA: Copy + Linear<f32>, FA: Copy, {
                 }
             },
             Clipped => {
-                let clipped_verts = clip(&face.verts);
-                if clipped_verts.is_empty() {
+                clip_in.clear();
+                clip_in.extend(&face.verts);
+                clip(&mut clip_in, &mut clip_out);
+                if clip_out.is_empty() {
                     continue;
                 }
-                if !frontface(&[clipped_verts[0], clipped_verts[1], clipped_verts[2]]) {
+                if !frontface(&[clip_out[0], clip_out[1], clip_out[2]]) {
                     // New faces are coplanar, if one is a backface then all are
                     continue;
                 }
-                let cn = clipped_verts.len();
+                let cn = clip_out.len();
                 let vn = mesh.verts.len() + mesh2.verts.len();
-                mesh2.verts.extend(clipped_verts.iter().map(|v| v.coord));
-                mesh2.vertex_attrs.extend(clipped_verts.into_iter().map(|v| v.attr));
+                mesh2.verts.extend(clip_out.iter().map(|v| v.coord));
+                mesh2.vertex_attrs.extend(clip_out.iter().map(|v| v.attr));
 
                 for i in 1..cn - 1 {
                     mesh2.faces.push([vn, vn + i, vn + i + 1]);
@@ -108,7 +118,7 @@ mod clip_mask {
     pub const NEAR: u8 = 0b10000;
     pub const FAR: u8 = 0b100000;
 
-    pub const ALL: u8 = 0b111111;
+    pub const INSIDE: u8 = 0b111111;
 }
 
 const CLIP_PLANES: [ClipPlane; 6] = [
@@ -126,19 +136,18 @@ pub enum Visibility {
     Clipped,
     Hidden
 }
-use Visibility::*;
 
 fn vertex_mask(v: &Vec4) -> u8 {
       CLIP_PLANES.iter().fold(0, |mask, p| mask | p.test(v))
 }
 
 fn visibility(masks: impl IntoIterator<Item=u8>) -> Visibility {
-    let (all_inside, any_inside) = masks.into_iter()
+    let (all, any) = masks.into_iter()
         .fold((!0, 0), |(a, b), v| (a & v, b | v));
 
-    if all_inside == clip_mask::ALL {
+    if all == clip_mask::INSIDE {
         Unclipped
-    } else if any_inside != clip_mask::ALL {
+    } else if any != clip_mask::INSIDE {
         Hidden
     } else {
         Clipped
@@ -151,23 +160,26 @@ where VI: IntoIterator<Item=&'a Vec4>
     visibility(verts.into_iter().map(vertex_mask))
 }
 
-pub fn clip<VA>(verts: &[Vertex<VA>]) -> Vec<Vertex<VA>>
+pub fn clip<VA>(verts_in: &mut Vec<Vertex<VA>>, verts_out: &mut Vec<Vertex<VA>>)
 where
     VA: Linear<f32> + Copy
 {
-    let mut verts = verts.to_vec();
-    let mut verts2 = Vec::with_capacity(8);
-
+    // TODO redundant calculation
+    // Based on clip masks we already know whether each edge
+    // intersects each clipping plane, and could fast-path
+    // non-intersecting planes.
     for plane in &CLIP_PLANES {
-        for (a, b) in edges(&verts) {
+        verts_out.clear();
+        for (a, b) in edges(&verts_in) {
             let vs = plane.clip(a, b);
-            verts2.extend(vs.iter().flatten());
+            verts_out.extend(vs.iter().flatten());
         }
-        verts = mem::take(&mut verts2);
+        swap(verts_in, verts_out);
     }
-    verts
+    swap(verts_in, verts_out);
 }
 
+#[inline]
 fn edges<T>(ts: &[T]) -> impl Iterator<Item=(&T, &T)> {
     (0..ts.len()).map(move |i| (&ts[i], &ts[(i + 1) % ts.len()]))
 }
@@ -194,9 +206,9 @@ mod tests {
 
     // TODO Test interpolation of vertex attributes
 
-    fn assert_approx_eq(expected: Vec<Vertex<()>>, actual: Vec<Vertex<()>>) {
+    fn assert_approx_eq(expected: &[Vertex<()>], actual: &[Vertex<()>]) {
         assert_eq!(expected.len(), actual.len(), "expected: {:#?}\nactual: {:#?}", expected, actual);
-        for (&e, &a) in expected.iter().zip(&actual) {
+        for (&e, &a) in expected.iter().zip(actual) {
             assert!(e.coord.approx_eq(a.coord), "expected: {:?}, actual: {:?}", e, a);
             // TODO assert!(e.1.approx_eq(a.1), "expected: {:?}, actual: {:?}", e, a);
         }
@@ -243,30 +255,30 @@ mod tests {
 
     #[test]
     fn clip_vertex_inside_frustum() {
-        assert_eq!(ALL, vertex_mask(&vec4(0.0, 0.0, 0.0, 0.0)));
+        assert_eq!(INSIDE, vertex_mask(&vec4(0.0, 0.0, 0.0, 0.0)));
 
-        assert_eq!(ALL, vertex_mask(&vec4(1.0, 0.0, 0.0, 1.0)));
-        assert_eq!(ALL, vertex_mask(&vec4(-2.0, 0.0, 0.0, 3.0)));
-        assert_eq!(ALL, vertex_mask(&vec4(0.0, 1.0, 0.0, 1.0)));
-        assert_eq!(ALL, vertex_mask(&vec4(0.0, -2.0, 0.0, 3.0)));
-        assert_eq!(ALL, vertex_mask(&vec4(0.0, 0.0, 1.0, 1.0)));
-        assert_eq!(ALL, vertex_mask(&vec4(0.0, 0.0, -2.0, 3.0)));
+        assert_eq!(INSIDE, vertex_mask(&vec4(1.0, 0.0, 0.0, 1.0)));
+        assert_eq!(INSIDE, vertex_mask(&vec4(-2.0, 0.0, 0.0, 3.0)));
+        assert_eq!(INSIDE, vertex_mask(&vec4(0.0, 1.0, 0.0, 1.0)));
+        assert_eq!(INSIDE, vertex_mask(&vec4(0.0, -2.0, 0.0, 3.0)));
+        assert_eq!(INSIDE, vertex_mask(&vec4(0.0, 0.0, 1.0, 1.0)));
+        assert_eq!(INSIDE, vertex_mask(&vec4(0.0, 0.0, -2.0, 3.0)));
     }
 
     #[test]
     fn clip_vertex_outside_single_plane() {
-        assert_eq!(ALL & !RIGHT, vertex_mask(&vec4(2.0, 0.0, 0.0, 1.0)));
-        assert_eq!(ALL & !LEFT, vertex_mask(&vec4(-3.0, 0.0, 0.0, 2.0)));
-        assert_eq!(ALL & !TOP, vertex_mask(&vec4(0.0, 2.0, 0.0, 1.0)));
-        assert_eq!(ALL & !BOTTOM, vertex_mask(&vec4(0.0, -3.0, 0.0, 2.0)));
-        assert_eq!(ALL & !FAR, vertex_mask(&vec4(0.0, 0.0, 2.0, 1.0)));
-        assert_eq!(ALL & !NEAR, vertex_mask(&vec4(0.0, 0.0, -3.0, 2.0)));
+        assert_eq!(INSIDE & !RIGHT, vertex_mask(&vec4(2.0, 0.0, 0.0, 1.0)));
+        assert_eq!(INSIDE & !LEFT, vertex_mask(&vec4(-3.0, 0.0, 0.0, 2.0)));
+        assert_eq!(INSIDE & !TOP, vertex_mask(&vec4(0.0, 2.0, 0.0, 1.0)));
+        assert_eq!(INSIDE & !BOTTOM, vertex_mask(&vec4(0.0, -3.0, 0.0, 2.0)));
+        assert_eq!(INSIDE & !FAR, vertex_mask(&vec4(0.0, 0.0, 2.0, 1.0)));
+        assert_eq!(INSIDE & !NEAR, vertex_mask(&vec4(0.0, 0.0, -3.0, 2.0)));
     }
 
     #[test]
     fn clip_vertex_outside_several_planes() {
-        assert_eq!(ALL & !(RIGHT|NEAR), vertex_mask(&vec4(2.0, 0.0, -3.0, 1.0)));
-        assert_eq!(ALL & !(LEFT|FAR|TOP), vertex_mask(&vec4(-3.0, 4.0, 5.0, 2.0)));
+        assert_eq!(INSIDE & !(RIGHT|NEAR), vertex_mask(&vec4(2.0, 0.0, -3.0, 1.0)));
+        assert_eq!(INSIDE & !(LEFT|FAR|TOP), vertex_mask(&vec4(-3.0, 4.0, 5.0, 2.0)));
     }
 
 
@@ -314,8 +326,9 @@ mod tests {
     #[test]
     fn clip_triangle_fully_outside() {
         for &(a, b) in &[(X, Y), (Y, Z), (X, Z)] {
-            let expected = Vec::<Vertex<()>>::new();
-            let actual = clip(&vs(&[2.0 * b, -a + 3.0 * b, a + 3.0 * b]));
+            let expected = &mut Vec::<Vertex<()>>::new();
+            let actual = &mut Vec::new();
+            clip(&mut vs(&[2.0 * b, -a + 3.0 * b, a + 3.0 * b]), actual);
             assert_eq!(expected, actual);
         }
     }
@@ -323,8 +336,9 @@ mod tests {
     #[test]
     fn clip_all_vertices_inside() {
         for &(a, b) in &[(X, Y), (Y, Z), (X, Z)] {
-            let expected = vs(&[b, -a, a]);
-            let actual = clip(&expected);
+            let expected = &mut vs(&[b, -a, a]);
+            let actual = &mut Vec::new();
+            clip(expected, actual);
             assert_eq!(expected, actual);
         }
     }
@@ -332,15 +346,16 @@ mod tests {
     #[test]
     fn clip_vertices_on_bounds() {
         for &(a, b) in &[(X, Y), (Y, Z), (X, Z)] {
-            let expected = vs(&[-a, b, a - b]);
-            let actual = clip(&expected);
+            let expected = &mut vs(&[-a, b, a - b]);
+            let actual = &mut Vec::new();
+            clip(expected, actual);
             assert_approx_eq(expected, actual);
         }
     }
 
     #[test]
     fn clip_all_vertices_outside() {
-        let expected = vs(&[
+        let expected = &mut vs(&[
             0.25 * X + Y,
             X - 0.5 * Y,
             X - Y,
@@ -349,11 +364,12 @@ mod tests {
             -X + 0.5 * Y,
             -0.5 * X + Y]
         );
-        let actual = clip(&vs(&[
+        let actual = &mut Vec::new();
+        clip(&mut vs(&[
             1.5 * Y,
             1.5 * (X - Y),
             -1.5 * X]
-        ));
+        ), actual);
 
         assert_approx_eq(expected, actual)
     }
@@ -361,9 +377,9 @@ mod tests {
     #[test]
     fn clip_screen_filling_triangle() {
         for &(a, b) in &[(X, Y), (Y, Z), (X, Z)] {
-            let expected = vs(&[a + b, a - b, -a - b, -a + b]);
-
-            let actual = clip(&vs(&[-20.0 * (a + b), 20.0 * b, 20.0 * (a - b)]));
+            let expected = &mut vs(&[a + b, a - b, -a - b, -a + b]);
+            let actual = &mut Vec::new();
+            clip(&mut vs(&[-20.0 * (a + b), 20.0 * b, 20.0 * (a - b)]), actual);
             assert_approx_eq(expected, actual)
         }
     }
