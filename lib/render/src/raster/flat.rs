@@ -1,23 +1,27 @@
 use geom::mesh::Vertex;
 
+use crate::raster::Scanline;
+
 pub type Fragment = super::Fragment<()>;
 
-pub fn flat_fill(verts: [Vertex<()>; 3], plot: impl FnMut(Fragment)) {
-    super::tri_fill(verts, plot)
+pub fn flat_fill(verts: [Vertex<()>; 3],
+                 sc: impl FnMut(Scanline<()>)) {
+    super::tri_fill(verts, sc)
 }
 
 
 #[cfg(test)]
 mod tests {
-    use super::*;
     use crate::raster::tests::Buf;
+
+    use super::*;
 
     fn vert(x: f32, y: f32) -> Vertex<()> {
         crate::raster::tests::vert(x, y, ())
     }
 
-    fn plotter(buf: &mut Buf) -> Box<dyn FnMut(Fragment) + '_> {
-        Box::new(move |frag| buf.put(frag, 255.0))
+    fn plotter(buf: &mut Buf) -> Box<dyn FnMut(Scanline<()>) + '_> {
+        Box::new(move |sc| for frag in sc.fragments() { buf.put(frag, 255.0) })
     }
 
     #[test]

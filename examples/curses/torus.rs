@@ -5,7 +5,7 @@ use geom::mesh::Vertex;
 use geom::solids::*;
 use math::Angle::Rad;
 use math::transform::*;
-use math::vec::{Vec4, dir};
+use math::vec::{dir, Vec4};
 use render::raster::gouraud::*;
 
 fn vert(v: Vec4) -> Vertex<f32> {
@@ -54,16 +54,16 @@ fn main() {
             b.verts[0].coord.z.partial_cmp(&a.verts[0].coord.z).unwrap()
         });
 
-        for [a, b, c] in faces.into_iter().map(|f| f.verts) {
-            gouraud_fill(
-                [vert(a.coord), vert(b.coord), vert(c.coord)],
-                |Fragment { coord: (x, y), varying: v, .. }| {
+        for verts in faces.into_iter().map(|f| f.verts) {
+            let verts = verts.map(|v| vert(v.coord));
+            gouraud_fill(verts, |sc| {
+                for Fragment { coord: (x, y), varying: v, .. } in sc.fragments() {
                     win.mvaddch(
                         y as i32, x as i32,
-                        b"..-:;=+<ox*XO@MW"[v as usize / 0x10 & 0xF] as char
+                        b"..-:;=+<ox*XO@MW"[v as usize / 0x10 & 0xF] as char,
                     );
                 }
-            );
+            });
         }
 
         theta = theta + Rad(0.01);

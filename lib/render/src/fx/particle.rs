@@ -1,7 +1,7 @@
 use math::transform::translate;
 use math::vec::Vec4;
 
-use crate::{RasterOps, Render, Renderer};
+use crate::{Rasterize, Render, Renderer};
 use crate::shade::Shader;
 
 #[derive(Copy, Clone, Debug, Default)]
@@ -79,7 +79,7 @@ impl<U: Copy, V: Copy, R: Render<U, V> + Clone> Render<U, V> for ParticleSys<R> 
     fn render<S, Ra>(&self, rdr: &mut Renderer, shade: &mut S, raster: &mut Ra)
     where
         S: Shader<U, V>,
-        Ra: RasterOps,
+        Ra: Rasterize,
     {
         for p in self.live_particles() {
             let tf = translate(p.pos) * &rdr.modelview;

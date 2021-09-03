@@ -1,18 +1,21 @@
 use geom::mesh::Vertex;
 
+use crate::raster::Scanline;
+
 pub type Fragment = super::Fragment<f32>;
 
-pub fn gouraud_fill(vs: [Vertex<f32>; 3], plot: impl FnMut(Fragment)) {
-    super::tri_fill(vs, plot)
+pub fn gouraud_fill(vs: [Vertex<f32>; 3],
+                    sc: impl FnMut(Scanline<f32>)) {
+    super::tri_fill(vs, sc)
 }
 
 #[cfg(test)]
 mod tests {
-    use super::super::tests::{Buf, vert};
     use super::*;
+    use super::super::tests::{Buf, vert};
 
-    fn plotter(buf: &mut Buf) -> Box<dyn FnMut(Fragment) + '_> {
-        Box::new(move |frag| buf.put(frag, frag.varying))
+    fn plotter(buf: &mut Buf) -> Box<dyn FnMut(Scanline<f32>) + '_> {
+        Box::new(move |sc| for frag in sc.fragments() { buf.put(frag, frag.varying) })
     }
 
     #[test]

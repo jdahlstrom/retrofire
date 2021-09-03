@@ -6,7 +6,7 @@ use math::transform::Transform;
 use math::vec::pt;
 use util::color::Color;
 
-use crate::{RasterOps, Render, Renderer};
+use crate::{Rasterize, Render, Renderer};
 use crate::raster::Fragment;
 use crate::shade::{Shader, ShaderImpl};
 use crate::tex::{TexCoord, Texture, uv};
@@ -85,7 +85,7 @@ impl<'a> Render<(), TexCoord, Color> for Text<'a> {
     fn render<S, R>(&self, rdr: &mut Renderer, shader: &mut S, raster: &mut R)
     where
         S: Shader<(), TexCoord, TexCoord, Color>,
-        R: RasterOps,
+        R: Rasterize,
     {
         for s in &self.geom {
             s.render(rdr, &mut ShaderImpl {

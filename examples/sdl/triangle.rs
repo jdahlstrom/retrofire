@@ -9,6 +9,7 @@ use sdl2::rect::Rect;
 use geom::mesh::Vertex;
 use math::vec::vec4;
 use render::raster::gouraud::*;
+use render::raster::Scanline;
 
 fn vert(x: f32, y: f32, c: f32) -> Vertex<f32> {
     Vertex { coord: vec4(x, y, 0.0, 0.0), attr: c }
@@ -44,11 +45,13 @@ fn main() {
                 vert(xs[1].0, ys[1].0, a + 0.5),
                 vert(xs[2].0, ys[2].0, a + 1.0)
             ],
-            |Fragment { coord, varying, .. }| {
-                let pos = 4 * (coord.1 * width as usize  + coord.0) as usize;
-                buf[pos + 0] = (127. + 128. * varying.cos()) as u8;
-                buf[pos + 1] = (127. + 128. * (varying * 0.7).cos()) as u8;
-                buf[pos + 2] = (127. + 128. * (varying * 1.6).sin()) as u8;
+            |sc: Scanline<_>| {
+                for Fragment { coord: (x, y), varying, .. } in sc.fragments() {
+                    let pos = 4 * (width as usize * y + x);
+                    buf[pos + 0] = (127. + 128. * varying.cos()) as u8;
+                    buf[pos + 1] = (127. + 128. * (varying * 0.7).cos()) as u8;
+                    buf[pos + 2] = (127. + 128. * (varying * 1.6).sin()) as u8;
+                }
             });
 
         for (x, dx) in &mut xs {

@@ -1,9 +1,9 @@
 use pancurses as nc;
 use pancurses::Input::*;
 
+use geom::mesh::Vertex;
 use math::vec::vec4;
 use render::raster::flat;
-use geom::mesh::Vertex;
 
 fn vert(x: f32, y: f32) -> Vertex<()> {
     Vertex { coord: vec4(x, y, 0.0, 0.0), attr: () }
@@ -22,11 +22,13 @@ fn main() {
     loop {
         win.mvprintw(0, 0, "Q or ^C to quit, WSAD to change speed of X, space to switch X");
 
-        flat::flat_fill([vert(xs[0].0, ys[0].0), vert(xs[1].0, ys[1].0), vert(xs[2].0, ys[2].0)],
-                        |frag| {
-                            win.mv(frag.coord.1 as i32, frag.coord.0 as i32);
-                            win.addch('*');
-                        });
+        let verts = [vert(xs[0].0, ys[0].0), vert(xs[1].0, ys[1].0), vert(xs[2].0, ys[2].0)];
+        flat::flat_fill(verts, |sc| {
+            for frag in sc.fragments() {
+                win.mv(frag.coord.1 as i32, frag.coord.0 as i32);
+                win.addch('*');
+            }
+        });
 
         for j in 0..3 {
             win.mvaddch(ys[j].0.round() as i32,
