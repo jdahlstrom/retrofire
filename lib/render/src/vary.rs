@@ -1,11 +1,12 @@
 use math::Linear;
 
-#[derive(Debug)]
+#[derive(Clone, Debug)]
 pub struct Varying<T> {
     pub val: T,
     pub step: T,
 }
 
+#[derive(Clone, Debug)]
 pub struct Bresenham {
     val: usize,
     err: usize,

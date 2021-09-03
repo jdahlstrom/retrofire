@@ -7,8 +7,8 @@ pub trait VertexShader<In, Out=In> {
     fn shade_vertex(&self, _: Vertex<In>) -> Vertex<Out>;
 }
 
-pub trait FragmentShader<F, U> {
-    fn shade_fragment(&self, _: Fragment<F, U>) -> Option<Color>;
+pub trait FragmentShader<V, U> {
+    fn shade_fragment(&self, _: Fragment<V, U>) -> Option<Color>;
 }
 
 pub trait Shader<U, VI, VO=VI, FI=VO>: VertexShader<VI, VO> + FragmentShader<FI, U> {}

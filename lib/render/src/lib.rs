@@ -12,7 +12,7 @@ use util::{Buffer, color::Color};
 
 use crate::hsr::Visibility;
 use crate::raster::*;
-use crate::shade::{Shader, ShaderImpl};
+use crate::shade::{Shader, ShaderImpl, FragmentShader};
 use crate::vary::Varying;
 
 mod hsr;
@@ -25,7 +25,13 @@ pub mod tex;
 pub mod text;
 pub mod vary;
 
-pub trait RasterOps {
+pub trait Rasterize {
+    fn rasterize<V, Vs, S>(&mut self, sc: Scanline<Vs>, fs: S)
+    where
+        V: Copy,
+        Vs: Iterator<Item=(f32, V)>,
+        S: FragmentShader<(f32, V), ()>;
+
     #[inline(always)]
     fn test<U>(&self, _: Fragment<f32, U>) -> bool { true }
 
@@ -40,11 +46,49 @@ pub struct Raster<Test, Output> {
     pub output: Output,
 }
 
-impl<Test, Output> RasterOps for Raster<Test, Output>
+impl<Test, Output> Rasterize for Raster<Test, Output>
 where
     Test: Fn(Fragment<f32>) -> bool,
     Output: FnMut(Fragment<(f32, Color)>),
 {
+    fn rasterize<V, Vs, S>(&mut self, sc: Scanline<Vs>, fs: S)
+    where
+        V: Copy,
+        Vs: Iterator<Item=(f32, V)>,
+        S: FragmentShader<(f32, V), ()>,
+    {
+        let Scanline { y, xs, vs } = sc;
+
+        let Self { test, output } = self;
+
+        (xs.0..xs.1).zip(vs)
+            .map(|(x, (z, c))| {
+                Fragment {
+                    coord: (x, y),
+                    varying: (z, c),
+                    uniform: ()
+                }
+            })
+            .filter(|f| test(f.varying(f.varying.0)))
+            .map(|f| Fragment {
+                coord: f.coord,
+                varying: (f.varying.0, fs.shade_fragment(f).unwrap()),
+                uniform: f.uniform
+            })
+            .for_each(|f| output(f));
+
+        /*for (x, (z, c)) in (xs.0..xs.1).zip(vs) {
+            let frag = Fragment {
+                coord: (x, y),
+                varying: (z, c),
+                uniform: ()
+            };
+            if self.test(frag.varying(z)) {
+                self.output(frag);
+            }
+        }*/
+    }
+
     #[inline(always)]
     fn test<U>(&self, frag: Fragment<f32, U>) -> bool {
         (self.test)(frag.uniform(()))
@@ -55,18 +99,40 @@ where
     }
 }
 
-
 pub struct Framebuf<'a> {
     // TODO Support other color buffer formats
     pub color: Buffer<u8, &'a mut [u8]>,
     pub depth: &'a mut Buffer<f32>,
 }
 
-impl<'a> Framebuf<'a> {
+impl<'a> Rasterize for Framebuf<'a> {
 
-}
+    fn rasterize<V, Vs, S>(&mut self, sc: Scanline<Vs>, fs: S)
+    where
+        Vs: Iterator<Item=(f32, V)>,
+        S: FragmentShader<(f32, V), ()>,
+    {
+        let y = self.color.width() * sc.y;
+        let (left, right) = sc.xs;
 
-impl<'a> RasterOps for Framebuf<'a> {
+        for (i, (z, v)) in (y+left..y+right).zip(sc.vs) {
+            let ci = i << 2;
+            let color = &mut self.color.data_mut()[ci..ci+4];
+            let depth = &mut self.depth.data_mut()[i];
+            if z < *depth {
+                if let Some(c) = fs.shade_fragment(Fragment {
+                    coord: (0, y),
+                    varying: (z, v),
+                    uniform: ()
+                }) {
+                    *depth = z;
+                    color[0] = c.b();
+                    color[1] = c.g();
+                    color[2] = c.r();
+                }
+            }
+        }
+    }
 
     fn test<U>(&self, f: Fragment<f32, U>) -> bool {
         f.varying < *self.depth.get(f.coord.0, f.coord.1)
@@ -90,10 +156,10 @@ pub trait Render<U, VI, FI=VI> {
     fn render<S, R>(&self, rdr: &mut Renderer, shade: &mut S, raster: &mut R)
     where
         S: Shader<U, VI, VI, FI>,
-        R: RasterOps;
+        R: Rasterize;
 
     #[inline(always)]
-    fn rasterize<S, R, VO>(
+    fn rasterize_frag<S, R, VO>(
         &self, shade: &mut S, raster: &mut R,
         frag: Fragment<(f32, VO), U>,
     ) -> bool
@@ -101,7 +167,7 @@ pub trait Render<U, VI, FI=VI> {
         U: Copy,
         VO: Copy,
         S: Shader<U, VI, VO>,
-        R: RasterOps,
+        R: Rasterize,
     {
         let (z, a) = frag.varying;
         raster.test(frag.varying(z)) && {
@@ -124,7 +190,7 @@ where
     fn render<S, R>(&self, rdr: &mut Renderer, shader: &mut S, raster: &mut R)
     where
         S: Shader<U, VI>,
-        R: RasterOps
+        R: Rasterize
     {
         rdr.stats.faces_in += self.faces.len();
 
@@ -161,10 +227,15 @@ where
 
                 for Face { verts: [a, b, c], attr, .. } in mesh.faces() {
                     let verts = [with_depth(a), with_depth(b), with_depth(c)];
-                    tri_fill(verts, |frag| {
-                        if self.rasterize(shader, raster, frag.uniform(attr)) {
-                            rdr.stats.pixels += 1;
-                        }
+                    tri_fill(verts, |sc| {
+
+                        raster.rasterize(Scanline {
+                            y: sc.y,
+                            xs: sc.xs,
+                            vs: sc.vs,
+                        }, |f: Fragment<(f32, VI)>| {
+                            shader.shade_fragment(f.varying(f.varying.1).uniform(attr))
+                        });
                     });
                 }
             }
@@ -202,7 +273,7 @@ where
     fn render<S, R>(&self, rdr: &mut Renderer, shader: &mut S, raster: &mut R)
     where
         S: Shader<(), VI>,
-        R: RasterOps
+        R: Rasterize
     {
         rdr.stats.faces_in += 1;
 
@@ -222,7 +293,7 @@ where
                 clip_to_screen(b, &rdr.viewport)
             ];
             line(verts, |frag: Fragment<_>| {
-                if self.rasterize(shader, raster, frag) {
+                if self.rasterize_frag(shader, raster, frag) {
                     rdr.stats.pixels += 1;
                 }
             });
@@ -237,7 +308,7 @@ where
     fn render<S, R>(&self, rdr: &mut Renderer, shader: &mut S, raster: &mut R)
     where
         S: Shader<(), V>,
-        R: RasterOps,
+        R: Rasterize,
     {
         for seg in self.edges() {
             seg.render(rdr, shader, raster);
@@ -253,7 +324,7 @@ where
     fn render<S, R>(&self, rdr: &mut Renderer, shader: &mut S, raster: &mut R)
     where
         S: Shader<U, V>,
-        R: RasterOps,
+        R: Rasterize,
     {
         rdr.stats.faces_in += 1;
 
@@ -291,17 +362,13 @@ where
                 let v = Varying::between((v0.attr, v1.attr), (v3.attr, v2.attr), y1 - y0);
 
                 for (y, (v0, v1)) in (y0 as usize..y1 as usize).zip(v) {
-                    let v = Varying::between(v0, v1, x1 - x0);
-                    for (x, v) in (x0 as usize..x1 as usize).zip(v) {
-                        let frag = Fragment {
-                            coord: (x, y),
-                            varying: v,
-                            uniform: this.face_attr
-                        };
-                        if self.rasterize(shader, raster, frag) {
-                            rdr.stats.pixels += 1;
-                        }
-                    }
+                    let vs = Varying::between(v0, v1, x1 - x0);
+
+                    let sc = Scanline { y, xs: (x0 as usize, x1 as usize), vs };
+
+                    raster.rasterize(sc, |f: Fragment<(f32, V)>| {
+                        shader.shade_fragment(f.varying(f.varying.1).uniform(this.face_attr))
+                    });
                 }
             }
             _ => debug_assert!(false, "should not happen: vs.len()={}", vs.len())
@@ -342,7 +409,7 @@ impl Renderer {
         F: Copy,
         Re: Render<F, V>,
         Sh: Shader<F, V>,
-        Ra: RasterOps + 'a
+        Ra: Rasterize + 'a
     {
         let clock = Instant::now();
         for Obj { tf, geom, .. } in objects {
@@ -359,7 +426,7 @@ impl Renderer {
     fn render<VA, FA>(
         &mut self,
         _: &Mesh<VA, FA>,
-        _: &mut impl RasterOps
+        _: &mut impl Rasterize
     ) -> Stats
     where
         VA: Copy + Linear<f32>,

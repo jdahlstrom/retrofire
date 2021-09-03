@@ -1,3 +1,5 @@
+mod tex;
+
 use std::mem::swap;
 
 use geom::mesh::Vertex;
@@ -5,14 +7,25 @@ use math::Linear;
 
 use crate::vary::{Bresenham, Varying};
 
-pub mod flat;
-pub mod gouraud;
+//pub mod flat;
+//pub mod gouraud;
 
 #[derive(Copy, Clone, Debug)]
 pub struct Fragment<V, U = ()> {
     pub coord: (usize, usize),
     pub varying: V,
     pub uniform: U,
+}
+
+#[derive(Clone, Debug)]
+pub struct Scanline<Vs> {
+    pub y: usize,
+    pub xs: (usize, usize),
+    pub vs: Vs,
+}
+
+impl<V> Scanline<V> {
+    // pub fn fragments(mut self) -> impl Iterator<Item=(usize, V)>
 }
 
 impl<V, U> Fragment<V, U> {
@@ -40,32 +53,37 @@ fn ysort<V>([a, b, c]: &mut [Vertex<V>; 3]) {
     if b.coord.y > c.coord.y { swap(b, c); }
 }
 
-pub fn tri_fill<V, P>(mut verts: [Vertex<V>; 3], mut plot: P)
+#[inline]
+fn half_tri<V, R>(
+    y: usize,
+    y_end: usize,
+    left: &mut Varying<(f32, V)>,
+    right: &mut Varying<(f32, V)>,
+    raster: &mut R,
+) -> usize
 where
     V: Linear<f32> + Copy,
-    P: FnMut(Fragment<V>)
+    R: FnMut(Scanline<Varying<V>>)
+{
+    for (y, (left, right)) in (y..y_end).zip(left.zip(right)) {
+        let vs = Varying::between(left.1, right.1, right.0 - left.0);
+
+        let x_left = left.0.round() as usize;
+        let x_right = right.0.round() as usize;
+
+        raster(Scanline { y, xs: (x_left, x_right), vs });
+    }
+    y_end
+}
+
+pub fn tri_fill<V, R>(mut verts: [Vertex<V>; 3], mut raster: R)
+where
+    V: Linear<f32> + Copy,
+    R: FnMut(Scanline<Varying<V>>),
 {
     ysort(&mut verts);
 
-    let mut y = verts[0].coord.y.round() as usize;
-
-    let mut half_tri = |y_end,
-                        left: &mut Varying<(f32, _)>,
-                        right: &mut Varying<(f32, _)>| {
-
-        for (y, (left, right)) in (y..y_end).zip(left.zip(right)) {
-
-            let v = Varying::between(left.1, right.1, right.0 - left.0);
-
-            let x_left = left.0.round() as usize;
-            let x_right = right.0.round() as usize;
-
-            for (x, v) in (x_left..=x_right).zip(v) {
-                plot(Fragment { coord: (x, y), varying: v, uniform: () });
-            }
-        }
-        y = y_end;
-    };
+    let y = verts[0].coord.y.round() as usize;
 
     let [a, b, c] = verts;
 
@@ -78,11 +96,11 @@ where
     let bc = &mut Varying::between(bv, cv, cy - by);
 
     if ab.step.0 < ac.step.0 {
-        half_tri(by.round() as usize, ab, ac);
-        half_tri(cy.round() as usize, bc, ac);
+        let y = half_tri(y, by.round() as usize, ab, ac, &mut raster);
+        half_tri(y, cy.round() as usize, bc, ac, &mut raster);
     } else {
-        half_tri(by.round() as usize, ac, ab);
-        half_tri(cy.round() as usize, ac, bc);
+        let y = half_tri(y, by.round() as usize, ac, ab, &mut raster);
+        half_tri(y, cy.round() as usize, ac, bc, &mut raster);
     }
 }
 
