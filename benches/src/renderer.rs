@@ -9,7 +9,7 @@ use geom::solids;
 use math::Angle::Rad;
 use math::transform::*;
 use math::vec::{dir, Y, Z};
-use render::{Raster, Render, Renderer};
+use render::{Raster, Render, Renderer, Framebuf};
 use render::raster::Fragment;
 use render::scene::{Obj, Scene};
 use render::shade::ShaderImpl;
@@ -27,7 +27,7 @@ fn renderer() -> Renderer {
     rdr
 }
 
-fn check_hash(buf: &[Color], expected: u64) {
+fn check_hash<T: Hash>(buf: &[T], expected: u64) {
     let h = &mut DefaultHasher::new();
     buf.hash(h);
     let actual = h.finish();
@@ -89,7 +89,13 @@ fn scene(c: &mut Criterion) {
     }
     let scene = Scene { objects, camera };
 
-    let mut buf = [BLACK; W * W];
+    let buf = &mut [0u8; 4 * W * W];
+
+    let mut fb = Framebuf {
+        color: Buffer::borrow(W, buf),
+        depth: &mut Buffer::new(W, W, f32::INFINITY),
+    };
+
     c.bench_function("scene", |b| {
         b.iter(|| rdr.render_scene(
             &scene,
@@ -97,17 +103,11 @@ fn scene(c: &mut Criterion) {
                 vs: |v| v,
                 fs: |_| Some(WHITE),
             },
-            &mut Raster {
-                test: |_| true,
-                output: |frag: Fragment<(f32, Color)>| {
-                    let (x, y) = frag.coord;
-                    buf[W * y + x] = frag.varying.1
-                },
-            },
+            &mut fb
         ));
     });
-    check_hash(&buf, 2914773945184235903);
-    save_screenshot("target/scene.ppm", &mut buf);
+    check_hash(buf, 2914773945184235903);
+    //save_screenshot("target/scene.ppm", &mut buf);
     eprintln!("Stats/s: {}\n", rdr.stats.avg_per_sec());
 }
 
