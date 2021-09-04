@@ -4,6 +4,7 @@ use math::Linear;
 pub struct Varying<T> {
     pub val: T,
     pub step: T,
+    pub steps: u32,
 }
 
 #[derive(Clone, Debug)]
@@ -45,14 +46,14 @@ impl<T> Varying<T>
     where T: Linear<f32> + Copy
 {
     pub fn from(val: T, step: T) -> Self {
-        Self { val, step }
+        Self { val, step, steps: u32::MAX }
     }
 
     pub fn between(a: T, b: T, steps: f32) -> Self {
         // TODO Should think about this some more
         // debug_assert_ne!(steps, 0.0, "Steps cannot be zero");
         let step = b.sub(a).mul(1.0 / steps);
-        Self { val: a, step }
+        Self { val: a, step, steps: steps as u32 + 1 }
     }
 }
 
@@ -62,9 +63,14 @@ impl<T> Iterator for Varying<T>
     type Item = T;
 
     fn next(&mut self) -> Option<T> {
-        let res = self.val;
-        self.val = self.val.add(self.step);
-        Some(res)
+        if self.steps == 0 {
+            None
+        } else {
+            self.steps -= 1;
+            let res = self.val;
+            self.val = self.val.add(self.step);
+            Some(res)
+        }
     }
 }
 

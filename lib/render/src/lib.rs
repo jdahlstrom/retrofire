@@ -184,7 +184,7 @@ pub trait Render<U, VI, FI=VI> {
 
 impl<VI, U> Render<U, VI> for Mesh<VI, U>
 where
-    VI: Linear<f32> + Copy,
+    VI: Linear<f32> + Copy + 'static,
     U: Copy,
 {
     fn render<S, R>(&self, rdr: &mut Renderer, shader: &mut S, raster: &mut R)
@@ -227,16 +227,11 @@ where
 
                 for Face { verts: [a, b, c], attr, .. } in mesh.faces() {
                     let verts = [with_depth(a), with_depth(b), with_depth(c)];
-                    tri_fill(verts, |sc| {
-
-                        raster.rasterize(Scanline {
-                            y: sc.y,
-                            xs: sc.xs,
-                            vs: sc.vs,
-                        }, |f: Fragment<(f32, VI)>| {
+                    for sc in tri_fill(verts) {
+                        raster.rasterize(sc, |f: Fragment<(f32, VI)>| {
                             shader.shade_fragment(f.varying(f.varying.1).uniform(attr))
                         });
-                    });
+                    }
                 }
             }
 

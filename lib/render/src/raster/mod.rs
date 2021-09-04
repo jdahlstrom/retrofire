@@ -1,5 +1,3 @@
-mod tex;
-
 use std::mem::swap;
 
 use geom::mesh::Vertex;
@@ -54,54 +52,55 @@ fn ysort<V>([a, b, c]: &mut [Vertex<V>; 3]) {
 }
 
 #[inline]
-fn half_tri<V, R>(
+fn half_tri<'a, V, E>(
     y: usize,
     y_end: usize,
-    left: &mut Varying<(f32, V)>,
-    right: &mut Varying<(f32, V)>,
-    raster: &mut R,
-) -> usize
+    edges: E,
+) -> impl Iterator<Item = Scanline<Varying<V>>> + 'a
 where
-    V: Linear<f32> + Copy,
-    R: FnMut(Scanline<Varying<V>>)
+    V: Linear<f32> + Copy + 'a,
+    E: Iterator<Item=((f32, V), (f32, V))> + 'a,
 {
-    for (y, (left, right)) in (y..y_end).zip(left.zip(right)) {
-        let vs = Varying::between(left.1, right.1, right.0 - left.0);
-
-        let x_left = left.0.round() as usize;
-        let x_right = right.0.round() as usize;
-
-        raster(Scanline { y, xs: (x_left, x_right), vs });
-    }
-    y_end
+    (y..=y_end).zip(edges)
+        .map(|(y, (left, right))| {
+            let vs = Varying::between(left.1, right.1, right.0 - left.0);
+            let x_left = left.0.round() as usize;
+            let x_right = right.0.round() as usize;
+            Scanline { y, xs: (x_left, x_right), vs }
+        })
 }
 
-pub fn tri_fill<V, R>(mut verts: [Vertex<V>; 3], mut raster: R)
+
+pub fn tri_fill<V>(mut verts: [Vertex<V>; 3])
+    -> impl Iterator<Item = Scanline<Varying<V>>>
 where
-    V: Linear<f32> + Copy,
-    R: FnMut(Scanline<Varying<V>>),
+    V: Linear<f32> + Copy + 'static
 {
     ysort(&mut verts);
 
-    let y = verts[0].coord.y.round() as usize;
-
     let [a, b, c] = verts;
+
+    let y = a.coord.y.round() as usize;
 
     let (ay, av) = (a.coord.y, (a.coord.x, a.attr));
     let (by, bv) = (b.coord.y, (b.coord.x, b.attr));
     let (cy, cv) = (c.coord.y, (c.coord.x, c.attr));
 
-    let ab = &mut Varying::between(av, bv, by - ay);
-    let ac = &mut Varying::between(av, cv, cy - ay);
-    let bc = &mut Varying::between(bv, cv, cy - by);
+    let ab = Varying::between(av, bv, by - ay);
+    let ac = Varying::between(av, cv, cy - ay);
+    let bc = Varying::between(bv, cv, cy - by);
 
-    if ab.step.0 < ac.step.0 {
-        let y = half_tri(y, by.round() as usize, ab, ac, &mut raster);
-        half_tri(y, cy.round() as usize, bc, ac, &mut raster);
+    let cy = cy.floor() as usize;
+
+    //half_tri(y, cy, ab.chain(bc).zip(ac.chain(Varying::between(cv, cv, 1.0))))
+
+    let edges = if ab.step.0 < ac.step.0 {
+        ab.chain(bc).zip(ac.chain(Varying::between(cv, cv, 1.0)))
     } else {
-        let y = half_tri(y, by.round() as usize, ac, ab, &mut raster);
-        half_tri(y, cy.round() as usize, ac, bc, &mut raster);
-    }
+        ac.chain(Varying::between(cv, cv, 1.0)).zip(ab.chain(bc))
+    };
+
+    half_tri(y, cy, edges)
 }
 
 pub fn line<V, P>([mut a, mut b]: [Vertex<V>; 2], mut plot: P)
