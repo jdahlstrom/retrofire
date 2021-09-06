@@ -14,6 +14,7 @@ use crate::hsr::Visibility;
 use crate::raster::*;
 use crate::shade::{FragmentShader, Shader, ShaderImpl};
 use crate::vary::Varying;
+use std::ops::DerefMut;
 
 mod hsr;
 pub mod fx;
@@ -100,14 +101,21 @@ where
     }
 }
 
-pub struct Framebuf<'a> {
+pub struct Framebuf<'a, C>
+where
+    C: DerefMut<Target=[u8]>
+{
     // TODO Support other color buffer formats
-    pub color: Buffer<u8, &'a mut [u8]>,
+    pub color: Buffer<u8, C>,
     pub depth: &'a mut Buffer<f32>,
+    pub depth_test: bool,
+    pub depth_write: bool,
 }
 
-impl<'a> Rasterize for Framebuf<'a> {
-
+impl<'a, C> Rasterize for Framebuf<'a, C>
+where
+    C: DerefMut<Target=[u8]>
+{
     fn rasterize<V, Vs, S>(&mut self, sc: Scanline<(f32, V), Vs>, fs: S)
         -> usize
     where
@@ -121,14 +129,16 @@ impl<'a> Rasterize for Framebuf<'a> {
         for (i, (z, v)) in (y+left..=y+right).zip(sc.vs) {
             let ci = i << 2;
             let color = &mut self.color.data_mut()[ci..ci+4];
-            let depth = &mut self.depth.data_mut()[i];
-            if z < *depth {
+            let pass = !self.depth_test || z < self.depth.data()[i];
+            if pass {
                 if let Some(c) = fs.shade_fragment(Fragment {
                     coord: (0, y),
                     varying: (z, v),
                     uniform: ()
                 }) {
-                    *depth = z;
+                    if self.depth_write {
+                        self.depth.data_mut()[i] = z;
+                    }
                     color[0] = c.b();
                     color[1] = c.g();
                     color[2] = c.r();

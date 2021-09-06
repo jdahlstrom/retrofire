@@ -45,7 +45,7 @@ impl Default for Options {
 }
 
 pub struct Frame<'a> {
-    pub buf: Framebuf<'a>,
+    pub buf: Framebuf<'a, &'a mut [u8]>,
     pub delta_t: f32,
     pub events: Vec<Event>,
     pub pressed_keys: Vec<Scancode>,
@@ -130,6 +130,8 @@ impl SdlRunner {
                 buf: Framebuf {
                     color: Buffer::borrow(w, surf.without_lock_mut().unwrap()),
                     depth: zbuf,
+                    depth_test: true,
+                    depth_write: true
                 },
                 delta_t,
                 events,
