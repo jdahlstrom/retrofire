@@ -8,10 +8,10 @@ use sdl2::rect::Rect;
 use sdl2::video::Window;
 
 use render::{Framebuf, Stats};
-use Run::*;
 use util::Buffer;
 use util::color::{Color, rgb};
 use util::io::save_ppm;
+use std::ops::ControlFlow::{self, *};
 
 pub struct SdlRunner {
     #[allow(unused)]
@@ -58,9 +58,6 @@ impl<'a> ColorBuf<'a> {
     }
 }
 
-#[derive(Eq, PartialEq)]
-pub enum Run { Continue, Quit }
-
 impl SdlRunner {
     pub fn new(win_w: u32, win_h: u32) -> Result<SdlRunner, String> {
         let sdl = sdl2::init()?;
@@ -81,7 +78,7 @@ impl SdlRunner {
     }
 
     pub fn run<F>(&mut self, mut frame_fn: F) -> Result<(), String>
-        where F: FnMut(Frame) -> Result<Run, String>
+        where F: FnMut(Frame) -> ControlFlow<Result<(), String>>
     {
         let mut clock = Instant::now();
         loop {
@@ -90,7 +87,7 @@ impl SdlRunner {
             let pressed_keys = self.event_pump.keyboard_state()
                 .pressed_scancodes().collect();
 
-            if events.iter().any(Self::is_quit) {
+            if events.iter().any(is_quit) {
                 return Ok(());
             }
 
@@ -115,18 +112,18 @@ impl SdlRunner {
                 pressed_keys,
             };
 
-            let res = frame_fn(frame)?;
+            let res = frame_fn(frame);
             surf.update_window()?;
 
-            if res == Quit {
-                return Ok(());
+            if let Break(res) = res {
+                return res;
             }
         }
     }
 
     #[allow(unused)]
     pub fn pause(&mut self) {
-        self.event_pump.wait_iter().find(Self::is_quit);
+        self.event_pump.wait_iter().find(is_quit);
     }
 
     pub fn print_stats(self, stats: Stats) {
@@ -143,9 +140,9 @@ impl SdlRunner {
         println!(" Elapsed time  │ {:.2}s", elapsed);
         println!(" Average fps   │ {:.2}\n", frames as f32 / elapsed);
     }
+}
 
-    fn is_quit(e: &Event) -> bool {
-        matches!(e, Event::Quit { .. }
+fn is_quit(e: &Event) -> bool {
+    matches!(e, Event::Quit { .. }
            | Event::KeyDown { keycode: Some(Keycode::Escape), .. })
-    }
 }
