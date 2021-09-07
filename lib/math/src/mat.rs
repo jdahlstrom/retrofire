@@ -17,12 +17,20 @@ impl Mat4 {
         ])
     }
 
-    pub fn from_rows([a, b, c, d]: [Vec4; 4]) -> Self {
-        Self([a.into(), b.into(), c.into(), d.into()])
+    pub fn from_rows(rows: [Vec4; 4]) -> Self {
+        Self(rows.map(Vec4::into))
     }
 
     pub fn from_cols(cols: [Vec4; 4]) -> Self {
         Self::from_rows(cols).transpose()
+    }
+
+    pub fn rows(&self) -> [Vec4; 4] {
+        self.0.map(Vec4::from)
+    }
+
+    pub fn cols(&self) -> [Vec4; 4] {
+        [0, 1, 2, 3].map(|i| self.col(i))
     }
 
     pub fn row(&self, idx: usize) -> Vec4 {
@@ -30,7 +38,7 @@ impl Mat4 {
     }
 
     pub fn col(&self, idx: usize) -> Vec4 {
-        vec4(self.0[0][idx], self.0[1][idx], self.0[2][idx], self.0[3][idx])
+        self.0.map(|row| row[idx]).into()
     }
 
     pub fn determinant(&self) -> f32 {
@@ -49,7 +57,7 @@ impl Mat4 {
     }
 
     pub fn transpose(&self) -> Mat4 {
-        Mat4::from_rows([self.col(0), self.col(1), self.col(2), self.col(3)])
+        Mat4::from_rows(self.cols())
     }
 
     fn sub_row(&mut self, from: usize, to: usize, mul: f32) {
@@ -128,9 +136,9 @@ impl Mul<&Mat4> for &Mat4 {
     fn mul(self, rhs: &Mat4) -> Mat4 {
         let mut res = Mat4::identity();
 
-        for r in 0..4usize {
+        for r in 0..4 {
             let row = self.row(r);
-            for c in 0..4usize {
+            for c in 0..4 {
                 res.0[r][c] = row.dot(rhs.col(c));
             }
         }
@@ -170,10 +178,7 @@ impl Mul<Vec4> for &Mat4 {
     type Output = Vec4;
 
     fn mul(self, rhs: Vec4) -> Vec4 {
-        vec4(self.col(0).dot(rhs),
-             self.col(1).dot(rhs),
-             self.col(2).dot(rhs),
-             self.col(3).dot(rhs))
+        self.cols().map(|c| c.dot(rhs)).into()
     }
 }
 
@@ -187,17 +192,19 @@ impl ApproxEq for &Mat4 {
     type Scalar = f32;
 
     fn approx_eq(self, rhs: Self) -> bool {
-        (0..4)
-            .map(|i| (self.row(i), rhs.row(i)))
-            .map(|(s, r)| s.approx_eq_eps(r, self.epsilon()))
-            .all(|b| b)
+        self.rows().iter()
+            .zip(&rhs.rows())
+            .all(|(s, r)| s.approx_eq_eps(*r, self.epsilon()))
     }
     fn epsilon(self) -> f32 {
         1e-3 // TODO
     }
     fn abs_diff(self, rhs: Self) -> f32 {
-        (0..4).map(|i| self.row(i).abs_diff(rhs.row(i)))
-            .max_by(total_ord_f32).unwrap()
+        self.rows().iter()
+            .zip(&rhs.rows())
+            .map(|(s, r)| s.abs_diff(*r))
+            .max_by(total_ord_f32)
+            .unwrap()
     }
 }
 

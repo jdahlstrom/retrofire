@@ -1,5 +1,3 @@
-use std::array::IntoIter;
-
 use math::{Angle, Angle::*, ApproxEq, lerp, vec::*};
 
 use crate::mesh::{Builder, Mesh};
@@ -32,9 +30,7 @@ pub fn unit_cube() -> Builder {
         // back
         [0b001, 0b111, 0b011], [0b001, 0b101, 0b111],
     ];
-    Mesh::builder()
-        .verts(VERTS.iter().copied())
-        .faces(FACES.iter().copied())
+    Mesh::builder().verts(VERTS).faces(FACES)
 }
 
 pub fn unit_octahedron() -> Builder {
@@ -50,9 +46,7 @@ pub fn unit_octahedron() -> Builder {
         [0, 2, 1], [0, 3, 2], [0, 4, 3], [0, 1, 4],
         [5, 1, 2], [5, 2, 3], [5, 3, 4], [5, 4, 1],
     ];
-    Mesh::builder()
-        .verts(VERTS.iter().copied())
-        .faces(FACES.iter().copied())
+    Mesh::builder().verts(VERTS).faces(FACES)
 }
 
 pub fn unit_sphere(parallels: usize, meridians: usize) -> Builder {
@@ -106,7 +100,7 @@ pub fn torus(minor_r: f32, pars: usize, mers: usize) -> Builder {
 pub fn unit_cone(minor_r: f32, sectors: usize) -> Builder {
 
     // Body
-    let pts = IntoIter::new([pt(1.0, -1.0, 0.0), pt(minor_r, 1.0, 0.0)]);
+    let pts = [pt(1.0, -1.0, 0.0), pt(minor_r, 1.0, 0.0)];
     let mut bld = sor(pts, sectors);
 
     let azimuths = (1..sectors).map(|sec| Tau(sec as f32 / sectors as f32));
@@ -190,18 +184,20 @@ pub fn sor(pts: impl IntoIterator<Item=Vec4>, sectors: usize) -> Builder {
 pub fn teapot() -> Builder<Vec4, ()> {
     use crate::teapot::*;
 
-    let make_faces = |&[a, b, c, d]: &[[i32; 3]; 4]| {
-        let mut vec = vec![[a[0] as usize - 1, b[0] as usize - 1, c[0] as usize - 1]];
+    let make_faces = |&[abc @ .., d]: &[[i32; 3]; 4]| {
+        let [a, b, c] = abc.map(|x| x[0] as usize - 1);
+        let mut vec = vec![[a, b, c]];
         if d[0] != -1 {
-            vec.push([c[0] as usize - 1, d[0] as usize - 1, a[0] as usize - 1]);
+            let d = d[0] as usize - 1;
+            vec.push([c, d, a]);
         }
         vec
     };
 
     Mesh::builder()
-        .verts(VERTICES.iter().map(|&[x, y, z]| pt(x, y, z)))
+        .verts(VERTICES.map(|[x, y, z]| pt(x, y, z)))
         .faces(FACES.iter().flat_map(make_faces))
-        .vertex_attrs(VERTEX_NORMALS.iter().map(|&[x, y, z]| dir(x, y, z)))
+        .vertex_attrs(VERTEX_NORMALS.map(|[x, y, z]| dir(x, y, z)))
 }
 
 #[cfg(test)]

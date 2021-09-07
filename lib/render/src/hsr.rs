@@ -36,10 +36,8 @@ where
             continue;
         }
 
-        let [a, b, c] = face.indices;
-        let masks = [clip_masks[a], clip_masks[b], clip_masks[c]];
-
-        match visibility(masks.iter().copied()) {
+        let masks = face.indices.map(|i| clip_masks[i]);
+        match visibility(masks) {
             Hidden => {
                 continue
             },
@@ -184,8 +182,8 @@ fn edges<T>(ts: &[T]) -> impl Iterator<Item=(&T, &T)> {
     (0..ts.len()).map(move |i| (&ts[i], &ts[(i + 1) % ts.len()]))
 }
 
-pub fn frontface<A>(verts: &[Vertex<A>; 3]) -> bool {
-    let (a, b, c) = (verts[0].coord, verts[1].coord, verts[2].coord);
+pub fn frontface<A: Copy>(verts: &[Vertex<A>; 3]) -> bool {
+    let [a, b, c] = verts.map(|v| v.coord);
     debug_assert!(a.w != 0.0 && b.w != 0.0 && c.w != 0.0, "{:?}", (a,b,c));
 
     // Compute z component of faces's normal in screen space
@@ -290,7 +288,7 @@ mod tests {
             vertex_mask(&b),
             vertex_mask(&c)
         ];
-        assert_eq!(vis, visibility(masks.iter().copied()), "verts: {:?}", verts)
+        assert_eq!(vis, visibility(masks), "verts: {:?}", verts)
     }
 
     #[test]
