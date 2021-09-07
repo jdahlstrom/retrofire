@@ -200,10 +200,9 @@ impl<VA: Copy, FA: Copy> Mesh<VA, FA> {
     pub fn faces(&self) -> impl Iterator<Item=Face<VA, FA>> + '_ {
         self.faces.iter().zip(&self.face_attrs)
             .map(move |(&indices, &attr)| {
-                let [a, b, c] = indices;
                 Face {
                     indices,
-                    verts: [self.vertex(a), self.vertex(b), self.vertex(c)],
+                    verts: indices.map(|i| self.vertex(i)),
                     attr,
                 }
             })
@@ -266,9 +265,9 @@ impl<VA: Copy, FA: Copy> Mesh<VA, FA> {
         let mut vert_ns = vec![ZERO; self.verts.len()];
 
         for (&[a, b, c], &n) in self.faces.iter().zip(&face_ns) {
-            vert_ns[a] = vert_ns[a] + n;
-            vert_ns[b] = vert_ns[b] + n;
-            vert_ns[c] = vert_ns[c] + n;
+            vert_ns[a] += n;
+            vert_ns[b] += n;
+            vert_ns[c] += n;
         }
 
         Mesh::builder()

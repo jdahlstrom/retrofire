@@ -1,4 +1,3 @@
-use std::array::IntoIter;
 use std::iter::FromIterator;
 
 use math::mat::Mat4;
@@ -86,7 +85,8 @@ impl<VA: Copy, FA> Sprite<VA, FA> {
             Align::BottomCenter => (0.5, 0.0),
             Align::BottomRight => (1.0, 0.0),
         };
-        IntoIter::new([(x - 1.0, y), (x, y), (x, y - 1.0), (x - 1.0, y - 1.0)])
+        [(x - 1.0, y), (x, y), (x, y - 1.0), (x - 1.0, y - 1.0)]
+            .into_iter()
             .zip(&self.vertex_attrs)
             .map(move |((x, y), &attr)| {
                 let coord = self.anchor + dir(x * self.width, y * self.height, 0.0);

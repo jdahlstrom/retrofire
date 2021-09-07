@@ -1,3 +1,6 @@
+use std::convert::identity;
+use std::ops::ControlFlow::*;
+
 use sdl2::keyboard::Scancode;
 
 use geom::solids::teapot;
@@ -11,7 +14,6 @@ use render::scene::{Obj, Scene};
 use render::shade::*;
 use runner::*;
 use util::color::Color;
-use std::convert::identity;
 
 mod runner;
 
@@ -22,9 +24,8 @@ fn main() {
 
     let bld = teapot();
 
-    let vattrs = bld.mesh.verts.iter().copied()
-        .zip(bld.mesh.vertex_attrs.iter().copied())
-        .collect::<Vec<_>>();
+    let vattrs = bld.mesh.verts.iter()
+        .zip(bld.mesh.vertex_attrs);
 
     let mesh = bld.vertex_attrs(vattrs).build();
 
@@ -96,7 +97,7 @@ fn main() {
         theta = theta + Rad(delta_t);
         rdr.stats.frames += 1;
 
-        Ok(Run::Continue)
+        Continue(())
     }).unwrap();
 
     runner.print_stats(rdr.stats);

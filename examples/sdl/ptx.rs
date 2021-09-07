@@ -1,4 +1,5 @@
 use std::cell::RefCell;
+use std::ops::ControlFlow::*;
 
 use sdl2::keyboard::Scancode;
 
@@ -155,7 +156,7 @@ fn main() {
             }
 
             rdr.stats.frames += 1;
-            Ok(Run::Continue)
+            Continue(())
         })
         .unwrap();
 
