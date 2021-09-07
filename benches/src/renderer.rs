@@ -115,7 +115,7 @@ fn gouraud_fillrate(c: &mut Criterion) {
     let mut rdr = renderer();
     rdr.modelview = scale(2.0) * &translate(6.0 * Z);
     let mesh = solids::unit_cube()
-        .vertex_attrs([RED, GREEN, BLUE].iter().copied().cycle())
+        .vertex_attrs([RED, GREEN, BLUE].into_iter().cycle())
         .build();
 
     let mut buf = [BLACK; W * W];

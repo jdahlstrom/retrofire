@@ -21,6 +21,7 @@ use crate::runner::*;
 use util::color::{WHITE, BLACK};
 use util::Buffer;
 use core::iter;
+use std::ops::ControlFlow::*;
 
 mod runner;
 
@@ -154,7 +155,9 @@ fn main() {
                     D => cam_move.x += 3.0,
                     A => cam_move.x -= 3.0,
 
-                    P => frame.screenshot("screenshot.ppm")?,
+                    P => if let e @ Err(_) = frame.screenshot("screenshot.ppm") {
+                        return Break(e)
+                    }
 
                     _ => {}
                 }
@@ -183,7 +186,7 @@ fn main() {
 
         rdr.stats.frames += 1;
 
-        Ok(Run::Continue)
+        Continue(())
     }).unwrap();
 
     runner.print_stats(rdr.stats);

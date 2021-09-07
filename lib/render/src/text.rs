@@ -1,6 +1,6 @@
 use std::mem::replace;
 
-use geom::{Sprite, Align};
+use geom::{Align, Sprite};
 use math::mat::Mat4;
 use math::transform::Transform;
 use math::vec::pt;
@@ -101,8 +101,10 @@ impl<'a> Render<(), TexCoord, Color> for Text<'a> {
 
 #[cfg(test)]
 mod tests {
-    use math::transform::{orthogonal, translate, viewport};
-    use math::vec::dir;
+    use std::collections::hash_map::DefaultHasher;
+    use std::hash::{Hash, Hasher};
+
+    use math::transform::{orthogonal, viewport};
     use util::color::{BLACK, Color};
     use util::io::load_pnm;
 
@@ -110,9 +112,6 @@ mod tests {
     use crate::raster::Fragment;
 
     use super::*;
-    use std::collections::hash_map::DefaultHasher;
-    use std::hash::{Hash, Hasher};
-    use std::convert::identity;
 
     #[test]
     fn render_text() {

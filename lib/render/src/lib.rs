@@ -159,8 +159,8 @@ where
 
                 mesh.verts.transform(&rdr.viewport);
 
-                for Face { verts: [a, b, c], attr, .. } in mesh.faces() {
-                    let verts = [with_depth(a), with_depth(b), with_depth(c)];
+                for Face { verts, attr, .. } in mesh.faces() {
+                    let verts = verts.map(with_depth);
                     tri_fill(verts, |frag| {
                         if self.rasterize(shader, raster, frag.uniform(attr)) {
                             rdr.stats.pixels += 1;
@@ -380,8 +380,8 @@ fn depth_sort<VA: Copy, FA: Copy>(mesh: &mut Mesh<VA, FA>) {
         let mut faces = mesh.faces().collect::<Vec<_>>();
 
         faces.sort_unstable_by(|a, b| {
-            let az: f32 = a.verts.iter().map(|&v| v.coord.z).sum();
-            let bz: f32 = b.verts.iter().map(|&v| v.coord.z).sum();
+            let az: f32 = a.verts.iter().map(|v| v.coord.z).sum();
+            let bz: f32 = b.verts.iter().map(|v| v.coord.z).sum();
             bz.partial_cmp(&az).unwrap()
         });
 
