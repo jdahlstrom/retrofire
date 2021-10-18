@@ -9,7 +9,6 @@ license = "MIT OR Apache-2.0"
 members = ["lib/*"]
 
 [features]
-sdl = ["sdl2"]
 ncurses = ["pancurses"]
 teapot = ["geom/teapot"]
 
@@ -29,6 +28,7 @@ math = { path = "./lib/math" }
 geom = { path = "./lib/geom" }
 render = { path = "./lib/render" }
 util = { path = "./lib/util" }
+front = { path = "./lib/front", features = ["sdl2"] }
 
 [[example]]
 name = "cursed-tri"
@@ -43,19 +43,19 @@ required-features = ["ncurses"]
 [[example]]
 name = "sdl-tri"
 path = "examples/sdl/triangle.rs"
-required-features = ["sdl"]
+required-features = ["sdl2"]
 
 [[example]]
 name = "teapot"
 path = "examples/sdl/teapot.rs"
-required-features = ["sdl", "teapot"]
+required-features = ["sdl2", "teapot"]
 
 [[example]]
 name = "checkers"
 path = "examples/sdl/checkers.rs"
-required-features = ["sdl"]
+required-features = ["sdl2"]
 
 [[example]]
 name = "ptx"
 path = "examples/sdl/ptx.rs"
-required-features = ["sdl"]
+required-features = ["sdl2"]

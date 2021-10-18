@@ -1,0 +1,11 @@
+[package]
+name = "front"
+version = "0.1.0"
+authors = ["Johannes Dahlström <johannes.dahlstrom@gmail.com>"]
+edition = "2021"
+
+[dependencies]
+pancurses = { version = "0.16", optional = true }
+sdl2 = { version = "0.34", optional = true, features = ["unsafe_textures"] }
+render = { path = "../../lib/render" }
+util = { path = "../../lib/util" }
