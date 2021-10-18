@@ -12,22 +12,21 @@ use render::*;
 use render::raster::*;
 use render::scene::{Obj, Scene};
 use render::shade::*;
-use runner::*;
 use util::color::Color;
-
-mod runner;
+use front::sdl::*;
 
 fn main() {
     let w = 800;
     let h = 600;
     let margin = 50;
 
-    let bld = teapot();
+    let teapot = teapot();
 
-    let vattrs = bld.mesh.verts.iter()
-        .zip(bld.mesh.vertex_attrs);
+    let vattrs: Vec<_> = teapot.mesh.verts.iter().copied()
+        .zip(teapot.mesh.vertex_attrs.iter().copied())
+        .collect();
 
-    let mesh = bld.vertex_attrs(vattrs).build();
+    let mesh = teapot.vertex_attrs(vattrs).build();
 
     let model_tf = rotate_x(Deg(-90.0)) * translate(-5.0 * Y);
 

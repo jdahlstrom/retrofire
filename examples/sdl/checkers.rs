@@ -1,8 +1,11 @@
+use std::iter;
 use std::convert::identity;
+use std::ops::ControlFlow::*;
 
 use sdl2::event::Event;
 use sdl2::keyboard::Scancode;
 
+use front::sdl::*;
 use geom::mesh::Mesh;
 use geom::solids::unit_cube;
 use math::Angle::{self, Deg};
@@ -15,15 +18,9 @@ use render::scene::*;
 use render::shade::ShaderImpl;
 use render::tex::*;
 use render::text::{Font, Text};
-use util::io::load_pnm;
-
-use crate::runner::*;
-use util::color::{WHITE, BLACK};
 use util::Buffer;
-use core::iter;
-use std::ops::ControlFlow::*;
-
-mod runner;
+use util::color::{BLACK, WHITE};
+use util::io::load_pnm;
 
 fn checkers() -> Mesh<TexCoord, usize> {
     let size: usize = 40;

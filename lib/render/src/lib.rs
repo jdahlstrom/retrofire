@@ -356,6 +356,7 @@ impl Renderer {
 
     // FIXME Ensure correct stats in Render impls, then delete this method
     #[deprecated]
+    #[allow(unused)]
     fn render<VA, FA>(
         &mut self,
         _: &Mesh<VA, FA>,
