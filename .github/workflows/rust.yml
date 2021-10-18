@@ -16,6 +16,8 @@ jobs:
 
     steps:
     - uses: actions/checkout@v2
+    - name: Install libsdl
+      run: sudo apt-get -y install libsdl2-dev
     - name: Check
       run: cargo check --workspace --verbose --all-targets --all-features
     - name: Build

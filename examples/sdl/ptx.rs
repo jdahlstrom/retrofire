@@ -3,7 +3,8 @@ use std::ops::ControlFlow::*;
 
 use sdl2::keyboard::Scancode;
 
-use geom::{mesh::Mesh, Sprite, Align};
+use front::sdl::SdlRunner;
+use geom::{Align, mesh::Mesh, Sprite};
 use math::{
     Angle::*,
     rand::{Distrib, Random, Uniform},
@@ -21,10 +22,6 @@ use render::{
 };
 use render::shade::ShaderImpl;
 use util::color::*;
-
-use crate::runner::*;
-
-mod runner;
 
 type VA = TexCoord;
 type FA = usize;
