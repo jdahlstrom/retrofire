@@ -1,5 +1,5 @@
-use std::iter;
 use std::convert::identity;
+use std::iter;
 use std::ops::ControlFlow::*;
 
 use sdl2::event::Event;
@@ -9,7 +9,6 @@ use front::sdl::*;
 use geom::mesh::Mesh;
 use geom::solids::unit_cube;
 use math::Angle::{self, Deg};
-use math::mat::Mat4;
 use math::transform::*;
 use math::vec::*;
 use render::*;
@@ -22,40 +21,43 @@ use util::Buffer;
 use util::color::{BLACK, WHITE};
 use util::io::load_pnm;
 
+fn coords<T: Copy>(r: impl Iterator<Item=T> + Clone)
+    -> impl Iterator<Item=(T, T)>
+{
+    r.clone().flat_map(move |j| r.clone().map(move |i| (i, j)))
+}
+
 fn checkers() -> Mesh<TexCoord, usize> {
     let size: usize = 40;
-    let isize = size as i32;
+    let isize = size as isize;
 
-    let mut vs = vec![];
-    let mut texcoords = vec![];
-    for j in -isize..=isize {
-        for i in -isize..=isize {
-            vs.push(pt(i as f32, 0.0, j as f32));
-            texcoords.push(uv(i as f32, j as f32));
-        }
-    }
-    let mut fs = vec![];
-    for j in 0..2 * size {
-        for i in 0..2 * size {
-            let w = 2 * size + 1;
-            fs.push([w * j + i, w * (j + 1) + i + 1, w * j + i + 1]);
-            fs.push([w * j + i, w * (j + 1) + i, w * (j + 1) + i + 1]);
-        }
-    }
-    Mesh::builder().verts(vs.clone()).faces(fs)
-        .vertex_attrs(texcoords)
+    let vs = coords(-isize..=isize)
+        .map(|(i, j)| pt(i as f32, 0.0, j as f32));
+
+    let tcs = coords(-isize..=isize)
+        .map(|(i, j)| uv(i as f32, j as f32));
+
+    let fs = coords(0..2 * size)
+        .flat_map(|(i, j)| {
+            let w = (2 * size + 1) as usize;
+            let a = (w * j + i) as usize;
+            [[a, a + w + 1, a + 1], [a, a + w, a + w + 1]]
+        });
+
+    Mesh::builder().verts(vs).faces(fs)
+        .vertex_attrs(tcs)
         .face_attrs(iter::repeat(1))
         .build()
         .validate().unwrap()
 }
 
 
-fn crates() -> Vec<Obj<Mesh<TexCoord, usize>>> {
+fn objects() -> Vec<Obj<Mesh<TexCoord, usize>>> {
     let mut objects = vec![];
     objects.push(Obj { tf: translate(-Y), geom: checkers() });
 
-    for j in -10..=10 {
-        for i in -10..=10 {
+    let crates = coords(-10..=10)
+        .map(|(i, j)| {
             let geom = unit_cube()
                 // Texcoords
                 .vertex_attrs([
@@ -65,9 +67,9 @@ fn crates() -> Vec<Obj<Mesh<TexCoord, usize>>> {
                 .face_attrs(iter::repeat(0))
                 .build();
             let tf = translate(dir(4. * i as f32, 0., 4. * j as f32));
-            objects.push(Obj { tf, geom });
-        }
-    }
+            Obj { tf, geom }
+        });
+    objects.extend(crates);
     objects
 }
 
@@ -77,26 +79,25 @@ fn main() {
     let w = 800.0;
     let h = 600.0;
 
-    let camera = Mat4::identity();
-
-    let mut objects = crates();
-    objects.push(Obj { tf: Mat4::identity(), geom: checkers() });
-
-    let mut scene = Scene { objects, camera };
+    let mut runner = SdlRunner::new(w as u32, h as u32).unwrap();
 
     let mut rdr = Renderer::new();
     rdr.options.perspective_correct = true;
     rdr.projection = perspective(0.1, 50., w / h, Deg(90.0));
     rdr.viewport = viewport(margin, h - margin, w - margin, margin);
 
+
+    let mut cam = FpsCamera::new(pt(0.0, 0.0, -2.5), Angle::ZERO);
+
+    let mut scene = Scene {
+        objects: objects(),
+        camera: cam.world_to_view(),
+    };
+
     let tex = [
         Texture::from(load_pnm("examples/sdl/crate.ppm").unwrap()),
         Texture::from(Buffer::from_vec(2, vec![BLACK, WHITE, WHITE, BLACK])),
     ];
-
-    let mut runner = SdlRunner::new(w as u32, h as u32).unwrap();
-
-    let mut cam = FpsCamera::new(pt(0.0, 0.0, -2.5), Angle::ZERO);
 
     let shader = &mut ShaderImpl {
         vs: identity,
@@ -137,7 +138,7 @@ fn main() {
             &mut hud,
             &mut ShaderImpl {
                 vs: identity,
-                fs: |frag: Fragment<_>| (frag.varying == WHITE).then(|| WHITE),
+                fs: |frag: Fragment<_>| Some(frag.varying)
             },
             &mut frame.buf
         );
