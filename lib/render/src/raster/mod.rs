@@ -5,8 +5,10 @@ use math::Linear;
 
 use crate::vary::{Bresenham, Varying};
 
+pub mod fill;
 pub mod flat;
 pub mod gouraud;
+pub mod tex;
 
 #[derive(Copy, Clone, Debug)]
 pub struct Fragment<V, U = ()> {

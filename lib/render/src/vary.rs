@@ -6,6 +6,34 @@ pub struct Varying<T> {
     pub step: T,
 }
 
+impl<T> Varying<T>
+where T: Linear<f32> + Copy
+{
+    pub fn from(val: T, step: T) -> Self {
+        Self { val, step }
+    }
+
+    pub fn between(a: T, b: T, steps: f32) -> Self {
+        // TODO Should think about this some more
+        // debug_assert_ne!(steps, 0.0, "Steps cannot be zero");
+        let step = b.sub(a).mul(1.0 / steps);
+        Self { val: a, step }
+    }
+}
+
+impl<T> Iterator for Varying<T>
+where T: Linear<f32> + Copy
+{
+    type Item = T;
+
+    #[inline]
+    fn next(&mut self) -> Option<T> {
+        let res = self.val;
+        self.val = self.val.add(self.step);
+        Some(res)
+    }
+}
+
 #[derive(Clone, Debug)]
 pub struct Bresenham {
     val: usize,
@@ -29,41 +57,13 @@ impl Iterator for Bresenham {
     type Item = usize;
 
     fn next(&mut self) -> Option<Self::Item> {
-        let res = self.val;
-        let (num, den) = self.ratio;
-        let step = num.signum() as usize;
-        self.err += num.unsigned_abs();
-        if self.err >= den {
-            self.val = self.val.wrapping_add(step);
-            self.err -= den;
+        let Self { val, err, ratio: (num, den) } = self;
+        let res = *val;
+        *err += num.unsigned_abs();
+        if *err >= *den {
+            *val = val.wrapping_add(num.signum() as usize);
+            *err -= *den;
         }
-        Some(res)
-    }
-}
-
-impl<T> Varying<T>
-    where T: Linear<f32> + Copy
-{
-    pub fn from(val: T, step: T) -> Self {
-        Self { val, step }
-    }
-
-    pub fn between(a: T, b: T, steps: f32) -> Self {
-        // TODO Should think about this some more
-        // debug_assert_ne!(steps, 0.0, "Steps cannot be zero");
-        let step = b.sub(a).mul(1.0 / steps);
-        Self { val: a, step }
-    }
-}
-
-impl<T> Iterator for Varying<T>
-    where T: Linear<f32> + Copy
-{
-    type Item = T;
-
-    fn next(&mut self) -> Option<T> {
-        let res = self.val;
-        self.val = self.val.add(self.step);
         Some(res)
     }
 }

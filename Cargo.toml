@@ -46,6 +46,11 @@ path = "examples/sdl/triangle.rs"
 required-features = ["sdl2"]
 
 [[example]]
+name = "tex-tri"
+path = "examples/sdl/tex_triangle.rs"
+required-features = ["sdl2"]
+
+[[example]]
 name = "teapot"
 path = "examples/sdl/teapot.rs"
 required-features = ["sdl2", "teapot"]

@@ -2,6 +2,7 @@ use math::Linear;
 use math::vec::Vec4;
 use std::ops::Mul;
 
+#[repr(transparent)]
 #[derive(Copy, Clone, Debug, Default, Eq, PartialEq, Hash)]
 pub struct Color(pub u32);
 

@@ -1,14 +1,60 @@
 use geom::mesh::Vertex;
 
-use crate::raster::Scanline;
+use crate::Scanline;
+use crate::Varying;
 
-pub type Fragment = super::Fragment<()>;
+#[inline]
+fn half_tri(
+    y: usize,
+    y_end: usize,
+    left: &mut Varying<f32>,
+    right: &mut Varying<f32>,
+    sc: &mut impl FnMut(Scanline<()>),
+) {
+    /*let width = 4 * fb.color.width();
+    let cb = fb.color.data_mut();
+    let [_, r, g, b] = col.to_argb();
 
-pub fn flat_fill(verts: [Vertex<()>; 3],
-                 sc: impl FnMut(Scanline<()>)) {
-    super::tri_fill(verts, sc)
+
+    let left = y + 4 * x_left as usize;
+    let right = y + 4 * x_right as usize;
+    let xline = &mut cb[left..right];
+
+    for pix in xline.chunks_exact_mut(4) {
+        pix[0] = b;
+        pix[1] = g;
+        pix[2] = r;
+    }*/
+
+    for y in y..y_end {
+
+        let xs = left.next().unwrap() as usize..right.next().unwrap() as usize;
+
+        sc(Scanline { y, xs, vs: ()..() });
+    }
 }
 
+pub fn flat_fill(mut verts: [Vertex<()>; 3],
+                 ref mut sc: impl FnMut(Scanline<()>)) {
+    super::ysort(&mut verts);
+
+    let verts @ [(ax, ay), (bx, by), (cx, cy)]
+        = verts.map(|v| (v.coord.x, v.coord.y));
+
+    let ab = &mut Varying::between(ax, bx, by - ay);
+    let ac = &mut Varying::between(ax, cx, cy - ay);
+    let bc = &mut Varying::between(bx, cx, cy - by);
+
+    let [ay, by, cy] = verts.map(|v| v.1.round() as usize);
+
+    if ab.step < ac.step {
+        half_tri(ay, by, ab, ac, sc);
+        half_tri(ay, cy, bc, ac, sc);
+    } else {
+        half_tri(ay, by, ac, ab, sc);
+        half_tri(by, cy, ac, bc, sc);
+    }
+}
 
 #[cfg(test)]
 mod tests {
@@ -26,8 +72,8 @@ mod tests {
 
     #[test]
     fn test_flat_fill_zero() {
-        flat_fill([vert(0.0, 0.0), vert(0.0, 0.0), vert(0.0, 0.0)], |frag| {
-            assert!(false, "plot called for {:?}", frag)
+        flat_fill([vert(0.0, 0.0), vert(0.0, 0.0), vert(0.0, 0.0)], |x| {
+            assert!(false, "plot called for {:?}", x)
         });
     }
 
