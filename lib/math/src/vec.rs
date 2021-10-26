@@ -247,6 +247,13 @@ impl Linear<f32> for Vec4 {
     fn neg(self) -> Self {
         Neg::neg(self)
     }
+    #[inline]
+    fn w_div(self) -> Self {
+        let Self { x, y, z, w } = self;
+        debug_assert_ne!(w, 0.0);
+        let w = w.recip();
+        vec4(x * w, y * w, z * w, 1.0)
+    }
 }
 
 impl ApproxEq for Vec4 {

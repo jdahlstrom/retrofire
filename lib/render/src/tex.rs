@@ -1,5 +1,5 @@
-use util::Buffer;
 use math::Linear;
+use util::Buffer;
 use util::color::Color;
 
 #[derive(Copy, Clone, Debug, Default)]
@@ -24,28 +24,22 @@ impl TexCoord {
 
 impl Linear<f32> for TexCoord {
     #[inline]
-    fn add(self, other: Self) -> Self {
-        Self {
-            u: self.u + other.u,
-            v: self.v + other.v,
-            w: self.w + other.w,
-        }
+    fn add(self, Self { u, v, w }: Self) -> Self {
+        Self { u: self.u + u, v: self.v + v, w: self.w + w }
     }
     #[inline]
     fn mul(self, s: f32) -> Self {
-        Self {
-            u: s * self.u,
-            v: s * self.v,
-            w: s * self.w,
-        }
+        Self { u: s * self.u, v: s * self.v, w: s * self.w }
     }
     #[inline]
     fn neg(self) -> Self {
-        Self {
-            u: -self.u,
-            v: -self.v,
-            w: -self.w,
-        }
+        Self { u: -self.u, v: -self.v, w: -self.w }
+    }
+    #[inline]
+    fn w_div(self) -> Self {
+        debug_assert_ne!(self.w, 0.0);
+        let w = self.w.recip();
+        Self { u: self.u * w, v: self.v * w, w: 1.0 }
     }
 }
 
@@ -91,8 +85,8 @@ impl Texture {
     pub fn sample(&self, TexCoord { u, v, w }: TexCoord) -> Color {
         let buf = &self.buf;
         let w = 1.0 / w;
-        let u = (self.w * u * w) as isize as usize & (buf.width() - 1);
-        let v = (self.h * v * w) as isize as usize & (buf.height() - 1);
+        let u = (self.w * u) as isize as usize & (buf.width() - 1);
+        let v = (self.h * v) as isize as usize & (buf.height() - 1);
 
         // TODO enforce invariants and use get_unchecked
         *buf.get(u, v)
@@ -115,5 +109,59 @@ impl From<Buffer<Color>> for Texture {
             h: buf.height() as f32,
             buf
         }
+    }
+}
+
+
+#[derive(Copy, Clone)]
+pub struct Sampler<'a> {
+    tex: &'a Texture,
+    uv: TexCoord,
+}
+
+impl<'a> Sampler<'a> {
+
+    pub fn new(tex: &'a Texture, uv: TexCoord) -> Self {
+        Self {
+            tex,
+            uv: TexCoord {
+                u: uv.u * tex.w,
+                v: uv.v * tex.h,
+                w: uv.w,
+            }
+        }
+    }
+
+    pub fn sample(&self) -> Color {
+        let Self { tex, uv } = self;
+
+        let width = tex.buf.width();
+        let height = tex.buf.height();
+        let u = uv.u as isize as usize & (width - 1);
+        let v = uv.v as isize as usize & (height - 1);
+
+        unsafe {
+            // SAFETY: Ensured by bitmasks to be within bounds
+            *tex.buf.data().get_unchecked(width * v + u)
+        }
+    }
+}
+
+impl<'a> Linear<f32> for Sampler<'a> {
+    #[inline]
+    fn add(self, other: Self) -> Self {
+        Self { uv: self.uv.add(other.uv), ..self }
+    }
+    #[inline]
+    fn mul(self, s: f32) -> Self {
+        Self { uv: self.uv.mul(s), ..self }
+    }
+    #[inline]
+    fn neg(self) -> Self {
+        Self { uv: self.uv.neg(), ..self }
+    }
+    #[inline]
+    fn w_div(self) -> Self {
+        Self { uv: self.uv.w_div(), ..self }
     }
 }

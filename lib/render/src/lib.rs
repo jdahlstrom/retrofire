@@ -1,4 +1,6 @@
 use std::mem::swap;
+use std::ops::DerefMut;
+use std::ops::Range;
 use std::time::Instant;
 
 use geom::{LineSeg, mesh::*, Polyline, Sprite};
@@ -14,7 +16,6 @@ use crate::hsr::Visibility;
 use crate::raster::*;
 use crate::shade::{FragmentShader, Shader, ShaderImpl};
 use crate::vary::Varying;
-use std::ops::DerefMut;
 
 mod hsr;
 pub mod fx;
@@ -26,13 +27,13 @@ pub mod tex;
 pub mod text;
 pub mod vary;
 
+
 pub trait Rasterize {
-    fn rasterize<V, Vs, S>(&mut self, sc: Scanline<(f32, V), Vs>, fs: S)
+    fn rasterize<V, FS>(&mut self, sc: Scanline<(f32, V)>, fs: FS)
         -> usize
     where
-        V: Copy,
-        Vs: Iterator<Item=(f32, V)>,
-        S: FragmentShader<(f32, V), ()>;
+        V: Linear<f32> + Copy,
+        FS: FragmentShader<(f32, V), ()>;
 
     #[inline(always)]
     fn test<U>(&self, _: Fragment<f32, U>) -> bool { true }
@@ -53,21 +54,18 @@ where
     Test: Fn(Fragment<f32>) -> bool,
     Output: FnMut(Fragment<(f32, Color)>),
 {
-    fn rasterize<V, Vs, S>(&mut self, sc: Scanline<(f32, V), Vs>, fs: S)
+    fn rasterize<V, FS>(&mut self, sc: Scanline<(f32, V)>, fs: FS)
         -> usize
     where
-        V: Copy,
-        Vs: Iterator<Item=(f32, V)>,
-        S: FragmentShader<(f32, V), ()>,
+        V: Linear<f32> + Copy,
+        FS: FragmentShader<(f32, V), ()>,
     {
-        let Scanline { y, xs, vs } = sc;
-
         let Self { test, output } = self;
 
-        (xs.0..=xs.1).zip(vs)
+        sc.xs.clone().zip(sc.varying())
             .map(|(x, (z, c))| {
                 Fragment {
-                    coord: (x, y),
+                    coord: (x, sc.y),
                     varying: (z, c),
                     uniform: ()
                 }
@@ -116,34 +114,61 @@ impl<'a, C> Rasterize for Framebuf<'a, C>
 where
     C: DerefMut<Target=[u8]>
 {
-    fn rasterize<V, Vs, S>(&mut self, sc: Scanline<(f32, V), Vs>, fs: S)
+    fn rasterize<V, FS>(&mut self, sc: Scanline<(f32, V)>, fs: FS)
         -> usize
     where
-        Vs: Iterator<Item=(f32, V)>,
-        S: FragmentShader<(f32, V), ()>,
+        V: Linear<f32> + Copy,
+        FS: FragmentShader<(f32, V), ()>,
     {
-        let y = self.color.width() * sc.y;
-        let (left, right) = sc.xs;
+        let Scanline {
+            y,
+            xs,
+            vs: Range { start: mut v, end: v_end }
+        } = sc;
+
+        let y = self.color.width() * y;
+        let left = y + xs.start;
+        let right = y + xs.end;
+        let xline = &mut self.color.data_mut()[4 * left..4 * right];
+        let zline = &mut self.depth.data_mut()[left..right];
+
+        let chunk_size = 32.0f32;
+        let chunk_size_inv = chunk_size.recip();
+        let v_bigstep = v_end.sub(v).mul(chunk_size / (right - left) as f32);
 
         let mut count = 0;
-        for (i, (z, v)) in (y+left..=y+right).zip(sc.vs) {
-            let ci = i << 2;
-            let color = &mut self.color.data_mut()[ci..ci+4];
-            let pass = !self.depth_test || z < self.depth.data()[i];
-            if pass {
+        let mut zi = zline.iter_mut();
+        for chunk in xline.chunks_mut(4 * chunk_size as usize) {
+
+            let mut v_pc = v.w_div();
+            v = v.add(v_bigstep);
+            let v1_pc = v.w_div();
+            let v_step = v1_pc.sub(v_pc).mul(chunk_size_inv);
+
+            for pix in chunk.chunks_exact_mut(4) {
+                let (z, v) = v_pc;
+                let curr_z = zi.next().unwrap();
+
+                v_pc = v_pc.add(v_step);
+
+                if self.depth_test && z >= *curr_z {
+                    continue;
+                }
                 if let Some(c) = fs.shade_fragment(Fragment {
                     coord: (0, y),
                     varying: (z, v),
-                    uniform: ()
+                    uniform: (),
                 }) {
                     if self.depth_write {
-                        self.depth.data_mut()[i] = z;
+                        *curr_z = z;
                     }
-                    color[0] = c.b();
-                    color[1] = c.g();
-                    color[2] = c.r();
+                    let [_, r, g, b] = c.to_argb();
+                    pix[0] = b;
+                    pix[1] = g;
+                    pix[2] = r;
                     count += 1;
                 }
+
             }
         }
         count
@@ -197,6 +222,29 @@ pub trait Render<U, VI, FI=VI> {
     }
 }
 
+impl<VI, U> Render<U, VI> for Face<VI, U>
+where
+    VI: Linear<f32> + Copy,
+    U: Copy,
+{
+    fn render<S, R>(&self, rdr: &mut Renderer, shader: &mut S, raster: &mut R)
+    where
+        S: Shader<U, VI>,
+        R: Rasterize
+    {
+        let verts = self.verts.map(with_depth);
+        tri_fill(verts, |sc| {
+            rdr.stats.pixels += raster.rasterize(
+                sc,
+                |f: Fragment<(f32, VI)>| {
+                    let f = f.varying(f.varying.1).uniform(self.attr);
+                    shader.shade_fragment(f)
+                }
+            );
+        });
+    }
+}
+
 impl<VI, U> Render<U, VI> for Mesh<VI, U>
 where
     VI: Linear<f32> + Copy,
@@ -240,17 +288,8 @@ where
 
                 mesh.verts.transform(&rdr.viewport);
 
-                for Face { verts, attr, .. } in mesh.faces() {
-                    let verts = verts.map(with_depth);
-                    tri_fill(verts, |sc| {
-                        rdr.stats.pixels += raster.rasterize(
-                            sc,
-                            |f: Fragment<(f32, VI)>| {
-                                let f = f.varying(f.varying.1).uniform(attr);
-                                shader.shade_fragment(f)
-                            }
-                        );
-                    });
+                for face in mesh.faces() {
+                    face.render(rdr, shader, raster)
                 }
             }
 
@@ -378,8 +417,8 @@ where
                 for (y, (v0, v1)) in (y0 as usize..y1 as usize).zip(v) {
                     rdr.stats.pixels += raster.rasterize(Scanline {
                         y,
-                        xs: (x0 as usize, x1 as usize),
-                        vs: Varying::between(v0, v1, x1 - x0)
+                        xs: x0 as usize..x1 as usize,
+                        vs: v0..v1,
                     }, |f: Fragment<(f32, V)>| {
                         let f = f.varying(f.varying.1).uniform(this.face_attr);
                         shader.shade_fragment(f)

@@ -1,9 +1,11 @@
 use std::mem::swap;
+use std::ops::Range;
 
 use geom::mesh::Vertex;
 use math::Linear;
 
 use crate::vary::{Bresenham, Varying};
+use std::borrow::Borrow;
 
 pub mod fill;
 pub mod flat;
@@ -18,26 +20,27 @@ pub struct Fragment<V, U = ()> {
 }
 
 #[derive(Clone, Debug)]
-pub struct Scanline<V, Vs = Varying<V>>
-where
-    Vs: Iterator<Item=V>
-{
+pub struct Scanline<V> {
     pub y: usize,
-    pub xs: (usize, usize),
-    pub vs: Vs,
+    pub xs: Range<usize>,
+    pub vs: Range<V>,
 }
 
-impl<V, Vs> Scanline<V, Vs>
+impl<V> Scanline<V>
 where
-    Vs: Iterator<Item=V>
+    V: Linear<f32> + Copy,
 {
-    pub fn fragments(self) -> impl Iterator<Item=Fragment<Vs::Item>> {
-        (self.xs.0..self.xs.1).zip(self.vs)
+    pub fn fragments(self) -> impl Iterator<Item=Fragment<V>> {
+        self.xs.clone().zip(self.varying())
             .map(move |(x, v)| Fragment {
                 coord: (x, self.y),
                 varying: v,
                 uniform: (),
             })
+    }
+
+    pub fn varying(&self) -> Varying<V> {
+        Varying::between(self.vs.start, self.vs.end, self.xs.len() as f32)
     }
 }
 
@@ -79,12 +82,11 @@ where
     R: FnMut(Scanline<V>)
 {
     for (y, (left, right)) in (y..y_end).zip(left.zip(right)) {
-        let vs = Varying::between(left.1, right.1, right.0 - left.0);
-
         let x_left = left.0.round() as usize;
         let x_right = right.0.round() as usize;
+        let x_right = x_right.max(x_left);
 
-        raster(Scanline { y, xs: (x_left, x_right), vs });
+        raster(Scanline { y, xs: x_left..x_right, vs: left.1..right.1 });
     }
     y_end
 }

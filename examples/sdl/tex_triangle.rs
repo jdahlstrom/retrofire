@@ -10,11 +10,13 @@ use geom::mesh::Vertex;
 use math::vec::vec4;
 use render::{
     Framebuf,
-    raster::{Fragment, tex::tex_fill as tex_fill, tri_fill},
+    raster::{Fragment, tex::tex_fill, tri_fill},
+    Rasterize,
     tex::{TexCoord, Texture}
 };
 use util::Buffer;
 use util::color::{BLACK, WHITE};
+use render::tex::Sampler;
 
 fn vert(x: f32, y: f32, u: f32, v: f32, w: f32) -> Vertex<TexCoord> {
     Vertex { coord: vec4(x, y, 0.0, 0.0), attr: TexCoord { u, v, w } }
@@ -65,6 +67,8 @@ fn main() {
         let fb = &mut Framebuf {
             color: Buffer::borrow(w, buf),
             depth: zbuf,
+            depth_test: true,
+            depth_write: true,
         };
 
         let verts = [
@@ -77,24 +81,23 @@ fn main() {
         if TOGGLE {
             tex_fill(verts, &texbuf, fb);
         } else {
-            tri_fill(verts, |f| {
-                let Fragment { coord: (x, y), varying: tc, .. } = f;
-                let idx = 4 * (y * w + x);
-                let [_, r, g, b] = tex.sample(tc).to_argb();
-
-                buf[idx + 0] = b;
-                buf[idx + 1] = g;
-                buf[idx + 2] = r;
+            let verts = verts.map(|Vertex { coord, attr }| {
+                Vertex { coord, attr: (coord.z, Sampler::new(&tex, attr)) }
+            });
+            tri_fill(verts, |sc| {
+                fb.rasterize(sc, |frag: Fragment<(f32, Sampler)>| {
+                    Some(frag.varying.1.sample())
+                });
             });
         }
         elapsed += start.elapsed();
 
         /*for (x, dx) in &mut xs {
-            if *x < 1.0 || *x as u32 >= width { *dx = -*dx }
+            if *x < 11.0 || *x as u32 >= 788 { *dx = -*dx }
             *x += *dx;
         }
         for (y, dy) in &mut ys {
-            if *y < 1.0 || *y as u32 >= height { *dy = -*dy }
+            if *y < 11.0 || *y as u32 >= 588 { *dy = -*dy }
             *y += *dy;
         }*/
 

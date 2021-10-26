@@ -81,6 +81,7 @@ pub trait Linear<Scalar> where Self: Sized {
     fn lincomb(self, s: Scalar, other: Self, r: Scalar) -> Self {
         self.mul(s).add(other.mul(r))
     }
+    fn w_div(self) -> Self { self }
 }
 
 impl Linear<f32> for f32 {
@@ -113,15 +114,17 @@ where S: Copy,
     fn add(self, other: Self) -> Self {
         (self.0.add(other.0), self.1.add(other.1))
     }
-
     #[inline(always)]
     fn mul(self, s: S) -> Self {
         (self.0.mul(s), self.1.mul(s))
     }
-
     #[inline(always)]
     fn neg(self) -> Self {
         (self.0.neg(), self.1.neg())
+    }
+    #[inline(always)]
+    fn w_div(self) -> Self {
+        (self.0.w_div(), self.1.w_div())
     }
 }
 

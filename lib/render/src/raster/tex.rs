@@ -1,3 +1,5 @@
+use std::ops::DerefMut;
+
 use geom::mesh::Vertex;
 use math::Linear;
 use util::Buffer;
@@ -17,7 +19,7 @@ fn half_tri(
     left: &mut Varying<((f32, f32), TexCoord)>,
     right: &mut Varying<((f32, f32), TexCoord)>,
     tex: &Buffer<Color>,
-    fb: &mut Framebuf,
+    fb: &mut Framebuf<impl DerefMut<Target=[u8]>>,
 ) -> usize {
 
     let tw = tex.width() as f32;
@@ -39,6 +41,7 @@ fn half_tri(
 
         let left = y + l.0.0 as usize;
         let right = y + r.0.0 as usize;
+        let right = left.max(right);
         let xline = &mut cb[4 * left..4 * right];
         let zline = &mut zb[left..right];
 
@@ -52,9 +55,9 @@ fn scanline(
     &((x_right, z_right), uv_right): &((f32, f32), TexCoord),
     tex: &Buffer<Color>,
     xline: &mut [u8],
-    zb: &mut [f32],
+    zline: &mut [f32],
 ) {
-    assert_eq!(xline.len(), 4 * zb.len());
+    assert_eq!(xline.len(), 4 * zline.len());
 
     let mut uv = uv_left;
     let mut uv_pc = uv.w_div();
@@ -72,14 +75,14 @@ fn scanline(
 
         for pix in chunk.chunks_exact_mut(4) {
 
-            let z_curr = unsafe { zb.get_unchecked_mut(zi) };
+            let z_curr = unsafe { zline.get_unchecked_mut(zi) };
             if z >= *z_curr {
                 continue;
             }
 
             let tex_i = tex.width()
-                * (uv_pc.v as isize as usize)
-                + (uv_pc.u as isize as usize);
+                * (uv_pc.v as isize as usize & 0xFF)
+                + (uv_pc.u as isize as usize & 0xFF);
             let [_, r, g, b] = unsafe { tex.data().get_unchecked(tex_i) }.to_argb();
 
             pix[0] = b;
@@ -97,7 +100,7 @@ fn scanline(
 pub fn tex_fill(
     mut verts: [Vertex<TexCoord>; 3],
     tex: &Buffer<Color>,
-    fb: &mut Framebuf
+    fb: &mut Framebuf<impl DerefMut<Target=[u8]>>
 ) {
     super::ysort(&mut verts);
 
