@@ -58,7 +58,7 @@ fn human_num(n: usize) -> String {
     else if n < 1_000_000 { format!("{:4}k", n / 1_000) }
     else if n < 100_000_000 { format!("{:4.1}M", n as f32 / 1_000_000.) }
     else if n < 1_000_000_000 { format!("{:4}M", n / 1_000_000) }
-    else if n < 1_000_000_000_000 { format!("{:4.1}M", n as f32 / 1_000_000.) }
+    else if n < 100_000_000_000 { format!("{:4.1}G", n as f32 / 1_000_000_000.) }
     else { format!("{:5.1e}", n) }
 }
 
