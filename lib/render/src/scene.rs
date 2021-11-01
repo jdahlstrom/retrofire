@@ -36,7 +36,7 @@ impl FpsCamera {
     pub fn translate(&mut self, dir: Vec4) {
         let fwd = &rotate_y(self.azimuth) * Z;
         let right = Y.cross(fwd);
-        self.pos += Vec4::lincomb(fwd, dir.z, right, dir.x);
+        self.pos += dir.x * right + dir.y * Y + dir.z * fwd;
     }
 
     pub fn rotate(&mut self, az: Angle, alt: Angle) {
