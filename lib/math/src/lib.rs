@@ -113,15 +113,15 @@ where
     fn neg(self) -> Self { (self.0.neg(), ) }
 }
 
-impl<S, T, U> Linear<S> for (T, U)
+impl<S, T0, T1> Linear<S> for (T0, T1)
 where
     S: Copy,
-    T: Linear<S>,
-    U: Linear<S>
+    T0: Linear<S>,
+    T1: Linear<S>
 {
     #[inline(always)]
-    fn add(self, other: Self) -> Self {
-        (self.0.add(other.0), self.1.add(other.1))
+    fn add(self, (_0, _1): Self) -> Self {
+        (self.0.add(_0), self.1.add(_1))
     }
 
     #[inline(always)]
@@ -134,6 +134,30 @@ where
         (self.0.neg(), self.1.neg())
     }
 }
+
+impl<S, T0, T1, T2> Linear<S> for (T0, T1, T2)
+where
+    S: Copy,
+    T0: Linear<S>,
+    T1: Linear<S>,
+    T2: Linear<S>
+{
+    #[inline(always)]
+    fn add(self, (_0, _1, _2): Self) -> Self {
+        (self.0.add(_0), self.1.add(_1), self.2.add(_2))
+    }
+
+    #[inline(always)]
+    fn mul(self, s: S) -> Self {
+        (self.0.mul(s), self.1.mul(s), self.2.mul(s))
+    }
+
+    #[inline(always)]
+    fn neg(self) -> Self {
+        (self.0.neg(), self.1.neg(), self.2.neg())
+    }
+}
+
 
 #[derive(Copy, Clone, Debug)]
 pub enum Angle {
