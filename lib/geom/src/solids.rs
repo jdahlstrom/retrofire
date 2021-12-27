@@ -1,9 +1,9 @@
 use math::{Angle, Angle::*, ApproxEq, lerp, vec::*};
-use crate::bbox::BoundingBox;
 
+use crate::bbox::BoundingBox;
 use crate::mesh::{Builder, Mesh};
-use crate::mesh::FaceVert::New;
 use crate::mesh2;
+use crate::mesh::FaceVert::New;
 
 pub fn unit_cube() -> Builder {
     const VERTS: [Vec4; 8] = [
@@ -245,23 +245,43 @@ pub fn sor(pts: impl IntoIterator<Item=Vec4>, sectors: usize) -> Builder {
 }
 
 #[cfg(feature = "teapot")]
-pub fn teapot() -> Builder<Vec4, ()> {
+pub fn teapot() -> mesh2::Mesh<(Vec4, (f32, f32)), ()> {
     use crate::teapot::*;
 
-    let make_faces = |&[abc @ .., d]: &[[i32; 3]; 4]| {
-        let [a, b, c] = abc.map(|x| x[0] as usize - 1);
-        let mut vec = vec![[a, b, c]];
-        if d[0] != -1 {
-            let d = d[0] as usize - 1;
-            vec.push([c, d, a]);
-        }
-        vec
-    };
+    let mut verts = vec![];
+    let mut faces = vec![];
 
-    Mesh::builder()
-        .verts(VERTICES.map(|[x, y, z]| pt(x, y, z)))
-        .faces(FACES.iter().flat_map(make_faces))
-        .vertex_attrs(VERTEX_NORMALS.map(|[x, y, z]| dir(x, y, z)))
+    for [a, b, c, d] in FACES {
+        let a = a.map(|i| i as usize - 1);
+        let b = b.map(|i| i as usize - 1);
+        let c = c.map(|i| i as usize - 1);
+
+        verts.push((a[0], [a[2], a[1]]));
+        verts.push((b[0], [b[2], b[1]]));
+        verts.push((c[0], [c[2], c[1]]));
+
+        faces.push(([verts.len() - 3, verts.len() - 2, verts.len() - 1], 0));
+
+        if d[0] != -1 {
+            let d = d.map(|i| i as usize - 1);
+            verts.push((d[0], [d[2], d[1]]));
+            faces.push(([verts.len() - 4, verts.len() - 2, verts.len() - 1], 0));
+        }
+    }
+
+    let vertex_coords = VERTICES.iter().map(|&[x, y, z]| pt(x, y, z)).collect();
+    let bbox = BoundingBox::of(&vertex_coords);
+    mesh2::Mesh {
+        verts,
+        vertex_coords,
+        vertex_attrs: (
+            VERTEX_NORMALS.iter().map(|&[x, y, z]| dir(x, y, z)).collect(),
+            TEX_COORDS.iter().map(|&[u, v]| (u, v)).collect()
+        ),
+        faces,
+        face_attrs: vec![()],
+        bbox,
+    }
 }
 
 #[cfg(test)]
