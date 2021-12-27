@@ -18,9 +18,9 @@ mod teapot;
 pub struct LineSeg<VA>(pub [Vertex<VA>; 2]);
 
 impl<VA> Transform for LineSeg<VA> {
-    fn transform(&mut self, tf: &Mat4) {
-        self.0[0].coord.transform(tf);
-        self.0[1].coord.transform(tf);
+    fn transform_mut(&mut self, tf: &Mat4) {
+        self.0[0].coord.transform_mut(tf);
+        self.0[1].coord.transform_mut(tf);
     }
 }
 
@@ -43,9 +43,9 @@ impl<VA> FromIterator<Vertex<VA>> for Polyline<VA> {
 }
 
 impl<VA> Transform for Polyline<VA> {
-    fn transform(&mut self, tf: &Mat4) {
+    fn transform_mut(&mut self, tf: &Mat4) {
         for v in &mut self.0 {
-            v.coord.transform(tf);
+            v.coord.transform_mut(tf);
         }
     }
 }
@@ -97,7 +97,7 @@ impl<VA: Copy, FA> Sprite<VA, FA> {
 }
 
 impl<VA, FA> Transform for Sprite<VA, FA> {
-    fn transform(&mut self, tf: &Mat4) {
-        self.anchor.transform(tf);
+    fn transform_mut(&mut self, tf: &Mat4) {
+        self.anchor.transform_mut(tf);
     }
 }

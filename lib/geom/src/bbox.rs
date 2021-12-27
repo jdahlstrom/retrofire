@@ -55,9 +55,8 @@ impl BoundingBox {
 }
 
 impl Transform for BoundingBox {
-    fn transform(&mut self, tf: &Mat4) {
-        let mut verts = self.verts();
-        verts.transform(tf);
+    fn transform_mut(&mut self, tf: &Mat4) {
+        let verts = self.verts().transform(tf);
         *self = BoundingBox::of(&verts)
     }
 }

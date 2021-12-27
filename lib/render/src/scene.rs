@@ -10,7 +10,7 @@ pub struct Obj<G> {
 }
 
 impl<G> Transform for Obj<G> {
-    fn transform(&mut self, tf: &Mat4) {
+    fn transform_mut(&mut self, tf: &Mat4) {
         self.tf *= tf;
     }
 }

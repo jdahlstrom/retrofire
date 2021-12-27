@@ -132,15 +132,14 @@ where
         let mvp = &rdr.modelview * &rdr.projection;
 
         let bbox_vis = {
-            let mut vs = self.bbox.verts();
-            vs.transform(&mvp);
+            let vs = self.bbox.verts().transform(&mvp);
             hsr::vertex_visibility(vs.iter())
         };
 
         if bbox_vis != Visibility::Hidden {
             let verts: Vec<_> = self.verts()
                 // TODO do transform in vertex shader?
-                .map(|v| { let mut w = v; w.coord.transform(&mvp); w })
+                .map(|mut v| { v.coord.transform_mut(&mvp); v })
                 .map(|v| shader.shade_vertex(v))
                 .collect();
             let faces: Vec<_> = self.faces()
@@ -157,7 +156,7 @@ where
                 perspective_divide(&mut verts, rdr.options.perspective_correct);
 
                 for v in &mut verts {
-                    v.coord.transform(&rdr.viewport);
+                    v.coord.transform_mut(&rdr.viewport);
                 }
 
                 for Face { indices, attr, .. } in faces {
@@ -212,15 +211,14 @@ where
         let mvp = &rdr.modelview * &rdr.projection;
 
         let bbox_vis = {
-            let mut vs = self.bbox.verts();
-            vs.transform(&mvp);
+            let vs = self.bbox.verts().transform(&mvp);
             hsr::vertex_visibility(vs.iter())
         };
 
         if bbox_vis != Visibility::Hidden {
             let vcs: Vec<_> = self.vertex_coords.iter()
                 // TODO do transform in vertex shader?
-                .map(|v| { let mut w = *v; w.transform(&mvp); w })
+                .map(|&v| v.transform(&mvp))
                 .collect();
 
             let verts: Vec<_> = self.verts.iter()
@@ -248,7 +246,7 @@ where
                 perspective_divide(&mut verts, rdr.options.perspective_correct);
 
                 for v in &mut verts {
-                    v.coord.transform(&rdr.viewport);
+                    v.coord.transform_mut(&rdr.viewport);
                 }
 
                 for Face { indices, attr, .. } in faces {
@@ -280,15 +278,14 @@ where
     {
         rdr.stats.faces_in += 1;
 
-        let mut this = (*self).clone();
         let mvp = &rdr.modelview * &rdr.projection;
-        this.transform(&mvp);
 
-        for v in &mut this.0 {
-            *v = shader.shade_vertex(*v);
-        }
+        let mut verts = self.0.map(|mut v| {
+            v.coord.transform_mut(&mvp);
+            shader.shade_vertex(v)
+        }).to_vec();
         let mut clip_out = Vec::new();
-        hsr::clip(&mut this.0.to_vec(), &mut clip_out);
+        hsr::clip(&mut verts, &mut clip_out);
         if let &[a, b] = clip_out.as_slice() {
             rdr.stats.faces_out += 1;
             let verts = [
@@ -332,15 +329,22 @@ where
         rdr.stats.faces_in += 1;
 
         let mut this = *self;
-        this.anchor.transform(&rdr.modelview);
+        this.anchor.transform_mut(&rdr.modelview);
         let scale = &rdr.modelview.row(0).len();
         this.width *= scale;
         this.height *= scale;
 
+        let this = Self {
+            anchor: self.anchor.transform(&rdr.modelview),
+            width: self.width * scale,
+            height: self.height * scale,
+            ..*self
+        };
+
         let mut vs: Vec<_> = this.verts()
                 .map(|v| {
                     let mut v = shader.shade_vertex(v);
-                    v.coord.transform(&rdr.projection);
+                    v.coord.transform_mut(&rdr.projection);
                     v
                 })
                 .collect();
@@ -472,7 +476,6 @@ fn with_depth<VA>(v: Vertex<VA>) -> Vertex<(f32, VA)> {
 }
 
 fn clip_to_screen<A>(mut v: Vertex<A>, viewport: &Mat4) -> Vertex<(f32, A)> {
-    v.coord /= v.coord.w;
-    v.coord.transform(viewport);
+    v.coord = (v.coord / v.coord.w).transform(viewport);
     with_depth(v)
 }

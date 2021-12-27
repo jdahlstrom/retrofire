@@ -74,9 +74,9 @@ impl<'a> Text<'a> {
 }
 
 impl<'a> Transform for Text<'a> {
-    fn transform(&mut self, tf: &Mat4) {
+    fn transform_mut(&mut self, tf: &Mat4) {
         for s in &mut self.geom {
-            s.transform(tf);
+            s.transform_mut(tf);
         }
     }
 }

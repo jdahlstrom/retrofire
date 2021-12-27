@@ -87,8 +87,8 @@ fn main() {
         let tf = &obj_tf * &view_tf;
 
         let mut geom = teapot.clone();
-        geom.vertex_attrs.0.transform(&tf);
-        geom.vertex_attrs.1.transform(&tf);
+        geom.vertex_attrs.0.transform_mut(&tf);
+        geom.vertex_attrs.1.transform_mut(&tf);
 
         let scene = Scene {
             objects: vec![Obj { tf, geom }],

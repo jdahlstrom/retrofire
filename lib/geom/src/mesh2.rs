@@ -99,9 +99,9 @@ where
 }
 
 impl<VA: Soa, FA> Transform for Mesh<VA, FA> {
-    fn transform(&mut self, tf: &Mat4) {
+    fn transform_mut(&mut self, tf: &Mat4) {
         self.bbox.transform(tf);
-        self.vertex_coords.transform(tf);
+        self.vertex_coords.transform_mut(tf);
     }
 }
 
