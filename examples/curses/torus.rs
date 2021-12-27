@@ -37,15 +37,13 @@ fn main() {
         let w = win.get_max_x() as f32;
         let h = win.get_max_y() as f32;
 
-        let mut tf_mesh = mesh.clone();
-
         let tf = scale(h / 2.0)
             * rotate_x(theta)
             * rotate_z(0.37 * theta)
             * scale_axes(1.0, 0.5, 1.0)
             * translate(dir(w / 2.0, h / 2.0, 0.0));
 
-        tf_mesh.vertex_coords.transform(&tf);
+        let tf_mesh = mesh.clone().transform(&tf);
 
         let mut faces: Vec<_> = tf_mesh.faces.into_iter()
             .map(|Face { verts, attr }| {
