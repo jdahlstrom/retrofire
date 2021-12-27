@@ -1,4 +1,3 @@
-use std::convert::identity;
 use std::ops::ControlFlow::*;
 
 use sdl2::keyboard::Scancode;
@@ -12,7 +11,7 @@ use render::*;
 use render::raster::*;
 use render::scene::{Obj, Scene};
 use render::shade::*;
-use util::color::{Color, gray};
+use util::color::Color;
 use front::sdl::*;
 use geom::mesh2::Mesh;
 use geom::mesh::Vertex;
@@ -84,8 +83,8 @@ fn main() {
         let tf = &obj_tf * &view_tf;
 
         let mut geom = teapot.clone();
-        geom.vertex_attrs.0.transform(&tf);
-        geom.vertex_attrs.1.transform(&tf);
+        geom.vertex_attrs.0.transform_mut(&tf);
+        geom.vertex_attrs.1.transform_mut(&tf);
 
         let scene = Scene {
             objects: vec![Obj { tf, geom }],

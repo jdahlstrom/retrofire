@@ -280,9 +280,9 @@ impl<VA: Copy, FA: Copy> Mesh<VA, FA> {
 }
 
 impl Transform for Mesh {
-    fn transform(&mut self, tf: &Mat4) {
-        self.bbox.transform(tf);
-        self.verts.transform(tf);
+    fn transform_mut(&mut self, tf: &Mat4) {
+        self.bbox.transform_mut(tf);
+        self.verts.transform_mut(tf);
     }
 }
 

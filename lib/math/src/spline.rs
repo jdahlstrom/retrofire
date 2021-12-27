@@ -73,8 +73,8 @@ impl<T: Linear<f32> + Copy> Bezier<T> {
 }
 
 impl<T: Transform> Transform for Bezier<T> {
-    fn transform(&mut self, m: &Mat4) {
-        self.0.transform(m)
+    fn transform_mut(&mut self, m: &Mat4) {
+        self.0.transform_mut(m)
     }
 }
 

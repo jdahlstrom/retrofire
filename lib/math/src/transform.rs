@@ -1,19 +1,36 @@
 use crate::{Angle, mat::*, vec::*};
 
 pub trait Transform {
-    fn transform(&mut self, tf: &Mat4);
+    fn transform_mut(&mut self, tf: &Mat4);
+
+    #[must_use]
+    fn transform(mut self, tf: &Mat4) -> Self
+    where
+        Self: Sized
+    {
+        self.transform_mut(tf);
+        self
+    }
 }
 
 impl Transform for Vec4 {
-    fn transform(&mut self, tf: &Mat4) {
+    fn transform_mut(&mut self, tf: &Mat4) {
         *self = tf * *self;
     }
 }
 
 impl<T: Transform> Transform for [T] {
-    fn transform(&mut self, tf: &Mat4) {
+    fn transform_mut(&mut self, tf: &Mat4) {
         for x in self {
-            x.transform(tf);
+            x.transform_mut(tf);
+        }
+    }
+}
+
+impl<T: Transform, const N: usize> Transform for [T; N] {
+    fn transform_mut(&mut self, tf: &Mat4) {
+        for x in self {
+            x.transform_mut(tf);
         }
     }
 }
