@@ -1,7 +1,9 @@
 use math::{Angle, Angle::*, ApproxEq, lerp, vec::*};
+use crate::bbox::BoundingBox;
 
 use crate::mesh::{Builder, Mesh};
 use crate::mesh::FaceVert::New;
+use crate::mesh2;
 
 pub fn unit_cube() -> Builder {
     const VERTS: [Vec4; 8] = [
@@ -31,6 +33,68 @@ pub fn unit_cube() -> Builder {
         [0b001, 0b111, 0b011], [0b001, 0b101, 0b111],
     ];
     Mesh::builder().verts(VERTS).faces(FACES)
+}
+
+pub fn unit_cube2() -> mesh2::Mesh<(Vec4, (f32, f32))> {
+    const COORDS: [Vec4; 8] = [
+        // left
+        pt(-1.0, -1.0, -1.0), // 000
+        pt(-1.0, -1.0, 1.0),  // 001
+        pt(-1.0, 1.0, -1.0),  // 010
+        pt(-1.0, 1.0, 1.0),   // 011
+        // right
+        pt(1.0, -1.0, -1.0), // 100
+        pt(1.0, -1.0, 1.0),  // 101
+        pt(1.0, 1.0, -1.0),  // 110
+        pt(1.0, 1.0, 1.0),   // 111
+    ];
+    const NORMS: [Vec4; 6] = [
+        dir(-1.0, 0.0, 0.0),
+        dir(1.0, 0.0, 0.0),
+        dir(0.0, -1.0, 0.0),
+        dir(0.0, 1.0, 0.0),
+        dir(0.0, 0.0, -1.0),
+        dir(0.0, 0.0, 1.0),
+    ];
+    const TEXCOORDS: [(f32, f32); 4] = [
+        (0.0, 0.0), (1.0, 0.0), (0.0, 1.0), (1.0, 1.0),
+    ];
+    const VERTS: [(usize, [usize; 2]); 24] = [
+        // left
+        (0b011, [0, 0]), (0b010, [0, 1]), (0b001, [0, 2]), (0b000, [0, 3]),
+        // right
+        (0b110, [1, 0]), (0b111, [1, 1]), (0b100, [1, 2]), (0b101, [1, 3]),
+        // bottom
+        (0b000, [2, 0]), (0b100, [2, 1]), (0b001, [2, 2]), (0b101, [2, 3]),
+        // top
+        (0b011, [3, 0]), (0b111, [3, 1]), (0b010, [3, 2]), (0b110, [3, 3]),
+        // front
+        (0b010, [4, 0]), (0b110, [4, 1]), (0b000, [4, 2]), (0b100, [4, 3]),
+        // back
+        (0b111, [5, 0]), (0b011, [5, 1]), (0b101, [5, 2]), (0b001, [5, 3]),
+    ];
+    const FACES: [[usize; 3]; 12] = [
+        // left
+        [0, 1, 3], [0, 3, 2],
+        // right
+        [4, 5, 7], [4, 7, 6],
+        // bottom
+        [8, 9, 11], [8, 11, 10],
+        // top
+        [12, 13, 15], [12, 15, 14],
+        // front
+        [16, 17, 19], [16, 19, 18],
+        // back
+        [20, 21, 23], [20, 23, 22],
+    ];
+    mesh2::Mesh {
+        verts: VERTS.iter().map(|&(ci, ai)| (ci, ai)).collect(),
+        vertex_coords: COORDS.into(),
+        vertex_attrs: (NORMS.into(), TEXCOORDS.into()),
+        faces: FACES.iter().copied().map(|f| (f, 0)).collect(),
+        face_attrs: vec![()],
+        bbox: BoundingBox::of(&COORDS)
+    }
 }
 
 pub fn unit_octahedron() -> Builder {

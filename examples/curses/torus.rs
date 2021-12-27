@@ -5,7 +5,7 @@ use geom::mesh::Vertex;
 use geom::solids::*;
 use math::Angle::Rad;
 use math::transform::*;
-use math::vec::{Vec4, dir};
+use math::vec::{dir, Vec4};
 use render::raster::gouraud::*;
 
 fn vert(v: Vec4) -> Vertex<f32> {
@@ -44,10 +44,10 @@ fn main() {
             * scale_axes(1.0, 0.5, 1.0)
             * translate(dir(w / 2.0, h / 2.0, 0.0));
 
-        tf_mesh.verts.iter_mut().for_each(|v| *v *= &tf);
+        tf_mesh.verts.transform(&tf);
 
         let mut faces = tf_mesh.faces()
-                               .collect::<Vec<_>>();
+            .collect::<Vec<_>>();
 
         // z sort
         faces.sort_unstable_by(|a, b| {
@@ -60,9 +60,9 @@ fn main() {
                 |Fragment { coord: (x, y), varying: v, .. }| {
                     win.mvaddch(
                         y as i32, x as i32,
-                        b"..-:;=+<ox*XO@MW"[v as usize / 0x10 & 0xF] as char
+                        b"..-:;=+<ox*XO@MW"[v as usize / 0x10 & 0xF] as char,
                     );
-                }
+                },
             );
         }
 

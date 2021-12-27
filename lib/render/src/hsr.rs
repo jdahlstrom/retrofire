@@ -1,52 +1,49 @@
 use std::f32::EPSILON;
 use std::mem::swap;
 
-use geom::mesh::{Mesh, Vertex};
+use geom::mesh::{Face, Vertex};
 use math::{lerp, Linear};
 use math::vec::Vec4;
 use Visibility::*;
 
-pub fn hidden_surface_removal<VA, FA>(mesh: &mut Mesh<VA, FA>, bbox_vis: Visibility)
+pub fn hidden_surface_removal<VA, FA>(
+    verts: &Vec<Vertex<VA>>,
+    faces: &Vec<Face<VA, FA>>,
+    bbox_vis: Visibility,
+) -> (Vec<Vertex<VA>>, Vec<Face<VA, FA>>)
 where
     VA: Copy + Linear<f32>,
     FA: Copy,
 {
-    let mut mesh2 = Mesh {
-        verts: Vec::with_capacity(16),
-        vertex_attrs: Vec::with_capacity(16),
-        // Assume roughly 50% of faces visible
-        faces: Vec::with_capacity(mesh.faces.len() / 2),
-        face_attrs: Vec::with_capacity(mesh.faces.len() / 2),
-        ..*mesh
-    };
+    if bbox_vis == Unclipped {
+        let faces = faces.iter()
+            .filter(|f| frontface(&f.verts))
+            .copied()
+            .collect();
 
-    let clip_masks: Vec<_> = mesh.verts.iter()
-        .map(vertex_mask)
-        .collect();
+        return (verts.clone(), faces);
+    }
+
+    let mut res_verts = verts.clone();
+    let mut res_faces = vec![];
+
+    let clip_masks: Vec<_> =
+        verts.iter().map(|v| &v.coord).map(vertex_mask).collect();
 
     let mut clip_in = Vec::with_capacity(8);
     let mut clip_out = Vec::with_capacity(8);
 
-    for face in mesh.faces() {
-        if bbox_vis == Unclipped {
-            if frontface(&face.verts) {
-                mesh2.faces.push(face.indices);
-                mesh2.face_attrs.push(face.attr);
-            }
-            continue;
-        }
+    for face in faces {
 
         let masks = face.indices.map(|i| clip_masks[i]);
+
         match visibility(masks) {
-            Hidden => {
-                continue
-            },
+            Hidden => continue,
             Unclipped => {
                 if frontface(&face.verts) {
-                    mesh2.faces.push(face.indices);
-                    mesh2.face_attrs.push(face.attr);
+                    res_faces.push(*face);
                 }
-            },
+            }
             Clipped => {
                 clip_in.clear();
                 clip_in.extend(&face.verts);
@@ -58,23 +55,25 @@ where
                     // New faces are coplanar, if one is a backface then all are
                     continue;
                 }
-                let cn = clip_out.len();
-                let vn = mesh.verts.len() + mesh2.verts.len();
-                mesh2.verts.extend(clip_out.iter().map(|v| v.coord));
-                mesh2.vertex_attrs.extend(clip_out.iter().map(|v| v.attr));
+                let old_count = res_verts.len();
+                let new_count = old_count + clip_out.len();
 
-                for i in 1..cn - 1 {
-                    mesh2.faces.push([vn, vn + i, vn + i + 1]);
-                    mesh2.face_attrs.push(face.attr);
+                res_verts.append(&mut clip_out);
+
+                for i in old_count + 1..new_count - 1 {
+                    let indices = [old_count, i, i + 1];
+                    res_faces.push(Face {
+                        indices,
+                        verts: indices.map(|i| res_verts[i]),
+                        attr: face.attr,
+                    });
                 }
             }
         }
     }
-    mesh.faces = mesh2.faces;
-    mesh.face_attrs = mesh2.face_attrs;
-    mesh.verts.extend(&mesh2.verts);
-    mesh.vertex_attrs.extend(&mesh2.vertex_attrs);
+    (res_verts, res_faces)
 }
+
 
 struct ClipPlane { sign: f32, coord: u8, bit: u8 }
 
@@ -135,11 +134,11 @@ pub enum Visibility {
     Hidden
 }
 
-fn vertex_mask(v: &Vec4) -> u8 {
+pub(crate) fn vertex_mask(v: &Vec4) -> u8 {
       CLIP_PLANES.iter().fold(0, |mask, p| mask | p.test(v))
 }
 
-fn visibility(masks: impl IntoIterator<Item=u8>) -> Visibility {
+pub(crate) fn visibility(masks: impl IntoIterator<Item=u8>) -> Visibility {
     let (all, any) = masks.into_iter()
         .fold((!0, 0), |(a, b), v| (a & v, b | v));
 
@@ -196,13 +195,13 @@ pub fn frontface<A: Copy>(verts: &[Vertex<A>; 3]) -> bool {
 
 #[cfg(test)]
 mod tests {
+    use clip_mask::*;
     use math::ApproxEq;
     use math::vec::*;
 
     use super::*;
-    use clip_mask::*;
 
-    // TODO Test interpolation of vertex attributes
+// TODO Test interpolation of vertex attributes
 
     fn assert_approx_eq(expected: &[Vertex<()>], actual: &[Vertex<()>]) {
         assert_eq!(expected.len(), actual.len(), "expected: {:#?}\nactual: {:#?}", expected, actual);

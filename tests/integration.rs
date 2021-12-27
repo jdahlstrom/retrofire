@@ -94,11 +94,13 @@ fn render_cube_with_vector_attrs() {
 fn render_sphere_field() {
     let mut objects = vec![];
     let camera = translate(4.0 * Y) * &rotate_x(Rad(0.5));
+    let sph = unit_sphere(9, 9).build().validate().unwrap();
+
     for j in -10..=10 {
         for i in -10..=10 {
             objects.push(Obj {
                 tf: translate(dir(4. * i as f32, 0., 4. * j as f32)),
-                geom: unit_sphere(9, 9).build()
+                geom: sph.clone()
             });
         }
     }

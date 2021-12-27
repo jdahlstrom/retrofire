@@ -98,16 +98,26 @@ impl Linear<f32> for f32 {
     }
 }
 
-impl<T> Linear<T> for () {
+impl<S> Linear<S> for () {
     fn add(self, _: Self) -> Self { self }
-    fn mul(self, _: T) -> Self { self }
+    fn mul(self, _: S) -> Self { self }
     fn neg(self) -> Self { self }
 }
 
+impl<S, T> Linear<S> for (T, )
+where
+    T: Linear<S>,
+{
+    fn add(self, (o, ): Self) -> Self { (self.0.add(o), ) }
+    fn mul(self, s: S) -> Self { (self.0.mul(s), ) }
+    fn neg(self) -> Self { (self.0.neg(), ) }
+}
+
 impl<S, T, U> Linear<S> for (T, U)
-where S: Copy,
-      T: Linear<S>,
-      U: Linear<S>
+where
+    S: Copy,
+    T: Linear<S>,
+    U: Linear<S>
 {
     #[inline(always)]
     fn add(self, other: Self) -> Self {
