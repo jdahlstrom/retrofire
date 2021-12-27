@@ -7,6 +7,7 @@ use math::vec::{dir, Vec4};
 use crate::mesh::Vertex;
 
 pub mod mesh;
+pub mod mesh2;
 pub mod solids;
 pub mod bbox;
 

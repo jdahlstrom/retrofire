@@ -1,4 +1,4 @@
-use math::{Angle, Linear};
+use math::Angle;
 use math::mat::Mat4;
 use math::transform::*;
 use math::vec::*;
