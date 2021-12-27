@@ -1,7 +1,10 @@
+use std::fmt::Debug;
 use std::mem::swap;
 use std::time::Instant;
 
-use geom::{LineSeg, mesh::*, Polyline, Sprite};
+use geom::{LineSeg, mesh, mesh2, Polyline, Sprite};
+use geom::mesh::{Face, Vertex};
+use geom::mesh2::Soa;
 use math::Linear;
 use math::mat::Mat4;
 use math::transform::*;
@@ -112,7 +115,7 @@ pub trait Render<U, VI, FI=VI> {
     }
 }
 
-impl<VI, U> Render<U, VI> for Mesh<VI, U>
+impl<VI, U> Render<U, VI> for mesh::Mesh<VI, U>
 where
     VI: Linear<f32> + Copy,
     U: Copy,
@@ -122,6 +125,8 @@ where
         S: Shader<U, VI>,
         R: RasterOps
     {
+        use mesh::vertex;
+
         rdr.stats.faces_in += self.faces.len();
 
         let mvp = &rdr.modelview * &rdr.projection;
@@ -133,30 +138,30 @@ where
         };
 
         if bbox_vis != Visibility::Hidden {
-            let mut mesh = (*self).clone();
+            let verts: Vec<_> = self.verts()
+                // TODO do transform in vertex shader?
+                .map(|v| { let mut w = v; w.coord.transform(&mvp); w })
+                .map(|v| shader.shade_vertex(v))
+                .collect();
+            let faces: Vec<_> = self.faces()
+                .map(|f| Face { verts: f.indices.map(|i| verts[i]), ..f })
+                .collect();
 
-            mesh.verts.transform(&mvp);
+            let (mut verts, mut faces) = hsr::hidden_surface_removal(&verts, &faces, bbox_vis);
 
-            // TODO
-            for (c, a) in mesh.verts.iter_mut().zip(mesh.vertex_attrs.iter_mut()) {
-                let v = shader.shade_vertex(vertex(*c, *a));
-                *c = v.coord;
-                *a = v.attr;
-            }
-
-            hsr::hidden_surface_removal(&mut mesh, bbox_vis);
-
-            if !mesh.faces.is_empty() {
+            if !faces.is_empty() {
                 rdr.stats.objs_out += 1;
-                rdr.stats.faces_out += mesh.faces.len();
+                rdr.stats.faces_out += faces.len();
 
-                if rdr.options.depth_sort { depth_sort(&mut mesh); }
-                perspective_divide(&mut mesh, rdr.options.perspective_correct);
+                if rdr.options.depth_sort { depth_sort(&mut faces); }
+                perspective_divide(&mut verts, rdr.options.perspective_correct);
 
-                mesh.verts.transform(&rdr.viewport);
+                for v in &mut verts {
+                    v.coord.transform(&rdr.viewport);
+                }
 
-                for Face { verts, attr, .. } in mesh.faces() {
-                    let verts = verts.map(with_depth);
+                for Face { indices, attr, .. } in faces {
+                    let verts = indices.map(|i| verts[i]).map(with_depth);
                     tri_fill(verts, |frag| {
                         if self.rasterize(shader, raster, frag.uniform(attr)) {
                             rdr.stats.pixels += 1;
@@ -186,6 +191,79 @@ where
             }
             if let Some(col) = rdr.options.bounding_boxes {
                 render_edges(rdr, self.bbox.edges(), col);
+            }
+        }
+    }
+}
+
+impl<VI, U> Render<U, VI> for mesh2::Mesh<VI, U>
+where
+    VI: Soa + Linear<f32> + Copy + Debug,
+    U: Copy,
+{
+    fn render<S, R>(&self, rdr: &mut Renderer, shader: &mut S, raster: &mut R)
+    where
+        S: Shader<U, VI>,
+        R: RasterOps
+    {
+
+        rdr.stats.faces_in += self.faces.len();
+
+        let mvp = &rdr.modelview * &rdr.projection;
+
+        let bbox_vis = {
+            let mut vs = self.bbox.verts();
+            vs.transform(&mvp);
+            hsr::vertex_visibility(vs.iter())
+        };
+
+        if bbox_vis != Visibility::Hidden {
+            let vcs: Vec<_> = self.vertex_coords.iter()
+                // TODO do transform in vertex shader?
+                .map(|v| { let mut w = *v; w.transform(&mvp); w })
+                .collect();
+
+            let verts: Vec<_> = self.verts.iter()
+                .map(|v| Vertex {
+                    coord:  vcs[v.coord],
+                    attr: VI::get(&self.vertex_attrs, &v.attr)
+                })
+                .collect();
+
+            let faces: Vec<_> = self.faces.iter()
+                .map(|f| Face {
+                    indices: f.verts,
+                    verts: f.verts.map(|i| verts[i]),
+                    attr: self.face_attrs[f.attr]
+                })
+                .collect();
+
+            let (mut verts, mut faces) = hsr::hidden_surface_removal(&verts, &faces, bbox_vis);
+
+            if !faces.is_empty() {
+                rdr.stats.objs_out += 1;
+                rdr.stats.faces_out += faces.len();
+
+                if rdr.options.depth_sort { depth_sort(&mut faces); }
+                perspective_divide(&mut verts, rdr.options.perspective_correct);
+
+                for v in &mut verts {
+                    v.coord.transform(&rdr.viewport);
+                }
+
+                for Face { indices, attr, .. } in faces {
+                    let verts = indices.map(|i| verts[i]).map(with_depth);
+
+                    /*eprintln!("\nV0 {:?}...", verts[0]);
+                    eprintln!("V1 {:?}...", verts[1]);
+                    eprintln!("V2 {:?}...", verts[2]);*/
+                    tri_fill(verts, |frag| {
+                        if self.rasterize(shader, raster, frag.uniform(attr)) {
+                            rdr.stats.pixels += 1;
+                        }
+                    });
+                }
+                //exit(1);
             }
         }
     }
@@ -355,7 +433,7 @@ impl Renderer {
     #[allow(unused)]
     fn render<VA, FA>(
         &mut self,
-        _: &Mesh<VA, FA>,
+        _: &mesh::Mesh<VA, FA>,
         _: &mut impl RasterOps
     ) -> Stats
     where
@@ -372,36 +450,18 @@ impl Renderer {
     }
 }
 
-fn depth_sort<VA: Copy, FA: Copy>(mesh: &mut Mesh<VA, FA>) {
-    let (faces, attrs) = {
-        let mut faces = mesh.faces().collect::<Vec<_>>();
-
-        faces.sort_unstable_by(|a, b| {
-            let az: f32 = a.verts.iter().map(|v| v.coord.z).sum();
-            let bz: f32 = b.verts.iter().map(|v| v.coord.z).sum();
-            bz.partial_cmp(&az).unwrap()
-        });
-
-        faces.into_iter().map(|f| (f.indices, f.attr)).unzip()
-    };
-    mesh.faces = faces;
-    mesh.face_attrs = attrs;
+fn depth_sort<VA: Copy, FA: Copy>(_faces: &mut Vec<Face<VA, FA>>) {
+    todo!()
 }
 
-fn perspective_divide<VA, FA>(mesh: &mut Mesh<VA, FA>, pc: bool)
+fn perspective_divide<VA>(verts: &mut Vec<Vertex<VA>>, pc: bool)
 where VA: Linear<f32> + Copy
 {
-    let Mesh { verts, vertex_attrs, .. } = mesh;
-    if pc {
-        for (v, a) in verts.iter_mut().zip(vertex_attrs) {
-            let w = 1.0 / v.w;
-            *v = v.mul(w);
-            *a = a.mul(w);
-        }
-    } else {
-        for v in verts.iter_mut() {
-            let w = 1.0 / v.w;
-            *v = v.mul(w);
+    for Vertex { coord, attr } in verts {
+        let w = 1.0 / coord.w;
+        *coord = coord.mul(w);
+        if pc {
+            *attr = attr.mul(w);
         }
     }
 }

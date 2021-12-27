@@ -98,30 +98,93 @@ impl Linear<f32> for f32 {
     }
 }
 
-impl<T> Linear<T> for () {
+impl<S> Linear<S> for () {
+    #[inline]
     fn add(self, _: Self) -> Self { self }
-    fn mul(self, _: T) -> Self { self }
+    #[inline]
+    fn mul(self, _: S) -> Self { self }
+    #[inline]
     fn neg(self) -> Self { self }
 }
 
-impl<S, T, U> Linear<S> for (T, U)
-where S: Copy,
-      T: Linear<S>,
-      U: Linear<S>
+impl<S, T> Linear<S> for (T, )
+where
+    T: Linear<S>,
 {
-    #[inline(always)]
-    fn add(self, other: Self) -> Self {
-        (self.0.add(other.0), self.1.add(other.1))
+    #[inline]
+    fn add(self, (o, ): Self) -> Self { (self.0.add(o), ) }
+    #[inline]
+    fn mul(self, s: S) -> Self { (self.0.mul(s), ) }
+    #[inline]
+    fn neg(self) -> Self { (self.0.neg(), ) }
+}
+
+impl<S, T0, T1> Linear<S> for (T0, T1)
+where
+    S: Copy,
+    T0: Linear<S>,
+    T1: Linear<S>,
+{
+    #[inline]
+    fn add(self, (o0, o1): Self) -> Self {
+        (self.0.add(o0), self.1.add(o1))
     }
 
-    #[inline(always)]
+    #[inline]
     fn mul(self, s: S) -> Self {
         (self.0.mul(s), self.1.mul(s))
     }
 
-    #[inline(always)]
+    #[inline]
     fn neg(self) -> Self {
         (self.0.neg(), self.1.neg())
+    }
+}
+
+impl<S, T0, T1, T2> Linear<S> for (T0, T1, T2)
+where
+    S: Copy,
+    T0: Linear<S>,
+    T1: Linear<S>,
+    T2: Linear<S>,
+{
+    #[inline]
+    fn add(self, (o0, o1, o2): Self) -> Self {
+        (self.0.add(o0), self.1.add(o1), self.2.add(o2))
+    }
+
+    #[inline]
+    fn mul(self, s: S) -> Self {
+        (self.0.mul(s), self.1.mul(s), self.2.mul(s))
+    }
+
+    #[inline]
+    fn neg(self) -> Self {
+        (self.0.neg(), self.1.neg(), self.2.neg())
+    }
+}
+
+impl<S, T0, T1, T2, T3> Linear<S> for (T0, T1, T2, T3)
+where
+    S: Copy,
+    T0: Linear<S>,
+    T1: Linear<S>,
+    T2: Linear<S>,
+    T3: Linear<S>,
+{
+    #[inline]
+    fn add(self, (o0, o1, o2, o3): Self) -> Self {
+        (self.0.add(o0), self.1.add(o1), self.2.add(o2), self.3.add(o3))
+    }
+
+    #[inline]
+    fn mul(self, s: S) -> Self {
+        (self.0.mul(s), self.1.mul(s), self.2.mul(s), self.3.mul(s))
+    }
+
+    #[inline]
+    fn neg(self) -> Self {
+        (self.0.neg(), self.1.neg(), self.2.neg(), self.3.neg())
     }
 }
 

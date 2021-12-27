@@ -1,13 +1,14 @@
 use std::convert::identity;
-use std::iter;
 use std::ops::ControlFlow::*;
 
 use sdl2::event::Event;
 use sdl2::keyboard::Scancode;
 
 use front::sdl::*;
-use geom::mesh::Mesh;
-use geom::solids::unit_cube;
+use geom::bbox::BoundingBox;
+use geom::mesh2;
+use geom::mesh2::{Face, Vertex};
+use geom::solids::UnitCube;
 use math::Angle::{self, Deg};
 use math::transform::*;
 use math::vec::*;
@@ -15,11 +16,11 @@ use render::*;
 use render::raster::Fragment;
 use render::scene::*;
 use render::shade::ShaderImpl;
-use util::tex::*;
 use render::text::{Font, Text};
 use util::buf::Buffer;
 use util::color::{BLACK, WHITE};
 use util::io::load_pnm;
+use util::tex::*;
 
 fn coords<T: Copy>(r: impl Iterator<Item=T> + Clone)
     -> impl Iterator<Item=(T, T)>
@@ -27,52 +28,68 @@ fn coords<T: Copy>(r: impl Iterator<Item=T> + Clone)
     r.clone().flat_map(move |j| r.clone().map(move |i| (i, j)))
 }
 
-fn checkers() -> Mesh<TexCoord, usize> {
-    let size: usize = 40;
-    let isize = size as isize;
+type NormAndTc = (Vec4, TexCoord);
+type TexIdx = usize;
 
-    let vs = coords(-isize..=isize)
-        .map(|(i, j)| pt(i as f32, 0.0, j as f32));
+fn checkers() -> mesh2::Mesh<NormAndTc, TexIdx> {
+    let size = 40.0;
+    let vcs = [-X-Z, -X+Z, X-Z, X+Z].map(|c| c * size + W);
 
-    let tcs = coords(-isize..=isize)
-        .map(|(i, j)| uv(i as f32, j as f32));
+    let tcs = [uv(0.0, 0.0), uv(0.0, size), uv(size, 0.0), uv(size, size)];
 
-    let fs = coords(0..2 * size)
-        .flat_map(|(i, j)| {
-            let w = (2 * size + 1) as usize;
-            let a = (w * j + i) as usize;
-            [[a, a + w + 1, a + 1], [a, a + w, a + w + 1]]
-        });
+    let verts = vec![
+        Vertex { coord: 0, attr: [0, 0] },
+        Vertex { coord: 1, attr: [0, 1] },
+        Vertex { coord: 2, attr: [0, 2] },
+        Vertex { coord: 3, attr: [0, 3] },
+    ];
 
-    Mesh::builder().verts(vs).faces(fs)
-        .vertex_attrs(tcs)
-        .face_attrs(iter::repeat(1))
-        .build()
-        .validate().unwrap()
+    let faces = vec![
+        Face { verts: [0, 1, 3], attr: 0 },
+        Face { verts: [0, 3, 2], attr: 0 }
+    ];
+
+    let bbox = BoundingBox::of(&vcs);
+
+    mesh2::Mesh {
+        verts,
+        faces,
+        bbox,
+        vertex_coords: vcs.into(),
+        vertex_attrs: (vec![Y], tcs.into()),
+        face_attrs: vec![1],
+    }
 }
 
-
-fn objects() -> Vec<Obj<Mesh<TexCoord, usize>>> {
+fn objects() -> Vec<Obj<mesh2::Mesh<NormAndTc, TexIdx>>> {
     let mut objects = vec![];
     objects.push(Obj { tf: translate(-Y), geom: checkers() });
 
     let crates = coords(-10..=10)
         .map(|(i, j)| {
-            let geom = unit_cube()
-                // Texcoords
-                .vertex_attrs([
-                    uv(1.0, 1.0), uv(0.0, 1.0), uv(1.0, 0.0), uv(0.0, 0.0),
-                    uv(0.0, 1.0), uv(1.0, 1.0), uv(0.0, 0.0), uv(1.0, 0.0),
-                ])
-                .face_attrs(iter::repeat(0))
-                .build();
+            let geom = UnitCube.with_texcoords();
+
+            let tcs = geom.vertex_attrs.1
+                .into_iter()
+                .map(|(u, v)| uv(u, v))
+                .collect();
+
+            let geom = mesh2::Mesh {
+                verts: geom.verts,
+                vertex_coords: geom.vertex_coords,
+                vertex_attrs: (geom.vertex_attrs.0, tcs),
+                faces: geom.faces,
+                face_attrs: vec![0],
+                bbox: geom.bbox,
+            };
+
             let tf = translate(dir(4. * i as f32, 0., 4. * j as f32));
             Obj { tf, geom }
         });
     objects.extend(crates);
+
     objects
 }
-
 
 fn main() {
     let margin = 50.0;
@@ -101,7 +118,11 @@ fn main() {
 
     let shader = &mut ShaderImpl {
         vs: identity,
-        fs: |frag: Fragment<_, usize>| Some(tex[frag.uniform].sample(frag.varying)),
+        fs: |frag: Fragment<NormAndTc, TexIdx>| {
+            Some(tex[frag.uniform].sample(frag.varying.1))
+            //let shade = frag.varying.0.dot(dir(0.5, 0.8, 0.4)).max(0.3);
+            //Some(tex[frag.uniform].sample(frag.varying.1).mul(shade))
+        },
     };
 
     let font = &Font {
@@ -118,7 +139,6 @@ fn main() {
     let mut text = Text::new(font, "");
 
     runner.run(|mut frame| {
-
         rdr.render_scene(&scene, shader, &mut frame.buf);
 
         let mut hud = Renderer::new();
@@ -129,7 +149,7 @@ fn main() {
         t += frame.delta_t;
         if t > sample_interval {
             let stats = rdr.stats.diff(&sample);
-            text = Text::new(font, &stats.to_string().to_ascii_uppercase());
+            text = Text::new(font, &stats.avg_per_sec().to_string());
             sample = rdr.stats;
             t = 0.0;
         }
@@ -138,9 +158,9 @@ fn main() {
             &mut hud,
             &mut ShaderImpl {
                 vs: identity,
-                fs: |frag: Fragment<_>| Some(frag.varying)
+                fs: |frag: Fragment<_>| Some(frag.varying),
             },
-            &mut frame.buf
+            &mut frame.buf,
         );
 
         let mut cam_move = ZERO;
@@ -154,7 +174,7 @@ fn main() {
                     A => cam_move.x -= 3.0,
 
                     P => if let e @ Err(_) = frame.screenshot("screenshot.ppm") {
-                        return Break(e)
+                        return Break(e);
                     }
 
                     _ => {}
@@ -165,7 +185,7 @@ fn main() {
                     Event::MouseMotion { xrel, yrel, .. } => {
                         cam.rotate(
                             0.6 * Deg(xrel as f32),
-                            0.6 * Deg(yrel as f32)
+                            0.6 * Deg(yrel as f32),
                         );
                     }
                     Event::KeyDown { scancode: Some(M), .. } => {

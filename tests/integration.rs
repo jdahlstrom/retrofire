@@ -1,17 +1,19 @@
+use std::convert::identity;
 use std::fmt::Debug;
 
 use geom::mesh::*;
-use geom::solids::{unit_cube, unit_sphere};
+use geom::mesh2;
+use geom::mesh2::Soa;
+use geom::solids::{unit_sphere, UnitCube};
 use math::Angle::{Deg, Rad};
 use math::Linear;
 use math::transform::*;
 use math::vec::{dir, Y, Z};
 use render::*;
-use render::scene::{Obj, Scene};
-use util::color::BLACK;
-use render::shade::ShaderImpl;
-use std::convert::identity;
 use render::raster::Fragment;
+use render::scene::{Obj, Scene};
+use render::shade::ShaderImpl;
+use util::color::BLACK;
 
 static EXPECTED_CUBE: &str =
     "..........\
@@ -25,8 +27,10 @@ static EXPECTED_CUBE: &str =
      ..........\
      ..........";
 
-fn render<VA, FA>(mesh: Mesh<VA, FA>) -> String
-where VA: Copy + Linear<f32>, FA: Copy + Debug
+fn render<VA, FA>(mesh: mesh2::Mesh<VA, FA>) -> String
+where
+    VA: Soa + Linear<f32> + Copy + Debug,
+    FA: Copy + Debug
 {
     let mut rdr = Renderer::new();
     rdr.modelview = translate(4.0 * Z);
@@ -84,14 +88,14 @@ where VA: Copy + Linear<f32>, FA: Copy
 
 #[test]
 fn render_cube_with_unit_attrs() {
-    let actual = render(unit_cube().build());
+    let actual = render(UnitCube.build());
 
     assert_eq!(EXPECTED_CUBE, &actual);
 }
 
 #[test]
 fn render_cube_with_vector_attrs() {
-    let actual = render(unit_cube().build().gen_normals());
+    let actual = render(UnitCube.build());
 
     assert_eq!(EXPECTED_CUBE, &actual);
 }
@@ -100,11 +104,13 @@ fn render_cube_with_vector_attrs() {
 fn render_sphere_field() {
     let mut objects = vec![];
     let camera = translate(4.0 * Y) * &rotate_x(Rad(0.5));
+    let sph = unit_sphere(9, 9).build().validate().unwrap();
+
     for j in -10..=10 {
         for i in -10..=10 {
             objects.push(Obj {
                 tf: translate(dir(4. * i as f32, 0., 4. * j as f32)),
-                geom: unit_sphere(9, 9).build()
+                geom: sph.clone()
             });
         }
     }
