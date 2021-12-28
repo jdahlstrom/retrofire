@@ -7,18 +7,6 @@ use crate::mesh2::{Face, Vertex};
 
 #[deprecated]
 pub fn unit_cube() -> Builder {
-    const VERTS: [Vec4; 8] = [
-        // left
-        pt(-1.0, -1.0, -1.0), // 000
-        pt(-1.0, -1.0, 1.0),  // 001
-        pt(-1.0, 1.0, -1.0),  // 010
-        pt(-1.0, 1.0, 1.0),   // 011
-        // right
-        pt(1.0, -1.0, -1.0), // 100
-        pt(1.0, -1.0, 1.0),  // 101
-        pt(1.0, 1.0, -1.0),  // 110
-        pt(1.0, 1.0, 1.0),   // 111
-    ];
     const FACES: [[usize; 3]; 12] = [
         // left
         [0b000, 0b001, 0b011], [0b000, 0b011, 0b010],
@@ -33,7 +21,7 @@ pub fn unit_cube() -> Builder {
         // back
         [0b001, 0b111, 0b011], [0b001, 0b101, 0b111],
     ];
-    Mesh::builder().verts(VERTS).faces(FACES)
+    Mesh::builder().verts(UnitCube::COORDS).faces(FACES)
 }
 
 pub struct UnitCube;
