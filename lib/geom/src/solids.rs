@@ -3,7 +3,7 @@ use math::{Angle, Angle::*, ApproxEq, lerp, vec::*};
 use crate::bbox::BoundingBox;
 use crate::mesh::{Builder, Mesh};
 use crate::mesh2;
-use crate::mesh2::Face;
+use crate::mesh2::{Face, Vertex};
 use crate::mesh::FaceVert::New;
 
 pub fn unit_cube() -> Builder {
@@ -93,11 +93,13 @@ impl UnitCube {
 
     pub fn build(self) -> mesh2::Mesh<(Vec4, )> {
         mesh2::Mesh {
-            verts: Self::VERTS.iter().map(|&(ci, [ni, _])| (ci, ni)).collect(),
+            verts: Self::VERTS.iter()
+                .map(|&(coord, [attr, _])| Vertex { coord, attr })
+                .collect(),
             vertex_coords: Self::COORDS.into(),
             vertex_attrs: Self::NORMS.into(),
-            faces: Self::FACES.iter().copied()
-                .map(|verts| Face { verts, attr: 0 })
+            faces: Self::FACES.iter()
+                .map(|&verts| Face { verts, attr: 0 })
                 .collect(),
             face_attrs: vec![()],
             bbox: BoundingBox::new(Self::COORDS[0], Self::COORDS[7]),
@@ -105,7 +107,9 @@ impl UnitCube {
     }
     pub fn with_texcoords(self) -> mesh2::Mesh<(Vec4, (f32, f32))> {
         mesh2::Mesh {
-            verts: Self::VERTS.iter().copied().collect(),
+            verts: Self::VERTS.iter()
+                .map(|&(coord, attr)| Vertex { coord, attr })
+                .collect(),
             vertex_coords: Self::COORDS.into(),
             vertex_attrs: (Self::NORMS.into(), Self::TEXCOORDS.into()),
             faces: Self::FACES.iter().copied()
@@ -171,7 +175,7 @@ impl UnitOctahedron {
 
     pub fn build(self) -> mesh2::Mesh<(Vec4, )> {
         mesh2::Mesh {
-            verts: Self::VERTS.into(),
+            verts: Self::VERTS.map(|(coord, attr)| Vertex { coord, attr}).into(),
             vertex_coords: Self::COORDS.into(),
             vertex_attrs: Self::NORMALS.into(),
             faces: Self::FACES.map(|verts| Face { verts, attr: 0 }).into(),
@@ -322,7 +326,7 @@ pub struct UnitCone(pub f32, pub usize);
 
 impl UnitCone {
     pub fn build(self) -> mesh2::Mesh<()> {
-        let mut pts = vec![
+        let pts = vec![
             pt(1.0, -1.0, 0.0),
             pt(self.0, 1.0, 0.0),
         ];
@@ -500,14 +504,22 @@ pub fn teapot() -> mesh2::Mesh<(Vec4, (f32, f32)), ()> {
         }
     }
 
-    let vertex_coords = VERTICES.iter().map(|&[x, y, z]| pt(x, y, z)).collect();
+    let vertex_coords = VERTICES.iter()
+        .map(|&[x, y, z]| pt(x, y, z))
+        .collect();
     let bbox = BoundingBox::of(&vertex_coords);
     mesh2::Mesh {
-        verts,
+        verts: verts.into_iter()
+            .map(|(coord, attr)| Vertex { coord, attr})
+            .collect(),
         vertex_coords,
         vertex_attrs: (
-            VERTEX_NORMALS.iter().map(|&[x, y, z]| dir(x, y, z)).collect(),
-            TEX_COORDS.iter().map(|&[u, v]| (u, v)).collect()
+            VERTEX_NORMALS.iter()
+                .map(|&[x, y, z]| dir(x, y, z))
+                .collect(),
+            TEX_COORDS.iter()
+                .map(|&[u, v]| (u, v))
+                .collect()
         ),
         faces,
         face_attrs: vec![()],
@@ -521,12 +533,12 @@ mod tests {
 
     #[test]
     fn validate_cube() {
-        unit_cube().build().validate().unwrap();
+        UnitCube.build().validate().unwrap();
     }
 
     #[test]
     fn validate_octahedron() {
-        unit_octahedron().build().validate().unwrap();
+        UnitOctahedron.build().validate().unwrap();
     }
 
     // TODO These property tests could probably use QuickCheck
@@ -535,7 +547,7 @@ mod tests {
     fn validate_sphere() {
         for par in 3..33 {
             for mer in 3..33 {
-                unit_sphere(par, mer).build()
+                UnitSphere(par, mer).build()
                     .validate()
                     .expect(&format!("par={}, mer={}", par, mer));
             }
@@ -546,7 +558,7 @@ mod tests {
     fn sphere_faces_and_vertices() {
         for par in 3..33 {
             for mer in 3..33 {
-                let sph = unit_sphere(par, mer).build();
+                let sph = UnitSphere(par, mer).build();
                 assert_eq!(sph.faces.len(), 2 * mer + 2 * (par - 3) * mer, "par={}, mer={}", par, mer);
                 assert_eq!(sph.verts.len(), 2 + (par - 2) * mer, "par={}, mer={}", par, mer);
             }
@@ -557,7 +569,7 @@ mod tests {
     fn validate_torus() {
         for par in 3..33 {
             for mer in 3..33 {
-                torus(0.1, par, mer).build()
+                Torus(0.1, par, mer).build()
                     .validate()
                     .expect(&format!("par={}, mer={}", par, mer));
             }
@@ -568,7 +580,7 @@ mod tests {
     fn torus_faces_and_vertices() {
         for par in 3..33 {
             for mer in 3..33 {
-                let tor = torus(0.1, par, mer).build();
+                let tor = Torus(0.1, par, mer).build();
                 assert_eq!(tor.faces.len(), 2 * par * mer, "par={}, mer={}", par, mer);
                 assert_eq!(tor.verts.len(), par * mer, "par={}, mer={}", par, mer);
             }
@@ -579,7 +591,7 @@ mod tests {
     fn validate_cone() {
         for sec in 3..33 {
             for &minor_r in &[0.0, 0.5, 1.0, 2.0] {
-                unit_cone(minor_r, sec).build()
+                UnitCone(minor_r, sec).build()
                     .validate()
                     .expect(&format!("sec={} m_r={}", sec, minor_r));
             }
@@ -588,30 +600,30 @@ mod tests {
 
     #[test]
     fn validate_sor_empty() {
-        sor(vec![], 13).build().validate().unwrap();
+        Sor(vec![], 13, false).build().validate().unwrap();
     }
 
     #[test]
     fn validate_sor_capped() {
         let pts = vec![-2.0 * Y, X - 2.0 * Y, 2.0 * X - Y, 0.5 * X, X + 2.0 * Y, 3.0 * Y];
-        sor(pts, 8).build().validate().unwrap();
+        Sor(pts, 8, false).build().validate().unwrap();
     }
 
     #[test]
     fn validate_sor_open() {
         let pts = vec![X, 2.0 * X + 0.2 * Y, 1.5 * X + 0.8 * Y, X + Y];
-        sor(pts, 11).build().validate().unwrap();
+        Sor(pts, 11, false).build().validate().unwrap();
     }
 
     #[test]
     fn validate_sor_capped_top() {
         let pts = vec![0.1 * X - Y, 2.0 * X + Y, 1.5 * X + 0.8 * Y, Y];
-        sor(pts, 19).build().validate().unwrap();
+        Sor(pts, 19, false).build().validate().unwrap();
     }
 
     #[test]
     fn validate_sor_capped_bottom() {
         let pts = vec![-Y, X, X + Y];
-        sor(pts, 3).build().validate().unwrap();
+        Sor(pts, 3, false).build().validate().unwrap();
     }
 }

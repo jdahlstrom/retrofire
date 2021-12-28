@@ -226,9 +226,9 @@ where
                 .collect();
 
             let verts: Vec<_> = self.verts.iter()
-                .map(|(ci, ais)| Vertex {
-                    coord:  vcs[*ci],
-                    attr: VI::get(&self.vertex_attrs, ais)
+                .map(|v| Vertex {
+                    coord:  vcs[v.coord],
+                    attr: VI::get(&self.vertex_attrs, &v.attr)
                 })
                 .collect();
 

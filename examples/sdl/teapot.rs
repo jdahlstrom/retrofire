@@ -13,8 +13,8 @@ use render::scene::{Obj, Scene};
 use render::shade::*;
 use util::color::Color;
 use front::sdl::*;
-use geom::mesh2::Mesh;
 use geom::mesh::Vertex;
+use geom::mesh2::{Mesh, Vertex as Vertex2};
 
 type CoordNormAndTexCrd = (Vec4, Vec4, (f32, f32));
 type Vert = Vertex<CoordNormAndTexCrd>;
@@ -50,7 +50,10 @@ fn main() {
     let teapot = teapot();
 
     let teapot = Mesh::<CoordNormAndTexCrd> {
-        verts: teapot.verts.into_iter().map(|(c, [a0, a1])| (c, [c, a0, a1])).collect(),
+        verts: teapot.verts.into_iter()
+            .map(|Vertex2 { coord, attr: [a0, a1] }|
+                Vertex2 { coord, attr: [coord, a0, a1] })
+            .collect(),
         vertex_coords: teapot.vertex_coords.clone(),
         vertex_attrs: (teapot.vertex_coords, teapot.vertex_attrs.0, teapot.vertex_attrs.1),
         faces: teapot.faces,

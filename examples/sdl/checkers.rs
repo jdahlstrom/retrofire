@@ -7,7 +7,7 @@ use sdl2::keyboard::Scancode;
 use front::sdl::*;
 use geom::bbox::BoundingBox;
 use geom::mesh2;
-use geom::mesh2::Face;
+use geom::mesh2::{Face, Vertex};
 use geom::solids::UnitCube;
 use math::Angle::{self, Deg};
 use math::transform::*;
@@ -37,7 +37,12 @@ fn checkers() -> mesh2::Mesh<NormAndTc, TexIdx> {
 
     let tcs = [uv(0.0, 0.0), uv(0.0, size), uv(size, 0.0), uv(size, size)];
 
-    let verts = vec![(0, [0, 0]), (1, [0, 1]), (2, [0, 2]), (3, [0, 3])];
+    let verts = vec![
+        Vertex { coord: 0, attr: [0, 0] },
+        Vertex { coord: 1, attr: [0, 1] },
+        Vertex { coord: 2, attr: [0, 2] },
+        Vertex { coord: 3, attr: [0, 3] },
+    ];
 
     let faces = vec![
         Face { verts: [0, 1, 3], attr: 0 },

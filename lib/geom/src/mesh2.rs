@@ -56,9 +56,21 @@ impl<T0: Copy, T1: Copy, T2: Copy, T3: Copy> Soa for (T0, T1, T2, T3) {
     }
 }
 
+#[derive(Debug, Copy, Clone, PartialEq)]
+pub struct Vertex<C, A> {
+    pub coord: C,
+    pub attr: A,
+}
+
+#[derive(Debug, Copy, Clone, PartialEq)]
+pub struct Face<V, A> {
+    pub verts: [V; 3],
+    pub attr: A,
+}
+
 #[derive(Clone, Debug)]
 pub struct Mesh<VA: Soa, FA = ()> {
-    pub verts: Vec<(usize, VA::Indices)>,
+    pub verts: Vec<Vertex<usize, VA::Indices>>,
     pub vertex_coords: Vec<Vec4>,
     pub vertex_attrs: VA::Vecs,
 
@@ -95,7 +107,7 @@ impl<VA: Soa> Mesh<VA, ()> {
 
         let face_ns: Vec<_> = faces.iter()
             .map(|f| {
-                let [a, b, c] = f.verts.map(|i| vertex_coords[verts[i].0]);
+                let [a, b, c] = f.verts.map(|i| vertex_coords[verts[i].coord]);
                 (b - a).cross(c - a).normalize()
             })
             .collect();
@@ -123,7 +135,7 @@ impl<FA> Mesh<(), FA> {
 
         let face_ns: Vec<_> = faces.iter()
             .map(|f| {
-                let [a, b, c] = f.verts.map(|i| vertex_coords[verts[i].0]);
+                let [a, b, c] = f.verts.map(|i| vertex_coords[verts[i].coord]);
                 (b - a).cross(c - a)
             })
             .collect();
@@ -140,7 +152,7 @@ impl<FA> Mesh<(), FA> {
         }
 
         let verts = verts.into_iter().zip(0..vert_ns.len())
-            .map(|((ci, _), ai)| (ci, ai))
+            .map(|(v, attr)| Vertex { coord: v.coord, attr })
             .collect();
 
         Mesh {
@@ -154,20 +166,45 @@ impl<FA> Mesh<(), FA> {
     }
 }
 
-#[derive(Debug, Copy, Clone, PartialEq)]
-pub struct Vertex<A> {
-    pub coord: Vec4,
-    pub attr: A,
-}
+impl<VA: Soa, FA> Mesh<VA, FA> {
 
-pub fn vertex<A>(coord: Vec4, attr: A) -> Vertex<A> {
-    Vertex { coord, attr }
-}
+    pub fn validate(self) -> Result<Self, String> {
 
-#[derive(Debug, Copy, Clone, PartialEq)]
-pub struct Face<V, A> {
-    pub verts: [V; 3],
-    pub attr: A,
+        fn check_indices<I>(name: &str, indices: I, max: usize) -> Result<(), String>
+        where I: IntoIterator<Item=usize>
+        {
+            let mut used = vec![false; max];
+            for i in indices {
+                let u = used.get_mut(i)
+                    .ok_or_else(|| format!("{} index out of bounds: {}", name, i))?;
+                *u = true;
+            }
+            used.iter().position(|b| !b)
+                .map_or(Ok(()), |i| Err(format!("unused {} at {}", name, i)))
+        }
+
+        let Mesh { verts, vertex_coords, faces, face_attrs, .. } = &self;
+
+        check_indices(
+            "vertex coord",
+            verts.iter().map(|v| v.coord),
+            vertex_coords.len()
+        )?;
+        check_indices(
+            "vertex",
+            faces.iter().flat_map(|f| f.verts),
+            verts.len()
+        )?;
+        check_indices(
+            "face attr",
+            faces.iter().map(|f| f.attr),
+            face_attrs.len()
+        )?;
+
+        // TODO validate vertex attr indices
+
+        Ok(self)
+    }
 }
 
 #[derive(Clone, Debug, Default)]
@@ -177,12 +214,14 @@ impl Builder {
     pub fn new() -> Self {
         Self(Mesh::default())
     }
+
     pub fn add_vert(&mut self, c: Vec4) -> isize {
         let idx = self.0.vertex_coords.len();
         self.0.vertex_coords.push(c.to_pt());
-        self.0.verts.push((idx, []));
+        self.0.verts.push(Vertex { coord: idx, attr: [] });
         idx as isize
     }
+
     pub fn add_face(&mut self, a: isize, b: isize, c: isize) {
         assert!(a != b && a != c && b != c,
                 "degenerate face {:?}", (a, b, c));
@@ -191,9 +230,15 @@ impl Builder {
         });
         self.0.faces.push(Face { verts: idcs, attr: 0 })
     }
+
     pub fn build(self) -> Mesh<()> {
+        let mut face_attrs = vec![];
+        if !self.0.faces.is_empty() {
+            // TODO hack
+            face_attrs.push(())
+        }
         Mesh {
-            face_attrs: vec![()],
+            face_attrs,
             bbox: BoundingBox::of(&self.0.vertex_coords),
             ..self.0
         }
@@ -202,7 +247,6 @@ impl Builder {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
 
     #[test]
     fn test() {
