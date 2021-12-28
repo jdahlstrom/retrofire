@@ -1,4 +1,6 @@
 use std::fmt::Debug;
+use math::mat::Mat4;
+use math::transform::Transform;
 
 use math::vec::{Vec4, ZERO};
 
@@ -93,6 +95,13 @@ where
             face_attrs: vec![],
             bbox: BoundingBox::default(),
         }
+    }
+}
+
+impl<VA: Soa, FA> Transform for Mesh<VA, FA> {
+    fn transform(&mut self, tf: &Mat4) {
+        self.bbox.transform(tf);
+        self.vertex_coords.transform(tf);
     }
 }
 

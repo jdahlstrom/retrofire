@@ -3,8 +3,8 @@ use std::ops::ControlFlow::*;
 use sdl2::keyboard::Scancode;
 
 use front::sdl::*;
-use geom::mesh::Vertex;
 use geom::mesh2::{Mesh, Vertex as Vertex2};
+use geom::mesh::Vertex;
 use geom::solids::teapot;
 use math::Angle::{Deg, Rad};
 use math::mat::Mat4;
@@ -15,8 +15,9 @@ use render::raster::*;
 use render::scene::{Obj, Scene};
 use render::shade::*;
 use util::color::Color;
+use util::tex::TexCoord;
 
-type CoordNormAndTexCrd = (Vec4, Vec4, (f32, f32));
+type CoordNormAndTexCrd = (Vec4, Vec4, TexCoord);
 type Vert = Vertex<CoordNormAndTexCrd>;
 type Frag = Fragment<CoordNormAndTexCrd>;
 
