@@ -5,7 +5,8 @@ use std::time::Instant;
 
 use criterion::*;
 
-use geom::solids;
+use geom::mesh2::{Mesh, Vertex};
+use geom::solids::{Torus, UnitCube, UnitSphere};
 use math::Angle::Rad;
 use math::transform::*;
 use math::vec::{dir, Y, Z};
@@ -13,10 +14,10 @@ use render::{Raster, Render, Renderer};
 use render::raster::Fragment;
 use render::scene::{Obj, Scene};
 use render::shade::ShaderImpl;
-use util::tex::{TexCoord, Texture, uv};
 use util::buf::Buffer;
 use util::color::*;
 use util::io::{load_pnm, save_ppm};
+use util::tex::{TexCoord, Texture};
 
 const W: usize = 128;
 
@@ -50,7 +51,7 @@ fn torus(c: &mut Criterion) {
     let mut rdr = renderer();
     rdr.modelview = scale(4.0);
 
-    let mesh = solids::torus(0.2, 9, 9).build();
+    let mesh = Torus(0.2, 9, 9).build();
 
     let mut buf = vec![BLACK; W * W];
     c.bench_function("torus", |b| {
@@ -69,7 +70,7 @@ fn torus(c: &mut Criterion) {
             },
         ));
     });
-    check_hash(&buf, 12319688252832539604);
+    check_hash(&buf, 5667555972845400088);
     save_screenshot("target/torus.ppm", &mut buf);
     eprintln!("Stats/s: {}\n", rdr.stats.avg_per_sec());
 }
@@ -83,7 +84,7 @@ fn scene(c: &mut Criterion) {
         for i in -4..=4 {
             objects.push(Obj {
                 tf: translate(dir(4. * i as f32, 0., 4. * j as f32)),
-                geom: solids::unit_sphere(9, 9).build(),
+                geom: UnitSphere(9, 9).build(),
             });
         }
     }
@@ -106,7 +107,7 @@ fn scene(c: &mut Criterion) {
             },
         ));
     });
-    check_hash(&buf, 2914773945184235903);
+    check_hash(&buf, 17516720479059830591);
     save_screenshot("target/scene.ppm", &mut buf);
     eprintln!("Stats/s: {}\n", rdr.stats.avg_per_sec());
 }
@@ -114,9 +115,22 @@ fn scene(c: &mut Criterion) {
 fn gouraud_fillrate(c: &mut Criterion) {
     let mut rdr = renderer();
     rdr.modelview = scale(2.0) * &translate(6.0 * Z);
-    let mesh = solids::unit_cube()
-        .vertex_attrs([RED, GREEN, BLUE].into_iter().cycle())
-        .build();
+
+    let mesh = UnitCube.build();
+    let mesh = Mesh::<(Color, )> {
+        verts: mesh.verts.iter()
+            .zip((0..3).cycle())
+            .map(|(v, ci)| Vertex {
+                coord: v.coord,
+                attr: ci,
+            }).collect(),
+        vertex_attrs:  vec![RED, GREEN, BLUE],
+
+        faces: mesh.faces,
+        face_attrs: mesh.face_attrs,
+        vertex_coords: mesh.vertex_coords,
+        bbox: mesh.bbox,
+    };
 
     let mut buf = [BLACK; W * W];
     c.bench_function("gouraud", |b| {
@@ -124,13 +138,13 @@ fn gouraud_fillrate(c: &mut Criterion) {
             &mut rdr,
             &mut ShaderImpl {
                 vs: |v| v,
-                fs: |frag: Fragment<Color>| Some(frag.varying),
+                fs: |frag: Fragment<(Color, )>| Some(frag.varying.0),
             },
             &mut Raster {
                 test: |_| true,
                 output: |frag: Fragment<(f32, Color)>| {
                     let (x, y) = frag.coord;
-                    buf[W * y + x] = frag.varying.1
+                    buf[W * y + x] = frag.varying.1;
                 },
             },
         ));
@@ -144,13 +158,7 @@ fn texture_fillrate(c: &mut Criterion) {
     let mut rdr = renderer();
 
     rdr.modelview = scale(2.0) * &translate(6.0 * Z);
-    let mesh = solids::unit_cube()
-        .vertex_attrs([
-            uv(1.0, 1.0), uv(0.0, 1.0), uv(1.0, 0.0), uv(0.0, 0.0),
-            uv(0.0, 1.0), uv(1.0, 1.0), uv(0.0, 0.0), uv(1.0, 0.0),
-        ])
-        //].iter().map(|&tc| tc.mul(256.0)))
-        .build();
+    let mesh = UnitCube.with_texcoords();
 
     //let tex = Texture::from(Buffer::from_vec(2, vec![RED, BLUE, BLUE, GREEN]));
     let tex = Texture::from(load_pnm("../examples/sdl/crate.ppm").unwrap());
@@ -163,8 +171,8 @@ fn texture_fillrate(c: &mut Criterion) {
                 &mut rdr,
                 &mut ShaderImpl {
                     vs: |v| v,
-                    fs: |f: Fragment<TexCoord>| {
-                        Some(tex.sample(f.varying))
+                    fs: |f: Fragment<(TexCoord, )>| {
+                        Some(tex.sample(f.varying.0))
                     }
                 },
                 &mut Raster {

@@ -1,10 +1,8 @@
 use std::convert::identity;
 use std::fmt::Debug;
 
-use geom::mesh::*;
-use geom::mesh2;
-use geom::mesh2::Soa;
-use geom::solids::{unit_sphere, UnitCube};
+use geom::mesh2::*;
+use geom::solids::{UnitCube, UnitSphere};
 use math::Angle::{Deg, Rad};
 use math::Linear;
 use math::transform::*;
@@ -27,7 +25,7 @@ static EXPECTED_CUBE: &str =
      ..........\
      ..........";
 
-fn render<VA, FA>(mesh: mesh2::Mesh<VA, FA>) -> String
+fn render<VA, FA>(mesh: Mesh<VA, FA>) -> String
 where
     VA: Soa + Linear<f32> + Copy + Debug,
     FA: Copy + Debug
@@ -57,7 +55,9 @@ where
 }
 
 fn render_scene<VA, FA>(scene: Scene<Mesh<VA, FA>>) -> Stats
-where VA: Copy + Linear<f32>, FA: Copy
+where
+    VA: Copy + Debug + Linear<f32> + Soa,
+    FA: Copy
 {
     const W: usize = 50;
     const H: usize = 20;
@@ -104,7 +104,7 @@ fn render_cube_with_vector_attrs() {
 fn render_sphere_field() {
     let mut objects = vec![];
     let camera = translate(4.0 * Y) * &rotate_x(Rad(0.5));
-    let sph = unit_sphere(9, 9).build().validate().unwrap();
+    let sph = UnitSphere(9, 9).build().validate().unwrap();
 
     for j in -10..=10 {
         for i in -10..=10 {

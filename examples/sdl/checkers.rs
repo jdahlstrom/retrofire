@@ -67,17 +67,12 @@ fn objects() -> Vec<Obj<mesh2::Mesh<NormAndTc, TexIdx>>> {
 
     let crates = coords(-10..=10)
         .map(|(i, j)| {
-            let geom = UnitCube.with_texcoords();
-
-            let tcs = geom.vertex_attrs.1
-                .into_iter()
-                .map(|(u, v)| uv(u, v))
-                .collect();
+            let geom = UnitCube.with_normals_and_texcoords();
 
             let geom = mesh2::Mesh {
                 verts: geom.verts,
                 vertex_coords: geom.vertex_coords,
-                vertex_attrs: (geom.vertex_attrs.0, tcs),
+                vertex_attrs: geom.vertex_attrs,
                 faces: geom.faces,
                 face_attrs: vec![0],
                 bbox: geom.bbox,

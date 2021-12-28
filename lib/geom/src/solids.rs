@@ -1,4 +1,5 @@
 use math::{Angle, Angle::*, ApproxEq, lerp, vec::*};
+use util::tex::{TexCoord, uv};
 
 use crate::bbox::BoundingBox;
 use crate::mesh::{Builder, Mesh, FaceVert::New};
@@ -57,8 +58,11 @@ impl UnitCube {
         dir(0.0, 0.0, -1.0),
         dir(0.0, 0.0, 1.0),
     ];
-    const TEXCOORDS: [(f32, f32); 4] = [
-        (0.0, 0.0), (1.0, 0.0), (0.0, 1.0), (1.0, 1.0),
+    const TEXCOORDS: [TexCoord; 4] = [
+        uv(0.0, 0.0),
+        uv(1.0, 0.0),
+        uv(0.0, 1.0),
+        uv(1.0, 1.0),
     ];
     const VERTS: [(usize, [usize; 2]); 24] = [
         // left
@@ -89,13 +93,14 @@ impl UnitCube {
         [20, 21, 23], [20, 23, 22],
     ];
 
-    pub fn build(self) -> mesh2::Mesh<(Vec4, )> {
+    // TODO Refactor these methods somehow
+    pub fn build(self) -> mesh2::Mesh<()> {
         mesh2::Mesh {
             verts: Self::VERTS.iter()
-                .map(|&(coord, [attr, _])| Vertex { coord, attr })
+                .map(|&(coord, _)| Vertex { coord, attr: [] })
                 .collect(),
             vertex_coords: Self::COORDS.into(),
-            vertex_attrs: Self::NORMS.into(),
+            vertex_attrs: (),
             faces: Self::FACES.iter()
                 .map(|&verts| Face { verts, attr: 0 })
                 .collect(),
@@ -103,18 +108,49 @@ impl UnitCube {
             bbox: BoundingBox::new(Self::COORDS[0], Self::COORDS[7]),
         }
     }
-    pub fn with_texcoords(self) -> mesh2::Mesh<(Vec4, (f32, f32))> {
+
+    pub fn with_normals(self) -> mesh2::Mesh<(Vec4, )> {
+        let mesh2::Mesh { vertex_coords, faces, face_attrs, bbox, .. }
+            = self.build();
+        mesh2::Mesh {
+            verts: Self::VERTS.iter()
+                .map(|&(coord, [attr, _])| Vertex { coord, attr })
+                .collect(),
+            vertex_attrs: Self::NORMS.into(),
+            vertex_coords,
+            faces,
+            face_attrs,
+            bbox,
+        }
+    }
+
+    pub fn with_texcoords(self) -> mesh2::Mesh<(TexCoord, )> {
+        let mesh2::Mesh { vertex_coords, faces, face_attrs, bbox, .. }
+            = self.build();
+        mesh2::Mesh {
+            verts: Self::VERTS.iter()
+                .map(|&(coord, [_, attr])| Vertex { coord, attr })
+                .collect(),
+            vertex_attrs: Self::TEXCOORDS.into(),
+            vertex_coords,
+            faces,
+            face_attrs,
+            bbox,
+        }
+    }
+
+    pub fn with_normals_and_texcoords(self) -> mesh2::Mesh<(Vec4, TexCoord)> {
+        let mesh2::Mesh { vertex_coords, faces, face_attrs, bbox, .. }
+            = self.build();
         mesh2::Mesh {
             verts: Self::VERTS.iter()
                 .map(|&(coord, attr)| Vertex { coord, attr })
                 .collect(),
-            vertex_coords: Self::COORDS.into(),
             vertex_attrs: (Self::NORMS.into(), Self::TEXCOORDS.into()),
-            faces: Self::FACES.iter().copied()
-                .map(|verts| Face { verts, attr: 0 })
-                .collect(),
-            face_attrs: vec![()],
-            bbox: BoundingBox::new(Self::COORDS[0], Self::COORDS[7]),
+            vertex_coords,
+            faces,
+            face_attrs,
+            bbox,
         }
     }
 }
@@ -199,9 +235,10 @@ impl UnitSphere {
         let pts = (0..self.0)
             .map(|par| lerp(par as f32 / (self.0 - 1) as f32, -90.0, 90.0))
             .map(|alt| polar(1.0, Deg(alt)))
-            .map(|pt| dir(pt.z, pt.x, 0.0));
+            .map(|pt| dir(pt.z, pt.x, 0.0))
+            .collect();
 
-        Sor(pts.collect(), self.1, false).build()
+        Sor::new(pts, self.1).wrap(true).build()
     }
 }
 
@@ -324,11 +361,8 @@ pub struct UnitCone(pub f32, pub usize);
 
 impl UnitCone {
     pub fn build(self) -> mesh2::Mesh<()> {
-        let pts = vec![
-            pt(1.0, -1.0, 0.0),
-            pt(self.0, 1.0, 0.0),
-        ];
-        Sor(pts.into(), self.1,  true).build()
+        let pts = vec![pt(1.0, -1.0, 0.0), pt(self.0, 1.0, 0.0), ];
+        Sor::new(pts, self.1).wrap(true).build()
     }
 }
 
@@ -392,13 +426,28 @@ pub fn sor(pts: impl IntoIterator<Item=Vec4>, sectors: usize) -> Builder {
     bld
 }
 
-pub struct Sor(pub Vec<Vec4>, pub usize, pub bool);
+pub struct Sor {
+    pts: Vec<Vec4>,
+    sectors: usize,
+    caps: bool,
+    wrap: bool
+}
 
 impl Sor {
-    pub fn build(self) -> mesh2::Mesh<()> {
-        let Sor(pts, sectors, capped) = self;
+    pub fn new(pts: Vec<Vec4>, sectors: usize) -> Sor {
+        Sor { pts, sectors, caps: false, wrap: false }
+    }
+    pub fn caps(self, caps: bool) -> Sor {
+        Sor { caps, ..self }
+    }
+    pub fn wrap(self, wrap: bool) -> Sor {
+        Sor { wrap, ..self }
+    }
 
-        assert!(sectors > 2, "sectors must be at least 3, was {}", self.1);
+    fn build_wrap(self) -> mesh2::Mesh<()> {
+        let Sor { pts, sectors, caps, .. } = self;
+
+        assert!(sectors > 2, "sectors must be at least 3, was {}", sectors);
 
         let mut bld = mesh2::Builder::new();
 
@@ -415,7 +464,7 @@ impl Sor {
         if p0.x.approx_eq(0.0) { // Start cap
             bld.add_vert(p0);
         } else {
-            if capped {
+            if caps {
                 bld.add_vert(pt(0.0, p0.y, 0.0));
                 bld.add_vert(pt(0.0, p0.y, p0.x));
                 for p in circum_pts(1, p0.x, p0.y) {
@@ -434,9 +483,86 @@ impl Sor {
                 bld.add_vert(pt(0.0, p1.y, p1.x));
                 for p in circum_pts(1, p1.x, p1.y) {
                     bld.add_vert(p);
-                    bld.add_face(-2, 0, -1);
+                    bld.add_face(0, -1, -2);
                 }
-                bld.add_face(-1, 0, 1);
+                bld.add_face(0, 1, -1);
+            } else if p1.x.approx_eq(0.0) { // End cap
+                bld.add_vert(p1);
+                for sec in -sectors..-1 {
+                    bld.add_face(-1, sec - 1, sec);
+                }
+                bld.add_face(-1, -2, -sectors - 1);
+            } else {  // Body segment
+                bld.add_vert(pt(0.0, p1.y, p1.x));
+                for p in circum_pts(1, p1.x, p1.y) {
+                    bld.add_vert(p);
+                    bld.add_face(-1, -2, -sectors - 2);
+                    bld.add_face(-1, -sectors - 2, -sectors - 1);
+                }
+                bld.add_face(-1, -sectors - 1, -sectors);
+                bld.add_face(-sectors, -sectors - 1, -2 * sectors);
+            }
+            p0 = p1;
+        }
+
+        if caps && !p0.x.approx_eq(0.0) { // End cap
+            let a = bld.add_vert(pt(0.0, p0.y, 0.0));
+            let b = bld.add_vert(pt(0.0, p0.y, p0.x));
+            for p in circum_pts(1, p0.x, p0.y) {
+                bld.add_vert(p);
+                bld.add_face(a, -2, -1);
+            }
+            bld.add_face(a, -1, b);
+        }
+
+        bld.build()
+    }
+
+    pub fn build(self) -> mesh2::Mesh<()> {
+        if self.wrap {
+            return self.build_wrap();
+        }
+
+        let Sor { pts, sectors, caps, .. } = self;
+
+        let sectors = sectors as isize + 1;
+
+        assert!(sectors > 2, "sectors must be at least 3, was {}", sectors);
+
+        let mut bld = mesh2::Builder::new();
+
+        let mut pts = pts.into_iter();
+        let circum_pts = |start, r, y| (start..sectors - 1)
+            .map(|sec| Tau(sec as f32 / ((sectors - 1) as f32)))
+            .map(move |az| polar(r, az) + y * Y)
+            .chain([pt(-0.0, y, r)]);
+
+        // TODO Clean up
+        let mut p0 = if let Some(p) = pts.next() { p } else { return bld.build(); };
+
+        if p0.x.approx_eq(0.0) { // Start cap
+            bld.add_vert(p0);
+        } else {
+            if caps {
+                bld.add_vert(pt(0.0, p0.y, 0.0));
+                bld.add_vert(pt(0.0, p0.y, p0.x));
+                for p in circum_pts(1, p0.x, p0.y) {
+                    bld.add_vert(p);
+                    bld.add_face(0, -1, -2);
+                }
+            }
+            for p in circum_pts(0, p0.x, p0.y) {
+                bld.add_vert(p);
+            }
+        }
+
+        for p1 in pts {
+            if p0.x.approx_eq(0.0) { // Start cap
+                bld.add_vert(pt(0.0, p1.y, p1.x));
+                for p in circum_pts(1, p1.x, p1.y) {
+                    bld.add_vert(p);
+                    bld.add_face(0, -1, -2);
+                }
             } else if p1.x.approx_eq(0.0) { // End cap
                 bld.add_vert(p1);
                 for sec in -sectors..-1 {
@@ -450,13 +576,11 @@ impl Sor {
                     bld.add_face(-1, -2, -sectors - 2);
                     bld.add_face(-1, -sectors - 2, -sectors - 1);
                 }
-                bld.add_face(-1, -sectors - 1, -sectors);
-                bld.add_face(-sectors, -sectors - 1, -2 * sectors);
             }
             p0 = p1;
         }
 
-        if capped && !p0.x.approx_eq(0.0) { // End cap
+        if caps && !p0.x.approx_eq(0.0) { // End cap
             let a = bld.add_vert(pt(0.0, p0.y, 0.0));
             let b = bld.add_vert(pt(0.0, p0.y, p0.x));
             for p in circum_pts(1, p0.x, p0.y) {
@@ -472,7 +596,7 @@ impl Sor {
 
 
 #[cfg(feature = "teapot")]
-pub fn teapot() -> mesh2::Mesh<(Vec4, (f32, f32)), ()> {
+pub fn teapot() -> mesh2::Mesh<(Vec4, TexCoord), ()> {
     use crate::teapot::*;
 
     let mut verts = vec![];
@@ -516,7 +640,7 @@ pub fn teapot() -> mesh2::Mesh<(Vec4, (f32, f32)), ()> {
                 .map(|&[x, y, z]| dir(x, y, z))
                 .collect(),
             TEX_COORDS.iter()
-                .map(|&[u, v]| (u, v))
+                .map(|&[u, v]| uv(u, v))
                 .collect()
         ),
         faces,
@@ -598,30 +722,30 @@ mod tests {
 
     #[test]
     fn validate_sor_empty() {
-        Sor(vec![], 13, false).build().validate().unwrap();
+        Sor::new(vec![], 13).build().validate().unwrap();
     }
 
     #[test]
     fn validate_sor_capped() {
-        let pts = vec![-2.0*Y, X-2.0*Y, 2.0*X-Y, 0.5*X, X+2.0*Y, 3.0*Y];
-        Sor(pts, 8, false).build().validate().unwrap();
+        let pts = vec![-2.0 * Y, X - 2.0 * Y, 2.0 * X - Y, 0.5 * X, X + 2.0 * Y, 3.0 * Y];
+        Sor::new(pts, 8).build().validate().unwrap();
     }
 
     #[test]
     fn validate_sor_open() {
-        let pts = vec![X, 2.0*X+0.2*Y, 1.5*X+0.8*Y, X+Y];
-        Sor(pts, 11, false).build().validate().unwrap();
+        let pts = vec![X, 2.0 * X + 0.2 * Y, 1.5 * X + 0.8 * Y, X + Y];
+        Sor::new(pts, 11).build().validate().unwrap();
     }
 
     #[test]
     fn validate_sor_capped_top() {
-        let pts = vec![0.1*X-Y, 2.0*X+Y, 1.5*X+0.8*Y, Y];
-        Sor(pts, 19, false).build().validate().unwrap();
+        let pts = vec![0.1 * X - Y, 2.0 * X + Y, 1.5 * X + 0.8 * Y, Y];
+        Sor::new(pts, 19).build().validate().unwrap();
     }
 
     #[test]
     fn validate_sor_capped_bottom() {
-        let pts = vec![-Y, X, X+Y];
-        Sor(pts, 3, false).build().validate().unwrap();
+        let pts = vec![-Y, X, X + Y];
+        Sor::new(pts, 3).build().validate().unwrap();
     }
 }
