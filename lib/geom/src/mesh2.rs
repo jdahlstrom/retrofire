@@ -1,5 +1,6 @@
 use std::fmt::Debug;
-use math::vec::Vec4;
+
+use math::vec::{Vec4, ZERO};
 
 use crate::bbox::BoundingBox;
 
@@ -55,16 +56,102 @@ impl<T0: Copy, T1: Copy, T2: Copy, T3: Copy> Soa for (T0, T1, T2, T3) {
     }
 }
 
-#[derive(Debug, Clone)]
+#[derive(Clone, Debug)]
 pub struct Mesh<VA: Soa, FA = ()> {
     pub verts: Vec<(usize, VA::Indices)>,
     pub vertex_coords: Vec<Vec4>,
     pub vertex_attrs: VA::Vecs,
 
-    pub faces: Vec<([usize; 3], usize)>,
+    pub faces: Vec<Face<usize, usize>>,
     pub face_attrs: Vec<FA>,
 
     pub bbox: BoundingBox,
+}
+
+impl Default for Mesh<()> {
+    fn default() -> Self {
+        Self {
+            verts: vec![],
+            vertex_coords: vec![],
+            vertex_attrs: (),
+            faces: vec![],
+            face_attrs: vec![],
+            bbox: BoundingBox::default(),
+        }
+    }
+}
+
+impl Mesh<(), ()> {
+    pub fn gen_normals(self) -> Mesh<(Vec4, ), Vec4> {
+        self.gen_face_normals().gen_vert_normals()
+    }
+}
+
+impl<VA: Soa> Mesh<VA, ()> {
+    pub fn gen_face_normals(self) -> Mesh<VA, Vec4> {
+        let Self {
+            verts, vertex_coords, vertex_attrs, faces, bbox, ..
+        } = self;
+
+        let face_ns: Vec<_> = faces.iter()
+            .map(|f| {
+                let [a, b, c] = f.verts.map(|i| vertex_coords[verts[i].0]);
+                (b - a).cross(c - a).normalize()
+            })
+            .collect();
+
+        let faces = faces.into_iter().enumerate()
+            .map(|(i, f)| Face { verts: f.verts, attr: i })
+            .collect();
+
+        Mesh {
+            faces,
+            face_attrs: face_ns,
+            verts,
+            vertex_coords,
+            vertex_attrs,
+            bbox,
+        }
+    }
+}
+
+impl<FA> Mesh<(), FA> {
+    pub fn gen_vert_normals(self) -> Mesh<(Vec4, ), FA> {
+        let Self {
+            verts, vertex_coords, faces, face_attrs, bbox, ..
+        } = self;
+
+        let face_ns: Vec<_> = faces.iter()
+            .map(|f| {
+                let [a, b, c] = f.verts.map(|i| vertex_coords[verts[i].0]);
+                (b - a).cross(c - a)
+            })
+            .collect();
+
+        let mut vert_ns = vec![ZERO; verts.len()];
+
+        for (&Face { verts: [a, b, c], .. }, &n) in faces.iter().zip(&face_ns) {
+            vert_ns[a] += n;
+            vert_ns[b] += n;
+            vert_ns[c] += n;
+        }
+        for v in &mut vert_ns {
+            *v = v.normalize();
+        }
+
+        let verts = verts.into_iter().zip(0..vert_ns.len())
+            .map(|((ci, _), ai)| (ci, ai))
+            .collect();
+
+        Mesh {
+            faces,
+            face_attrs,
+            verts,
+            vertex_coords,
+            vertex_attrs: vert_ns,
+            bbox,
+        }
+    }
 }
 
 #[derive(Debug, Copy, Clone, PartialEq)]
@@ -78,10 +165,39 @@ pub fn vertex<A>(coord: Vec4, attr: A) -> Vertex<A> {
 }
 
 #[derive(Debug, Copy, Clone, PartialEq)]
-pub struct Face<VA: Soa, FA> {
-    pub indices: ([usize; 3], usize),
-    pub verts: [Vertex<VA>; 3],
-    pub attr: FA,
+pub struct Face<V, A> {
+    pub verts: [V; 3],
+    pub attr: A,
+}
+
+#[derive(Clone, Debug, Default)]
+pub struct Builder(Mesh<()>);
+
+impl Builder {
+    pub fn new() -> Self {
+        Self(Mesh::default())
+    }
+    pub fn add_vert(&mut self, c: Vec4) -> isize {
+        let idx = self.0.vertex_coords.len();
+        self.0.vertex_coords.push(c.to_pt());
+        self.0.verts.push((idx, []));
+        idx as isize
+    }
+    pub fn add_face(&mut self, a: isize, b: isize, c: isize) {
+        assert!(a != b && a != c && b != c,
+                "degenerate face {:?}", (a, b, c));
+        let idcs = [a, b, c].map(|i| {
+            i.rem_euclid(self.0.vertex_coords.len() as isize) as usize
+        });
+        self.0.faces.push(Face { verts: idcs, attr: 0 })
+    }
+    pub fn build(self) -> Mesh<()> {
+        Mesh {
+            face_attrs: vec![()],
+            bbox: BoundingBox::of(&self.0.vertex_coords),
+            ..self.0
+        }
+    }
 }
 
 #[cfg(test)]

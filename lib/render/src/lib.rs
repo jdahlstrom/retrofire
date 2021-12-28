@@ -233,10 +233,10 @@ where
                 .collect();
 
             let faces: Vec<_> = self.faces.iter()
-                .map(|(vis, ai)| Face {
-                    indices: *vis,
-                    verts: vis.map(|i| verts[i]),
-                    attr: self.face_attrs[*ai]
+                .map(|f| Face {
+                    indices: f.verts,
+                    verts: f.verts.map(|i| verts[i]),
+                    attr: self.face_attrs[f.attr]
                 })
                 .collect();
 

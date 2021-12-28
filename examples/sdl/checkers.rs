@@ -7,7 +7,8 @@ use sdl2::keyboard::Scancode;
 use front::sdl::*;
 use geom::bbox::BoundingBox;
 use geom::mesh2;
-use geom::solids::unit_cube2;
+use geom::mesh2::Face;
+use geom::solids::UnitCube;
 use math::Angle::{self, Deg};
 use math::transform::*;
 use math::vec::*;
@@ -32,18 +33,23 @@ type TexIdx = usize;
 
 fn checkers() -> mesh2::Mesh<NormAndTc, TexIdx> {
     let size = 40.0;
-    let vcs = [-X-Z, -X+Z, X-Z, X+Z].map(|c| c * size + W);
+    let vcs = [-X - Z, -X + Z, X - Z, X + Z].map(|c| c * size + W);
 
     let tcs = [uv(0.0, 0.0), uv(0.0, size), uv(size, 0.0), uv(size, size)];
 
     let verts = vec![(0, [0, 0]), (1, [0, 1]), (2, [0, 2]), (3, [0, 3])];
 
-    let faces = vec![([0, 1, 3], 0), ([0, 3, 2], 0)];
+    let faces = vec![
+        Face { verts: [0, 1, 3], attr: 0 },
+        Face { verts: [0, 3, 2], attr: 0 }
+    ];
 
     let bbox = BoundingBox::of(&vcs);
 
     mesh2::Mesh {
-        verts, faces, bbox,
+        verts,
+        faces,
+        bbox,
         vertex_coords: vcs.into(),
         vertex_attrs: (vec![Y], tcs.into()),
         face_attrs: vec![1],
@@ -56,7 +62,7 @@ fn objects() -> Vec<Obj<mesh2::Mesh<NormAndTc, TexIdx>>> {
 
     let crates = coords(-10..=10)
         .map(|(i, j)| {
-            let geom = unit_cube2();
+            let geom = UnitCube.with_texcoords();
 
             let tcs = geom.vertex_attrs.1
                 .into_iter()
@@ -79,7 +85,6 @@ fn objects() -> Vec<Obj<mesh2::Mesh<NormAndTc, TexIdx>>> {
 
     objects
 }
-
 
 fn main() {
     let margin = 50.0;
@@ -112,7 +117,7 @@ fn main() {
             Some(tex[frag.uniform].sample(frag.varying.1))
             //let shade = frag.varying.0.dot(dir(0.5, 0.8, 0.4)).max(0.3);
             //Some(tex[frag.uniform].sample(frag.varying.1).mul(shade))
-        }
+        },
     };
 
     let font = &Font {
@@ -129,7 +134,6 @@ fn main() {
     let mut text = Text::new(font, "");
 
     runner.run(|mut frame| {
-
         rdr.render_scene(&scene, shader, &mut frame.buf);
 
         let mut hud = Renderer::new();
@@ -149,9 +153,9 @@ fn main() {
             &mut hud,
             &mut ShaderImpl {
                 vs: identity,
-                fs: |frag: Fragment<_>| Some(frag.varying)
+                fs: |frag: Fragment<_>| Some(frag.varying),
             },
-            &mut frame.buf
+            &mut frame.buf,
         );
 
         let mut cam_move = ZERO;
@@ -165,7 +169,7 @@ fn main() {
                     A => cam_move.x -= 3.0,
 
                     P => if let e @ Err(_) = frame.screenshot("screenshot.ppm") {
-                        return Break(e)
+                        return Break(e);
                     }
 
                     _ => {}
@@ -176,7 +180,7 @@ fn main() {
                     Event::MouseMotion { xrel, yrel, .. } => {
                         cam.rotate(
                             0.6 * Deg(xrel as f32),
-                            0.6 * Deg(yrel as f32)
+                            0.6 * Deg(yrel as f32),
                         );
                     }
                     Event::KeyDown { scancode: Some(M), .. } => {

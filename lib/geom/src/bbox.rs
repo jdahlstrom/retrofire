@@ -9,6 +9,9 @@ pub struct BoundingBox {
 }
 
 impl BoundingBox {
+    pub fn new(lbf: Vec4, rtb: Vec4) -> Self {
+        Self { left_bot_front: lbf, right_top_back: rtb }
+    }
     /// Returns the smallest (axis-aligned) bounding box
     /// that contains every point in `vs`.
     pub fn of<'a>(vs: impl IntoIterator<Item=&'a Vec4>) -> Self {

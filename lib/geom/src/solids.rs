@@ -3,6 +3,7 @@ use math::{Angle, Angle::*, ApproxEq, lerp, vec::*};
 use crate::bbox::BoundingBox;
 use crate::mesh::{Builder, Mesh};
 use crate::mesh2;
+use crate::mesh2::Face;
 use crate::mesh::FaceVert::New;
 
 pub fn unit_cube() -> Builder {
@@ -35,7 +36,9 @@ pub fn unit_cube() -> Builder {
     Mesh::builder().verts(VERTS).faces(FACES)
 }
 
-pub fn unit_cube2() -> mesh2::Mesh<(Vec4, (f32, f32))> {
+pub struct UnitCube;
+
+impl UnitCube {
     const COORDS: [Vec4; 8] = [
         // left
         pt(-1.0, -1.0, -1.0), // 000
@@ -87,13 +90,30 @@ pub fn unit_cube2() -> mesh2::Mesh<(Vec4, (f32, f32))> {
         // back
         [20, 21, 23], [20, 23, 22],
     ];
-    mesh2::Mesh {
-        verts: VERTS.iter().map(|&(ci, ai)| (ci, ai)).collect(),
-        vertex_coords: COORDS.into(),
-        vertex_attrs: (NORMS.into(), TEXCOORDS.into()),
-        faces: FACES.iter().copied().map(|f| (f, 0)).collect(),
-        face_attrs: vec![()],
-        bbox: BoundingBox::of(&COORDS)
+
+    pub fn build(self) -> mesh2::Mesh<(Vec4, )> {
+        mesh2::Mesh {
+            verts: Self::VERTS.iter().map(|&(ci, [ni, _])| (ci, ni)).collect(),
+            vertex_coords: Self::COORDS.into(),
+            vertex_attrs: Self::NORMS.into(),
+            faces: Self::FACES.iter().copied()
+                .map(|verts| Face { verts, attr: 0 })
+                .collect(),
+            face_attrs: vec![()],
+            bbox: BoundingBox::new(Self::COORDS[0], Self::COORDS[7]),
+        }
+    }
+    pub fn with_texcoords(self) -> mesh2::Mesh<(Vec4, (f32, f32))> {
+        mesh2::Mesh {
+            verts: Self::VERTS.iter().copied().collect(),
+            vertex_coords: Self::COORDS.into(),
+            vertex_attrs: (Self::NORMS.into(), Self::TEXCOORDS.into()),
+            faces: Self::FACES.iter().copied()
+                .map(|verts| Face { verts, attr: 0 })
+                .collect(),
+            face_attrs: vec![()],
+            bbox: BoundingBox::new(Self::COORDS[0], Self::COORDS[7]),
+        }
     }
 }
 
@@ -113,6 +133,54 @@ pub fn unit_octahedron() -> Builder {
     Mesh::builder().verts(VERTS).faces(FACES)
 }
 
+pub struct UnitOctahedron;
+
+impl UnitOctahedron {
+    const COORDS: [Vec4; 6] = [
+        pt(-1.0, 0.0, 0.0),
+        pt(0.0, -1.0, 0.0),
+        pt(0.0, 0.0, -1.0),
+        pt(0.0, 1.0, 0.0),
+        pt(0.0, 0.0, 1.0),
+        pt(1.0, 0.0, 0.0),
+    ];
+    const NORMALS: [Vec4; 8] = [
+        dir(-1.0, -1.0, -1.0),
+        dir(-1.0, 1.0, -1.0),
+        dir(-1.0, 1.0, 1.0),
+        dir(-1.0, -1.0, 1.0),
+        dir(1.0, -1.0, -1.0),
+        dir(1.0, 1.0, -1.0),
+        dir(1.0, 1.0, 1.0),
+        dir(1.0, -1.0, 1.0),
+    ];
+    const VERTS: [(usize, usize); 24] = [
+        (0, 0), (2, 0), (1, 0),
+        (0, 1), (3, 1), (2, 1),
+        (0, 2), (4, 2), (3, 2),
+        (0, 3), (1, 3), (4, 3),
+        (1, 4), (2, 4), (5, 4),
+        (2, 5), (3, 5), (5, 5),
+        (3, 6), (4, 6), (5, 6),
+        (1, 7), (5, 7), (4, 7),
+    ];
+    const FACES: [[usize; 3]; 8] = [
+        [0, 1, 2], [3, 4, 5], [6, 7, 8], [9, 10, 11],
+        [12, 13, 14], [15, 16, 17], [18, 19, 20], [21, 22, 23],
+    ];
+
+    pub fn build(self) -> mesh2::Mesh<(Vec4, )> {
+        mesh2::Mesh {
+            verts: Self::VERTS.into(),
+            vertex_coords: Self::COORDS.into(),
+            vertex_attrs: Self::NORMALS.into(),
+            faces: Self::FACES.map(|verts| Face { verts, attr: 0 }).into(),
+            face_attrs: vec![()],
+            bbox: BoundingBox::new(-X - Y - Z, X + Y + Z),
+        }
+    }
+}
+
 pub fn unit_sphere(parallels: usize, meridians: usize) -> Builder {
     let pts = (0..parallels)
         .map(|par| lerp(par as f32 / (parallels - 1) as f32, -90.0, 90.0))
@@ -121,6 +189,20 @@ pub fn unit_sphere(parallels: usize, meridians: usize) -> Builder {
 
     sor(pts, meridians)
 }
+
+pub struct UnitSphere(pub usize, pub usize);
+
+impl UnitSphere {
+    pub fn build(self) -> mesh2::Mesh<()> {
+        let pts = (0..self.0)
+            .map(|par| lerp(par as f32 / (self.0 - 1) as f32, -90.0, 90.0))
+            .map(|alt| polar(1.0, Deg(alt)))
+            .map(|pt| dir(pt.z, pt.x, 0.0));
+
+        Sor(pts.collect(), self.1, false).build()
+    }
+}
+
 
 pub fn torus(minor_r: f32, pars: usize, mers: usize) -> Builder {
     let mut bld = Mesh::builder();
@@ -161,6 +243,50 @@ pub fn torus(minor_r: f32, pars: usize, mers: usize) -> Builder {
     bld
 }
 
+pub struct Torus(pub f32, pub usize, pub usize);
+
+impl Torus {
+    pub fn build(self) -> mesh2::Mesh<()> {
+        let mut bld = mesh2::Builder::new();
+
+        let minor_r = self.0;
+        let pars = self.1 as isize;
+        let mers = self.2 as isize;
+
+        fn angle(n: isize, max: isize) -> Angle {
+            Tau(n as f32 / max as f32)
+        }
+
+        for theta in (0..mers).map(|mer| angle(mer, mers)) {
+            for phi in (0..pars).map(|par| angle(par, pars)) {
+                let x = theta.sin() + minor_r * theta.sin() * phi.cos();
+                let z = theta.cos() + minor_r * theta.cos() * phi.cos();
+                let y = minor_r * phi.sin();
+
+                bld.add_vert(pt(x, y, z));
+                if theta > Angle::ZERO && phi > Angle::ZERO {
+                    bld.add_face(-1, -pars - 2, -2);
+                    bld.add_face(-1, -pars - 1, -pars - 2);
+                }
+            }
+            if theta > Angle::ZERO {
+                bld.add_face(-pars, -1 - pars, -1);
+                bld.add_face(-pars, -2 * pars, -1 - pars);
+            }
+        }
+
+        // Connect the last sector to the first
+        for par in 1..pars {
+            bld.add_face(par, -pars + par, -1 - pars + par);
+            bld.add_face(par, -1 - pars + par, par - 1);
+        }
+        bld.add_face(-pars, pars - 1, 0);
+        bld.add_face(-pars, -1, pars - 1);
+
+        bld.build()
+    }
+}
+
 pub fn unit_cone(minor_r: f32, sectors: usize) -> Builder {
 
     // Body
@@ -192,8 +318,28 @@ pub fn unit_cone(minor_r: f32, sectors: usize) -> Builder {
     bld
 }
 
+pub struct UnitCone(pub f32, pub usize);
+
+impl UnitCone {
+    pub fn build(self) -> mesh2::Mesh<()> {
+        let mut pts = vec![
+            pt(1.0, -1.0, 0.0),
+            pt(self.0, 1.0, 0.0),
+        ];
+        Sor(pts.into(), self.1,  true).build()
+    }
+}
+
 pub fn unit_cylinder(sectors: usize) -> Builder {
     unit_cone(1.0, sectors)
+}
+
+pub struct UnitCylinder(pub usize);
+
+impl UnitCylinder {
+    pub fn build(self) -> mesh2::Mesh<()> {
+        UnitCone(1.0, self.0).build()
+    }
 }
 
 pub fn sor(pts: impl IntoIterator<Item=Vec4>, sectors: usize) -> Builder {
@@ -206,7 +352,7 @@ pub fn sor(pts: impl IntoIterator<Item=Vec4>, sectors: usize) -> Builder {
         .map(move |az| polar(r, az));
 
     // TODO Clean up
-    let mut p0 = if let Some(p) = pts.next() { p } else { return bld };
+    let mut p0 = if let Some(p) = pts.next() { p } else { return bld; };
 
     if p0.x.approx_eq(0.0) { // Start cap
         bld.add_vert(p0);
@@ -244,6 +390,85 @@ pub fn sor(pts: impl IntoIterator<Item=Vec4>, sectors: usize) -> Builder {
     bld
 }
 
+pub struct Sor(pub Vec<Vec4>, pub usize, pub bool);
+
+impl Sor {
+    pub fn build(self) -> mesh2::Mesh<()> {
+        let Sor(pts, sectors, capped) = self;
+
+        assert!(sectors > 2, "sectors must be at least 3, was {}", self.1);
+
+        let mut bld = mesh2::Builder::new();
+
+        let sectors = sectors as isize;
+
+        let mut pts = pts.into_iter();
+        let circum_pts = |start, r, y| (start..sectors)
+            .map(|sec| Tau(sec as f32 / sectors as f32))
+            .map(move |az| polar(r, az) + y * Y);
+
+        // TODO Clean up
+        let mut p0 = if let Some(p) = pts.next() { p } else { return bld.build(); };
+
+        if p0.x.approx_eq(0.0) { // Start cap
+            bld.add_vert(p0);
+        } else {
+            if capped {
+                bld.add_vert(pt(0.0, p0.y, 0.0));
+                bld.add_vert(pt(0.0, p0.y, p0.x));
+                for p in circum_pts(1, p0.x, p0.y) {
+                    bld.add_vert(p);
+                    bld.add_face(0, -1, -2);
+                }
+                bld.add_face(0, 1, -1);
+            }
+            for p in circum_pts(0, p0.x, p0.y) {
+                bld.add_vert(p);
+            }
+        }
+
+        for p1 in pts {
+            if p0.x.approx_eq(0.0) { // Start cap
+                bld.add_vert(pt(0.0, p1.y, p1.x));
+                for p in circum_pts(1, p1.x, p1.y) {
+                    bld.add_vert(p);
+                    bld.add_face(-2, 0, -1);
+                }
+                bld.add_face(-1, 0, 1);
+            } else if p1.x.approx_eq(0.0) { // End cap
+                bld.add_vert(p1);
+                for sec in -sectors..-1 {
+                    bld.add_face(-1, sec - 1, sec);
+                }
+                bld.add_face(-1, -2, -sectors - 1);
+            } else {  // Body segment
+                bld.add_vert(polar(p1.x, Tau(0.0)) + p1.y * Y);
+                for p in circum_pts(1, p1.x, p1.y) {
+                    bld.add_vert(p);
+                    bld.add_face(-1, -2, -sectors - 2);
+                    bld.add_face(-1, -sectors - 2, -sectors - 1);
+                }
+                bld.add_face(-1, -sectors - 1, -sectors);
+                bld.add_face(-sectors, -sectors - 1, -2 * sectors);
+            }
+            p0 = p1;
+        }
+
+        if capped && !p0.x.approx_eq(0.0) { // End cap
+            let a = bld.add_vert(pt(0.0, p0.y, 0.0));
+            let b = bld.add_vert(pt(0.0, p0.y, p0.x));
+            for p in circum_pts(1, p0.x, p0.y) {
+                bld.add_vert(p);
+                bld.add_face(a, -2, -1);
+            }
+            bld.add_face(a, -1, b);
+        }
+
+        bld.build()
+    }
+}
+
+
 #[cfg(feature = "teapot")]
 pub fn teapot() -> mesh2::Mesh<(Vec4, (f32, f32)), ()> {
     use crate::teapot::*;
@@ -260,12 +485,18 @@ pub fn teapot() -> mesh2::Mesh<(Vec4, (f32, f32)), ()> {
         verts.push((b[0], [b[2], b[1]]));
         verts.push((c[0], [c[2], c[1]]));
 
-        faces.push(([verts.len() - 3, verts.len() - 2, verts.len() - 1], 0));
+        faces.push(Face {
+            verts: [verts.len() - 3, verts.len() - 2, verts.len() - 1],
+            attr: 0
+        });
 
         if d[0] != -1 {
             let d = d.map(|i| i as usize - 1);
             verts.push((d[0], [d[2], d[1]]));
-            faces.push(([verts.len() - 4, verts.len() - 2, verts.len() - 1], 0));
+            faces.push(Face {
+                verts: [verts.len() - 4, verts.len() - 2, verts.len() - 1],
+                attr: 0
+            });
         }
     }
 
@@ -362,22 +593,25 @@ mod tests {
 
     #[test]
     fn validate_sor_capped() {
-        let pts = vec![-2.0*Y, X-2.0*Y, 2.0*X-Y, 0.5*X, X+2.0*Y, 3.0*Y];
+        let pts = vec![-2.0 * Y, X - 2.0 * Y, 2.0 * X - Y, 0.5 * X, X + 2.0 * Y, 3.0 * Y];
         sor(pts, 8).build().validate().unwrap();
     }
+
     #[test]
     fn validate_sor_open() {
-        let pts = vec![X, 2.0*X+0.2*Y, 1.5*X+0.8*Y, X+Y];
+        let pts = vec![X, 2.0 * X + 0.2 * Y, 1.5 * X + 0.8 * Y, X + Y];
         sor(pts, 11).build().validate().unwrap();
     }
+
     #[test]
     fn validate_sor_capped_top() {
-        let pts = vec![0.1*X-Y, 2.0*X+Y, 1.5*X+0.8*Y, Y];
+        let pts = vec![0.1 * X - Y, 2.0 * X + Y, 1.5 * X + 0.8 * Y, Y];
         sor(pts, 19).build().validate().unwrap();
     }
+
     #[test]
     fn validate_sor_capped_bottom() {
-        let pts = vec![-Y, X, X+Y];
+        let pts = vec![-Y, X, X + Y];
         sor(pts, 3).build().validate().unwrap();
     }
 }
