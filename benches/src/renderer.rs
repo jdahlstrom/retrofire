@@ -5,11 +5,11 @@ use std::time::Instant;
 
 use criterion::*;
 
-use geom::solids;
+use geom::solids::{Torus, unit_cube, UnitCube, UnitSphere};
 use math::Angle::Rad;
 use math::transform::*;
 use math::vec::{dir, Y, Z};
-use render::{Raster, Render, Renderer};
+use render::{Raster, Render as _, Renderer};
 use render::raster::Fragment;
 use render::scene::{Obj, Scene};
 use render::shade::ShaderImpl;
@@ -50,7 +50,7 @@ fn torus(c: &mut Criterion) {
     let mut rdr = renderer();
     rdr.modelview = scale(4.0);
 
-    let mesh = solids::torus(0.2, 9, 9).build();
+    let mesh = Torus(0.2, 9, 9).build();
 
     let mut buf = vec![BLACK; W * W];
     c.bench_function("torus", |b| {
@@ -83,7 +83,7 @@ fn scene(c: &mut Criterion) {
         for i in -4..=4 {
             objects.push(Obj {
                 tf: translate(dir(4. * i as f32, 0., 4. * j as f32)),
-                geom: solids::unit_sphere(9, 9).build(),
+                geom: UnitSphere(9, 9).build(),
             });
         }
     }
@@ -114,7 +114,7 @@ fn scene(c: &mut Criterion) {
 fn gouraud_fillrate(c: &mut Criterion) {
     let mut rdr = renderer();
     rdr.modelview = scale(2.0) * &translate(6.0 * Z);
-    let mesh = solids::unit_cube()
+    let mesh = unit_cube()
         .vertex_attrs([RED, GREEN, BLUE].into_iter().cycle())
         .build();
 
@@ -144,7 +144,7 @@ fn texture_fillrate(c: &mut Criterion) {
     let mut rdr = renderer();
 
     rdr.modelview = scale(2.0) * &translate(6.0 * Z);
-    let mesh = solids::unit_cube()
+    let mesh = unit_cube()
         .vertex_attrs([
             uv(1.0, 1.0), uv(0.0, 1.0), uv(1.0, 0.0), uv(0.0, 0.0),
             uv(0.0, 1.0), uv(1.0, 1.0), uv(0.0, 0.0), uv(1.0, 0.0),

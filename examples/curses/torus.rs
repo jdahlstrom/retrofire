@@ -1,5 +1,6 @@
 use pancurses as nc;
 use pancurses::Input::*;
+use geom::mesh2::Face;
 
 use geom::mesh::Vertex;
 use geom::solids::*;
@@ -21,7 +22,7 @@ impl Drop for Nc {
 }
 
 fn main() {
-    let mesh = torus(0.35, 9, 13).build();
+    let mesh = Torus(0.35, 9, 13).build();
 
     let _scr = Nc;
     let win = nc::initscr();
@@ -44,17 +45,20 @@ fn main() {
 
         let tf_mesh = mesh.clone().transform(&tf);
 
-        let mut faces = tf_mesh.faces()
-            .collect::<Vec<_>>();
+        let mut faces: Vec<_> = tf_mesh.faces.into_iter()
+            .map(|Face { verts, attr }| {
+                Face { verts: verts.map(|i| tf_mesh.vertex_coords[i]), attr }
+            })
+            .collect();
 
         // z sort
         faces.sort_unstable_by(|a, b| {
-            b.verts[0].coord.z.partial_cmp(&a.verts[0].coord.z).unwrap()
+            b.verts[0].z.partial_cmp(&a.verts[0].z).unwrap()
         });
 
         for [a, b, c] in faces.into_iter().map(|f| f.verts) {
             gouraud_fill(
-                [vert(a.coord), vert(b.coord), vert(c.coord)],
+                [vert(a), vert(b), vert(c)],
                 |Fragment { coord: (x, y), varying: v, .. }| {
                     win.mvaddch(
                         y as i32, x as i32,

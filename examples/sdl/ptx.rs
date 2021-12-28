@@ -4,7 +4,12 @@ use std::ops::ControlFlow::*;
 use sdl2::keyboard::Scancode;
 
 use front::sdl::SdlRunner;
-use geom::{Align, mesh::Mesh, Sprite};
+use geom::{
+    Align,
+    bbox::BoundingBox,
+    mesh2::{Face, Mesh, Vertex},
+    Sprite
+};
 use math::{
     Angle::*,
     rand::{Distrib, Random, Uniform},
@@ -12,15 +17,16 @@ use math::{
     transform::*,
     vec::{self, *},
 };
+use math::mat::Mat4;
 use render::{
     fx::{anim, anim::*, particle::*},
     raster::Fragment,
     Render,
     Renderer,
     scene::{Obj, Scene},
+    shade::ShaderImpl,
     tex::{TexCoord, Texture, uv}
 };
-use render::shade::ShaderImpl;
 use util::color::*;
 
 type VA = TexCoord;
@@ -50,10 +56,10 @@ fn main() {
     let camera = translate(pt(0., -1., 5.));
 
     let objects = vec![Obj {
+        tf: Mat4::identity(),
         geom: checkers(),
-        ..Obj::default()
     }];
-    let mut scene = Scene::<Mesh<VA, FA>> { objects, camera };
+    let mut scene = Scene::<Mesh<(VA, ), FA>> { objects, camera };
 
     let bez = bezier();
 
@@ -116,17 +122,24 @@ fn main() {
             }
             // Render
             {
-                let shade = &mut ShaderImpl {
+                let shade_checkers = &mut ShaderImpl {
+                    vs: |v| v,
+                    fs: |frag: Fragment<(VA, ), FA>| {
+                        Some(textures[frag.uniform].sample(frag.varying.0))
+                    },
+                };
+                let shade_ptx = &mut ShaderImpl {
                     vs: |v| v,
                     fs: |frag: Fragment<VA, FA>| {
                         Some(textures[frag.uniform].sample(frag.varying))
                     },
                 };
 
-                rdr.render_scene(&scene, shade, &mut frame.buf);
+                rdr.render_scene(&scene, shade_checkers, &mut frame.buf);
 
                 rdr.modelview = scene.camera.clone();
-                ptx.borrow().render(&mut rdr, shade, &mut frame.buf);
+
+                ptx.borrow().render(&mut rdr, shade_ptx, &mut frame.buf);
             }
             // Input
             {
@@ -160,34 +173,36 @@ fn main() {
     runner.print_stats(rdr.stats);
 }
 
-fn checkers() -> Mesh<VA, FA> {
-    let size: isize = 10;
+fn checkers() -> Mesh<(VA, ), FA> {
+    let size = 40.0;
+    let vcs = [-X - Z, -X + Z, X - Z, X + Z].map(|c| c * size + W);
 
-    let mut vs = vec![];
-    let mut uvs = vec![];
-    for j in -size..=size {
-        for i in -size..=size {
-            vs.push(pt(i as f32, 0.0, j as f32));
-            uvs.push(uv(i as f32, j as f32));
-        }
+    let tcs = [uv(0.0, 0.0), uv(0.0, size), uv(size, 0.0), uv(size, size)];
+
+    let verts = vec![
+        Vertex { coord: 0, attr: 0 },
+        Vertex { coord: 1, attr: 1 },
+        Vertex { coord: 2, attr: 2 },
+        Vertex { coord: 3, attr: 3 },
+    ];
+
+    let faces = vec![
+        Face { verts: [0, 1, 3], attr: 0 },
+        Face { verts: [0, 3, 2], attr: 0 }
+    ];
+
+    let bbox = BoundingBox::of(&vcs);
+
+    Mesh {
+        verts,
+        faces,
+        bbox,
+        vertex_coords: vcs.into(),
+        vertex_attrs: tcs.into(),
+        face_attrs: vec![0],
     }
-    let mut fs = vec![];
-    let size = size as usize;
-    for j in 0..2 * size {
-        for i in 0..2 * size {
-            let w = 2 * size + 1;
-            let idx = w * j + i;
-            fs.push([idx, idx + w + 1, idx + 1]);
-            fs.push([idx, idx + w, idx + w + 1]);
-        }
-    }
-    Mesh::builder()
-        .verts(vs.clone())
-        .faces(fs)
-        .vertex_attrs(uvs)
-        .face_attrs(std::iter::repeat(0))
-        .build()
 }
+
 
 fn renderer(w: i32, h: i32, margin: i32) -> Renderer {
     let mut rdr = Renderer::new();
