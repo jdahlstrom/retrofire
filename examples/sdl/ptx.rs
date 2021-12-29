@@ -18,10 +18,12 @@ use render::{
     Render,
     Renderer,
     scene::{Obj, Scene},
+    shade::ShaderImpl,
+};
+use util::{
+    color::*,
     tex::{TexCoord, Texture, uv}
 };
-use render::shade::ShaderImpl;
-use util::color::*;
 
 type VA = TexCoord;
 type FA = usize;
