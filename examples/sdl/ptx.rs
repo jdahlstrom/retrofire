@@ -24,10 +24,10 @@ use render::{
     Render,
     Renderer,
     scene::{Obj, Scene},
-    shade::ShaderImpl,
-    tex::{TexCoord, Texture, uv}
+    shade::ShaderImpl
 };
 use util::color::*;
+use util::tex::{TexCoord, Texture, uv};
 
 type VA = TexCoord;
 type FA = usize;

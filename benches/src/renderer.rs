@@ -13,8 +13,8 @@ use render::{Raster, Render as _, Renderer};
 use render::raster::Fragment;
 use render::scene::{Obj, Scene};
 use render::shade::ShaderImpl;
-use render::tex::{TexCoord, Texture, uv};
-use util::Buffer;
+use util::tex::{TexCoord, Texture, uv};
+use util::buf::Buffer;
 use util::color::*;
 use util::io::{load_pnm, save_ppm};
 

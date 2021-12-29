@@ -5,7 +5,7 @@ use std::io::{BufReader, BufWriter, Read, Write};
 use std::ops::DerefMut;
 use std::str::FromStr;
 
-use crate::Buffer;
+use crate::buf::Buffer;
 use crate::color::{BLACK, Color, gray, rgb, WHITE};
 
 struct PnmHeader {
@@ -114,9 +114,9 @@ where
     B: DerefMut<Target=[Color]>,
 {
     let mut w = BufWriter::new(File::create(filename)?);
-    writeln!(w, "P6 {} {} 255", buf.width, buf.height)?;
+    writeln!(w, "P6 {} {} 255", buf.width(), buf.height())?;
 
-    let bytes: Vec<u8> = buf.data.iter()
+    let bytes: Vec<u8> = buf.data().iter()
         .flat_map(|c| c.to_argb()[1..].to_vec())
         .collect();
 

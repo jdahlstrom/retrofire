@@ -6,7 +6,7 @@ use sdl2::pixels::Color as SdlColor;
 use sdl2::video::Window;
 use std::ops::ControlFlow::{self, *};
 use std::time::Instant;
-use util::Buffer;
+use util::buf::Buffer;
 use util::color::rgb;
 use util::io::save_ppm;
 

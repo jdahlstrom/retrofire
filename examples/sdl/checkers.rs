@@ -16,9 +16,9 @@ use render::*;
 use render::raster::Fragment;
 use render::scene::*;
 use render::shade::ShaderImpl;
-use render::tex::*;
+use util::tex::*;
 use render::text::{Font, Text};
-use util::Buffer;
+use util::buf::Buffer;
 use util::color::{BLACK, WHITE};
 use util::io::load_pnm;
 

@@ -9,7 +9,7 @@ use util::color::Color;
 use crate::{RasterOps, Render, Renderer};
 use crate::raster::Fragment;
 use crate::shade::{Shader, ShaderImpl};
-use crate::tex::{TexCoord, Texture, uv};
+use util::tex::{TexCoord, Texture, uv};
 
 pub struct Font {
     pub glyph_w: u16,
