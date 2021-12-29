@@ -8,7 +8,8 @@ use math::transform::*;
 use math::vec::*;
 use scene::{Obj, Scene};
 pub use stats::Stats;
-use util::{Buffer, color::Color};
+use util::color::Color;
+use util::buf::Buffer;
 
 use crate::hsr::Visibility;
 use crate::raster::*;
@@ -21,7 +22,6 @@ pub mod raster;
 pub mod scene;
 pub mod shade;
 pub mod stats;
-pub mod tex;
 pub mod text;
 pub mod vary;
 

@@ -1,6 +1,7 @@
-use util::Buffer;
 use math::Linear;
-use util::color::Color;
+
+use crate::buf::Buffer;
+use crate::color::Color;
 
 #[derive(Copy, Clone, Debug, Default)]
 pub struct TexCoord {
