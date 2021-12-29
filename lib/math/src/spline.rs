@@ -153,7 +153,7 @@ impl<T: Linear<f32> + Copy> BezierCurve<T> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::tests::util::*;
+    use crate::test_util::*;
     use crate::vec::dir;
 
     #[test]

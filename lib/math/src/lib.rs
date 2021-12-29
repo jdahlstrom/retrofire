@@ -326,56 +326,57 @@ pub fn lerp<T: Linear<f32>>(t: f32, a: T, b: T) -> T {
     a.lincomb(1.0 - t, b, t)
 }
 
+pub mod test_util {
+    use core::fmt::Debug;
+
+    use crate::ApproxEq;
+
+    #[derive(Debug, Copy, Clone)]
+    pub struct Approx<T>(pub(crate) T);
+
+    impl<T> PartialEq<T> for Approx<T>
+    where
+        T: ApproxEq + Copy,
+    {
+        fn eq(&self, other: &T) -> bool {
+            self.0.approx_eq(*other)
+        }
+    }
+
+    pub fn assert_approx_eq<T>(actual: T, expected: T)
+    where
+        T: ApproxEq + Debug + Copy,
+        T::Scalar: Debug,
+    {
+        assert_eq!(
+            Approx(actual),
+            expected,
+            "\n(delta={:?},eps={:?})",
+            actual.abs_diff(expected),
+            actual.epsilon()
+        );
+    }
+
+    pub fn assert_approx_ne<T>(actual: T, expected: T)
+    where
+        T: ApproxEq + Debug + Copy,
+        T::Scalar: Debug,
+    {
+        assert_ne!(
+            Approx(actual),
+            expected,
+            "\n(difference={:?},epsilon={:?})",
+            actual.abs_diff(expected),
+            actual.epsilon()
+        );
+    }
+}
+
+
 #[cfg(test)]
 mod tests {
     use crate::Angle::*;
-    use crate::tests::util::*;
-
-    pub mod util {
-        use core::fmt::Debug;
-
-        use crate::ApproxEq;
-
-        #[derive(Debug, Copy, Clone)]
-        pub(crate) struct Approx<T>(pub(crate) T);
-
-        impl<T> PartialEq<T> for Approx<T>
-        where
-            T: ApproxEq + Copy,
-        {
-            fn eq(&self, other: &T) -> bool {
-                self.0.approx_eq(*other)
-            }
-        }
-
-        pub fn assert_approx_eq<T>(actual: T, expected: T)
-        where
-            T: ApproxEq + Debug + Copy,
-            T::Scalar: Debug,
-        {
-            assert_eq!(
-                Approx(actual),
-                expected,
-                "\n(delta={:?},eps={:?})",
-                actual.abs_diff(expected),
-                actual.epsilon()
-            );
-        }
-
-        pub fn assert_approx_ne<T>(actual: T, expected: T)
-        where
-            T: ApproxEq + Debug + Copy,
-            T::Scalar: Debug,
-        {
-            assert_ne!(
-                Approx(actual),
-                expected,
-                "\n(difference={:?},epsilon={:?})",
-                actual.abs_diff(expected),
-                actual.epsilon()
-            );
-        }
-    }
+    use super::test_util::*;
 
     #[test]
     fn lerp_float() {

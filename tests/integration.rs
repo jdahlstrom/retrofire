@@ -90,7 +90,7 @@ fn render_cube_with_unit_attrs() {
 
 #[test]
 fn render_cube_with_vector_attrs() {
-    let actual = render(UnitCube.build());
+    let actual = render(UnitCube.with_normals());
 
     assert_eq!(EXPECTED_CUBE, &actual);
 }

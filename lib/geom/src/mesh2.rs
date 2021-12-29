@@ -3,6 +3,7 @@ use math::mat::Mat4;
 use math::transform::Transform;
 
 use math::vec::{Vec4, ZERO};
+use util::tex::TexCoord;
 
 use crate::bbox::BoundingBox;
 
@@ -171,6 +172,28 @@ impl<FA> Mesh<(), FA> {
             vertex_coords,
             vertex_attrs: vert_ns,
             bbox,
+        }
+    }
+
+    pub fn gen_texcoords<F>(self, f: F) -> Mesh<(TexCoord, ), FA>
+    where
+        F: FnMut(Vec4) -> TexCoord,
+    {
+        let Self {
+            verts, vertex_coords, faces, face_attrs, bbox, ..
+        } = self;
+
+        let tcs = vertex_coords.iter()
+            .copied()
+            .map(f)
+            .collect();
+
+        let verts = verts.into_iter()
+            .map(|v| Vertex { coord: v.coord, attr: v.coord })
+            .collect();
+
+        Mesh {
+            faces, face_attrs, verts, vertex_coords, vertex_attrs: tcs, bbox
         }
     }
 }

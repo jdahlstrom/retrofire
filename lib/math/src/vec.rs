@@ -316,10 +316,17 @@ impl Distrib<Vec4> for Uniform<Range<Vec4>> {
 #[cfg(test)]
 #[allow(unused_must_use)]
 mod tests {
-    use crate::tests::util::*;
+    use crate::test_util::*;
 
     use super::*;
     use crate::Angle::Deg;
+    use crate::Tau;
+
+    #[test]
+    fn vec_from_polar_zero_angle() {
+        let v = polar(1.0, Tau(0.0));
+        assert_approx_eq(Z, v);
+    }
 
     #[test]
     fn vec_from_polar() {
