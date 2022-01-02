@@ -83,12 +83,15 @@ pub struct Mesh<VA: Soa, FA = ()> {
     pub bbox: BoundingBox,
 }
 
-impl Default for Mesh<()> {
+impl<VA: Soa, FA> Default for Mesh<VA, FA>
+where
+    VA::Vecs: Default
+{
     fn default() -> Self {
         Self {
             verts: vec![],
             vertex_coords: vec![],
-            vertex_attrs: (),
+            vertex_attrs: VA::Vecs::default(),
             faces: vec![],
             face_attrs: vec![],
             bbox: BoundingBox::default(),
