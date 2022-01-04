@@ -60,7 +60,7 @@ where
             let x_left = left.0.round() as usize;
             let x_right = right.0.round() as usize;
 
-            for (x, v) in (x_left..=x_right).zip(v) {
+            for (x, v) in (x_left..x_right).zip(v) {
                 plot(Fragment { coord: (x, y), varying: v, uniform: () });
             }
         }
