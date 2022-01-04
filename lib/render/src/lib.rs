@@ -1,3 +1,4 @@
+use std::cmp::Ordering;
 use std::fmt::Debug;
 use std::mem::swap;
 use std::time::Instant;
@@ -19,7 +20,7 @@ use crate::raster::*;
 use crate::shade::{Shader, ShaderImpl};
 use crate::vary::Varying;
 
-mod hsr;
+pub mod hsr;
 pub mod fx;
 pub mod raster;
 pub mod scene;
@@ -152,7 +153,7 @@ where
                 rdr.stats.objs_out += 1;
                 rdr.stats.faces_out += faces.len();
 
-                if rdr.options.depth_sort { depth_sort(&mut faces); }
+                depth_sort(&mut faces, rdr.options.depth_sort);
                 perspective_divide(&mut verts, rdr.options.perspective_correct);
 
                 for v in &mut verts {
@@ -242,7 +243,7 @@ where
                 rdr.stats.objs_out += 1;
                 rdr.stats.faces_out += faces.len();
 
-                if rdr.options.depth_sort { depth_sort(&mut faces); }
+                depth_sort(&mut faces, rdr.options.depth_sort);
                 perspective_divide(&mut verts, rdr.options.perspective_correct);
 
                 for v in &mut verts {
@@ -252,16 +253,23 @@ where
                 for Face { indices, attr, .. } in faces {
                     let verts = indices.map(|i| verts[i]).map(with_depth);
 
-                    /*eprintln!("\nV0 {:?}...", verts[0]);
-                    eprintln!("V1 {:?}...", verts[1]);
-                    eprintln!("V2 {:?}...", verts[2]);*/
                     tri_fill(verts, |frag| {
                         if self.rasterize(shader, raster, frag.uniform(attr)) {
                             rdr.stats.pixels += 1;
                         }
                     });
+
+                    if let Some(col) = rdr.options.wireframes {
+                        let [a, b, c] = verts;
+                        for e in [a, b, c, a].windows(2) {
+                            line([e[0], e[1]], |frag| {
+                                if raster.test(frag.varying(frag.varying.0-0.001)) {
+                                    raster.output(frag.varying((0.0, col)));
+                                }
+                            });
+                        }
+                    }
                 }
-                //exit(1);
             }
         }
     }
@@ -286,7 +294,7 @@ where
         }).to_vec();
         let mut clip_out = Vec::new();
         hsr::clip(&mut verts, &mut clip_out);
-        if let &[a, b] = clip_out.as_slice() {
+        if let &[a, b, ..] = clip_out.as_slice() {
             rdr.stats.faces_out += 1;
             let verts = [
                 clip_to_screen(a, &rdr.viewport),
@@ -399,7 +407,7 @@ pub struct Renderer {
 #[derive(Copy, Clone, Default)]
 pub struct Options {
     pub perspective_correct: bool,
-    pub depth_sort: bool,
+    pub depth_sort: Option<Ordering>,
     pub wireframes: Option<Color>,
     pub bounding_boxes: Option<Color>,
 }
@@ -454,16 +462,34 @@ impl Renderer {
     }
 }
 
-fn depth_sort<VA: Copy, FA: Copy>(_faces: &mut Vec<Face<VA, FA>>) {
-    todo!()
+pub fn depth_sort<VA: Copy, FA: Copy>(
+    faces: &mut Vec<Face<VA, FA>>,
+    ord: Option<Ordering>,
+) {
+    if let Some(ord) = ord {
+        faces.sort_unstable_by(|f, g| {
+            let o = f.verts[0].coord.z
+                .partial_cmp(&g.verts[0].coord.z).unwrap();
+
+            if ord.is_le() {
+                o
+            } else {
+                o.reverse()
+            }
+        });
+    }
 }
 
-fn perspective_divide<VA>(verts: &mut Vec<Vertex<VA>>, pc: bool)
+pub fn perspective_divide<VA>(verts: &mut Vec<Vertex<VA>>, pc: bool)
 where VA: Linear<f32> + Copy
 {
     for Vertex { coord, attr } in verts {
         let w = 1.0 / coord.w;
-        *coord = coord.mul(w);
+        //*coord = coord.mul(w);
+        coord.x *= w;
+        coord.y *= w;
+        //coord.z *= w;
+        coord.w = 1.0;
         if pc {
             *attr = attr.mul(w);
         }
@@ -471,11 +497,11 @@ where VA: Linear<f32> + Copy
 }
 
 #[inline(always)]
-fn with_depth<VA>(v: Vertex<VA>) -> Vertex<(f32, VA)> {
+pub fn with_depth<VA>(v: Vertex<VA>) -> Vertex<(f32, VA)> {
     Vertex { coord: v.coord, attr: (v.coord.z, v.attr) }
 }
 
-fn clip_to_screen<A>(mut v: Vertex<A>, viewport: &Mat4) -> Vertex<(f32, A)> {
+pub fn clip_to_screen<A>(mut v: Vertex<A>, viewport: &Mat4) -> Vertex<(f32, A)> {
     v.coord = (v.coord / v.coord.w).transform(viewport);
     with_depth(v)
 }
