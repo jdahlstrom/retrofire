@@ -62,16 +62,12 @@ pub struct Framebuf<'a> {
     pub depth: &'a mut Buffer<f32>,
 }
 
-impl<'a> Framebuf<'a> {
-
-}
-
 impl<'a> RasterOps for Framebuf<'a> {
-
+    #[inline]
     fn test<U>(&self, f: Fragment<f32, U>) -> bool {
         f.varying < *self.depth.get(f.coord.0, f.coord.1)
     }
-
+    #[inline]
     fn output<U>(&mut self, f: Fragment<(f32, Color), U>) {
         let ((x, y), (z, col)) = (f.coord, f.varying);
         let [_, r, g, b] = col.to_argb();
@@ -92,7 +88,7 @@ pub trait Render<U, VI, FI=VI> {
         S: Shader<U, VI, VI, FI>,
         R: RasterOps;
 
-    #[inline(always)]
+    #[inline]
     fn rasterize<S, R, VO>(
         &self, shade: &mut S, raster: &mut R,
         frag: Fragment<(f32, VO), U>,
