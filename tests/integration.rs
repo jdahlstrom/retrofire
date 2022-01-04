@@ -16,12 +16,12 @@ use render::raster::Fragment;
 static EXPECTED_CUBE: &str =
     "..........\
      ..........\
-     ..#######.\
-     ..#######.\
-     ..#######.\
-     ..#######.\
-     ..#######.\
-     ..#######.\
+     ..######..\
+     ..######..\
+     ..######..\
+     ..######..\
+     ..######..\
+     ..######..\
      ..........\
      ..........";
 
@@ -57,6 +57,8 @@ where VA: Copy + Linear<f32>, FA: Copy
 {
     const W: usize = 50;
     const H: usize = 20;
+    let mut buf = [b'.'; W * H];
+
     let mut rdr = Renderer::new();
     rdr.projection = perspective(1.0, 100.0, 1.0, Deg(90.0));
     rdr.viewport = viewport(0.0, 0.0, W as f32, H as f32);
@@ -69,9 +71,13 @@ where VA: Copy + Linear<f32>, FA: Copy
         },
         &mut Raster {
             test: |_| true,
-            output: |_| {}
+            output: |f: Fragment<_>| buf[W * f.coord.1 + f.coord.0] = b'#',
         }
     );
+    for row in buf.chunks(W) {
+        eprintln!("{}", std::str::from_utf8(&row).unwrap());
+    }
+
     eprintln!("Stats: {}", rdr.stats);
     stats
 }
@@ -107,5 +113,5 @@ fn render_sphere_field() {
 
     assert_eq!(126 * 21 * 21, stats.faces_in);
     assert_eq!(6626, stats.faces_out);
-    assert_eq!(1248, stats.pixels);
+    assert_eq!(302, stats.pixels);
 }

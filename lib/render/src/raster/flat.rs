@@ -40,7 +40,7 @@ mod tests {
         let mut buf = Buf::new(3, 3);
         flat_fill([vert(0.0, 0.0), vert(2.0, 0.0), vert(0.0, 2.0)], plotter(&mut buf));
 
-        assert_eq!(buf.to_string(), "\nWWW\nWW.\n...\n");
+        assert_eq!(buf.to_string(), "\nWW.\nW..\n...\n");
     }
 
     #[test]
