@@ -59,7 +59,8 @@ impl<T> Buffer<T, Vec<T>> {
     }
     pub fn from_vec(width: usize, data: Vec<T>) -> Self {
         let height = data.len() / width;
-        assert_eq!(data.len(), width * height);
+        /*assert_eq!(data.len(), width * height,
+                   "{}*{}!={}", width, height, data.len());*/
         Self { width, height, data }
     }
 }

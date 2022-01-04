@@ -19,7 +19,7 @@ use render::shade::ShaderImpl;
 use util::tex::*;
 use render::text::{Font, Text};
 use util::buf::Buffer;
-use util::color::{BLACK, WHITE};
+use util::color::{BLACK, BLUE, gray, RED, WHITE};
 use util::io::load_pnm;
 
 fn coords<T: Copy>(r: impl Iterator<Item=T> + Clone)
@@ -67,7 +67,7 @@ fn objects() -> Vec<Obj<mesh2::Mesh<NormAndTc, TexIdx>>> {
 
     let crates = coords(-10..=10)
         .map(|(i, j)| {
-            let geom = UnitCube.with_texcoords();
+            let geom = UnitCube.with_normals_and_texcoords();
 
             let tcs = geom.vertex_attrs.1
                 .into_iter()
@@ -100,7 +100,7 @@ fn main() {
 
     let mut rdr = Renderer::new();
     rdr.options.perspective_correct = true;
-    rdr.projection = perspective(0.1, 50., w / h, Deg(90.0));
+    rdr.projection = perspective(0.01, 1000., w / h, Deg(90.0));
     rdr.viewport = viewport(margin, h - margin, w - margin, margin);
 
 
@@ -112,16 +112,29 @@ fn main() {
     };
 
     let tex = [
-        Texture::from(load_pnm("examples/sdl/crate.ppm").unwrap()),
-        Texture::from(Buffer::from_vec(2, vec![BLACK, WHITE, WHITE, BLACK])),
+        (Texture::new(128, load_pnm("examples/sdl/crate.ppm").unwrap().data())),
+        (Texture::new(8, &[
+            BLACK, BLACK, BLACK, BLACK, WHITE, WHITE, WHITE, WHITE,
+            BLACK, BLACK, BLACK, BLACK, WHITE, WHITE, WHITE, WHITE,
+            BLACK, BLACK, BLACK, BLACK, WHITE, WHITE, WHITE, WHITE,
+            BLACK, BLACK, BLACK, BLACK, WHITE, WHITE, WHITE, WHITE,
+            WHITE, WHITE, WHITE, WHITE, BLACK, BLACK, BLACK, BLACK,
+            WHITE, WHITE, WHITE, WHITE, BLACK, BLACK, BLACK, BLACK,
+            WHITE, WHITE, WHITE, WHITE, BLACK, BLACK, BLACK, BLACK,
+            WHITE, WHITE, WHITE, WHITE, BLACK, BLACK, BLACK, BLACK,
+        ])),
     ];
 
     let shader = &mut ShaderImpl {
         vs: identity,
         fs: |frag: Fragment<NormAndTc, TexIdx>| {
-            Some(tex[frag.uniform].sample(frag.varying.1))
+            let (_n, uv) = frag.varying;
+            let col = tex[frag.uniform].sample_mip(uv, 0);
+
             //let shade = frag.varying.0.dot(dir(0.5, 0.8, 0.4)).max(0.3);
             //Some(tex[frag.uniform].sample(frag.varying.1).mul(shade))
+
+            Some(col)
         },
     };
 
@@ -139,6 +152,7 @@ fn main() {
     let mut text = Text::new(font, "");
 
     runner.run(|mut frame| {
+
         rdr.render_scene(&scene, shader, &mut frame.buf);
 
         let mut hud = Renderer::new();
