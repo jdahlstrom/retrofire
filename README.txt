@@ -24,9 +24,39 @@ buffers.  The project  comes with  examples  that include  interactive programs
 targetting ncurses and SDL 2.  A future goal is to add an HTML5 / WASM example.
 
 
+//////////// C U R R E N T  A N D  P L AN N E D  F E A T U R E S  /////////////
+
+// Done
+
+++ Rendering of 3D triangles, lines, polylines, and sprites
+++ Generic interpolation of vertex attributes including custom types
+++ Programmable vertex and fragment shaders
+++ Perspective-correct texture mapping
+++ Clip-space clipping and culling of primitives
+++ Z-buffering and z-sorting
+++ First-person mouselook camera
+++ PNM image saving and loading
+++ Simple random number/vector generation and distributions
+
+// WIP
+
+** More texture sampling options including cube mapping
+** Mipmapping and mipmap generation
+** Procedural texture and audio generation
+** Quake/Quake 2 map rendering with BSP and VIS support
+** PCX image saving and loading
+
+// Planned
+
+-- Animation sequencing
+-- Hierarchical transforms
+-- Voxel rendering
+-- Optional support for more image formats
+
+
 /////////////////////////////// M O D U L E S /////////////////////////////////
 
-retrofire is composed of the following submodules:
+retrofire is composed of the following crates and submodules:
 
 lib
 |
@@ -36,21 +66,26 @@ lib
 |   '-- bbox ................................... Axis-aligned bounding box type
 |
 '== math ........................... Utilities such as lerp and approx equality
-|   |-- random .............. Pseudo-random number generation and distributions
+|   |-- rand ................ Pseudo-random number generation and distributions
+|   |-- spline .................Creation and evaluation of cubic Bezier splines
 |   |-- vec .................... 4D vectors and related functions and operators
 |   |-- mat .................. 4x4 matrices and related functions and operators
 |   '-- transform .............. Functions for creating transformation matrices
 |
 '== render ............................... Self-contained 3D rendering pipeline
+|   |-- fx ............................ Animation, particles, and other effects
 |   |-- hsr ......................... Backface and frustum culling and clipping
 |   |-- raster ............................ Scanline rasterization of triangles
 |   |-- shade ........................ Shading algorithms and related functions
 |   |-- stats ....................... Collecting and printing render statistics
+|   |-- text ........................... Bitmap fonts and simple text rendering
 |   '-- vary ............................... Interpolation of vertex attributes
 |
-'== util ................................... Memory buffers and other utilities
+'== util .......................................... Utility functions and types
+    |-- buf ....................................... Generic rectangular buffers
     |-- color ................................ An RGBA color type and utilities
-    '-- io .........................................Image file input and output
+    |-- io .........................................Image file input and output
+    '-- tex ..................................... Textures and texture sampling
 
 examples
 |
@@ -96,7 +131,7 @@ Textured crates lying on a checkered floor. Arrow keys and WASD to move around.
 
 /////////////////////////////// L I C E N S E /////////////////////////////////
 
-(C)opyright  2020  Johannes  Dahlström.  retrofire is licensed under  either of
+(C)opyright 2020-2022 Johannes Dahlström. retrofire is licensed under either of
 
 -- Apache License, Version 2.0
    (LICENSE-APACHE or http://www.apache.org/licenses/LICENSE-2.0)
