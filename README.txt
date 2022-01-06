@@ -30,8 +30,10 @@ targetting ncurses and SDL 2.  A future goal is to add an HTML5 / WASM example.
 
 ++ Rendering of 3D triangles, lines, polylines, and sprites
 ++ Generic interpolation of vertex attributes including custom types
+++ Programmable vertex and fragment shaders
 ++ Perspective-correct texture mapping
 ++ Clip-space clipping and culling of primitives
+++ Z-buffering and z-sorting
 ++ First-person mouselook camera
 ++ PNM image saving and loading
 ++ Simple random number/vector generation and distributions
