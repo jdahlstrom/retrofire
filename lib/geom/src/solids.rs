@@ -183,7 +183,7 @@ impl UnitSphere {
             .map(|pt| dir(pt.z, pt.x, 0.0))
             .collect();
 
-        Sor::new(pts, self.1).build()
+        Sor::new(pts, self.1).wrap(true).build()
     }
 }
 
@@ -544,30 +544,30 @@ mod tests {
 
     #[test]
     fn validate_sor_empty() {
-        Sor(vec![], 13, false).build().validate().unwrap();
+        Sor::new(vec![], 13).build().validate().unwrap();
     }
 
     #[test]
     fn validate_sor_capped() {
         let pts = vec![-2.0 * Y, X - 2.0 * Y, 2.0 * X - Y, 0.5 * X, X + 2.0 * Y, 3.0 * Y];
-        Sor(pts, 8, false).build().validate().unwrap();
+        Sor::new(pts, 8).build().validate().unwrap();
     }
 
     #[test]
     fn validate_sor_open() {
         let pts = vec![X, 2.0 * X + 0.2 * Y, 1.5 * X + 0.8 * Y, X + Y];
-        Sor(pts, 11, false).build().validate().unwrap();
+        Sor::new(pts, 11).build().validate().unwrap();
     }
 
     #[test]
     fn validate_sor_capped_top() {
         let pts = vec![0.1 * X - Y, 2.0 * X + Y, 1.5 * X + 0.8 * Y, Y];
-        Sor(pts, 19, false).build().validate().unwrap();
+        Sor::new(pts, 19).build().validate().unwrap();
     }
 
     #[test]
     fn validate_sor_capped_bottom() {
         let pts = vec![-Y, X, X + Y];
-        Sor(pts, 3, false).build().validate().unwrap();
+        Sor::new(pts, 3).build().validate().unwrap();
     }
 }
