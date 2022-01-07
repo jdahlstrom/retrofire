@@ -1,8 +1,9 @@
-use geom::mesh::Vertex;
+use geom::mesh2::GenVertex;
+use math::vec::Vec4;
 
 pub type Fragment = super::Fragment<()>;
 
-pub fn flat_fill(verts: [Vertex<()>; 3], plot: impl FnMut(Fragment)) {
+pub fn flat_fill(verts: [GenVertex<Vec4, ()>; 3], plot: impl FnMut(Fragment)) {
     super::tri_fill(verts, plot)
 }
 
@@ -12,7 +13,7 @@ mod tests {
     use super::*;
     use crate::raster::tests::Buf;
 
-    fn vert(x: f32, y: f32) -> Vertex<()> {
+    fn vert(x: f32, y: f32) -> GenVertex<Vec4, ()> {
         crate::raster::tests::vert(x, y, ())
     }
 

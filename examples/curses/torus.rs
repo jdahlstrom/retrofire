@@ -1,8 +1,8 @@
 use pancurses as nc;
 use pancurses::Input::*;
-use geom::mesh2::Face;
 
-use geom::mesh::Vertex;
+use geom::mesh2::Face;
+use geom::mesh2::Vertex;
 use geom::solids::*;
 use math::Angle::Rad;
 use math::transform::*;

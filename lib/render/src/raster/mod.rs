@@ -1,7 +1,8 @@
 use std::mem::swap;
 
-use geom::mesh::Vertex;
+use geom::mesh2::GenVertex;
 use math::Linear;
+use math::vec::Vec4;
 
 use crate::vary::{Bresenham, Varying};
 
@@ -34,13 +35,13 @@ impl<V, U> Fragment<V, U> {
     }
 }
 
-fn ysort<V>([a, b, c]: &mut [Vertex<V>; 3]) {
+fn ysort<V>([a, b, c]: &mut [GenVertex<Vec4, V>; 3]) {
     if a.coord.y > b.coord.y { swap(a, b); }
     if a.coord.y > c.coord.y { swap(a, c); }
     if b.coord.y > c.coord.y { swap(b, c); }
 }
 
-pub fn tri_fill<V, P>(mut verts: [Vertex<V>; 3], mut plot: P)
+pub fn tri_fill<V, P>(mut verts: [GenVertex<Vec4, V>; 3], mut plot: P)
 where
     V: Linear<f32> + Copy,
     P: FnMut(Fragment<V>)
@@ -86,7 +87,7 @@ where
     }
 }
 
-pub fn line<V, P>([mut a, mut b]: [Vertex<V>; 2], mut plot: P)
+pub fn line<V, P>([mut a, mut b]: [GenVertex<Vec4, V>; 2], mut plot: P)
 where
     V: Copy + Linear<f32>,
     P: FnMut(Fragment<V>)
@@ -126,12 +127,14 @@ mod tests {
 
     use super::*;
 
-    fn v(x: f32, y: f32) -> Vertex<()> {
-        Vertex { coord: pt(x, y, 0.0), attr: () }
+    type Vert<A> = GenVertex<Vec4, A>;
+
+    fn v(x: f32, y: f32) -> Vert<()> {
+        GenVertex { coord: pt(x, y, 0.0), attr: () }
     }
 
-    pub fn vert<V: Copy>(x: f32, y: f32, attr: V) -> Vertex<V> {
-        Vertex { coord: vec4(x, y, 0.0, 1.0), attr }
+    pub fn vert<V: Copy>(x: f32, y: f32, attr: V) -> Vert<V> {
+        GenVertex { coord: vec4(x, y, 0.0, 1.0), attr }
     }
 
     #[test]

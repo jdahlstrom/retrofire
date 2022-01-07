@@ -1,8 +1,9 @@
-use geom::mesh::Vertex;
+use geom::mesh2::GenVertex;
+use math::vec::Vec4;
 
 pub type Fragment = super::Fragment<f32>;
 
-pub fn gouraud_fill(vs: [Vertex<f32>; 3], plot: impl FnMut(Fragment)) {
+pub fn gouraud_fill(vs: [GenVertex<Vec4, f32>; 3], plot: impl FnMut(Fragment)) {
     super::tri_fill(vs, plot)
 }
 

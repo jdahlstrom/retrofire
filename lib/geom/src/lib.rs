@@ -4,7 +4,7 @@ use math::mat::Mat4;
 use math::transform::Transform;
 use math::vec::{dir, Vec4};
 
-use crate::mesh::Vertex;
+use crate::mesh2::Vertex;
 
 pub mod mesh;
 pub mod mesh2;

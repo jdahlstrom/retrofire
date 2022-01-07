@@ -8,7 +8,7 @@ use crate::bbox::BoundingBox;
 
 pub trait Soa {
     type Vecs;
-    type Indices;
+    type Indices: Copy + Debug;
 
     fn get(vecs: &Self::Vecs, idcs: &Self::Indices) -> Self;
 }
@@ -59,10 +59,13 @@ impl<T0: Copy, T1: Copy, T2: Copy, T3: Copy> Soa for (T0, T1, T2, T3) {
 }
 
 #[derive(Copy, Clone, Debug, PartialEq)]
-pub struct Vertex<C, A> {
+pub struct GenVertex<C, A> {
     pub coord: C,
     pub attr: A,
 }
+
+pub type Vertex<A> = GenVertex<Vec4, A>;
+pub type VertexInds<VA> = GenVertex<usize, <VA as Soa>::Indices>;
 
 #[derive(Copy, Clone, Debug, PartialEq)]
 pub struct Face<V, A> {
@@ -72,7 +75,7 @@ pub struct Face<V, A> {
 
 #[derive(Clone, Debug)]
 pub struct Mesh<VA: Soa, FA = ()> {
-    pub verts: Vec<Vertex<usize, VA::Indices>>,
+    pub verts: Vec<VertexInds<VA>>,
     pub vertex_coords: Vec<Vec4>,
     pub vertex_attrs: VA::Vecs,
 
@@ -164,7 +167,7 @@ impl<FA> Mesh<(), FA> {
         }
 
         let verts = verts.into_iter().zip(0..vert_ns.len())
-            .map(|(v, attr)| Vertex { coord: v.coord, attr })
+            .map(|(v, attr)| GenVertex { coord: v.coord, attr })
             .collect();
 
         Mesh {
@@ -230,7 +233,7 @@ impl Builder {
     pub fn add_vert(&mut self, c: Vec4) -> isize {
         let idx = self.0.vertex_coords.len();
         self.0.vertex_coords.push(c.to_pt());
-        self.0.verts.push(Vertex { coord: idx, attr: [] });
+        self.0.verts.push(GenVertex { coord: idx, attr: [] });
         idx as isize
     }
 
