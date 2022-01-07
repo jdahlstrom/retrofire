@@ -137,10 +137,9 @@ fn main() {
                     },
                 };
 
-                rdr.render_scene(&scene, shade_checkers, &mut frame.buf);
+                scene.render(&mut rdr, shade_checkers, &mut frame.buf);
 
                 rdr.modelview = scene.camera.clone();
-
                 ptx.borrow().render(&mut rdr, shade_ptx, &mut frame.buf);
             }
             // Input

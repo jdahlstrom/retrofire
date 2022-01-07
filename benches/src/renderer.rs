@@ -92,8 +92,8 @@ fn scene(c: &mut Criterion) {
 
     let mut buf = [BLACK; W * W];
     c.bench_function("scene", |b| {
-        b.iter(|| rdr.render_scene(
-            &scene,
+        b.iter(|| scene.render(
+            &mut rdr,
             &mut ShaderImpl {
                 vs: |v| v,
                 fs: |_| Some(WHITE),

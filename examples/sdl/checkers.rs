@@ -134,7 +134,7 @@ fn main() {
     let mut text = Text::new(font, "");
 
     runner.run(|mut frame| {
-        rdr.render_scene(&scene, shader, &mut frame.buf);
+        scene.render(&mut rdr, shader, &mut frame.buf);
 
         let mut hud = Renderer::new();
         hud.projection = orthogonal(pt(0.0, 0.0, -1.0), pt(w, h, 1.0));
