@@ -2,13 +2,11 @@ use std::fmt::Debug;
 use std::mem::swap;
 use std::time::Instant;
 
-use geom::{LineSeg, mesh, mesh2, Polyline, Sprite};
-use geom::mesh::{Face, Vertex};
-use geom::mesh2::Soa;
+use geom::{LineSeg, mesh2, Polyline, Sprite};
+use geom::mesh2::{Face, Soa, GenVertex, Vertex};
 use math::Linear;
 use math::mat::Mat4;
 use math::transform::*;
-use math::vec::*;
 use scene::{Obj, Scene};
 pub use stats::Stats;
 use util::buf::Buffer;
@@ -16,7 +14,7 @@ use util::color::Color;
 
 use crate::hsr::Visibility;
 use crate::raster::*;
-use crate::shade::{Shader, ShaderImpl};
+use crate::shade::Shader;
 use crate::vary::Varying;
 
 mod hsr;
@@ -164,7 +162,7 @@ where
                 .collect();
 
             let verts: Vec<_> = self.verts.iter()
-                .map(|v| Vertex {
+                .map(|v| GenVertex {
                     coord:  vcs[v.coord],
                     attr: VI::get(&self.vertex_attrs, &v.attr)
                 })
@@ -172,8 +170,7 @@ where
 
             let faces: Vec<_> = self.faces.iter()
                 .map(|f| Face {
-                    indices: f.verts,
-                    verts: f.verts.map(|i| verts[i]),
+                    verts: f.verts,
                     attr: self.face_attrs[f.attr]
                 })
                 .collect();
@@ -191,11 +188,11 @@ where
                     v.coord.transform_mut(&rdr.viewport);
                 }
 
-                for Face { indices, attr, .. } in faces {
-                    let verts = indices.map(|i| verts[i]).map(with_depth);
+                for f in faces {
+                    let verts = f.verts.map(|i| with_depth(verts[i]));
 
                     tri_fill(verts, |frag| {
-                        if self.rasterize(shader, raster, frag.uniform(attr)) {
+                        if self.rasterize(shader, raster, frag.uniform(f.attr)) {
                             rdr.stats.pixels += 1;
                         }
                     });
@@ -388,10 +385,11 @@ fn depth_sort<VA: Copy, FA: Copy>(_faces: &mut Vec<Face<VA, FA>>) {
     todo!()
 }
 
-fn perspective_divide<VA>(verts: &mut Vec<Vertex<VA>>, pc: bool)
-where VA: Linear<f32> + Copy
+fn perspective_divide<A>(verts: &mut Vec<Vertex<A>>, pc: bool)
+where
+    A: Linear<f32> + Copy
 {
-    for Vertex { coord, attr } in verts {
+    for GenVertex { coord, attr } in verts {
         let w = 1.0 / coord.w;
         *coord = coord.mul(w);
         if pc {
@@ -401,7 +399,7 @@ where VA: Linear<f32> + Copy
 }
 
 #[inline(always)]
-fn with_depth<VA>(v: Vertex<VA>) -> Vertex<(f32, VA)> {
+fn with_depth<A>(v: Vertex<A>) -> Vertex<(f32, A)> {
     Vertex { coord: v.coord, attr: (v.coord.z, v.attr) }
 }
 

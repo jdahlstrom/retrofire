@@ -3,7 +3,7 @@ use pancurses::Input::*;
 
 use math::vec::vec4;
 use render::raster::flat;
-use geom::mesh::Vertex;
+use geom::mesh2::Vertex;
 
 fn vert(x: f32, y: f32) -> Vertex<()> {
     Vertex { coord: vec4(x, y, 0.0, 0.0), attr: () }

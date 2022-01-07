@@ -1,5 +1,5 @@
 use math::vec::*;
-use geom::mesh::Vertex;
+use geom::mesh2::Vertex;
 use crate::raster::Fragment;
 use util::color::Color;
 

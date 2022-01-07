@@ -3,8 +3,7 @@ use std::ops::ControlFlow::*;
 use sdl2::keyboard::Scancode;
 
 use front::sdl::*;
-use geom::mesh2::{Mesh, Vertex as Vertex2};
-use geom::mesh::Vertex;
+use geom::mesh2::{GenVertex, Mesh, Vertex};
 use geom::solids::teapot;
 use math::Angle::{Deg, Rad};
 use math::mat::Mat4;
@@ -52,8 +51,8 @@ fn main() {
 
     let teapot = Mesh::<CoordNormAndTexCrd> {
         verts: teapot.verts.into_iter()
-            .map(|Vertex2 { coord, attr: [a0, a1] }|
-                Vertex2 { coord, attr: [coord, a0, a1] })
+            .map(|GenVertex { coord, attr: [a0, a1] }|
+                GenVertex { coord, attr: [coord, a0, a1] })
             .collect(),
         vertex_coords: teapot.vertex_coords.clone(),
         vertex_attrs: (teapot.vertex_coords, teapot.vertex_attrs.0, teapot.vertex_attrs.1),
