@@ -11,8 +11,8 @@ use math::transform::*;
 use math::vec::*;
 use scene::{Obj, Scene};
 pub use stats::Stats;
-use util::color::Color;
 use util::buf::Buffer;
+use util::color::Color;
 
 use crate::hsr::Visibility;
 use crate::raster::*;
@@ -115,83 +115,25 @@ pub trait Render<U, VI, FI=VI> {
     }
 }
 
-impl<VI, U> Render<U, VI> for mesh::Mesh<VI, U>
+impl<G, U, V> Render<U, V> for Scene<G>
 where
-    VI: Linear<f32> + Copy,
+    G: Render<U, V>,
     U: Copy,
+    V: Linear<f32> + Copy,
 {
-    fn render<S, R>(&self, rdr: &mut Renderer, shader: &mut S, raster: &mut R)
+    fn render<S, R>(&self, rdr: &mut Renderer, shade: &mut S, raster: &mut R)
     where
-        S: Shader<U, VI>,
+        S: Shader<U, V>,
         R: RasterOps
     {
-        use mesh::vertex;
-
-        rdr.stats.faces_in += self.faces.len();
-
-        let mvp = &rdr.modelview * &rdr.projection;
-
-        let bbox_vis = {
-            let vs = self.bbox.verts().transform(&mvp);
-            hsr::vertex_visibility(vs.iter())
-        };
-
-        if bbox_vis != Visibility::Hidden {
-            let verts: Vec<_> = self.verts()
-                // TODO do transform in vertex shader?
-                .map(|mut v| { v.coord.transform_mut(&mvp); v })
-                .map(|v| shader.shade_vertex(v))
-                .collect();
-            let faces: Vec<_> = self.faces()
-                .map(|f| Face { verts: f.indices.map(|i| verts[i]), ..f })
-                .collect();
-
-            let (mut verts, mut faces) = hsr::hidden_surface_removal(&verts, &faces, bbox_vis);
-
-            if !faces.is_empty() {
-                rdr.stats.objs_out += 1;
-                rdr.stats.faces_out += faces.len();
-
-                if rdr.options.depth_sort { depth_sort(&mut faces); }
-                perspective_divide(&mut verts, rdr.options.perspective_correct);
-
-                for v in &mut verts {
-                    v.coord.transform_mut(&rdr.viewport);
-                }
-
-                for Face { indices, attr, .. } in faces {
-                    let verts = indices.map(|i| verts[i]).map(with_depth);
-                    tri_fill(verts, |frag| {
-                        if self.rasterize(shader, raster, frag.uniform(attr)) {
-                            rdr.stats.pixels += 1;
-                        }
-                    });
-                }
-            }
-
-            let mut render_edges = |rdr: &mut _,
-                                    edges: Vec<[Vec4; 2]>,
-                                    col: Color| {
-                for edge in edges.into_iter()
-                    .map(|[a, b]| [vertex(a, col), vertex(b, col)])
-                    .map(LineSeg)
-                {
-                    edge.render(rdr, &mut ShaderImpl {
-                        vs: |a| a,
-                        fs: |f: Fragment<_>| Some(f.varying),
-                    }, &mut Raster {
-                        test: |_| true,
-                        output: |f| raster.output(f),
-                    });
-                }
-            };
-            if let Some(col) = rdr.options.wireframes {
-                render_edges(rdr, self.edges(), col);
-            }
-            if let Some(col) = rdr.options.bounding_boxes {
-                render_edges(rdr, self.bbox.edges(), col);
-            }
+        let clock = Instant::now();
+        let Self { objects, camera } = self;
+        for Obj { tf, geom, .. } in objects {
+            rdr.modelview = tf * camera;
+            geom.render(rdr, shade, raster);
         }
+        rdr.stats.objs_in += objects.len();
+        rdr.stats.time_used += clock.elapsed();
     }
 }
 
@@ -252,18 +194,50 @@ where
                 for Face { indices, attr, .. } in faces {
                     let verts = indices.map(|i| verts[i]).map(with_depth);
 
-                    /*eprintln!("\nV0 {:?}...", verts[0]);
-                    eprintln!("V1 {:?}...", verts[1]);
-                    eprintln!("V2 {:?}...", verts[2]);*/
                     tri_fill(verts, |frag| {
                         if self.rasterize(shader, raster, frag.uniform(attr)) {
                             rdr.stats.pixels += 1;
                         }
                     });
+
+                    if let Some(col) = rdr.options.wireframes {
+                        let [a, b, c] = verts;
+                        for e in [a, b, c, a].windows(2) {
+                            line([e[0], e[1]], |frag| {
+                                if raster.test(frag.varying(frag.varying.0-0.001)) {
+                                    raster.output(frag.varying((0.0, col)));
+                                }
+                            });
+                        }
+                    }
                 }
-                //exit(1);
             }
         }
+
+        /* TODO Wireframe and bounding box debug rendering
+        let mut render_edges = |rdr: &mut _,
+                                    edges: Vec<[Vec4; 2]>,
+                                    col: Color| {
+                for edge in edges.into_iter()
+                    .map(|[a, b]| [vertex(a, col), vertex(b, col)])
+                    .map(LineSeg)
+                {
+                    edge.render(rdr, &mut ShaderImpl {
+                        vs: |a| a,
+                        fs: |f: Fragment<_>| Some(f.varying),
+                    }, &mut Raster {
+                        test: |_| true,
+                        output: |f| raster.output(f),
+                    });
+                }
+            };
+            if let Some(col) = rdr.options.wireframes {
+                render_edges(rdr, self.edges(), col);
+            }
+            if let Some(col) = rdr.options.bounding_boxes {
+                render_edges(rdr, self.bbox.edges(), col);
+            }
+         */
     }
 }
 
@@ -407,50 +381,6 @@ pub struct Options {
 impl Renderer {
     pub fn new() -> Renderer {
         Self::default()
-    }
-
-    pub fn render_scene<'a, V, F, Re, Sh, Ra>(
-        &'a mut self,
-        Scene { objects, camera }: &Scene<Re>,
-        shader: &mut Sh,
-        raster: &mut Ra
-    ) -> Stats
-    where
-        V: Copy,
-        F: Copy,
-        Re: Render<F, V>,
-        Sh: Shader<F, V>,
-        Ra: RasterOps + 'a
-    {
-        let clock = Instant::now();
-        for Obj { tf, geom, .. } in objects {
-            self.modelview = tf * camera;
-            geom.render(self, shader, raster);
-        }
-        self.stats.objs_in += objects.len();
-        self.stats.time_used += clock.elapsed();
-        self.stats
-    }
-
-    // FIXME Ensure correct stats in Render impls, then delete this method
-    #[deprecated]
-    #[allow(unused)]
-    fn render<VA, FA>(
-        &mut self,
-        _: &mesh::Mesh<VA, FA>,
-        _: &mut impl RasterOps
-    ) -> Stats
-    where
-        VA: Copy + Linear<f32>,
-        FA: Copy,
-    {
-        unimplemented!();
-
-        let clock = Instant::now();
-
-        self.stats.objs_in += 1;
-        self.stats.time_used += clock.elapsed();
-        self.stats
     }
 }
 

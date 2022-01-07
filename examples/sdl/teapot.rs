@@ -95,7 +95,7 @@ fn main() {
             camera: Mat4::identity(),
         };
 
-        rdr.render_scene(&scene, &mut Shd(light), &mut buf);
+        scene.render(&mut rdr, &mut Shd(light), &mut buf);
 
         for scancode in pressed_keys {
             use Scancode::*;

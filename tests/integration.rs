@@ -67,8 +67,8 @@ where
     rdr.projection = perspective(1.0, 100.0, 1.0, Deg(90.0));
     rdr.viewport = viewport(0.0, 0.0, W as f32, H as f32);
 
-    let stats = rdr.render_scene(
-        &scene,
+    scene.render(
+        &mut rdr,
         &mut ShaderImpl {
             vs: identity,
             fs: |_| Some(BLACK),
@@ -83,7 +83,7 @@ where
     }
 
     eprintln!("Stats: {}", rdr.stats);
-    stats
+    rdr.stats
 }
 
 #[test]
