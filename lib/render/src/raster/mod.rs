@@ -1,6 +1,6 @@
 use std::mem::swap;
 
-use geom::mesh2::GenVertex;
+use geom::mesh2::Vertex;
 use math::Linear;
 use math::vec::Vec4;
 
@@ -35,13 +35,13 @@ impl<V, U> Fragment<V, U> {
     }
 }
 
-fn ysort<V>([a, b, c]: &mut [GenVertex<Vec4, V>; 3]) {
+fn ysort<V>([a, b, c]: &mut [Vertex<V>; 3]) {
     if a.coord.y > b.coord.y { swap(a, b); }
     if a.coord.y > c.coord.y { swap(a, c); }
     if b.coord.y > c.coord.y { swap(b, c); }
 }
 
-pub fn tri_fill<V, P>(mut verts: [GenVertex<Vec4, V>; 3], mut plot: P)
+pub fn tri_fill<V, P>(mut verts: [Vertex<V>; 3], mut plot: P)
 where
     V: Linear<f32> + Copy,
     P: FnMut(Fragment<V>)
@@ -87,7 +87,7 @@ where
     }
 }
 
-pub fn line<V, P>([mut a, mut b]: [GenVertex<Vec4, V>; 2], mut plot: P)
+pub fn line<V, P>([mut a, mut b]: [Vertex<V>; 2], mut plot: P)
 where
     V: Copy + Linear<f32>,
     P: FnMut(Fragment<V>)
@@ -123,18 +123,15 @@ where
 mod tests {
     use std::fmt::*;
 
-    use math::vec::{pt, vec4};
+    use math::vec::pt;
 
     use super::*;
 
-    type Vert<A> = GenVertex<Vec4, A>;
-
-    fn v(x: f32, y: f32) -> Vert<()> {
-        GenVertex { coord: pt(x, y, 0.0), attr: () }
+    pub fn v(x: f32, y: f32) -> Vertex<()> {
+        va(x, y, ())
     }
-
-    pub fn vert<V: Copy>(x: f32, y: f32, attr: V) -> Vert<V> {
-        GenVertex { coord: vec4(x, y, 0.0, 1.0), attr }
+    pub fn va<A>(x: f32, y: f32, attr: A) -> Vertex<A> {
+        Vertex { coord: pt(x, y, 0.0), attr }
     }
 
     #[test]
@@ -172,7 +169,8 @@ mod tests {
         }
 
         pub fn put<V: Copy>(&mut self, frag: Fragment<V>, val: f32) {
-            self.0[(frag.coord.1 as usize) * self.1 + (frag.coord.0 as usize)] += val as u8;
+            let (x, y) = frag.coord;
+            self.0[(y as usize) * self.1 + (x as usize)] += val as u8;
         }
     }
 
@@ -197,8 +195,13 @@ mod tests {
     #[test]
     fn test_fill() {
         let mut buf = Buf::new(100, 60);
-        tri_fill([vert(80.0, 5.0, 0.0), vert(20.0, 15.0, 128.0), vert(50.0, 50.0, 255.0)], |frag| {
-            buf.put(frag, 128.0)
+        let verts = [
+            va(80.0, 5.0, 0.0),
+            va(20.0, 15.0, 128.0),
+            va(50.0, 50.0, 255.0)
+        ];
+        tri_fill(verts, |frag| {
+            buf.put(frag, frag.varying)
         });
 
         eprintln!("{}", buf);
