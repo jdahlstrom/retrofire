@@ -3,7 +3,7 @@ use std::mem::swap;
 use std::time::Instant;
 
 use geom::{LineSeg, mesh2, Polyline, Sprite};
-use geom::mesh2::{Face, Soa, GenVertex, Vertex};
+use geom::mesh2::{Face, GenVertex, Soa, Vertex};
 use math::Linear;
 use math::mat::Mat4;
 use math::transform::*;
@@ -175,7 +175,8 @@ where
                 })
                 .collect();
 
-            let (mut verts, mut faces) = hsr::hidden_surface_removal(&verts, &faces, bbox_vis);
+            let (mut verts, mut faces)
+                = hsr::hidden_surface_removal(&verts, &faces, bbox_vis);
 
             if !faces.is_empty() {
                 rdr.stats.objs_out += 1;

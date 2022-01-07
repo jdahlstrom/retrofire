@@ -65,7 +65,11 @@ pub struct GenVertex<C, A> {
 }
 
 pub type Vertex<A> = GenVertex<Vec4, A>;
-pub type VertexInds<VA> = GenVertex<usize, <VA as Soa>::Indices>;
+pub type VertexIndices<A> = GenVertex<usize, <A as Soa>::Indices>;
+
+pub fn vertex<A>(coord: Vec4, attr: A) -> Vertex<A> {
+    Vertex { coord, attr }
+}
 
 #[derive(Copy, Clone, Debug, PartialEq)]
 pub struct Face<V, A> {
@@ -75,7 +79,7 @@ pub struct Face<V, A> {
 
 #[derive(Clone, Debug)]
 pub struct Mesh<VA: Soa, FA = ()> {
-    pub verts: Vec<VertexInds<VA>>,
+    pub verts: Vec<VertexIndices<VA>>,
     pub vertex_coords: Vec<Vec4>,
     pub vertex_attrs: VA::Vecs,
 
