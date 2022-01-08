@@ -7,7 +7,7 @@ use front::sdl::SdlRunner;
 use geom::{
     Align,
     bbox::BoundingBox,
-    mesh2::{Face, Mesh, GenVertex},
+    mesh::{Face, Mesh, GenVertex},
     Sprite
 };
 use math::{

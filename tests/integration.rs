@@ -1,7 +1,7 @@
 use std::convert::identity;
 use std::fmt::Debug;
 
-use geom::mesh2::*;
+use geom::mesh::{Mesh, Soa};
 use geom::solids::{UnitCube, UnitSphere};
 use math::Angle::{Deg, Rad};
 use math::Linear;

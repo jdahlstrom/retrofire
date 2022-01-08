@@ -107,7 +107,7 @@ where
 
 impl<VA: Soa, FA> Transform for Mesh<VA, FA> {
     fn transform_mut(&mut self, tf: &Mat4) {
-        self.bbox.transform(tf);
+        self.bbox.transform_mut(tf);
         self.vertex_coords.transform_mut(tf);
     }
 }

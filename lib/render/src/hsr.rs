@@ -1,7 +1,7 @@
 use std::f32::EPSILON;
 use std::mem::swap;
 
-use geom::mesh2::{Face, GenVertex};
+use geom::mesh::{Face, GenVertex};
 use math::{lerp, Linear};
 use math::vec::Vec4;
 use Visibility::*;

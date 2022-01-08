@@ -3,7 +3,7 @@ use std::ops::ControlFlow::*;
 use sdl2::keyboard::Scancode;
 
 use front::sdl::*;
-use geom::mesh2::{GenVertex, Mesh, Vertex};
+use geom::mesh::{GenVertex, Mesh, Vertex};
 use geom::solids::teapot;
 use math::Angle::{Deg, Rad};
 use math::mat::Mat4;
