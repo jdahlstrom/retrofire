@@ -4,9 +4,9 @@ use math::mat::Mat4;
 use math::transform::Transform;
 use math::vec::{dir, Vec4};
 
-use crate::mesh2::Vertex;
+use crate::mesh::Vertex;
 
-pub mod mesh2;
+pub mod mesh;
 pub mod solids;
 pub mod bbox;
 

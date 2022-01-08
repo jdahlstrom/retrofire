@@ -6,8 +6,8 @@ use sdl2::keyboard::Scancode;
 
 use front::sdl::*;
 use geom::bbox::BoundingBox;
-use geom::mesh2;
-use geom::mesh2::{Face, GenVertex};
+use geom::mesh;
+use geom::mesh::{Face, GenVertex, Mesh};
 use geom::solids::UnitCube;
 use math::Angle::{self, Deg};
 use math::transform::*;
@@ -31,7 +31,7 @@ fn coords<T: Copy>(r: impl Iterator<Item=T> + Clone)
 type NormAndTc = (Vec4, TexCoord);
 type TexIdx = usize;
 
-fn checkers() -> mesh2::Mesh<NormAndTc, TexIdx> {
+fn checkers() -> Mesh<NormAndTc, TexIdx> {
     let size = 40.0;
     let vcs = [-X-Z, -X+Z, X-Z, X+Z].map(|c| c * size + W);
 
@@ -51,7 +51,7 @@ fn checkers() -> mesh2::Mesh<NormAndTc, TexIdx> {
 
     let bbox = BoundingBox::of(&vcs);
 
-    mesh2::Mesh {
+    Mesh {
         verts,
         faces,
         bbox,
@@ -61,7 +61,7 @@ fn checkers() -> mesh2::Mesh<NormAndTc, TexIdx> {
     }
 }
 
-fn objects() -> Vec<Obj<mesh2::Mesh<NormAndTc, TexIdx>>> {
+fn objects() -> Vec<Obj<Mesh<NormAndTc, TexIdx>>> {
     let mut objects = vec![];
     objects.push(Obj { tf: translate(-Y), geom: checkers() });
 
@@ -69,7 +69,7 @@ fn objects() -> Vec<Obj<mesh2::Mesh<NormAndTc, TexIdx>>> {
         .map(|(i, j)| {
             let geom = UnitCube.with_normals_and_texcoords();
 
-            let geom = mesh2::Mesh {
+            let geom = Mesh {
                 verts: geom.verts,
                 vertex_coords: geom.vertex_coords,
                 vertex_attrs: geom.vertex_attrs,

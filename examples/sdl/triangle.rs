@@ -6,7 +6,7 @@ use sdl2::keyboard::Keycode;
 use sdl2::pixels::Color;
 use sdl2::rect::Rect;
 
-use geom::mesh2::Vertex;
+use geom::mesh::Vertex;
 use math::vec::vec4;
 use render::raster::gouraud::*;
 

@@ -2,7 +2,7 @@ use math::{Angle, Angle::*, ApproxEq, lerp, vec::*};
 use util::tex::{TexCoord, uv};
 
 use crate::bbox::BoundingBox;
-use crate::mesh2::{self, Face, GenVertex};
+use crate::mesh::{self, Builder, Face, GenVertex, Mesh};
 
 pub struct UnitCube;
 
@@ -63,8 +63,8 @@ impl UnitCube {
     ];
 
     // TODO Refactor these methods somehow
-    pub fn build(self) -> mesh2::Mesh<()> {
-        mesh2::Mesh {
+    pub fn build(self) -> Mesh<()> {
+        Mesh {
             verts: Self::VERTS.iter()
                 .map(|&(coord, _)| GenVertex { coord, attr: [] })
                 .collect(),
@@ -78,10 +78,10 @@ impl UnitCube {
         }
     }
 
-    pub fn with_normals(self) -> mesh2::Mesh<(Vec4, )> {
-        let mesh2::Mesh { vertex_coords, faces, face_attrs, bbox, .. }
+    pub fn with_normals(self) -> Mesh<(Vec4, )> {
+        let Mesh { vertex_coords, faces, face_attrs, bbox, .. }
             = self.build();
-        mesh2::Mesh {
+        Mesh {
             verts: Self::VERTS.iter()
                 .map(|&(coord, [attr, _])| GenVertex { coord, attr })
                 .collect(),
@@ -93,10 +93,10 @@ impl UnitCube {
         }
     }
 
-    pub fn with_texcoords(self) -> mesh2::Mesh<(TexCoord, )> {
-        let mesh2::Mesh { vertex_coords, faces, face_attrs, bbox, .. }
+    pub fn with_texcoords(self) -> Mesh<(TexCoord, )> {
+        let Mesh { vertex_coords, faces, face_attrs, bbox, .. }
             = self.build();
-        mesh2::Mesh {
+        Mesh {
             verts: Self::VERTS.iter()
                 .map(|&(coord, [_, attr])| GenVertex { coord, attr })
                 .collect(),
@@ -108,10 +108,10 @@ impl UnitCube {
         }
     }
 
-    pub fn with_normals_and_texcoords(self) -> mesh2::Mesh<(Vec4, TexCoord)> {
-        let mesh2::Mesh { vertex_coords, faces, face_attrs, bbox, .. }
+    pub fn with_normals_and_texcoords(self) -> Mesh<(Vec4, TexCoord)> {
+        let Mesh { vertex_coords, faces, face_attrs, bbox, .. }
             = self.build();
-        mesh2::Mesh {
+        Mesh {
             verts: Self::VERTS.iter()
                 .map(|&(coord, attr)| GenVertex { coord, attr })
                 .collect(),
@@ -160,8 +160,8 @@ impl UnitOctahedron {
         [12, 13, 14], [15, 16, 17], [18, 19, 20], [21, 22, 23],
     ];
 
-    pub fn build(self) -> mesh2::Mesh<(Vec4, )> {
-        mesh2::Mesh {
+    pub fn build(self) -> Mesh<(Vec4, )> {
+        Mesh {
             verts: Self::VERTS.map(|(coord, attr)| GenVertex { coord, attr}).into(),
             vertex_coords: Self::COORDS.into(),
             vertex_attrs: Self::NORMALS.into(),
@@ -175,7 +175,7 @@ impl UnitOctahedron {
 pub struct UnitSphere(pub usize, pub usize);
 
 impl UnitSphere {
-    pub fn build(self) -> mesh2::Mesh<()> {
+    pub fn build(self) -> Mesh<()> {
         let pts = (0..self.0)
             .map(|par| lerp(par as f32 / (self.0 - 1) as f32, -90.0, 90.0))
             .map(|alt| polar(1.0, Deg(alt)))
@@ -189,8 +189,8 @@ impl UnitSphere {
 pub struct Torus(pub f32, pub usize, pub usize);
 
 impl Torus {
-    pub fn build(self) -> mesh2::Mesh<()> {
-        let mut bld = mesh2::Builder::new();
+    pub fn build(self) -> Mesh<()> {
+        let mut bld = Builder::new();
 
         let minor_r = self.0;
         let pars = self.1 as isize;
@@ -233,7 +233,7 @@ impl Torus {
 pub struct UnitCone(pub f32, pub usize);
 
 impl UnitCone {
-    pub fn build(self) -> mesh2::Mesh<()> {
+    pub fn build(self) -> Mesh<()> {
         let pts = vec![pt(1.0, -1.0, 0.0), pt(self.0, 1.0, 0.0), ];
         Sor::new(pts, self.1).wrap(true).build()
     }
@@ -242,7 +242,7 @@ impl UnitCone {
 pub struct UnitCylinder(pub usize);
 
 impl UnitCylinder {
-    pub fn build(self) -> mesh2::Mesh<()> {
+    pub fn build(self) -> Mesh<()> {
         UnitCone(1.0, self.0).build()
     }
 }
@@ -265,12 +265,12 @@ impl Sor {
         Sor { wrap, ..self }
     }
 
-    fn build_wrap(self) -> mesh2::Mesh<()> {
+    fn build_wrap(self) -> Mesh<()> {
         let Sor { pts, sectors, caps, .. } = self;
 
         assert!(sectors > 2, "sectors must be at least 3, was {}", sectors);
 
-        let mut bld = mesh2::Builder::new();
+        let mut bld = mesh::Builder::new();
 
         let sectors = sectors as isize;
 
@@ -339,7 +339,7 @@ impl Sor {
         bld.build()
     }
 
-    pub fn build(self) -> mesh2::Mesh<()> {
+    pub fn build(self) -> Mesh<()> {
         if self.wrap {
             return self.build_wrap();
         }
@@ -350,7 +350,7 @@ impl Sor {
 
         assert!(sectors > 2, "sectors must be at least 3, was {}", sectors);
 
-        let mut bld = mesh2::Builder::new();
+        let mut bld = mesh::Builder::new();
 
         let mut pts = pts.into_iter();
         let circum_pts = |start, r, y| (start..sectors - 1)
@@ -415,9 +415,8 @@ impl Sor {
     }
 }
 
-
 #[cfg(feature = "teapot")]
-pub fn teapot() -> mesh2::Mesh<(Vec4, TexCoord), ()> {
+pub fn teapot() -> Mesh<(Vec4, TexCoord), ()> {
     use crate::teapot::*;
 
     let mut verts = vec![];
@@ -451,9 +450,10 @@ pub fn teapot() -> mesh2::Mesh<(Vec4, TexCoord), ()> {
         .map(|&[x, y, z]| pt(x, y, z))
         .collect();
     let bbox = BoundingBox::of(&vertex_coords);
-    mesh2::Mesh {
+    Mesh {
         verts: verts.into_iter()
-            .map(|(coord, attr)| GenVertex { coord, attr})
+            .map(|(coord, attr)|
+                VertexIndices::<(Vec4, TexCoord)> { coord, attr })
             .collect(),
         vertex_coords,
         vertex_attrs: (

@@ -1,6 +1,6 @@
 use std::mem::swap;
 
-use geom::mesh2::Vertex;
+use geom::mesh::Vertex;
 use math::Linear;
 use math::vec::Vec4;
 

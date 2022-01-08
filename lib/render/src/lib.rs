@@ -2,8 +2,8 @@ use std::fmt::Debug;
 use std::mem::swap;
 use std::time::Instant;
 
-use geom::{LineSeg, mesh2, Polyline, Sprite};
-use geom::mesh2::{Face, GenVertex, Soa, Vertex};
+use geom::{LineSeg, mesh, Polyline, Sprite};
+use geom::mesh::{Face, GenVertex, Mesh, Soa, Vertex};
 use math::Linear;
 use math::mat::Mat4;
 use math::transform::*;
@@ -135,7 +135,7 @@ where
     }
 }
 
-impl<VI, U> Render<U, VI> for mesh2::Mesh<VI, U>
+impl<VI, U> Render<U, VI> for Mesh<VI, U>
 where
     VI: Soa + Linear<f32> + Copy + Debug,
     U: Copy,
