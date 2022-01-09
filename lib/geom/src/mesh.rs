@@ -64,11 +64,30 @@ pub struct GenVertex<C, A> {
     pub attr: A,
 }
 
+impl<C: Copy, A> GenVertex<C, A> {
+    pub fn attr<B>(self, attr: B) -> GenVertex<C, B> {
+        GenVertex { coord: self.coord, attr }
+    }
+    pub fn attr_with<F, B>(self, mut attr_fn: F) -> GenVertex<C, B>
+    where
+        F: FnMut(GenVertex<C, A>) -> B
+    {
+        GenVertex {
+            coord: self.coord,
+            attr: attr_fn(self)
+        }
+    }
+}
+
 pub type Vertex<A> = GenVertex<Vec4, A>;
 pub type VertexIndices<A> = GenVertex<usize, A>;
 
 pub fn vertex<A>(coord: Vec4, attr: A) -> Vertex<A> {
     Vertex { coord, attr }
+}
+
+pub fn vertex_indices<A>(coord: usize, attr: A) -> VertexIndices<A> {
+    VertexIndices { coord, attr }
 }
 
 #[derive(Copy, Clone, Debug, PartialEq)]
@@ -171,7 +190,7 @@ impl<FA> Mesh<(), FA> {
         }
 
         let verts = verts.into_iter().zip(0..vert_ns.len())
-            .map(|(v, attr)| VertexIndices { coord: v.coord, attr })
+            .map(|(v, a)| v.attr(a))
             .collect();
 
         Mesh {
@@ -237,7 +256,7 @@ impl Builder {
     pub fn add_vert(&mut self, c: Vec4) -> isize {
         let idx = self.0.vertex_coords.len();
         self.0.vertex_coords.push(c.to_pt());
-        self.0.verts.push(VertexIndices { coord: idx, attr: [] });
+        self.0.verts.push(vertex_indices(idx, []));
         idx as isize
     }
 
