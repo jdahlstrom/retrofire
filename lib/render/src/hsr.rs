@@ -1,16 +1,16 @@
 use std::f32::EPSILON;
 use std::mem::swap;
 
-use geom::mesh::{Face, GenVertex};
+use geom::mesh::{Face, Vertex};
 use math::{lerp, Linear};
 use math::vec::Vec4;
 use Visibility::*;
 
 pub fn hidden_surface_removal<VA, FA>(
-    verts: &Vec<GenVertex<Vec4, VA>>,
+    verts: &Vec<Vertex<VA>>,
     faces: &Vec<Face<usize, FA>>,
     bbox_vis: Visibility,
-) -> (Vec<GenVertex<Vec4, VA>>, Vec<Face<usize, FA>>)
+) -> (Vec<Vertex<VA>>, Vec<Face<usize, FA>>)
 where
     VA: Copy + Linear<f32>,
     FA: Copy,
@@ -82,8 +82,8 @@ impl ClipPlane {
     fn test(&self, v: &Vec4) -> u8 {
         (self.signed_dist(v) > -EPSILON) as u8 * self.bit
     }
-    fn clip<VA>(&self, a: &GenVertex<Vec4, VA>, b: &GenVertex<Vec4, VA>)
-        -> [Option<GenVertex<Vec4, VA>>; 2]
+    fn clip<VA>(&self, a: &Vertex<VA>, b: &Vertex<VA>)
+        -> [Option<Vertex<VA>>; 2]
     where VA: Copy + Linear<f32>,
     {
         let mut res = [None, None];
@@ -96,7 +96,7 @@ impl ClipPlane {
             // If edge intersects clipping plane,
             // add intersection point as a new vertex
             let t = da / (da - db);
-            res[1] = Some(GenVertex {
+            res[1] = Some(Vertex {
                 coord: lerp(t, a.coord, b.coord),
                 attr: lerp(t, a.attr, b.attr),
             });
@@ -158,7 +158,7 @@ where VI: IntoIterator<Item=&'a Vec4>
     visibility(verts.into_iter().map(vertex_mask))
 }
 
-pub fn clip<VA>(verts_in: &mut Vec<GenVertex<Vec4, VA>>, verts_out: &mut Vec<GenVertex<Vec4, VA>>)
+pub fn clip<VA>(verts_in: &mut Vec<Vertex<VA>>, verts_out: &mut Vec<Vertex<VA>>)
 where
     VA: Linear<f32> + Copy
 {
@@ -182,7 +182,7 @@ fn edges<T>(ts: &[T]) -> impl Iterator<Item=(&T, &T)> {
     (0..ts.len()).map(move |i| (&ts[i], &ts[(i + 1) % ts.len()]))
 }
 
-pub fn frontface<A: Copy>(verts: &[GenVertex<Vec4, A>; 3]) -> bool {
+pub fn frontface<A: Copy>(verts: &[Vertex<A>; 3]) -> bool {
     let [a, b, c] = verts.map(|v| v.coord);
     debug_assert!(a.w != 0.0 && b.w != 0.0 && c.w != 0.0, "{:?}", (a,b,c));
 
@@ -197,14 +197,15 @@ pub fn frontface<A: Copy>(verts: &[GenVertex<Vec4, A>; 3]) -> bool {
 #[cfg(test)]
 mod tests {
     use clip_mask::*;
+    use geom::mesh::vertex;
     use math::ApproxEq;
     use math::vec::*;
 
     use super::*;
 
-// TODO Test interpolation of vertex attributes
+    // TODO Test interpolation of vertex attributes
 
-    fn assert_approx_eq(expected: &[GenVertex<Vec4, ()>], actual: &[GenVertex<Vec4, ()>]) {
+    fn assert_approx_eq(expected: &[Vertex<()>], actual: &[Vertex<()>]) {
         assert_eq!(expected.len(), actual.len(), "expected: {:#?}\nactual: {:#?}", expected, actual);
         for (&e, &a) in expected.iter().zip(actual) {
             assert!(e.coord.approx_eq(a.coord), "expected: {:?}, actual: {:?}", e, a);
@@ -212,8 +213,10 @@ mod tests {
         }
     }
 
-    fn vs(vs: &[Vec4]) -> Vec<GenVertex<Vec4, ()>> {
-        vs.iter().map(|&v| GenVertex { coord: v + W, attr: () }).collect()
+    fn vs(vs: &[Vec4]) -> Vec<Vertex<()>> {
+        vs.iter()
+            .map(|&v| vertex(v.to_pt(), ()))
+            .collect()
     }
 
     fn vec(x: f32, w: f32) -> Vec4 { vec4(x, 0.0, 0.0, w) }
@@ -238,7 +241,7 @@ mod tests {
     fn clip_plane_intersect() {
         let p = &CLIP_PLANES[0];
 
-        fn v(c: Vec4) -> GenVertex<Vec4, ()> { GenVertex { coord: c, attr: () } }
+        fn v(c: Vec4) -> Vertex<()> { vertex(c, ()) }
 
         // out -> in
         assert_eq!([None, Some(v(-1.5*X+1.5*W))], p.clip(&v(-2.0*X+W), &v(3.0*W)));
@@ -324,7 +327,7 @@ mod tests {
     #[test]
     fn clip_triangle_fully_outside() {
         for &(a, b) in &[(X, Y), (Y, Z), (X, Z)] {
-            let expected = &mut Vec::<GenVertex<Vec4, ()>>::new();
+            let expected = &mut Vec::<Vertex<()>>::new();
             let actual = &mut Vec::new();
             clip(&mut vs(&[2.0 * b, -a + 3.0 * b, a + 3.0 * b]), actual);
             assert_eq!(expected, actual);

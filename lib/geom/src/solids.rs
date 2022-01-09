@@ -2,7 +2,7 @@ use math::{Angle, Angle::*, ApproxEq, lerp, vec::*};
 use util::tex::{TexCoord, uv};
 
 use crate::bbox::BoundingBox;
-use crate::mesh::{self, Builder, Face, GenVertex, Mesh};
+use crate::mesh::{Builder, Face, Mesh, VertexIndices};
 
 pub struct UnitCube;
 
@@ -66,7 +66,7 @@ impl UnitCube {
     pub fn build(self) -> Mesh<()> {
         Mesh {
             verts: Self::VERTS.iter()
-                .map(|&(coord, _)| GenVertex { coord, attr: [] })
+                .map(|&(coord, _)| VertexIndices { coord, attr: [] })
                 .collect(),
             vertex_coords: Self::COORDS.into(),
             vertex_attrs: (),
@@ -83,7 +83,7 @@ impl UnitCube {
             = self.build();
         Mesh {
             verts: Self::VERTS.iter()
-                .map(|&(coord, [attr, _])| GenVertex { coord, attr })
+                .map(|&(coord, [attr, _])| VertexIndices { coord, attr })
                 .collect(),
             vertex_attrs: Self::NORMS.into(),
             vertex_coords,
@@ -98,7 +98,7 @@ impl UnitCube {
             = self.build();
         Mesh {
             verts: Self::VERTS.iter()
-                .map(|&(coord, [_, attr])| GenVertex { coord, attr })
+                .map(|&(coord, [_, attr])| VertexIndices { coord, attr })
                 .collect(),
             vertex_attrs: Self::TEXCOORDS.into(),
             vertex_coords,
@@ -113,7 +113,7 @@ impl UnitCube {
             = self.build();
         Mesh {
             verts: Self::VERTS.iter()
-                .map(|&(coord, attr)| GenVertex { coord, attr })
+                .map(|&(coord, attr)| VertexIndices { coord, attr })
                 .collect(),
             vertex_attrs: (Self::NORMS.into(), Self::TEXCOORDS.into()),
             vertex_coords,
@@ -162,7 +162,7 @@ impl UnitOctahedron {
 
     pub fn build(self) -> Mesh<(Vec4, )> {
         Mesh {
-            verts: Self::VERTS.map(|(coord, attr)| GenVertex { coord, attr}).into(),
+            verts: Self::VERTS.map(|(coord, attr)| VertexIndices { coord, attr}).into(),
             vertex_coords: Self::COORDS.into(),
             vertex_attrs: Self::NORMALS.into(),
             faces: Self::FACES.map(|verts| Face { verts, attr: 0 }).into(),
@@ -270,7 +270,7 @@ impl Sor {
 
         assert!(sectors > 2, "sectors must be at least 3, was {}", sectors);
 
-        let mut bld = mesh::Builder::new();
+        let mut bld = Builder::new();
 
         let sectors = sectors as isize;
 
@@ -350,7 +350,7 @@ impl Sor {
 
         assert!(sectors > 2, "sectors must be at least 3, was {}", sectors);
 
-        let mut bld = mesh::Builder::new();
+        let mut bld = Builder::new();
 
         let mut pts = pts.into_iter();
         let circum_pts = |start, r, y| (start..sectors - 1)
@@ -453,7 +453,7 @@ pub fn teapot() -> Mesh<(Vec4, TexCoord), ()> {
     Mesh {
         verts: verts.into_iter()
             .map(|(coord, attr)|
-                VertexIndices::<(Vec4, TexCoord)> { coord, attr })
+                VertexIndices { coord, attr })
             .collect(),
         vertex_coords,
         vertex_attrs: (

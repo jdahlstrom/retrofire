@@ -7,9 +7,10 @@ use front::sdl::SdlRunner;
 use geom::{
     Align,
     bbox::BoundingBox,
-    mesh::{Face, Mesh, GenVertex},
+    mesh::{Face, Mesh},
     Sprite
 };
+use geom::mesh::VertexIndices;
 use math::{
     Angle::*,
     mat::Mat4,
@@ -181,10 +182,10 @@ fn checkers() -> Mesh<(VA, ), FA> {
     let tcs = [uv(0.0, 0.0), uv(0.0, size), uv(size, 0.0), uv(size, size)];
 
     let verts = vec![
-        GenVertex { coord: 0, attr: 0 },
-        GenVertex { coord: 1, attr: 1 },
-        GenVertex { coord: 2, attr: 2 },
-        GenVertex { coord: 3, attr: 3 },
+        VertexIndices { coord: 0, attr: 0 },
+        VertexIndices { coord: 1, attr: 1 },
+        VertexIndices { coord: 2, attr: 2 },
+        VertexIndices { coord: 3, attr: 3 },
     ];
 
     let faces = vec![

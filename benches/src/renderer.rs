@@ -5,7 +5,7 @@ use std::time::Instant;
 
 use criterion::*;
 
-use geom::mesh::{Mesh, GenVertex};
+use geom::mesh::{Mesh, GenVertex, VertexIndices};
 use geom::solids::{Torus, UnitCube, UnitSphere};
 use math::Angle::Rad;
 use math::transform::*;
@@ -120,7 +120,7 @@ fn gouraud_fillrate(c: &mut Criterion) {
     let mesh = Mesh::<(Color, )> {
         verts: mesh.verts.iter()
             .zip((0..3).cycle())
-            .map(|(v, ci)| GenVertex {
+            .map(|(v, ci)| VertexIndices {
                 coord: v.coord,
                 attr: ci,
             }).collect(),

@@ -65,7 +65,7 @@ pub struct GenVertex<C, A> {
 }
 
 pub type Vertex<A> = GenVertex<Vec4, A>;
-pub type VertexIndices<A> = GenVertex<usize, <A as Soa>::Indices>;
+pub type VertexIndices<A> = GenVertex<usize, A>;
 
 pub fn vertex<A>(coord: Vec4, attr: A) -> Vertex<A> {
     Vertex { coord, attr }
@@ -79,7 +79,7 @@ pub struct Face<V, A> {
 
 #[derive(Clone, Debug)]
 pub struct Mesh<VA: Soa, FA = ()> {
-    pub verts: Vec<VertexIndices<VA>>,
+    pub verts: Vec<VertexIndices<VA::Indices>>,
     pub vertex_coords: Vec<Vec4>,
     pub vertex_attrs: VA::Vecs,
 
@@ -171,7 +171,7 @@ impl<FA> Mesh<(), FA> {
         }
 
         let verts = verts.into_iter().zip(0..vert_ns.len())
-            .map(|(v, attr)| GenVertex { coord: v.coord, attr })
+            .map(|(v, attr)| VertexIndices { coord: v.coord, attr })
             .collect();
 
         Mesh {
@@ -237,7 +237,7 @@ impl Builder {
     pub fn add_vert(&mut self, c: Vec4) -> isize {
         let idx = self.0.vertex_coords.len();
         self.0.vertex_coords.push(c.to_pt());
-        self.0.verts.push(GenVertex { coord: idx, attr: [] });
+        self.0.verts.push(VertexIndices { coord: idx, attr: [] });
         idx as isize
     }
 
