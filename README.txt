@@ -24,15 +24,22 @@ buffers.  The project  comes with  examples  that include  interactive programs
 targetting ncurses and SDL 2.  A future goal is to add an HTML5 / WASM example.
 
 
-//////////// C U R R E N T  A N D  P L AN N E D  F E A T U R E S  /////////////
+//////////// C U R R E N T  A N D  P L A N N E D  F E A T U R E S  ////////////
 
 // Done
 
 ++ Rendering of 3D triangles, lines, polylines, and sprites
+++ Triangle mesh type with arbitrary face and vertex data
+++ Mesh various common geometric shapes
+++ Basic text rendering with bitmap fonts
+++ Simple animation support
+++ Simple particle system
+++ Cubic Bezier splines and polyline approximation
 ++ Generic interpolation of vertex attributes including custom types
 ++ Programmable vertex and fragment shaders
 ++ Perspective-correct texture mapping
-++ Clip-space clipping and culling of primitives
+++ Standard affine transformations and projections
+++ Clip-space frustum clipping and culling of primitives
 ++ Z-buffering and z-sorting
 ++ First-person mouselook camera
 ++ PNM image saving and loading
@@ -40,7 +47,8 @@ targetting ncurses and SDL 2.  A future goal is to add an HTML5 / WASM example.
 
 // WIP
 
-** More texture sampling options including cube mapping
+** More texture sampling options including bilinear
+** UV mapping including planar, spherical, cube and more
 ** Mipmapping and mipmap generation
 ** Procedural texture and audio generation
 ** Quake/Quake 2 map rendering with BSP and VIS support
@@ -94,9 +102,10 @@ examples
 |   '-- torus ..................... A rotating torus with a psychedelic shading
 |
 '== sdl ............................... Using SDL 2 to render into a GUI window
-    '-- triangle .................... A Gouraud shaded triangle bouncing around
-    '-- teapot ....................... A classic Utah teapot with Phong shading
-    '-- checkers ........................ A checkered plane and textured crates
+    |-- triangle .................... A Gouraud shaded triangle bouncing around
+    |-- teapot ....................... A classic Utah teapot with Phong shading
+    |-- checkers ........................ A checkered plane and textured crates
+    '-- ptx ............................... Particles emitted on a Bezier curve
 
 
 //////////////////  R U N N I N G  T H E  E X A M P L E S  ////////////////////
@@ -115,18 +124,23 @@ functions. Lovingly Gouraud-shaded with ASCII art characters.
 
 // SDL examples
 
-  $ cargo run --release --features=sdl --example=sdl-tri
+  $ cargo run --release --features=sdl2 --example=sdl-tri
 
 A color-shifting, Gouraud-shaded triangle bouncing around the window.
 
-  $ cargo run --release --features="sdl teapot" --example=teapot
+  $ cargo run --release --features="sdl2 teapot" --example=teapot
 
 A  Phong  shaded, exposure-simulated  rendering  of  the  famous  Utah  teapot.
 WASD to move the teapot; left and right arrow keys to rotate the camera.
 
-  $ cargo run --release --features=sdl --example=checkers
+  $ cargo run --release --features=sdl2 --example=checkers
 
-Textured crates lying on a checkered floor. Arrow keys and WASD to move around.
+Textured crates lying on a checkered floor. Mouselook, WASD to move.
+
+  $ cargo run --release --features=sdl2 --example=ptx
+
+Sparkly  particles  emitted by  a  particle source  flying along  a  randomized
+Bezier curve.  Arrow keys and WASD to move around.
 
 
 /////////////////////////////// L I C E N S E /////////////////////////////////
