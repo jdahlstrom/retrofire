@@ -120,10 +120,8 @@ fn gouraud_fillrate(c: &mut Criterion) {
     let mesh = Mesh::<(Color, )> {
         verts: mesh.verts.iter()
             .zip((0..3).cycle())
-            .map(|(v, ci)| VertexIndices {
-                coord: v.coord,
-                attr: ci,
-            }).collect(),
+            .map(|(v, ci)| v.attr(ci))
+            .collect(),
         vertex_attrs:  vec![RED, GREEN, BLUE],
 
         faces: mesh.faces,

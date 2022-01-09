@@ -401,7 +401,7 @@ where
 
 #[inline(always)]
 fn with_depth<A>(v: Vertex<A>) -> Vertex<(f32, A)> {
-    Vertex { coord: v.coord, attr: (v.coord.z, v.attr) }
+    v.attr_with(|v| (v.coord.z, v.attr))
 }
 
 fn clip_to_screen<A>(mut v: Vertex<A>, viewport: &Mat4) -> Vertex<(f32, A)> {

@@ -10,7 +10,7 @@ use geom::{
     mesh::{Face, Mesh},
     Sprite
 };
-use geom::mesh::VertexIndices;
+use geom::mesh::{vertex_indices};
 use math::{
     Angle::*,
     mat::Mat4,
@@ -182,10 +182,10 @@ fn checkers() -> Mesh<(VA, ), FA> {
     let tcs = [uv(0.0, 0.0), uv(0.0, size), uv(size, 0.0), uv(size, size)];
 
     let verts = vec![
-        VertexIndices { coord: 0, attr: 0 },
-        VertexIndices { coord: 1, attr: 1 },
-        VertexIndices { coord: 2, attr: 2 },
-        VertexIndices { coord: 3, attr: 3 },
+        vertex_indices(0, 0),
+        vertex_indices(1, 1),
+        vertex_indices(2, 2),
+        vertex_indices(3, 3),
     ];
 
     let faces = vec![
