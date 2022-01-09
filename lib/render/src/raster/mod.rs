@@ -2,7 +2,6 @@ use std::mem::swap;
 
 use geom::mesh::Vertex;
 use math::Linear;
-use math::vec::Vec4;
 
 use crate::vary::{Bresenham, Varying};
 

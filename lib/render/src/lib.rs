@@ -2,8 +2,8 @@ use std::fmt::Debug;
 use std::mem::swap;
 use std::time::Instant;
 
-use geom::{LineSeg, mesh, Polyline, Sprite};
-use geom::mesh::{Face, GenVertex, Mesh, Soa, Vertex};
+use geom::{LineSeg, Polyline, Sprite};
+use geom::mesh::{Face, Mesh, Soa, Vertex};
 use math::Linear;
 use math::mat::Mat4;
 use math::transform::*;
@@ -162,9 +162,9 @@ where
                 .collect();
 
             let verts: Vec<_> = self.verts.iter()
-                .map(|v| GenVertex {
-                    coord:  vcs[v.coord],
-                    attr: VI::get(&self.vertex_attrs, &v.attr)
+                .map(|v| Vertex {
+                    coord: vcs[v.coord],
+                    attr: VI::get(&self.vertex_attrs, &v.attr),
                 })
                 .collect();
 
@@ -258,7 +258,7 @@ where
         }).to_vec();
         let mut clip_out = Vec::new();
         hsr::clip(&mut verts, &mut clip_out);
-        if let &[a, b] = clip_out.as_slice() {
+        if let &[a, b, ..] = clip_out.as_slice() {
             rdr.stats.faces_out += 1;
             let verts = [
                 clip_to_screen(a, &rdr.viewport),
@@ -390,7 +390,7 @@ fn perspective_divide<A>(verts: &mut Vec<Vertex<A>>, pc: bool)
 where
     A: Linear<f32> + Copy
 {
-    for GenVertex { coord, attr } in verts {
+    for Vertex { coord, attr } in verts {
         let w = 1.0 / coord.w;
         *coord = coord.mul(w);
         if pc {
