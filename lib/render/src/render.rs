@@ -171,9 +171,11 @@ fn render_faces<VI, U, S, R>(
     for f in faces {
         let verts = f.verts.map(|i| with_depth(verts[i]));
 
-        tri_fill(verts, |frag| {
-            if raster.rasterize(shader, frag.uniform(f.attr)) {
-                st.stats.pixels += 1;
+        tri_fill(verts, |span| {
+            for frag in span.fragments() {
+                if raster.rasterize(shader, frag.uniform(f.attr)) {
+                    st.stats.pixels += 1;
+                }
             }
         });
 
