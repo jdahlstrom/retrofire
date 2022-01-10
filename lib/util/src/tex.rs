@@ -15,6 +15,12 @@ pub const fn uv(u: f32, v: f32) -> TexCoord {
 pub const U: TexCoord = uv(1.0, 0.0);
 pub const V: TexCoord = uv(0.0, 1.0);
 
+impl TexCoord {
+    pub fn w_div(self) -> TexCoord {
+        uv(self.u / self.w, self.v / self.w)
+    }
+}
+
 impl Linear<f32> for TexCoord {
     #[inline]
     fn add(self, other: Self) -> Self {

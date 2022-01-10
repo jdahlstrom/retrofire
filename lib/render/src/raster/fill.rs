@@ -84,7 +84,7 @@ fn span_tex_pc(
 
     for chunk in xline.chunks_mut(4 * CHUNK_SIZE) {
         uv = uv.add(uv_step);
-        let uv_pc1 = util::tex::uv(uv.u / uv.w, uv.v / uv.w);
+        let uv_pc1 = uv.w_div();
         let uv_pc_step = uv_pc1.sub(uv_pc).mul(INV_CHUNK_SIZE);
 
         for pix in chunk.chunks_exact_mut(4) {
