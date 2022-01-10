@@ -3,7 +3,7 @@ use geom::mesh::Vertex;
 pub type Fragment = super::Fragment<()>;
 
 pub fn flat_fill(verts: [Vertex<()>; 3], plot: impl FnMut(Fragment)) {
-    super::tri_fill(verts, plot)
+    // TODO super::tri_fill(verts, plot)
 }
 
 
