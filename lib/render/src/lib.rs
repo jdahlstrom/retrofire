@@ -185,17 +185,18 @@ where
                     v.coord.transform_mut(&rdr.viewport);
                 }
 
-                for f in faces {
-                    let verts = f.verts.map(|i| with_depth(verts[i]));
-
-                    tri_fill(verts, |frag| {
-                        if self.rasterize(shader, raster, frag.uniform(f.attr)) {
-                            rdr.stats.pixels += 1;
+                for Face { verts: vs, attr: a } in faces {
+                    let vs = vs.map(|i| with_depth(verts[i]));
+                    fill::tri_fill(vs, |span| {
+                        for frag in span.fragments() {
+                            if self.rasterize(shader, raster, frag.uniform(a)) {
+                                rdr.stats.pixels += 1;
+                            }
                         }
                     });
 
-                    if let Some(col) = rdr.options.wireframes {
-                        let [a, b, c] = verts;
+                    /*if let Some(col) = rdr.options.wireframes {
+                        let [a, b, c] = vs;
                         for e in [a, b, c, a].windows(2) {
                             line([e[0], e[1]], |frag| {
                                 if raster.test(frag.varying(frag.varying.0-0.001)) {
@@ -203,7 +204,7 @@ where
                                 }
                             });
                         }
-                    }
+                    }*/
                 }
             }
         }

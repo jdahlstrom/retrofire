@@ -3,7 +3,7 @@ use geom::mesh::Vertex;
 pub type Fragment = super::Fragment<f32>;
 
 pub fn gouraud_fill(vs: [Vertex<f32>; 3], plot: impl FnMut(Fragment)) {
-    super::tri_fill(vs, plot)
+    // TODO super::tri_fill(vs, plot)
 }
 
 #[cfg(test)]
