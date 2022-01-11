@@ -7,10 +7,11 @@ use util::tex::TexCoord;
 use crate::raster::Span;
 use crate::vary::Varying;
 
-pub fn tri_fill<V, F>(mut verts: [Vertex<V>; 3], ref mut span_fn: F)
+pub fn tri_fill<V, U, F>(mut verts: [Vertex<V>; 3], u: U, ref mut span_fn: F)
 where
     V: Linear<f32> + Copy,
-    F: FnMut(Span<V>),
+    U: Copy,
+    F: FnMut(Span<V, U>),
 {
     super::ysort(&mut verts);
 
@@ -26,25 +27,27 @@ where
     let bc = &mut Varying::between(bv, cv, cy - by);
 
     if ab.step.0 < ac.step.0 {
-        let y = half_tri(y, by.round() as usize, ab, ac, span_fn);
-        half_tri(y, cy.round() as usize, bc, ac, span_fn);
+        let y = half_tri(y, by.round() as usize, ab, ac, u, span_fn);
+        half_tri(y, cy.round() as usize, bc, ac, u, span_fn);
     } else {
-        let y = half_tri(y, by.round() as usize, ac, ab, span_fn);
-        half_tri(y, cy.round() as usize, ac, bc, span_fn);
+        let y = half_tri(y, by.round() as usize, ac, ab, u, span_fn);
+        half_tri(y, cy.round() as usize, ac, bc, u, span_fn);
     }
 }
 
 #[inline]
-fn half_tri<V, F>(
+fn half_tri<V, U, F>(
     y: usize,
     y_end: usize,
     left: &mut Varying<(f32, V)>,
     right: &mut Varying<(f32, V)>,
+    uni: U,
     span_fn: &mut F,
 ) -> usize
 where
     V: Linear<f32> + Copy,
-    F: FnMut(Span<V>),
+    U: Copy,
+    F: FnMut(Span<V, U>),
 {
     for y in y..y_end {
         let (xl, vl) = left.next().unwrap();
@@ -53,7 +56,8 @@ where
             y,
             // TODO use integer math
             xs: (xl.round() as usize, xr.round() as usize),
-            vs: (vl, vr)
+            vs: (vl, vr),
+            uni
         });
     }
     y_end

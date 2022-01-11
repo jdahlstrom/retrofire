@@ -15,7 +15,7 @@ use util::pixfmt::PixelFmt;
 
 use crate::hsr::Visibility;
 use crate::raster::*;
-use crate::shade::Shader;
+use crate::shade::{FragmentShader, Shader};
 use crate::vary::Varying;
 
 mod hsr;
@@ -27,7 +27,24 @@ pub mod stats;
 pub mod text;
 pub mod vary;
 
-pub trait RasterOps {
+pub trait Rasterize {
+
+    fn rasterize<V, U, S>(&mut self, shade: &mut S, span: Span<(f32, V), U>)
+    where
+        V: Linear<f32> + Copy,
+        U: Copy,
+        S: FragmentShader<V, U>,
+    {
+        for f in span.fragments() {
+            let (z, v) = f.varying;
+            if self.test(f.varying(z)) {
+                if let Some(col) = shade.shade_fragment(f.varying(v)) {
+                    self.output(f.varying((f.varying.0, col)));
+                }
+            }
+        }
+    }
+
     #[inline(always)]
     fn test<U>(&self, _: Fragment<f32, U>) -> bool { true }
 
@@ -42,7 +59,7 @@ pub struct Raster<Test, Output> {
     pub output: Output,
 }
 
-impl<Test, Output> RasterOps for Raster<Test, Output>
+impl<Test, Output> Rasterize for Raster<Test, Output>
 where
     Test: Fn(Fragment<f32>) -> bool,
     Output: FnMut(Fragment<(f32, Color)>),
@@ -63,7 +80,30 @@ pub struct Framebuf<'a, F: PixelFmt> {
     pub depth: &'a mut Buffer<f32>,
 }
 
-impl<'a, F: PixelFmt> RasterOps for Framebuf<'a, F> {
+impl<'a, F: PixelFmt> Rasterize for Framebuf<'a, F> {
+    fn rasterize<V, U, S>(&mut self, shader: &mut S, span: Span<(f32, V), U>)
+    where
+        V: Linear<f32> + Copy,
+        U: Copy,
+        S: FragmentShader<V, U>,
+    {
+        let idx = self.color.width() * span.y + span.xs.0;
+        let cb = &mut self.color.data_mut()[F::STRIDE * idx..];
+        let zb = &mut self.depth.data_mut()[idx..];
+        let frags = span.fragments();
+
+        for ((ch, frag), curr_z) in cb.chunks_exact_mut(F::STRIDE)
+            .zip(frags).zip(zb)
+        {
+            let (z, a) = frag.varying;
+            if z < *curr_z {
+                if let Some(col) = shader.shade_fragment(frag.varying(a)) {
+                    F::write(ch, col);
+                    *curr_z = z;
+                }
+            }
+        }
+    }
     #[inline]
     fn test<U>(&self, f: Fragment<f32, U>) -> bool {
         f.varying < *self.depth.get(f.coord.0, f.coord.1)
@@ -83,7 +123,7 @@ pub trait Render<U, VI, FI=VI> {
     fn render<S, R>(&self, rdr: &mut Renderer, shade: &mut S, raster: &mut R)
     where
         S: Shader<U, VI, VI, FI>,
-        R: RasterOps;
+        R: Rasterize;
 
     #[inline]
     fn rasterize<S, R, VO>(
@@ -94,7 +134,7 @@ pub trait Render<U, VI, FI=VI> {
         U: Copy,
         VO: Copy,
         S: Shader<U, VI, VO>,
-        R: RasterOps,
+        R: Rasterize,
     {
         let (z, a) = frag.varying;
         raster.test(frag.varying(z)) && {
@@ -118,7 +158,7 @@ where
     fn render<S, R>(&self, rdr: &mut Renderer, shade: &mut S, raster: &mut R)
     where
         S: Shader<U, V>,
-        R: RasterOps
+        R: Rasterize
     {
         let clock = Instant::now();
         let Self { objects, camera } = self;
@@ -139,7 +179,7 @@ where
     fn render<S, R>(&self, rdr: &mut Renderer, shader: &mut S, raster: &mut R)
     where
         S: Shader<U, VI>,
-        R: RasterOps
+        R: Rasterize
     {
 
         rdr.stats.faces_in += self.faces.len();
@@ -187,12 +227,8 @@ where
 
                 for Face { verts: vs, attr: a } in faces {
                     let vs = vs.map(|i| with_depth(verts[i]));
-                    fill::tri_fill(vs, |span| {
-                        for frag in span.fragments() {
-                            if self.rasterize(shader, raster, frag.uniform(a)) {
-                                rdr.stats.pixels += 1;
-                            }
-                        }
+                    fill::tri_fill(vs, a, |span| {
+                        raster.rasterize(shader, span);
                     });
 
                     /*if let Some(col) = rdr.options.wireframes {
@@ -243,7 +279,7 @@ where
     fn render<S, R>(&self, rdr: &mut Renderer, shader: &mut S, raster: &mut R)
     where
         S: Shader<(), VI>,
-        R: RasterOps
+        R: Rasterize
     {
         rdr.stats.faces_in += 1;
 
@@ -277,7 +313,7 @@ where
     fn render<S, R>(&self, rdr: &mut Renderer, shader: &mut S, raster: &mut R)
     where
         S: Shader<(), V>,
-        R: RasterOps,
+        R: Rasterize,
     {
         for seg in self.edges() {
             seg.render(rdr, shader, raster);
@@ -293,7 +329,7 @@ where
     fn render<S, R>(&self, rdr: &mut Renderer, shader: &mut S, raster: &mut R)
     where
         S: Shader<U, V>,
-        R: RasterOps,
+        R: Rasterize,
     {
         rdr.stats.faces_in += 1;
 

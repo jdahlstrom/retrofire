@@ -37,7 +37,7 @@ where
 
     let mesh = mesh.validate().expect("Invalid mesh!");
 
-    let mut buf = ['.'; 100];
+    let mut buf = [['.'; 10]; 10];
 
     mesh.render(
         &mut rdr,
@@ -47,11 +47,13 @@ where
         },
         &mut Raster {
             test: |_| true,
-            output: &mut |frag: Fragment<_>| buf[10 * frag.coord.1 + frag.coord.0] = '#'
-        }
+            output: &mut |frag: Fragment<_>| {
+                buf[frag.coord.1][frag.coord.0] = '#';
+            }
+        },
     );
     eprintln!("Stats: {}", rdr.stats);
-    buf.iter().collect()
+    buf.into_iter().flatten().collect()
 }
 
 fn render_scene<VA, FA>(scene: Scene<Mesh<VA, FA>>) -> Stats

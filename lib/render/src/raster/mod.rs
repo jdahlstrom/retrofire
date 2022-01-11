@@ -35,24 +35,26 @@ impl<V, U> Fragment<V, U> {
     }
 }
 
-pub struct Span<V> {
+pub struct Span<V, U> {
     pub y: usize,
     pub xs: (usize, usize),
     pub vs: (V, V),
+    pub uni: U,
 }
 
-impl<V> Span<V>
+impl<V, U> Span<V, U>
 where
-    V: Linear<f32> + Copy
+    V: Linear<f32> + Copy,
+    U: Copy,
 {
-    pub fn fragments(&self) -> impl Iterator<Item=Fragment<V>> + '_ {
-        let Self { y, xs: (x0, x1), vs: (v0, v1) } = *self;
+    pub fn fragments(&self) -> impl Iterator<Item=Fragment<V, U>> + '_ {
+        let Self { y, xs: (x0, x1), vs: (v0, v1), uni } = *self;
         let v = Varying::between(v0, v1, (x1 - x0) as _);
         (x0..x1).zip(v)
             .map(move |(x, v)| Fragment {
                 coord: (x, y),
                 varying: v,
-                uniform: ()
+                uniform: uni
             })
     }
 }
@@ -63,10 +65,11 @@ fn ysort<V>([a, b, c]: &mut [Vertex<V>; 3]) {
     if b.coord.y > c.coord.y { swap(b, c); }
 }
 
-pub fn tri_fill<V, F>(mut verts: [Vertex<V>; 3], mut span_fn: F)
+pub fn tri_fill<V, U, F>(mut verts: [Vertex<V>; 3], mut span_fn: F)
 where
     V: Linear<f32> + Copy,
-    F: FnMut(Span<V>)
+    U: Copy + Default,
+    F: FnMut(Span<V, U>)
 {
     ysort(&mut verts);
 
@@ -78,8 +81,6 @@ where
 
         for (y, (left, right)) in (y..y_end).zip(left.zip(right)) {
 
-            // let v = Varying::between(left.1, right.1, right.0 - left.0);
-
             let x_left = left.0.round() as usize;
             let x_right = right.0.round() as usize;
 
@@ -87,11 +88,8 @@ where
                 y,
                 xs: (x_left, x_right),
                 vs: (left.1, right.1),
+                uni: U::default() ,
             });
-
-            /*for (x, v) in (x_left..x_right).zip(v) {
-                plot(Fragment { coord: (x, y), varying: v, uniform: () });
-            }*/
         }
         y = y_end;
     };
