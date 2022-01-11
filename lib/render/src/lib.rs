@@ -29,20 +29,21 @@ pub mod vary;
 
 pub trait Rasterize {
 
-    fn rasterize<V, U, S>(&mut self, shade: &mut S, span: Span<(f32, V), U>)
+    fn rasterize<V, U, S>(&mut self, shade: &mut S, span: Span<(f32, V), U>) -> usize
     where
         V: Linear<f32> + Copy,
         U: Copy,
         S: FragmentShader<V, U>,
     {
-        for f in span.fragments() {
+        /*for f in span.fragments() {
             let (z, v) = f.varying;
             if self.test(f.varying(z)) {
                 if let Some(col) = shade.shade_fragment(f.varying(v)) {
                     self.output(f.varying((f.varying.0, col)));
                 }
             }
-        }
+        }*/
+        0
     }
 
     #[inline(always)]
@@ -81,7 +82,7 @@ pub struct Framebuf<'a, F: PixelFmt> {
 }
 
 impl<'a, F: PixelFmt> Rasterize for Framebuf<'a, F> {
-    fn rasterize<V, U, S>(&mut self, shader: &mut S, span: Span<(f32, V), U>)
+    fn rasterize<V, U, S>(&mut self, shader: &mut S, span: Span<(f32, V), U>) -> usize
     where
         V: Linear<f32> + Copy,
         U: Copy,
@@ -90,19 +91,26 @@ impl<'a, F: PixelFmt> Rasterize for Framebuf<'a, F> {
         let idx = self.color.width() * span.y + span.xs.0;
         let cb = &mut self.color.data_mut()[F::STRIDE * idx..];
         let zb = &mut self.depth.data_mut()[idx..];
-        let frags = span.fragments();
 
-        for ((ch, frag), curr_z) in cb.chunks_exact_mut(F::STRIDE)
-            .zip(frags).zip(zb)
+        let v = Varying::between(span.vs.0, span.vs.1, (span.xs.1 - span.xs.0) as _);
+        let mut count = 0;
+        for (((ch, (z, v)), curr_z), x) in cb.chunks_exact_mut(F::STRIDE)
+            .zip(v).zip(zb).zip(span.xs.0..span.xs.1)
         {
-            let (z, a) = frag.varying;
             if z < *curr_z {
-                if let Some(col) = shader.shade_fragment(frag.varying(a)) {
+                let frag = Fragment {
+                    coord: (x, span.y),
+                    varying: v,
+                    uniform: span.uni,
+                };
+                if let Some(col) = shader.shade_fragment(frag) {
                     F::write(ch, col);
                     *curr_z = z;
+                    count += 1;
                 }
             }
         }
+        count
     }
     #[inline]
     fn test<U>(&self, f: Fragment<f32, U>) -> bool {
@@ -228,7 +236,7 @@ where
                 for Face { verts: vs, attr: a } in faces {
                     let vs = vs.map(|i| with_depth(verts[i]));
                     fill::tri_fill(vs, a, |span| {
-                        raster.rasterize(shader, span);
+                        rdr.stats.pixels += raster.rasterize(shader, span);
                     });
 
                     /*if let Some(col) = rdr.options.wireframes {
@@ -369,12 +377,23 @@ where
                 if v0.coord.x > v1.coord.x { swap(v0, v1); swap(v2, v3); }
 
                 // TODO extract to fn rect_fill
-                let (x0, y0) = (v0.coord.x.round(), v0.coord.y.round());
-                let (x1, y1) = (v2.coord.x.round(), v2.coord.y.round());
+                let (x0, y0) = (v0.coord.x.round() as usize, v0.coord.y.round());
+                let (x1, y1) = (v2.coord.x.round() as usize, v2.coord.y.round());
                 let v = Varying::between((v0.attr, v1.attr), (v3.attr, v2.attr), y1 - y0);
 
                 for (y, (v0, v1)) in (y0 as usize..y1 as usize).zip(v) {
-                    let v = Varying::between(v0, v1, x1 - x0);
+                    let span = Span {
+                        y,
+                        xs: (x0, x1),
+                        vs: (v0, v1),
+                        uni: self.face_attr,
+                    };
+
+                    raster.rasterize(shader, span);
+                }
+
+                /*for (y, (v0, v1)) in (y0 as usize..y1 as usize).zip(v) {
+                    let v = Varying::between(v0, v1, (x1 - x0) as _);
                     for (x, v) in (x0 as usize..x1 as usize).zip(v) {
                         let frag = Fragment {
                             coord: (x, y),
@@ -385,7 +404,7 @@ where
                             rdr.stats.pixels += 1;
                         }
                     }
-                }
+                }*/
             }
             _ => debug_assert!(false, "should not happen: vs.len()={}", vs.len())
         }
