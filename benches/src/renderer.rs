@@ -10,13 +10,14 @@ use geom::solids::{Torus, UnitCube, UnitSphere};
 use math::Angle::Rad;
 use math::transform::*;
 use math::vec::{dir, Y, Z};
-use render::{Raster, Render as _, Renderer};
+use render::{Framebuf, Raster, Render as _, Renderer};
 use render::raster::Fragment;
 use render::scene::{Obj, Scene};
 use render::shade::ShaderImpl;
 use util::buf::Buffer;
 use util::color::*;
 use util::io::{load_pnm, save_ppm};
+use util::pixfmt::Identity;
 use util::tex::{TexCoord, Texture};
 
 const W: usize = 128;
@@ -28,23 +29,25 @@ fn renderer() -> Renderer {
     rdr
 }
 
-fn check_hash(buf: &[Color], expected: u64) {
-    let h = &mut DefaultHasher::new();
-    buf.hash(h);
-    let actual = h.finish();
+fn check_hash(buf: &Buffer<Color, &mut [Color]>, expected: u64) {
+    let actual = {
+        let h = &mut DefaultHasher::new();
+        buf.data().hash(h);
+        h.finish()
+    };
     if actual != expected {
         eprintln!("Hashes differ: actual={} vs expected={}", actual, expected);
     }
 }
 
-fn save_screenshot(name: &str, buf: &mut [Color]) {
+fn save_screenshot(name: &str, buf: &Buffer<Color, &mut [Color]>) {
     let path = PathBuf::from(name);
     if path.exists() {
         let mut prev = path.clone();
         prev.set_extension("prev.ppm");
         std::fs::rename(path, prev).unwrap();
     }
-    save_ppm(name, &Buffer::borrow(W, buf)).unwrap();
+    save_ppm(name, buf).unwrap();
 }
 
 fn torus(c: &mut Criterion) {
@@ -53,7 +56,11 @@ fn torus(c: &mut Criterion) {
 
     let mesh = Torus(0.2, 9, 9).build();
 
-    let mut buf = vec![BLACK; W * W];
+    let mut cb = [BLACK; W * W];
+    let mut buf = Framebuf::<'_, Identity> {
+        color: Buffer::borrow(W, &mut cb),
+        depth: &mut Buffer::new(W, W, f32::INFINITY),
+    };
     c.bench_function("torus", |b| {
         b.iter(|| mesh.render(
             &mut rdr,
@@ -61,17 +68,11 @@ fn torus(c: &mut Criterion) {
                 vs: |v| v,
                 fs: |_| Some(WHITE),
             },
-            &mut Raster {
-                test: |_| true,
-                output: |frag: Fragment<(f32, Color)>| {
-                    let (x, y) = frag.coord;
-                    buf[W * y + x] = frag.varying.1;
-                },
-            },
+            &mut buf
         ));
     });
-    check_hash(&buf, 5667555972845400088);
-    save_screenshot("target/torus.ppm", &mut buf);
+    check_hash(&buf.color, 5667555972845400088);
+    save_screenshot("target/torus.ppm", &buf.color);
     eprintln!("Stats/s: {}\n", rdr.stats.avg_per_sec());
 }
 
@@ -90,7 +91,11 @@ fn scene(c: &mut Criterion) {
     }
     let scene = Scene { objects, camera };
 
-    let mut buf = [BLACK; W * W];
+    let mut cb = [BLACK; W * W];
+    let mut buf = Framebuf::<'_, Identity> {
+        color: Buffer::borrow(W, &mut cb),
+        depth: &mut Buffer::new(W, W, f32::INFINITY),
+    };
     c.bench_function("scene", |b| {
         b.iter(|| scene.render(
             &mut rdr,
@@ -98,17 +103,11 @@ fn scene(c: &mut Criterion) {
                 vs: |v| v,
                 fs: |_| Some(WHITE),
             },
-            &mut Raster {
-                test: |_| true,
-                output: |frag: Fragment<(f32, Color)>| {
-                    let (x, y) = frag.coord;
-                    buf[W * y + x] = frag.varying.1
-                },
-            },
+            &mut buf
         ));
     });
-    check_hash(&buf, 17516720479059830591);
-    save_screenshot("target/scene.ppm", &mut buf);
+    check_hash(&buf.color, 17516720479059830591);
+    save_screenshot("target/scene.ppm", &buf.color);
     eprintln!("Stats/s: {}\n", rdr.stats.avg_per_sec());
 }
 
@@ -130,7 +129,11 @@ fn gouraud_fillrate(c: &mut Criterion) {
         bbox: mesh.bbox,
     };
 
-    let mut buf = [BLACK; W * W];
+    let mut cb = [BLACK; W * W];
+    let mut buf = Framebuf::<'_, Identity> {
+        color: Buffer::borrow(W, &mut cb),
+        depth: &mut Buffer::new(W, W, f32::INFINITY),
+    };
     c.bench_function("gouraud", |b| {
         b.iter(|| mesh.render(
             &mut rdr,
@@ -138,17 +141,11 @@ fn gouraud_fillrate(c: &mut Criterion) {
                 vs: |v| v,
                 fs: |frag: Fragment<(Color, )>| Some(frag.varying.0),
             },
-            &mut Raster {
-                test: |_| true,
-                output: |frag: Fragment<(f32, Color)>| {
-                    let (x, y) = frag.coord;
-                    buf[W * y + x] = frag.varying.1;
-                },
-            },
+            &mut buf
         ));
     });
-    check_hash(&buf, 3313217684519750548);
-    save_screenshot("target/gouraud.ppm", &mut buf);
+    check_hash(&buf.color, 15890119565587720914);
+    save_screenshot("target/gouraud.ppm", &buf.color);
     eprintln!("Stats/frame: {}\n", rdr.stats.avg_per_frame());
 }
 
@@ -158,10 +155,13 @@ fn texture_fillrate(c: &mut Criterion) {
     rdr.modelview = scale(2.0) * &translate(6.0 * Z);
     let mesh = UnitCube.with_texcoords();
 
-    //let tex = Texture::from(Buffer::from_vec(2, vec![RED, BLUE, BLUE, GREEN]));
     let tex = Texture::from(load_pnm("../examples/sdl/crate.ppm").unwrap());
 
-    let mut buf = [BLACK; W * W];
+    let mut cb = [BLACK; W * W];
+    let mut buf = Framebuf::<'_, Identity> {
+        color: Buffer::borrow(W, &mut cb),
+        depth: &mut Buffer::new(W, W, f32::INFINITY),
+    };
     c.bench_function("texture", |b| {
         b.iter(|| {
             let clock = Instant::now();
@@ -173,20 +173,14 @@ fn texture_fillrate(c: &mut Criterion) {
                         Some(tex.sample(f.varying.0))
                     }
                 },
-                &mut Raster {
-                    test: |_| true,
-                    output: |frag: Fragment<(f32, Color)>| {
-                        let (x, y) = frag.coord;
-                        buf[W * y + x] = frag.varying.1;
-                    },
-                },
+                &mut buf,
             );
             rdr.stats.time_used += clock.elapsed();
             rdr.stats.frames += 1;
         });
     });
-    check_hash(&buf, 12904971692947500411);
-    save_screenshot("target/texture.ppm", &mut buf);
+    check_hash(&buf.color, 10066381871015406825);
+    save_screenshot("target/texture.ppm", &buf.color);
     eprintln!("Stats:     {}", rdr.stats);
     eprintln!("Stats/sec: {}\n", rdr.stats.avg_per_sec());
 }
