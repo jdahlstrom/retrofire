@@ -11,6 +11,7 @@ use scene::{Obj, Scene};
 pub use stats::Stats;
 use util::buf::Buffer;
 use util::color::Color;
+use util::pixfmt::PixelFmt;
 
 use crate::hsr::Visibility;
 use crate::raster::*;
@@ -57,13 +58,12 @@ where
 }
 
 
-pub struct Framebuf<'a> {
-    // TODO Support other color buffer formats
-    pub color: Buffer<u8, &'a mut [u8]>,
+pub struct Framebuf<'a, F: PixelFmt> {
+    pub color: Buffer<F::Elem, &'a mut [F::Elem]>,
     pub depth: &'a mut Buffer<f32>,
 }
 
-impl<'a> RasterOps for Framebuf<'a> {
+impl<'a, F: PixelFmt> RasterOps for Framebuf<'a, F> {
     #[inline]
     fn test<U>(&self, f: Fragment<f32, U>) -> bool {
         f.varying < *self.depth.get(f.coord.0, f.coord.1)
@@ -71,13 +71,9 @@ impl<'a> RasterOps for Framebuf<'a> {
     #[inline]
     fn output<U>(&mut self, f: Fragment<(f32, Color), U>) {
         let ((x, y), (z, col)) = (f.coord, f.varying);
-        let [_, r, g, b] = col.to_argb();
-        let idx = 4 * (self.color.width() * y + x);
-        let data = self.color.data_mut();
-        data[idx + 0] = b;
-        data[idx + 1] = g;
-        data[idx + 2] = r;
+        let idx = F::STRIDE * (self.color.width() * y + x);
 
+        F::write(&mut self.color.data_mut()[idx..], col);
         *self.depth.get_mut(x, y) = z;
     }
 }

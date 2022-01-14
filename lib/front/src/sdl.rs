@@ -9,6 +9,7 @@ use std::time::Instant;
 use util::buf::Buffer;
 use util::color::rgb;
 use util::io::save_ppm;
+use util::pixfmt::Bgra4x8;
 
 pub struct SdlRunner {
     #[allow(unused)]
@@ -45,7 +46,7 @@ impl Default for Options {
 }
 
 pub struct Frame<'a> {
-    pub buf: Framebuf<'a>,
+    pub buf: Framebuf<'a, Bgra4x8>,
     pub delta_t: f32,
     pub events: Vec<Event>,
     pub pressed_keys: Vec<Scancode>,
