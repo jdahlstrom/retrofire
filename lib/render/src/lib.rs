@@ -88,28 +88,38 @@ impl<'a, F: PixelFmt> Rasterize for Framebuf<'a, F> {
         U: Copy,
         S: FragmentShader<V, U>,
     {
-        let idx = self.color.width() * span.y + span.xs.0;
-        let cb = &mut self.color.data_mut()[F::STRIDE * idx..];
-        let zb = &mut self.depth.data_mut()[idx..];
+        let Span { y, xs: (x0,  x1), vs: (v0, v1), uni } = span;
+        let idx = self.color.width() * y + x0;
+        let len = x1.saturating_sub(x0);
 
-        let v = Varying::between(span.vs.0, span.vs.1, (span.xs.1 - span.xs.0) as _);
+        let cb = &mut self.color.data_mut()[F::STRIDE * idx..F::STRIDE * (idx + len)];
+        let zb = &mut self.depth.data_mut()[idx..idx+len];
+
+        //let frags = span.fragments();
+        let v = Varying::between(v0, v1, len as _);
         let mut count = 0;
+
+        /*let mut x = idx;
         for (((ch, (z, v)), curr_z), x) in cb.chunks_exact_mut(F::STRIDE)
             .zip(v).zip(zb).zip(span.xs.0..span.xs.1)
-        {
-            if z < *curr_z {
-                let frag = Fragment {
-                    coord: (x, span.y),
-                    varying: v,
-                    uniform: span.uni,
-                };
-                if let Some(col) = shader.shade_fragment(frag) {
-                    F::write(ch, col);
-                    *curr_z = z;
-                    count += 1;
+        {*/
+
+        cb.chunks_exact_mut(F::STRIDE)
+            .zip(v).zip(zb).zip(x0..)
+            .for_each(|(((ch, (z, v)), curr_z), x)| {
+                if z < *curr_z {
+                    let frag = Fragment {
+                        coord: (x, y),
+                        varying: v,
+                        uniform: uni,
+                    };
+                    if let Some(col) = shader.shade_fragment(frag) {
+                        F::write(ch, col);
+                        *curr_z = z;
+                        count += 1;
+                    }
                 }
-            }
-        }
+            });
         count
     }
     #[inline]

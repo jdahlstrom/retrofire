@@ -52,6 +52,8 @@ where
     for y in y..y_end {
         let (xl, vl) = left.next().unwrap();
         let (xr, vr) = right.next().unwrap();
+
+        // TODO assert!(xl.round() <= xr.round(), "xl {} > xr {}", xl, xr);
         span_fn(Span {
             y,
             // TODO use integer math
