@@ -5,12 +5,12 @@ use std::time::Instant;
 
 use criterion::*;
 
-use geom::mesh::{Mesh, GenVertex, VertexIndices};
+use geom::mesh::Mesh;
 use geom::solids::{Torus, UnitCube, UnitSphere};
 use math::Angle::Rad;
 use math::transform::*;
 use math::vec::{dir, Y, Z};
-use render::{Framebuf, Raster, Render as _, Renderer};
+use render::{Framebuf, Render as _, Renderer};
 use render::raster::Fragment;
 use render::scene::{Obj, Scene};
 use render::shade::ShaderImpl;
@@ -20,7 +20,7 @@ use util::io::{load_pnm, save_ppm};
 use util::pixfmt::Identity;
 use util::tex::{TexCoord, Texture};
 
-const W: usize = 128;
+const W: usize = 400;
 
 fn renderer() -> Renderer {
     let mut rdr = Renderer::new();
@@ -54,7 +54,7 @@ fn torus(c: &mut Criterion) {
     let mut rdr = renderer();
     rdr.modelview = scale(4.0);
 
-    let mesh = Torus(0.2, 9, 9).build();
+    let mesh = Torus(0.2, 24, 48).build();
 
     let mut cb = [BLACK; W * W];
     let mut buf = Framebuf::<'_, Identity> {
@@ -81,11 +81,11 @@ fn scene(c: &mut Criterion) {
 
     let mut objects = vec![];
     let camera = translate(4.0 * Y) * &rotate_x(Rad(0.5));
-    for j in -4..=4 {
-        for i in -4..=4 {
+    for j in -8..=8 {
+        for i in -8..=8 {
             objects.push(Obj {
-                tf: translate(dir(4. * i as f32, 0., 4. * j as f32)),
-                geom: UnitSphere(9, 9).build(),
+                tf: translate(dir(3.0 * i as f32, 0., 3.0 * j as f32)),
+                geom: UnitSphere(5, 9).build(),
             });
         }
     }
