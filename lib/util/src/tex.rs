@@ -1,3 +1,4 @@
+use std::ops::Deref;
 use math::Linear;
 
 use crate::buf::Buffer;
@@ -43,37 +44,15 @@ impl Linear<f32> for TexCoord {
 }
 
 #[derive(Clone)]
-pub struct Texture {
+pub struct Texture<D = Vec<Color>> {
     w: f32,
     h: f32,
-    buf: Buffer<Color>,
+    w_mask: usize,
+    h_mask: usize,
+    data: D,
 }
 
-impl Texture {
-    pub fn new(width: usize, data: &[Color]) -> Texture {
-        assert!(width.is_power_of_two());
-        let height = data.len() / width;
-        assert!(height.is_power_of_two());
-        assert_eq!(height * width, data.len());
-
-        Texture {
-            w: width as f32,
-            h: height as f32,
-            buf: Buffer::from_vec(width, data.to_vec()),
-        }
-    }
-
-    pub fn solid(width: usize, height: usize, color: Color) -> Texture {
-        assert!(width.is_power_of_two());
-        assert!(height.is_power_of_two());
-
-        Texture {
-            w: width as f32,
-            h: height as f32,
-            buf: Buffer::new(width, height, color),
-        }
-    }
-
+impl<D: Deref<Target=[Color]>> Texture<D> {
     pub fn width(&self) -> f32 {
         self.w
     }
@@ -82,22 +61,74 @@ impl Texture {
     }
 
     pub fn sample(&self, TexCoord { u, v, w }: TexCoord) -> Color {
-        let buf = &self.buf;
         let w = 1.0 / w;
-        let u = (self.w * u * w).floor() as isize as usize & (buf.width() - 1);
-        let v = (self.h * v * w).floor() as isize as usize & (buf.height() - 1);
+        let u = (self.w * u * w).floor() as isize as usize & self.w_mask;
+        let v = (self.h * v * w).floor() as isize as usize & self.h_mask;
 
         // TODO enforce invariants and use get_unchecked
-        *buf.get(u, v)
+        self.data[self.w as usize * v + u]
     }
 }
 
-impl From<Buffer<Color>> for Texture {
-    fn from(buf: Buffer<Color>) -> Self {
+impl<'a> Texture<&'a [Color]> {
+    pub fn borrow(width: usize, height: usize, data: &'a [Color]) -> Self {
+        assert!(width.is_power_of_two());
+        assert!(height.is_power_of_two());
+        assert!(height * width <= data.len());
+
         Self {
-            w: buf.width() as f32,
-            h: buf.height() as f32,
-            buf
+            w: width as f32,
+            h: height as f32,
+            w_mask: width - 1,
+            h_mask: height - 1,
+            data,
+        }
+    }
+}
+
+impl Texture<Vec<Color>> {
+    pub fn owned(width: usize, height: usize, data: &[Color]) -> Self {
+        assert!(width.is_power_of_two());
+        assert!(height.is_power_of_two());
+        assert!(height * width <= data.len());
+
+        Self {
+            w: width as f32,
+            h: height as f32,
+            w_mask: width - 1,
+            h_mask: height - 1,
+            data: data.to_vec(),
+        }
+    }
+
+    pub fn solid(width: usize, height: usize, color: Color) -> Self {
+        assert!(width.is_power_of_two());
+        assert!(height.is_power_of_two());
+
+        Texture {
+            w: width as f32,
+            h: height as f32,
+            w_mask: width - 1,
+            h_mask: height - 1,
+            data: vec![color; width * height],
+        }
+    }
+}
+
+impl From<Buffer<Color>> for Texture<Vec<Color>> {
+    fn from(buf: Buffer<Color>) -> Self {
+        assert!(buf.width().is_power_of_two());
+        assert!(buf.height().is_power_of_two());
+
+        let w = buf.width();
+        let h = buf.height();
+
+        Self {
+            w: w as f32,
+            h: h as f32,
+            w_mask: w - 1,
+            h_mask: h - 1,
+            data: buf.into_data(),
         }
     }
 }

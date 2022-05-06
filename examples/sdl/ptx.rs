@@ -43,18 +43,24 @@ fn main() {
     const YELLOW: Color = rgb(255, 255, 0);
 
     let textures = [
-        Texture::new(2, &[BLACK, WHITE, WHITE, BLACK]),
-        Texture::new(
-            4,
+        Texture::owned(2, 2, &[BLACK, WHITE, WHITE, BLACK]),
+        Texture::owned(
+            4, 4,
             &[
                 //
                 BLACK, RED, RED, BLACK, //
                 RED, YELLOW, YELLOW, RED, //
                 RED, YELLOW, YELLOW, RED, //
                 BLACK, RED, RED, BLACK,
+                //
+                RED, RED, RED, RED,
+                //
+                RED,
             ],
         ),
     ];
+
+    return;
 
     let camera = translate(pt(0., -1., 5.));
 
