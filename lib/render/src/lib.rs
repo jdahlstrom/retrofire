@@ -17,7 +17,8 @@ pub mod stats;
 pub mod text;
 pub mod vary;
 
-pub trait RasterOps {
+pub trait Rasterize {
+
     #[inline(always)]
     fn test<U>(&self, _: Fragment<f32, U>) -> bool { true }
 
@@ -55,7 +56,7 @@ pub struct Raster<Test, Output> {
     pub output: Output,
 }
 
-impl<Test, Output> RasterOps for Raster<Test, Output>
+impl<Test, Output> Rasterize for Raster<Test, Output>
 where
     Test: Fn(Fragment<f32>) -> bool,
     Output: FnMut(Fragment<(f32, Color)>),
@@ -77,7 +78,7 @@ pub struct Framebuf<'a> {
     pub depth: &'a mut Buffer<f32>,
 }
 
-impl<'a> RasterOps for Framebuf<'a> {
+impl<'a> Rasterize for Framebuf<'a> {
     #[inline]
     fn test<U>(&self, f: Fragment<f32, U>) -> bool {
         f.varying < *self.depth.get(f.coord.0, f.coord.1)

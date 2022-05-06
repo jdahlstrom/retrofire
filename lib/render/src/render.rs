@@ -8,7 +8,7 @@ use math::Linear;
 use math::mat::Mat4;
 use math::transform::Transform;
 
-use crate::{Fragment, hsr, line, RasterOps, State, tri_fill};
+use crate::{Fragment, hsr, line, Rasterize, State, tri_fill};
 use crate::hsr::Visibility;
 use crate::scene::{Obj, Scene};
 use crate::shade::Shader;
@@ -19,7 +19,7 @@ pub trait Render<U, VI, FI=VI> {
     fn render<S, R>(&self, st: &mut State, shade: &mut S, raster: &mut R)
     where
         S: Shader<U, VI, VI, FI>,
-        R: RasterOps;
+        R: Rasterize;
 }
 
 impl<G, U, V> Render<U, V> for Scene<G>
@@ -31,7 +31,7 @@ where
     fn render<S, R>(&self, st: &mut State, shade: &mut S, raster: &mut R)
     where
         S: Shader<U, V>,
-        R: RasterOps
+        R: Rasterize
     {
         let clock = Instant::now();
         let Self { objects, camera } = self;
@@ -52,7 +52,7 @@ where
     fn render<S, R>(&self, st: &mut State, shader: &mut S, raster: &mut R)
     where
         S: Shader<U, VI>,
-        R: RasterOps
+        R: Rasterize
     {
         st.stats.faces_in += self.faces.len();
 
@@ -154,7 +154,7 @@ where
     fn render<S, R>(&self, st: &mut State, shader: &mut S, raster: &mut R)
     where
         S: Shader<(), VI>,
-        R: RasterOps
+        R: Rasterize
     {
         st.stats.faces_in += 1;
 
@@ -188,7 +188,7 @@ where
     fn render<S, R>(&self, st: &mut State, shader: &mut S, raster: &mut R)
     where
         S: Shader<(), V>,
-        R: RasterOps,
+        R: Rasterize,
     {
         for seg in self.edges() {
             seg.render(st, shader, raster);
@@ -204,7 +204,7 @@ where
     fn render<S, R>(&self, st: &mut State, shader: &mut S, raster: &mut R)
     where
         S: Shader<U, V>,
-        R: RasterOps,
+        R: Rasterize,
     {
         st.stats.faces_in += 1;
 
