@@ -10,7 +10,7 @@ use geom::{
     mesh::{Face, Mesh},
     Sprite
 };
-use geom::mesh::{vertex_indices};
+use geom::mesh::vertex_indices;
 use math::{
     Angle::*,
     mat::Mat4,
@@ -22,7 +22,7 @@ use math::{
 use render::{
     fx::{anim, anim::*, particle::*},
     raster::Fragment,
-    Render,
+    Render as _,
     Renderer,
     scene::{Obj, Scene},
     shade::ShaderImpl,
@@ -59,8 +59,6 @@ fn main() {
             ],
         ),
     ];
-
-    return;
 
     let camera = translate(pt(0., -1., 5.));
 
