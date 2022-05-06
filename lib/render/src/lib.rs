@@ -73,7 +73,7 @@ impl<'a> RasterOps for Framebuf<'a> {
 }
 
 #[derive(Default, Clone)]
-pub struct Renderer {
+pub struct State {
     pub modelview: Mat4,
     pub projection: Mat4,
     pub viewport: Mat4,
@@ -89,8 +89,8 @@ pub struct Options {
     pub bounding_boxes: Option<Color>,
 }
 
-impl Renderer {
-    pub fn new() -> Renderer {
+impl State {
+    pub fn new() -> State {
         Self::default()
     }
 }

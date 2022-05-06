@@ -6,7 +6,7 @@ use math::transform::Transform;
 use math::vec::pt;
 use util::color::Color;
 
-use crate::{RasterOps, render::Render, Renderer};
+use crate::{RasterOps, render::Render, State};
 use crate::raster::Fragment;
 use crate::shade::{Shader, ShaderImpl};
 use util::tex::{TexCoord, Texture, uv};
@@ -82,13 +82,13 @@ impl<'a> Transform for Text<'a> {
 }
 
 impl<'a> Render<(), TexCoord, Color> for Text<'a> {
-    fn render<S, R>(&self, rdr: &mut Renderer, shader: &mut S, raster: &mut R)
+    fn render<S, R>(&self, st: &mut State, shader: &mut S, raster: &mut R)
     where
         S: Shader<(), TexCoord, TexCoord, Color>,
         R: RasterOps,
     {
         for s in &self.geom {
-            s.render(rdr, &mut ShaderImpl {
+            s.render(st, &mut ShaderImpl {
                 vs: |v| shader.shade_vertex(v),
                 fs: |f: Fragment<TexCoord>| {
                     let col = self.font.glyphs.sample(f.varying);
@@ -130,12 +130,12 @@ mod tests {
             ),
         };
         let txt = Text::new(fnt, "Hello, World!");
-        let rdr = &mut Renderer::default();
-        rdr.projection = orthogonal(pt(0.0, 0.0, -1.0), pt(BW as f32, BH as f32, 1.0));
-        rdr.viewport = viewport(0.0, BH as f32, BW as f32, 0.0);
+        let st = &mut State::default();
+        st.projection = orthogonal(pt(0.0, 0.0, -1.0), pt(BW as f32, BH as f32, 1.0));
+        st.viewport = viewport(0.0, BH as f32, BW as f32, 0.0);
         let mut out = [[BLACK; BW]; BH];
         txt.render(
-            rdr,
+            st,
             &mut ShaderImpl {
                 vs: |v| v,
                 fs: |frag: Fragment<_>| {

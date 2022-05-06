@@ -11,7 +11,7 @@ use geom::solids::UnitCube;
 use math::Angle::{self, Deg};
 use math::transform::*;
 use math::vec::*;
-use render::{Render, Renderer};
+use render::{Render, State};
 use render::raster::Fragment;
 use render::scene::*;
 use render::scene::Obj;
@@ -94,10 +94,10 @@ fn main() {
 
     let mut runner = SdlRunner::new(w as u32, h as u32).unwrap();
 
-    let mut rdr = Renderer::new();
-    rdr.options.perspective_correct = true;
-    rdr.projection = perspective(0.1, 50., w / h, Deg(90.0));
-    rdr.viewport = viewport(margin, h - margin, w - margin, margin);
+    let mut st = State::new();
+    st.options.perspective_correct = true;
+    st.projection = perspective(0.1, 50., w / h, Deg(90.0));
+    st.viewport = viewport(margin, h - margin, w - margin, margin);
 
 
     let mut cam = FpsCamera::new(pt(0.0, 0.0, -2.5), Angle::ZERO);
@@ -135,18 +135,18 @@ fn main() {
     let mut text = Text::new(font, "");
 
     runner.run(|mut frame| {
-        scene.render(&mut rdr, shader, &mut frame.buf);
+        scene.render(&mut st, shader, &mut frame.buf);
 
-        let mut hud = Renderer::new();
+        let mut hud = State::new();
         hud.projection = orthogonal(pt(0.0, 0.0, -1.0), pt(w, h, 1.0));
         hud.viewport = viewport(0.0, h, w, 0.0);
         hud.modelview = translate(dir(margin + 2.0, margin - 12.0, 0.0));
 
         t += frame.delta_t;
         if t > sample_interval {
-            let stats = rdr.stats.diff(&sample);
+            let stats = st.stats.diff(&sample);
             text = Text::new(font, &stats.avg_per_sec().to_string());
-            sample = rdr.stats;
+            sample = st.stats;
             t = 0.0;
         }
 
@@ -198,10 +198,10 @@ fn main() {
         cam.translate(frame.delta_t * cam_move);
         scene.camera = cam.world_to_view();
 
-        rdr.stats.frames += 1;
+        st.stats.frames += 1;
 
         Continue(())
     }).unwrap();
 
-    runner.print_stats(rdr.stats);
+    runner.print_stats(st.stats);
 }
