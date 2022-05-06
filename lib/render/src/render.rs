@@ -20,29 +20,6 @@ pub trait Render<U, VI, FI=VI> {
     where
         S: Shader<U, VI, VI, FI>,
         R: RasterOps;
-
-    #[inline]
-    fn rasterize<S, R, VO>(
-        shade: &mut S, raster: &mut R,
-        frag: Fragment<(f32, VO), U>,
-    ) -> bool
-    where
-        U: Copy,
-        VO: Copy,
-        S: Shader<U, VI, VO>,
-        R: RasterOps,
-    {
-        let (z, a) = frag.varying;
-        raster.test(frag.varying(z)) && {
-            shade
-                .shade_fragment(frag.varying(a))
-                .map(|col| {
-                    // TODO blending
-                    raster.output(frag.varying((z, col)))
-                })
-                .is_some()
-        }
-    }
 }
 
 impl<G, U, V> Render<U, V> for Scene<G>
@@ -124,7 +101,7 @@ where
                     let verts = f.verts.map(|i| with_depth(verts[i]));
 
                     tri_fill(verts, |frag| {
-                        if Self::rasterize(shader, raster, frag.uniform(f.attr)) {
+                        if raster.rasterize(shader, frag.uniform(f.attr)) {
                             st.stats.pixels += 1;
                         }
                     });
@@ -196,7 +173,7 @@ where
                 clip_to_screen(b, &st.viewport)
             ];
             line(verts, |frag: Fragment<_>| {
-                if Self::rasterize(shader, raster, frag) {
+                if raster.rasterize(shader, frag) {
                     st.stats.pixels += 1;
                 }
             });
@@ -279,7 +256,7 @@ where
                             varying: v,
                             uniform: this.face_attr
                         };
-                        if Self::rasterize(shader, raster, frag) {
+                        if raster.rasterize(shader, frag) {
                             st.stats.pixels += 1;
                         }
                     }

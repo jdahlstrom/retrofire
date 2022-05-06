@@ -1,10 +1,11 @@
 use math::mat::Mat4;
-pub use stats::Stats;
 pub use render::Render;
+pub use stats::Stats;
 use util::buf::Buffer;
 use util::color::Color;
 
 use crate::raster::*;
+use crate::shade::Shader;
 
 mod hsr;
 pub mod fx;
@@ -24,6 +25,29 @@ pub trait RasterOps {
     // fn blend(&mut self, _x: usize, _y: usize, c: Color) -> Color { c }
 
     fn output<U>(&mut self, _: Fragment<(f32, Color), U>);
+
+    #[inline]
+    fn rasterize<S, U, VI, VO>(
+        &mut self,
+        shade: &mut S,
+        frag: Fragment<(f32, VO), U>,
+    ) -> bool
+    where
+        U: Copy,
+        VO: Copy,
+        S: Shader<U, VI, VO>,
+    {
+        let (z, a) = frag.varying;
+        self.test(frag.varying(z)) && {
+            shade
+                .shade_fragment(frag.varying(a))
+                .map(|col| {
+                    // TODO blending
+                    self.output(frag.varying((z, col)))
+                })
+                .is_some()
+        }
+    }
 }
 
 pub struct Raster<Test, Output> {
