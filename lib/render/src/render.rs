@@ -8,7 +8,7 @@ use math::Linear;
 use math::mat::Mat4;
 use math::transform::Transform;
 
-use crate::{Fragment, hsr, line, RasterOps, Renderer, tri_fill};
+use crate::{Fragment, hsr, line, RasterOps, State, tri_fill};
 use crate::hsr::Visibility;
 use crate::scene::{Obj, Scene};
 use crate::shade::Shader;
@@ -16,7 +16,7 @@ use crate::vary::Varying;
 
 pub trait Render<U, VI, FI=VI> {
 
-    fn render<S, R>(&self, rdr: &mut Renderer, shade: &mut S, raster: &mut R)
+    fn render<S, R>(&self, st: &mut State, shade: &mut S, raster: &mut R)
     where
         S: Shader<U, VI, VI, FI>,
         R: RasterOps;
@@ -51,7 +51,7 @@ where
     U: Copy,
     V: Linear<f32> + Copy,
 {
-    fn render<S, R>(&self, rdr: &mut Renderer, shade: &mut S, raster: &mut R)
+    fn render<S, R>(&self, st: &mut State, shade: &mut S, raster: &mut R)
     where
         S: Shader<U, V>,
         R: RasterOps
@@ -59,11 +59,11 @@ where
         let clock = Instant::now();
         let Self { objects, camera } = self;
         for Obj { tf, geom, .. } in objects {
-            rdr.modelview = tf * camera;
-            geom.render(rdr, shade, raster);
+            st.modelview = tf * camera;
+            geom.render(st, shade, raster);
         }
-        rdr.stats.objs_in += objects.len();
-        rdr.stats.time_used += clock.elapsed();
+        st.stats.objs_in += objects.len();
+        st.stats.time_used += clock.elapsed();
     }
 }
 
@@ -72,14 +72,14 @@ where
     VI: Soa + Linear<f32> + Copy + Debug,
     U: Copy,
 {
-    fn render<S, R>(&self, rdr: &mut Renderer, shader: &mut S, raster: &mut R)
+    fn render<S, R>(&self, st: &mut State, shader: &mut S, raster: &mut R)
     where
         S: Shader<U, VI>,
         R: RasterOps
     {
-        rdr.stats.faces_in += self.faces.len();
+        st.stats.faces_in += self.faces.len();
 
-        let mvp = &rdr.modelview * &rdr.projection;
+        let mvp = &st.modelview * &st.projection;
 
         let bbox_vis = {
             let vs = self.bbox.verts().transform(&mvp);
@@ -110,14 +110,14 @@ where
                 = hsr::hidden_surface_removal(&verts, &faces, bbox_vis);
 
             if !faces.is_empty() {
-                rdr.stats.objs_out += 1;
-                rdr.stats.faces_out += faces.len();
+                st.stats.objs_out += 1;
+                st.stats.faces_out += faces.len();
 
-                if rdr.options.depth_sort { depth_sort(&mut faces); }
-                perspective_divide(&mut verts, rdr.options.perspective_correct);
+                if st.options.depth_sort { depth_sort(&mut faces); }
+                perspective_divide(&mut verts, st.options.perspective_correct);
 
                 for v in &mut verts {
-                    v.coord.transform_mut(&rdr.viewport);
+                    v.coord.transform_mut(&st.viewport);
                 }
 
                 for f in faces {
@@ -125,11 +125,11 @@ where
 
                     tri_fill(verts, |frag| {
                         if Self::rasterize(shader, raster, frag.uniform(f.attr)) {
-                            rdr.stats.pixels += 1;
+                            st.stats.pixels += 1;
                         }
                     });
 
-                    if let Some(col) = rdr.options.wireframes {
+                    if let Some(col) = st.options.wireframes {
                         let [a, b, c] = verts;
                         for e in [a, b, c, a].windows(2) {
                             line([e[0], e[1]], |frag| {
@@ -144,14 +144,14 @@ where
         }
 
         /* TODO Wireframe and bounding box debug rendering
-        let mut render_edges = |rdr: &mut _,
+        let mut render_edges = |st: &mut _,
                                     edges: Vec<[Vec4; 2]>,
                                     col: Color| {
                 for edge in edges.into_iter()
                     .map(|[a, b]| [vertex(a, col), vertex(b, col)])
                     .map(LineSeg)
                 {
-                    edge.render(rdr, &mut ShaderImpl {
+                    edge.render(st, &mut ShaderImpl {
                         vs: |a| a,
                         fs: |f: Fragment<_>| Some(f.varying),
                     }, &mut Raster {
@@ -160,7 +160,7 @@ where
                     });
                 }
             };
-            if let Some(col) = rdr.options.wireframes {
+            if let Some(col) = st.options.wireframes {
                 render_edges(rdr, self.edges(), col);
             }
             if let Some(col) = rdr.options.bounding_boxes {
@@ -174,14 +174,14 @@ impl<VI> Render<(), VI> for LineSeg<VI>
 where
     VI: Linear<f32> + Copy
 {
-    fn render<S, R>(&self, rdr: &mut Renderer, shader: &mut S, raster: &mut R)
+    fn render<S, R>(&self, st: &mut State, shader: &mut S, raster: &mut R)
     where
         S: Shader<(), VI>,
         R: RasterOps
     {
-        rdr.stats.faces_in += 1;
+        st.stats.faces_in += 1;
 
-        let mvp = &rdr.modelview * &rdr.projection;
+        let mvp = &st.modelview * &st.projection;
 
         let mut verts = self.0.map(|mut v| {
             v.coord.transform_mut(&mvp);
@@ -190,14 +190,14 @@ where
         let mut clip_out = Vec::new();
         hsr::clip(&mut verts, &mut clip_out);
         if let &[a, b, ..] = clip_out.as_slice() {
-            rdr.stats.faces_out += 1;
+            st.stats.faces_out += 1;
             let verts = [
-                clip_to_screen(a, &rdr.viewport),
-                clip_to_screen(b, &rdr.viewport)
+                clip_to_screen(a, &st.viewport),
+                clip_to_screen(b, &st.viewport)
             ];
             line(verts, |frag: Fragment<_>| {
                 if Self::rasterize(shader, raster, frag) {
-                    rdr.stats.pixels += 1;
+                    st.stats.pixels += 1;
                 }
             });
         }
@@ -208,13 +208,13 @@ impl<V> Render<(), V> for Polyline<V>
 where
     V: Linear<f32> + Copy
 {
-    fn render<S, R>(&self, rdr: &mut Renderer, shader: &mut S, raster: &mut R)
+    fn render<S, R>(&self, st: &mut State, shader: &mut S, raster: &mut R)
     where
         S: Shader<(), V>,
         R: RasterOps,
     {
         for seg in self.edges() {
-            seg.render(rdr, shader, raster);
+            seg.render(st, shader, raster);
         }
     }
 }
@@ -224,21 +224,21 @@ where
     U: Copy,
     V: Linear<f32> + Copy,
 {
-    fn render<S, R>(&self, rdr: &mut Renderer, shader: &mut S, raster: &mut R)
+    fn render<S, R>(&self, st: &mut State, shader: &mut S, raster: &mut R)
     where
         S: Shader<U, V>,
         R: RasterOps,
     {
-        rdr.stats.faces_in += 1;
+        st.stats.faces_in += 1;
 
         let mut this = *self;
-        this.anchor.transform_mut(&rdr.modelview);
-        let scale = &rdr.modelview.row(0).len();
+        this.anchor.transform_mut(&st.modelview);
+        let scale = &st.modelview.row(0).len();
         this.width *= scale;
         this.height *= scale;
 
         let this = Self {
-            anchor: self.anchor.transform(&rdr.modelview),
+            anchor: self.anchor.transform(&st.modelview),
             width: self.width * scale,
             height: self.height * scale,
             ..*self
@@ -247,7 +247,7 @@ where
         let mut vs: Vec<_> = this.verts()
             .map(|v| {
                 let mut v = shader.shade_vertex(v);
-                v.coord.transform_mut(&rdr.projection);
+                v.coord.transform_mut(&st.projection);
                 v
             })
             .collect();
@@ -255,13 +255,13 @@ where
         let mut clip_out = Vec::new();
         hsr::clip(&mut vs, &mut clip_out);
         let mut vs: Vec<_> = clip_out.into_iter()
-            .map(|v| clip_to_screen(v, &rdr.viewport))
+            .map(|v| clip_to_screen(v, &st.viewport))
             .collect();
 
         match vs.as_mut_slice() {
             [] => {}
             [v0, v1, v2, v3] => {
-                rdr.stats.faces_out += 1;
+                st.stats.faces_out += 1;
 
                 if v0.coord.y > v2.coord.y { swap(v0, v3); swap(v1, v2); }
                 if v0.coord.x > v1.coord.x { swap(v0, v1); swap(v2, v3); }
@@ -280,7 +280,7 @@ where
                             uniform: this.face_attr
                         };
                         if Self::rasterize(shader, raster, frag) {
-                            rdr.stats.pixels += 1;
+                            st.stats.pixels += 1;
                         }
                     }
                 }

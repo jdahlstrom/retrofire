@@ -23,7 +23,7 @@ use render::{
     fx::{anim, anim::*, particle::*},
     raster::Fragment,
     Render as _,
-    Renderer,
+    State,
     scene::{Obj, Scene},
     shade::ShaderImpl,
 };
@@ -87,7 +87,7 @@ fn main() {
         },
     );
 
-    let mut rdr = renderer(w, h, margin);
+    let mut st = state(w, h, margin);
 
     let mut runner = SdlRunner::new(w as u32, h as u32).unwrap();
 
@@ -142,10 +142,10 @@ fn main() {
                     },
                 };
 
-                scene.render(&mut rdr, shade_checkers, &mut frame.buf);
+                scene.render(&mut st, shade_checkers, &mut frame.buf);
 
-                rdr.modelview = scene.camera.clone();
-                ptx.borrow().render(&mut rdr, shade_ptx, &mut frame.buf);
+                st.modelview = scene.camera.clone();
+                ptx.borrow().render(&mut st, shade_ptx, &mut frame.buf);
             }
             // Input
             {
@@ -171,12 +171,12 @@ fn main() {
                 }
             }
 
-            rdr.stats.frames += 1;
+            st.stats.frames += 1;
             Continue(())
         })
         .unwrap();
 
-    runner.print_stats(rdr.stats);
+    runner.print_stats(st.stats);
 }
 
 fn checkers() -> Mesh<(VA, ), FA> {
@@ -209,17 +209,17 @@ fn checkers() -> Mesh<(VA, ), FA> {
     }
 }
 
-fn renderer(w: i32, h: i32, margin: i32) -> Renderer {
-    let mut rdr = Renderer::new();
-    rdr.options.perspective_correct = true;
-    rdr.projection = perspective(0.1, 50., w as f32 / h as f32, Deg(90.0));
-    rdr.viewport = viewport(
+fn state(w: i32, h: i32, margin: i32) -> State {
+    let mut st = State::new();
+    st.options.perspective_correct = true;
+    st.projection = perspective(0.1, 50., w as f32 / h as f32, Deg(90.0));
+    st.viewport = viewport(
         margin as f32,
         (h - margin) as f32,
         (w - margin) as f32,
         margin as f32,
     );
-    rdr
+    st
 }
 
 fn bezier() -> BezierCurve<Vec4> {

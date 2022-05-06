@@ -10,7 +10,7 @@ use geom::solids::{Torus, UnitCube, UnitSphere};
 use math::Angle::Rad;
 use math::transform::*;
 use math::vec::{dir, Y, Z};
-use render::{Raster, Render as _, Renderer};
+use render::{Raster, Render as _, State};
 use render::raster::Fragment;
 use render::scene::{Obj, Scene};
 use render::shade::ShaderImpl;
@@ -21,11 +21,11 @@ use util::tex::{TexCoord, Texture};
 
 const W: usize = 128;
 
-fn renderer() -> Renderer {
-    let mut rdr = Renderer::new();
-    rdr.projection = perspective(1.0, 10.0, 1.0, Rad(1.0));
-    rdr.viewport = viewport(0.0, 0.0, W as f32, W as f32);
-    rdr
+fn state() -> State {
+    let mut st = State::new();
+    st.projection = perspective(1.0, 10.0, 1.0, Rad(1.0));
+    st.viewport = viewport(0.0, 0.0, W as f32, W as f32);
+    st
 }
 
 fn check_hash(buf: &[Color], expected: u64) {
@@ -48,15 +48,15 @@ fn save_screenshot(name: &str, buf: &mut [Color]) {
 }
 
 fn torus(c: &mut Criterion) {
-    let mut rdr = renderer();
-    rdr.modelview = scale(4.0);
+    let mut st = state();
+    st.modelview = scale(4.0);
 
     let mesh = Torus(0.2, 9, 9).build();
 
     let mut buf = vec![BLACK; W * W];
     c.bench_function("torus", |b| {
         b.iter(|| mesh.render(
-            &mut rdr,
+            &mut st,
             &mut ShaderImpl {
                 vs: |v| v,
                 fs: |_| Some(WHITE),
@@ -72,11 +72,11 @@ fn torus(c: &mut Criterion) {
     });
     check_hash(&buf, 5667555972845400088);
     save_screenshot("target/torus.ppm", &mut buf);
-    eprintln!("Stats/s: {}\n", rdr.stats.avg_per_sec());
+    eprintln!("Stats/s: {}\n", st.stats.avg_per_sec());
 }
 
 fn scene(c: &mut Criterion) {
-    let mut rdr = renderer();
+    let mut st = state();
 
     let mut objects = vec![];
     let camera = translate(4.0 * Y) * &rotate_x(Rad(0.5));
@@ -93,7 +93,7 @@ fn scene(c: &mut Criterion) {
     let mut buf = [BLACK; W * W];
     c.bench_function("scene", |b| {
         b.iter(|| scene.render(
-            &mut rdr,
+            &mut st,
             &mut ShaderImpl {
                 vs: |v| v,
                 fs: |_| Some(WHITE),
@@ -109,12 +109,12 @@ fn scene(c: &mut Criterion) {
     });
     check_hash(&buf, 17516720479059830591);
     save_screenshot("target/scene.ppm", &mut buf);
-    eprintln!("Stats/s: {}\n", rdr.stats.avg_per_sec());
+    eprintln!("Stats/s: {}\n", st.stats.avg_per_sec());
 }
 
 fn gouraud_fillrate(c: &mut Criterion) {
-    let mut rdr = renderer();
-    rdr.modelview = scale(2.0) * &translate(6.0 * Z);
+    let mut st = state();
+    st.modelview = scale(2.0) * &translate(6.0 * Z);
 
     let mesh = UnitCube.build();
     let mesh = Mesh::<(Color, )> {
@@ -133,7 +133,7 @@ fn gouraud_fillrate(c: &mut Criterion) {
     let mut buf = [BLACK; W * W];
     c.bench_function("gouraud", |b| {
         b.iter(|| mesh.render(
-            &mut rdr,
+            &mut st,
             &mut ShaderImpl {
                 vs: |v| v,
                 fs: |frag: Fragment<(Color, )>| Some(frag.varying.0),
@@ -149,13 +149,13 @@ fn gouraud_fillrate(c: &mut Criterion) {
     });
     check_hash(&buf, 3313217684519750548);
     save_screenshot("target/gouraud.ppm", &mut buf);
-    eprintln!("Stats/frame: {}\n", rdr.stats.avg_per_frame());
+    eprintln!("Stats/frame: {}\n", st.stats.avg_per_frame());
 }
 
 fn texture_fillrate(c: &mut Criterion) {
-    let mut rdr = renderer();
+    let mut st = state();
 
-    rdr.modelview = scale(2.0) * &translate(6.0 * Z);
+    st.modelview = scale(2.0) * &translate(6.0 * Z);
     let mesh = UnitCube.with_texcoords();
 
     //let tex = Texture::from(Buffer::from_vec(2, vec![RED, BLUE, BLUE, GREEN]));
@@ -166,7 +166,7 @@ fn texture_fillrate(c: &mut Criterion) {
         b.iter(|| {
             let clock = Instant::now();
             mesh.render(
-                &mut rdr,
+                &mut st,
                 &mut ShaderImpl {
                     vs: |v| v,
                     fs: |f: Fragment<(TexCoord, )>| {
@@ -181,14 +181,14 @@ fn texture_fillrate(c: &mut Criterion) {
                     },
                 },
             );
-            rdr.stats.time_used += clock.elapsed();
-            rdr.stats.frames += 1;
+            st.stats.time_used += clock.elapsed();
+            st.stats.frames += 1;
         });
     });
     check_hash(&buf, 12904971692947500411);
     save_screenshot("target/texture.ppm", &mut buf);
-    eprintln!("Stats:     {}", rdr.stats);
-    eprintln!("Stats/sec: {}\n", rdr.stats.avg_per_sec());
+    eprintln!("Stats:     {}", st.stats);
+    eprintln!("Stats/sec: {}\n", st.stats.avg_per_sec());
 }
 
 criterion_group!(benches,

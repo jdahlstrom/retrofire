@@ -7,7 +7,7 @@ use math::Angle::{Deg, Rad};
 use math::Linear;
 use math::transform::*;
 use math::vec::{dir, Y, Z};
-use render::{Raster, Render, Renderer, Stats};
+use render::{Raster, Render, State, Stats};
 use render::raster::Fragment;
 use render::scene::{Obj, Scene};
 use render::shade::ShaderImpl;
@@ -30,17 +30,17 @@ where
     VA: Soa + Linear<f32> + Copy + Debug,
     FA: Copy + Debug
 {
-    let mut rdr = Renderer::new();
-    rdr.modelview = translate(4.0 * Z);
-    rdr.projection = perspective(1.0, 10.0, 1., Rad(1.0));
-    rdr.viewport = viewport(0.0, 0.0, 10.0, 10.0);
+    let mut st = State::new();
+    st.modelview = translate(4.0 * Z);
+    st.projection = perspective(1.0, 10.0, 1., Rad(1.0));
+    st.viewport = viewport(0.0, 0.0, 10.0, 10.0);
 
     let mesh = mesh.validate().expect("Invalid mesh!");
 
     let mut buf = ['.'; 100];
 
     mesh.render(
-        &mut rdr,
+        &mut st,
         &mut ShaderImpl {
             vs: identity,
             fs: |_| Some(BLACK),
@@ -50,7 +50,7 @@ where
             output: &mut |frag: Fragment<_>| buf[10 * frag.coord.1 + frag.coord.0] = '#'
         }
     );
-    eprintln!("Stats: {}", rdr.stats);
+    eprintln!("Stats: {}", st.stats);
     buf.iter().collect()
 }
 
@@ -63,12 +63,12 @@ where
     const H: usize = 20;
     let mut buf = [b'.'; W * H];
 
-    let mut rdr = Renderer::new();
-    rdr.projection = perspective(1.0, 100.0, 1.0, Deg(90.0));
-    rdr.viewport = viewport(0.0, 0.0, W as f32, H as f32);
+    let mut st = State::new();
+    st.projection = perspective(1.0, 100.0, 1.0, Deg(90.0));
+    st.viewport = viewport(0.0, 0.0, W as f32, H as f32);
 
     scene.render(
-        &mut rdr,
+        &mut st,
         &mut ShaderImpl {
             vs: identity,
             fs: |_| Some(BLACK),
@@ -82,8 +82,8 @@ where
         eprintln!("{}", std::str::from_utf8(&row).unwrap());
     }
 
-    eprintln!("Stats: {}", rdr.stats);
-    rdr.stats
+    eprintln!("Stats: {}", st.stats);
+    st.stats
 }
 
 #[test]

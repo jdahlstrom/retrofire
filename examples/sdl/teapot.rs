@@ -10,7 +10,7 @@ use math::mat::Mat4;
 use math::transform::*;
 use math::vec::*;
 use render::Render as _;
-use render::Renderer;
+use render::State;
 use render::raster::*;
 use render::scene::{Obj, Scene};
 use render::shade::*;
@@ -68,9 +68,9 @@ fn main() {
     let mut view_dir = Mat4::identity();
     let mut trans = dir(0.0, 0.0, 40.0);
 
-    let mut rdr = Renderer::new();
-    rdr.projection = perspective(1., 60., w as f32 / h as f32, Deg(60.0));
-    rdr.viewport = viewport(margin as f32, (h - margin) as f32,
+    let mut st = State::new();
+    st.projection = perspective(1., 60., w as f32 / h as f32, Deg(60.0));
+    st.viewport = viewport(margin as f32, (h - margin) as f32,
                             (w - margin) as f32, margin as f32);
 
     let mut runner = SdlRunner::new(w as u32, h as u32).unwrap();
@@ -94,7 +94,7 @@ fn main() {
             camera: Mat4::identity(),
         };
 
-        scene.render(&mut rdr, &mut Shd(light), &mut buf);
+        scene.render(&mut st, &mut Shd(light), &mut buf);
 
         for scancode in pressed_keys {
             use Scancode::*;
@@ -114,10 +114,10 @@ fn main() {
         }
 
         theta = theta + Rad(delta_t);
-        rdr.stats.frames += 1;
+        st.stats.frames += 1;
 
         Continue(())
     }).unwrap();
 
-    runner.print_stats(rdr.stats);
+    runner.print_stats(st.stats);
 }
