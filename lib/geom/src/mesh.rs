@@ -206,6 +206,22 @@ impl<FA> Mesh<(), FA> {
 
 impl<VA: Soa, FA> Mesh<VA, FA> {
 
+    pub fn sub_mesh(&self, face_indices: Vec<usize>) -> SubMesh<VA, FA> {
+
+        let coords = face_indices.iter()
+            .flat_map(|&i| self.faces[i].verts)
+            .map(|vi| self.verts[vi].coord)
+            .map(|ci| &self.vertex_coords[ci]);
+
+        let bbox = BoundingBox::of(coords);
+
+        SubMesh {
+            mesh: self,
+            face_indices,
+            bbox,
+        }
+    }
+
     pub fn validate(self) -> Result<Self, String> {
 
         fn check_indices<I>(name: &str, indices: I, max: usize) -> Result<(), String>
@@ -243,6 +259,16 @@ impl<VA: Soa, FA> Mesh<VA, FA> {
 
         Ok(self)
     }
+}
+
+pub struct SubMesh<'a, VA: Soa, FA> {
+    pub mesh: &'a Mesh<VA, FA>,
+    pub face_indices: Vec<usize>,
+    pub bbox: BoundingBox,
+}
+
+impl<'a, VA: Soa, FA> SubMesh<'a, VA, FA> {
+
 }
 
 #[derive(Clone, Debug, Default)]
