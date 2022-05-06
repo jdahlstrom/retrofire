@@ -23,11 +23,16 @@ where
         self.height
     }
     #[inline]
-    pub fn data(&self) -> &B {
+    pub fn data(&self) -> &[T] {
         &self.data
     }
+
+    pub fn into_data(self) -> B {
+        self.data
+    }
+
     #[inline]
-    pub fn data_mut(&mut self) -> &mut B {
+    pub fn data_mut(&mut self) -> &mut [T] {
         &mut self.data
     }
     #[inline]
