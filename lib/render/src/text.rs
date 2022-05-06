@@ -6,7 +6,7 @@ use math::transform::Transform;
 use math::vec::pt;
 use util::color::Color;
 
-use crate::{RasterOps, Render, Renderer};
+use crate::{RasterOps, render::Render, Renderer};
 use crate::raster::Fragment;
 use crate::shade::{Shader, ShaderImpl};
 use util::tex::{TexCoord, Texture, uv};

@@ -1,7 +1,7 @@
 use math::transform::translate;
 use math::vec::Vec4;
 
-use crate::{RasterOps, Render, Renderer};
+use crate::{RasterOps, render::Render, Renderer};
 use crate::shade::Shader;
 
 #[derive(Copy, Clone, Debug, Default)]

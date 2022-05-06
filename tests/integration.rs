@@ -7,7 +7,7 @@ use math::Angle::{Deg, Rad};
 use math::Linear;
 use math::transform::*;
 use math::vec::{dir, Y, Z};
-use render::*;
+use render::{Raster, Render, Renderer, Stats};
 use render::raster::Fragment;
 use render::scene::{Obj, Scene};
 use render::shade::ShaderImpl;
