@@ -84,7 +84,7 @@ where
                 .collect();
 
             let (mut verts, mut faces)
-                = hsr::hidden_surface_removal(&verts, &faces, bbox_vis);
+                = hsr::hidden_surface_removal(verts, faces, bbox_vis);
 
             if !faces.is_empty() {
                 st.stats.objs_out += 1;
