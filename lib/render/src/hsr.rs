@@ -7,8 +7,8 @@ use math::vec::Vec4;
 use Visibility::*;
 
 pub fn hidden_surface_removal<VA, FA>(
-    verts: &Vec<Vertex<VA>>,
-    faces: &Vec<Face<usize, FA>>,
+    mut verts: Vec<Vertex<VA>>,
+    mut faces: Vec<Face<usize, FA>>,
     bbox_vis: Visibility,
 ) -> (Vec<Vertex<VA>>, Vec<Face<usize, FA>>)
 where
@@ -16,40 +16,33 @@ where
     FA: Copy,
 {
     if bbox_vis == Unclipped {
-        let faces = faces.iter()
-            .filter(|f| frontface(&f.verts.map(|i| verts[i])))
-            .copied()
-            .collect();
-
-        return (verts.clone(), faces);
+        faces.retain(|f| frontface(&f.verts.map(|i| verts[i])));
+        return (verts, faces);
     }
 
-    let mut res_verts = verts.clone();
-    let mut res_faces = vec![];
+    let mut faces_out = vec![];
 
     let clip_masks: Vec<_> = verts.iter()
-        .map(|v| &v.coord)
-        .map(vertex_mask)
+        .map(|v| vertex_mask(&v.coord))
         .collect();
 
     let mut clip_in = Vec::with_capacity(8);
     let mut clip_out = Vec::with_capacity(8);
 
     for face in faces {
-
-        let verts = face.verts.map(|i| verts[i]);
+        let face_verts = face.verts.map(|i| verts[i]);
         let masks = face.verts.map(|i| clip_masks[i]);
 
         match visibility(masks) {
             Hidden => continue,
             Unclipped => {
-                if frontface(&verts) {
-                    res_faces.push(*face);
+                if frontface(&face_verts) {
+                    faces_out.push(face);
                 }
             }
             Clipped => {
                 clip_in.clear();
-                clip_in.extend(&verts);
+                clip_in.extend(&face_verts);
                 clip(&mut clip_in, &mut clip_out);
                 if clip_out.is_empty() {
                     continue;
@@ -58,13 +51,13 @@ where
                     // New faces are coplanar, if one is a backface then all are
                     continue;
                 }
-                let old_count = res_verts.len();
+                let old_count = verts.len();
                 let new_count = old_count + clip_out.len();
 
-                res_verts.append(&mut clip_out);
+                verts.append(&mut clip_out);
 
                 for i in old_count + 1..new_count - 1 {
-                    res_faces.push(Face {
+                    faces_out.push(Face {
                         verts: [old_count, i, i + 1],
                         attr: face.attr,
                     });
@@ -72,7 +65,7 @@ where
             }
         }
     }
-    (res_verts, res_faces)
+    (verts, faces_out)
 }
 
 
