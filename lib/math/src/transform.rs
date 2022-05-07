@@ -1,3 +1,4 @@
+use std::ops::Deref;
 use crate::{Angle, mat::*, vec::*};
 
 pub trait Transform {
@@ -19,7 +20,7 @@ impl Transform for Vec4 {
     }
 }
 
-impl<T: Transform> Transform for [T] {
+impl<T: Transform> Transform for Vec<T> {
     fn transform_mut(&mut self, tf: &Mat4) {
         for x in self {
             x.transform_mut(tf);
