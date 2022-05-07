@@ -1,15 +1,18 @@
 use std::fmt::Debug;
-use std::mem::swap;
+use std::mem::{replace, swap};
 use std::time::Instant;
 
 use geom::{LineSeg, Polyline, Sprite};
-use geom::mesh::{Face, Mesh, Soa, Vertex};
+use geom::bbox::BoundingBox;
+use geom::mesh::{Face, Mesh, Soa, SubMesh, Vertex};
 use math::Linear;
 use math::mat::Mat4;
 use math::transform::Transform;
+use math::vec::ZERO;
 
 use crate::{Fragment, hsr, line, Rasterize, State, tri_fill};
 use crate::hsr::Visibility;
+use crate::hsr::Visibility::Hidden;
 use crate::scene::{Obj, Scene};
 use crate::shade::Shader;
 use crate::vary::Varying;
@@ -36,8 +39,9 @@ where
         let clock = Instant::now();
         let Self { objects, camera } = self;
         for Obj { tf, geom, .. } in objects {
-            st.modelview = tf * camera;
+            let prev_mv = replace(&mut st.modelview, tf * camera);
             geom.render(st, shade, raster);
+            st.modelview = prev_mv;
         }
         st.stats.objs_in += objects.len();
         st.stats.time_used += clock.elapsed();
@@ -58,20 +62,14 @@ where
 
         let mvp = &st.modelview * &st.projection;
 
-        let bbox_vis = {
-            let vs = self.bbox.verts().transform(&mvp);
-            hsr::vertex_visibility(vs.iter())
-        };
-
-        if bbox_vis != Visibility::Hidden {
-            let vcs: Vec<_> = self.vertex_coords.iter()
-                // TODO do transform in vertex shader?
-                .map(|&v| v.transform(&mvp))
-                .collect();
+        let bbox_vis = bbox_visibility(&self.bbox, &mvp);
+        if bbox_vis != Hidden {
+            // TODO do transform in vertex shader?
+            let coords = self.vertex_coords.clone().transform(&mvp);
 
             let verts: Vec<_> = self.verts.iter()
                 .map(|v| Vertex {
-                    coord: vcs[v.coord],
+                    coord: coords[v.coord],
                     attr: VI::get(&self.vertex_attrs, &v.attr),
                 })
                 .collect();
@@ -83,69 +81,136 @@ where
                 })
                 .collect();
 
-            let (mut verts, mut faces)
-                = hsr::hidden_surface_removal(verts, faces, bbox_vis);
+            let (verts, faces) = hsr::hidden_surface_removal(verts, faces, bbox_vis);
 
-            if !faces.is_empty() {
-                st.stats.objs_out += 1;
-                st.stats.faces_out += faces.len();
-
-                if st.options.depth_sort { depth_sort(&mut faces); }
-                perspective_divide(&mut verts, st.options.perspective_correct);
-
-                for v in &mut verts {
-                    v.coord.transform_mut(&st.viewport);
-                }
-
-                for f in faces {
-                    let verts = f.verts.map(|i| with_depth(verts[i]));
-
-                    tri_fill(verts, |frag| {
-                        if raster.rasterize(shader, frag.uniform(f.attr)) {
-                            st.stats.pixels += 1;
-                        }
-                    });
-
-                    if let Some(col) = st.options.wireframes {
-                        let [a, b, c] = verts;
-                        for e in [a, b, c, a].windows(2) {
-                            line([e[0], e[1]], |frag| {
-                                if raster.test(frag.varying(frag.varying.0-0.001)) {
-                                    raster.output(frag.varying((0.0, col)));
-                                }
-                            });
-                        }
-                    }
-                }
-            }
+            render_faces(verts, faces, st, shader, raster)
         }
-
-        /* TODO Wireframe and bounding box debug rendering
-        let mut render_edges = |st: &mut _,
-                                    edges: Vec<[Vec4; 2]>,
-                                    col: Color| {
-                for edge in edges.into_iter()
-                    .map(|[a, b]| [vertex(a, col), vertex(b, col)])
-                    .map(LineSeg)
-                {
-                    edge.render(st, &mut ShaderImpl {
-                        vs: |a| a,
-                        fs: |f: Fragment<_>| Some(f.varying),
-                    }, &mut Raster {
-                        test: |_| true,
-                        output: |f| raster.output(f),
-                    });
-                }
-            };
-            if let Some(col) = st.options.wireframes {
-                render_edges(rdr, self.edges(), col);
-            }
-            if let Some(col) = rdr.options.bounding_boxes {
-                render_edges(rdr, self.bbox.edges(), col);
-            }
-         */
     }
 }
+
+impl<VI, U> Render<U, VI> for SubMesh<'_, VI, U>
+where
+    VI: Soa + Linear<f32> + Copy + Debug,
+    U: Copy,
+{
+    fn render<S, R>(&self, st: &mut State, shader: &mut S, raster: &mut R)
+    where
+        S: Shader<U, VI>,
+        R: Rasterize
+    {
+        st.stats.faces_in += self.face_indices.len();
+
+        let mesh = self.mesh;
+        let mvp = &st.modelview * &st.projection;
+
+        let bbox_vis = bbox_visibility(&self.bbox, &mvp);
+        if bbox_vis != Hidden {
+            let faces: Vec<_> = self.face_indices.iter()
+                .map(|&fi| mesh.faces[fi])
+                .collect();
+
+            let mut verts: Vec<_> = mesh.verts.iter()
+                .map(|v| Vertex {
+                    coord: ZERO,
+                    attr: VI::get(&mesh.vertex_attrs, &v.attr),
+                })
+                .collect();
+
+            // Transform only coords that are actually used
+            for vi in faces.iter().flat_map(|f| f.verts) {
+                verts[vi].coord = mesh.vertex_coords[mesh.verts[vi].coord].transform(&mvp)
+            }
+
+            let faces: Vec<_> = faces.into_iter()
+                .map(|f| Face {
+                    verts: f.verts,
+                    attr: mesh.face_attrs[f.attr]
+                })
+                .collect();
+
+            let (verts, faces) = hsr::hidden_surface_removal(verts, faces, bbox_vis);
+
+            render_faces(verts, faces, st, shader, raster);
+        }
+    }
+}
+
+fn bbox_visibility(bbox: &BoundingBox, mvp: &Mat4) -> Visibility {
+    let vs = bbox.verts().transform(&mvp);
+    hsr::vertex_visibility(vs.iter())
+}
+
+fn render_faces<VI, U, S, R>(
+    mut verts: Vec<Vertex<VI>>,
+    mut faces: Vec<Face<usize, U>>,
+    st: &mut State,
+    shader: &mut S,
+    raster: &mut R
+) where
+    U: Copy,
+    VI: Copy + Debug + Linear<f32> + Soa,
+    S: Shader<U, VI>,
+    R: Rasterize
+{
+    if faces.is_empty() { return; }
+
+    st.stats.objs_out += 1;
+    st.stats.faces_out += faces.len();
+
+    if st.options.depth_sort { depth_sort(&mut faces); }
+    perspective_divide(&mut verts, st.options.perspective_correct);
+
+    for v in &mut verts {
+        v.coord.transform_mut(&st.viewport);
+    }
+
+    for f in faces {
+        let verts = f.verts.map(|i| with_depth(verts[i]));
+
+        tri_fill(verts, |frag| {
+            if raster.rasterize(shader, frag.uniform(f.attr)) {
+                st.stats.pixels += 1;
+            }
+        });
+
+        if let Some(col) = st.options.wireframes {
+            let [a, b, c] = verts;
+            for e in [a, b, c, a].windows(2) {
+                line([e[0], e[1]], |frag| {
+                    if raster.test(frag.varying(frag.varying.0 - 0.001)) {
+                        raster.output(frag.varying((0.0, col)));
+                    }
+                });
+            }
+        }
+    }
+
+    /* TODO Wireframe and bounding box debug rendering
+    let mut render_edges = |st: &mut _,
+                            edges: Vec<[Vec4; 2]>,
+                            col: Color| {
+        for edge in edges.into_iter()
+            .map(|[a, b]| [vertex(a, col), vertex(b, col)])
+            .map(LineSeg)
+        {
+            edge.render(st, &mut ShaderImpl {
+                vs: |a| a,
+                fs: |f: Fragment<_>| Some(f.varying),
+            }, &mut Raster {
+                test: |_| true,
+                output: |f| raster.output(f),
+            });
+        }
+    };
+    if let Some(col) = st.options.wireframes {
+        render_edges(rdr, self.edges(), col);
+    }
+    if let Some(col) = rdr.options.bounding_boxes {
+        render_edges(rdr, self.bbox.edges(), col);
+    }
+    */
+}
+
 
 impl<VI> Render<(), VI> for LineSeg<VI>
 where

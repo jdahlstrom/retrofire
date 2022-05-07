@@ -261,6 +261,7 @@ impl<VA: Soa, FA> Mesh<VA, FA> {
     }
 }
 
+#[derive(Clone)]
 pub struct SubMesh<'a, VA: Soa, FA> {
     pub mesh: &'a Mesh<VA, FA>,
     pub face_indices: Vec<usize>,
