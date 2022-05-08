@@ -152,16 +152,17 @@ impl SdlRunner {
     pub fn print_stats(self, stats: Stats) {
         let Stats { frames, pixels, faces_in, faces_out, .. } = stats;
         let elapsed = self.start.elapsed().as_secs_f32();
-        println!("\n S  T  A  T  S");
-        println!("═══════════════╕");
-        println!(" Total         │ {}", stats);
-        println!(" Per sec       │ {}", stats.avg_per_sec());
-        println!(" Per frame     │ {}", stats.avg_per_frame());
-        println!("───────────────┤");
-        println!(" Avg pix/face  │ {}", pixels / faces_out.max(1));
-        println!(" Avg vis faces │ {}%", 100 * faces_out / faces_in.max(1));
-        println!(" Elapsed time  │ {:.2}s", elapsed);
-        println!(" Average fps   │ {:.2}\n", frames as f32 / elapsed);
+        println!();
+        println!(" S  T  A  T  S  │ frames │   objs i/o    │   faces i/o   │ pixels │   time  ");
+        println!("════════════════╪════════╪═══════════════╪═══════════════╪════════╪═════════");
+        println!(" Total          │ {:#}", stats);
+        println!(" Per sec        │ {:#}", stats.avg_per_sec());
+        println!(" Per frame      │ {:#}", stats.avg_per_frame());
+        println!("────────────────┤");
+        println!(" Avg pix/face   │ {}", pixels / faces_out.max(1));
+        println!(" Avg vis faces  │ {}%", 100 * faces_out / faces_in.max(1));
+        println!(" Elapsed time   │ {:.2}s", elapsed);
+        println!(" Average fps    │ {:.2}\n", frames as f32 / elapsed);
     }
 }
 
