@@ -64,12 +64,11 @@ where
 
         let bbox_vis = bbox_visibility(&self.bbox, &mvp);
         if bbox_vis != Hidden {
-            // TODO do transform in vertex shader?
-            let coords = self.vertex_coords.clone().transform(&mvp);
 
             let verts: Vec<_> = self.verts.iter()
                 .map(|v| Vertex {
-                    coord: coords[v.coord],
+                    // TODO do transform in vertex shader?
+                    coord: self.vertex_coords[v.coord].transform(&mvp),
                     attr: VI::get(&self.vertex_attrs, &v.attr),
                 })
                 .collect();
