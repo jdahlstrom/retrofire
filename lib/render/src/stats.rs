@@ -58,7 +58,7 @@ fn human_num(n: usize) -> String {
     else if n < 1_000_000 { format!("{:4}k", n / 1_000) }
     else if n < 100_000_000 { format!("{:4.1}M", n as f32 / 1_000_000.) }
     else if n < 1_000_000_000 { format!("{:4}M", n / 1_000_000) }
-    else if n < 1_000_000_000_000 { format!("{:4.1}M", n as f32 / 1_000_000.) }
+    else if n < 100_000_000_000 { format!("{:4.1}G", n as f32 / 1_000_000_000.) }
     else { format!("{:5.1e}", n) }
 }
 
@@ -66,18 +66,31 @@ fn human_time(d: Duration) -> String {
     let s = d.as_secs_f32();
     if s < 0.001 { format!("{:4.1}us", s * 1_000_000.) }
     else if s < 1.0 { format!("{:4.1}ms", s * 1_000.) }
-    else { format!("{:.1}s ", s) }
+    else if s < 10.0 { format!("{:.1}s ", s) }
+    else { format!("{:.0}min{:02.0}s ", s / 60.0, s % 60.0)}
 }
 
 impl Display for Stats {
     fn fmt(&self, f: &mut Formatter<'_>) -> Result {
-        write!(f, "frames: {} │ \
-                   objs i/o: {} / {} │ \
-                   faces i/o: {} / {} │ \
-                   pixels: {} │ time used: {:>9}",
-               human_num(self.frames),
-               human_num(self.objs_in), human_num(self.objs_out),
-               human_num(self.faces_in), human_num(self.faces_out),
-               human_num(self.pixels), human_time(self.time_used))
+        let frames = human_num(self.frames);
+        let objs_in = human_num(self.objs_in);
+        let objs_out = human_num(self.objs_out);
+        let faces_in = human_num(self.faces_in);
+        let faces_out = human_num(self.faces_out);
+        let pixels = human_num(self.pixels);
+        let time_used = human_time(self.time_used);
+
+        if f.alternate() {
+            write!(f, "{frames:>6} │ \
+                       {objs_in} / {objs_out} │ \
+                       {faces_in} / {faces_out} │ \
+                       {pixels:>6} │ {time_used:>8}")
+        } else {
+            write!(f, "frames: {frames} │ \
+                   objs i/o: {objs_in} / {objs_out} │ \
+                   faces i/o: {faces_in} / {faces_out} │ \
+                   pixels: {pixels} │ time used: {time_used:>8}")
+        }
+
     }
 }
