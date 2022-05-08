@@ -71,6 +71,7 @@ where
                     coord: self.vertex_coords[v.coord].transform(&mvp),
                     attr: VI::get(&self.vertex_attrs, &v.attr),
                 })
+                .map(|v| shader.shade_vertex(v))
                 .collect();
 
             let faces: Vec<_> = self.faces.iter()
@@ -115,9 +116,10 @@ where
                 })
                 .collect();
 
-            // Transform only coords that are actually used
+            // Shade and transform only coords that are actually used
             for vi in faces.iter().flat_map(|f| f.verts) {
-                verts[vi].coord = mesh.vertex_coords[mesh.verts[vi].coord].transform(&mvp)
+                verts[vi].coord = mesh.vertex_coords[mesh.verts[vi].coord].transform(&mvp);
+                verts[vi] = shader.shade_vertex(verts[vi]);
             }
 
             let faces: Vec<_> = faces.into_iter()
