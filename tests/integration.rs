@@ -117,7 +117,7 @@ fn render_sphere_field() {
 
     let stats = render_scene(Scene { objects, camera });
 
-    assert_eq!(126 * 21 * 21, stats.faces_in);
-    assert_eq!(6626, stats.faces_out);
+    assert_eq!(126 * 21 * 21, stats.prims_in);
+    assert_eq!(6626, stats.prims_out);
     assert_eq!(302, stats.pixels);
 }

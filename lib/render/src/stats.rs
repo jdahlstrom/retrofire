@@ -6,8 +6,8 @@ pub struct Stats {
     pub frames: usize,
     pub objs_in: usize,
     pub objs_out: usize,
-    pub faces_in: usize,
-    pub faces_out: usize,
+    pub prims_in: usize,
+    pub prims_out: usize,
     pub verts_in: usize,
     pub verts_out: usize,
     pub pixels: usize,
@@ -21,8 +21,8 @@ impl Stats {
             frames: 1,
             objs_in: self.objs_in / frames,
             objs_out: self.objs_out / frames,
-            faces_in: self.faces_in / frames,
-            faces_out: self.faces_out / frames,
+            prims_in: self.prims_in / frames,
+            prims_out: self.prims_out / frames,
             verts_in: self.verts_in / frames,
             verts_out: self.verts_out / frames,
             pixels: self.pixels / frames,
@@ -36,8 +36,8 @@ impl Stats {
             frames: (self.frames as f32 / secs) as usize,
             objs_in: (self.objs_in as f32 / secs) as usize,
             objs_out: (self.objs_out as f32 / secs) as usize,
-            faces_in: (self.faces_in as f32 / secs) as usize,
-            faces_out: (self.faces_out as f32 / secs) as usize,
+            prims_in: (self.prims_in as f32 / secs) as usize,
+            prims_out: (self.prims_out as f32 / secs) as usize,
             verts_in: (self.verts_in as f32 / secs) as usize,
             verts_out: (self.verts_out as f32 / secs) as usize,
             pixels: (self.pixels as f32 / secs) as usize,
@@ -50,8 +50,8 @@ impl Stats {
             frames: self.frames - other.frames,
             objs_in: self.objs_in - other.objs_in,
             objs_out: self.objs_out - other.objs_out,
-            faces_in: self.faces_in - other.faces_in,
-            faces_out: self.faces_out - other.faces_out,
+            prims_in: self.prims_in - other.prims_in,
+            prims_out: self.prims_out - other.prims_out,
             verts_in: self.verts_in - other.verts_in,
             verts_out: self.verts_out - other.verts_out,
             pixels: self.pixels - other.pixels,
@@ -83,8 +83,8 @@ impl Display for Stats {
         let frames = human_num(self.frames);
         let objs_in = human_num(self.objs_in);
         let objs_out = human_num(self.objs_out);
-        let faces_in = human_num(self.faces_in);
-        let faces_out = human_num(self.faces_out);
+        let prims_in = human_num(self.prims_in);
+        let prims_out = human_num(self.prims_out);
         let verts_in = human_num(self.verts_in);
         let verts_out = human_num(self.verts_out);
         let pixels = human_num(self.pixels);
@@ -93,13 +93,13 @@ impl Display for Stats {
         if f.alternate() {
             write!(f, "{frames:>6} │ \
                        {objs_in} / {objs_out} │ \
-                       {faces_in} / {faces_out} │ \
+                       {prims_in} / {prims_out} │ \
                        {verts_in} / {verts_out} │ \
                        {pixels:>6} │ {time_used:>8}")
         } else {
             write!(f, "frames: {frames} │ \
                    objs i/o: {objs_in} / {objs_out} │ \
-                   faces i/o: {faces_in} / {faces_out} │ \
+                   faces i/o: {prims_in} / {prims_out} │ \
                    verts i/o: {verts_in} / {verts_out} │ \
                    pixels: {pixels} │ time used: {time_used:>8}")
         }
