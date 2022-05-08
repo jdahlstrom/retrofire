@@ -59,6 +59,7 @@ where
         R: Rasterize
     {
         st.stats.faces_in += self.faces.len();
+        st.stats.verts_in += self.verts.len();
 
         let mvp = &st.modelview * &st.projection;
 
@@ -99,6 +100,7 @@ where
         R: Rasterize
     {
         st.stats.faces_in += self.face_indices.len();
+        st.stats.verts_in += self.mesh.verts.len();
 
         let mesh = self.mesh;
         let mvp = &st.modelview * &st.projection;
@@ -157,6 +159,7 @@ fn render_faces<VI, U, S, R>(
 
     st.stats.objs_out += 1;
     st.stats.faces_out += faces.len();
+    st.stats.verts_out += verts.len();
 
     if st.options.depth_sort { depth_sort(&mut faces); }
     perspective_divide(&mut verts, st.options.perspective_correct);
@@ -223,6 +226,7 @@ where
         R: Rasterize
     {
         st.stats.faces_in += 1;
+        st.stats.verts_in += 2;
 
         let mvp = &st.modelview * &st.projection;
 
@@ -234,6 +238,7 @@ where
         hsr::clip(&mut verts, &mut clip_out);
         if let &[a, b, ..] = clip_out.as_slice() {
             st.stats.faces_out += 1;
+            st.stats.verts_out += 2;
             let verts = [
                 clip_to_screen(a, &st.viewport),
                 clip_to_screen(b, &st.viewport)
@@ -273,6 +278,7 @@ where
         R: Rasterize,
     {
         st.stats.faces_in += 1;
+        st.stats.verts_in += 1;
 
         let mut this = *self;
         this.anchor.transform_mut(&st.modelview);
@@ -305,6 +311,7 @@ where
             [] => {}
             [v0, v1, v2, v3] => {
                 st.stats.faces_out += 1;
+                st.stats.verts_out += 1;
 
                 if v0.coord.y > v2.coord.y { swap(v0, v3); swap(v1, v2); }
                 if v0.coord.x > v1.coord.x { swap(v0, v1); swap(v2, v3); }
