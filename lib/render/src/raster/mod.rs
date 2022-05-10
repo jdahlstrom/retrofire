@@ -3,7 +3,7 @@ use std::mem::swap;
 use geom::mesh::Vertex;
 use math::Linear;
 
-use crate::vary::{Bresenham, Varying};
+use math::vary::{Bresenham, Varying};
 
 mod tests;
 

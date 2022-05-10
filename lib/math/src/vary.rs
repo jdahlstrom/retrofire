@@ -1,4 +1,4 @@
-use math::Linear;
+use crate::Linear;
 
 #[derive(Debug)]
 pub struct Varying<T> {
@@ -69,8 +69,8 @@ impl<T> Iterator for Varying<T>
 
 #[cfg(test)]
 mod tests {
-    use crate::vary::{Varying, Bresenham};
-    use math::vec::*;
+    use super::{Varying, Bresenham};
+    use crate::vec::*;
 
     #[test]
     fn varying_f32() {
