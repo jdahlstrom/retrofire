@@ -2,6 +2,7 @@ use std::mem::replace;
 
 use math::Linear;
 use math::mat::Mat4;
+use math::vary::Varying;
 pub use render::Render;
 pub use stats::Stats;
 use util::buf::Buffer;
@@ -9,7 +10,6 @@ use util::color::Color;
 
 use crate::raster::*;
 use crate::shade::Shader;
-use crate::vary::Varying;
 
 mod hsr;
 pub mod fx;
@@ -19,7 +19,6 @@ pub mod scene;
 pub mod shade;
 pub mod stats;
 pub mod text;
-pub mod vary;
 
 pub trait Rasterize {
     fn rasterize_span<VIn, U, S>(

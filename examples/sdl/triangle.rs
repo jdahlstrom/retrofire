@@ -7,10 +7,10 @@ use sdl2::pixels::Color;
 use sdl2::rect::Rect;
 
 use geom::mesh::Vertex;
+use math::vary::Varying;
 use math::vec::vec4;
 use render::raster::tri_fill;
 use render::raster::Span;
-use render::vary::Varying;
 
 fn vert(x: f32, y: f32, c: f32) -> Vertex<f32> {
     Vertex { coord: vec4(x, y, 0.0, 0.0), attr: c }

@@ -15,8 +15,8 @@ use util::color::Color;
 use crate::{Fragment, hsr, line, Rasterize, Span, State, tri_fill};
 use crate::hsr::Visibility::{self, Hidden};
 use crate::scene::{Obj, Scene};
-use crate::shade::{Shader, ShaderImpl, VertexShader};
-use crate::vary::Varying;
+use crate::shade::{Shader, ShaderImpl};
+use math::vary::Varying;
 
 pub trait Render<Uni, VtxIn, FragIn> {
 

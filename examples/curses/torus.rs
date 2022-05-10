@@ -6,9 +6,9 @@ use geom::mesh::Vertex;
 use geom::solids::*;
 use math::Angle::Rad;
 use math::transform::*;
+use math::vary::Varying;
 use math::vec::{dir, Vec4};
 use render::raster::{Span, tri_fill};
-use render::vary::Varying;
 
 fn vert(v: Vec4) -> Vertex<f32> {
     Vertex { coord: v, attr: 127. * (v.x * 1.).sin() * (v.y * 1.).cos() + 128. }
