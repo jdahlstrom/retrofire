@@ -41,6 +41,11 @@ impl Linear<f32> for TexCoord {
             w: -self.w,
         }
     }
+
+    fn perspective_div(self) -> Self {
+        let w = 1.0 / self.w;
+        uv(w * self.u, w * self.v)
+    }
 }
 
 #[derive(Clone)]

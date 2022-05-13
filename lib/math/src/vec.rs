@@ -247,6 +247,10 @@ impl Linear<f32> for Vec4 {
     fn neg(self) -> Self {
         Neg::neg(self)
     }
+    #[inline]
+    fn perspective_div(self) -> Self {
+        if self.w == 0.0 { self } else { self / self.w }
+    }
 }
 
 impl ApproxEq for Vec4 {

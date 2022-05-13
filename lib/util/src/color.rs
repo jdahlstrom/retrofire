@@ -48,7 +48,7 @@ impl Mul<u8> for Color {
     }
 }
 
-// TODO This impl is fundamentally broken
+// FIXME This impl is fundamentally broken
 impl Linear<f32> for Color {
     fn add(self, other: Self) -> Self {
         rgb(self.r().saturating_add(other.r()),
@@ -66,6 +66,10 @@ impl Linear<f32> for Color {
         rgb(self.r().wrapping_neg(),
             self.g().wrapping_neg(),
             self.b().wrapping_neg())
+    }
+
+    fn perspective_div(self) -> Self {
+        self
     }
 }
 
