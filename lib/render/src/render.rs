@@ -10,9 +10,8 @@ use math::mat::Mat4;
 use math::transform::Transform;
 use math::vec::ZERO;
 
-use crate::{Fragment, hsr, line, Rasterize, State, tri_fill};
-use crate::hsr::Visibility;
-use crate::hsr::Visibility::Hidden;
+use crate::{Fragment, hsr, line, Rasterize, Span, State, tri_fill};
+use crate::hsr::Visibility::{self, Hidden};
 use crate::scene::{Obj, Scene};
 use crate::shade::Shader;
 use crate::vary::Varying;
@@ -143,16 +142,16 @@ fn bbox_visibility(bbox: &BoundingBox, mvp: &Mat4) -> Visibility {
     hsr::vertex_visibility(vs.iter())
 }
 
-fn render_faces<VI, U, S, R>(
-    mut verts: Vec<Vertex<VI>>,
+fn render_faces<V, U, S, R>(
+    mut verts: Vec<Vertex<V>>,
     mut faces: Vec<Face<usize, U>>,
     st: &mut State,
     shader: &mut S,
     raster: &mut R
 ) where
     U: Copy,
-    VI: Copy + Debug + Linear<f32> + Soa,
-    S: Shader<U, VI>,
+    V: Copy + Debug + Linear<f32> + Soa,
+    S: Shader<U, V>,
     R: Rasterize
 {
     if faces.is_empty() { return; }
@@ -171,13 +170,18 @@ fn render_faces<VI, U, S, R>(
     for f in faces {
         let verts = f.verts.map(|i| with_depth(verts[i]));
 
-        tri_fill(verts, |span| {
-            for frag in span.fragments() {
-                if raster.rasterize(shader, frag.uniform(f.attr)) {
-                    st.stats.pixels += 1;
-                }
-            }
-        });
+        // TODO Dispatching based on whether PC is enabled causes a major
+        // performance regression in checkers.rs but not in benchmarks.
+        // Should be investigated.
+        if true /* st.options.perspective_correct */ {
+            tri_fill(verts, |span| {
+                st.stats.pixels += rasterize_span_pc(span, f.attr, shader, raster)
+            });
+        } else {
+            tri_fill(verts, |span| {
+                st.stats.pixels += rasterize_span(span, f.attr, shader, raster)
+            });
+        }
 
         if let Some(col) = st.options.wireframes {
             let [a, b, c] = verts;
@@ -215,6 +219,72 @@ fn render_faces<VI, U, S, R>(
         render_edges(rdr, self.bbox.edges(), col);
     }
     */
+}
+
+#[allow(dead_code)]
+fn rasterize_span<V, U, S, R>(
+    Span { y, xs: (x0, x1), vs: (v0, v1) }: Span<(f32, V)>,
+    uniform: U,
+    shader: &mut S,
+    raster: &mut R
+) -> usize
+where
+    U: Copy,
+    V: Copy + Debug + Linear<f32> + Soa,
+    S: Shader<U, V>,
+    R: Rasterize
+{
+    let mut v = Varying::between(v0, v1, (x1 - x0) as f32);
+
+    let mut xi = x0;
+    let mut pc = 0;
+    while xi < x1 {
+        let frag = Fragment {
+            coord: (xi, y),
+            varying: v.next().unwrap(),
+            uniform,
+        };
+        pc += raster.rasterize(shader, frag) as usize;
+        xi += 1;
+    }
+    pc
+}
+
+fn rasterize_span_pc<V, U, S, R>(
+    Span { y, xs: (x0, x1), vs: (v0, v1) }: Span<(f32, V)>,
+    uniform: U,
+    shader: &mut S,
+    raster: &mut R,
+) -> usize
+where
+    U: Copy,
+    V: Copy + Debug + Linear<f32> + Soa,
+    S: Shader<U, V>,
+    R: Rasterize
+{
+    const CH_SIZE: usize = 16;
+    const INV_CH_SIZE: f32 = 1.0 / CH_SIZE as f32;
+
+    let mut v = Varying::between(v0, v1, (x1 - x0) as f32 * INV_CH_SIZE);
+
+    let mut v0 = v.next().unwrap().perspective_div();
+
+    let mut xi = x0;
+    let mut pc = 0;
+    while xi < x1 {
+        let v1 = replace(&mut v0, v.next().unwrap().perspective_div());
+        let mut v = Varying::between(v1, v0, CH_SIZE as f32);
+        for x in xi..(xi + CH_SIZE).min(x1) {
+            let frag = Fragment {
+                coord: (x, y),
+                varying: v.next().unwrap(),
+                uniform,
+            };
+            pc += raster.rasterize(shader, frag) as usize;
+        }
+        xi += CH_SIZE;
+    }
+    pc
 }
 
 
