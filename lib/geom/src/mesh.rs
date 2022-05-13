@@ -6,57 +6,45 @@ use math::vec::{Vec4, ZERO};
 
 use crate::bbox::BoundingBox;
 
-pub trait Soa {
-    type Vecs;
+pub trait Soa: Sized {
+    type Vecs: SoaVecs<Self, Self::Indices>;
     type Indices: Copy + Debug;
-
-    fn get(vecs: &Self::Vecs, idcs: &Self::Indices) -> Self;
 }
-
-impl Soa for () {
-    type Vecs = ();
-    type Indices = [usize; 0];
-
-    fn get(_: &Self::Vecs, _: &Self::Indices) -> Self {
-        ()
-    }
+pub trait SoaVecs<T, I> {
+    fn get(&self, ixs: &I) -> T;
 }
+macro_rules! impl_soa_for_tuple {
+    ($N:literal; $($T:ident $I:tt),*) => {
+        #[allow(unused)]
+        impl<$($T: Copy),*> Soa for ($($T, )*) {
+            type Vecs = ( $(Vec<$T>, )* );
+            type Indices = [usize; $N];
+        }
+        #[allow(unused)]
+        impl<$($T: Copy, )*> SoaVecs<($($T, )*), <( $($T, )* ) as Soa>::Indices> for ( $(Vec<$T>, )* ) {
+            #[inline]
+            fn get(&self, ixs: &<( $($T, )* ) as Soa>::Indices) -> ($($T, )*) {
+                ( $(self.$I[ixs[$I]], )* )
+            }
+        }
+    };
+}
+impl_soa_for_tuple!(0; );
+impl_soa_for_tuple!(2; T0 0, T1 1);
+impl_soa_for_tuple!(3; T0 0, T1 1, T2 2);
+impl_soa_for_tuple!(4; T0 0, T1 1, T2 2, T3 3);
 
 impl<T0: Copy> Soa for (T0, ) {
     type Vecs = Vec<T0>;
     type Indices = usize;
+}
+impl<T0: Copy> SoaVecs<(T0, ), usize> for Vec<T0> {
 
-    fn get(vec: &Self::Vecs, &idx: &Self::Indices) -> Self {
-        (vec[idx], )
+    fn get(&self, &idx: &usize) -> (T0,) {
+        (self[idx], )
     }
 }
 
-impl<T0: Copy, T1: Copy> Soa for (T0, T1) {
-    type Vecs = (Vec<T0>, Vec<T1>);
-    type Indices = [usize; 2];
-
-    fn get(vecs: &Self::Vecs, &[i0, i1]: &Self::Indices) -> Self {
-        (vecs.0[i0], vecs.1[i1])
-    }
-}
-
-impl<T0: Copy, T1: Copy, T2: Copy> Soa for (T0, T1, T2) {
-    type Vecs = (Vec<T0>, Vec<T1>, Vec<T2>);
-    type Indices = [usize; 3];
-
-    fn get(vecs: &Self::Vecs, &[i0, i1, i2]: &Self::Indices) -> Self {
-        (vecs.0[i0], vecs.1[i1], vecs.2[i2])
-    }
-}
-
-impl<T0: Copy, T1: Copy, T2: Copy, T3: Copy> Soa for (T0, T1, T2, T3) {
-    type Vecs = (Vec<T0>, Vec<T1>, Vec<T2>, Vec<T3>);
-    type Indices = [usize; 4];
-
-    fn get(vecs: &Self::Vecs, &[i0, i1, i2, i3]: &Self::Indices) -> Self {
-        (vecs.0[i0], vecs.1[i1], vecs.2[i2], vecs.3[i3])
-    }
-}
 
 #[derive(Copy, Clone, Debug, PartialEq)]
 pub struct GenVertex<C, A> {
