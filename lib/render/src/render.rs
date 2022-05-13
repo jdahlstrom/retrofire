@@ -4,7 +4,7 @@ use std::time::Instant;
 
 use geom::{LineSeg, Polyline, Sprite};
 use geom::bbox::BoundingBox;
-use geom::mesh::{Face, Mesh, Soa, SubMesh, Vertex};
+use geom::mesh::{Face, Mesh, Soa, SoaVecs, SubMesh, Vertex};
 use math::Linear;
 use math::mat::Mat4;
 use math::transform::Transform;
@@ -69,7 +69,7 @@ where
                 .map(|v| Vertex {
                     // TODO do transform in vertex shader?
                     coord: self.vertex_coords[v.coord].transform(&mvp),
-                    attr: VI::get(&self.vertex_attrs, &v.attr),
+                    attr: self.vertex_attrs.get(&v.attr),
                 })
                 .map(|v| shader.shade_vertex(v))
                 .collect();
@@ -113,7 +113,7 @@ where
             let mut verts: Vec<_> = mesh.verts.iter()
                 .map(|v| Vertex {
                     coord: ZERO,
-                    attr: VI::get(&mesh.vertex_attrs, &v.attr),
+                    attr: mesh.vertex_attrs.get(&v.attr),
                 })
                 .collect();
 
