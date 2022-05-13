@@ -66,9 +66,8 @@ impl<D: Deref<Target=[Color]>> Texture<D> {
     }
 
     pub fn sample(&self, TexCoord { u, v, w }: TexCoord) -> Color {
-        let w = 1.0 / w;
-        let u = (self.w * u * w).floor() as isize as usize & self.w_mask;
-        let v = (self.h * v * w).floor() as isize as usize & self.h_mask;
+        let u = (self.w * u).floor() as isize as usize & self.w_mask;
+        let v = (self.h * v).floor() as isize as usize & self.h_mask;
 
         // TODO enforce invariants and use get_unchecked
         self.data[self.w as usize * v + u]
