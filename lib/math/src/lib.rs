@@ -81,6 +81,8 @@ pub trait Linear<Scalar> where Self: Sized {
     fn lincomb(self, s: Scalar, other: Self, r: Scalar) -> Self {
         self.mul(s).add(other.mul(r))
     }
+
+    fn perspective_div(self) -> Self;
 }
 
 impl Linear<f32> for f32 {
@@ -96,97 +98,44 @@ impl Linear<f32> for f32 {
     fn neg(self) -> Self {
         -self
     }
-}
-
-impl<S> Linear<S> for () {
     #[inline]
-    fn add(self, _: Self) -> Self { self }
-    #[inline]
-    fn mul(self, _: S) -> Self { self }
-    #[inline]
-    fn neg(self) -> Self { self }
-}
-
-impl<S, T> Linear<S> for (T, )
-where
-    T: Linear<S>,
-{
-    #[inline]
-    fn add(self, (o, ): Self) -> Self { (self.0.add(o), ) }
-    #[inline]
-    fn mul(self, s: S) -> Self { (self.0.mul(s), ) }
-    #[inline]
-    fn neg(self) -> Self { (self.0.neg(), ) }
-}
-
-impl<S, T0, T1> Linear<S> for (T0, T1)
-where
-    S: Copy,
-    T0: Linear<S>,
-    T1: Linear<S>,
-{
-    #[inline]
-    fn add(self, (o0, o1): Self) -> Self {
-        (self.0.add(o0), self.1.add(o1))
-    }
-
-    #[inline]
-    fn mul(self, s: S) -> Self {
-        (self.0.mul(s), self.1.mul(s))
-    }
-
-    #[inline]
-    fn neg(self) -> Self {
-        (self.0.neg(), self.1.neg())
+    fn perspective_div(self) -> Self {
+        self
     }
 }
 
-impl<S, T0, T1, T2> Linear<S> for (T0, T1, T2)
-where
-    S: Copy,
-    T0: Linear<S>,
-    T1: Linear<S>,
-    T2: Linear<S>,
-{
-    #[inline]
-    fn add(self, (o0, o1, o2): Self) -> Self {
-        (self.0.add(o0), self.1.add(o1), self.2.add(o2))
-    }
-
-    #[inline]
-    fn mul(self, s: S) -> Self {
-        (self.0.mul(s), self.1.mul(s), self.2.mul(s))
-    }
-
-    #[inline]
-    fn neg(self) -> Self {
-        (self.0.neg(), self.1.neg(), self.2.neg())
-    }
+macro_rules! impl_linear_for_tuple {
+    ($($T:ident $N:tt),*) => {
+        #[allow(unused)]
+        impl<S, $($T),*> Linear<S> for ($($T, )*)
+        where
+            S: Copy,
+            $($T: Linear<S>),*
+        {
+            #[inline]
+            fn add(self, other: Self) -> Self {
+               ( $(self.$N.add(other.$N), )* )
+            }
+            #[inline]
+            fn mul(self, s: S) -> Self {
+                ( $(self.$N.mul(s), )* )
+            }
+            #[inline]
+            fn neg(self) -> Self {
+                ( $(self.$N.neg(), )* )
+            }
+            #[inline]
+            fn perspective_div(self) -> Self {
+                ( $(self.$N.perspective_div(), )* )
+            }
+        }
+    };
 }
-
-impl<S, T0, T1, T2, T3> Linear<S> for (T0, T1, T2, T3)
-where
-    S: Copy,
-    T0: Linear<S>,
-    T1: Linear<S>,
-    T2: Linear<S>,
-    T3: Linear<S>,
-{
-    #[inline]
-    fn add(self, (o0, o1, o2, o3): Self) -> Self {
-        (self.0.add(o0), self.1.add(o1), self.2.add(o2), self.3.add(o3))
-    }
-
-    #[inline]
-    fn mul(self, s: S) -> Self {
-        (self.0.mul(s), self.1.mul(s), self.2.mul(s), self.3.mul(s))
-    }
-
-    #[inline]
-    fn neg(self) -> Self {
-        (self.0.neg(), self.1.neg(), self.2.neg(), self.3.neg())
-    }
-}
+impl_linear_for_tuple!();
+impl_linear_for_tuple!(T0 0);
+impl_linear_for_tuple!(T0 0, T1 1);
+impl_linear_for_tuple!(T0 0, T1 1, T2 2);
+impl_linear_for_tuple!(T0 0, T1 1, T2 2, T3 3);
 
 #[derive(Copy, Clone, Debug)]
 pub enum Angle {
