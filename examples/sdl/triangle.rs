@@ -8,7 +8,9 @@ use sdl2::rect::Rect;
 
 use geom::mesh::Vertex;
 use math::vec::vec4;
-use render::raster::gouraud::*;
+use render::raster::tri_fill;
+use render::raster::Span;
+use render::vary::Varying;
 
 fn vert(x: f32, y: f32, c: f32) -> Vertex<f32> {
     Vertex { coord: vec4(x, y, 0.0, 0.0), attr: c }
@@ -38,17 +40,21 @@ fn main() {
         surface.fill_rect(Rect::new(0, 0, width, height), Color::BLACK).unwrap();
 
         let buf = surface.without_lock_mut().unwrap();
-        gouraud_fill(
+        tri_fill(
             [
                 vert(xs[0].0, ys[0].0, a),
                 vert(xs[1].0, ys[1].0, a + 0.5),
                 vert(xs[2].0, ys[2].0, a + 1.0)
             ],
-            |Fragment { coord, varying, .. }| {
-                let pos = 4 * (coord.1 * width as usize  + coord.0) as usize;
-                buf[pos + 0] = (127. + 128. * varying.cos()) as u8;
-                buf[pos + 1] = (127. + 128. * (varying * 0.7).cos()) as u8;
-                buf[pos + 2] = (127. + 128. * (varying * 1.6).sin()) as u8;
+            |Span { y, xs, vs }| {
+                let mut vs = Varying::between(vs.0, vs.1, (xs.1 - xs.0) as f32);
+                for x in xs.0..xs.1 {
+                    let v = vs.next().unwrap();
+                    let pos = 4 * (x + y * width as usize);
+                    buf[pos + 0] = (127. + 128. * v.cos()) as u8;
+                    buf[pos + 1] = (127. + 128. * (v * 0.7).cos()) as u8;
+                    buf[pos + 2] = (127. + 128. * (v * 1.6).sin()) as u8;
+                }
             });
 
         for (x, dx) in &mut xs {
