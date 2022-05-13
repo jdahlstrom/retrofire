@@ -5,8 +5,7 @@ use math::Linear;
 
 use crate::vary::{Bresenham, Varying};
 
-pub mod flat;
-pub mod gouraud;
+mod tests;
 
 #[derive(Copy, Clone, Debug)]
 pub struct Fragment<V, U = ()> {
@@ -143,96 +142,5 @@ where
         for (coord, varying) in xs.zip(ys).zip(vs) {
             plot(Fragment { coord, varying, uniform: () });
         }
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use std::fmt::*;
-
-    use math::vec::pt;
-
-    use super::*;
-
-    pub fn v(x: f32, y: f32) -> Vertex<()> {
-        va(x, y, ())
-    }
-    pub fn va<A>(x: f32, y: f32, attr: A) -> Vertex<A> {
-        Vertex { coord: pt(x, y, 0.0), attr }
-    }
-
-    #[test]
-    fn line_all_octants() {
-        let endpoints = [
-            (10, 0), (10, 3), (10, 10), (7, 10),
-            (0, 10), (-4, 10), (-10, 10), (-10, 2),
-            (-10, 0), (-10, -9), (-10, -10), (-1, -10),
-            (0, -10), (3, -10), (10, -10), (10, -8),
-        ];
-
-        for &(ex, ey) in &endpoints {
-            let o = 20.0;
-            let mut pts = vec![];
-            line([v(o, o), v(o + ex as f32, o + ey as f32)], |frag| {
-                let (x, y) = frag.coord;
-                pts.push((x as i32 - o as i32, y as i32 - o as i32));
-            });
-            if *pts.first().unwrap() != (0, 0) {
-                pts.reverse();
-            }
-            assert_eq!((0, 0), *pts.first().unwrap(), "unexpected first {:?}", pts);
-            assert_eq!((ex, ey), *pts.last().unwrap(), "unexpected last {:?}", pts);
-        }
-    }
-
-    pub struct Buf(pub Vec<u8>, usize, usize);
-
-    const _MENLO_GRADIENT: &[u8; 16] = b" -.,:;=*o%$O&@MW";
-    const IBMPC_GRADIENT: &[u8; 16] = b"..-:;=+<*xoXO@MW";
-
-    impl Buf {
-        pub fn new(w: usize, h: usize) -> Buf {
-            Buf(vec![0; w * h], w, h)
-        }
-
-        pub fn put<V: Copy>(&mut self, frag: Fragment<V>, val: f32) {
-            let (x, y) = frag.coord;
-            self.0[(y as usize) * self.1 + (x as usize)] += val as u8;
-        }
-    }
-
-    impl Display for Buf {
-        fn fmt(&self, f: &mut Formatter<'_>) -> Result {
-            for i in 0..self.2 {
-                f.write_char('\n')?;
-                for j in 0..self.1 {
-                    let mut c = self.0[i * self.1 + j];
-
-                    c = c.saturating_add((5 * ((i + j) & 3)) as u8); // dither
-
-                    let q = c >> 4;
-
-                    write!(f, "{}", IBMPC_GRADIENT[q as usize] as char)?
-                }
-            }
-            f.write_char('\n')
-        }
-    }
-
-    #[test]
-    fn test_fill() {
-        let mut buf = Buf::new(100, 60);
-        let verts = [
-            va(80.0, 5.0, 0.0),
-            va(20.0, 15.0, 128.0),
-            va(50.0, 50.0, 255.0)
-        ];
-        tri_fill(verts, |span| {
-            for frag in span.fragments() {
-                buf.put(frag, frag.varying)
-            }
-        });
-
-        eprintln!("{}", buf);
     }
 }

@@ -7,7 +7,8 @@ use geom::solids::*;
 use math::Angle::Rad;
 use math::transform::*;
 use math::vec::{dir, Vec4};
-use render::raster::gouraud::*;
+use render::raster::{Span, tri_fill};
+use render::vary::Varying;
 
 fn vert(v: Vec4) -> Vertex<f32> {
     Vertex { coord: v, attr: 127. * (v.x * 1.).sin() * (v.y * 1.).cos() + 128. }
@@ -57,13 +58,16 @@ fn main() {
         });
 
         for [a, b, c] in faces.into_iter().map(|f| f.verts) {
-            gouraud_fill(
+            tri_fill(
                 [vert(a), vert(b), vert(c)],
-                |Fragment { coord: (x, y), varying: v, .. }| {
-                    win.mvaddch(
-                        y as i32, x as i32,
-                        b"..-:;=+<ox*XO@MW"[v as usize / 0x10 & 0xF] as char,
-                    );
+                |Span { y, xs: (x0, x1), vs: (v0, v1) }| {
+                    let vs = Varying::between(v0, v1, (x1 - x0) as f32);
+                    for (x, v) in (x0..x1).zip(vs) {
+                        win.mvaddch(
+                            y as i32, x as i32,
+                            b"..-:;=+<ox*XO@MW"[v as usize / 0x10 & 0xF] as char,
+                        );
+                    }
                 },
             );
         }
