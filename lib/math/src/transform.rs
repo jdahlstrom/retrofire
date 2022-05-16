@@ -144,7 +144,7 @@ pub fn viewport(left: f32, top: f32, right: f32, bottom: f32) -> Mat4 {
 #[cfg(test)]
 mod tests {
     use crate::Angle::*;
-    use crate::tests::util::*;
+    use crate::test_util::*;
     use crate::vec::*;
 
     use super::*;

@@ -320,7 +320,7 @@ impl Distrib<Vec4> for Uniform<Range<Vec4>> {
 #[cfg(test)]
 #[allow(unused_must_use)]
 mod tests {
-    use crate::tests::util::*;
+    use crate::test_util::*;
 
     use super::*;
     use crate::Angle::Deg;
