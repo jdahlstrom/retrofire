@@ -1,4 +1,4 @@
-use std::cmp::Ordering;
+use std::cmp::{min, Ordering};
 use std::f32::consts::{PI, TAU};
 use std::fmt;
 use std::ops::{Add, AddAssign, Mul, Neg, Sub, SubAssign};
@@ -275,10 +275,23 @@ impl Sub for Angle {
     }
 }
 
-
 impl SubAssign for Angle {
     fn sub_assign(&mut self, rhs: Self) {
         *self = *self - rhs;
+    }
+}
+
+impl ApproxEq for Angle {
+    // TODO should this be Angle?
+    type Scalar = f32;
+
+    fn epsilon(self) -> f32 {
+        1.0e-5
+    }
+
+    fn abs_diff(self, rhs: Self) -> f32 {
+        let diff = self.as_tau().abs_diff(rhs.as_tau());
+        diff.min(1.0 - diff)
     }
 }
 
@@ -354,6 +367,7 @@ pub mod test_util {
 #[cfg(test)]
 mod tests {
     use crate::Angle::*;
+    use crate::ApproxEq;
     use super::test_util::*;
 
     #[test]
@@ -411,5 +425,12 @@ mod tests {
 
         let c = Deg(-270.0);
         assert_approx_eq(-0.5, c.clamp(Tau(-0.5), Tau(0.5)).as_tau());
+    }
+
+    #[test]
+    fn angle_abs_diff() {
+        assert_eq!(0.25, Tau(0.125).abs_diff(Tau(-0.125)));
+        assert_eq!(0.25, Tau(0.125).abs_diff(Tau(1.0 - 0.125)));
+        assert_eq!(0.25, Tau(1.0 - 0.125).abs_diff(Tau(0.125)));
     }
 }
