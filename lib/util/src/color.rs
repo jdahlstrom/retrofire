@@ -1,8 +1,10 @@
-use math::Linear;
-use math::vec::Vec4;
+use std::fmt::{Debug, Formatter};
 use std::ops::Mul;
 
-#[derive(Copy, Clone, Debug, Default, Eq, PartialEq, Hash)]
+use math::Linear;
+use math::vec::Vec4;
+
+#[derive(Copy, Clone, Default, Eq, PartialEq, Hash)]
 pub struct Color(pub u32);
 
 pub const fn rgb(r: u8, g: u8, b: u8) -> Color {
@@ -26,6 +28,16 @@ impl Color {
 
     pub fn to_argb(&self) -> [u8; 4] {
         self.0.to_be_bytes()
+    }
+}
+
+impl Debug for Color {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        if self.0 <= 0xFFFFFF {
+            write!(f, "Color(#{:06X})", self.0)
+        } else {
+            write!(f, "Color(#{:08X})", self.0)
+        }
     }
 }
 
