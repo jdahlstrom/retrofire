@@ -21,8 +21,7 @@ pub struct SdlRunner {
 }
 
 pub struct Options {
-    pub win_w: u32,
-    pub win_h: u32,
+    pub resolution: Resolution,
     pub title: String,
     pub fill_color: Option<SdlColor>,
     pub fullscreen: bool,
@@ -33,14 +32,41 @@ pub struct Options {
 impl Default for Options {
     fn default() -> Self {
         Self {
-            win_w: 720,
-            win_h: 480,
+            resolution: Resolution::SVGA,
             title: "=r/e/t/r/o/f/i/r/e=".into(),
             fill_color: Some(SdlColor::BLACK),
             fullscreen: false,
             rel_mouse: false,
             depth_buf: true
         }
+    }
+}
+
+#[derive(Copy, Clone, Debug)]
+pub struct Resolution(pub u32, pub u32);
+
+#[allow(non_upper_case_globals)]
+impl Resolution {
+    pub const MODE_13H: Self = Self(320, 200);
+    pub const qVGA: Self = Self(320, 240);
+    pub const qSVGA: Self = Self(400, 300);
+    pub const qXGA: Self = Self(512, 384);
+    pub const VGA: Self = Self(640, 480);
+    pub const SVGA: Self = Self(800, 600);
+    pub const XGA: Self = Self(1024, 768);
+    pub const HD: Self = Self(1280, 720);
+    pub const WXGA: Self = Self(1366, 768);
+    pub const WSXGA: Self = Self(1400, 900);
+    pub const SXGA: Self = Self(1280, 1024);
+    pub const UXGA: Self = Self(1600, 1200);
+    pub const FHD: Self = Self(1920, 1080);
+    pub const WUXGA: Self = Self(1920, 1200);
+    pub const QHD: Self = Self(2560, 1440);
+    pub const WQXGA: Self = Self(2560, 1600);
+    pub const UHD: Self = Self(3840, 2160);
+
+    pub fn aspect_ratio(&self) -> f32 {
+        self.0 as f32 / self.1 as f32
     }
 }
 
@@ -65,24 +91,33 @@ impl<'a> Frame<'a> {
 }
 
 impl SdlRunner {
-    pub fn new(win_w: u32, win_h: u32) -> Result<SdlRunner, String> {
+    pub fn new(res_w: u32, res_h: u32) -> Result<SdlRunner, String> {
         Self::with_options(Options {
-            win_w, win_h,
+            resolution: Resolution(res_w, res_h),
             ..Options::default()
         })
     }
 
     pub fn with_options(opts: Options) -> Result<SdlRunner, String> {
+        let Options {
+            resolution: Resolution(res_w, res_h),
+            ref title,
+            fullscreen,
+            rel_mouse,
+            depth_buf,
+            ..
+        } = opts;
+
         let sdl = sdl2::init()?;
         let mut window = sdl.video()?
-            .window(&opts.title, opts.win_w, opts.win_h);
-        if opts.fullscreen {
+            .window(title, res_w, res_h);
+        if fullscreen {
             window.fullscreen();
         }
-        sdl.mouse().set_relative_mouse_mode(opts.rel_mouse);
+        sdl.mouse().set_relative_mouse_mode(rel_mouse);
 
-        let (z_w, z_h) = if opts.depth_buf {
-            (opts.win_w as usize, opts.win_h as usize)
+        let (z_w, z_h) = if depth_buf {
+            (res_w as usize, res_h as usize)
         } else {
             (0, 0)
         };
