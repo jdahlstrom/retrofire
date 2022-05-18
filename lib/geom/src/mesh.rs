@@ -1,7 +1,7 @@
-use std::fmt::Debug;
+use std::fmt::{Debug, Formatter};
+
 use math::mat::Mat4;
 use math::transform::Transform;
-
 use math::vec::{Vec4, ZERO};
 
 use crate::bbox::BoundingBox;
@@ -12,6 +12,7 @@ pub trait Soa: Sized {
 }
 pub trait SoaVecs<T, I> {
     fn get(&self, ixs: &I) -> T;
+    fn len(&self) -> I;
 }
 macro_rules! impl_soa_for_tuple {
     ($N:literal; $($T:ident $I:tt),*) => {
@@ -26,6 +27,9 @@ macro_rules! impl_soa_for_tuple {
             fn get(&self, ixs: &<( $($T, )* ) as Soa>::Indices) -> ($($T, )*) {
                 ( $(self.$I[ixs[$I]], )* )
             }
+            fn len(&self) -> <( $($T, )* ) as Soa>::Indices {
+                [ $(self.$I.len(), )* ]
+            }
         }
     };
 }
@@ -39,9 +43,12 @@ impl<T0: Copy> Soa for (T0, ) {
     type Indices = usize;
 }
 impl<T0: Copy> SoaVecs<(T0, ), usize> for Vec<T0> {
-
+    #[inline]
     fn get(&self, &idx: &usize) -> (T0,) {
         (self[idx], )
+    }
+    fn len(&self) -> usize {
+        self.len()
     }
 }
 
@@ -84,7 +91,7 @@ pub struct Face<V, A> {
     pub attr: A,
 }
 
-#[derive(Clone, Debug)]
+#[derive(Clone)]
 pub struct Mesh<VA: Soa, FA = ()> {
     pub verts: Vec<VertexIndices<VA::Indices>>,
     pub vertex_coords: Vec<Vec4>,
@@ -109,6 +116,19 @@ where
             face_attrs: vec![],
             bbox: BoundingBox::default(),
         }
+    }
+}
+
+impl<VA: Soa, FA> Debug for Mesh<VA, FA> {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("Mesh")
+            .field("verts", &self.verts.len())
+            .field("vertex_coords", &self.vertex_coords.len())
+            .field("vertex_attrs", &self.vertex_attrs.len())
+            .field("faces", &self.faces.len())
+            .field("face_attrs", &self.face_attrs.len())
+            .field("bbox", &self.bbox)
+            .finish()
     }
 }
 
