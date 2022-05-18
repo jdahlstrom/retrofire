@@ -5,11 +5,11 @@ use math::mat::Mat4;
 use math::transform::Transform;
 use math::vec::pt;
 use util::color::Color;
+use util::tex::{SamplerOnce, TexCoord, Texture, uv};
 
 use crate::{Rasterize, render::Render, State};
 use crate::raster::Fragment;
 use crate::shade::{Shader, ShaderImpl};
-use util::tex::{TexCoord, Texture, uv};
 
 pub struct Font {
     pub glyph_w: u16,
@@ -87,12 +87,13 @@ impl<'a> Render<(), TexCoord, Color> for Text<'a> {
         S: Shader<(), TexCoord, TexCoord, Color>,
         R: Rasterize,
     {
+        let sampler = SamplerOnce;
         for s in &self.geom {
             s.render(st, &mut ShaderImpl {
                 vs: |v| shader.shade_vertex(v),
                 fs: |f: Fragment<TexCoord>| {
-                    let col = self.font.glyphs.sample(f.varying);
-                    shader.shade_fragment(f.varying(col))
+                    sampler.sample(&self.font.glyphs, f.varying)
+                        .and_then(|col| shader.shade_fragment(f.varying(col)))
                 },
             }, raster);
         }

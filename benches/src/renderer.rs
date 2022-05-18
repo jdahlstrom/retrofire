@@ -17,7 +17,7 @@ use render::shade::ShaderImpl;
 use util::buf::Buffer;
 use util::color::*;
 use util::io::{load_pnm, save_ppm};
-use util::tex::{TexCoord, Texture};
+use util::tex::{SamplerOnce, TexCoord, Texture};
 
 const W: usize = 128;
 
@@ -170,7 +170,7 @@ fn texture_fillrate(c: &mut Criterion) {
                 &mut ShaderImpl {
                     vs: |v| v,
                     fs: |f: Fragment<(TexCoord, )>| {
-                        Some(tex.sample(f.varying.0))
+                        SamplerOnce.sample(&tex, f.varying.0)
                     }
                 },
                 &mut Raster {
