@@ -23,14 +23,15 @@ use render::{
     fx::{anim, anim::*, particle::*},
     raster::Fragment,
     Render as _,
-    State,
     scene::{Obj, Scene},
     shade::ShaderImpl,
+    State,
 };
 use util::{
     color::*,
     tex::{TexCoord, Texture, uv}
 };
+use util::tex::{SamplerOnce, SamplerRepeatPot};
 
 type VA = TexCoord;
 type FA = usize;
@@ -121,6 +122,9 @@ fn main() {
     };
     animation.add(&mut update);
 
+    let sample_checkers = SamplerRepeatPot::new(&textures[0]);
+    let sample_ptx = SamplerOnce;
+
     runner
         .run(|mut frame| {
             // Update
@@ -132,13 +136,13 @@ fn main() {
                 let shade_checkers = &mut ShaderImpl {
                     vs: |v| v,
                     fs: |frag: Fragment<(VA, ), FA>| {
-                        Some(textures[frag.uniform].sample(frag.varying.0))
+                        Some(sample_checkers.sample(&textures[0], frag.varying.0))
                     },
                 };
                 let shade_ptx = &mut ShaderImpl {
                     vs: |v| v,
                     fs: |frag: Fragment<VA, FA>| {
-                        Some(textures[frag.uniform].sample(frag.varying))
+                        sample_ptx.sample(&textures[1], frag.varying)
                     },
                 };
 

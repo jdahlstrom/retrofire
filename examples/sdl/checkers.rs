@@ -99,7 +99,6 @@ fn main() {
     st.projection = perspective(0.1, 50., w / h, Deg(90.0));
     st.viewport = viewport(margin, h - margin, w - margin, margin);
 
-
     let mut cam = FpsCamera::new(pt(0.0, 0.0, -2.5), Angle::ZERO);
 
     let mut scene = Scene {
@@ -115,7 +114,7 @@ fn main() {
     let shader = &mut ShaderImpl {
         vs: identity,
         fs: |frag: Fragment<NormAndTc, TexIdx>| {
-            Some(tex[frag.uniform].sample(frag.varying.1))
+            SamplerOnce.sample(&tex[frag.uniform], frag.varying.1)
             //let shade = frag.varying.0.dot(dir(0.5, 0.8, 0.4)).max(0.3);
             //Some(tex[frag.uniform].sample(frag.varying.1).mul(shade))
         },
