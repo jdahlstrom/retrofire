@@ -1,5 +1,7 @@
 use std::ops::Deref;
-use math::Linear;
+
+use math::{Angle, ApproxEq, Linear};
+use math::vec::Vec4;
 
 use crate::buf::Buffer;
 use crate::color::Color;
@@ -45,6 +47,21 @@ impl Linear<f32> for TexCoord {
     fn perspective_div(self) -> Self {
         let w = 1.0 / self.w;
         uv(w * self.u, w * self.v)
+    }
+}
+
+impl ApproxEq for TexCoord {
+    type Scalar = f32;
+
+    fn epsilon(self) -> f32 {
+        1e-6
+    }
+
+    fn abs_diff(self, rhs: Self) -> f32 {
+        let ud = rhs.u - self.u;
+        let vd = rhs.v - self.v;
+        let wd = rhs.w - self.w;
+        (ud * ud + vd * vd + wd * wd).sqrt()
     }
 }
 
@@ -184,5 +201,122 @@ impl SamplerOnce {
 
         // TODO enforce invariants and use get_unchecked
         tex.data.get(tex.width() as usize * v + u).copied()
+    }
+}
+
+pub fn map_planar(pt: Vec4, basis_u: Vec4, basis_v: Vec4) -> TexCoord {
+    let u = basis_u.dot(pt);
+    let v = basis_v.dot(pt);
+    uv(u, v)
+}
+
+pub fn map_spherical(pt: Vec4, ref_dir: Vec4) -> TexCoord {
+    let (az, alt) = if pt.x.approx_eq(0.0) && pt.z.approx_eq(0.0) {
+        let az = ref_dir.to_spherical().1;
+        let alt = Angle::Tau(-0.25 * pt.y.signum());
+        (az, alt)
+    } else {
+        let (_, az, alt) = pt.to_spherical();
+        (az, alt)
+    };
+
+    let mut u = az.as_tau().rem_euclid(1.0);
+    let fourth_quad = ref_dir.x.is_sign_negative() && ref_dir.z > 0.0;
+    if u < 0.25 && fourth_quad { u += 1.0; }
+    let v = 2.0 * alt.as_tau() + 0.5;
+
+    uv(u, v)
+}
+
+pub fn map_cylindrical(mut pt: Vec4, ref_dir: Vec4) -> TexCoord {
+    if pt.x.approx_eq(0.0) && pt.z.approx_eq(0.0) {
+        pt.x = ref_dir.x;
+        pt.z = ref_dir.z;
+    }
+    let (_, az) = pt.to_polar();
+    let mut u = az.as_tau().rem_euclid(1.0);
+    let fourth_quad = ref_dir.x.is_sign_negative() && ref_dir.z > 0.0;
+    if u < 0.25 && fourth_quad { u += 1.0 }
+    let v = pt.y * 0.5 + 0.5;
+
+    uv(u, v)
+}
+
+pub fn map_cube(Vec4 { x, y, z, .. }: Vec4, n: Vec4) -> TexCoord {
+    /*
+        u=0   1/3  2/3   1
+      v=0 +----+----+----+
+          | +X | +Y | +Z |
+          |    |    |    |
+      1/2 +----+----+----+
+          | -X | -Y | -Z |
+          |    |    |    |
+        1 +----+----+----+
+    */
+
+    let abs = n.map(f32::abs);
+    let (u, v);
+    if abs.x >= abs.y && abs.x >= abs.z {
+        u = z / x;
+        v = y / x + if n.x < 0.0 { 2.0 } else { 0.0 }
+    } else if abs.y >= abs.x && abs.y >= abs.z {
+        u = x / y + 2.0;
+        v = z / y + if n.y < 0.0 { 2.0 } else { 0.0 }
+    } else {
+        u = x / z + 4.0;
+        v = y / z + if n.z < 0.0 { 2.0 } else { 0.0 }
+    };
+    uv((u + 1.0) / 6.0, (v + 1.0) / 4.0)
+}
+
+pub fn map_cube_env(n: Vec4) -> TexCoord {
+    uv(n.x * 0.5 + 0.5, n.y * 0.5 + 0.5)
+}
+
+#[cfg(test)]
+mod tests {
+    use math::test_util::*;
+    use math::vec::*;
+
+    use super::*;
+
+    #[test]
+    fn planar_map_zero() {
+        assert!(uv(0.0, 0.0).approx_eq(map_planar(ZERO, X, Y)));
+        assert!(uv(0.0, 0.0).approx_eq(map_planar(ORIGIN, X, Y)));
+    }
+    #[test]
+    fn planar_map_zero_with_offset() {
+        assert_approx_eq(uv(0.0, 0.0), map_planar(ZERO, X+2.0*W, Y-3.0*W));
+        assert_approx_eq(uv(2.0, -3.0), map_planar(ORIGIN, X+2.0*W, Y-3.0*W));
+    }
+
+    #[test]
+    fn spherical_map_x() {
+        assert_approx_eq(uv(0.25, 0.5), map_spherical(X, X));
+        assert_approx_eq(uv(0.75, 0.5), map_spherical(-X, X));
+    }
+    #[test]
+    fn spherical_map_y() {
+        assert_approx_eq(uv(0.0, 0.0), map_spherical(Y, Z));
+        assert_approx_eq(uv(0.25, 0.0), map_spherical(Y, X));
+        assert_approx_eq(uv(0.0, 1.0), map_spherical(-Y, Z));
+        assert_approx_eq(uv(0.25, 1.0), map_spherical(-Y, X));
+    }
+    #[test]
+    fn spherical_map_z() {
+        assert_approx_eq(uv(0.0, 0.5), map_spherical(Z, Z));
+        assert_approx_eq(uv(1.0, 0.5), map_spherical(Z, dir(-0.0, 0.0, 1.0)));
+        assert_approx_eq(uv(0.5, 0.5), map_spherical(-Z, -Z));
+        assert_approx_eq(uv(0.5, 0.5), map_spherical(-Z, -Z));
+    }
+
+    #[test]
+    fn cube_map_x() {
+        // TODO
+        dbg!(map_cube(X+Y-Z, X));
+        dbg!(map_cube(X+Y+Z, X));
+        dbg!(map_cube(X-Y-Z, X));
+        dbg!(map_cube(X-Y+Z, X));
     }
 }

@@ -66,6 +66,20 @@ impl Vec4 {
         self
     }
 
+    #[must_use]
+    pub fn to_polar(self) -> (f32, Angle) {
+        let Self { x, z, .. } = self;
+        ((x * x + z * z).sqrt(), Angle::atan2(x, z))
+    }
+
+    #[must_use]
+    pub fn to_spherical(self) -> (f32, Angle, Angle) {
+        let Self { x, y, z, .. } = self;
+        let az = Angle::atan2(x, z);
+        let alt = Angle::atan2(y, (x * x + z * z).sqrt());
+        (self.len(), az, alt)
+    }
+
     /// Returns the norm (length squared) of `self`.
     #[inline(always)]
     pub fn norm(self) -> f32 {
@@ -82,7 +96,7 @@ impl Vec4 {
     /// Precondition: `self.len() != 0.0`
     #[must_use]
     pub fn normalize(self) -> Vec4 {
-        debug_assert_ne!(self, ZERO, "cannot normalize a zero vector");
+        debug_assert!(self != ZERO, "cannot normalize a zero vector");
         self / self.len()
     }
 
@@ -325,22 +339,27 @@ mod tests {
     use super::*;
     use crate::Angle::Deg;
 
+    const SQRT_3: f32 = 1.7320508;
+
     #[test]
     fn vec_from_polar() {
-        let v = polar(3.0, Deg(45.0));
-        assert_approx_eq(1.5 * dir(f32::sqrt(2.0), 0.0, f32::sqrt(2.0)), v);
+        let actual = polar(2.0, Deg(60.0));
+        let expected = dir(SQRT_3, 0.0, 1.0);
+        assert_approx_eq(expected, actual);
     }
 
     #[test]
     fn vec_from_polar_neg_angle() {
-        let v = polar(3.0, Deg(-60.0));
-        assert_approx_eq(1.5 * dir(-f32::sqrt(3.0), 0.0, 1.0), v);
+        let actual = polar(2.0, Deg(-60.0));
+        let expected = dir(-SQRT_3, 0.0, 1.0);
+        assert_approx_eq(expected, actual);
     }
 
     #[test]
     fn vec_from_polar_obtuse_angle() {
-        let v = polar(3.0, Deg(120.0));
-        assert_approx_eq(1.5 * dir(f32::sqrt(3.0), 0.0, -1.0), v);
+        let actual = polar(2.0, Deg(120.0));
+        let expected = dir(SQRT_3, 0.0, -1.0);
+        assert_approx_eq(expected, actual);
     }
 
     #[test]
@@ -351,20 +370,23 @@ mod tests {
 
     #[test]
     fn vec_from_spherical() {
-        let v = spherical(3.0, Deg(90.0), Deg(60.0));
-        assert_approx_eq(1.5 * dir(1.0, f32::sqrt(3.0), 0.0), v);
+        let actual = spherical(2.0, Deg(90.0), Deg(60.0));
+        let expected = dir(1.0, SQRT_3, 0.0);
+        assert_approx_eq(expected, actual);
     }
 
     #[test]
     fn vec_from_spherical_neg_alt() {
-        let v = spherical(1.0, Deg(0.0), Deg(-45.0));
-        assert_approx_eq(dir(0.0, -f32::sqrt(2.0)/2.0, f32::sqrt(2.0)/2.0), v);
+        let actual = spherical(2.0, Deg(90.0), Deg(-60.0));
+        let expected = dir(1.0, -SQRT_3, 0.0);
+        assert_approx_eq(expected, actual);
     }
 
     #[test]
     fn vec_from_spherical_obtuse_alt() {
-        let v = spherical(1.0, Deg(0.0), Deg(135.0));
-        assert_approx_eq(dir(0.0, f32::sqrt(2.0)/2.0, -f32::sqrt(2.0)/2.0), v);
+        let actual = spherical(2.0, Deg(90.0), Deg(120.0));
+        let expected = dir(-1.0, SQRT_3, 0.0);
+        assert_approx_eq(expected, actual);
     }
 
     #[test]
@@ -373,6 +395,48 @@ mod tests {
         assert_eq!(ZERO, v);
     }
 
+    #[test]
+    fn vec_to_polar() {
+        let actual = dir(SQRT_3, 0.0, 1.0).to_polar();
+        let expected = (2.0, Deg(60.0));
+        assert_eq!(expected, actual);
+    }
+
+    #[test]
+    fn vec_q3_to_polar() {
+        let actual = dir(-SQRT_3, 0.0, -1.0).to_polar();
+        let expected = (2.0, Deg(-120.0));
+        assert_eq!(expected, actual);
+    }
+
+    #[test]
+    fn vec_zero_to_polar() {
+        let actual = ZERO.to_polar();
+        let expected = (0.0, Deg(0.0));
+        assert_eq!(expected, actual);
+
+    }
+
+    #[test]
+    fn vec_to_spherical() {
+        let actual = dir(1.0, SQRT_3, 0.0).to_spherical();
+        let expected = (2.0, Deg(90.0), Deg(60.0));
+        assert_eq!(expected, actual);
+    }
+
+    #[test]
+    fn vec_q3_to_spherical() {
+        let actual = dir(-1.0, -SQRT_3, 0.0).to_spherical();
+        let expected = (2.0, Deg(-90.0), Deg(-60.0));
+        assert_eq!(expected, actual);
+    }
+
+    #[test]
+    fn vec_zero_to_spherical() {
+        let actual = ZERO.to_spherical();
+        let expected = (0.0, Deg(0.0), Deg(0.0));
+        assert_eq!(expected, actual);
+    }
 
     #[test]
     fn vector_len() {
