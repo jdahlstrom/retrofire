@@ -10,7 +10,8 @@ pub struct Stats {
     pub prims_out: usize,
     pub verts_in: usize,
     pub verts_out: usize,
-    pub pixels: usize,
+    pub pix_in: usize,
+    pub pix_out: usize,
     pub time_used: Duration,
 }
 
@@ -25,7 +26,8 @@ impl Stats {
             prims_out: self.prims_out / frames,
             verts_in: self.verts_in / frames,
             verts_out: self.verts_out / frames,
-            pixels: self.pixels / frames,
+            pix_in: self.pix_in / frames,
+            pix_out: self.pix_out / frames,
             time_used: self.time_used / frames as u32,
         }
     }
@@ -40,7 +42,8 @@ impl Stats {
             prims_out: (self.prims_out as f32 / secs) as usize,
             verts_in: (self.verts_in as f32 / secs) as usize,
             verts_out: (self.verts_out as f32 / secs) as usize,
-            pixels: (self.pixels as f32 / secs) as usize,
+            pix_in: (self.pix_in as f32 / secs) as usize,
+            pix_out: (self.pix_out as f32 / secs) as usize,
             time_used: Duration::from_secs(1),
         }
     }
@@ -54,7 +57,8 @@ impl Stats {
             prims_out: self.prims_out - other.prims_out,
             verts_in: self.verts_in - other.verts_in,
             verts_out: self.verts_out - other.verts_out,
-            pixels: self.pixels - other.pixels,
+            pix_in: self.pix_in - other.pix_in,
+            pix_out: self.pix_out - other.pix_out,
             time_used: self.time_used - other.time_used,
         }
     }
@@ -74,7 +78,7 @@ fn human_time(d: Duration) -> String {
     let s = d.as_secs_f32();
     if s < 0.001 { format!("{:4.1}us", s * 1_000_000.) }
     else if s < 1.0 { format!("{:4.1}ms", s * 1_000.) }
-    else if s < 10.0 { format!("{:.1}s ", s) }
+    else if s < 60.0 { format!("{:.1}s ", s) }
     else { format!("{:.0}min{:02.0}s ", s / 60.0, s % 60.0)}
 }
 
@@ -87,7 +91,8 @@ impl Display for Stats {
         let prims_out = human_num(self.prims_out);
         let verts_in = human_num(self.verts_in);
         let verts_out = human_num(self.verts_out);
-        let pixels = human_num(self.pixels);
+        let pix_in = human_num(self.pix_in);
+        let pix_out = human_num(self.pix_out);
         let time_used = human_time(self.time_used);
 
         if f.alternate() {
@@ -95,13 +100,15 @@ impl Display for Stats {
                        {objs_in} / {objs_out} │ \
                        {prims_in} / {prims_out} │ \
                        {verts_in} / {verts_out} │ \
-                       {pixels:>6} │ {time_used:>8}")
+                       {pix_in} / {pix_out} │ \
+                       {time_used:>8}")
         } else {
             write!(f, "frames: {frames} │ \
                    objs i/o: {objs_in} / {objs_out} │ \
                    faces i/o: {prims_in} / {prims_out} │ \
                    verts i/o: {verts_in} / {verts_out} │ \
-                   pixels: {pixels} │ time used: {time_used:>8}")
+                   pix i/o: {pix_in} / {pix_out} │ \
+                   time used: {time_used:>8}")
         }
 
     }

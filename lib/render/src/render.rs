@@ -175,7 +175,8 @@ fn render_faces<V, U, S, R>(
         // Should be investigated.
         if true /* st.options.perspective_correct */ {
             tri_fill(verts, f.attr, |span| {
-                st.stats.pixels += raster.rasterize_span(shader, span)
+                st.stats.pix_in += span.xs.1.saturating_sub(span.xs.0);
+                st.stats.pix_out += raster.rasterize_span(shader, span)
             });
         } else {
             /*tri_fill(verts, f.attr, |span| {

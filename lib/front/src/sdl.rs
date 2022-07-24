@@ -185,16 +185,16 @@ impl SdlRunner {
     }
 
     pub fn print_stats(self, stats: Stats) {
-        let Stats { frames, pixels, prims_in, prims_out, .. } = stats;
+        let Stats { frames, pix_out, prims_in, prims_out, .. } = stats;
         let elapsed = self.start.elapsed().as_secs_f32();
         println!();
-        println!(" S  T  A  T  S  │ frames │   objs i/o    │   prims i/o   │   verts i/o   │ pixels │   time  ");
-        println!("════════════════╪════════╪═══════════════╪═══════════════╪═══════════════╪════════╪═════════");
+        println!(" S  T  A  T  S  │ frames │   objs i/o    │   prims i/o   │   verts i/o   │    pix i/o    │   time  ");
+        println!("════════════════╪════════╪═══════════════╪═══════════════╪═══════════════╪═══════════════╪═════════");
         println!(" Total          │ {:#}", stats);
         println!(" Per sec        │ {:#}", stats.avg_per_sec());
         println!(" Per frame      │ {:#}", stats.avg_per_frame());
-        println!("────────────────┼────────┴───────────────┴───────────────┴───────────────┴────────┴─────────");
-        println!(" Avg pix/prim   │ {}", pixels / prims_out.max(1));
+        println!("────────────────┼────────┴───────────────┴───────────────┴───────────────┴───────────────┴─────────");
+        println!(" Avg pix/prim   │ {}", pix_out / prims_out.max(1));
         println!(" Avg vis prims  │ {}%", 100 * prims_out / prims_in.max(1));
         println!(" Elapsed time   │ {:.2}s", elapsed);
         println!(" Average fps    │ {:.2}\n", frames as f32 / elapsed);
