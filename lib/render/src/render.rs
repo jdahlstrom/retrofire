@@ -10,7 +10,7 @@ use math::mat::Mat4;
 use math::transform::Transform;
 use math::vec::ZERO;
 
-use crate::{Fragment, hsr, line, Rasterize, Span, State, tri_fill};
+use crate::{hsr, Rasterize, Span, State, tri_fill};
 use crate::hsr::Visibility::{self, Hidden};
 use crate::scene::{Obj, Scene};
 use crate::shade::Shader;
@@ -174,24 +174,25 @@ fn render_faces<V, U, S, R>(
         // performance regression in checkers.rs but not in benchmarks.
         // Should be investigated.
         if true /* st.options.perspective_correct */ {
-            tri_fill(verts, |span| {
-                st.stats.pixels += rasterize_span_pc(span, f.attr, shader, raster)
+            tri_fill(verts, f.attr, |span| {
+                st.stats.pixels += raster.rasterize_span(shader, span)
             });
         } else {
-            tri_fill(verts, |span| {
-                st.stats.pixels += rasterize_span(span, f.attr, shader, raster)
-            });
+            /*tri_fill(verts, f.attr, |span| {
+                st.stats.pixels += rasterize_span(span, shader, raster)
+            });*/
         }
 
-        if let Some(col) = st.options.wireframes {
-            let [a, b, c] = verts;
+        if let Some(_col) = st.options.wireframes {
+            todo!();
+            /*let [a, b, c] = verts;
             for e in [a, b, c, a].windows(2) {
                 line([e[0], e[1]], |frag| {
                     if raster.test(frag.varying(frag.varying.0 - 0.001)) {
                         raster.output(frag.varying((0.0, col)));
                     }
                 });
-            }
+            }*/
         }
     }
 
@@ -221,78 +222,11 @@ fn render_faces<V, U, S, R>(
     */
 }
 
-#[allow(dead_code)]
-fn rasterize_span<V, U, S, R>(
-    Span { y, xs: (x0, x1), vs: (v0, v1) }: Span<(f32, V)>,
-    uniform: U,
-    shader: &mut S,
-    raster: &mut R
-) -> usize
-where
-    U: Copy,
-    V: Copy + Debug + Linear<f32> + Soa,
-    S: Shader<U, V>,
-    R: Rasterize
-{
-    let mut v = Varying::between(v0, v1, (x1 - x0) as f32);
-
-    let mut xi = x0;
-    let mut pc = 0;
-    while xi < x1 {
-        let frag = Fragment {
-            coord: (xi, y),
-            varying: v.next().unwrap(),
-            uniform,
-        };
-        pc += raster.rasterize(shader, frag) as usize;
-        xi += 1;
-    }
-    pc
-}
-
-fn rasterize_span_pc<V, U, S, R>(
-    Span { y, xs: (x0, x1), vs: (v0, v1) }: Span<(f32, V)>,
-    uniform: U,
-    shader: &mut S,
-    raster: &mut R,
-) -> usize
-where
-    U: Copy,
-    V: Copy + Debug + Linear<f32> + Soa,
-    S: Shader<U, V>,
-    R: Rasterize
-{
-    const CH_SIZE: usize = 16;
-    const INV_CH_SIZE: f32 = 1.0 / CH_SIZE as f32;
-
-    let mut v = Varying::between(v0, v1, (x1 - x0) as f32 * INV_CH_SIZE);
-
-    let mut v0 = v.next().unwrap().perspective_div();
-
-    let mut xi = x0;
-    let mut pc = 0;
-    while xi < x1 {
-        let v1 = replace(&mut v0, v.next().unwrap().perspective_div());
-        let mut v = Varying::between(v1, v0, CH_SIZE as f32);
-        for x in xi..(xi + CH_SIZE).min(x1) {
-            let frag = Fragment {
-                coord: (x, y),
-                varying: v.next().unwrap(),
-                uniform,
-            };
-            pc += raster.rasterize(shader, frag) as usize;
-        }
-        xi += CH_SIZE;
-    }
-    pc
-}
-
-
 impl<VI> Render<(), VI> for LineSeg<VI>
 where
     VI: Linear<f32> + Copy
 {
-    fn render<S, R>(&self, st: &mut State, shader: &mut S, raster: &mut R)
+    fn render<S, R>(&self, st: &mut State, shader: &mut S, _raster: &mut R)
     where
         S: Shader<(), VI>,
         R: Rasterize
@@ -308,18 +242,20 @@ where
         }).to_vec();
         let mut clip_out = Vec::new();
         hsr::clip(&mut verts, &mut clip_out);
-        if let &[a, b, ..] = clip_out.as_slice() {
-            st.stats.prims_out += 1;
+        if let &[_a, _b, ..] = clip_out.as_slice() {
+            todo!();
+
+            /*st.stats.prims_out += 1;
             st.stats.verts_out += 2;
             let verts = [
                 clip_to_screen(a, &st.viewport),
                 clip_to_screen(b, &st.viewport)
             ];
             line(verts, |frag: Fragment<_>| {
-                if raster.rasterize(shader, frag) {
+                if raster.rasterize_frag(shader, frag) {
                     st.stats.pixels += 1;
                 }
-            });
+            })*/
         }
     }
 }
@@ -394,17 +330,24 @@ where
                 let v = Varying::between((v0.attr, v1.attr), (v3.attr, v2.attr), y1 - y0);
 
                 for (y, (v0, v1)) in (y0 as usize..y1 as usize).zip(v) {
-                    let v = Varying::between(v0, v1, x1 - x0);
-                    for (x, v) in (x0 as usize..x1 as usize).zip(v) {
+
+                    raster.rasterize_span(shader, Span {
+                        y,
+                        xs: (x0 as usize, x1 as usize),
+                        vs: (v0, v1),
+                        uni: self.face_attr,
+                    });
+                    /*for (x, v) in (x0 as usize..x1 as usize).zip(v) {
                         let frag = Fragment {
                             coord: (x, y),
                             varying: v,
                             uniform: this.face_attr
                         };
-                        if raster.rasterize(shader, frag) {
+                        /*if raster.rasterize_frag(shader, frag) {
                             st.stats.pixels += 1;
-                        }
-                    }
+                        }*/
+                        //todo!()
+                    }*/
                 }
             }
             _ => debug_assert!(false, "should not happen: vs.len()={}", vs.len())

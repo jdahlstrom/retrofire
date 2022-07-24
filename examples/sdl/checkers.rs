@@ -111,12 +111,17 @@ fn main() {
         Texture::from(Buffer::from_vec(2, vec![BLACK, WHITE, WHITE, BLACK])),
     ];
 
+    let samplers = [
+        SamplerRepeatPot::new(&tex[0]),
+        SamplerRepeatPot::new(&tex[1]),
+    ];
+
+
     let shader = &mut ShaderImpl {
         vs: identity,
         fs: |frag: Fragment<NormAndTc, TexIdx>| {
-            SamplerOnce.sample(&tex[frag.uniform], frag.varying.1)
-            //let shade = frag.varying.0.dot(dir(0.5, 0.8, 0.4)).max(0.3);
-            //Some(tex[frag.uniform].sample(frag.varying.1).mul(shade))
+            let texi = frag.uniform;
+            Some(samplers[texi].sample(&tex[texi], frag.varying.1))
         },
     };
 

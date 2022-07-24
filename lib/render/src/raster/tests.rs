@@ -79,7 +79,7 @@ mod tests {
             va(20.0, 15.0, 128.0),
             va(50.0, 50.0, 255.0)
         ];
-        tri_fill(verts, |span| {
+        tri_fill(verts, (), |span| {
             for frag in span.fragments() {
                 buf.put(frag, frag.varying)
             }
@@ -92,7 +92,7 @@ mod tests {
     type FlatFrag = Fragment<()>;
 
     fn flat_fill(verts: [Vertex<()>; 3], mut plot: impl FnMut(FlatFrag)) {
-        tri_fill(verts, |span| {
+        tri_fill(verts, (), |span| {
             span.fragments().for_each(&mut plot);
         });
     }
@@ -188,7 +188,7 @@ mod tests {
     type GourFrag = Fragment<f32>;
 
     fn gouraud_fill(vs: [Vertex<f32>; 3], mut plot: impl FnMut(GourFrag)) {
-        tri_fill(vs, |span| {
+        tri_fill(vs, (), |span| {
             span.fragments().for_each(&mut plot);
         })
     }

@@ -24,6 +24,7 @@ fn main() {
 
         tri_fill(
             [vert(xs[0].0, ys[0].0), vert(xs[1].0, ys[1].0), vert(xs[2].0, ys[2].0)],
+            (),
             |Span { y, xs, .. }| {
                 for x in xs.0..xs.1 {
                     win.mv(y as i32, x as i32);

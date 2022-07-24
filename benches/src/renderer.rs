@@ -5,7 +5,7 @@ use std::time::Instant;
 
 use criterion::*;
 
-use geom::mesh::{Mesh, GenVertex, VertexIndices};
+use geom::mesh::Mesh;
 use geom::solids::{Torus, UnitCube, UnitSphere};
 use math::Angle::Rad;
 use math::transform::*;
