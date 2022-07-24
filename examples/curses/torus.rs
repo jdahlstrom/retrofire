@@ -60,7 +60,8 @@ fn main() {
         for [a, b, c] in faces.into_iter().map(|f| f.verts) {
             tri_fill(
                 [vert(a), vert(b), vert(c)],
-                |Span { y, xs: (x0, x1), vs: (v0, v1) }| {
+                (),
+                |Span { y, xs: (x0, x1), vs: (v0, v1), .. }| {
                     let vs = Varying::between(v0, v1, (x1 - x0) as f32);
                     for (x, v) in (x0..x1).zip(vs) {
                         win.mvaddch(

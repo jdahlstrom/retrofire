@@ -46,7 +46,8 @@ fn main() {
                 vert(xs[1].0, ys[1].0, a + 0.5),
                 vert(xs[2].0, ys[2].0, a + 1.0)
             ],
-            |Span { y, xs, vs }| {
+            (),
+            |Span { y, xs, vs, .. }| {
                 let mut vs = Varying::between(vs.0, vs.1, (xs.1 - xs.0) as f32);
                 for x in xs.0..xs.1 {
                     let v = vs.next().unwrap();

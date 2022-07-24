@@ -1,4 +1,3 @@
-use std::ops::Deref;
 use crate::{Angle, mat::*, vec::*};
 
 pub trait Transform {
