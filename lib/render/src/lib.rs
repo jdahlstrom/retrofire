@@ -22,7 +22,6 @@ pub mod text;
 pub mod vary;
 
 pub trait Rasterize {
-    #[inline]
     fn rasterize_span<VI, VO, U, S>(
         &mut self,
         shader: &mut S,
@@ -45,9 +44,8 @@ pub trait Rasterize {
             .map(|v| v.perspective_div());
 
         let mut v1 = vars.next().unwrap();
-        let mut x = x0;
         let mut count = 0;
-        while x < x1 {
+        for x in (x0..x1).step_by(CH_SIZE) {
             let v0 = replace(&mut v1, vars.next().unwrap());
 
             count += self.rasterize_chunk(shader, Span {
@@ -56,8 +54,6 @@ pub trait Rasterize {
                 vs: (v0, v1),
                 uni,
             });
-
-            x += CH_SIZE;
         }
         count
     }
@@ -83,7 +79,6 @@ where
     Test: Fn(Fragment<f32>) -> bool,
     Output: FnMut(Fragment<(f32, Color)>),
 {
-    #[inline]
     fn rasterize_chunk<VI, VO, U, S>(
         &mut self,
         shader: &mut S,
@@ -99,25 +94,24 @@ where
         let mut count = 0;
         for (x, (z, v)) in (xs.0..xs.1).zip(vars) {
             let coord = (x, y);
-            count += (self.test)(Fragment{
+            if (self.test)(Fragment{
                 coord,
                 varying: z,
                 uniform: ()
-            }).then(|| {
-                shader
-                    .shade_fragment(Fragment{
+            }) {
+                if let Some(col) = shader.shade_fragment(Fragment {
+                    coord,
+                    varying: v,
+                    uniform: uni
+                }) {
+                    (self.output)(Fragment {
                         coord,
-                        varying: v,
-                        uniform: uni
-                    })
-                    .map(|col| {
-                        (self.output)(Fragment{
-                            coord,
-                            varying: (z, col),
-                            uniform: ()
-                        });
-                    })
-            }).is_some() as usize;
+                        varying: (z, col),
+                        uniform: ()
+                    });
+                    count += 1;
+                }
+            }
         }
         count
     }
@@ -133,7 +127,6 @@ const CH_SIZE: usize = 16;
 const INV_CH_SIZE: f32 = 1.0 / CH_SIZE as f32;
 
 impl<'a> Rasterize for Framebuf<'a> {
-    #[inline]
     fn rasterize_chunk<VI, VO, U, S>(
         &mut self,
         shader: &mut S,

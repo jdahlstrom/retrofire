@@ -338,17 +338,6 @@ where
                         vs: (v0, v1),
                         uni: self.face_attr,
                     });
-                    /*for (x, v) in (x0 as usize..x1 as usize).zip(v) {
-                        let frag = Fragment {
-                            coord: (x, y),
-                            varying: v,
-                            uniform: this.face_attr
-                        };
-                        /*if raster.rasterize_frag(shader, frag) {
-                            st.stats.pixels += 1;
-                        }*/
-                        //todo!()
-                    }*/
                 }
             }
             _ => debug_assert!(false, "should not happen: vs.len()={}", vs.len())
