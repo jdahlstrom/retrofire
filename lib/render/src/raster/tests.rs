@@ -25,7 +25,7 @@ mod tests {
         for &(ex, ey) in &endpoints {
             let o = 20.0;
             let mut pts = vec![];
-            line([v(o, o), v(o + ex as f32, o + ey as f32)], |frag| {
+            line([v(o, o), v(o + ex as f32, o + ey as f32)], (), |frag| {
                 let (x, y) = frag.coord;
                 pts.push((x as i32 - o as i32, y as i32 - o as i32));
             });

@@ -89,7 +89,7 @@ where
                 y,
                 xs: (x_left, x_right),
                 vs: (left.1, right.1),
-                uni
+                uni,
             });
 
             /*for (x, v) in (x_left..x_right).zip(v) {
@@ -118,10 +118,11 @@ where
     }
 }
 
-pub fn line<V, P>([mut a, mut b]: [Vertex<V>; 2], mut plot: P)
+pub fn line<V, U, P>([mut a, mut b]: [Vertex<V>; 2], uniform: U, mut plot: P)
 where
     V: Copy + Linear<f32>,
-    P: FnMut(Fragment<V>)
+    U: Copy,
+    P: FnMut(Fragment<V, U>)
 {
     let mut d = b.coord - a.coord;
 
@@ -134,7 +135,7 @@ where
         let vs = Varying::between(a.attr, b.attr, d.x);
 
         for (coord, varying) in xs.zip(ys).zip(vs) {
-            plot(Fragment { coord, varying, uniform: () });
+            plot(Fragment { coord, varying, uniform });
         }
     } else {
         // Angle > diagonal
@@ -145,7 +146,7 @@ where
         let vs = Varying::between(a.attr, b.attr, d.y);
 
         for (coord, varying) in xs.zip(ys).zip(vs) {
-            plot(Fragment { coord, varying, uniform: () });
+            plot(Fragment { coord, varying, uniform });
         }
     }
 }
