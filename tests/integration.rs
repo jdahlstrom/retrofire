@@ -119,5 +119,5 @@ fn render_sphere_field() {
 
     assert_eq!(126 * 21 * 21, stats.prims_in);
     assert_eq!(6626, stats.prims_out);
-    assert_eq!(302, stats.pixels);
+    assert_eq!(302, stats.pix_out);
 }
