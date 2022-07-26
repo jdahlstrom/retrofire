@@ -67,6 +67,16 @@ pub trait Rasterize {
         VO: Linear<f32> + Copy,
         U: Copy,
         S: Shader<U, VI, VO>;
+
+    fn rasterize_frag<VI, VO, U, S>(
+        &mut self,
+        shader: &mut S,
+        frag: Fragment<(f32, VO), U>,
+    ) -> usize
+    where
+        VO: Linear<f32> + Copy,
+        U: Copy,
+        S: Shader<U, VI, VO>;
 }
 
 pub struct Raster<Test, Output> {
@@ -92,28 +102,33 @@ where
         let Span { y, xs, vs, uni } = span;
         let vars = Varying::between(vs.0, vs.1, CH_SIZE as f32);
         let mut count = 0;
-        for (x, (z, v)) in (xs.0..xs.1).zip(vars) {
-            let coord = (x, y);
-            if (self.test)(Fragment{
-                coord,
-                varying: z,
-                uniform: ()
-            }) {
-                if let Some(col) = shader.shade_fragment(Fragment {
-                    coord,
-                    varying: v,
-                    uniform: uni
-                }) {
-                    (self.output)(Fragment {
-                        coord,
-                        varying: (z, col),
-                        uniform: ()
-                    });
-                    count += 1;
-                }
-            }
+        for (x, v) in (xs.0..xs.1).zip(vars) {
+            count += self.rasterize_frag(shader, Fragment {
+                coord: (x, y),
+                varying: v,
+                uniform: uni
+            });
         }
         count
+    }
+    fn rasterize_frag<VI, VO, U, S>(
+        &mut self,
+        shader: &mut S,
+        frag: Fragment<(f32, VO), U>
+    ) -> usize
+    where
+        VO: Linear<f32> + Copy,
+        U: Copy,
+        S: Shader<U, VI, VO>
+    {
+        let (z, v) = frag.varying;
+        if (self.test)(frag.varying(z).uniform(())) {
+            if let Some(col) = shader.shade_fragment(frag.varying(v)) {
+                (self.output)(frag.varying((z, col)).uniform(()));
+                return 1;
+            }
+        }
+        0
     }
 }
 
@@ -169,6 +184,35 @@ impl<'a> Rasterize for Framebuf<'a> {
                 }
             });
         count
+    }
+    fn rasterize_frag<VI, VO, U, S>(
+        &mut self,
+        shader: &mut S,
+        frag: Fragment<(f32, VO), U>
+    ) -> usize
+    where
+        VO: Linear<f32> + Copy,
+        U: Copy,
+        S: Shader<U, VI, VO>
+    {
+        let (x, y) = frag.coord;
+        let (z, v) = frag.varying;
+        let offset = self.color.width() * y + x;
+
+        let depth = &mut self.depth.data_mut()[offset];
+        if z < *depth {
+            let frag = frag.varying(v);
+            if let Some(c) = shader.shade_fragment(frag) {
+                let [_, r, g, b] = c.to_argb();
+                let col = &mut self.color.data_mut()[4 * offset..][..4];
+                col[0] = b;
+                col[1] = g;
+                col[2] = r;
+                *depth = z;
+                return 1;
+            }
+        }
+        0
     }
 }
 

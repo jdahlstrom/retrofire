@@ -1,19 +1,21 @@
+use std::convert::identity;
 use std::fmt::Debug;
 use std::mem::{replace, swap};
 use std::time::Instant;
 
 use geom::{LineSeg, Polyline, Sprite};
 use geom::bbox::BoundingBox;
-use geom::mesh::{Face, Mesh, Soa, SoaVecs, SubMesh, Vertex};
+use geom::mesh::{Face, Mesh, Soa, SoaVecs, SubMesh, Vertex, vertex};
 use math::Linear;
 use math::mat::Mat4;
 use math::transform::Transform;
 use math::vec::ZERO;
+use util::color::Color;
 
-use crate::{hsr, Rasterize, Span, State, tri_fill};
+use crate::{Fragment, hsr, line, Rasterize, Span, State, tri_fill};
 use crate::hsr::Visibility::{self, Hidden};
 use crate::scene::{Obj, Scene};
-use crate::shade::Shader;
+use crate::shade::{Shader, ShaderImpl};
 use crate::vary::Varying;
 
 pub trait Render<U, VI, FI=VI> {
@@ -83,7 +85,11 @@ where
 
             let (verts, faces) = hsr::hidden_surface_removal(verts, faces, bbox_vis);
 
-            render_faces(verts, faces, st, shader, raster)
+            render_faces(verts, faces, st, shader, raster);
+
+            if let Some(col) = st.options.bounding_boxes {
+                render_bbox(&self.bbox, st, raster, col);
+            }
         }
     }
 }
@@ -133,6 +139,10 @@ where
             let (verts, faces) = hsr::hidden_surface_removal(verts, faces, bbox_vis);
 
             render_faces(verts, faces, st, shader, raster);
+
+            if let Some(col) = st.options.bounding_boxes {
+                render_bbox(&self.bbox, st, raster, col);
+            }
         }
     }
 }
@@ -140,6 +150,19 @@ where
 fn bbox_visibility(bbox: &BoundingBox, mvp: &Mat4) -> Visibility {
     let vs = bbox.verts().transform(&mvp);
     hsr::vertex_visibility(vs.iter())
+}
+
+fn render_bbox<R>(bbox: &BoundingBox, st: &mut State, raster: &mut R, col: Color)
+where
+    R: Rasterize,
+{
+    for edge in bbox.edges() {
+        let edge = LineSeg(edge.map(|v| vertex(v, ())));
+        edge.render(st, &mut ShaderImpl {
+            vs: identity,
+            fs: |_| Some(col)
+        }, raster);
+    }
 }
 
 fn render_faces<V, U, S, R>(
@@ -184,50 +207,27 @@ fn render_faces<V, U, S, R>(
             });*/
         }
 
-        if let Some(_col) = st.options.wireframes {
-            todo!();
-            /*let [a, b, c] = verts;
-            for e in [a, b, c, a].windows(2) {
-                line([e[0], e[1]], |frag| {
-                    if raster.test(frag.varying(frag.varying.0 - 0.001)) {
-                        raster.output(frag.varying((0.0, col)));
-                    }
+        if let Some(col) = st.options.wireframes {
+            let [a, b, c] = verts;
+            for edge in [[a, b], [b, c], [c, a]] {
+                line(edge, col, |mut frag| {
+                    // Avoid Z fighting
+                    frag.varying.0 -= 0.01;
+                    raster.rasterize_frag(&mut ShaderImpl {
+                        vs: identity,
+                        fs: |_| Some(frag.uniform)
+                    }, frag);
                 });
-            }*/
+            }
         }
     }
-
-    /* TODO Wireframe and bounding box debug rendering
-    let mut render_edges = |st: &mut _,
-                            edges: Vec<[Vec4; 2]>,
-                            col: Color| {
-        for edge in edges.into_iter()
-            .map(|[a, b]| [vertex(a, col), vertex(b, col)])
-            .map(LineSeg)
-        {
-            edge.render(st, &mut ShaderImpl {
-                vs: |a| a,
-                fs: |f: Fragment<_>| Some(f.varying),
-            }, &mut Raster {
-                test: |_| true,
-                output: |f| raster.output(f),
-            });
-        }
-    };
-    if let Some(col) = st.options.wireframes {
-        render_edges(rdr, self.edges(), col);
-    }
-    if let Some(col) = rdr.options.bounding_boxes {
-        render_edges(rdr, self.bbox.edges(), col);
-    }
-    */
 }
 
 impl<VI> Render<(), VI> for LineSeg<VI>
 where
     VI: Linear<f32> + Copy
 {
-    fn render<S, R>(&self, st: &mut State, shader: &mut S, _raster: &mut R)
+    fn render<S, R>(&self, st: &mut State, shader: &mut S, raster: &mut R)
     where
         S: Shader<(), VI>,
         R: Rasterize
@@ -243,20 +243,18 @@ where
         }).to_vec();
         let mut clip_out = Vec::new();
         hsr::clip(&mut verts, &mut clip_out);
-        if let &[_a, _b, ..] = clip_out.as_slice() {
-            todo!();
+        if let &[a, b, ..] = clip_out.as_slice() {
 
-            /*st.stats.prims_out += 1;
+            st.stats.prims_out += 1;
             st.stats.verts_out += 2;
             let verts = [
                 clip_to_screen(a, &st.viewport),
                 clip_to_screen(b, &st.viewport)
             ];
-            line(verts, |frag: Fragment<_>| {
-                if raster.rasterize_frag(shader, frag) {
-                    st.stats.pixels += 1;
-                }
-            })*/
+            line(verts, (), |frag: Fragment<_>| {
+                st.stats.pix_in += 1;
+                st.stats.pix_out += raster.rasterize_frag(shader, frag);
+            })
         }
     }
 }
@@ -331,7 +329,6 @@ where
                 let v = Varying::between((v0.attr, v1.attr), (v3.attr, v2.attr), y1 - y0);
 
                 for (y, (v0, v1)) in (y0 as usize..y1 as usize).zip(v) {
-
                     raster.rasterize_span(shader, Span {
                         y,
                         xs: (x0 as usize, x1 as usize),
@@ -363,11 +360,12 @@ where
     }
 }
 
-#[inline(always)]
+#[inline]
 fn with_depth<A>(v: Vertex<A>) -> Vertex<(f32, A)> {
     v.attr_with(|v| (v.coord.z, v.attr))
 }
 
+#[inline]
 fn clip_to_screen<A>(mut v: Vertex<A>, viewport: &Mat4) -> Vertex<(f32, A)> {
     v.coord = (v.coord / v.coord.w).transform(viewport);
     with_depth(v)
