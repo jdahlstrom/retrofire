@@ -94,7 +94,7 @@ impl<'a> Texture<&'a [Color]> {
         Self {
             w: width as f32,
             h: height as f32,
-            data: data,
+            data,
         }
     }
 }
@@ -129,6 +129,9 @@ impl From<Buffer<Color>> for Texture<Vec<Color>> {
     }
 }
 
+/// A texture sampler that repeats the texture infinitely modulo the texture
+/// dimensions. For performance reasons, `SamplerRepeatPot` only accepts
+/// textures with dimensions that are powers of two.
 pub struct SamplerRepeatPot { w_mask: usize, h_mask: usize }
 
 impl SamplerRepeatPot {
@@ -146,13 +149,10 @@ impl SamplerRepeatPot {
     pub fn sample(
         &self,
         tex: &Texture<impl Deref<Target=[Color]>>,
-        uv: TexCoord
+        TexCoord { u, v, .. }: TexCoord
     ) -> Color {
-        let u = (tex.width() * uv.u).floor() as isize as usize & self.w_mask;
-        let v = (tex.height() * uv.v).floor() as isize as usize & self.h_mask;
-
-        // TODO enforce invariants and use get_unchecked
-        tex.data[(self.w_mask + 1) * v + u]
+        let scaled_uv = uv(tex.width() * u, tex.height() * v);
+        self.sample_abs(tex, scaled_uv)
     }
 
     pub fn sample_abs(
@@ -168,6 +168,8 @@ impl SamplerRepeatPot {
     }
 }
 
+/// A texture sampler that clamps out-of-bounds coordinates
+/// to the nearest valid coordinate in both dimensions.
 pub struct SamplerClamp;
 
 impl SamplerClamp {
@@ -184,6 +186,11 @@ impl SamplerClamp {
     }
 }
 
+/// A texture sampler that assumes all texture coordinates are within bounds.
+///
+/// Out-of-bounds coordinates may cause graphical glitches or runtime panics but
+/// no undefined behavior. In other words, `SamplerOnce` guarantees that there
+/// are no unchecked out-of-bounds reads from the actual backing memory buffer.
 pub struct SamplerOnce;
 
 impl SamplerOnce {
@@ -191,17 +198,25 @@ impl SamplerOnce {
     pub fn sample(
         &self,
         tex: &Texture<impl Deref<Target=[Color]>>,
+        TexCoord { u, v, .. }: TexCoord
+    ) -> Option<Color> {
+        let scaled_uv = uv((tex.width() - 1.0) * u, (tex.height() - 1.0) * v);
+        self.sample_abs(tex, scaled_uv)
+    }
+    pub fn sample_abs(
+        &self,
+        tex: &Texture<impl Deref<Target=[Color]>>,
         uv: TexCoord
     ) -> Option<Color> {
-        let u = (tex.width() * uv.u).floor() as isize as usize;
-        let v = (tex.height() * uv.v).floor() as isize as usize;
+        let u = uv.u as isize as usize;
+        let v = uv.v as isize as usize;
 
-        debug_assert!(u < tex.width() as usize);
-        debug_assert!(v < tex.height() as usize);
+        debug_assert!(u < tex.width() as usize, "u={u}");
+        debug_assert!(v < tex.height() as usize, "v={v}");
 
-        // TODO enforce invariants and use get_unchecked
         tex.data.get(tex.width() as usize * v + u).copied()
     }
+
 }
 
 pub fn map_planar(pt: Vec4, basis_u: Vec4, basis_v: Vec4) -> TexCoord {
