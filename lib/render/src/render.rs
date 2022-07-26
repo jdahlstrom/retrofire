@@ -15,26 +15,25 @@ use util::color::Color;
 use crate::{Fragment, hsr, line, Rasterize, Span, State, tri_fill};
 use crate::hsr::Visibility::{self, Hidden};
 use crate::scene::{Obj, Scene};
-use crate::shade::{Shader, ShaderImpl};
+use crate::shade::{Shader, ShaderImpl, VertexShader};
 use crate::vary::Varying;
 
-pub trait Render<U, VI, FI=VI> {
+pub trait Render<Uni, VtxIn, FragIn> {
 
     fn render<S, R>(&self, st: &mut State, shade: &mut S, raster: &mut R)
     where
-        S: Shader<U, VI, VI, FI>,
+        S: Shader<Uni, VtxIn, FragIn, VtxOut = VtxIn>,
         R: Rasterize;
 }
 
-impl<G, U, V> Render<U, V> for Scene<G>
+impl<G, U, VtxIn, FragIn> Render<U, VtxIn, FragIn> for Scene<G>
 where
-    G: Render<U, V>,
+    G: Render<U, VtxIn, FragIn>,
     U: Copy,
-    V: Linear<f32> + Copy,
 {
     fn render<S, R>(&self, st: &mut State, shade: &mut S, raster: &mut R)
     where
-        S: Shader<U, V>,
+        S: Shader<U, VtxIn, FragIn, VtxOut = VtxIn>,
         R: Rasterize
     {
         let clock = Instant::now();
@@ -49,15 +48,15 @@ where
     }
 }
 
-impl<VI, U> Render<U, VI> for Mesh<VI, U>
+impl<VI, U> Render<U, VI, VI> for Mesh<VI, U>
 where
-    VI: Soa + Linear<f32> + Copy + Debug,
+    VI: Soa + Linear<f32> + Copy,
     U: Copy,
 {
     fn render<S, R>(&self, st: &mut State, shader: &mut S, raster: &mut R)
     where
-        S: Shader<U, VI>,
-        R: Rasterize
+        S: Shader<U, VI, VI, VtxOut=VI>,
+        R: Rasterize,
     {
         st.stats.prims_in += self.faces.len();
         st.stats.verts_in += self.verts.len();
@@ -94,14 +93,14 @@ where
     }
 }
 
-impl<VI, U> Render<U, VI> for SubMesh<'_, VI, U>
+impl<VI, U> Render<U, VI, VI> for SubMesh<'_, VI, U>
 where
     VI: Soa + Linear<f32> + Copy + Debug,
     U: Copy,
 {
     fn render<S, R>(&self, st: &mut State, shader: &mut S, raster: &mut R)
     where
-        S: Shader<U, VI>,
+        S: Shader<U, VI, VtxOut=VI>,
         R: Rasterize
     {
         st.stats.prims_in += self.face_indices.len();
@@ -152,10 +151,12 @@ fn bbox_visibility(bbox: &BoundingBox, mvp: &Mat4) -> Visibility {
     hsr::vertex_visibility(vs.iter())
 }
 
-fn render_bbox<R>(bbox: &BoundingBox, st: &mut State, raster: &mut R, col: Color)
-where
-    R: Rasterize,
-{
+fn render_bbox(
+    bbox: &BoundingBox,
+    st: &mut State,
+    raster: &mut impl Rasterize,
+    col: Color
+) {
     for edge in bbox.edges() {
         let edge = LineSeg(edge.map(|v| vertex(v, ())));
         edge.render(st, &mut ShaderImpl {
@@ -171,10 +172,11 @@ fn render_faces<V, U, S, R>(
     st: &mut State,
     shader: &mut S,
     raster: &mut R
-) where
+)
+where
     U: Copy,
-    V: Copy + Debug + Linear<f32> + Soa,
-    S: Shader<U, V>,
+    V: Linear<f32> + Copy,
+    S: Shader<U, V, V, VtxOut = V>,
     R: Rasterize
 {
     if faces.is_empty() { return; }
@@ -223,13 +225,10 @@ fn render_faces<V, U, S, R>(
     }
 }
 
-impl<VI> Render<(), VI> for LineSeg<VI>
-where
-    VI: Linear<f32> + Copy
-{
+impl<V: Copy> Render<(), V, V> for LineSeg<V> {
     fn render<S, R>(&self, st: &mut State, shader: &mut S, raster: &mut R)
     where
-        S: Shader<(), VI>,
+        S: Shader<(), V>,
         R: Rasterize
     {
         st.stats.prims_in += 1;
@@ -259,13 +258,10 @@ where
     }
 }
 
-impl<V> Render<(), V> for Polyline<V>
-where
-    V: Linear<f32> + Copy
-{
+impl<V: Copy> Render<(), V, V> for Polyline<V> {
     fn render<S, R>(&self, st: &mut State, shader: &mut S, raster: &mut R)
     where
-        S: Shader<(), V>,
+        S: Shader<(), V, VtxOut = V>,
         R: Rasterize,
     {
         for seg in self.edges() {
@@ -274,11 +270,7 @@ where
     }
 }
 
-impl<U, V> Render<U, V> for Sprite<V, U>
-where
-    U: Copy,
-    V: Linear<f32> + Copy,
-{
+impl<U: Copy, V: Copy> Render<U, V, V> for Sprite<V, U> {
     fn render<S, R>(&self, st: &mut State, shader: &mut S, raster: &mut R)
     where
         S: Shader<U, V>,

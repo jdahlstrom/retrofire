@@ -25,6 +25,7 @@ type Frag = Fragment<CoordNormAndTexCrd>;
 struct Shd(Vec4);
 
 impl VertexShader<CoordNormAndTexCrd> for Shd {
+    type VtxOut = CoordNormAndTexCrd;
     fn shade_vertex(&self, v: Vert) -> Vert {
         v
     }

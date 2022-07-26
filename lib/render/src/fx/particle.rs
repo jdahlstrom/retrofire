@@ -75,10 +75,15 @@ impl<G> ParticleSys<G> {
     }
 }
 
-impl<U: Copy, V: Copy, R: Render<U, V> + Clone> Render<U, V> for ParticleSys<R> {
+impl<U, V, R> Render<U, V, V> for ParticleSys<R>
+where
+    U: Copy,
+    V: Copy,
+    R: Render<U, V, V> + Clone
+{
     fn render<S, Ra>(&self, st: &mut State, shade: &mut S, raster: &mut Ra)
     where
-        S: Shader<U, V>,
+        S: Shader<U, V, VtxOut = V>,
         Ra: Rasterize,
     {
         for p in self.live_particles() {
