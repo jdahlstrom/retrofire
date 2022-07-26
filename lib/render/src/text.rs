@@ -76,7 +76,7 @@ impl<'a> Transform for Text<'a> {
 impl<'a> Render<(), TexCoord, Color> for Text<'a> {
     fn render<S, R>(&self, st: &mut State, shader: &mut S, raster: &mut R)
     where
-        S: Shader<(), TexCoord, TexCoord, Color>,
+        S: Shader<(), TexCoord, Color, VtxOut = TexCoord>,
         R: Rasterize,
     {
         for s in &self.geom {

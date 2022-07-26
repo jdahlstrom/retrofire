@@ -1,52 +1,66 @@
 use math::vec::*;
 use geom::mesh::Vertex;
+use math::Linear;
 use crate::raster::Fragment;
 use util::color::Color;
 
-pub trait VertexShader<In, Out=In> {
-    fn shade_vertex(&self, _: Vertex<In>) -> Vertex<Out>;
+pub trait VertexShader<In> {
+    type VtxOut: Linear<f32> + Copy;
+    fn shade_vertex(&self, _: Vertex<In>) -> Vertex<Self::VtxOut>;
 }
 
-pub trait FragmentShader<F, U> {
-    fn shade_fragment(&self, _: Fragment<F, U>) -> Option<Color>;
+pub trait FragmentShader<In, Uni> {
+    fn shade_fragment(&self, _: Fragment<In, Uni>) -> Option<Color>;
 }
 
-pub trait Shader<U, VI, VO=VI, FI=VO>: VertexShader<VI, VO> + FragmentShader<FI, U> {}
+pub trait Shader<Uni, VtxIn, FragIn = <Self as VertexShader<VtxIn>>::VtxOut>
+where
+    Self: VertexShader<VtxIn> + FragmentShader<FragIn, Uni>
+{}
 
-impl<T, U, VI, VO, FI> Shader<U, VI, VO, FI> for T
-where T: VertexShader<VI, VO> + FragmentShader<FI, U> {}
+impl<T, Uni, VtxIn, FragIn> Shader<Uni, VtxIn, FragIn> for T
+where
+    T: VertexShader<VtxIn> + FragmentShader<FragIn, Uni>
+{}
 
 pub struct ShaderImpl<VS, FS> {
     pub vs: VS,
     pub fs: FS,
 }
 
-impl<F, In, Out> VertexShader<In, Out> for F
-where F: Fn(Vertex<In>) -> Vertex<Out>
+impl<F, In, Out> VertexShader<In> for F
+where
+    Out: Linear<f32> + Copy,
+    F: Fn(Vertex<In>) -> Vertex<Out>
 {
+    type VtxOut = Out;
     fn shade_vertex(&self, v: Vertex<In>) -> Vertex<Out> {
         self(v)
     }
 }
 
-impl<F, U, In> FragmentShader<In, U> for F
-where F: Fn(Fragment<In, U>) -> Option<Color>
+impl<F, In, Uni> FragmentShader<In, Uni> for F
+where
+    F: Fn(Fragment<In, Uni>) -> Option<Color>
 {
-    fn shade_fragment(&self, f: Fragment<In, U>) -> Option<Color> {
+    fn shade_fragment(&self, f: Fragment<In, Uni>) -> Option<Color> {
         self(f)
     }
 }
 
-impl<VS, FS, In, Out> VertexShader<In, Out> for ShaderImpl<VS, FS>
-where VS: VertexShader<In, Out>
+impl<VS, FS, In> VertexShader<In> for ShaderImpl<VS, FS>
+where
+    VS: VertexShader<In>
 {
-    fn shade_vertex(&self, v: Vertex<In>) -> Vertex<Out> {
+    type VtxOut = VS::VtxOut;
+    fn shade_vertex(&self, v: Vertex<In>) -> Vertex<VS::VtxOut> {
         self.vs.shade_vertex(v)
     }
 }
 
 impl<VS, FS, U, In> FragmentShader<In, U> for ShaderImpl<VS, FS>
-where FS: FragmentShader<In, U>
+where
+    FS: FragmentShader<In, U>
 {
     fn shade_fragment(&self, f: Fragment<In, U>) -> Option<Color> {
         self.fs.shade_fragment(f)

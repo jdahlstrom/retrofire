@@ -22,15 +22,14 @@ pub mod text;
 pub mod vary;
 
 pub trait Rasterize {
-    fn rasterize_span<VI, VO, U, S>(
+    fn rasterize_span<VIn, U, S>(
         &mut self,
         shader: &mut S,
-        span: Span<(f32, VO), U>
+        span: Span<(f32, S::VtxOut), U>
     ) -> usize
     where
-        VO: Linear<f32> + Copy,
         U: Copy,
-        S: Shader<U, VI, VO>
+        S: Shader<U, VIn>
     {
         let Span { y, xs: (x0, x1), vs: (v0, v1), uni } = span;
 
@@ -53,25 +52,23 @@ pub trait Rasterize {
         count
     }
 
-    fn rasterize_chunk<VI, VO, U, S>(
+    fn rasterize_chunk<VI, U, S>(
         &mut self,
         shader: &mut S,
-        span: Span<(f32, VO), U>,
+        span: Span<(f32, S::VtxOut), U>,
     ) -> usize
     where
-        VO: Linear<f32> + Copy,
         U: Copy,
-        S: Shader<U, VI, VO>;
+        S: Shader<U, VI>;
 
-    fn rasterize_frag<VI, VO, U, S>(
+    fn rasterize_frag<VI, U, S>(
         &mut self,
         shader: &mut S,
-        frag: Fragment<(f32, VO), U>,
+        frag: Fragment<(f32, S::VtxOut), U>,
     ) -> usize
     where
-        VO: Linear<f32> + Copy,
         U: Copy,
-        S: Shader<U, VI, VO>;
+        S: Shader<U, VI>;
 }
 
 pub struct Raster<Test, Output> {
@@ -84,15 +81,14 @@ where
     Test: Fn(Fragment<f32>) -> bool,
     Output: FnMut(Fragment<(f32, Color)>),
 {
-    fn rasterize_chunk<VI, VO, U, S>(
+    fn rasterize_chunk<VI, U, S>(
         &mut self,
         shader: &mut S,
-        span: Span<(f32, VO), U>,
+        span: Span<(f32, S::VtxOut), U>,
     ) -> usize
     where
-        VO: Linear<f32> + Copy,
         U: Copy,
-        S: Shader<U, VI, VO>
+        S: Shader<U, VI>
     {
         let Span { y, xs, vs, uni } = span;
         let vars = Varying::between(vs.0, vs.1, CH_SIZE as f32);
@@ -106,15 +102,14 @@ where
         }
         count
     }
-    fn rasterize_frag<VI, VO, U, S>(
+    fn rasterize_frag<VI, U, S>(
         &mut self,
         shader: &mut S,
-        frag: Fragment<(f32, VO), U>
+        frag: Fragment<(f32, S::VtxOut), U>
     ) -> usize
     where
-        VO: Linear<f32> + Copy,
         U: Copy,
-        S: Shader<U, VI, VO>
+        S: Shader<U, VI>
     {
         let (z, v) = frag.varying;
         if (self.test)(frag.varying(z).uniform(())) {
@@ -137,15 +132,14 @@ const CH_SIZE: usize = 16;
 const INV_CH_SIZE: f32 = 1.0 / CH_SIZE as f32;
 
 impl<'a> Rasterize for Framebuf<'a> {
-    fn rasterize_chunk<VI, VO, U, S>(
+    fn rasterize_chunk<VI, U, S>(
         &mut self,
         shader: &mut S,
-        span: Span<(f32, VO), U>,
+        span: Span<(f32, S::VtxOut), U>,
     ) -> usize
     where
-        VO: Linear<f32> + Copy,
         U: Copy,
-        S: Shader<U, VI, VO>,
+        S: Shader<U, VI>,
     {
         let Span { y, xs, vs, uni } = span;
 
@@ -180,15 +174,14 @@ impl<'a> Rasterize for Framebuf<'a> {
             });
         count
     }
-    fn rasterize_frag<VI, VO, U, S>(
+    fn rasterize_frag<VI, U, S>(
         &mut self,
         shader: &mut S,
-        frag: Fragment<(f32, VO), U>
+        frag: Fragment<(f32, S::VtxOut), U>
     ) -> usize
     where
-        VO: Linear<f32> + Copy,
         U: Copy,
-        S: Shader<U, VI, VO>
+        S: Shader<U, VI>
     {
         let (x, y) = frag.coord;
         let (z, v) = frag.varying;
