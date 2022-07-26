@@ -34,11 +34,6 @@ pub trait Rasterize {
     {
         let Span { y, xs: (x0, x1), vs: (v0, v1), uni } = span;
 
-        if x1 < x0 {
-            // TODO Investigate, should not happen
-            return 0;
-        }
-
         let mut vars =
             Varying::between(v0, v1, (x1 - x0) as f32 * INV_CH_SIZE)
             .map(|v| v.perspective_div());

@@ -80,10 +80,13 @@ where
 
         for (y, (left, right)) in (y..y_end).zip(left.zip(right)) {
 
-            // let v = Varying::between(left.1, right.1, right.0 - left.0);
-
             let x_left = left.0.round() as usize;
             let x_right = right.0.round() as usize;
+
+            if x_left > x_right {
+                // TODO Investigate, should not happen
+                continue;
+            }
 
             span_fn(Span {
                 y,
@@ -91,10 +94,6 @@ where
                 vs: (left.1, right.1),
                 uni,
             });
-
-            /*for (x, v) in (x_left..x_right).zip(v) {
-                plot(Fragment { coord: (x, y), varying: v, uniform: () });
-            }*/
         }
         y = y_end;
     };

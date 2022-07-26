@@ -18,22 +18,15 @@ pub struct Font {
 }
 
 impl Font {
-    pub fn glyph_bounds(&self, c: char) -> Option<[TexCoord; 4]> {
+    fn glyph_bounds(&self, c: char) -> Option<[TexCoord; 4]> {
         if !c.is_ascii() {
             return None;
         }
-        let Font { glyph_w: gw, glyph_h: gh, glyphs, } = self;
-        let (tw, th) = (glyphs.width(), glyphs.height());
-
-        let c = c as u16;
-        let (x0, y0) = ((c % 0x10) * gw, c / 0x10 * gh);
-        let (x1, y1) = (((c % 0x10) + 1) * gw, (c / 0x10 + 1) * gh);
-        Some([
-            uv(x0 as f32 / tw, y0 as f32 / th),
-            uv(x1 as f32 / tw, y0 as f32 / th),
-            uv(x1 as f32 / tw, y1 as f32 / th),
-            uv(x0 as f32 / tw, y1 as f32 / th),
-        ])
+        let (col, row) = (c as u16 % 0x10, c as u16 / 0x10);
+        let (x0, y0) = (col * self.glyph_w, row * self.glyph_h);
+        let (x1, y1) = (x0 + self.glyph_w, y0 + self.glyph_h);
+        Some([(x0, y0), (x1, y0), (x1, y1), (x0, y1)]
+            .map(|(u, v)| uv(u as f32, v as f32)))
     }
 }
 
@@ -44,9 +37,8 @@ pub struct Text<'a> {
 
 impl<'a> Text<'a> {
     pub fn new(font: &'a Font, text: &str) -> Text<'a> {
-        let pos = (0, 0);
         let geom = text.chars()
-            .scan(pos, |(x, y), c| {
+            .scan((0, 0), |(x, y), c| {
                 let ch = if c == '\n' {
                     *x = 0;
                     *y += font.glyph_h;
@@ -87,12 +79,11 @@ impl<'a> Render<(), TexCoord, Color> for Text<'a> {
         S: Shader<(), TexCoord, TexCoord, Color>,
         R: Rasterize,
     {
-        let sampler = SamplerOnce;
         for s in &self.geom {
             s.render(st, &mut ShaderImpl {
                 vs: |v| shader.shade_vertex(v),
                 fs: |f: Fragment<TexCoord>| {
-                    sampler.sample(&self.font.glyphs, f.varying)
+                    SamplerOnce.sample_abs(&self.font.glyphs, f.varying)
                         .and_then(|col| shader.shade_fragment(f.varying(col)))
                 },
             }, raster);
