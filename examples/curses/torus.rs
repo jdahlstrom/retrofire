@@ -6,7 +6,7 @@ use geom::mesh::Vertex;
 use geom::solids::*;
 use math::Angle::Rad;
 use math::transform::*;
-use math::vary::Varying;
+use math::vary::Vary;
 use math::vec::{dir, Vec4};
 use render::raster::{Span, tri_fill};
 
@@ -62,7 +62,7 @@ fn main() {
                 [vert(a), vert(b), vert(c)],
                 (),
                 |Span { y, xs: (x0, x1), vs: (v0, v1), .. }| {
-                    let vs = Varying::between(v0, v1, (x1 - x0) as f32);
+                    let vs = v0.vary(&v1, (x1 - x0) as f32);
                     for (x, v) in (x0..x1).zip(vs) {
                         win.mvaddch(
                             y as i32, x as i32,

@@ -3,7 +3,7 @@ use std::mem::swap;
 use geom::mesh::Vertex;
 use math::Linear;
 
-use math::vary::{Bresenham, Varying};
+use math::vary::{Vary, Varying};
 
 mod tests;
 
@@ -48,7 +48,7 @@ where
 {
     pub fn fragments(&self) -> impl Iterator<Item=Fragment<V, U>> + '_ {
         let Self { y, xs: (x0, x1), vs: (v0, v1), uni } = *self;
-        let v = Varying::between(v0, v1, (x1 - x0) as _);
+        let v = v0.vary(&v1, (x1 - x0) as f32);
         (x0..x1).zip(v)
             .map(move |(x, v)| Fragment {
                 coord: (x, y),
@@ -104,9 +104,9 @@ where
     let (by, bv) = (b.coord.y, (b.coord.x, b.attr));
     let (cy, cv) = (c.coord.y, (c.coord.x, c.attr));
 
-    let ab = &mut Varying::between(av, bv, by - ay);
-    let ac = &mut Varying::between(av, cv, cy - ay);
-    let bc = &mut Varying::between(bv, cv, cy - by);
+    let ab = &mut av.vary(&bv, by - ay);
+    let ac = &mut av.vary(&cv, cy - ay);
+    let bc = &mut bv.vary(&cv, cy - by);
 
     if ab.step.0 < ac.step.0 {
         half_tri(by.round() as usize, ab, ac);
@@ -130,8 +130,8 @@ where
         if d.x < 0.0 { swap(&mut a, &mut b); d.x = -d.x; }
 
         let xs = a.coord.x as usize ..= b.coord.x as usize;
-        let ys = Bresenham::between(a.coord.y as usize, b.coord.y as usize, d.x as usize);
-        let vs = Varying::between(a.attr, b.attr, d.x);
+        let ys = (a.coord.y as usize).vary(&(b.coord.y as usize), d.x);
+        let vs = a.attr.vary(&b.attr, d.x);
 
         for (coord, varying) in xs.zip(ys).zip(vs) {
             plot(Fragment { coord, varying, uniform });
@@ -140,9 +140,9 @@ where
         // Angle > diagonal
         if d.y < 0.0 { swap(&mut a, &mut b); d.y = -d.y; }
 
-        let xs = Bresenham::between(a.coord.x as usize, b.coord.x as usize, d.y as usize);
+        let xs = (a.coord.x as usize).vary(&(b.coord.x as usize), d.y);
         let ys = a.coord.y as usize ..= b.coord.y as usize;
-        let vs = Varying::between(a.attr, b.attr, d.y);
+        let vs = a.attr.vary(&b.attr, d.y);
 
         for (coord, varying) in xs.zip(ys).zip(vs) {
             plot(Fragment { coord, varying, uniform });

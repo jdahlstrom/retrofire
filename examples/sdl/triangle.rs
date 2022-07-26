@@ -7,7 +7,7 @@ use sdl2::pixels::Color;
 use sdl2::rect::Rect;
 
 use geom::mesh::Vertex;
-use math::vary::Varying;
+use math::vary::Vary;
 use math::vec::vec4;
 use render::raster::tri_fill;
 use render::raster::Span;
@@ -48,7 +48,7 @@ fn main() {
             ],
             (),
             |Span { y, xs, vs, .. }| {
-                let mut vs = Varying::between(vs.0, vs.1, (xs.1 - xs.0) as f32);
+                let mut vs = vs.0.vary(&vs.1, (xs.1 - xs.0) as f32);
                 for x in xs.0..xs.1 {
                     let v = vs.next().unwrap();
                     let pos = 4 * (x + y * width as usize);
