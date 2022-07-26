@@ -1,5 +1,6 @@
 use std::ops::ControlFlow::*;
 
+use sdl2::event::Event;
 use sdl2::keyboard::Scancode;
 
 use front::sdl::*;
@@ -9,12 +10,12 @@ use math::Angle::{Deg, Rad};
 use math::mat::Mat4;
 use math::transform::*;
 use math::vec::*;
-use render::Render as _;
-use render::State;
 use render::raster::*;
+use render::Render as _;
 use render::scene::{Obj, Scene};
 use render::shade::*;
-use util::color::Color;
+use render::State;
+use util::color::{Color, GREEN, RED};
 use util::tex::TexCoord;
 
 type CoordNormAndTexCrd = (Vec4, Vec4, TexCoord);
@@ -28,6 +29,7 @@ impl VertexShader<CoordNormAndTexCrd> for Shd {
         v
     }
 }
+
 impl FragmentShader<CoordNormAndTexCrd, ()> for Shd {
     fn shade_fragment(&self, f: Frag) -> Option<Color> {
         let (coord, n, _uv) = f.varying;
@@ -71,12 +73,11 @@ fn main() {
     let mut st = State::new();
     st.projection = perspective(1., 60., w as f32 / h as f32, Deg(60.0));
     st.viewport = viewport(margin as f32, (h - margin) as f32,
-                            (w - margin) as f32, margin as f32);
+                           (w - margin) as f32, margin as f32);
 
     let mut runner = SdlRunner::new(w as u32, h as u32).unwrap();
 
-    runner.run(|Frame { mut buf, pressed_keys, delta_t, .. }| {
-
+    runner.run(|Frame { mut buf, events, pressed_keys, delta_t, .. }| {
         let obj_tf = &model_tf
             * &rotate_x(-0.57 * theta)
             * &rotate_y(theta);
@@ -109,7 +110,14 @@ fn main() {
                 Left => view_dir *= rotate_y(r),
                 Right => view_dir *= &rotate_y(-r),
 
-                _ => {},
+                _ => {}
+            }
+        }
+        for e in events {
+            if let Event::KeyDown { scancode: Some(Scancode::O), .. } = e {
+                let o = &mut st.options;
+                o.wireframes = o.wireframes.xor(Some(RED));
+                o.bounding_boxes = o.bounding_boxes.xor(Some(GREEN));
             }
         }
 

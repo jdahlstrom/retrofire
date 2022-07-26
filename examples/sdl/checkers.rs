@@ -19,7 +19,7 @@ use render::shade::ShaderImpl;
 use render::Stats;
 use render::text::{Font, Text};
 use util::buf::Buffer;
-use util::color::{BLACK, WHITE};
+use util::color::{BLACK, GREEN, RED, WHITE};
 use util::io::load_pnm;
 use util::tex::*;
 
@@ -181,18 +181,22 @@ fn main() {
                 }
             }
             for e in frame.events {
+                use Event::*;
                 match e {
-                    Event::MouseMotion { xrel, yrel, .. } => {
+                    MouseMotion { xrel, yrel, .. } => {
                         cam.rotate(
                             0.6 * Deg(xrel as f32),
                             0.6 * Deg(yrel as f32),
                         );
                     }
-                    Event::KeyDown { scancode: Some(M), .. } => {
-                        println!(
-                            "pos={} az={} alt={}",
-                            cam.pos, cam.azimuth, cam.altitude
-                        );
+                    KeyDown { scancode: Some(M), .. } => {
+                        println!("pos={} az={} alt={}",
+                            cam.pos, cam.azimuth, cam.altitude);
+                    }
+                    KeyDown { scancode: Some(O), .. } => {
+                        let o = &mut st.options;
+                        o.wireframes = o.wireframes.xor(Some(RED));
+                        o.bounding_boxes = o.bounding_boxes.xor(Some(GREEN));
                     }
                     _ => (),
                 }
