@@ -2,7 +2,7 @@ use std::mem::replace;
 
 use math::Linear;
 use math::mat::Mat4;
-use math::vary::Varying;
+use math::vary::Vary;
 pub use render::Render;
 pub use stats::Stats;
 use util::buf::Buffer;
@@ -20,6 +20,10 @@ pub mod shade;
 pub mod stats;
 pub mod text;
 
+
+const CHUNK_SIZE: usize = 16;
+
+
 pub trait Rasterize {
     fn rasterize_span<VIn, U, S>(
         &mut self,
@@ -33,17 +37,17 @@ pub trait Rasterize {
         let Span { y, xs: (x0, x1), vs: (v0, v1), uni } = span;
 
         let mut vars =
-            Varying::between(v0, v1, (x1 - x0) as f32 * INV_CH_SIZE)
+            v0.vary(&v1, (x1 - x0) as f32 / CHUNK_SIZE as f32)
             .map(|v| v.perspective_div());
 
         let mut v1 = vars.next().unwrap();
         let mut count = 0;
-        for x in (x0..x1).step_by(CH_SIZE) {
+        for x in (x0..x1).step_by(CHUNK_SIZE) {
             let v0 = replace(&mut v1, vars.next().unwrap());
 
             count += self.rasterize_chunk(shader, Span {
                 y,
-                xs: (x, (x + CH_SIZE).min(x1)),
+                xs: (x, (x + CHUNK_SIZE).min(x1)),
                 vs: (v0, v1),
                 uni,
             });
@@ -90,7 +94,7 @@ where
         S: Shader<U, VI>
     {
         let Span { y, xs, vs, uni } = span;
-        let vars = Varying::between(vs.0, vs.1, CH_SIZE as f32);
+        let vars = vs.0.vary(&vs.1, CHUNK_SIZE as f32);
         let mut count = 0;
         for (x, v) in (xs.0..xs.1).zip(vars) {
             count += self.rasterize_frag(shader, Fragment {
@@ -127,9 +131,6 @@ pub struct Framebuf<'a> {
     pub depth: &'a mut Buffer<f32>,
 }
 
-const CH_SIZE: usize = 16;
-const INV_CH_SIZE: f32 = 1.0 / CH_SIZE as f32;
-
 impl<'a> Rasterize for Framebuf<'a> {
     fn rasterize_chunk<VI, U, S>(
         &mut self,
@@ -145,7 +146,7 @@ impl<'a> Rasterize for Framebuf<'a> {
         let mut count = 0;
         let off = self.color.width() * y + xs.0;
         let end = self.color.width() * y + xs.1;
-        let vars = Varying::between(vs.0, vs.1, CH_SIZE as f32);
+        let vars = vs.0.vary(&vs.1, CHUNK_SIZE as f32);
 
         let color_slice = &mut self.color.data_mut()[4 * off..4 * end];
         let depth_slice = &mut self.depth.data_mut()[off..end];

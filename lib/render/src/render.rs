@@ -9,6 +9,7 @@ use geom::mesh::{Face, Mesh, Soa, SoaVecs, SubMesh, Vertex, vertex};
 use math::Linear;
 use math::mat::Mat4;
 use math::transform::Transform;
+use math::vary::Vary;
 use math::vec::ZERO;
 use util::color::Color;
 
@@ -16,7 +17,6 @@ use crate::{Fragment, hsr, line, Rasterize, Span, State, tri_fill};
 use crate::hsr::Visibility::{self, Hidden};
 use crate::scene::{Obj, Scene};
 use crate::shade::{Shader, ShaderImpl};
-use math::vary::Varying;
 
 pub trait Render<Uni, VtxIn, FragIn> {
 
@@ -318,7 +318,8 @@ impl<U: Copy, V: Copy> Render<U, V, V> for Sprite<V, U> {
                 // TODO extract to fn rect_fill
                 let (x0, y0) = (v0.coord.x.round(), v0.coord.y.round());
                 let (x1, y1) = (v2.coord.x.round(), v2.coord.y.round());
-                let v = Varying::between((v0.attr, v1.attr), (v3.attr, v2.attr), y1 - y0);
+                let v = (v0.attr, v1.attr)
+                    .vary(&(v3.attr, v2.attr), y1 - y0);
 
                 for (y, (v0, v1)) in (y0 as usize..y1 as usize).zip(v) {
                     raster.rasterize_span(shader, Span {
