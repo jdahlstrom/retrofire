@@ -215,10 +215,10 @@ where
                 line(edge, col, |mut frag| {
                     // Avoid Z fighting
                     frag.varying.0 -= 0.01;
-                    raster.rasterize_frag(&mut ShaderImpl {
-                        vs: identity,
-                        fs: |_| Some(frag.uniform)
-                    }, frag);
+                    raster.rasterize_frag(
+                        &mut |frag: Fragment<_, _>| Some(frag.uniform),
+                        frag
+                    );
                 });
             }
         }
