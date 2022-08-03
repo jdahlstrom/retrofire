@@ -27,8 +27,8 @@ static EXPECTED_CUBE: &str =
 
 fn render<VA, FA>(mesh: Mesh<VA, FA>) -> String
 where
-    VA: Soa + Linear<f32> + Copy + Debug,
-    FA: Copy + Debug
+    VA: Soa + Linear<f32> + Copy + Debug + 'static,
+    FA: Copy + Debug + 'static
 {
     let mut st = State::new();
     st.modelview = translate(4.0 * Z);
@@ -56,7 +56,7 @@ where
 
 fn render_scene<VA, FA>(scene: Scene<Mesh<VA, FA>>) -> Stats
 where
-    VA: Copy + Debug + Linear<f32> + Soa,
+    VA: Copy + Debug + Linear<f32> + Soa + 'static,
     FA: Copy
 {
     const W: usize = 50;

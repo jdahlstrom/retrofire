@@ -22,16 +22,16 @@ type CoordNormAndTexCrd = (Vec4, Vec4, TexCoord);
 type Vert = Vertex<CoordNormAndTexCrd>;
 type Frag = Fragment<CoordNormAndTexCrd>;
 
-struct Shd(Vec4);
+struct TeapotShader(Vec4);
 
-impl VertexShader<CoordNormAndTexCrd> for Shd {
+impl VertexShader<CoordNormAndTexCrd> for TeapotShader {
     type VtxOut = CoordNormAndTexCrd;
     fn shade_vertex(&self, v: Vert) -> Vert {
         v
     }
 }
 
-impl FragmentShader<CoordNormAndTexCrd, ()> for Shd {
+impl FragmentShader<CoordNormAndTexCrd, ()> for TeapotShader {
     fn shade_fragment(&self, f: Frag) -> Option<Color> {
         let (coord, n, _uv) = f.varying;
 
@@ -96,7 +96,7 @@ fn main() {
             camera: Mat4::identity(),
         };
 
-        scene.render(&mut st, &mut Shd(light), &mut buf);
+        scene.render(&mut st, &mut TeapotShader(light), &mut buf);
 
         for scancode in pressed_keys {
             use Scancode::*;

@@ -146,7 +146,8 @@ pub(crate) fn visibility(masks: impl IntoIterator<Item=u8>) -> Visibility {
 }
 
 pub fn vertex_visibility<'a, VI>(verts: VI) -> Visibility
-where VI: IntoIterator<Item=&'a Vec4>
+where
+    VI: IntoIterator<Item=&'a Vec4>
 {
     visibility(verts.into_iter().map(vertex_mask))
 }
