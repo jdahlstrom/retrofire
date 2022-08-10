@@ -277,7 +277,15 @@ pub struct SubMesh<'a, VA: Soa, FA> {
 }
 
 impl<'a, VA: Soa, FA> SubMesh<'a, VA, FA> {
-
+    pub fn of(mesh: &'a Mesh<VA, FA>, face_indices: Vec<usize>) -> Self {
+        let bbox = BoundingBox::of(
+            face_indices.iter()
+                .flat_map(|&fi| mesh.faces[fi].verts)
+                .map(|vi| mesh.verts[vi].coord)
+                .map(|ci| &mesh.vertex_coords[ci])
+        );
+        Self { mesh, face_indices, bbox }
+    }
 }
 
 #[derive(Clone, Debug, Default)]
