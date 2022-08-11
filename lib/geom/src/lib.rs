@@ -60,40 +60,36 @@ impl Default for Align {
 }
 
 #[derive(Copy, Clone, Debug, Default)]
-pub struct Sprite<VA, FA = ()> {
-    pub anchor: Vec4,
-    pub align: Align,
-    pub width: f32,
-    pub height: f32,
-    pub vertex_attrs: [VA; 4],
-    pub face_attr: FA,
+pub struct Sprite<V, A = ()> {
+    pub verts: [V; 4],
+    pub face_attr: A,
 }
 
-impl<VA: Copy, FA> Sprite<VA, FA> {
-    pub fn verts<'a>(&'a self) -> impl Iterator<Item=Vertex<VA>> + 'a {
-        let (x, y) = match self.align {
-            Align::TopLeft => (0.0, 1.0),
-            Align::TopCenter => (0.5, 1.0),
-            Align::TopRight => (1.0, 1.0),
-            Align::Left => (0.0, 0.5),
-            Align::Center => (0.5, 0.5),
-            Align::Right => (1.0, 0.5),
-            Align::BottomLeft => (0.0, 0.0),
-            Align::BottomCenter => (0.5, 0.0),
-            Align::BottomRight => (1.0, 0.0),
+impl<VA: Copy, FA> Sprite<Vertex<VA>, FA> {
+    pub fn new(anchor: Vec4, align: Align, w: f32, h: f32, vas: [VA; 4], fa: FA) -> Self {
+        use Align::*;
+        let (x, y) = match align {
+            TopLeft => (0.0, 1.0),
+            TopCenter => (0.5, 1.0),
+            TopRight => (1.0, 1.0),
+            Left => (0.0, 0.5),
+            Center => (0.5, 0.5),
+            Right => (1.0, 0.5),
+            BottomLeft => (0.0, 0.0),
+            BottomCenter => (0.5, 0.0),
+            BottomRight => (1.0, 0.0),
         };
-        [(x - 1.0, y), (x, y), (x, y - 1.0), (x - 1.0, y - 1.0)]
-            .into_iter()
-            .zip(&self.vertex_attrs)
-            .map(move |((x, y), &attr)| {
-                let coord = self.anchor + dir(x * self.width, y * self.height, 0.0);
+        Self {
+            verts: [
+                (x - 1.0, y, vas[0]),
+                (x, y, vas[1]),
+                (x, y - 1.0, vas[2]),
+                (x - 1.0, y - 1.0, vas[3])
+            ].map(move |(x, y, attr)| {
+                let coord = anchor + dir(x * w, y * h, 0.0);
                 Vertex { coord, attr }
-            })
-    }
-}
-
-impl<VA, FA> Transform for Sprite<VA, FA> {
-    fn transform_mut(&mut self, tf: &Mat4) {
-        self.anchor.transform_mut(tf);
+            }),
+            face_attr: fa,
+        }
     }
 }

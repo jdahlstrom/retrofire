@@ -8,7 +8,7 @@ use geom::{
     Align,
     bbox::BoundingBox,
     mesh::{Face, Mesh},
-    Sprite
+    Sprite,
 };
 use geom::mesh::vertex_indices;
 use math::{
@@ -29,7 +29,7 @@ use render::{
 };
 use util::{
     color::*,
-    tex::{TexCoord, Texture, uv}
+    tex::{TexCoord, Texture, uv},
 };
 use util::tex::{SamplerOnce, SamplerRepeatPot};
 
@@ -73,19 +73,13 @@ fn main() {
 
     let ptx = ParticleSys::new(
         10000,
-        Sprite {
-            anchor: ORIGIN,
-            align: Align::Center,
-            width: 0.1,
-            height: 0.1,
-            vertex_attrs: [
-                uv(0.0, 0.0),
-                uv(1.0, 0.0),
-                uv(1.0, 1.0),
-                uv(0.0, 1.0),
-            ],
-            face_attr: 1,
-        },
+        Sprite::new(
+            ORIGIN,
+            Align::Center,
+            0.2, 0.2,
+            [uv(0.0, 0.0), uv(1.0, 0.0), uv(1.0, 1.0), uv(0.0, 1.0)],
+            1,
+        ),
     );
 
     let mut st = state(w, h, margin);
@@ -198,7 +192,7 @@ fn checkers() -> Mesh<(VA, ), FA> {
 
     let faces = vec![
         Face { verts: [0, 1, 3], attr: 0 },
-        Face { verts: [0, 3, 2], attr: 0 }
+        Face { verts: [0, 3, 2], attr: 0 },
     ];
 
     let bbox = BoundingBox::of(&vcs);

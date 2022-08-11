@@ -1,8 +1,8 @@
 use std::borrow::Cow;
 use std::fmt::Debug;
 use std::mem::replace;
-use geom::LineSeg;
 
+use geom::{LineSeg, Sprite};
 use geom::mesh::{Face, Vertex};
 use math::Linear;
 use math::mat::Mat4;
@@ -251,6 +251,74 @@ impl Primitive<()> for LineSeg<usize> {
             st.stats.pix_in += 1;
             st.stats.pix_out += raster.rasterize_frag(shader, frag);
         })
+    }
+}
+
+impl<U> Primitive<U> for Sprite<usize, U>
+where
+    U: Copy + Debug
+{
+    type Vertices = [usize; 4];
+
+    fn vertices(&self) -> Self::Vertices {
+        self.verts
+    }
+
+    fn clip<V>(&self, verts: &mut Vec<Vertex<V>>) -> Vec<Self>
+    where
+        V: Linear<f32> + Copy
+    {
+        let mut vs = self.verts.map(|i| verts[i]).to_vec();
+        let mut clip_out = Vec::new();
+        hsr::clip(&mut vs, &mut clip_out);
+
+        if clip_out.len() == 4 {
+            let l = verts.len();
+            verts.extend(clip_out);
+            vec![Self { verts: [l, l + 1, l + 2, l + 3], ..*self }]
+        } else {
+            vec![]
+        }
+    }
+
+    fn rasterize<S, R, V>(
+        &self,
+        verts: &[Vertex<V>],
+        _: &mut State,
+        shader: &mut S,
+        raster: &mut R
+    ) where
+        S: FragmentShader<V, U>,
+        R: Rasterize,
+        V: Linear<f32> + Copy,
+        U: Copy,
+    {
+        let mut vs = self.verts.map(|i| verts[i]);
+
+        if vs[0].coord.y > vs[2].coord.y {
+            vs.swap(0, 3);
+            vs.swap(1, 2);
+        }
+        if vs[0].coord.x > vs[1].coord.x {
+            vs.swap(0, 1);
+            vs.swap(2, 3);
+        }
+
+        // TODO extract to fn rect_fill
+        let (x0, y0) = (vs[0].coord.x.round(), vs[0].coord.y.round());
+        let (x1, y1) = (vs[2].coord.x.round(), vs[2].coord.y.round());
+        let z = vs[0].coord.z;
+        let v = (vs[0].attr, vs[1].attr)
+            .vary(&(vs[3].attr, vs[2].attr), y1 - y0);
+
+        for (y, (v0, v1)) in (y0 as usize..y1 as usize).zip(v) {
+            raster.rasterize_span(shader, Span {
+                y,
+                xs: (x0 as usize, x1 as usize),
+                vs: ((z, v0), (z, v1)),
+                uni: self.face_attr,
+            });
+        }
     }
 }
 

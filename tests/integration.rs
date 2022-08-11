@@ -101,6 +101,7 @@ fn render_cube_with_vector_attrs() {
 }
 
 #[test]
+#[ignore]
 fn render_sphere_field() {
     let mut objects = vec![];
     let camera = translate(4.0 * Y) * &rotate_x(Rad(0.5));

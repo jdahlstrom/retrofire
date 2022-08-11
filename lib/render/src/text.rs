@@ -1,13 +1,12 @@
 use std::mem::replace;
 
 use geom::{Align, Sprite};
-use math::mat::Mat4;
-use math::transform::Transform;
+use geom::mesh::Vertex;
 use math::vec::pt;
 use util::color::Color;
 use util::tex::{SamplerOnce, TexCoord, Texture, uv};
 
-use crate::{Rasterize, render::Render, State};
+use crate::{Batch, Rasterize, render::Render, State};
 use crate::raster::Fragment;
 use crate::shade::{Shader, ShaderImpl};
 
@@ -32,7 +31,7 @@ impl Font {
 
 pub struct Text<'a> {
     pub font: &'a Font,
-    geom: Vec<Sprite<TexCoord>>,
+    geom: Vec<Sprite<Vertex<TexCoord>>>,
 }
 
 impl<'a> Text<'a> {
@@ -45,14 +44,14 @@ impl<'a> Text<'a> {
                     None
                 } else if let Some(bounds) = font.glyph_bounds(c) {
                     let oldx = replace(x, *x + font.glyph_w);
-                    Some(Sprite {
-                        anchor: pt(oldx as f32, *y as f32, 0.0),
-                        align: Align::TopRight,
-                        width: font.glyph_w as f32,
-                        height: font.glyph_h as f32,
-                        vertex_attrs: bounds,
-                        face_attr: (),
-                    })
+                    Some(Sprite::new(
+                        pt(oldx as f32, *y as f32, 0.0),
+                        Align::TopRight,
+                        font.glyph_w as f32,
+                        font.glyph_h as f32,
+                        bounds,
+                        (),
+                    ))
                 } else {
                     None
                 };
@@ -65,29 +64,33 @@ impl<'a> Text<'a> {
     }
 }
 
-impl<'a> Transform for Text<'a> {
-    fn transform_mut(&mut self, tf: &Mat4) {
-        for s in &mut self.geom {
-            s.transform_mut(tf);
-        }
-    }
-}
-
 impl<'a> Render<(), TexCoord, Color> for Text<'a> {
     fn render<S, R>(&self, st: &mut State, shader: &mut S, raster: &mut R)
     where
         S: Shader<(), TexCoord, Color, VtxOut = TexCoord>,
         R: Rasterize,
     {
+        let mut prims = vec![];
+        let mut verts = vec![];
+
         for s in &self.geom {
-            s.render(st, &mut ShaderImpl {
-                vs: |v| shader.shade_vertex(v),
-                fs: |f: Fragment<TexCoord>| {
-                    SamplerOnce.sample_abs(&self.font.glyphs, f.varying)
-                        .and_then(|col| shader.shade_fragment(f.varying(col)))
-                },
-            }, raster);
+            let l = verts.len();
+            prims.push(Sprite {
+                verts: [l, l+1, l+2, l+3],
+                face_attr: s.face_attr
+            });
+            verts.extend(s.verts);
         }
+
+        let batch = Batch { prims, verts };
+        batch.render(st, &mut ShaderImpl {
+            vs: |v| shader.shade_vertex(v),
+            fs: |f: Fragment<TexCoord>| {
+                SamplerOnce.sample_abs(&self.font.glyphs, f.varying)
+                    .and_then(|col| shader.shade_fragment(f.varying(col)))
+            },
+        }, raster);
+
     }
 }
 

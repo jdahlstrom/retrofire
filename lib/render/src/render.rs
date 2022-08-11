@@ -9,10 +9,10 @@ use geom::mesh::{Face, Mesh, Soa, SoaVecs, SubMesh, Vertex, vertex};
 use math::Linear;
 use math::mat::Mat4;
 use math::transform::Transform;
-use math::vary::Vary;
+use math::vec::{vec4, X, Y, Z};
 use util::color::Color;
 
-use crate::{Batch, hsr, Rasterize, Span, State, with_depth};
+use crate::{Batch, hsr, Rasterize, State};
 use crate::hsr::Visibility;
 use crate::scene::{Obj, Scene};
 use crate::shade::{Shader, ShaderImpl};
@@ -181,89 +181,38 @@ impl<V: Linear<f32> + Copy> Render<(), V, V> for Polyline<Vertex<V>> {
                 .collect(),
             verts: self.0.clone(),
         };
-
         batch.render(st, shader, raster);
-
-        for seg in self.edges() {
-            seg.render(st, shader, raster);
-        }
     }
 }
 
-impl<U: Copy, V: Copy> Render<U, V, V> for Sprite<V, U> {
+impl<U, V> Render<U, V, V> for Sprite<Vertex<V>, U>
+where
+    U: Copy + Debug,
+    V: Linear<f32> + Copy
+{
     fn render<S, R>(&self, st: &mut State, shader: &mut S, raster: &mut R)
     where
-        S: Shader<U, V>,
+        S: Shader<U, V, VtxOut=V>,
         R: Rasterize,
     {
-        st.stats.prims_in += 1;
-        st.stats.verts_in += 1;
-
-        let mut this = *self;
-        this.anchor.transform_mut(&st.modelview);
-        let scale = &st.modelview.row(0).len();
-        this.width *= scale;
-        this.height *= scale;
-
-        let this = Self {
-            anchor: self.anchor.transform(&st.modelview),
-            width: self.width * scale,
-            height: self.height * scale,
-            ..*self
+        let s = Sprite {
+            verts: [0usize, 1, 2, 3],
+            face_attr: self.face_attr
         };
+        let b = Batch {
+            prims: vec![s],
+            verts: self.verts.to_vec()
+        };
+        let [x, y, z, _] = st.modelview.cols();
+        let mv = Mat4::from_rows([
+            x.to_dir().len() * X,
+            y.to_dir().len() * Y,
+            z.to_dir().len() * Z,
+            vec4(x.w, y.w, z.w, 1.0)
+        ]);
 
-        let mut vs: Vec<_> = this.verts()
-            .map(|v| {
-                let mut v = shader.shade_vertex(v);
-                v.coord.transform_mut(&st.projection);
-                v
-            })
-            .collect();
-
-        let mut clip_out = Vec::new();
-        hsr::clip(&mut vs, &mut clip_out);
-        let mut vs: Vec<_> = clip_out.into_iter()
-            .map(|v| clip_to_screen(v, &st.viewport))
-            .collect();
-
-        match vs.as_mut_slice() {
-            [] => {}
-            [v0, v1, v2, v3] => {
-                st.stats.prims_out += 1;
-                st.stats.verts_out += 1;
-
-                if v0.coord.y > v2.coord.y {
-                    swap(v0, v3);
-                    swap(v1, v2);
-                }
-                if v0.coord.x > v1.coord.x {
-                    swap(v0, v1);
-                    swap(v2, v3);
-                }
-
-                // TODO extract to fn rect_fill
-                let (x0, y0) = (v0.coord.x.round(), v0.coord.y.round());
-                let (x1, y1) = (v2.coord.x.round(), v2.coord.y.round());
-                let v = (v0.attr, v1.attr)
-                    .vary(&(v3.attr, v2.attr), y1 - y0);
-
-                for (y, (v0, v1)) in (y0 as usize..y1 as usize).zip(v) {
-                    raster.rasterize_span(shader, Span {
-                        y,
-                        xs: (x0 as usize, x1 as usize),
-                        vs: (v0, v1),
-                        uni: self.face_attr,
-                    });
-                }
-            }
-            _ => debug_assert!(false, "should not happen: vs.len()={}", vs.len())
-        }
+        let prev_mv = replace(&mut st.modelview, mv);
+        b.render(st, shader, raster);
+        st.modelview = prev_mv;
     }
 }
-
-#[inline]
-fn clip_to_screen<A>(mut v: Vertex<A>, viewport: &Mat4) -> Vertex<(f32, A)> {
-    v.coord = (v.coord / v.coord.w).transform(viewport);
-    with_depth(v)
-}
-
