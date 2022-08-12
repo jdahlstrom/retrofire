@@ -9,10 +9,10 @@ use geom::mesh::{Face, Mesh, Soa, SoaVecs, SubMesh, Vertex, vertex};
 use math::Linear;
 use math::mat::Mat4;
 use math::transform::Transform;
-use math::vec::{vec4, X, Y, Z};
+use math::vary::Vary;
 use util::color::Color;
 
-use crate::{Batch, hsr, Rasterize, Span, State};
+use crate::{Batch, hsr, Rasterize, Span, State, with_depth};
 use crate::hsr::Visibility;
 use crate::scene::{Obj, Scene};
 use crate::shade::{Shader, ShaderImpl};
@@ -85,6 +85,8 @@ where
         if let Some(col) = st.options.bounding_boxes {
             render_bbox(&self.bbox, st, raster, col);
         }
+
+        return;
     }
 }
 
@@ -167,12 +169,21 @@ where
     }
 }
 
-impl<V: Copy> Render<(), V, V> for Polyline<V> {
+impl<V: Linear<f32> + Copy> Render<(), V, V> for Polyline<Vertex<V>> {
     fn render<S, R>(&self, st: &mut State, shader: &mut S, raster: &mut R)
     where
         S: Shader<(), V, VtxOut=V>,
         R: Rasterize,
     {
+        let batch = Batch {
+            prims: (0..self.0.len() - 1)
+                .map(|i| LineSeg([i, i + 1]))
+                .collect(),
+            verts: self.0.clone(),
+        };
+
+        batch.render(st, shader, raster);
+
         for seg in self.edges() {
             seg.render(st, shader, raster);
         }
@@ -249,3 +260,10 @@ impl<U: Copy, V: Copy> Render<U, V, V> for Sprite<V, U> {
         }
     }
 }
+
+#[inline]
+fn clip_to_screen<A>(mut v: Vertex<A>, viewport: &Mat4) -> Vertex<(f32, A)> {
+    v.coord = (v.coord / v.coord.w).transform(viewport);
+    with_depth(v)
+}
+

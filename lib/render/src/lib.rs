@@ -1,6 +1,7 @@
 use std::borrow::Cow;
 use std::fmt::Debug;
 use std::mem::replace;
+use geom::LineSeg;
 
 use geom::mesh::{Face, Vertex};
 use math::Linear;
@@ -153,7 +154,7 @@ where
                 if verts_out.is_empty() {
                     return vec![];
                 }
-                if !frontface(&[verts_out[0], verts_out[1], verts_out[2]]) {
+                if !frontface(&verts_out[..3].try_into().unwrap()) {
                     // New faces are coplanar, if one is a backface then all are
                     return vec![];
                 }
@@ -209,6 +210,47 @@ where
                 });
             }
         }
+    }
+}
+
+impl Primitive<()> for LineSeg<usize> {
+    type Vertices = [usize; 2];
+
+    fn vertices(&self) -> Self::Vertices {
+        self.0
+    }
+
+    fn clip<V>(&self, verts: &mut Vec<Vertex<V>>) -> Vec<Self>
+    where
+        V: Linear<f32> + Copy
+    {
+        let mut verts_in = vec![verts[self.0[0]], verts[self.0[1]]];
+        let mut verts_out = vec![];
+        hsr::clip(&mut verts_in, &mut verts_out);
+        if let &[a, b, ..] = verts_out.as_slice() {
+            verts.push(a);
+            verts.push(b);
+            vec![LineSeg([verts.len() - 2, verts.len() - 1])]
+        } else {
+            vec![]
+        }
+    }
+
+    fn rasterize<S, R, V>(&self, verts: &[Vertex<V>], st: &mut State, shader: &mut S, raster: &mut R)
+    where
+        S: FragmentShader<V, ()>,
+        R: Rasterize,
+        V: Linear<f32> + Copy
+    {
+        let verts = [
+            // TODO clean up
+            verts[self.0[0]].attr_with(|v| (v.coord.z, v.attr)),
+            verts[self.0[1]].attr_with(|v| (v.coord.z, v.attr)),
+        ];
+        line(verts, (), |frag: Fragment<_>| {
+            st.stats.pix_in += 1;
+            st.stats.pix_out += raster.rasterize_frag(shader, frag);
+        })
     }
 }
 

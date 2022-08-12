@@ -14,9 +14,9 @@ pub mod bbox;
 mod teapot;
 
 #[derive(Copy, Clone, Debug)]
-pub struct LineSeg<VA>(pub [Vertex<VA>; 2]);
+pub struct LineSeg<V>(pub [V; 2]);
 
-impl<VA> Transform for LineSeg<VA> {
+impl<A> Transform for LineSeg<Vertex<A>> {
     fn transform_mut(&mut self, tf: &Mat4) {
         self.0[0].coord.transform_mut(tf);
         self.0[1].coord.transform_mut(tf);
@@ -24,24 +24,21 @@ impl<VA> Transform for LineSeg<VA> {
 }
 
 #[derive(Clone, Debug, Default)]
-pub struct Polyline<VA>(pub Vec<Vertex<VA>>);
+pub struct Polyline<V>(pub Vec<V>);
 
-impl<VA: Copy> Polyline<VA> {
-    pub fn edges<'a>(&'a self) -> impl Iterator<Item=LineSeg<VA>> + 'a {
+impl<V: Copy> Polyline<V> {
+    pub fn edges<'a>(&'a self) -> impl Iterator<Item = LineSeg<V>> + 'a {
         self.0.windows(2).map(|vs| LineSeg([vs[0], vs[1]]))
     }
 }
 
-impl<VA> FromIterator<Vertex<VA>> for Polyline<VA> {
-    fn from_iter<I>(iter: I) -> Self
-    where
-        I: IntoIterator<Item=Vertex<VA>>
-    {
+impl<V> FromIterator<V> for Polyline<V> {
+    fn from_iter<I: IntoIterator<Item = V>>(iter: I) -> Self {
         Self(Vec::from_iter(iter))
     }
 }
 
-impl<VA> Transform for Polyline<VA> {
+impl<A> Transform for Polyline<Vertex<A>> {
     fn transform_mut(&mut self, tf: &Mat4) {
         for v in &mut self.0 {
             v.coord.transform_mut(tf);

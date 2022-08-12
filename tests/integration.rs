@@ -57,7 +57,7 @@ where
 fn render_scene<VA, FA>(scene: Scene<Mesh<VA, FA>>) -> Stats
 where
     VA: Copy + Debug + Linear<f32> + Soa + 'static,
-    FA: Copy
+    FA: Copy + Debug,
 {
     const W: usize = 50;
     const H: usize = 20;
