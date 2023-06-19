@@ -1,0 +1,165 @@
+use core::iter::zip;
+
+/// Methods for testing the approximate equality of two values.
+///
+/// Floating-point types are only an approximation of real numbers due to their
+/// finite precision. The presence of rounding errors means that two floats may
+/// not compare equal even if their counterparts in ℝ would. Even such a simple
+/// expression as `0.1 + 0.2 == 0.3` will evaluate to false due to precision
+/// issues.
+///
+/// Approximate equality is a more robust way to compare floating-point values
+/// than strict equality. Two values are considered approximately equal if their
+/// absolute difference is less than some small value, "epsilon". The choice of
+/// the epsilon value is not an exact science, and depends on how much error
+/// has accrued in the computation of the values.
+///
+/// Moreover, due to the nature of floating point, a naive comparison against
+/// a fixed value does not work well. Rather, the epsilon should be *relative*
+/// to the magnitude of the values being compared.
+pub trait ApproxEq<Other: ?Sized = Self, Epsilon = Self> {
+    /// Returns whether `self` and `other` are approximately equal.
+    /// Uses the epsilon returned by [`Self::relative_epsilon`].
+    fn approx_eq(&self, other: &Other) -> bool {
+        self.approx_eq_eps(other, &Self::relative_epsilon())
+    }
+
+    /// Returns whether `self` and `other` are approximately equal,
+    /// using the relative epsilon `rel_eps`.
+    fn approx_eq_eps(&self, other: &Other, rel_eps: &Epsilon) -> bool;
+
+    /// Returns the default relative epsilon of type `E`.
+    fn relative_epsilon() -> Epsilon;
+}
+
+impl ApproxEq for f32 {
+    fn approx_eq_eps(&self, other: &Self, rel_eps: &Self) -> bool {
+        (self - other).abs() <= *rel_eps * self.abs().max(1.0)
+    }
+    fn relative_epsilon() -> Self {
+        Self::EPSILON
+    }
+}
+
+impl<Scalar: Sized + ApproxEq> ApproxEq<Self, Scalar> for [Scalar] {
+    fn approx_eq_eps(&self, other: &Self, rel_eps: &Scalar) -> bool {
+        self.len() == other.len()
+            && zip(self, other).all(|(s, o)| s.approx_eq_eps(o, rel_eps))
+    }
+    fn relative_epsilon() -> Scalar {
+        Scalar::relative_epsilon()
+    }
+}
+
+/// Asserts that two values are approximately equal.
+/// Requires that the left operand has an applicable [`ApproxEq`] impl.
+///
+/// # Examples
+///
+/// The following assertion passes even though `assert_eq` fails:
+/// ```
+/// # use retrofire_core::assert_approx_eq;
+/// assert_approx_eq!(0.1 + 0.2, 0.3);
+/// // Fails: assert_eq!(0.1 + 0.2, 0.3);
+/// ```
+/// A relative epsilon is used:
+/// ```
+/// # use retrofire_core::assert_approx_eq;
+/// assert_approx_eq!(1e7, 1e7 + 1.0);
+/// ```
+/// A custom epsilon can be given:
+/// ```
+/// # use retrofire_core::assert_approx_eq;
+/// assert_approx_eq!(100.0, 101.0, eps=0.01);
+/// ```
+/// Custom messages are supported like in the standard assert macros:
+/// ```should_panic
+/// # use std::f32;
+/// # use retrofire_core::assert_approx_eq;
+/// assert_approx_eq!(f32::sin(3.14), 0.0,
+///     "3.14 is not close enough to {}!", f32::consts::PI);
+/// ```
+#[macro_export]
+macro_rules! assert_approx_eq {
+    ($a:expr, $b:expr) => {
+        match (&$a, &$b) {
+            (a, b) => assert_approx_eq!(
+                *a, *b,
+                "assertion failed: `{a:?} ≅ {b:?}`"
+            )
+        }
+    };
+    ($a:expr, $b:expr, eps = $eps:literal) => {
+        match (&$a, &$b) {
+            (a, b) => assert_approx_eq!(
+                *a, *b, eps = $eps,
+                "assertion failed: `{a:?} ≅ {b:?}`"
+            )
+        }
+    };
+    ($a:expr, $b:expr, $fmt:literal $(, $args:expr)*) => {{
+        use $crate::math::approx::ApproxEq;
+        match (&$a, &$b) {
+            (a, b) => assert!(ApproxEq::approx_eq(a, b), $fmt $(, $args)*)
+        }
+    }};
+    ($a:expr, $b:expr, eps = $eps:literal, $fmt:literal $(, $args:expr)*) => {{
+        use $crate::math::approx::ApproxEq;
+        match (&$a, &$b) {
+            (a, b) => assert!(
+                ApproxEq::approx_eq_eps(a, b, &$eps),
+                $fmt $(, $args)*
+            )
+        }
+    }};
+}
+
+#[cfg(test)]
+mod approx_eq_tests {
+
+    #[test]
+    fn f32_approx_eq_zero() {
+        assert_approx_eq!(0.0, 0.0);
+        assert_approx_eq!(-0.0, 0.0);
+        assert_approx_eq!(0.0, -0.0);
+    }
+
+    #[test]
+    fn f32_approx_eq_pos() {
+        assert_approx_eq!(0.0, 0.0000001);
+        assert_approx_eq!(0.0000001, 0.0);
+        assert_approx_eq!(0.9999999, 1.0);
+        assert_approx_eq!(1.0, 1.0000001);
+        assert_approx_eq!(1.0e10, 1.0000001e10);
+    }
+
+    #[test]
+    fn f32_approx_eq_neg() {
+        assert_approx_eq!(0.0, -0.0000001);
+        assert_approx_eq!(-0.0000001, 0.0);
+        assert_approx_eq!(-1.0, -1.0000001);
+        assert_approx_eq!(-0.9999999, -1.0);
+        assert_approx_eq!(-1.0e10, -1.0000001e10);
+    }
+
+    #[test]
+    #[should_panic]
+    fn f32_0_not_approx_eq_to_1() {
+        assert_approx_eq!(0.0, 1.0);
+    }
+    #[test]
+    #[should_panic]
+    fn f32_1_not_approx_eq_to_1_000001() {
+        assert_approx_eq!(1.0, 1.000001);
+    }
+    #[test]
+    #[should_panic]
+    fn f32_inf_not_approx_eq_to_inf() {
+        assert_approx_eq!(f32::INFINITY, f32::INFINITY);
+    }
+    #[test]
+    #[should_panic]
+    fn f32_nan_not_approx_eq_to_nan() {
+        assert_approx_eq!(f32::NAN, f32::NAN);
+    }
+}

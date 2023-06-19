@@ -2,6 +2,8 @@ use core::fmt::{Debug, Formatter};
 use core::marker::PhantomData;
 use core::ops::{Add, Index, Mul, Neg, Sub};
 
+use crate::math::approx::ApproxEq;
+
 pub trait VectorLike: Sized {
     type Space;
     type Scalar: Sized;
@@ -78,6 +80,17 @@ where
             res.0[i] = -self.0[i];
         }
         res
+    }
+}
+
+impl<Scalar: ApproxEq, Space, const N: usize> ApproxEq<Self, Scalar>
+    for Vector<[Scalar; N], Space>
+{
+    fn approx_eq_eps(&self, other: &Self, eps: &Scalar) -> bool {
+        self.0.approx_eq_eps(&other.0, eps)
+    }
+    fn relative_epsilon() -> Scalar {
+        Scalar::relative_epsilon()
     }
 }
 
@@ -194,6 +207,8 @@ pub fn vec4<Sc>(x: Sc, y: Sc, z: Sc, w: Sc) -> Vec4<Sc> {
 
 #[cfg(test)]
 mod tests {
+    use crate::assert_approx_eq;
+
     use super::*;
 
     mod f32 {
@@ -270,6 +285,16 @@ mod tests {
             vec3(0.0, 0.0, 1.0).cross(&vec3(0.0, 1.0, 0.0)),
             vec3(-1.0, 0.0, 0.0)
         );
+    }
+
+    #[test]
+    fn approx_equal_pass() {
+        assert_approx_eq!(vec2(1.0, -10.0), vec2(1.01, -9.9), eps = 0.011)
+    }
+    #[test]
+    #[should_panic]
+    fn approx_equal_fail() {
+        assert_approx_eq!(vec2(1.0, -10.0), vec2(1.0 + 1e5, -10.0 - 1e5))
     }
 
     #[test]
