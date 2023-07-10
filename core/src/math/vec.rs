@@ -94,6 +94,30 @@ where
     }
 }
 
+impl<V> Vary for V
+where
+    V: Copy + VectorLike<Scalar = f32>,
+{
+    type Iter = Iter<Self>;
+
+    #[inline]
+    fn vary(self, step: Self, max: Option<u32>) -> Self::Iter {
+        Iter::new(self, step, max)
+    }
+
+    #[inline]
+    fn lerp(self, other: Self, t: f32) -> Self {
+        let delta = other.sub(&self);
+        self.add(&delta.mul(t))
+    }
+
+    /// Adds `delta` to `self`.
+    #[inline]
+    fn step(self, delta: Self) -> Self {
+        self.add(&delta)
+    }
+}
+
 impl<Scalar: ApproxEq, Space, const N: usize> ApproxEq<Self, Scalar>
     for Vector<[Scalar; N], Space>
 {
