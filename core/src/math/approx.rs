@@ -41,13 +41,24 @@ impl ApproxEq for f32 {
     }
 }
 
-impl<Scalar: Sized + ApproxEq> ApproxEq<Self, Scalar> for [Scalar] {
-    fn approx_eq_eps(&self, other: &Self, rel_eps: &Scalar) -> bool {
+impl<E, T: Sized + ApproxEq<T, E>> ApproxEq<Self, E> for [T] {
+    fn approx_eq_eps(&self, other: &Self, rel_eps: &E) -> bool {
         self.len() == other.len()
             && zip(self, other).all(|(s, o)| s.approx_eq_eps(o, rel_eps))
     }
-    fn relative_epsilon() -> Scalar {
-        Scalar::relative_epsilon()
+    fn relative_epsilon() -> E {
+        T::relative_epsilon()
+    }
+}
+
+impl<E, T: Sized + ApproxEq<T, E>, const N: usize> ApproxEq<Self, E>
+    for [T; N]
+{
+    fn approx_eq_eps(&self, other: &Self, rel_eps: &E) -> bool {
+        self.as_slice().approx_eq_eps(other, rel_eps)
+    }
+    fn relative_epsilon() -> E {
+        T::relative_epsilon()
     }
 }
 

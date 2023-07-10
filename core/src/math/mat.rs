@@ -3,6 +3,7 @@
 use core::fmt::{self, Debug, Formatter};
 use core::marker::PhantomData;
 
+use crate::math::approx::ApproxEq;
 use crate::math::vec::{vec4, Real, Vec3, Vec4, VectorLike};
 
 pub trait LinearMap {
@@ -41,8 +42,8 @@ impl<Scalar, Map, const N: usize> Matrix<[[Scalar; N]; N], Map> {
     }
 }
 
-type Mat3x3<Scalar = f32, Map = ()> = Matrix<[[Scalar; 3]; 3], Map>;
-type Mat4x4<Scalar = f32, Map = ()> = Matrix<[[Scalar; 4]; 4], Map>;
+pub type Mat3x3<Scalar = f32, Map = ()> = Matrix<[[Scalar; 3]; 3], Map>;
+pub type Mat4x4<Scalar = f32, Map = ()> = Matrix<[[Scalar; 4]; 4], Map>;
 
 impl<M> Mat4x4<f32, M> {
     pub fn identity() -> Self {
@@ -215,7 +216,7 @@ impl<Scalar: ApproxEq, Map, const N: usize> ApproxEq<Self, Scalar>
     for Matrix<[[Scalar; N]; N], Map>
 {
     fn approx_eq_eps(&self, other: &Self, eps: &Scalar) -> bool {
-        self.0.approx_eq(&other.0)
+        self.0.approx_eq_eps(&other.0, eps)
     }
     fn relative_epsilon() -> Scalar {
         Scalar::relative_epsilon()
@@ -247,96 +248,6 @@ pub fn orient_y(_new_y: Vec3, _x: Vec3) -> Mat4x4 {
 }
 pub fn orient_z(_new_z: Vec3, _x: Vec3) -> Mat4x4 {
     todo!()
-}
-
-#[cfg(feature = "std")]
-mod trig {
-    use core::ops::Range;
-
-    use crate::math::angle::Angle;
-
-    use super::*;
-
-    pub fn rotate_x(a: Angle) -> Mat4x4 {
-        let (sin, cos) = a.sin_cos();
-        [
-            [1.0, 0.0, 0.0, 0.0],
-            [0.0, cos, sin, 0.0],
-            [0.0, -sin, cos, 0.0],
-            [0.0, 0.0, 0.0, 1.0],
-        ]
-        .into()
-    }
-
-    pub fn rotate_y(a: Angle) -> Mat4x4 {
-        let (sin, cos) = a.sin_cos();
-        [
-            [cos, 0.0, -sin, 0.0],
-            [0.0, 1.0, 0.0, 0.0],
-            [sin, 0.0, cos, 0.0],
-            [0.0, 0.0, 0.0, 1.0],
-        ]
-        .into()
-    }
-
-    pub fn rotate_z(a: Angle) -> Mat4x4 {
-        let (sin, cos) = a.sin_cos();
-        [
-            [cos, sin, 0.0, 0.0],
-            [-sin, cos, 0.0, 0.0],
-            [0.0, 0.0, 1.0, 0.0],
-            [0.0, 0.0, 0.0, 1.0],
-        ]
-        .into()
-    }
-
-    pub fn rotate_about(_axis: Vec3, _amt: Angle) -> Mat4x4 {
-        todo!()
-    }
-
-    pub fn perspective(
-        fov: Angle,
-        aspect: f32,
-        near_far: Range<f32>,
-    ) -> Mat4x4<f32, RealToProjective<() /* TODO: Ndc */>> {
-        let Range {
-            start: near,
-            end: far,
-        } = near_far;
-
-        assert!(near > f32::EPSILON, "near cannot be 0");
-        assert!(!near_far.is_empty());
-
-        let e00 = 1.0 / (fov / 2.0).tan();
-        let e11 = aspect * e00;
-
-        let e22 = (far + near) / (far - near);
-        let e23 = -near * (far + near) / (far - near) - near;
-
-        [
-            [e00, 0.0, 0.0, 0.0], //
-            [0.0, e11, 0.0, 0.0], //
-            [0.0, 0.0, e22, e23], //
-            [0.0, 0.0, 1.0, 0.0], //
-        ]
-        .into()
-    }
-}
-
-#[cfg(feature = "std_float")]
-pub fn look_at(pos: Vec3, at: Vec3) -> CameraMatrix {
-    let z = (pos - at).normalize();
-    let x = Vec3::Y.cross(z).normalize();
-    let y = z.cross(x);
-
-    AffineMat3::<(), ()>::new([
-        x[0], x[1], x[2], pos[0], //
-        y[0], y[1], y[2], pos[1], //
-        z[0], z[1], z[2], pos[2], //
-        0.0, 0.0, 0.0, 1.0,
-    ])
-    .invert()
-    .to()
 }
 
 pub fn viewport(left: f32, top: f32, right: f32, bottom: f32) -> Mat4x4 {
@@ -391,196 +302,5 @@ mod tests {
         let v = vec3(0.0, 5.0, -3.0);
 
         assert_eq!(m.map(&v), vec3(1.0, 7.0, 0.0));
-    }
-}
-
-#[cfg(feature = "foo")]
-mod tests {
-    use core::iter::zip;
-
-    /*impl<B: Basis> ApproxEq<Self, f32> for Vector<B>
-        where
-            B::Scalar: ApproxEq<B::Scalar, f32>,
-        {
-            fn approx_eq(&self, other: &Self) -> bool {
-                self.approx_eq_eps(other, &f32::EPSILON)
-            }
-
-            fn approx_eq_eps(&self, other: &Self, eps: &f32) -> bool {
-                zip(self.1.as_ref(), other.1.as_ref())
-                    .all(|(s, o)| s.approx_eq_eps(o, eps))
-            }
-        }
-
-        impl<M: AffineMap> ApproxEq<Self, f32> for Matrix<M>
-        where
-            M::Scalar: ApproxEq<M::Scalar, f32>,
-        {
-            fn approx_eq(&self, other: &Self) -> bool {
-                self.approx_eq_eps(other, &f32::EPSILON)
-            }
-
-            fn approx_eq_eps(&self, other: &Self, eps: &f32) -> bool {
-                zip(self.1.as_ref(), other.1.as_ref()) //
-                    .all(|(s, o)| s.approx_eq_eps(o, eps))
-            }
-        }
-    */
-    #[test]
-    fn mat_width_height() {
-        let m = AffineMat3::<(), ()>::identity();
-
-        assert_eq!(m.width(), 4);
-        assert_eq!(m.height(), 4);
-    }
-
-    #[test]
-    fn mat_identity() {
-        let m = AffineMat3::<(), ()>::identity();
-
-        for r in 0..m.height() {
-            for c in 0..m.width() {
-                assert_eq!(
-                    m.row(r)[c],
-                    if r == c { 1.0 } else { 0.0 },
-                    "row={r}, col={c}"
-                );
-            }
-        }
-    }
-
-    #[test]
-    fn mat_vec_translate() {
-        let m = translate(vec3(1.0, 2.0, 3.0));
-        let v = Vec3::new([0.0, 5.0, -3.0]);
-
-        assert_eq!(m.map(&v), Vector::new([1.0, 7.0, 0.0]));
-    }
-
-    #[test]
-    fn affine_mat_row_vecs() {
-        let m = AffineMat3::<(), ()>::new([
-            1.0, 2.0, 3.0, 4.0, //
-            5.0, 6.0, 7.0, 8.0, //
-            9.0, 10.0, 11.0, 12.0, //
-            0.0, 0.0, 0.0, 1.0,
-        ]);
-        assert_eq!(m.row_vec(0), vec4(1.0, 2.0, 3.0, 4.0));
-        assert_eq!(m.row_vec(1), vec4(5.0, 6.0, 7.0, 8.0));
-        assert_eq!(m.row_vec(2), vec4(9.0, 10.0, 11.0, 12.0));
-    }
-
-    #[test]
-    fn affine_mat_col_vecs() {
-        let m = AffineMat3::<(), ()>::new([
-            1.0, 2.0, 3.0, 4.0, //
-            5.0, 6.0, 7.0, 8.0, //
-            9.0, 10.0, 11.0, 12.0, //
-            0.0, 0.0, 0.0, 1.0,
-        ]);
-        assert_eq!(m.col_vec(0), vec4(1.0, 5.0, 9.0, 0.0));
-        assert_eq!(m.col_vec(1), vec4(2.0, 6.0, 10.0, 0.0));
-        assert_eq!(m.col_vec(2), vec4(3.0, 7.0, 11.0, 0.0));
-        assert_eq!(m.col_vec(3), vec4(4.0, 8.0, 12.0, 1.0));
-    }
-
-    #[test]
-    fn affine3_mat_mat_mul() {
-        let mw = scale(vec3(-1.0, 1.0, -1.0));
-
-        let composed = mw.compose(&mw).compose(&mw).compose(&mw);
-
-        //assert_approx_eq!(composed, &Matrix::identity(), eps = 0.0001);
-    }
-
-    #[test]
-    fn inverse_of_identity_is_identity() {
-        let i: AffineMat3 = Matrix::identity();
-        let ii = i.invert();
-        assert_eq!(i, ii);
-    }
-
-    #[test]
-    fn inverse_of_translate_is_negative_translate() {
-        let tr = vec3(1.0, 2.0, 3.0);
-        assert_eq!(translate(tr).invert(), translate(-tr));
-    }
-}
-
-#[cfg(all(test, feature = "stdxxx"))]
-mod trig_tests {
-    //use crate::assert_approx_eq;
-    use crate::math::angle::turns;
-    use crate::math::vec::Vec3;
-
-    use super::super::*;
-
-    #[test]
-    fn mat_vec_rotate_x() {
-        let m = super::rotate_x(turns(0.25));
-        let v = Vec3::new([1.0, 2.0, 0.0]);
-
-        assert_approx_eq!(m.map(&v), Vector::new([1.0, 0.0, -2.0]));
-    }
-
-    #[test]
-    fn mat_vec_rotate_y() {
-        let m = super::rotate_y(turns(0.25));
-        let v = Vec3::new([1.0, 2.0, 0.0]);
-
-        assert_approx_eq!(m.map(&v), Vector::new([0.0, 2.0, 1.0]));
-    }
-
-    #[test]
-    fn mat_vec_rotate_z() {
-        let m = super::rotate_z(turns(0.25));
-        let v = Vec3::new([1.0, 2.0, 0.0]);
-
-        assert_approx_eq!(m.map(&v), Vector::new([-2.0, -1.0, 0.0]));
-    }
-
-    #[test]
-    fn map_vec_from_world_to_projective() {
-        let v = Vector::new([200.0, 0.0, 999.0]);
-
-        let p = super::perspective(degs(90.0), 1.0, 1.0..1000.0);
-
-        dbg!(&p);
-
-        dbg!(p.map(&v).project_to_real());
-        dbg!(p.map(&v));
-        todo!("doesn't assert anything")
-    }
-
-    #[test]
-    fn inverse_of_rotate_is_negative_rotate() {
-        let ng = degs(137.0);
-        let i: AffineMat3 = rotate_x(ng);
-        let ii = i.invert();
-        assert_approx_eq!(ii, rotate_x(-ng));
-    }
-
-    #[test]
-    fn inverse_of_inverse_is_original() {
-        let mat = rotate_z(degs(198.0))
-            .compose(&translate(vec3(1.0, 2.0, 3.0)))
-            .compose(&scale(vec3(-2.0, 3.0, 4.0)))
-            .compose(&rotate_x(degs(37.0)));
-
-        assert_approx_eq!(mat, mat.invert().invert(), eps = 1e-4)
-    }
-
-    #[test]
-    fn original_times_inverse_is_identity() {
-        let mat = rotate_z(degs(198.0))
-            .compose(&translate(vec3(1.0, 2.0, 3.0)))
-            .compose(&scale(vec3(-2.0, 3.0, 4.0)))
-            .compose(&rotate_x(degs(37.0)));
-
-        assert_approx_eq!(
-            mat.compose(&mat.invert()),
-            Matrix::identity(),
-            eps = 1e-4
-        )
     }
 }
