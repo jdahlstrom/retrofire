@@ -52,7 +52,12 @@ impl<Scalar: Sized + ApproxEq> ApproxEq<Self, Scalar> for [Scalar] {
 }
 
 /// Asserts that two values are approximately equal.
-/// Requires that the left operand has an applicable [`ApproxEq`] impl.
+/// Requires that the left operand has an applicable [`ApproxEq`] impl
+/// and that both operands impl `Debug` unless a custom message is given.
+///
+/// # Panics
+///
+/// If the given values are not approximately equal.
 ///
 /// # Examples
 ///
@@ -60,7 +65,7 @@ impl<Scalar: Sized + ApproxEq> ApproxEq<Self, Scalar> for [Scalar] {
 /// ```
 /// # use retrofire_core::assert_approx_eq;
 /// assert_approx_eq!(0.1 + 0.2, 0.3);
-/// // Fails: assert_eq!(0.1 + 0.2, 0.3);
+/// //assert_eq!(0.1 + 0.2, 0.3); Would panic!
 /// ```
 /// A relative epsilon is used:
 /// ```
@@ -70,13 +75,14 @@ impl<Scalar: Sized + ApproxEq> ApproxEq<Self, Scalar> for [Scalar] {
 /// A custom epsilon can be given:
 /// ```
 /// # use retrofire_core::assert_approx_eq;
-/// assert_approx_eq!(100.0, 101.0, eps=0.01);
+/// assert_approx_eq!(100.0, 101.0, eps = 0.01);
 /// ```
-/// Custom messages are supported like in the standard assert macros:
+/// Like `assert_eq`, supports custom panic messages. The epsilon is
+/// optional but must come before the format string.
 /// ```should_panic
 /// # use std::f32;
 /// # use retrofire_core::assert_approx_eq;
-/// assert_approx_eq!(f32::sin(3.14), 0.0,
+/// assert_approx_eq!(f32::sin(3.14), 0.0, eps = 0.001,
 ///     "3.14 is not close enough to {}!", f32::consts::PI);
 /// ```
 #[macro_export]
@@ -115,51 +121,61 @@ macro_rules! assert_approx_eq {
 }
 
 #[cfg(test)]
-mod approx_eq_tests {
+mod tests {
 
-    #[test]
-    fn f32_approx_eq_zero() {
-        assert_approx_eq!(0.0, 0.0);
-        assert_approx_eq!(-0.0, 0.0);
-        assert_approx_eq!(0.0, -0.0);
-    }
+    mod f32 {
+        #[test]
+        fn approx_eq_zero() {
+            assert_approx_eq!(0.0, 0.0);
+            assert_approx_eq!(-0.0, 0.0);
+            assert_approx_eq!(0.0, -0.0);
+        }
 
-    #[test]
-    fn f32_approx_eq_pos() {
-        assert_approx_eq!(0.0, 0.0000001);
-        assert_approx_eq!(0.0000001, 0.0);
-        assert_approx_eq!(0.9999999, 1.0);
-        assert_approx_eq!(1.0, 1.0000001);
-        assert_approx_eq!(1.0e10, 1.0000001e10);
-    }
+        #[test]
+        fn approx_eq_positive() {
+            assert_approx_eq!(0.0, 0.0000001);
+            assert_approx_eq!(0.0000001, 0.0);
+            assert_approx_eq!(0.9999999, 1.0);
+            assert_approx_eq!(1.0, 1.0000001);
+            assert_approx_eq!(1.0e10, 1.0000001e10);
+        }
 
-    #[test]
-    fn f32_approx_eq_neg() {
-        assert_approx_eq!(0.0, -0.0000001);
-        assert_approx_eq!(-0.0000001, 0.0);
-        assert_approx_eq!(-1.0, -1.0000001);
-        assert_approx_eq!(-0.9999999, -1.0);
-        assert_approx_eq!(-1.0e10, -1.0000001e10);
-    }
+        #[test]
+        fn approx_eq_negative() {
+            assert_approx_eq!(0.0, -0.0000001);
+            assert_approx_eq!(-0.0000001, 0.0);
+            assert_approx_eq!(-1.0, -1.0000001);
+            assert_approx_eq!(-0.9999999, -1.0);
+            assert_approx_eq!(-1.0e10, -1.0000001e10);
+        }
 
-    #[test]
-    #[should_panic]
-    fn f32_0_not_approx_eq_to_1() {
-        assert_approx_eq!(0.0, 1.0);
-    }
-    #[test]
-    #[should_panic]
-    fn f32_1_not_approx_eq_to_1_000001() {
-        assert_approx_eq!(1.0, 1.000001);
-    }
-    #[test]
-    #[should_panic]
-    fn f32_inf_not_approx_eq_to_inf() {
-        assert_approx_eq!(f32::INFINITY, f32::INFINITY);
-    }
-    #[test]
-    #[should_panic]
-    fn f32_nan_not_approx_eq_to_nan() {
-        assert_approx_eq!(f32::NAN, f32::NAN);
+        #[test]
+        fn approx_eq_custom_epsilon() {
+            assert_approx_eq!(0.0, 0.001, eps = 0.01);
+            assert_approx_eq!(0.0, -0.001, eps = 0.01);
+            assert_approx_eq!(1.0, 0.999, eps = 0.01);
+            assert_approx_eq!(100.0, 99.9, eps = 0.01);
+        }
+
+        #[test]
+        #[should_panic]
+        fn zero_not_approx_eq_to_one() {
+            assert_approx_eq!(0.0, 1.0);
+        }
+        #[test]
+        #[should_panic]
+        fn one_not_approx_eq_to_1_000001() {
+            assert_approx_eq!(1.0, 1.000001);
+        }
+        #[test]
+        #[should_panic]
+        fn inf_not_approx_eq_to_inf() {
+            assert_approx_eq!(f32::INFINITY, f32::INFINITY);
+        }
+        #[test]
+        #[should_panic]
+        fn nan_not_approx_eq_to_nan() {
+            assert_approx_eq!(f32::NAN, f32::NAN);
+        }
     }
 }

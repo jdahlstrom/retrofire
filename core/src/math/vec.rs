@@ -1,23 +1,40 @@
+//! Vectors and vector spaces.
+
 use core::fmt::{Debug, Formatter};
 use core::marker::PhantomData;
 use core::ops::{Add, Index, Mul, Neg, Sub};
 
 use crate::math::approx::ApproxEq;
+use crate::math::vary::{Iter, Vary};
 
+/// A trait for "vector-like" types. This includes floating-point
+/// and integer vectors as well as colors.
+///
+/// TODO More documentation
 pub trait VectorLike: Sized {
+    /// The space that `Self` is an element of.
     type Space;
+    /// The type of the scalar components of `Self`.
     type Scalar: Sized;
-    type Repr;
 
+    /// The number of components of this vector.
     const DIM: usize;
 
+    /// Returns a vector with all components zeroed.
     fn zero() -> Self;
 
-    fn repr(&self) -> Self::Repr;
-
+    /// Adds `other` to `self` component-wise.
+    ///
+    /// `add` is commutative and associative.
     fn add(&self, other: &Self) -> Self;
+    /// Multiplies all components of `self` by `scalar`.
+    ///
+    /// `mul` is commutative and associative, and distributes over
+    /// `add` and `sub`.
     fn mul(&self, scalar: Self::Scalar) -> Self;
+    /// Returns the additive inverse of `self`.
     fn neg(&self) -> Self;
+    /// Subtracts `other` from `self`. Equivalent to `self.add(&other.neg())`.
     fn sub(&self, other: &Self) -> Self {
         self.add(&other.neg())
     }
@@ -41,18 +58,12 @@ where
 {
     type Space = Space;
     type Scalar = Scalar;
-    type Repr = [Scalar; N];
 
     const DIM: usize = N;
 
     #[inline]
     fn zero() -> Self {
-        Self(Self::Repr::default(), PhantomData)
-    }
-
-    #[inline]
-    fn repr(&self) -> Self::Repr {
-        self.0
+        Self(Default::default(), PhantomData)
     }
 
     #[inline]
@@ -294,7 +305,7 @@ mod tests {
     #[test]
     #[should_panic]
     fn approx_equal_fail() {
-        assert_approx_eq!(vec2(1.0, -10.0), vec2(1.0 + 1e5, -10.0 - 1e5))
+        assert_approx_eq!(vec2(1.0, -10.0), vec2(1.0 + 1e-5, -10.0 - 1e-5))
     }
 
     #[test]
