@@ -1,0 +1,9 @@
+[package]
+name = "retrofire-front"
+version = "0.3.0"
+edition = "2021"
+
+[dependencies]
+retrofire-core = { path = "../core" }
+minifb = { version = "0.25.0", optional = true }
+sdl2 = { version = "0.35.2", optional = true }
