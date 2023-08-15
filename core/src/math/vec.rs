@@ -252,7 +252,8 @@ mod tests {
         #[cfg(feature = "std")]
         #[test]
         fn length() {
-            assert_eq!(vec2(3.0, 4.0).len(), 5.0)
+            assert_eq!(vec2(3.0, 4.0).len(), 5.0);
+            assert_eq!(vec2(3.0, -4.0).len(), 5.0);
         }
 
         #[test]
