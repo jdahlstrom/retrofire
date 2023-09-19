@@ -3,7 +3,7 @@
 use core::array;
 use core::fmt::{Debug, Formatter};
 use core::marker::PhantomData;
-use core::ops::{Add, Index, Mul, Neg, Sub};
+use core::ops::{Add, Div, Index, IndexMut, Mul, Neg, Sub};
 
 use crate::math::approx::ApproxEq;
 use crate::math::vary::{Iter, Vary};
@@ -89,8 +89,9 @@ pub trait Affine: Sized {
 /// * The type has an additive identity, returned by the [`zero`][Self::zero] method
 /// * Every value has an additive inverse, returned by the [`neg`][Self::neg] method
 ///
-/// TODO More documentation
-/// TODO move to own module
+/// # TODO
+/// * More documentation
+/// * Move to own module?
 pub trait Linear: Affine<Diff = Self> {
     /// Returns the additive identity of this type.
     fn zero() -> Self;
@@ -108,19 +109,32 @@ pub trait Linear: Affine<Diff = Self> {
 // Types
 //
 
-#[derive(Copy, Clone, Default, Eq, PartialEq)]
-pub struct Real<const DIM: usize, Basis = ()>(PhantomData<Basis>);
-
-/// A generic vector type. Represents an element of a vector space or a module.
+/// A generic vector type. Represents an element of a vector space or a module,
+/// a generalization of a vector space where the scalars can be integers
+/// (technically, the scalar type can be any *ring*-like type).
 ///
 /// # Type parameters
 /// * `Repr`: Representation of the scalar components of the vector,
 /// for example an array or a SIMD vector.
 /// * `Space`: The space that the vector is an element of. A tag type used to
 /// prevent mixing up vectors of different spaces and bases.
+///
+/// # Examples
+/// TODO
 #[repr(transparent)]
 #[derive(Copy, Clone, Default, Eq, PartialEq)]
-pub struct Vector<Repr, Space>(pub Repr, PhantomData<Space>);
+pub struct Vector<Repr, Space = ()>(pub Repr, PhantomData<Space>);
+
+/// Tag type for real vector spaces (Euclidean spaces) of dimension `DIM`.
+/// For example, the type `Real<3>` corresponds to ℝ³.
+#[derive(Copy, Clone, Default, Eq, PartialEq)]
+pub struct Real<const DIM: usize, Basis = ()>(PhantomData<Basis>);
+
+/// Tag type for the projective 4-space over reals, 𝗣<sub>4</sub>(ℝ).
+/// The properties of this space make it useful for implementing perspective
+/// projection. Clipping is also done in the projective space.
+#[derive(Copy, Clone, Debug, Default, Eq, PartialEq)]
+pub struct Proj4;
 
 /// A 2D float vector in `Space` (by default ℝ²).
 pub type Vec2<Space = Real<2>> = Vector<[f32; 2], Space>;
@@ -136,70 +150,173 @@ pub type Vec3i<Space = Real<3>> = Vector<[i32; 3], Space>;
 /// A 4D integer vector in `Space` (by default ℤ⁴).
 pub type Vec4i<Space = Real<4>> = Vector<[i32; 4], Space>;
 
-//
-// Inherent impls
-//
+impl<Repr, Space> Vector<Repr, Space> {
+    /// Returns a new vector with representation `repr`.
+    pub const fn new(repr: Repr) -> Self {
+        Self(repr, PhantomData)
+    }
 
-impl<Space, const N: usize> Vector<[f32; N], Space>
-where
-    [f32; N]: Default,
-{
+    /// Returns a vector with value equal to `self` but in space `Sp`.
+    ///
+    /// This method can be used to coerce a vector from one space
+    /// to another in order to make types match. One use case is
+    /// to cast a "generic" vector returned by one of the constructor
+    /// functions to a more specific space.
+    pub fn to<Sp>(self) -> Vector<Repr, Sp> {
+        Vector::new(self.0)
+    }
+}
+
+impl<Space, const N: usize> Vector<[f32; N], Space> {
+    /// Returns the length (magnitude) of `self`.
     #[cfg(feature = "std")]
     #[inline]
     pub fn len(&self) -> f32 {
         self.dot(self).sqrt()
     }
+
+    /// Returns `self` normalized to unit length.
     #[cfg(feature = "std")]
     #[inline]
     pub fn normalize(&self) -> Self {
         self.mul(self.len().recip())
     }
+
+    /// Returns the dot product of `self` and `other`.
     #[inline]
     pub fn dot(&self, other: &Self) -> f32 {
         let res: [f32; N] = array::from_fn(|i| self.0[i] * other.0[i]);
         res.iter().sum()
     }
+
+    /// Returns the scalar projection of `self` onto `other`
+    /// (the length of the component of `self` parallel to `other`).
     pub fn scalar_project(&self, other: &Self) -> f32 {
         self.dot(other).mul(&other.dot(other).recip())
     }
+    /// Returns the vector projection of `self` onto `other`
+    /// (the vector component of `self` parallel to `other`).
+    /// ```text
+    ///            self
+    ///            ^
+    ///           /.
+    ///         /  .
+    ///       /    .
+    ///     /      .
+    ///   /       _.
+    ///  +-------'->-----> other
+    ///         result
+    /// ```
     pub fn vector_project(&self, other: &Self) -> Self {
         other.mul(self.scalar_project(other))
     }
 }
 
-impl<S: Copy, B> Vector<[S; 2], Real<2, B>> {
+impl<R, Sc, B> Vector<R, Real<2, B>>
+where
+    R: Index<usize, Output = Sc>,
+    Sc: Copy,
+{
+    /// Returns the x component of `self`.
     #[inline]
-    pub fn x(&self) -> S {
+    pub fn x(&self) -> Sc {
         self.0[0]
     }
+    /// Returns the y component of `self`.
     #[inline]
-    pub fn y(&self) -> S {
+    pub fn y(&self) -> Sc {
         self.0[1]
     }
 }
 
-impl<S: Copy, B> Vector<[S; 3], Real<3, B>> {
+impl<R, Sc, B> Vector<R, Real<3, B>>
+where
+    R: Index<usize, Output = Sc>,
+    Sc: Copy,
+{
+    /// Returns the x component of `self`.
     #[inline]
-    pub fn x(&self) -> S {
+    pub fn x(&self) -> Sc {
         self.0[0]
     }
+    /// Returns the y component of `self`.
     #[inline]
-    pub fn y(&self) -> S {
+    pub fn y(&self) -> Sc {
         self.0[1]
     }
+    /// Returns the z component of `self`.
     #[inline]
-    pub fn z(&self) -> S {
+    pub fn z(&self) -> Sc {
         self.0[2]
     }
+}
 
-    pub fn cross(&self, other: &Self) -> Self
-    where
-        S: Mul<Output = S> + Sub<Output = S>,
-    {
+impl<Sc, B> Vector<[Sc; 3], Real<3, B>>
+where
+    Sc: Copy + Mul<Output = Sc> + Sub<Output = Sc>,
+{
+    /// Returns the cross product of `self` with `other`.
+    ///
+    /// The result is a vector perpendicular to both input
+    /// vectors, with length proportional to the area of
+    /// the parallelogram having the vectors as its sides.
+    /// Specifically, the length is given by the identity
+    ///
+    /// |𝗮 × 𝗯| = |𝗮| |𝗯| sin 𝜽
+    ///
+    /// where |·| denotes the length of a vector and
+    /// 𝜽 equals the angle between 𝗮 and 𝗯.
+    ///
+    /// ```text
+    ///        ^
+    ///     r  |
+    ///     e  |
+    ///     s  |    other
+    ///     u  |     ^-----------+
+    ///     l  |   /           /
+    ///     t  | /           /
+    ///        +-----------> self
+    /// ```
+    pub fn cross(&self, other: &Self) -> Self {
         let x = self.0[1] * other.0[2] - self.0[2] * other.0[1];
         let y = self.0[2] * other.0[0] - self.0[0] * other.0[2];
         let z = self.0[0] * other.0[1] - self.0[1] * other.0[0];
         [x, y, z].into()
+    }
+}
+
+impl<Repr, Sc> Vector<Repr, Proj4>
+where
+    Repr: Index<usize, Output = Sc>,
+    Sc: Copy,
+{
+    /// Returns the x component of `self`.
+    #[inline]
+    pub fn x(&self) -> Sc {
+        self.0[0]
+    }
+    /// Returns the y component of `self`.
+    #[inline]
+    pub fn y(&self) -> Sc {
+        self.0[1]
+    }
+    /// Returns the z component of `self`.
+    #[inline]
+    pub fn z(&self) -> Sc {
+        self.0[2]
+    }
+    /// Returns the w component of `self`.
+    #[inline]
+    pub fn w(&self) -> Sc {
+        self.0[3]
+    }
+
+    #[inline]
+    pub fn project_to_real(&self) -> Vector<[Sc; 3], Real<3>>
+    where
+        Sc: Div<Output = Sc>,
+    {
+        array::from_fn(|i| self.0[i] / self.0[3]).into()
     }
 }
 
@@ -212,10 +329,9 @@ where
     Scalar: Copy
         + Default
         + Add<Output = Scalar>
-        + Sub<Output = Scalar>
         + Mul<Output = Scalar>
+        + Sub<Output = Scalar>
         + Neg<Output = Scalar>,
-    [Scalar; DIM]: Default,
 {
     type Space = Space;
     type Scalar = Scalar;
@@ -228,7 +344,6 @@ where
     fn add(&self, other: &Self) -> Self {
         array::from_fn(|i| self.0[i] + other.0[i]).into()
     }
-
     #[inline]
     fn mul(&self, scalar: Self::Scalar) -> Self {
         array::from_fn(|i| self.0[i] * scalar).into()
@@ -324,15 +439,15 @@ where
     Basis: Debug + Default,
 {
     fn fmt(&self, f: &mut Formatter<'_>) -> core::fmt::Result {
-        write!(f, "R{}<{:?}>", DIM, Basis::default())
+        const DIMS: [&str; 5] = ["", "", "²", "³", "⁴"];
+        let dim = DIMS.get(DIM).unwrap_or(&"?");
+        write!(f, "ℝ{}<{:?}>", dim, Basis::default())
     }
 }
 
-impl<Scalar: Debug, Space: Debug + Default, const N: usize> Debug
-    for Vector<[Scalar; N], Space>
-{
+impl<R: Debug, Space: Debug + Default> Debug for Vector<R, Space> {
     fn fmt(&self, f: &mut Formatter<'_>) -> core::fmt::Result {
-        write!(f, "Vec<{:?}>{:?}", Space::default(), self.0)
+        write!(f, "Vec<{:?}>{:.3?}", Space::default(), self.0)
     }
 }
 
@@ -343,13 +458,48 @@ impl<Repr, Space> From<Repr> for Vector<Repr, Space> {
     }
 }
 
-impl<Scalar, Space, const N: usize> Index<usize>
-    for Vector<[Scalar; N], Space>
+impl<Sp, Sc: Clone, const DIM: usize> From<Sc> for Vector<[Sc; DIM], Sp> {
+    /// Returns a vector with all components equal to `scalar`.
+    /// This operation is sometimes called "splat".
+    #[inline]
+    fn from(scalar: Sc) -> Self {
+        array::from_fn(|_| scalar.clone()).into()
+    }
+}
+
+impl<R, Sp> Index<usize> for Vector<R, Sp>
+where
+    Self: Affine,
+    R: Index<usize, Output = <Self as Affine>::Scalar>,
 {
-    type Output = Scalar;
+    type Output = <Self as Affine>::Scalar;
+
+    /// Returns the component of `self` with index `i`.
+    ///
+    /// # Panics
+    /// If `i >= Self::DIM`.
+    /// Note that `Self::DIM` may not be equal to the the length of `R`.
     #[inline]
     fn index(&self, i: usize) -> &Self::Output {
+        assert!(i < Self::DIM, "index {i} out of bounds ({})", Self::DIM);
         &self.0[i]
+    }
+}
+
+impl<R, Sp> IndexMut<usize> for Vector<R, Sp>
+where
+    Self: Affine,
+    R: IndexMut<usize, Output = <Self as Affine>::Scalar>,
+{
+    /// Returns a mutable reference to the component of `self` with index `i`.
+    ///
+    /// # Panics
+    /// If `i >= Self::DIM`.
+    /// Note that `Self::DIM` may not be equal to the length of `R`.
+    #[inline]
+    fn index_mut(&mut self, i: usize) -> &mut Self::Output {
+        assert!(i < Self::DIM, "index {i} out of bounds ({})", Self::DIM);
+        &mut self.0[i]
     }
 }
 
@@ -357,19 +507,18 @@ impl<Scalar, Space, const N: usize> Index<usize>
 // Free functions
 //
 
-#[inline]
-pub fn vec2<Sc>(x: Sc, y: Sc) -> Vector<[Sc; 2], Real<2>> {
-    [x, y].into()
+pub const fn vec2<Sc>(x: Sc, y: Sc) -> Vector<[Sc; 2], Real<2>> {
+    Vector([x, y], PhantomData)
 }
 
-#[inline]
-pub fn vec3<Sc>(x: Sc, y: Sc, z: Sc) -> Vector<[Sc; 3], Real<3>> {
-    [x, y, z].into()
+/// Returns a 3D Euclidean vector with components `x`, `y`, and `z`.
+pub const fn vec3<Sc>(x: Sc, y: Sc, z: Sc) -> Vector<[Sc; 3], Real<3>> {
+    Vector([x, y, z], PhantomData)
 }
-
+/// Returns a 4D Euclidean vector with components `x`, `y`, `z`, and `w`.
 #[inline]
-pub fn vec4<Sc>(x: Sc, y: Sc, z: Sc, w: Sc) -> Vector<[Sc; 4], Real<4>> {
-    [x, y, z, w].into()
+pub const fn vec4<Sc>(x: Sc, y: Sc, z: Sc, w: Sc) -> Vector<[Sc; 4], Real<4>> {
+    Vector([x, y, z, w], PhantomData)
 }
 
 #[cfg(test)]
@@ -422,6 +571,12 @@ mod tests {
         use super::*;
 
         #[test]
+        fn vector_addition() {
+            assert_eq!(vec2(1, 2).add(&vec2(-2, 1)), vec2(-1, 3));
+            assert_eq!(vec3(1, 2, 0).add(&vec3(-2, 1, -1)), vec3(-1, 3, -1));
+        }
+
+        #[test]
         fn scalar_multiplication() {
             assert_eq!(vec2(1, -2).mul(0), vec2(0, 0));
             assert_eq!(vec3(1, -2, 3).mul(3), vec3(3, -6, 9));
@@ -465,19 +620,21 @@ mod tests {
         assert_approx_eq!(vec2(1.0, -10.0), vec2(1.0 + 1e-5, -10.0 - 1e-5))
     }
 
+    // TODO Tests for length, normalize, projections, Affine/Linear impls...
+
     #[test]
     fn debug() {
         assert_eq!(
             alloc::format!("{:?}", vec2(1.0, -2.0)),
-            "Vec<R2<()>>[1.0, -2.0]"
+            "Vec<ℝ²<()>>[1.000, -2.000]"
         );
         assert_eq!(
             alloc::format!("{:?}", vec3(1.0, -2.0, 3.0)),
-            "Vec<R3<()>>[1.0, -2.0, 3.0]"
+            "Vec<ℝ³<()>>[1.000, -2.000, 3.000]"
         );
         assert_eq!(
             alloc::format!("{:?}", vec4(1.0, -2.0, 3.0, -4.0)),
-            "Vec<R4<()>>[1.0, -2.0, 3.0, -4.0]"
+            "Vec<ℝ⁴<()>>[1.000, -2.000, 3.000, -4.000]"
         );
     }
 }

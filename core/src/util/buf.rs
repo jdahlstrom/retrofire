@@ -262,7 +262,7 @@ impl<'a, T> DerefMut for MutSlice2<'a, T> {
 mod inner {
     use core::fmt::Formatter;
     use core::marker::PhantomData;
-    use core::ops::{Bound::*, Index, IndexMut, Range};
+    use core::ops::{Index, IndexMut, Range};
 
     use crate::math::vec::Vec2i;
     use crate::util::buf::{MutSlice2, Slice2};
