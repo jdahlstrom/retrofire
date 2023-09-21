@@ -5,8 +5,6 @@ use core::fmt::{self, Debug, Display};
 use core::ops::{Add, Div, Mul, Neg, Rem, Sub};
 
 use crate::math::approx::ApproxEq;
-use crate::math::vary;
-use crate::math::vary::Vary;
 use crate::math::vec::{Affine, Linear};
 
 const RADS_PER_DEG: f32 = PI / 180.0;
@@ -139,16 +137,34 @@ impl ApproxEq for Angle {
     }
 }
 
-impl Vary for Angle {
-    type Iter = vary::Iter<Angle>;
+impl Affine for Angle {
+    type Space = ();
+    type Scalar = f32;
     type Diff = Self;
+    const DIM: usize = 1;
 
-    fn vary(self, step: Self, max: Option<u32>) -> Self::Iter {
-        Self::Iter::new(self, step, max)
+    #[inline]
+    fn add(&self, other: &Self) -> Self {
+        *self + *other
     }
+    #[inline]
+    fn mul(&self, scalar: f32) -> Self {
+        *self * scalar
+    }
+    #[inline]
+    fn sub(&self, other: &Self) -> Self {
+        *self - *other
+    }
+}
 
-    fn step(self, delta: Self) -> Self {
-        self + delta
+impl Linear for Angle {
+    #[inline]
+    fn zero() -> Self {
+        Angle::ZERO
+    }
+    #[inline]
+    fn neg(&self) -> Self {
+        -*self
     }
 }
 
@@ -263,7 +279,7 @@ mod tests {
 
     #[test]
     fn lerp_angle() {
-        let a = degs(30.0).lerp(degs(60.0), 0.2);
+        let a = degs(30.0).lerp(&degs(60.0), 0.2);
         assert_eq!(a, degs(36.0));
     }
 }
