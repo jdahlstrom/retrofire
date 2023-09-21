@@ -5,7 +5,7 @@ use core::fmt::{self, Debug, Formatter};
 use core::marker::PhantomData;
 
 use crate::math::approx::ApproxEq;
-use crate::math::vec::{Real, Vec3, Vector, VectorLike};
+use crate::math::vec::{Affine, Real, Vec3, Vector};
 
 /// A linear transform from one space (or basis) to another.
 ///

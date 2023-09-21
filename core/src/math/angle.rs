@@ -7,6 +7,7 @@ use core::ops::{Add, Div, Mul, Neg, Rem, Sub};
 use crate::math::approx::ApproxEq;
 use crate::math::vary;
 use crate::math::vary::Vary;
+use crate::math::vec::{Affine, Linear};
 
 const RADS_PER_DEG: f32 = PI / 180.0;
 const RADS_PER_TURN: f32 = TAU;
@@ -56,6 +57,7 @@ impl Angle {
     /// # Examples
     ///
     /// ```
+    /// # use retrofire_core::math::angle::degs;
     /// assert_eq(degs(90.0).clamp(degs(0.0), degs(60.0)), degs(90.0));
     ///
     /// assert_eq(degs(45.0).clamp(degs(0.0), degs(60.0)), degs(45.0));
@@ -90,8 +92,8 @@ impl Angle {
     /// in the range `min..=max`.
     ///
     /// # Examples
-    ///
     /// ```
+    /// # use retrofire_core::math::angle::degs;
     /// assert_eq(degs(400.0).wrap(Angle::ZERO, Angle::FULL), degs(40))
     /// ```
     #[must_use]
@@ -139,13 +141,10 @@ impl ApproxEq for Angle {
 
 impl Vary for Angle {
     type Iter = vary::Iter<Angle>;
+    type Diff = Self;
 
     fn vary(self, step: Self, max: Option<u32>) -> Self::Iter {
         Self::Iter::new(self, step, max)
-    }
-
-    fn lerp(self, other: Self, t: f32) -> Self {
-        Self(self.0.lerp(other.0, t))
     }
 
     fn step(self, delta: Self) -> Self {

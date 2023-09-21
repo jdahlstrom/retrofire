@@ -1,5 +1,6 @@
 //! Vectors and vector spaces.
 
+use core::array;
 use core::fmt::{Debug, Formatter};
 use core::marker::PhantomData;
 use core::ops::{Add, Index, Mul, Neg, Sub};
@@ -7,33 +8,96 @@ use core::ops::{Add, Index, Mul, Neg, Sub};
 use crate::math::approx::ApproxEq;
 use crate::math::vary::{Iter, Vary};
 
-/// A trait for "vector-like" types. This includes floating-point
-/// and integer vectors as well as colors.
-///
-/// TODO More documentation
-pub trait VectorLike: Sized {
-    /// The space that `Self` is an element of.
-    type Space;
-    /// The type of the scalar components of `Self`.
-    type Scalar: Sized;
+//
+// Traits
+//
 
-    /// The number of components of this vector.
+/// Trait for types representing elements of an affine space.
+///
+/// An `Affine` type must satisfy the following conditions:
+///
+/// * Addition is commutative and associative
+/// * Multiplication is commutative and associative
+///
+/// # TODO
+///
+/// * More documentation
+/// * Move to own module
+pub trait Affine: Sized {
+    /// The type of the space that `Self` is the element of.
+    type Space;
+    /// The scalar type associated with `Self`
+    type Scalar: Sized;
+    /// The (signed) difference of two values of `Self`.
+    /// `Diff` must have the same dimension as `Self`.
+    type Diff: Linear;
+
+    /// The dimension of `Self`.
     const DIM: usize;
 
-    /// Returns a vector with all components zeroed.
-    fn zero() -> Self;
-
-    /// Adds `other` to `self` component-wise.
+    /// Adds `diff` to `self` component-wise.
     ///
     /// `add` is commutative and associative.
-    fn add(&self, other: &Self) -> Self;
+    fn add(&self, diff: &Self::Diff) -> Self;
+
     /// Multiplies all components of `self` by `scalar`.
     ///
     /// `mul` is commutative and associative, and distributes over
-    /// `add` and `sub`.
+    /// `add` and `sub` (up to rounding errors):
+    /// ```
+    /// # use retrofire_core::math::vec::Affine;
+    /// # let (v, w, x, a) = (1.0, 2.0, 3.0, 4.0);
+    /// v.mul(w) == w.mul(v);
+    /// v.mul(w).mul(x) == v.mul(w.mul(x));
+    /// v.mul(a).add(&w.mul(a)) == v.add(&w).mul(a);
+    /// v.mul(a).sub(&w.mul(a)) == v.add(&w).sub(&a);
+    /// ```
     fn mul(&self, scalar: Self::Scalar) -> Self;
+
+    /// Subtracts `other` from `self`, returning the (signed) difference.
+    ///
+    /// `sub` is anti-commutative: `v.sub(w) == w.sub(v).neg()`.
+    fn sub(&self, other: &Self) -> Self::Diff;
+
+    /// Linearly interpolates between `self` and `other`.
+    ///
+    /// This method does not panic if `t < 0.0` or `t > 1.0`,
+    /// or if `t` is `NaN`, but the return value is unspecified.
+    /// Individual implementations may offer stronger guarantees.
+    ///
+    /// # Examples
+    /// ```
+    /// # use retrofire_core::math::vec::Affine;
+    /// assert_eq!(2.0.lerp(&5.0, 0.0), 2.0);
+    /// assert_eq!(2.0.lerp(&5.0, 0.5), 3.5);
+    /// assert_eq!(2.0.lerp(&5.0, 1.0), 5.0);
+    ///
+    /// ```
+    #[inline]
+    fn lerp(&self, other: &Self, t: <Self::Diff as Affine>::Scalar) -> Self {
+        let diff = other.sub(self);
+        self.add(&diff.mul(t))
+    }
+}
+
+/// Trait for types representing elements of a linear space (vector space).
+///
+/// A `Linear` type is a type that is `Affine` and
+/// additionally satisfies the following conditions:
+///
+/// * The difference type [`Diff`][Affine::Diff] is equal to `Self`
+/// * The type has an additive identity, returned by the [`zero`][Self::zero] method
+/// * Every value has an additive inverse, returned by the [`neg`][Self::neg] method
+///
+/// TODO More documentation
+/// TODO move to own module
+pub trait Linear: Affine<Diff = Self> {
+    /// Returns the additive identity of this type.
+    fn zero() -> Self;
+
     /// Returns the additive inverse of `self`.
     fn neg(&self) -> Self;
+
     /// Subtracts `other` from `self`. Equivalent to `self.add(&other.neg())`.
     fn sub(&self, other: &Self) -> Self {
         self.add(&other.neg())
@@ -43,78 +107,111 @@ pub trait VectorLike: Sized {
 #[derive(Copy, Clone, Default, Eq, PartialEq)]
 pub struct Real<const DIM: usize, Basis = ()>(PhantomData<Basis>);
 
+/// A generic vector type. Represents an element of a vector space or a module.
+///
+/// # Type parameters
+/// * `Repr`: Representation of the scalar components of the vector,
+/// for example an array or a SIMD vector.
+/// * `Space`: The space that the vector is an element of. A tag type used to
+/// prevent mixing up vectors of different spaces and bases.
 #[repr(transparent)]
 #[derive(Copy, Clone, Default, Eq, PartialEq)]
 pub struct Vector<Repr, Space>(pub Repr, PhantomData<Space>);
 
-impl<Scalar, Space, const N: usize> VectorLike for Vector<[Scalar; N], Space>
+impl<Scalar, Space, const DIM: usize> Affine for Vector<[Scalar; DIM], Space>
 where
     Scalar: Copy
         + Default
         + Add<Output = Scalar>
+        + Sub<Output = Scalar>
         + Mul<Output = Scalar>
         + Neg<Output = Scalar>,
-    [Scalar; N]: Default,
+    [Scalar; DIM]: Default,
 {
     type Space = Space;
     type Scalar = Scalar;
+    type Diff = Self;
 
-    const DIM: usize = N;
-
-    #[inline]
-    fn zero() -> Self {
-        Self(Default::default(), PhantomData)
-    }
+    /// The dimension (number of components) of `Self`.
+    const DIM: usize = DIM;
 
     #[inline]
     fn add(&self, other: &Self) -> Self {
-        let mut res = Self::zero();
-        for i in 0..N {
-            res.0[i] = self.0[i] + other.0[i];
-        }
-        res
+        array::from_fn(|i| self.0[i] + other.0[i]).into()
     }
 
     #[inline]
     fn mul(&self, scalar: Self::Scalar) -> Self {
-        let mut res = Self::zero();
-        for i in 0..N {
-            res.0[i] = self.0[i] * scalar;
-        }
-        res
+        array::from_fn(|i| self.0[i] * scalar).into()
     }
-
     #[inline]
-    fn neg(&self) -> Self {
-        let mut res = Self::zero();
-        for i in 0..N {
-            res.0[i] = -self.0[i];
-        }
-        res
+    fn sub(&self, other: &Self) -> Self {
+        array::from_fn(|i| self.0[i] - other.0[i]).into()
     }
 }
 
-impl<V> Vary for V
+impl<Scalar, Space, const DIM: usize> Linear for Vector<[Scalar; DIM], Space>
 where
-    V: Copy + VectorLike<Scalar = f32>,
+    Self: Affine<Diff = Self>,
+    Scalar: Copy + Default + Neg<Output = Scalar>,
 {
-    type Iter = Iter<Self>;
-
+    /// Returns the zero vector.
     #[inline]
-    fn vary(self, step: Self, max: Option<u32>) -> Self::Iter {
-        Iter::new(self, step, max)
+    fn zero() -> Self {
+        array::from_fn(|_| Scalar::default()).into()
     }
 
+    /// Returns the (additive) inverse of `self`.
     #[inline]
-    fn lerp(self, other: Self, t: f32) -> Self {
-        let delta = other.sub(&self);
-        self.add(&delta.mul(t))
+    fn neg(&self) -> Self {
+        array::from_fn(|i| -self.0[i]).into()
+    }
+}
+
+/// TODO move to own module
+impl Affine for f32 {
+    type Space = ();
+    type Scalar = f32;
+    type Diff = f32;
+    const DIM: usize = 1;
+
+    fn add(&self, other: &f32) -> f32 {
+        self + other
+    }
+    fn mul(&self, scalar: f32) -> f32 {
+        self * scalar
+    }
+    fn sub(&self, other: &f32) -> f32 {
+        self - other
+    }
+}
+/// TODO move to own module
+impl Linear for f32 {
+    fn zero() -> f32 {
+        0.0
+    }
+    fn neg(&self) -> f32 {
+        -*self
+    }
+}
+/// TODO move to own module
+impl<V> Vary for V
+where
+    Self: Affine<Scalar = f32> + Clone,
+    <Self as Affine>::Diff: Clone,
+{
+    type Iter = Iter<Self>;
+    type Diff = <Self as Affine>::Diff;
+
+    #[inline]
+    fn vary(&self, step: &Self::Diff, max: Option<u32>) -> Self::Iter {
+        Iter::new(self.clone(), step.clone(), max)
     }
 
     /// Adds `delta` to `self`.
     #[inline]
-    fn step(self, delta: Self) -> Self {
-        self.add(&delta)
+    fn step(&self, delta: &Self::Diff) -> Self {
+        self.add(delta)
     }
 }
 
@@ -179,11 +276,8 @@ where
     }
     #[inline]
     pub fn dot(&self, other: &Self) -> f32 {
-        let mut res = 0.0;
-        for i in 0..N {
-            res += self.0[i] * other.0[i];
-        }
-        res
+        let res: [f32; N] = array::from_fn(|i| self.0[i] * other.0[i]);
+        res.iter().sum()
     }
     pub fn scalar_project(&self, other: &Self) -> f32 {
         self.dot(other).mul(&other.dot(other).recip())
@@ -193,10 +287,7 @@ where
     }
 }
 
-impl<Sc: Copy, Sp> Vec3<Sc, Sp>
-where
-    Self: VectorLike<Scalar = Sc, Space = Sp>,
-{
+impl<Sc: Copy, Sp> Vec3<Sc, Sp> {
     #[inline]
     pub fn x(&self) -> Sc {
         self.0[0]
