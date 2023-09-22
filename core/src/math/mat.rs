@@ -118,7 +118,7 @@ impl<F, T> Mat4x4<f32, RealToReal<4, F, T>> {
     ///
     /// Computes the matrix–vector multiplication `Mv` where `v` is interpreted
     /// as a column vector.
-    pub fn map(&self, v: &Vec3<f32, Real<3, F>>) -> Vec3<f32, Real<3, T>> {
+    pub fn map(&self, v: &Vec3<Real<3, F>>) -> Vec3<Real<3, T>> {
         let v = Vector::from([v.x(), v.y(), v.z(), 1.0]);
         let x = self.row_vec(0).dot(&v);
         let y = self.row_vec(1).dot(&v);

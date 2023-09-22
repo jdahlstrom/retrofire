@@ -104,6 +104,10 @@ pub trait Linear: Affine<Diff = Self> {
     }
 }
 
+//
+// Types
+//
+
 #[derive(Copy, Clone, Default, Eq, PartialEq)]
 pub struct Real<const DIM: usize, Basis = ()>(PhantomData<Basis>);
 
@@ -117,6 +121,91 @@ pub struct Real<const DIM: usize, Basis = ()>(PhantomData<Basis>);
 #[repr(transparent)]
 #[derive(Copy, Clone, Default, Eq, PartialEq)]
 pub struct Vector<Repr, Space>(pub Repr, PhantomData<Space>);
+
+/// A 2D float vector in `Space` (by default ℝ²).
+pub type Vec2<Space = Real<2>> = Vector<[f32; 2], Space>;
+/// A 3D float vector in `Space` (by default ℝ³).
+pub type Vec3<Space = Real<3>> = Vector<[f32; 3], Space>;
+/// A 4D float vector in `Space` (by default ℝ⁴).
+pub type Vec4<Space = Real<4>> = Vector<[f32; 4], Space>;
+
+/// A 2D integer vector in `Space` (by default ℤ²).
+pub type Vec2i<Space = Real<2>> = Vector<[i32; 2], Space>;
+/// A 3D integer vector in `Space` (by default ℤ³).
+pub type Vec3i<Space = Real<3>> = Vector<[i32; 3], Space>;
+/// A 4D integer vector in `Space` (by default ℤ⁴).
+pub type Vec4i<Space = Real<4>> = Vector<[i32; 4], Space>;
+
+//
+// Inherent impls
+//
+
+impl<Space, const N: usize> Vector<[f32; N], Space>
+where
+    [f32; N]: Default,
+{
+    #[cfg(feature = "std")]
+    #[inline]
+    pub fn len(&self) -> f32 {
+        self.dot(self).sqrt()
+    }
+    #[cfg(feature = "std")]
+    #[inline]
+    pub fn normalize(&self) -> Self {
+        self.mul(self.len().recip())
+    }
+    #[inline]
+    pub fn dot(&self, other: &Self) -> f32 {
+        let res: [f32; N] = array::from_fn(|i| self.0[i] * other.0[i]);
+        res.iter().sum()
+    }
+    pub fn scalar_project(&self, other: &Self) -> f32 {
+        self.dot(other).mul(&other.dot(other).recip())
+    }
+    pub fn vector_project(&self, other: &Self) -> Self {
+        other.mul(self.scalar_project(other))
+    }
+}
+
+impl<S: Copy, B> Vector<[S; 2], Real<2, B>> {
+    #[inline]
+    pub fn x(&self) -> S {
+        self.0[0]
+    }
+    #[inline]
+    pub fn y(&self) -> S {
+        self.0[1]
+    }
+}
+
+impl<S: Copy, B> Vector<[S; 3], Real<3, B>> {
+    #[inline]
+    pub fn x(&self) -> S {
+        self.0[0]
+    }
+    #[inline]
+    pub fn y(&self) -> S {
+        self.0[1]
+    }
+    #[inline]
+    pub fn z(&self) -> S {
+        self.0[2]
+    }
+
+    pub fn cross(&self, other: &Self) -> Self
+    where
+        S: Mul<Output = S> + Sub<Output = S>,
+    {
+        let x = self.0[1] * other.0[2] - self.0[2] * other.0[1];
+        let y = self.0[2] * other.0[0] - self.0[0] * other.0[2];
+        let z = self.0[0] * other.0[1] - self.0[1] * other.0[0];
+        [x, y, z].into()
+    }
+}
+
+//
+// Local trait impls
+//
 
 impl<Scalar, Space, const DIM: usize> Affine for Vector<[Scalar; DIM], Space>
 where
@@ -226,6 +315,10 @@ impl<Scalar: ApproxEq, Space, const N: usize> ApproxEq<Self, Scalar>
     }
 }
 
+//
+// Foreign trait impls
+//
+
 impl<const DIM: usize, Basis> Debug for Real<DIM, Basis>
 where
     Basis: Debug + Default,
@@ -260,74 +353,22 @@ impl<Scalar, Space, const N: usize> Index<usize>
     }
 }
 
-impl<Space, const N: usize> Vector<[f32; N], Space>
-where
-    [f32; N]: Default,
-{
-    #[cfg(feature = "std")]
-    #[inline]
-    pub fn len(&self) -> f32 {
-        self.dot(self).sqrt()
-    }
-    #[cfg(feature = "std")]
-    #[inline]
-    pub fn normalize(&self) -> Self {
-        self.mul(self.len().recip())
-    }
-    #[inline]
-    pub fn dot(&self, other: &Self) -> f32 {
-        let res: [f32; N] = array::from_fn(|i| self.0[i] * other.0[i]);
-        res.iter().sum()
-    }
-    pub fn scalar_project(&self, other: &Self) -> f32 {
-        self.dot(other).mul(&other.dot(other).recip())
-    }
-    pub fn vector_project(&self, other: &Self) -> Self {
-        other.mul(self.scalar_project(other))
-    }
-}
-
-impl<Sc: Copy, Sp> Vec3<Sc, Sp> {
-    #[inline]
-    pub fn x(&self) -> Sc {
-        self.0[0]
-    }
-    #[inline]
-    pub fn y(&self) -> Sc {
-        self.0[1]
-    }
-    #[inline]
-    pub fn z(&self) -> Sc {
-        self.0[2]
-    }
-
-    pub fn cross(&self, other: &Self) -> Self
-    where
-        Sc: Mul<Output = Sc> + Sub<Output = Sc>,
-    {
-        let x = self.0[1] * other.0[2] - self.0[2] * other.0[1];
-        let y = self.0[2] * other.0[0] - self.0[0] * other.0[2];
-        let z = self.0[0] * other.0[1] - self.0[1] * other.0[0];
-        [x, y, z].into()
-    }
-}
-
-pub type Vec2<Scalar = f32, Space = Real<2>> = Vector<[Scalar; 2], Space>;
-pub type Vec3<Scalar = f32, Space = Real<3>> = Vector<[Scalar; 3], Space>;
-pub type Vec4<Scalar = f32, Space = Real<4>> = Vector<[Scalar; 4], Space>;
+//
+// Free functions
+//
 
 #[inline]
-pub fn vec2<Sc>(x: Sc, y: Sc) -> Vec2<Sc> {
+pub fn vec2<Sc>(x: Sc, y: Sc) -> Vector<[Sc; 2], Real<2>> {
     [x, y].into()
 }
 
 #[inline]
-pub fn vec3<Sc>(x: Sc, y: Sc, z: Sc) -> Vec3<Sc> {
+pub fn vec3<Sc>(x: Sc, y: Sc, z: Sc) -> Vector<[Sc; 3], Real<3>> {
     [x, y, z].into()
 }
 
 #[inline]
-pub fn vec4<Sc>(x: Sc, y: Sc, z: Sc, w: Sc) -> Vec4<Sc> {
+pub fn vec4<Sc>(x: Sc, y: Sc, z: Sc, w: Sc) -> Vector<[Sc; 4], Real<4>> {
     [x, y, z, w].into()
 }
 
@@ -389,9 +430,9 @@ mod tests {
 
         #[test]
         fn from_array() {
-            assert_eq!(Vec2::from([1, -2]), vec2(1, -2));
-            assert_eq!(Vec3::from([1, -2, 3]), vec3(1, -2, 3));
-            assert_eq!(Vec4::from([1, -2, 3, -4]), vec4(1, -2, 3, -4));
+            assert_eq!(Vec2i::from([1, -2]), vec2(1, -2));
+            assert_eq!(Vec3i::from([1, -2, 3]), vec3(1, -2, 3));
+            assert_eq!(Vec4i::from([1, -2, 3, -4]), vec4(1, -2, 3, -4));
         }
     }
 
