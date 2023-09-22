@@ -4,31 +4,82 @@ use core::ops::{Deref, DerefMut};
 
 use inner::Inner;
 
-pub trait AsSlice<T> {
-    fn as_slice(&self) -> Slice2<T>;
+//
+// Traits
+//
+
+/// A trait for types that can provide a view of their data as a `Slice2`
+pub trait AsSlice2<T> {
+    /// Returns a borrowed `Slice2` view of `Self`.
+    fn as_slice2(&self) -> Slice2<T>;
 }
 
-pub trait AsSliceMut<T> {
-    fn as_slice_mut(&mut self) -> Slice2Mut<T>;
+/// A trait for types that can provide a mutable view of their data
+/// as a `MutSlice2`
+pub trait AsMutSlice2<T> {
+    /// Returns a mutably borrowed `MutSlice2` view of `Self`.
+    fn as_mut_slice2(&mut self) -> MutSlice2<T>;
 }
 
-/// A rectangular buffer backed by a `Vec`.
+//
+// Types
+//
+
+/// A rectangular 2D buffer that owns its elements, backed by a `Vec`.
+///
+/// `Buf2` stores its elements contiguously, in standard row-major order,
+/// such that element (x, y) maps to element at index
+/// ```
+/// buf.width() * y + x
+/// ```
+/// in the backing vector.
+///
+/// # Examples
+/// ```
+/// # use retrofire_core::util::buf::*;
+/// # use retrofire_core::math::vec::*;
+/// // Elements initialized with `Default::default()`
+/// let mut buf = Buf2::new(4, 4);
+/// // Indexing with a 2D vector (x, y) yields element at row y, column x:
+/// buf[vec2(2, 1)] = 123;
+/// // Indexing with an usize i yields row with index i as a slice:
+/// assert_eq!(buf[1], &[0, 0, 123, 0]);
+/// // Thus you can also do this, row first, column second:
+/// assert_eq!(buf[1][2], 123)
+/// ```
 #[derive(Clone)]
 #[repr(transparent)]
 pub struct Buf2<T>(Inner<T, Vec<T>>);
 
+/// An immutable rectangular view to a region of a [`Buf2`], another `Slice2`,
+/// or in general any `&[T]` slice of memory. A two-dimensional analog to `&[T]`.
+///
+/// A `Slice2` may be discontiguous:
+/// ```text
+/// +------stride-----+
+/// |    ____w____    |
+/// |   |r0_______|   |
+/// |   |r1_______| h |
+/// |   |r2_______|   |
+/// +-----------------+
+/// ```
+/// TODO More documentation
 #[derive(Copy, Clone)]
 #[repr(transparent)]
 pub struct Slice2<'a, T>(Inner<T, &'a [T]>);
 
+/// A mutable rectangular view to a region of a `Buf2`, a `Slice2`,
+/// or in general any `&[T]` slice of memory.
 #[repr(transparent)]
-pub struct Slice2Mut<'a, T>(Inner<T, &'a mut [T]>);
+pub struct MutSlice2<'a, T>(Inner<T, &'a mut [T]>);
 
-// Impls
+//
+// Inherent impls
+//
 
 impl<T> Buf2<T> {
     /// Returns a buffer with size `w` × `h`, with every element
-    /// default initialized.
+    /// initialized by calling `T::default()`.
     pub fn new(w: usize, h: usize) -> Self
     where
         T: Clone + Default,
@@ -44,7 +95,8 @@ impl<T> Buf2<T> {
         Self::from_vec(w, h, vec![init; w * h])
     }
     /// Returns a buffer with size `w` × `h`, with every element
-    /// initialized by calling `init_fn`.
+    /// initialized by calling `init_fn(x, y)` where x is the column index
+    /// and y the row index of the element being initialized.
     pub fn init_with<F>(w: usize, h: usize, mut init_fn: F) -> Self
     where
         F: Copy + FnMut(usize, usize) -> T,
@@ -61,32 +113,117 @@ impl<T> Buf2<T> {
     pub fn from_vec(w: usize, h: usize, data: Vec<T>) -> Self {
         Self(Inner::new(w, h, w, data))
     }
-
+    /// Returns a view of the backing data of `self`.
     pub fn data(&self) -> &[T] {
         self.0.data()
     }
+    /// Returns a mutable view of the backing data of `self`.
     pub fn data_mut(&mut self) -> &mut [T] {
         self.0.data_mut()
     }
 }
 
-impl<T> AsSlice<T> for Buf2<T> {
-    #[inline]
-    fn as_slice(&self) -> Slice2<T> {
-        self.0.as_slice()
+impl<'a, T> Slice2<'a, T> {
+    /// Returns a new `Slice2` view to `data` with dimensions `w` and `h`
+    /// and stride `stride`.
+    ///
+    /// # Examples
+    /// ```
+    /// # use retrofire_core::util::buf::Slice2;
+    /// let data = &[0, 1, 2, 3, 4, 5, 6];
+    /// let slice = Slice2::new(2, 2, 3, data);
+    /// assert_eq!(slice[0], &[0, 1]);
+    /// assert_eq!(slice[1], &[3, 4]);
+    /// ```
+    /// Above, `slice` represents a 2×2 rectangle with stride 3, such that
+    /// the first row maps to `data[0..2]` and the second to `data[3..5]`:
+    /// ```text
+    ///  slice[0]    slice[1]
+    ///     |           |
+    /// ,---´---.   ,---´---.
+    /// +---+---+---+---+---+---+---+
+    /// | 0 | 1 | 2 | 3 | 4 | 5 | 6 |
+    /// +---+---+---+---+---+---+---+
+    /// ```
+    /// Internally, this is implemented as the borrow `&data[0..5]`.
+    /// Semantically, however, `slice` does not contain `data[2]` as
+    /// an element, and attempting to access it eg. with `slice[0][2]`
+    /// will panic, as expected.
+    ///
+    /// # Panics
+    /// if `stride < width` or if the slice would overflow `data`.
+    ///
+    pub fn new(
+        width: usize,
+        height: usize,
+        stride: usize,
+        data: &'a [T],
+    ) -> Self {
+        Self(Inner::new(width, height, stride, data))
     }
 }
 
-impl<T> AsSliceMut<T> for Buf2<T> {
-    #[inline]
-    fn as_slice_mut(&mut self) -> Slice2Mut<T> {
-        self.0.as_slice_mut()
+impl<'a, T> MutSlice2<'a, T> {
+    /// Returns a new `MutSlice2` view to `data` with dimensions `w` and `h`
+    /// and stride `stride`.
+    pub fn new(w: usize, h: usize, stride: usize, data: &'a mut [T]) -> Self {
+        Self(Inner::new(w, h, stride, data))
     }
 }
+
+//
+// Local trait impls
+//
+
+impl<T> AsSlice2<T> for Buf2<T> {
+    #[inline]
+    fn as_slice2(&self) -> Slice2<T> {
+        self.0.as_slice2()
+    }
+}
+impl<T> AsSlice2<T> for Slice2<'_, T> {
+    #[inline]
+    fn as_slice2(&self) -> Slice2<T> {
+        self.0.as_slice2()
+    }
+}
+impl<T> AsSlice2<T> for MutSlice2<'_, T> {
+    #[inline]
+    fn as_slice2(&self) -> Slice2<T> {
+        self.0.as_slice2()
+    }
+}
+
+impl<T> AsMutSlice2<T> for Buf2<T> {
+    #[inline]
+    fn as_mut_slice2(&mut self) -> MutSlice2<T> {
+        self.0.as_mut_slice()
+    }
+}
+impl<T> AsMutSlice2<T> for MutSlice2<'_, T> {
+    #[inline]
+    fn as_mut_slice2(&mut self) -> MutSlice2<T> {
+        self.0.as_mut_slice()
+    }
+}
+
+//
+// Foreign trait impls
+//
 
 impl<T> Debug for Buf2<T> {
     fn fmt(&self, f: &mut Formatter<'_>) -> core::fmt::Result {
         self.0.debug_fmt(f, "Buf2")
+    }
+}
+impl<T> Debug for Slice2<'_, T> {
+    fn fmt(&self, f: &mut Formatter<'_>) -> core::fmt::Result {
+        self.0.debug_fmt(f, "Slice2")
+    }
+}
+impl<T> Debug for MutSlice2<'_, T> {
+    fn fmt(&self, f: &mut Formatter<'_>) -> core::fmt::Result {
+        self.0.debug_fmt(f, "Slice2Mut")
     }
 }
 
@@ -97,33 +234,6 @@ impl<T> Deref for Buf2<T> {
         &self.0
     }
 }
-
-impl<T> DerefMut for Buf2<T> {
-    fn deref_mut(&mut self) -> &mut Self::Target {
-        &mut self.0
-    }
-}
-
-impl<'a, T> Slice2<'a, T> {
-    pub fn new(w: usize, h: usize, stride: usize, data: &'a [T]) -> Self {
-        assert!((h - 1) * stride + w < data.len());
-        Self(Inner::new(w, h, stride, data))
-    }
-}
-
-impl<T> AsSlice<T> for Slice2<'_, T> {
-    #[inline]
-    fn as_slice(&self) -> Slice2<T> {
-        self.0.as_slice()
-    }
-}
-
-impl<T> Debug for Slice2<'_, T> {
-    fn fmt(&self, f: &mut Formatter<'_>) -> core::fmt::Result {
-        self.0.debug_fmt(f, "Slice2")
-    }
-}
-
 impl<'a, T> Deref for Slice2<'a, T> {
     type Target = Inner<T, &'a [T]>;
 
@@ -131,41 +241,19 @@ impl<'a, T> Deref for Slice2<'a, T> {
         &self.0
     }
 }
-
-impl<'a, T> Slice2Mut<'a, T> {
-    pub fn new(w: usize, h: usize, stride: usize, data: &'a mut [T]) -> Self {
-        Self(Inner::new(w, h, stride, data))
-    }
-}
-
-impl<T> AsSlice<T> for Slice2Mut<'_, T> {
-    #[inline]
-    fn as_slice(&self) -> Slice2<T> {
-        self.0.as_slice()
-    }
-}
-
-impl<T> AsSliceMut<T> for Slice2Mut<'_, T> {
-    #[inline]
-    fn as_slice_mut(&mut self) -> Slice2Mut<T> {
-        self.0.as_slice_mut()
-    }
-}
-
-impl<T> Debug for Slice2Mut<'_, T> {
-    fn fmt(&self, f: &mut Formatter<'_>) -> core::fmt::Result {
-        self.0.debug_fmt(f, "Slice2Mut")
-    }
-}
-
-impl<'a, T> Deref for Slice2Mut<'a, T> {
+impl<'a, T> Deref for MutSlice2<'a, T> {
     type Target = Inner<T, &'a mut [T]>;
     fn deref(&self) -> &Self::Target {
         &self.0
     }
 }
 
-impl<'a, T> DerefMut for Slice2Mut<'a, T> {
+impl<T> DerefMut for Buf2<T> {
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        &mut self.0
+    }
+}
+impl<'a, T> DerefMut for MutSlice2<'a, T> {
     fn deref_mut(&mut self) -> &mut Self::Target {
         &mut self.0
     }
@@ -174,12 +262,14 @@ impl<'a, T> DerefMut for Slice2Mut<'a, T> {
 mod inner {
     use core::fmt::Formatter;
     use core::marker::PhantomData;
-    use core::ops::{Bound::*, Index, IndexMut, Range, RangeBounds};
+    use core::ops::{Bound::*, Index, IndexMut, Range};
 
     use crate::math::vec::Vec2i;
-    use crate::util::buf::{Slice2, Slice2Mut};
+    use crate::util::buf::{MutSlice2, Slice2};
     use crate::util::rect::Rect;
 
+    /// A helper type that abstracts over owned and borrowed buffers.
+    /// The types `Buf2`, `Slice2`, and `MutSlice2` deref to `Inner`.
     #[derive(Copy, Clone)]
     pub struct Inner<T, D> {
         w: usize,
@@ -190,21 +280,31 @@ mod inner {
     }
 
     impl<T, D> Inner<T, D> {
+        /// Returns the width of `self`.
         #[inline]
         pub fn width(&self) -> usize {
             self.w
         }
+        /// Returns the height of `self`.
         #[inline]
         pub fn height(&self) -> usize {
             self.h
         }
+        /// Returns the stride of `self`.
         #[inline]
         pub fn stride(&self) -> usize {
             self.stride
         }
-        #[inline]
+        /// Returns whether the rows of `self` are stored contiguously
+        /// in memory. `Buf2` instances are always contiguous. `Slice2`
+        /// and `MutSlice2` instances are contiguous if their width equals
+        /// their stride, if their height is 1, or if they are empty.
         pub fn is_contiguous(&self) -> bool {
             self.stride == self.w || self.h <= 1 || self.w == 0
+        }
+        /// Returns whether `self` has no elements (if its width or height is 0).
+        pub fn is_empty(&self) -> bool {
+            self.w == 0 || self.h == 0
         }
 
         #[inline]
@@ -237,25 +337,6 @@ mod inner {
             (l..r, t..b)
         }
 
-        fn resolve_range<R>(r: R, max: usize) -> Range<usize>
-        where
-            R: RangeBounds<usize>,
-        {
-            let start = match r.start_bound() {
-                Included(&b) if b < max => b,
-                Excluded(&b) if b <= max => b + 1,
-                Unbounded => 0,
-                b => panic!("start bound {b:?} out of bounds (max={max})",),
-            };
-            let end = match r.end_bound() {
-                Included(&b) if b < max => b + 1,
-                Excluded(&b) if b <= max => b,
-                Unbounded => max,
-                b => panic!("end bound {b:?} out of bounds (max={max})",),
-            };
-            start..end
-        }
-
         #[cold]
         #[inline(never)]
         #[track_caller]
@@ -266,6 +347,7 @@ mod inner {
             )
         }
 
+        /// A helper for implementing `Debug`.
         pub(super) fn debug_fmt(
             &self,
             f: &mut Formatter,
@@ -294,31 +376,14 @@ mod inner {
             }
         }
 
+        /// Returns the data of `self` as a linear slice.
         pub(super) fn data(&self) -> &[T] {
             self.data.as_ref()
         }
 
-        /// Borrows `self` as a slice.
-        pub fn as_slice(&self) -> Slice2<T> {
+        /// Borrows `self` as a `Slice2`.
+        pub fn as_slice2(&self) -> Slice2<T> {
             Slice2(Inner::new(self.w, self.h, self.stride, self.data()))
-        }
-
-        /// Returns an iterator yielding the rows of `self` as &[T] slices.
-        /// Each slice has length [`self.width()`](Self::width).
-        pub fn rows<R>(&self, range: R) -> impl Iterator<Item = &[T]>
-        where
-            R: RangeBounds<usize>,
-        {
-            let range = Self::resolve_range(range, self.h);
-            self.data()
-                .chunks(self.stride)
-                .map(|row| &row[..self.w])
-                .skip(range.start)
-                .take(range.end - range.start)
-        }
-
-        pub fn iter(&self) -> impl Iterator<Item = &'_ T> {
-            self.rows(..).flatten()
         }
 
         /// Returns a borrowed rectangular slice of `self`.
@@ -327,49 +392,60 @@ mod inner {
         /// If any part of `rect` is outside the bounds of `self`.
         pub fn slice(&self, rect: &Rect) -> Slice2<T> {
             let (x, y) = self.resolve_bounds(rect);
-            let range = self.to_index(x.start, y.start)
-                ..self.to_index(x.end, y.end - 1);
-            Slice2(Inner::new(
+            let start = self.to_index(x.start, y.start);
+            let end = self.to_index(x.end, y.end - 1).max(start);
+            Slice2::new(
                 x.end - x.start,
                 y.end - y.start,
                 self.stride,
-                &self.data()[range],
-            ))
+                &self.data()[start..end],
+            )
         }
 
-        /// Returns a shared reference to the element at `pos`,
+        /// Returns a reference to the element at `pos`,
         /// or `None` if `pos` is out of bounds.
         pub fn get(&self, pos: Vec2i) -> Option<&T> {
             self.to_index_checked(pos.x(), pos.y())
                 .map(|i| &self.data()[i])
         }
+
+        /// Returns an iterator over the rows of `self` as `&[T]` slices.
+        /// The length of each slice equals [`self.width()`](Self::width).
+        pub fn rows(&self) -> impl Iterator<Item = &[T]> {
+            self.data().chunks(self.stride).map(|row| &row[..self.w])
+        }
+
+        /// Returns an iterator over all the elements of `self` in row-major
+        /// order: first the elements on row 0 from left to right, followed
+        /// by the elements on row 1, and so on.
+        pub fn iter(&self) -> impl Iterator<Item = &'_ T> {
+            self.rows().flatten()
+        }
     }
 
     impl<T, D: AsMut<[T]>> Inner<T, D> {
-        pub fn as_slice_mut(&mut self) -> Slice2Mut<T> {
-            Slice2Mut(Inner::new(self.w, self.h, self.stride, self.data_mut()))
+        /// Returns a mutably borrowed rectangular slice of `self`.
+        pub fn as_mut_slice(&mut self) -> MutSlice2<T> {
+            MutSlice2::new(self.w, self.h, self.stride, self.data_mut())
         }
         /// Returns the data of `self` as a single mutable slice.
         pub(super) fn data_mut(&mut self) -> &mut [T] {
             self.data.as_mut()
         }
-        /// Returns an iterator yielding the rows of this buffer
-        /// as &mut [T]. Each slice has length [`self.width()`](Self::width).
-        pub fn rows_mut<R: RangeBounds<usize>>(
-            &mut self,
-            range: R,
-        ) -> impl Iterator<Item = &mut [T]> {
-            let range = Self::resolve_range(range, self.h);
+        /// Returns an iterator over the rows of this buffer as &mut [T].
+        /// The length of each slice equals [`self.width()`](Self::width).
+        pub fn rows_mut(&mut self) -> impl Iterator<Item = &mut [T]> {
             self.data
                 .as_mut()
                 .chunks_exact_mut(self.stride)
                 .map(|row| &mut row[..self.w])
-                .skip(range.start)
-                .take(range.end - range.start)
         }
 
+        /// Returns an iterator over all the elements of `self` in row-major
+        /// order: first the elements on row 0 from left to right, followed
+        /// by the elements on row 1, and so on.
         pub fn iter_mut(&mut self) -> impl Iterator<Item = &'_ mut T> {
-            self.rows_mut(..).flatten()
+            self.rows_mut().flatten()
         }
 
         /// Fills the buffer with clones of `val`.
@@ -379,12 +455,13 @@ mod inner {
         {
             self.fill_with(|| val.clone())
         }
-        /// Fills the buffer by invoking `f` for every element.
+        /// Fills the buffer by invoking `f(i, j)` for every element, where
+        /// `i` and `j` are the row and column of the element, respectively.
         pub fn fill_with(&mut self, mut f: impl FnMut() -> T) {
             if self.is_contiguous() {
                 self.data_mut().fill_with(f)
             } else {
-                self.rows_mut(..).for_each(|row| row.fill_with(&mut f))
+                self.rows_mut().for_each(|row| row.fill_with(&mut f))
             }
         }
 
@@ -399,11 +476,11 @@ mod inner {
         ///
         /// # Panics
         /// If any part of `rect` is outside the bounds of `self`.
-        pub fn slice_mut(&mut self, rect: &Rect) -> Slice2Mut<T> {
+        pub fn slice_mut(&mut self, rect: &Rect) -> MutSlice2<T> {
             let (x, y) = self.resolve_bounds(rect);
             let range =
                 self.to_index(x.start, y.start)..self.to_index(x.end, y.end);
-            Slice2Mut(Inner::new(
+            MutSlice2(Inner::new(
                 x.len(),
                 y.len(),
                 self.stride,
@@ -418,10 +495,11 @@ mod inner {
     {
         type Output = [T];
 
+        /// Returns a reference to the row of `self` at index `i`.
+        /// The returned slice has length `self.width()`.
         #[inline]
-        fn index(&self, row: usize) -> &[T] {
-            let idx = row * self.stride;
-            &self.data()[idx..idx + self.w]
+        fn index(&self, i: usize) -> &[T] {
+            &self.data()[i * self.stride..][..self.w]
         }
     }
 
@@ -430,6 +508,8 @@ mod inner {
         Self: Index<usize, Output = [T]>,
         D: AsMut<[T]>,
     {
+        /// Returns a mutable reference to the row of `self` at index `i`.
+        /// The returned slice has length `self.width()`.
         #[inline]
         fn index_mut(&mut self, row: usize) -> &mut [T] {
             let idx = row * self.stride;
@@ -445,6 +525,9 @@ mod inner {
     {
         type Output = T;
 
+        /// Returns a reference to the element of `self` at position `pos`.
+        /// # Panics
+        /// If `pos` is out of bounds of `self`.
         #[inline]
         fn index(&self, pos: Pos) -> &T {
             let [x, y] = pos.into().0;
@@ -461,6 +544,10 @@ mod inner {
         D: AsRef<[T]> + AsMut<[T]>,
         Pos: Into<Vec2i>,
     {
+        /// Returns a mutable reference to the element of `self`
+        /// at position `pos`.
+        /// # Panics
+        /// If `pos` is out of bounds of `self`.
         #[inline]
         fn index_mut(&mut self, pos: Pos) -> &mut T {
             let [x, y] = pos.into().0;
@@ -531,6 +618,12 @@ mod tests {
     }
 
     #[test]
+    #[should_panic]
+    fn slice_stride_less_than_width_should_panic() {
+        let _ = Slice2::new(4, 4, 3, &[0; 16]);
+    }
+
+    #[test]
     fn slice_extents() {
         let buf = Buf2::init(10, 10, 0);
 
@@ -538,6 +631,25 @@ mod tests {
         assert_eq!(slice.width(), 3);
         assert_eq!(slice.height(), 6);
         assert_eq!(slice.stride(), 10);
+        assert_eq!(slice.data().len(), 5 * 10 + 3);
+    }
+
+    #[test]
+    fn slice_contiguity() {
+        let buf = Buf2::init(10, 10, 0);
+
+        // Empty slice is contiguous
+        assert!(buf.slice(&(2..2, 2..8).into()).is_contiguous());
+        assert!(buf.slice(&(2..8, 2..2).into()).is_contiguous());
+        // One-row slice is contiguous
+        assert!(buf.slice(&(2..8, 2..3).into()).is_contiguous());
+        // Slice spanning whole width of buf is contiguous
+        assert!(buf.slice(&(0..10, 2..8).into()).is_contiguous());
+        assert!(buf.slice(&(.., 2..8).into()).is_contiguous());
+
+        assert!(!buf.slice(&(2..=2, 1..9).into()).is_contiguous());
+        assert!(!buf.slice(&(2..4, 0..9).into()).is_contiguous());
+        assert!(!buf.slice(&(2..4, 1..10).into()).is_contiguous());
     }
 
     #[test]
@@ -591,7 +703,7 @@ mod tests {
         let buf = Buf2::init_with(5, 4, |x, y| x * 10 + y);
         let slice = buf.slice(&(2.., 1..3).into());
 
-        let mut rows = slice.rows(..);
+        let mut rows = slice.rows();
         assert_eq!(rows.next(), Some([21, 31, 41].as_ref()));
         assert_eq!(rows.next(), Some([22, 32, 42].as_ref()));
         assert_eq!(rows.next(), None);
