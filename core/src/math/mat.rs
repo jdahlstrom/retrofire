@@ -5,9 +5,10 @@
 use core::array;
 use core::fmt::{self, Debug, Formatter};
 use core::marker::PhantomData;
+use std::ops::Range;
 
-use crate::math::vec::{Affine, Proj4, Real, Vec3, Vec4, Vector};
-use crate::render::{Ndc, Screen};
+use crate::math::vec::{Affine, Proj4, Real, Vec2i, Vec3, Vec4, Vector};
+use crate::render::{Ndc, Screen, ViewToProjective};
 
 /// A linear transform from one space (or basis) to another.
 ///
@@ -15,7 +16,7 @@ use crate::render::{Ndc, Screen};
 /// statically ensure that only compatible maps can be composed, and that
 /// only compatible vectors can be transformed.
 pub trait LinearMap {
-    /// The source space, or domain, of `Self`.
+    /// The source space, or domain, of `Self`.w
     type Source;
     /// The destination space, or range, of `Self`.
     type Dest;
@@ -450,23 +451,122 @@ pub fn translate(t: Vec3) -> Mat4x4<RealToReal<3>> {
 /// is now parallel with `new_y`.
 ///
 /// TODO unimplemented
-pub fn orient_y(_new_y: Vec3, _x: Vec3) -> Mat4x4 {
+pub fn orient_y(_new_y: Vec3, _x: Vec3) -> Mat4x4<RealToReal<3>> {
     todo!()
 }
 /// Returns a matrix applying a rotation such that the original y axis
 /// is now parallel with `new_y`.
 ///
 /// TODO unimplemented
-pub fn orient_z(_new_z: Vec3, _x: Vec3) -> Mat4x4 {
+pub fn orient_z(_new_z: Vec3, _x: Vec3) -> Mat4x4<RealToReal<3>> {
     todo!()
 }
 
-pub fn viewport(left: f32, top: f32, right: f32, bottom: f32) -> Mat4x4 {
-    let h = (right - left) / 2.0;
-    let v = (bottom - top) / 2.0;
+/// Returns a matrix applying a rotation by `a` about the x axis.
+#[cfg(feature = "std")]
+pub fn rotate_x(a: super::angle::Angle) -> Mat4x4<RealToReal<3>> {
+    let (sin, cos) = a.sin_cos();
     [
-        [h, 0.0, 0.0, h + left],
-        [0.0, v, 0.0, v + top],
+        [1.0, 0.0, 0.0, 0.0],
+        [0.0, cos, sin, 0.0],
+        [0.0, -sin, cos, 0.0],
+        [0.0, 0.0, 0.0, 1.0],
+    ]
+    .into()
+}
+/// Returns a matrix applying a rotation by `a` about the y axis.
+#[cfg(feature = "std")]
+pub fn rotate_y(a: super::angle::Angle) -> Mat4x4<RealToReal<3>> {
+    let (sin, cos) = a.sin_cos();
+    [
+        [cos, 0.0, -sin, 0.0],
+        [0.0, 1.0, 0.0, 0.0],
+        [sin, 0.0, cos, 0.0],
+        [0.0, 0.0, 0.0, 1.0],
+    ]
+    .into()
+}
+/// Returns a matrix applying a rotation of angle `a` about the z axis.
+#[cfg(feature = "std")]
+pub fn rotate_z(a: super::angle::Angle) -> Mat4x4<RealToReal<3>> {
+    let (sin, cos) = a.sin_cos();
+    [
+        [cos, sin, 0.0, 0.0],
+        [-sin, cos, 0.0, 0.0],
+        [0.0, 0.0, 1.0, 0.0],
+        [0.0, 0.0, 0.0, 1.0],
+    ]
+    .into()
+}
+
+/// Creates a perspective projection matrix.
+///
+/// # Parameters
+/// * `focal_ratio`: Focal length/aperture ratio. Larger values mean
+/// a smaller angle of view, with 1.0 corresponding to a horizontal
+/// field of view of 90 degrees.
+/// * `aspect_ratio`: Viewport width/height ratio. Larger values mean
+/// a wider field of view.
+/// * `near_far`: Depth range between the near and far clipping planes.
+/// Objects outside this range are clipped or culled.
+///
+/// # Panics
+/// * If any parameter value is nonpositive.
+/// * If `near_far` is an empty range.
+pub fn perspective(
+    focal_ratio: f32,
+    aspect_ratio: f32,
+    near_far: Range<f32>,
+) -> Mat4x4<ViewToProjective> {
+    let (near, far) = (near_far.start, near_far.end);
+
+    assert!(focal_ratio > 0.0, "focal ratio must be positive");
+    assert!(aspect_ratio > 0.0, "aspect ratio must be positive");
+    assert!(near > 0.0, "near must be positive");
+    assert!(!near_far.is_empty(), "far must be greater than near");
+
+    let e00 = focal_ratio;
+    let e11 = e00 * aspect_ratio;
+    let e22 = (far + near) / (far - near);
+    let e23 = 2.0 * far * near / (near - far);
+    [
+        [e00, 0.0, 0.0, 0.0],
+        [0.0, e11, 0.0, 0.0],
+        [0.0, 0.0, e22, e23],
+        [0.0, 0.0, 1.0, 0.0],
+    ]
+    .into()
+}
+
+/// Creates an orthographic projection matrix.
+///
+/// # Parameters
+/// * `lbn`: The left-bottom-near corner of the projection box.
+/// * `rtf`: The right-bottom-far corner of the projection box.
+pub fn orthographic(lbn: Vec3, rtf: Vec3) -> Mat4x4<ViewToProjective> {
+    let [dx, dy, dz] = rtf.sub(&lbn).0;
+    let [sx, sy, sz] = rtf.add(&lbn).0;
+    [
+        [2.0 / dx, 0.0, 0.0, -sx / dx],
+        [0.0, 2.0 / dy, 0.0, -sy / dy],
+        [0.0, 0.0, 2.0 / dz, -sz / dz],
+        [0.0, 0.0, 0.0, 1.0],
+    ]
+    .into()
+}
+
+/// Creates a viewport transform matrix. A viewport matrix is used to
+/// transform points from the NDC space to screen space for rasterization.
+///
+/// # Parameters
+/// * `bounds`: the left-top and right-bottom coordinates of the viewport.
+pub fn viewport(bounds: Range<Vec2i>) -> Mat4x4<NdcToScreen> {
+    let Range { start, end } = bounds;
+    let h = (end.x() - start.x()) as f32 / 2.0;
+    let v = (end.y() - start.y()) as f32 / 2.0;
+    [
+        [h, 0.0, 0.0, h + start.x() as f32],
+        [0.0, v, 0.0, v + start.y() as f32],
         [0.0, 0.0, 1.0, 0.0],
         [0.0, 0.0, 0.0, 1.0],
     ]
@@ -475,6 +575,8 @@ pub fn viewport(left: f32, top: f32, right: f32, bottom: f32) -> Mat4x4 {
 
 #[cfg(test)]
 mod tests {
+    use crate::assert_approx_eq;
+    use crate::math::degs;
     use crate::math::vec::vec3;
 
     use super::*;
@@ -505,7 +607,7 @@ mod tests {
     }
 
     #[test]
-    fn mat_vec_scale() {
+    fn scaling() {
         let m = scale(vec3(1.0, -2.0, 3.0));
         let v = vec3(0.0, 4.0, -3.0).to();
 
@@ -513,11 +615,35 @@ mod tests {
     }
 
     #[test]
-    fn mat_vec_translate() {
+    fn translation() {
         let m = translate(vec3(1.0, 2.0, 3.0));
         let v = vec3(0.0, 5.0, -3.0).to();
 
         assert_eq!(m.apply(&v), vec3(1.0, 7.0, 0.0));
+    }
+
+    #[test]
+    #[cfg(feature = "std")]
+    fn rotation_x() {
+        let m = rotate_x(degs(90.0));
+        assert_eq!(m.apply(&0.0.into()), 0.0.into());
+        assert_approx_eq!(m.apply(&vec3(0.0, 0.0, 1.0)), vec3(0.0, 1.0, 0.0));
+    }
+
+    #[test]
+    #[cfg(feature = "std")]
+    fn rotation_y() {
+        let m = rotate_y(degs(90.0));
+        assert_eq!(m.apply(&0.0.into()), 0.0.into());
+        assert_approx_eq!(m.apply(&vec3(1.0, 0.0, 0.0)), vec3(0.0, 0.0, 1.0));
+    }
+
+    #[test]
+    #[cfg(feature = "std")]
+    fn rotation_z() {
+        let m = rotate_z(degs(90.0));
+        assert_eq!(m.apply(&0.0.into()), 0.0.into());
+        assert_approx_eq!(m.apply(&vec3(0.0, 1.0, 0.0)), vec3(1.0, 0.0, 0.0));
     }
 
     #[test]
@@ -560,5 +686,33 @@ mod tests {
 
         assert_eq!(m_inv.apply(&m.apply(&v1)), v1);
         assert_eq!(m.apply(&m_inv.apply(&v2)), v2);
+    }
+
+    #[test]
+    fn orthographic_box_maps_to_unit_cube() {
+        let lbn = vec3(-20.0, 0.0, 0.01);
+        let rtf = vec3(100.0, 50.0, 100.0);
+
+        let m = orthographic(lbn, rtf);
+
+        assert_approx_eq!(m.apply(&lbn.to()), [-1.0, -1.0, -1.0, 1.0].into());
+        assert_approx_eq!(m.apply(&rtf.to()), 1.0.into());
+    }
+
+    #[test]
+    fn perspective_frustum_maps_to_unit_cube() {
+        let left_bot_near = vec3(-0.125, -0.0625, 0.1);
+        let right_top_far = vec3(125.0, 62.5, 100.0);
+
+        let m = perspective(0.8, 2.0, 0.1..100.0);
+
+        assert_approx_eq!(
+            m.apply(&left_bot_near.to()).project_to_real(),
+            (-1.0).into()
+        );
+        assert_approx_eq!(
+            m.apply(&right_top_far.to()).project_to_real(),
+            1.0.into()
+        );
     }
 }
