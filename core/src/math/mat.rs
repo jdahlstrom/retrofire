@@ -8,7 +8,7 @@ use core::marker::PhantomData;
 use std::ops::Range;
 
 use crate::math::vec::{Affine, Proj4, Real, Vec2i, Vec3, Vec4, Vector};
-use crate::render::{Ndc, Screen, ViewToProjective};
+use crate::render::{NdcToScreen, ViewToProjective};
 
 /// A linear transform from one space (or basis) to another.
 ///
@@ -35,9 +35,6 @@ pub trait Compose<Inner: LinearMap>: LinearMap<Source = Inner::Dest> {
 pub struct RealToReal<const DIM: usize, SrcBasis = (), DstBasis = ()>(
     PhantomData<(SrcBasis, DstBasis)>,
 );
-
-/// Mapping from NDC (normalized device coordinates) to screen space.
-pub type NdcToScreen = RealToReal<3, Ndc, Screen>;
 
 /// Mapping from real to projective space.
 #[derive(Copy, Clone, Debug, Default, Eq, PartialEq)]
