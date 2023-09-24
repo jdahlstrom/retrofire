@@ -1,11 +1,13 @@
+#![allow(clippy::needless_range_loop)]
+
 //! Matrices and linear transforms.
 
 use core::array;
 use core::fmt::{self, Debug, Formatter};
 use core::marker::PhantomData;
 
-use crate::math::approx::ApproxEq;
-use crate::math::vec::{Affine, Real, Vec3, Vector};
+use crate::math::vec::{Affine, Proj4, Real, Vec3, Vec4, Vector};
+use crate::render::{Ndc, Screen};
 
 /// A linear transform from one space (or basis) to another.
 ///
@@ -19,10 +21,12 @@ pub trait LinearMap {
     type Dest;
 }
 
-/// Dummy LinearMap to help with generic code.
-impl LinearMap for () {
-    type Source = ();
-    type Dest = ();
+/// Composition of two `LinearMap`s, `Self` ∘ `Inner`.
+/// If `Self` maps from `B` to `C`, and `Inner` maps from `A` to `B`,
+/// `Self::Result` maps from `A` to `C`.
+pub trait Compose<Inner: LinearMap>: LinearMap<Source = Inner::Dest> {
+    /// The result of composing `Self` with `Inner`.
+    type Result: LinearMap<Source = Inner::Source, Dest = Self::Dest>;
 }
 
 /// A mapping from one basis to another in real vector space of dimension `DIM`.
@@ -31,16 +35,18 @@ pub struct RealToReal<const DIM: usize, SrcBasis = (), DstBasis = ()>(
     PhantomData<(SrcBasis, DstBasis)>,
 );
 
-impl<const DIM: usize, SrcBasis, DstBasis> LinearMap
-    for RealToReal<DIM, SrcBasis, DstBasis>
-{
-    type Source = Real<DIM, SrcBasis>;
-    type Dest = Real<DIM, DstBasis>;
-}
+/// Mapping from NDC (normalized device coordinates) to screen space.
+pub type NdcToScreen = RealToReal<3, Ndc, Screen>;
 
-/// A mapping from real to projective space.
+/// Mapping from real to projective space.
 #[derive(Copy, Clone, Debug, Default, Eq, PartialEq)]
-pub struct RealToProjective<FromBasis>(PhantomData<FromBasis>);
+pub struct RealToProjective<SrcBasis>(PhantomData<SrcBasis>);
+
+/// Dummy LinearMap to help with generic code.
+impl LinearMap for () {
+    type Source = ();
+    type Dest = ();
+}
 
 /// A generic matrix type.
 #[repr(transparent)]
@@ -51,6 +57,21 @@ pub struct Matrix<Repr, Map>(pub Repr, PhantomData<Map>);
 pub type Mat3x3<Map = ()> = Matrix<[[f32; 3]; 3], Map>;
 /// Type alias for a 4x4 float matrix.
 pub type Mat4x4<Map = ()> = Matrix<[[f32; 4]; 4], Map>;
+
+//
+// Inherent impls
+//
+
+impl<Repr: Clone, Map> Matrix<Repr, Map> {
+    /// Returns a matrix equal to `self` but with mapping `M`.
+    ///
+    /// This method can be used to coerce a matrix to a different
+    /// mapping in case it is needed to make types match.
+    #[inline]
+    pub fn to<M>(&self) -> Matrix<Repr, M> {
+        Matrix(self.0.clone(), PhantomData)
+    }
+}
 
 impl<const N: usize, Map> Matrix<[[f32; N]; N], Map> {
     /// Returns the `N`×`N` identity matrix.
@@ -89,13 +110,15 @@ impl<const N: usize, Map> Matrix<[[f32; N]; N], Map> {
     {
         array::from_fn(|j| self.0[j][i]).into()
     }
-    #[inline]
-    pub fn to<M>(&self) -> Matrix<[[f32; N]; N], M> {
-        self.0.into()
+
+    /// Returns whether every element of `self` is finite
+    /// (ie. neither `Inf`, `-Inf`, or `NaN`).
+    fn is_finite(&self) -> bool {
+        self.0.iter().flatten().all(|e| e.is_finite())
     }
 }
 
-impl<Src, Dst> Mat4x4<RealToReal<3, Src, Dst>> {
+impl<M: LinearMap> Mat4x4<M> {
     /// Returns the composite transform of `self` and `other`.
     ///
     /// Computes the matrix product of `self` and `other` such that applying
@@ -105,34 +128,40 @@ impl<Src, Dst> Mat4x4<RealToReal<3, Src, Dst>> {
     /// (𝗠 ∘ 𝗡)𝘃 = 𝗠(𝗡𝘃)
     /// ```
     /// for some matrices 𝗠 and 𝗡 and a vector 𝘃.
-    pub fn compose<S>(
+    pub fn compose<Inner>(
         &self,
-        other: &Mat4x4<RealToReal<3, S, Src>>,
-    ) -> Mat4x4<RealToReal<3, S, Dst>> {
-        let mut els = [[0.0; 4]; 4];
+        other: &Mat4x4<Inner>,
+    ) -> Mat4x4<<M as Compose<Inner>>::Result>
+    where
+        Inner: LinearMap,
+        M: Compose<Inner>,
+    {
+        let other: [_; 4] = array::from_fn(|i| other.col_vec(i));
+        let mut res = [[0.0; 4]; 4];
 
         for j in 0..4 {
+            let s = self.row_vec(j);
             for i in 0..4 {
-                let s = self.row_vec(j);
-                let o = other.col_vec(i);
-                els[j][i] = s.dot(&o);
+                res[j][i] = s.dot(&other[i]);
             }
         }
-        els.into()
+        res.into()
     }
-
     /// Returns the composite transform of `other` and `self`.
     ///
     /// Computes the matrix product of `self` and `other` such that applying
     /// the resulting matrix is equivalent to first applying `self` and then
     /// `other`. The call `self.then(other)` is thus equivalent to
     /// `other.compose(self)`.
-    pub fn then<D>(
-        &self,
-        other: &Mat4x4<RealToReal<3, Dst, D>>,
-    ) -> Mat4x4<RealToReal<3, Src, D>> {
+    pub fn then<Outer>(&self, other: &Mat4x4<Outer>) -> Mat4x4<Outer::Result>
+    where
+        Outer: Compose<M>,
+    {
         other.compose(self)
     }
+}
+
+impl<Src, Dst> Mat4x4<RealToReal<3, Src, Dst>> {
     /// Maps the real 3-vector 𝘃 from basis `Src` to basis `Dst`.
     ///
     /// Computes the matrix–vector multiplication 𝝡𝘃 where 𝘃 is interpreted as
@@ -281,13 +310,76 @@ impl<Src, Dst> Mat4x4<RealToReal<3, Src, Dst>> {
             mul_row(this, r, x);
             mul_row(inv, r, x);
         }
+        debug_assert!(inv.is_finite());
         inv.to()
     }
 }
 
+impl<B> Mat4x4<RealToProjective<B>> {
+    /// Maps the real 3-vector 𝘃 from basis 𝖡 to the projective 4-space.
+    ///
+    /// Computes the matrix–vector multiplication 𝝡𝘃 where 𝘃 is interpreted as
+    /// a column vector with an implicit 𝘃<sub>3</sub> component with value 1:
+    ///
+    /// ```text
+    ///         / M00  ·  · \ / v0 \
+    ///  Mv  =  |    ·      | | v1 |  =  ( v0' v1' v2' v3' )
+    ///         |      ·    | | v2 |
+    ///         \ ·  ·  M33 / \  1 /
+    /// ```
+    pub fn apply(&self, v: &Vec3<Real<3, B>>) -> Vec4<Proj4> {
+        let v = Vector::from([v.x(), v.y(), v.z(), 1.0]);
+        [
+            self.row_vec(0).dot(&v),
+            self.row_vec(1).dot(&v),
+            self.row_vec(2).dot(&v),
+            self.row_vec(3).dot(&v),
+        ]
+        .into()
+    }
+}
+
+//
+// Local trait impls
+//
+
+impl<const DIM: usize, S, D> LinearMap for RealToReal<DIM, S, D> {
+    type Source = Real<DIM, S>;
+    type Dest = Real<DIM, D>;
+}
+
+impl<const DIM: usize, S, I, D> Compose<RealToReal<DIM, S, I>>
+    for RealToReal<DIM, I, D>
+{
+    type Result = RealToReal<DIM, S, D>;
+}
+
+impl<S> LinearMap for RealToProjective<S> {
+    type Source = Real<3, S>;
+    type Dest = Proj4;
+}
+
+impl<S, I> Compose<RealToReal<3, S, I>> for RealToProjective<I> {
+    type Result = RealToProjective<S>;
+}
+
+//
+// Foreign trait impls
+//
+
 impl<R: Clone, M> Clone for Matrix<R, M> {
     fn clone(&self) -> Self {
         Self(self.0.clone(), PhantomData)
+    }
+}
+
+impl<const N: usize, Map> Default for Matrix<[[f32; N]; N], Map>
+where
+    [[f32; N]; N]: Default,
+{
+    /// Returns the `N`×`N` identity matrix.
+    fn default() -> Self {
+        Self::identity()
     }
 }
 
@@ -414,18 +506,33 @@ mod tests {
 
     #[test]
     fn mat_vec_scale() {
-        let m = scale(vec3(1.0, -2.0, 3.0)).to();
-        let v = vec3(0.0, 4.0, -3.0);
+        let m = scale(vec3(1.0, -2.0, 3.0));
+        let v = vec3(0.0, 4.0, -3.0).to();
 
         assert_eq!(m.apply(&v), vec3(0.0, -8.0, -9.0));
     }
 
     #[test]
     fn mat_vec_translate() {
-        let m = translate(vec3(1.0, 2.0, 3.0)).to();
-        let v = vec3(0.0, 5.0, -3.0);
+        let m = translate(vec3(1.0, 2.0, 3.0));
+        let v = vec3(0.0, 5.0, -3.0).to();
 
         assert_eq!(m.apply(&v), vec3(1.0, 7.0, 0.0));
+    }
+
+    #[test]
+    fn composition() {
+        let t = translate(vec3(1.0, 2.0, 3.0));
+        let s = scale(vec3(3.0, 2.0, 1.0));
+
+        let ts = t.then(&s);
+        let st = s.then(&t);
+
+        assert_eq!(ts, s.compose(&t));
+        assert_eq!(st, t.compose(&s));
+
+        assert_eq!(ts.apply(&0.0.into()), vec3(3.0, 4.0, 3.0));
+        assert_eq!(st.apply(&0.0.into()), vec3(1.0, 2.0, 3.0));
     }
 
     #[test]
