@@ -11,27 +11,31 @@ use crate::math::vec::{Affine, Real, Vec3, Vector};
 ///
 /// This is a tag trait with no functionality in itself. It is used to
 /// statically ensure that only compatible maps can be composed, and that
-/// only compatible vectors can be mapped
+/// only compatible vectors can be transformed.
 pub trait LinearMap {
-    type From;
-    type To;
+    /// The source space, or domain, of `Self`.
+    type Source;
+    /// The destination space, or range, of `Self`.
+    type Dest;
 }
 
-/// Dummy LinearMap to help with generic code
+/// Dummy LinearMap to help with generic code.
 impl LinearMap for () {
-    type From = ();
-    type To = ();
+    type Source = ();
+    type Dest = ();
 }
 
 /// A mapping from one basis to another in real vector space of dimension `DIM`.
 #[derive(Copy, Clone, Default, Eq, PartialEq)]
-pub struct RealToReal<const DIM: usize, FromBasis = (), ToBasis = ()>(
-    PhantomData<(FromBasis, ToBasis)>,
+pub struct RealToReal<const DIM: usize, SrcBasis = (), DstBasis = ()>(
+    PhantomData<(SrcBasis, DstBasis)>,
 );
 
-impl<const DIM: usize, F, T> LinearMap for RealToReal<DIM, F, T> {
-    type From = Real<DIM, F>;
-    type To = Real<DIM, T>;
+impl<const DIM: usize, SrcBasis, DstBasis> LinearMap
+    for RealToReal<DIM, SrcBasis, DstBasis>
+{
+    type Source = Real<DIM, SrcBasis>;
+    type Dest = Real<DIM, DstBasis>;
 }
 
 /// A mapping from real to projective space.
@@ -43,31 +47,43 @@ pub struct RealToProjective<FromBasis>(PhantomData<FromBasis>);
 #[derive(Copy, Eq, PartialEq)]
 pub struct Matrix<Repr, Map>(pub Repr, PhantomData<Map>);
 
-/// Type alias for 3x3 square matrices.
-pub type Mat3x3<Scalar = f32, Map = ()> = Matrix<[[Scalar; 3]; 3], Map>;
-/// Type alias for 4x4 square matrices.
-pub type Mat4x4<Scalar = f32, Map = ()> = Matrix<[[Scalar; 4]; 4], Map>;
+/// Type alias for a 3x3 float matrix.
+pub type Mat3x3<Map = ()> = Matrix<[[f32; 3]; 3], Map>;
+/// Type alias for a 4x4 float matrix.
+pub type Mat4x4<Map = ()> = Matrix<[[f32; 4]; 4], Map>;
 
 impl<const N: usize, Map> Matrix<[[f32; N]; N], Map> {
+    /// Returns the `N`×`N` identity matrix.
     pub fn identity() -> Self
     where
         [[f32; N]; N]: Default,
     {
-        let mut m = Matrix::from(<[[f32; N]; N]>::default());
+        let mut els = <[[f32; N]; N]>::default();
         for i in 0..N {
-            m.0[i][i] = 1.0;
+            els[i][i] = 1.0;
         }
-        m
+        els.into()
     }
+    /// Returns the row vector of `self` with index `i`.
+    /// The returned vector is in space `Map::Source`.
+    ///
+    /// # Panics
+    /// If `i >= N`.
     #[inline]
-    pub fn row_vec(&self, i: usize) -> Vector<[f32; N], Map::From>
+    pub fn row_vec(&self, i: usize) -> Vector<[f32; N], Map::Source>
     where
         Map: LinearMap,
     {
         self.0[i].into()
     }
+    /// Returns the column vector of `self` with index `i`.
+    ///
+    /// The returned vector is in space `Map::Dest`.
+    ///
+    /// # Panics
+    /// If `i >= N`.
     #[inline]
-    pub fn col_vec(&self, i: usize) -> Vector<[f32; N], Map::To>
+    pub fn col_vec(&self, i: usize) -> Vector<[f32; N], Map::Dest>
     where
         Map: LinearMap,
     {
@@ -79,17 +95,21 @@ impl<const N: usize, Map> Matrix<[[f32; N]; N], Map> {
     }
 }
 
-impl<F, T> Mat4x4<f32, RealToReal<4, F, T>> {
+impl<Src, Dst> Mat4x4<RealToReal<3, Src, Dst>> {
     /// Returns the composite transform of `self` and `other`.
     ///
-    /// Computes the matrix multiplication of `self` and `other`
-    /// such that applying the resulting transformation is equivalent
-    /// to first applying `other` and then `self`.
-    pub fn compose<G>(
+    /// Computes the matrix product of `self` and `other` such that applying
+    /// the resulting transformation is equivalent to first applying `other`
+    /// and then `self`. More succinctly,
+    /// ```text
+    /// (𝗠 ∘ 𝗡)𝘃 = 𝗠(𝗡𝘃)
+    /// ```
+    /// for some matrices 𝗠 and 𝗡 and a vector 𝘃.
+    pub fn compose<S>(
         &self,
-        other: &Mat4x4<f32, RealToReal<4, G, F>>,
-    ) -> Mat4x4<f32, RealToReal<4, G, T>> {
-        let mut els = [[0.0_f32; 4]; 4];
+        other: &Mat4x4<RealToReal<3, S, Src>>,
+    ) -> Mat4x4<RealToReal<3, S, Dst>> {
+        let mut els = [[0.0; 4]; 4];
 
         for j in 0..4 {
             for i in 0..4 {
@@ -98,27 +118,33 @@ impl<F, T> Mat4x4<f32, RealToReal<4, F, T>> {
                 els[j][i] = s.dot(&o);
             }
         }
-        Matrix(els, PhantomData)
+        els.into()
     }
 
     /// Returns the composite transform of `other` and `self`.
     ///
-    /// Computes the matrix multiplication of `self` and `other`
-    /// such that applying the resulting transformation is equivalent to first
-    /// applying `self` and then `other`. That is to say, this method is
-    /// equivalent to `other.compose(self)`.
-    pub fn then<U>(
+    /// Computes the matrix product of `self` and `other` such that applying
+    /// the resulting matrix is equivalent to first applying `self` and then
+    /// `other`. The call `self.then(other)` is thus equivalent to
+    /// `other.compose(self)`.
+    pub fn then<D>(
         &self,
-        other: &Mat4x4<f32, RealToReal<4, T, U>>,
-    ) -> Mat4x4<f32, RealToReal<4, F, U>> {
+        other: &Mat4x4<RealToReal<3, Dst, D>>,
+    ) -> Mat4x4<RealToReal<3, Src, D>> {
         other.compose(self)
     }
-
-    /// Maps the vector `v` from basis `F` to basis `T`.
+    /// Maps the real 3-vector 𝘃 from basis `Src` to basis `Dst`.
     ///
-    /// Computes the matrix–vector multiplication `Mv` where `v` is interpreted
-    /// as a column vector.
-    pub fn map(&self, v: &Vec3<Real<3, F>>) -> Vec3<Real<3, T>> {
+    /// Computes the matrix–vector multiplication 𝝡𝘃 where 𝘃 is interpreted as
+    /// a column vector with an implicit 𝘃<sub>3</sub> component with value 1:
+    ///
+    /// ```text
+    ///         / M00  ·  · \ / v0 \
+    ///  Mv  =  |    ·      | | v1 |  =  ( v0' v1' v2' 1 )
+    ///         |      ·    | | v2 |
+    ///         \ ·  ·  M33 / \  1 /
+    /// ```
+    pub fn apply(&self, v: &Vec3<Real<3, Src>>) -> Vec3<Real<3, Dst>> {
         let v = Vector::from([v.x(), v.y(), v.z(), 1.0]);
         let x = self.row_vec(0).dot(&v);
         let y = self.row_vec(1).dot(&v);
@@ -127,6 +153,22 @@ impl<F, T> Mat4x4<f32, RealToReal<4, F, T>> {
     }
 
     /// Returns the determinant of `self`.
+    ///
+    /// Given a matrix M,
+    /// ```text
+    ///         / a  b  c  d \
+    ///  M  =   | e  f  g  h |
+    ///         | i  j  k  l |
+    ///         \ m  n  o  p /
+    /// ```
+    /// its determinant can be computed by recursively computing
+    /// the determinants of sub-matrices on rows 1.. and multiplying
+    /// them by the elements on row 0:
+    /// ```text
+    ///              | f g h |       | e g h |
+    /// det(M) = a · | j k l | - b · | i k l |  + - ···
+    ///              | n o p |       | m o p |
+    /// ```
     pub fn determinant(&self) -> f32 {
         let [a, b, c, d] = self.0[0];
 
@@ -145,34 +187,63 @@ impl<F, T> Mat4x4<f32, RealToReal<4, F, T>> {
 
     /// Returns the inverse matrix of `self`.
     ///
-    /// Panics in debug mode if `self` is singular or near-singular.
-    /// In release mode, may give
-    pub fn inverse(&self) -> Mat4x4<f32, RealToReal<4, T, F>> {
-        debug_assert!(
-            self.determinant().abs() > f32::EPSILON,
-            "singular or near-singular matrix has no well-defined inverse"
-        );
+    /// The inverse 𝝡<sup>-1</sup> of matrix 𝝡 is a matrix that, when
+    /// composed with 𝝡, results in the identity matrix:
+    /// ```text
+    /// 𝝡 ∘ 𝝡<sup>-1</sup> = 𝝡<sup>-1</sup> ∘ 𝝡 = 𝐈
+    /// ```
+    /// In other words, it applies the transform of 𝝡 in reverse.
+    /// Given vectors 𝘃 and 𝘂,
+    /// ```text
+    /// 𝝡𝘃 = 𝘂 ⇔ 𝝡<sup>-1</sup> 𝘂 = 𝘃.
+    /// ```
+    /// Only matrices with a nonzero determinant have a defined inverse.
+    /// A matrix without an inverse is said to be singular.
+    ///
+    /// Note: This method uses naive Gauss–Jordan elimination and may
+    /// suffer from imprecision or numerical instability in certain cases.
+    ///
+    /// # Panics
+    /// If `self` is singular or near-singular:
+    /// * Panics in debug mode.
+    /// * Does not panic in release mode, but the result may be inaccurate
+    /// or contain `Inf`s or `NaN`s.
+    pub fn inverse(&self) -> Mat4x4<RealToReal<3, Dst, Src>> {
+        if cfg!(debug_assertions) {
+            let det = self.determinant();
+            assert!(
+                det.abs() > f32::EPSILON,
+                "a singular, near-singular, or non-finite matrix does not \
+                 have a well-defined inverse (determinant = {det})"
+            );
+        }
 
-        /// Elementary row operation subtracting one row,
-        /// multiplied by a scalar, from another
+        // Elementary row operation subtracting one row,
+        // multiplied by a scalar, from another
         fn sub_row(m: &mut Mat4x4, from: usize, to: usize, mul: f32) {
             m.0[to] = m.row_vec(to).add(&m.row_vec(from).mul(-mul)).0;
         }
 
-        /// Elementary row operation multiplying one row with a scalar
+        // Elementary row operation multiplying one row with a scalar
         fn mul_row(m: &mut Mat4x4, row: usize, mul: f32) {
             m.0[row] = m.row_vec(row).mul(mul).0;
         }
 
-        /// Elementary row operation swapping two rows
+        // Elementary row operation swapping two rows
         fn swap_rows(m: &mut Mat4x4, r: usize, s: usize) {
             m.0.swap(r, s);
         }
 
-        let mut inv = &mut Mat4x4::identity();
-        let mut this = &mut self.to();
+        // This algorithm attempts to reduce `this` to the identity matrix
+        // by simultaneously applying elementary row operations to it and
+        // another matrix `inv` which starts as the identity matrix. Once
+        // `this` is reduced, the value of `inv` has become the inverse of
+        // `this` and thus of `self`.
 
-        // Applies row operations to reduce the matrix to an upper echelon form
+        let inv = &mut Mat4x4::identity();
+        let this = &mut self.to();
+
+        // Apply row operations to reduce the matrix to an upper echelon form
         for idx in 0..4 {
             let pivot = (idx..4)
                 .max_by(|&r1, &r2| {
@@ -189,9 +260,8 @@ impl<F, T> Mat4x4<f32, RealToReal<4, F, T>> {
                 let div = 1.0 / this.0[idx][idx];
                 for r in (idx + 1)..4 {
                     let x = this.0[r][idx] * div;
-
-                    sub_row(&mut this, idx, r, x);
-                    sub_row(&mut inv, idx, r, x);
+                    sub_row(this, idx, r, x);
+                    sub_row(inv, idx, r, x);
                 }
             }
         }
@@ -239,28 +309,31 @@ where
     T: Debug + Default,
 {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
-        write!(f, "{:?}->{:?}", F::default(), T::default())
+        write!(f, "{:?}→{:?}", F::default(), T::default())
     }
 }
 
-impl<const N: usize, S, M> From<[[S; N]; N]> for Matrix<[[S; N]; N], M> {
-    fn from(els: [[S; N]; N]) -> Self {
-        Self(els, PhantomData)
+impl<Repr, M> From<Repr> for Matrix<Repr, M> {
+    fn from(repr: Repr) -> Self {
+        Self(repr, PhantomData)
     }
 }
 
-impl<Scalar: ApproxEq, Map, const N: usize> ApproxEq<Self, Scalar>
-    for Matrix<[[Scalar; N]; N], Map>
-{
-    fn approx_eq_eps(&self, other: &Self, eps: &Scalar) -> bool {
-        self.0.approx_eq_eps(&other.0, eps)
-    }
-    fn relative_epsilon() -> Scalar {
-        Scalar::relative_epsilon()
-    }
-}
+//
+// Free functions
+//
 
-pub fn scale(s: Vec3) -> Mat4x4 {
+/// Returns a matrix applying a scaling by `s`.
+///
+/// Tip: use `Vec3::from(f32)` to scale uniformly:
+/// ```
+/// # use retrofire_core::math::mat::*;
+/// let m = scale(2.0.into());
+/// assert_eq!(m.0[0][0], 2.0);
+/// assert_eq!(m.0[1][1], 2.0);
+/// assert_eq!(m.0[2][2], 2.0);
+/// ```
+pub fn scale(s: Vec3) -> Mat4x4<RealToReal<3>> {
     [
         [s[0], 0.0, 0.0, 0.0],
         [0.0, s[1], 0.0, 0.0],
@@ -270,7 +343,8 @@ pub fn scale(s: Vec3) -> Mat4x4 {
     .into()
 }
 
-pub fn translate(t: Vec3) -> Mat4x4 {
+/// Returns a matrix applying a translation by `t`.
+pub fn translate(t: Vec3) -> Mat4x4<RealToReal<3>> {
     [
         [1.0, 0.0, 0.0, t[0]],
         [0.0, 1.0, 0.0, t[1]],
@@ -280,9 +354,17 @@ pub fn translate(t: Vec3) -> Mat4x4 {
     .into()
 }
 
+/// Returns a matrix applying a rotation such that the original y axis
+/// is now parallel with `new_y`.
+///
+/// TODO unimplemented
 pub fn orient_y(_new_y: Vec3, _x: Vec3) -> Mat4x4 {
     todo!()
 }
+/// Returns a matrix applying a rotation such that the original y axis
+/// is now parallel with `new_y`.
+///
+/// TODO unimplemented
 pub fn orient_z(_new_z: Vec3, _x: Vec3) -> Mat4x4 {
     todo!()
 }
@@ -305,9 +387,14 @@ mod tests {
 
     use super::*;
 
+    #[derive(Debug, Default, Eq, PartialEq)]
+    struct Basis1;
+    #[derive(Debug, Default, Eq, PartialEq)]
+    struct Basis2;
+
     #[test]
     fn matrix_debug() {
-        let m: Mat4x4 = [
+        let m: Mat4x4<RealToReal<3, Basis1, Basis2>> = [
             [0.0, 1.0, 2.0, 3.0],
             [10.0, 11.0, 12.0, 13.0],
             [20.0, 21.0, 22.0, 23.0],
@@ -315,7 +402,7 @@ mod tests {
         ]
         .into();
 
-        let expected = r#"Matrix<()>[
+        let expected = r#"Matrix<Basis1→Basis2>[
     [  0.00,   1.00,   2.00,   3.00]
     [ 10.00,  11.00,  12.00,  13.00]
     [ 20.00,  21.00,  22.00,  23.00]
@@ -330,7 +417,7 @@ mod tests {
         let m = scale(vec3(1.0, -2.0, 3.0)).to();
         let v = vec3(0.0, 4.0, -3.0);
 
-        assert_eq!(m.map(&v), vec3(0.0, -8.0, -9.0));
+        assert_eq!(m.apply(&v), vec3(0.0, -8.0, -9.0));
     }
 
     #[test]
@@ -338,18 +425,33 @@ mod tests {
         let m = translate(vec3(1.0, 2.0, 3.0)).to();
         let v = vec3(0.0, 5.0, -3.0);
 
-        assert_eq!(m.map(&v), vec3(1.0, 7.0, 0.0));
+        assert_eq!(m.apply(&v), vec3(1.0, 7.0, 0.0));
     }
 
     #[test]
     fn mat_times_mat_inverse_is_identity() {
         let m = translate(vec3(1.0e3, -2.0e2, 0.0))
-            .to::<RealToReal<4>>()
-            .then(&scale(vec3(0.5, 100.0, 42.0)).to::<RealToReal<4>>());
+            .to::<RealToReal<3>>()
+            .then(&scale(vec3(0.5, 100.0, 42.0)).to::<RealToReal<3>>());
 
         let m_inv = m.inverse();
 
         assert_eq!(m.compose(&m_inv), Mat4x4::identity());
         assert_eq!(m_inv.compose(&m), Mat4x4::identity());
+    }
+
+    #[test]
+    fn inverse_reverts_transform() {
+        let m: Mat4x4<RealToReal<3, Basis1, Basis2>> =
+            scale(vec3(1.0, 2.0, 0.5))
+                .then(&translate(vec3(-2.0, 3.0, 0.0)))
+                .to();
+        let m_inv: Mat4x4<RealToReal<3, Basis2, Basis1>> = m.inverse();
+
+        let v1: Vec3<Real<3, Basis1>> = vec3(1.0, -2.0, 3.0).to();
+        let v2: Vec3<Real<3, Basis2>> = vec3(2.0, 0.0, -2.0).to();
+
+        assert_eq!(m_inv.apply(&m.apply(&v1)), v1);
+        assert_eq!(m.apply(&m_inv.apply(&v2)), v2);
     }
 }
