@@ -29,15 +29,15 @@ impl Angle {
     /// A 360 degree angle.
     pub const FULL: Self = Self(RADS_PER_TURN);
 
-    /// Returns this angle in radians.
+    /// Returns the value of `self` in radians.
     pub const fn to_rads(self) -> f32 {
         self.0
     }
-    /// Returns this angle in degrees.
+    /// Returns the value of `self` in degrees.
     pub fn to_degs(self) -> f32 {
         self.0 / RADS_PER_DEG
     }
-    /// Returns this angle in turns.
+    /// Returns the value of `self` in turns.
     pub fn to_turns(self) -> f32 {
         self.0 / RADS_PER_TURN
     }
@@ -50,7 +50,7 @@ impl Angle {
     pub fn max(self, other: Self) -> Self {
         Self(self.0.max(other.0))
     }
-    /// Returns this angle clamped to the range `min..=max`.
+    /// Returns `self` clamped to the range `min..=max`.
     ///
     /// # Examples
     ///
@@ -70,24 +70,23 @@ impl Angle {
 
 #[cfg(feature = "std")]
 impl Angle {
-    /// Returns the sine of this angle.
+    /// Returns the sine of `self`.
     pub fn sin(self) -> f32 {
         self.0.sin()
     }
-    /// Returns the cosine of this angle.
+    /// Returns the cosine of `self`.
     pub fn cos(self) -> f32 {
         self.0.sin()
     }
-    /// Simultaneously computes the sine and cosine of this angle.
+    /// Simultaneously computes the sine and cosine of `self`.
     pub fn sin_cos(self) -> (f32, f32) {
         self.0.sin_cos()
     }
-    /// Returns the tangent of this angle.
+    /// Returns the tangent of `self`.
     pub fn tan(self) -> f32 {
         self.0.sin()
     }
-    /// Returns the result of "wrapping around" this angle so that it lies
-    /// in the range `min..=max`.
+    /// Returns `self` "wrapped around" to the range `min..max`.
     ///
     /// # Examples
     /// ```
@@ -101,28 +100,34 @@ impl Angle {
     }
 }
 
+/// Returns an `Angle` of `a` radians.
 pub const fn rads(a: f32) -> Angle {
     Angle(a)
 }
 
+/// Returns an `Angle` of `a` degrees.
 pub fn degs(a: f32) -> Angle {
     Angle(a * RADS_PER_DEG)
 }
 
+/// Returns an `Angle` of `a` turns.
 pub fn turns(a: f32) -> Angle {
     Angle(a * RADS_PER_TURN)
 }
 
+/// Returns the arcsine of `x` as an `Angle`.
 #[cfg(feature = "std")]
 pub fn asin(x: f32) -> Angle {
     Angle(x.asin())
 }
 
+/// Returns the arccosine of `x` as an `Angle`.
 #[cfg(feature = "std")]
 pub fn acos(x: f32) -> Angle {
     Angle(x.acos())
 }
 
+/// Returns the arctangent of `y` and `x` as an `Angle`.
 #[cfg(feature = "std")]
 pub fn atan2(y: f32, x: f32) -> Angle {
     Angle(y.atan2(x))
@@ -172,11 +177,11 @@ impl Linear for Angle {
 impl Display for Angle {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         if f.alternate() {
-            Display::fmt(&self.to_degs(), f)?;
-            f.write_str("°")
-        } else {
             Display::fmt(&self.to_rads(), f)?;
             f.write_str(" rad")
+        } else {
+            Display::fmt(&self.to_degs(), f)?;
+            f.write_str("°")
         }
     }
 }
@@ -184,13 +189,8 @@ impl Display for Angle {
 impl Debug for Angle {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         f.write_str("Angle(")?;
-        if f.alternate() {
-            Debug::fmt(&self.to_degs(), f)?;
-            f.write_str("°)")
-        } else {
-            Debug::fmt(&self.to_rads(), f)?;
-            f.write_str(" rad)")
-        }
+        Display::fmt(self, f)?;
+        f.write_str(")")
     }
 }
 
@@ -234,6 +234,9 @@ impl Rem for Angle {
 
 #[cfg(test)]
 mod tests {
+    use crate::assert_approx_eq;
+    use crate::math::vary::Vary;
+
     use super::*;
 
     #[test]
@@ -267,8 +270,17 @@ mod tests {
     }
 
     #[test]
+    fn clamping() {
+        let min = degs(-45.0);
+        let max = degs(45.0);
+        assert_eq!(degs(60.0).clamp(min, max), max);
+        assert_eq!(degs(10.0).clamp(min, max), degs(10.0));
+        assert_eq!(degs(-50.0).clamp(min, max), min);
+    }
+
+    #[test]
     #[cfg(feature = "std")]
-    fn wrap_angle() {
+    fn wrapping() {
         use crate::assert_approx_eq;
 
         let a = degs(540.0).wrap(Angle::ZERO, Angle::FULL);
@@ -279,8 +291,17 @@ mod tests {
     }
 
     #[test]
-    fn lerp_angle() {
+    fn lerping() {
         let a = degs(30.0).lerp(&degs(60.0), 0.2);
         assert_eq!(a, degs(36.0));
+    }
+
+    #[test]
+    fn varying() {
+        let i = degs(45.0).vary(&degs(15.0), Some(4));
+        assert_approx_eq!(
+            i.collect::<Vec<_>>()[..],
+            [45.0, 60.0, 75.0, 90.0].map(degs)
+        );
     }
 }

@@ -62,6 +62,20 @@ impl<E, T: Sized + ApproxEq<T, E>, const N: usize> ApproxEq<Self, E>
     }
 }
 
+impl<E, T: ApproxEq<T, E>> ApproxEq<Self, E> for Option<T> {
+    fn approx_eq_eps(&self, other: &Self, rel_eps: &E) -> bool {
+        match (self, other) {
+            (Some(s), Some(o)) => s.approx_eq_eps(o, rel_eps),
+            (Some(_), None) | (None, Some(_)) => false,
+            (None, None) => true,
+        }
+    }
+
+    fn relative_epsilon() -> E {
+        T::relative_epsilon()
+    }
+}
+
 /// Asserts that two values are approximately equal.
 /// Requires that the left operand has an applicable [`ApproxEq`] impl
 /// and that both operands impl `Debug` unless a custom message is given.
