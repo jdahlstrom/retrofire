@@ -56,11 +56,11 @@ impl Angle {
     ///
     /// ```
     /// # use retrofire_core::math::angle::degs;
-    /// assert_eq(degs(90.0).clamp(degs(0.0), degs(60.0)), degs(90.0));
+    /// assert_eq!(degs(100.0).clamp(degs(0.0), degs(90.0)), degs(90.0));
     ///
-    /// assert_eq(degs(45.0).clamp(degs(0.0), degs(60.0)), degs(45.0));
+    /// assert_eq!(degs(45.0).clamp(degs(0.0), degs(90.0)), degs(45.0));
     ///
-    /// assert_eq(degs(-90.0).clamp(degs(0.0), degs(60.0)), degs(0.0));
+    /// assert_eq!(degs(-10.0).clamp(degs(0.0), degs(90.0)), degs(0.0));
     /// ```
     #[must_use]
     pub fn clamp(self, min: Self, max: Self) -> Self {
@@ -91,8 +91,9 @@ impl Angle {
     ///
     /// # Examples
     /// ```
-    /// # use retrofire_core::math::angle::degs;
-    /// assert_eq(degs(400.0).wrap(Angle::ZERO, Angle::FULL), degs(40))
+    /// # use retrofire_core::assert_approx_eq;
+    /// # use retrofire_core::math::angle::*;
+    /// assert_approx_eq!(degs(400.0).wrap(Angle::ZERO, Angle::FULL), degs(40.0))
     /// ```
     #[must_use]
     pub fn wrap(self, Self(min): Self, Self(max): Self) -> Self {

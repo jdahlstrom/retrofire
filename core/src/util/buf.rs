@@ -29,7 +29,7 @@ pub trait AsMutSlice2<T> {
 ///
 /// `Buf2` stores its elements contiguously, in standard row-major order,
 /// such that element (x, y) maps to element at index
-/// ```
+/// ```text
 /// buf.width() * y + x
 /// ```
 /// in the backing vector.
@@ -43,9 +43,9 @@ pub trait AsMutSlice2<T> {
 /// // Indexing with a 2D vector (x, y) yields element at row y, column x:
 /// buf[vec2(2, 1)] = 123;
 /// // Indexing with an usize i yields row with index i as a slice:
-/// assert_eq!(buf[1], &[0, 0, 123, 0]);
+/// assert_eq!(&buf[1usize], &[0, 0, 123, 0]);
 /// // Thus you can also do this, row first, column second:
-/// assert_eq!(buf[1][2], 123)
+/// assert_eq!(buf[1usize][2], 123)
 /// ```
 #[derive(Clone)]
 #[repr(transparent)]
@@ -132,8 +132,8 @@ impl<'a, T> Slice2<'a, T> {
     /// # use retrofire_core::util::buf::Slice2;
     /// let data = &[0, 1, 2, 3, 4, 5, 6];
     /// let slice = Slice2::new(2, 2, 3, data);
-    /// assert_eq!(slice[0], &[0, 1]);
-    /// assert_eq!(slice[1], &[3, 4]);
+    /// assert_eq!(&slice[0usize], &[0, 1]);
+    /// assert_eq!(&slice[1usize], &[3, 4]);
     /// ```
     /// Above, `slice` represents a 2×2 rectangle with stride 3, such that
     /// the first row maps to `data[0..2]` and the second to `data[3..5]`:
