@@ -20,6 +20,7 @@
 extern crate alloc;
 extern crate core;
 
+pub mod geom;
 pub mod math;
 pub mod render;
 pub mod util;

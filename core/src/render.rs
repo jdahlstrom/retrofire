@@ -1,5 +1,7 @@
 use crate::math::mat::{RealToProjective, RealToReal};
 
+pub mod clip;
+
 /// Model space coordinate basis.
 #[derive(Copy, Clone, Debug, Default)]
 pub struct Model;
