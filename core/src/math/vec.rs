@@ -150,9 +150,9 @@ pub type Vec3i<Space = Real<3>> = Vector<[i32; 3], Space>;
 /// A 4D integer vector in `Space` (by default ℤ⁴).
 pub type Vec4i<Space = Real<4>> = Vector<[i32; 4], Space>;
 
-impl<Repr, Space> Vector<Repr, Space> {
+impl<R, Sp> Vector<R, Sp> {
     /// Returns a new vector with representation `repr`.
-    pub const fn new(repr: Repr) -> Self {
+    pub const fn new(repr: R) -> Self {
         Self(repr, PhantomData)
     }
 
@@ -162,12 +162,13 @@ impl<Repr, Space> Vector<Repr, Space> {
     /// to another in order to make types match. One use case is
     /// to cast a "generic" vector returned by one of the constructor
     /// functions to a more specific space.
-    pub fn to<Sp>(self) -> Vector<Repr, Sp> {
+    // Cannot be const due to E0493 :(
+    pub fn to<S>(self) -> Vector<R, S> {
         Vector::new(self.0)
     }
 }
 
-impl<Space, const N: usize> Vector<[f32; N], Space> {
+impl<Sp, const N: usize> Vector<[f32; N], Sp> {
     /// Returns the length (magnitude) of `self`.
     #[cfg(feature = "std")]
     #[inline]
@@ -285,9 +286,9 @@ where
     }
 }
 
-impl<Repr, Sc> Vector<Repr, Proj4>
+impl<R, Sc> Vector<R, Proj4>
 where
-    Repr: Index<usize, Output = Sc>,
+    R: Index<usize, Output = Sc>,
     Sc: Copy,
 {
     /// Returns the x component of `self`.
@@ -324,17 +325,17 @@ where
 // Local trait impls
 //
 
-impl<Scalar, Space, const DIM: usize> Affine for Vector<[Scalar; DIM], Space>
+impl<Sc, Sp, const DIM: usize> Affine for Vector<[Sc; DIM], Sp>
 where
-    Scalar: Copy
+    Sc: Copy
         + Default
-        + Add<Output = Scalar>
-        + Mul<Output = Scalar>
-        + Sub<Output = Scalar>
-        + Neg<Output = Scalar>,
+        + Add<Output = Sc>
+        + Mul<Output = Sc>
+        + Sub<Output = Sc>
+        + Neg<Output = Sc>,
 {
-    type Space = Space;
-    type Scalar = Scalar;
+    type Space = Sp;
+    type Scalar = Sc;
     type Diff = Self;
 
     /// The dimension (number of components) of `Self`.
@@ -354,15 +355,15 @@ where
     }
 }
 
-impl<Scalar, Space, const DIM: usize> Linear for Vector<[Scalar; DIM], Space>
+impl<Sc, Sp, const DIM: usize> Linear for Vector<[Sc; DIM], Sp>
 where
     Self: Affine<Diff = Self>,
-    Scalar: Copy + Default + Neg<Output = Scalar>,
+    Sc: Copy + Default + Neg<Output = Sc>,
 {
     /// Returns the zero vector.
     #[inline]
     fn zero() -> Self {
-        array::from_fn(|_| Scalar::default()).into()
+        array::from_fn(|_| Sc::default()).into()
     }
 
     /// Returns the (additive) inverse of `self`.
@@ -419,14 +420,14 @@ where
     }
 }
 
-impl<Scalar: ApproxEq, Space, const N: usize> ApproxEq<Self, Scalar>
-    for Vector<[Scalar; N], Space>
+impl<Sc: ApproxEq, Sp, const N: usize> ApproxEq<Self, Sc>
+    for Vector<[Sc; N], Sp>
 {
-    fn approx_eq_eps(&self, other: &Self, eps: &Scalar) -> bool {
+    fn approx_eq_eps(&self, other: &Self, eps: &Sc) -> bool {
         self.0.approx_eq_eps(&other.0, eps)
     }
-    fn relative_epsilon() -> Scalar {
-        Scalar::relative_epsilon()
+    fn relative_epsilon() -> Sc {
+        Sc::relative_epsilon()
     }
 }
 
@@ -434,26 +435,26 @@ impl<Scalar: ApproxEq, Space, const N: usize> ApproxEq<Self, Scalar>
 // Foreign trait impls
 //
 
-impl<const DIM: usize, Basis> Debug for Real<DIM, Basis>
+impl<const DIM: usize, B> Debug for Real<DIM, B>
 where
-    Basis: Debug + Default,
+    B: Debug + Default,
 {
     fn fmt(&self, f: &mut Formatter<'_>) -> core::fmt::Result {
         const DIMS: [&str; 5] = ["", "", "²", "³", "⁴"];
         let dim = DIMS.get(DIM).unwrap_or(&"?");
-        write!(f, "ℝ{}<{:?}>", dim, Basis::default())
+        write!(f, "ℝ{}<{:?}>", dim, B::default())
     }
 }
 
-impl<R: Debug, Space: Debug + Default> Debug for Vector<R, Space> {
+impl<R: Debug, Sp: Debug + Default> Debug for Vector<R, Sp> {
     fn fmt(&self, f: &mut Formatter<'_>) -> core::fmt::Result {
-        write!(f, "Vec<{:?}>{:.3?}", Space::default(), self.0)
+        write!(f, "Vec<{:?}>{:.3?}", Sp::default(), self.0)
     }
 }
 
-impl<Repr, Space> From<Repr> for Vector<Repr, Space> {
+impl<R, Sp> From<R> for Vector<R, Sp> {
     #[inline]
-    fn from(els: Repr) -> Self {
+    fn from(els: R) -> Self {
         Self(els, PhantomData)
     }
 }
