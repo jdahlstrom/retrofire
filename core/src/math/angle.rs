@@ -298,10 +298,12 @@ mod tests {
 
     #[test]
     fn varying() {
-        let i = degs(45.0).vary(&degs(15.0), Some(4));
-        assert_approx_eq!(
-            i.collect::<Vec<_>>()[..],
-            [45.0, 60.0, 75.0, 90.0].map(degs)
-        );
+        let mut i = degs(45.0).vary(&degs(15.0), Some(4));
+
+        assert_approx_eq!(i.next(), Some(degs(45.0)));
+        assert_approx_eq!(i.next(), Some(degs(60.0)));
+        assert_approx_eq!(i.next(), Some(degs(75.0)));
+        assert_approx_eq!(i.next(), Some(degs(90.0)));
+        assert_approx_eq!(i.next(), None);
     }
 }

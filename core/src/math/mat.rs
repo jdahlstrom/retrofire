@@ -5,7 +5,7 @@
 use core::array;
 use core::fmt::{self, Debug, Formatter};
 use core::marker::PhantomData;
-use std::ops::Range;
+use core::ops::Range;
 
 use crate::math::vec::{Affine, Proj4, Real, Vec2i, Vec3, Vec4, Vector};
 use crate::render::{NdcToScreen, ViewToProjective};

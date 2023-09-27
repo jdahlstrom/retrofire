@@ -4,6 +4,7 @@
 //! the six planes comprising the view frustum, in order to avoid drawing
 //! things that are behind the camera or out of bounds of the viewport.
 
+use alloc::vec;
 use alloc::vec::Vec;
 use core::mem::swap;
 
