@@ -263,6 +263,7 @@ mod inner {
     use core::fmt::Formatter;
     use core::marker::PhantomData;
     use core::ops::{Index, IndexMut, Range};
+    use std::ops::{Deref, DerefMut};
 
     use crate::math::vec::Vec2i;
     use crate::util::buf::{MutSlice2, Slice2};
@@ -361,24 +362,21 @@ mod inner {
         }
     }
 
-    impl<T, D: AsRef<[T]>> Inner<T, D> {
+    impl<T, D: Deref<Target = [T]>> Inner<T, D> {
         /// # Panics
         /// if `stride < w` or if the slice would overflow `data`.
-        pub(super) fn new(w: usize, h: usize, stride: usize, data: D) -> Self {
+        #[rustfmt::skip]
+        pub(super) fn new(w: usize, h: usize, stride: usize, data: D)
+            -> Self
+        {
             assert!(stride >= w);
-            assert!(h == 0 || (h - 1) * stride + w <= data.as_ref().len());
-            Self {
-                w,
-                h,
-                stride,
-                data,
-                _pd: PhantomData,
-            }
+            assert!(h == 0 || (h - 1) * stride + w <= data.len());
+            Self { w, h, stride, data, _pd: PhantomData, }
         }
 
         /// Returns the data of `self` as a linear slice.
         pub(super) fn data(&self) -> &[T] {
-            self.data.as_ref()
+            &self.data
         }
 
         /// Borrows `self` as a `Slice2`.
@@ -412,7 +410,9 @@ mod inner {
         /// Returns an iterator over the rows of `self` as `&[T]` slices.
         /// The length of each slice equals [`self.width()`](Self::width).
         pub fn rows(&self) -> impl Iterator<Item = &[T]> {
-            self.data().chunks(self.stride).map(|row| &row[..self.w])
+            self.data()
+                .chunks(self.stride)
+                .map(|row| &row[..self.w])
         }
 
         /// Returns an iterator over all the elements of `self` in row-major
@@ -423,20 +423,19 @@ mod inner {
         }
     }
 
-    impl<T, D: AsMut<[T]>> Inner<T, D> {
+    impl<T, D: DerefMut<Target = [T]>> Inner<T, D> {
         /// Returns a mutably borrowed rectangular slice of `self`.
         pub fn as_mut_slice(&mut self) -> MutSlice2<T> {
             MutSlice2::new(self.w, self.h, self.stride, self.data_mut())
         }
         /// Returns the data of `self` as a single mutable slice.
         pub(super) fn data_mut(&mut self) -> &mut [T] {
-            self.data.as_mut()
+            &mut self.data
         }
         /// Returns an iterator over the rows of this buffer as &mut [T].
         /// The length of each slice equals [`self.width()`](Self::width).
         pub fn rows_mut(&mut self) -> impl Iterator<Item = &mut [T]> {
             self.data
-                .as_mut()
                 .chunks_exact_mut(self.stride)
                 .map(|row| &mut row[..self.w])
         }
@@ -461,7 +460,8 @@ mod inner {
             if self.is_contiguous() {
                 self.data_mut().fill_with(f)
             } else {
-                self.rows_mut().for_each(|row| row.fill_with(&mut f))
+                self.rows_mut()
+                    .for_each(|row| row.fill_with(&mut f))
             }
         }
 
@@ -469,7 +469,7 @@ mod inner {
         /// or `None` if `pos` is out of bounds.
         pub fn get_mut(&mut self, pos: Vec2i) -> Option<&mut T> {
             self.to_index_checked(pos.x(), pos.y())
-                .map(|i| &mut self.data.as_mut()[i])
+                .map(|i| &mut self.data[i])
         }
 
         /// Returns a mutably borrowed rectangular slice of `self`.
@@ -489,10 +489,7 @@ mod inner {
         }
     }
 
-    impl<T, D> Index<usize> for Inner<T, D>
-    where
-        D: AsRef<[T]>,
-    {
+    impl<T, D: Deref<Target = [T]>> Index<usize> for Inner<T, D> {
         type Output = [T];
 
         /// Returns a reference to the row of `self` at index `i`.
@@ -506,7 +503,7 @@ mod inner {
     impl<T, D> IndexMut<usize> for Inner<T, D>
     where
         Self: Index<usize, Output = [T]>,
-        D: AsMut<[T]>,
+        D: DerefMut<Target = [T]>,
     {
         /// Returns a mutable reference to the row of `self` at index `i`.
         /// The returned slice has length `self.width()`.
@@ -520,7 +517,7 @@ mod inner {
 
     impl<T, D, Pos> Index<Pos> for Inner<T, D>
     where
-        D: AsRef<[T]>,
+        D: Deref<Target = [T]>,
         Pos: Into<Vec2i>,
     {
         type Output = T;
@@ -535,13 +532,13 @@ mod inner {
             let idx = self
                 .to_index_checked(x, y)
                 .unwrap_or_else(|| self.position_out_of_bounds(x, y));
-            &self.data.as_ref()[idx]
+            &self.data[idx]
         }
     }
 
     impl<T, D, Pos> IndexMut<Pos> for Inner<T, D>
     where
-        D: AsRef<[T]> + AsMut<[T]>,
+        D: DerefMut<Target = [T]>,
         Pos: Into<Vec2i>,
     {
         /// Returns a mutable reference to the element of `self`
@@ -555,7 +552,7 @@ mod inner {
             let idx = self
                 .to_index_checked(x, y)
                 .unwrap_or_else(|| self.position_out_of_bounds(x, y));
-            &mut self.data.as_mut()[idx]
+            &mut self.data[idx]
         }
     }
 }
@@ -704,8 +701,8 @@ mod tests {
         let slice = buf.slice(&(2.., 1..3).into());
 
         let mut rows = slice.rows();
-        assert_eq!(rows.next(), Some([21, 31, 41].as_ref()));
-        assert_eq!(rows.next(), Some([22, 32, 42].as_ref()));
+        assert_eq!(rows.next(), Some(&[21, 31, 41][..]));
+        assert_eq!(rows.next(), Some(&[22, 32, 42][..]));
         assert_eq!(rows.next(), None);
     }
 }
