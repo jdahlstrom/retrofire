@@ -1,6 +1,7 @@
 use crate::math::mat::{RealToProjective, RealToReal};
 
 pub mod clip;
+pub mod tex;
 
 /// Model space coordinate basis.
 #[derive(Copy, Clone, Debug, Default)]
