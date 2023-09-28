@@ -1,5 +1,6 @@
-use alloc::{vec, vec::Vec};
+use alloc::vec::Vec;
 use core::fmt::{Debug, Formatter};
+use core::iter::repeat;
 use core::ops::{Deref, DerefMut};
 
 use inner::Inner;
@@ -39,7 +40,7 @@ pub trait AsMutSlice2<T> {
 /// # use retrofire_core::util::buf::*;
 /// # use retrofire_core::math::vec::*;
 /// // Elements initialized with `Default::default()`
-/// let mut buf = Buf2::new(4, 4);
+/// let mut buf = Buf2::new_default(4, 4);
 /// // Indexing with a 2D vector (x, y) yields element at row y, column x:
 /// buf[vec2(2, 1)] = 123;
 /// // Indexing with an usize i yields row with index i as a slice:
@@ -78,41 +79,40 @@ pub struct MutSlice2<'a, T>(Inner<T, &'a mut [T]>);
 //
 
 impl<T> Buf2<T> {
+    /// Returns a buffer with size `w` × `h`, with elements initialized
+    /// with values from `init` in row-major order.
+    ///
+    /// # Panics
+    /// If there are fewer than `w * h` elements in `init`.
+    pub fn new<I>(w: usize, h: usize, init: I) -> Self
+    where
+        I: IntoIterator<Item = T>,
+    {
+        let data: Vec<_> = init.into_iter().take(w * h).collect();
+        assert_eq!(data.len(), w * h);
+        Self(Inner::new(w, h, w, data))
+    }
     /// Returns a buffer with size `w` × `h`, with every element
     /// initialized by calling `T::default()`.
-    pub fn new(w: usize, h: usize) -> Self
+    pub fn new_default(w: usize, h: usize) -> Self
     where
         T: Clone + Default,
     {
-        Self::init(w, h, T::default())
-    }
-    /// Returns a buffer with size `w` × `h`, with every element
-    /// initialized to `init`.
-    pub fn init(w: usize, h: usize, init: T) -> Self
-    where
-        T: Clone,
-    {
-        Self::from_vec(w, h, vec![init; w * h])
+        Self::new(w, h, repeat(T::default()))
     }
     /// Returns a buffer with size `w` × `h`, with every element
     /// initialized by calling `init_fn(x, y)` where x is the column index
     /// and y the row index of the element being initialized.
-    pub fn init_with<F>(w: usize, h: usize, mut init_fn: F) -> Self
+    pub fn new_with<F>(w: usize, h: usize, mut init_fn: F) -> Self
     where
         F: Copy + FnMut(usize, usize) -> T,
     {
-        let data = (0..h)
-            .flat_map(move |y| (0..w).map(move |x| init_fn(x, y)))
-            .collect();
-        Self::from_vec(w, h, data)
+        let init = (0..h).flat_map(move |y| {
+            (0..w).map(move |x| init_fn(x, y)) //
+        });
+        Self::new(w, h, init)
     }
-    /// Returns a buffer with size `w` × `h`, backed by `data`.
-    ///
-    /// # Panics
-    /// If `w * h > data.len`.
-    pub fn from_vec(w: usize, h: usize, data: Vec<T>) -> Self {
-        Self(Inner::new(w, h, w, data))
-    }
+
     /// Returns a view of the backing data of `self`.
     pub fn data(&self) -> &[T] {
         self.0.data()
@@ -262,8 +262,7 @@ impl<'a, T> DerefMut for MutSlice2<'a, T> {
 mod inner {
     use core::fmt::Formatter;
     use core::marker::PhantomData;
-    use core::ops::{Index, IndexMut, Range};
-    use std::ops::{Deref, DerefMut};
+    use core::ops::{Deref, DerefMut, Index, IndexMut, Range};
 
     use crate::math::vec::Vec2i;
     use crate::util::buf::{MutSlice2, Slice2};
@@ -452,16 +451,29 @@ mod inner {
         where
             T: Clone,
         {
-            self.fill_with(|| val.clone())
-        }
-        /// Fills the buffer by invoking `f(i, j)` for every element, where
-        /// `i` and `j` are the row and column of the element, respectively.
-        pub fn fill_with(&mut self, mut f: impl FnMut() -> T) {
             if self.is_contiguous() {
-                self.data_mut().fill_with(f)
+                self.data_mut().fill(val);
             } else {
                 self.rows_mut()
-                    .for_each(|row| row.fill_with(&mut f))
+                    .for_each(|row| row.fill(val.clone()));
+            }
+        }
+        /// Fills the buffer by invoking `f(x, y)` for every element, where
+        /// `x` and `y` are the column and row of the element, respectively.
+        pub fn fill_with<F>(&mut self, mut fill_fn: F)
+        where
+            F: Copy + FnMut(usize, usize) -> T,
+        {
+            let w = self.w;
+            let mut fill = (0..self.h).flat_map(move |y| {
+                (0..w).map(move |x| fill_fn(x, y)) //
+            });
+            if self.is_contiguous() {
+                self.data_mut().fill_with(|| fill.next().unwrap())
+            } else {
+                self.rows_mut().for_each(|row| {
+                    row.fill_with(|| fill.next().unwrap()) //
+                })
             }
         }
 
@@ -564,8 +576,26 @@ mod tests {
     use super::*;
 
     #[test]
+    fn buf_new() {
+        let buf = Buf2::new(3, 2, 1..);
+        assert_eq!(buf.data(), &[1, 2, 3, 4, 5, 6]);
+    }
+
+    #[test]
+    fn buf_new_default() {
+        let buf: Buf2<i32> = Buf2::new_default(3, 2);
+        assert_eq!(buf.data(), &[0, 0, 0, 0, 0, 0]);
+    }
+
+    #[test]
+    fn buf_new_with() {
+        let buf = Buf2::new_with(3, 2, |x, y| x + y);
+        assert_eq!(buf.data(), &[0, 1, 2, 1, 2, 3]);
+    }
+
+    #[test]
     fn buf_extents() {
-        let buf = Buf2::init(8, 10, 0);
+        let buf: Buf2<()> = Buf2::new_default(8, 10);
         assert_eq!(buf.width(), 8);
         assert_eq!(buf.height(), 10);
         assert_eq!(buf.stride(), 8);
@@ -573,7 +603,7 @@ mod tests {
 
     #[test]
     fn buf_indexing() {
-        let buf = Buf2::init_with(4, 5, |x, y| x * 10 + y);
+        let buf = Buf2::new_with(4, 5, |x, y| x * 10 + y);
 
         assert_eq!(buf[[0, 0]], 0);
         assert_eq!(buf[vec2(1, 0)], 10);
@@ -585,7 +615,7 @@ mod tests {
 
     #[test]
     fn buf_mut_indexing() {
-        let mut buf = Buf2::init_with(4, 5, |x, y| x * 10 + y);
+        let mut buf = Buf2::new_with(4, 5, |x, y| x * 10 + y);
 
         buf[[3, 4]] = 123;
         assert_eq!(buf[vec2(3, 4)], 123);
@@ -597,20 +627,20 @@ mod tests {
     #[test]
     #[should_panic]
     fn buf_index_past_end_should_panic() {
-        let buf = Buf2::init(4, 5, 0);
-        let _ = buf[[4, 0]];
+        let buf = Buf2::new_default(4, 5);
+        let () = buf[[4, 0]];
     }
     #[test]
     #[should_panic]
     fn buf_negative_index_should_panic() {
-        let buf = Buf2::init(4, 5, 0);
-        let _ = buf[[3, -1]];
+        let buf = Buf2::new_default(4, 5);
+        let () = buf[[3, -1]];
     }
 
     #[test]
     #[should_panic]
     fn slice_out_of_bounds_should_panic() {
-        let buf = Buf2::init(10, 10, 0);
+        let buf: Buf2<()> = Buf2::new_default(4, 5);
         buf.slice(&(0..11, 0..10).into());
     }
 
@@ -622,7 +652,7 @@ mod tests {
 
     #[test]
     fn slice_extents() {
-        let buf = Buf2::init(10, 10, 0);
+        let buf: Buf2<()> = Buf2::new_default(10, 10);
 
         let slice = buf.slice(&(1..4, 2..8).into());
         assert_eq!(slice.width(), 3);
@@ -633,7 +663,7 @@ mod tests {
 
     #[test]
     fn slice_contiguity() {
-        let buf = Buf2::init(10, 10, 0);
+        let buf: Buf2<()> = Buf2::new_default(10, 10);
 
         // Empty slice is contiguous
         assert!(buf.slice(&(2..2, 2..8).into()).is_contiguous());
@@ -652,7 +682,7 @@ mod tests {
     #[test]
     #[rustfmt::skip]
     fn slice_fill() {
-        let mut buf = Buf2::new(5, 4);
+        let mut buf = Buf2::new_default(5, 4);
         let mut slice = buf.slice_mut(&(2.., 1..3).into());
 
         slice.fill(1);
@@ -667,8 +697,25 @@ mod tests {
     }
 
     #[test]
+    #[rustfmt::skip]
+    fn slice_fill_with() {
+        let mut buf = Buf2::new_default(5, 4);
+        let mut slice = buf.slice_mut(&(2.., 1..3).into());
+
+        slice.fill_with(|x, y| x + y);
+
+        assert_eq!(
+            buf.data(),
+            &[0, 0, 0, 0, 0, 
+              0, 0, 0, 1, 2,
+              0, 0, 1, 2, 3,
+              0, 0, 0, 0, 0]
+        );
+    }
+
+    #[test]
     fn slice_indexing() {
-        let buf = Buf2::init_with(5, 4, |x, y| x * 10 + y);
+        let buf = Buf2::new_with(5, 4, |x, y| x * 10 + y);
         let slice = buf.slice(&(2.., 1..3).into());
 
         assert_eq!(slice[vec2(0, 0)], 21);
@@ -681,7 +728,7 @@ mod tests {
 
     #[test]
     fn slice_mut_indexing() {
-        let mut buf = Buf2::init_with(5, 5, |x, y| x * 10 + y);
+        let mut buf = Buf2::new_with(5, 5, |x, y| x * 10 + y);
         let mut slice = buf.slice_mut(&(2.., 1..3).into());
 
         slice[[2, 1]] = 123;
@@ -697,7 +744,7 @@ mod tests {
 
     #[test]
     fn slice_rows() {
-        let buf = Buf2::init_with(5, 4, |x, y| x * 10 + y);
+        let buf = Buf2::new_with(5, 4, |x, y| x * 10 + y);
         let slice = buf.slice(&(2.., 1..3).into());
 
         let mut rows = slice.rows();

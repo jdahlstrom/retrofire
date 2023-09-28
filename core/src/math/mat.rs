@@ -573,8 +573,7 @@ pub fn viewport(bounds: Range<Vec2i>) -> Mat4x4<NdcToScreen> {
 #[cfg(test)]
 mod tests {
     use crate::assert_approx_eq;
-    use crate::math::degs;
-    use crate::math::vec::vec3;
+    use crate::math::{degs, vec3};
 
     use super::*;
 
