@@ -2,6 +2,7 @@
 name = "retrofire-front"
 version = "0.3.0"
 edition = "2021"
+license.workspace = true
 
 [dependencies]
 retrofire-core = { path = "../core" }
