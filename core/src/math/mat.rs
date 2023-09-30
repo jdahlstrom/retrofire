@@ -7,7 +7,9 @@ use core::fmt::{self, Debug, Formatter};
 use core::marker::PhantomData;
 use core::ops::Range;
 
-use crate::math::vec::{Affine, Proj4, Real, Vec2i, Vec3, Vec4, Vector};
+use crate::math::vec::{
+    Affine, Linear, Proj4, Real, Vec2i, Vec3, Vec4, Vector,
+};
 use crate::render::{NdcToScreen, ViewToProjective};
 
 /// A linear transform from one space (or basis) to another.

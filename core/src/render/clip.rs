@@ -9,7 +9,7 @@ use alloc::vec::Vec;
 use core::mem::swap;
 
 use crate::geom::{Plane, Tri, Vertex};
-use crate::math::vec::{Affine, Proj4, Vec3, Vec4};
+use crate::math::vec::{Affine, Linear, Proj4, Vec3, Vec4};
 
 /// Trait for types that can be clipped against planes.
 pub trait Clip {
@@ -82,7 +82,7 @@ impl ClipPlane {
         verts_out: &mut Vec<ClipVert<A>>,
     ) where
         A: Affine + Clone,
-        A::Diff: Affine<Scalar = f32>,
+        A::Diff: Linear<Scalar = f32>,
     {
         let mut verts = verts_in
             .iter()
@@ -155,7 +155,7 @@ pub fn clip_simple_polygon<'a, A>(
     mut verts_out: &'a mut Vec<ClipVert<A>>,
 ) where
     A: Affine + Clone,
-    A::Diff: Affine<Scalar = f32>,
+    A::Diff: Linear<Scalar = f32>,
 {
     for p in planes {
         verts_out.clear();
@@ -170,7 +170,7 @@ pub fn clip_simple_polygon<'a, A>(
 impl<A> Clip for [Tri<ClipVert<A>>]
 where
     A: Affine + Clone,
-    A::Diff: Affine<Scalar = f32>,
+    A::Diff: Linear<Scalar = f32>,
 {
     type Item = Tri<ClipVert<A>>;
 

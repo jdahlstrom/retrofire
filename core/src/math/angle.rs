@@ -145,7 +145,6 @@ impl ApproxEq for Angle {
 
 impl Affine for Angle {
     type Space = ();
-    type Scalar = f32;
     type Diff = Self;
     const DIM: usize = 1;
 
@@ -154,16 +153,14 @@ impl Affine for Angle {
         *self + *other
     }
     #[inline]
-    fn mul(&self, scalar: f32) -> Self {
-        *self * scalar
-    }
-    #[inline]
     fn sub(&self, other: &Self) -> Self {
         *self - *other
     }
 }
 
 impl Linear for Angle {
+    type Scalar = f32;
+
     #[inline]
     fn zero() -> Self {
         Angle::ZERO
@@ -171,6 +168,10 @@ impl Linear for Angle {
     #[inline]
     fn neg(&self) -> Self {
         -*self
+    }
+    #[inline]
+    fn mul(&self, scalar: f32) -> Self {
+        *self * scalar
     }
 }
 

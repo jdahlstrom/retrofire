@@ -13,21 +13,13 @@ use crate::math::vary::{Iter, Vary};
 //
 
 /// Trait for types representing elements of an affine space.
-///
-/// An `Affine` type must satisfy the following conditions:
-///
-/// * Addition is commutative and associative
-/// * Multiplication is commutative and associative
-///
+
 /// # TODO
-///
 /// * More documentation
 /// * Move to own module
 pub trait Affine: Sized {
     /// The type of the space that `Self` is the element of.
     type Space;
-    /// The scalar type associated with `Self`
-    type Scalar: Sized;
     /// The (signed) difference of two values of `Self`.
     /// `Diff` must have the same dimension as `Self`.
     type Diff: Linear;
@@ -39,20 +31,6 @@ pub trait Affine: Sized {
     ///
     /// `add` is commutative and associative.
     fn add(&self, diff: &Self::Diff) -> Self;
-
-    /// Multiplies all components of `self` by `scalar`.
-    ///
-    /// `mul` is commutative and associative, and distributes over
-    /// `add` and `sub` (up to rounding errors):
-    /// ```
-    /// # use retrofire_core::math::vec::Affine;
-    /// # let (v, w, x, a) = (1.0, 2.0, 3.0, 4.0);
-    /// v.mul(w) == w.mul(v);
-    /// v.mul(w).mul(x) == v.mul(w.mul(x));
-    /// v.mul(a).add(&w.mul(a)) == v.add(&w).mul(a);
-    /// v.mul(a).sub(&w.mul(a)) == v.add(&w).sub(&a);
-    /// ```
-    fn mul(&self, scalar: Self::Scalar) -> Self;
 
     /// Subtracts `other` from `self`, returning the (signed) difference.
     ///
@@ -74,7 +52,7 @@ pub trait Affine: Sized {
     ///
     /// ```
     #[inline]
-    fn lerp(&self, other: &Self, t: <Self::Diff as Affine>::Scalar) -> Self {
+    fn lerp(&self, other: &Self, t: <Self::Diff as Linear>::Scalar) -> Self {
         let diff = other.sub(self);
         self.add(&diff.mul(t))
     }
@@ -93,16 +71,28 @@ pub trait Affine: Sized {
 /// * More documentation
 /// * Move to own module?
 pub trait Linear: Affine<Diff = Self> {
-    /// Returns the additive identity of this type.
+    /// The scalar type associated with `Self`
+    type Scalar: Sized;
+
+    /// Returns the additive identity of `Self`.
     fn zero() -> Self;
 
     /// Returns the additive inverse of `self`.
     fn neg(&self) -> Self;
 
-    /// Subtracts `other` from `self`. Equivalent to `self.add(&other.neg())`.
-    fn sub(&self, other: &Self) -> Self {
-        self.add(&other.neg())
-    }
+    /// Multiplies all components of `self` by `scalar`.
+    ///
+    /// `mul` is commutative and associative, and distributes over
+    /// `add` and `sub` (up to rounding errors):
+    /// ```
+    /// # use retrofire_core::math::vec::Affine;
+    /// # let (v, w, x, a) = (1.0, 2.0, 3.0, 4.0);
+    /// v.mul(w) == w.mul(v);
+    /// v.mul(w).mul(x) == v.mul(w.mul(x));
+    /// v.mul(a).add(&w.mul(a)) == v.add(&w).mul(a);
+    /// v.mul(a).sub(&w.mul(a)) == v.add(&w).sub(&a);
+    /// ```
+    fn mul(&self, scalar: Self::Scalar) -> Self;
 }
 
 //
@@ -330,12 +320,11 @@ where
     Sc: Copy
         + Default
         + Add<Output = Sc>
-        + Mul<Output = Sc>
         + Sub<Output = Sc>
-        + Neg<Output = Sc>,
+        + Neg<Output = Sc>
+        + Mul<Output = Sc>,
 {
     type Space = Sp;
-    type Scalar = Sc;
     type Diff = Self;
 
     /// The dimension (number of components) of `Self`.
@@ -346,10 +335,6 @@ where
         array::from_fn(|i| self.0[i] + other.0[i]).into()
     }
     #[inline]
-    fn mul(&self, scalar: Self::Scalar) -> Self {
-        array::from_fn(|i| self.0[i] * scalar).into()
-    }
-    #[inline]
     fn sub(&self, other: &Self) -> Self {
         array::from_fn(|i| self.0[i] - other.0[i]).into()
     }
@@ -358,33 +343,33 @@ where
 impl<Sc, Sp, const DIM: usize> Linear for Vector<[Sc; DIM], Sp>
 where
     Self: Affine<Diff = Self>,
-    Sc: Copy + Default + Neg<Output = Sc>,
+    Sc: Copy + Default + Neg<Output = Sc> + Mul<Output = Sc>,
 {
+    type Scalar = Sc;
+
     /// Returns the zero vector.
     #[inline]
     fn zero() -> Self {
         array::from_fn(|_| Sc::default()).into()
     }
-
-    /// Returns the (additive) inverse of `self`.
     #[inline]
     fn neg(&self) -> Self {
         array::from_fn(|i| -self.0[i]).into()
+    }
+    #[inline]
+    fn mul(&self, scalar: Self::Scalar) -> Self {
+        array::from_fn(|i| self.0[i] * scalar).into()
     }
 }
 
 /// TODO move to own module
 impl Affine for f32 {
     type Space = ();
-    type Scalar = f32;
     type Diff = f32;
     const DIM: usize = 1;
 
     fn add(&self, other: &f32) -> f32 {
         self + other
-    }
-    fn mul(&self, scalar: f32) -> f32 {
-        self * scalar
     }
     fn sub(&self, other: &f32) -> f32 {
         self - other
@@ -392,18 +377,23 @@ impl Affine for f32 {
 }
 /// TODO move to own module
 impl Linear for f32 {
+    type Scalar = f32;
+
     fn zero() -> f32 {
         0.0
     }
     fn neg(&self) -> f32 {
         -*self
     }
+    fn mul(&self, scalar: f32) -> f32 {
+        self * scalar
+    }
 }
 /// TODO move to own module
 impl<V> Vary for V
 where
-    Self: Affine<Scalar = f32> + Clone,
-    <Self as Affine>::Diff: Clone,
+    Self: Affine + Clone,
+    <Self as Affine>::Diff: Linear<Scalar = f32> + Clone,
 {
     type Iter = Iter<Self>;
     type Diff = <Self as Affine>::Diff;
@@ -470,10 +460,10 @@ impl<Sp, Sc: Clone, const DIM: usize> From<Sc> for Vector<[Sc; DIM], Sp> {
 
 impl<R, Sp> Index<usize> for Vector<R, Sp>
 where
-    Self: Affine,
-    R: Index<usize, Output = <Self as Affine>::Scalar>,
+    Self: Linear,
+    R: Index<usize, Output = <Self as Linear>::Scalar>,
 {
-    type Output = <Self as Affine>::Scalar;
+    type Output = <Self as Linear>::Scalar;
 
     /// Returns the component of `self` with index `i`.
     ///
@@ -489,8 +479,8 @@ where
 
 impl<R, Sp> IndexMut<usize> for Vector<R, Sp>
 where
-    Self: Affine,
-    R: IndexMut<usize, Output = <Self as Affine>::Scalar>,
+    Self: Linear,
+    R: IndexMut<usize, Output = <Self as Linear>::Scalar>,
 {
     /// Returns a mutable reference to the component of `self` with index `i`.
     ///

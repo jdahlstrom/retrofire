@@ -57,7 +57,6 @@ where
     [i16; DIM]: Default,
 {
     type Space = Sp;
-    type Scalar = u8;
     type Diff = Vector<[i16; DIM], Sp>;
 
     const DIM: usize = DIM;
@@ -68,11 +67,6 @@ where
         })
         .into()
     }
-
-    fn mul(&self, scalar: Self::Scalar) -> Self {
-        array::from_fn(|i| self.0[i].saturating_mul(scalar)).into()
-    }
-
     fn sub(&self, other: &Self) -> Self::Diff {
         array::from_fn(|i| i16::from(self.0[i]) - i16::from(other.0[i])).into()
     }
@@ -83,7 +77,6 @@ where
     [f32; DIM]: Default,
 {
     type Space = Sp;
-    type Scalar = f32;
     type Diff = Self;
 
     const DIM: usize = DIM;
@@ -91,10 +84,6 @@ where
     #[inline]
     fn add(&self, other: &Self::Diff) -> Self {
         array::from_fn(|i| self.0[i] + other.0[i]).into()
-    }
-    #[inline]
-    fn mul(&self, scalar: Self::Scalar) -> Self {
-        array::from_fn(|i| self.0[i] * scalar).into()
     }
     #[inline]
     fn sub(&self, other: &Self) -> Self::Diff {
@@ -106,6 +95,8 @@ impl<Sp, const DIM: usize> Linear for Color<[f32; DIM], Sp>
 where
     [f32; DIM]: Default,
 {
+    type Scalar = f32;
+
     /// Returns the all-zeroes color (black).
     fn zero() -> Self {
         <[f32; DIM]>::default().into()
@@ -113,6 +104,10 @@ where
     #[inline]
     fn neg(&self) -> Self {
         array::from_fn(|i| -self.0[i]).into()
+    }
+    #[inline]
+    fn mul(&self, scalar: Self::Scalar) -> Self {
+        array::from_fn(|i| self.0[i] * scalar).into()
     }
 }
 
