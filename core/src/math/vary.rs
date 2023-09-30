@@ -1,13 +1,14 @@
 //! Linear interpolation
 
 use core::mem;
+use std::iter::{zip, Zip};
 
 /// A trait for types that can be linearly interpolated and distributed
 /// between two endpoints.
 ///
-/// This trait is especially designed for *varyings:* types that are
+/// This trait is designed particularly for *varyings:* types that are
 /// meant to be interpolated across the face of a polygon when rendering,
-/// but the methods are of course useful for a multitude of purposes.
+/// but the methods are of course useful for various purposes.
 pub trait Vary: Sized {
     /// The iterator returned by the [vary][Self::vary] method.
     type Iter: Iterator<Item = Self>;
@@ -33,8 +34,17 @@ pub trait Vary: Sized {
     fn vary(self, step: Self::Diff, max: Option<u32>) -> Self::Iter;
 
     /// Returns the result of offsetting `self` by `delta`.
-    /// For normal arithmetic types this is simply addition.
+    /// For arithmetic types this is simply addition.
     fn step(&self, delta: &Self::Diff) -> Self;
+
+    /// Returns the difference between `self` and `other`.
+    /// For arithmetic types this is simply subtraction.
+    fn diff(&self, other: &Self) -> Self::Diff;
+
+    /// Scales `diff` by `s`.
+    ///
+    /// TODO it's a bit ugly to have this method here and not on Self::Diff.
+    fn scale(diff: &Self::Diff, s: f32) -> Self::Diff;
 }
 
 #[derive(Copy, Clone, Debug)]
@@ -44,9 +54,24 @@ pub struct Iter<T: Vary> {
     pub n: Option<u32>,
 }
 
-impl<T: Vary> Iter<T> {
-    pub fn new(val: T, step: T::Diff, n: Option<u32>) -> Self {
-        Self { val, step, n }
+impl<T: Vary, U: Vary> Vary for (T, U) {
+    type Iter = Zip<T::Iter, U::Iter>;
+    type Diff = (T::Diff, U::Diff);
+
+    fn vary(self, step: Self::Diff, max: Option<u32>) -> Self::Iter {
+        zip(self.0.vary(step.0, max), self.1.vary(step.1, max))
+    }
+
+    fn step(&self, delta: &Self::Diff) -> Self {
+        (self.0.step(&delta.0), self.1.step(&delta.1))
+    }
+
+    fn diff(&self, other: &Self) -> Self::Diff {
+        (self.0.diff(&other.0), self.1.diff(&other.1))
+    }
+
+    fn scale(diff: &Self::Diff, s: f32) -> Self::Diff {
+        (T::scale(&diff.0, s), U::scale(&diff.1, s))
     }
 }
 

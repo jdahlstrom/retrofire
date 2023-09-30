@@ -16,18 +16,8 @@
 
 use crate::geom::Vertex;
 use crate::math::color::Color4;
-use crate::math::Vec3;
 
-/// A fragment, an individual "pixel" being drawn on the screen or other
-/// render target.
-// TODO Move to raster.rs once it's added
-#[derive(Copy, Clone, Debug)]
-pub struct Frag<V> {
-    // Fragment position in the render target.
-    pub pos: Vec3,
-    // Interpolated vertex attributes aka varyings.
-    pub var: V,
-}
+use super::raster::Frag;
 
 /// Trait for vertex shaders, used to transform vertices and perform other
 /// per-vertex computations.

@@ -2,6 +2,7 @@ use crate::math::mat::{RealToProjective, RealToReal};
 
 pub mod clip;
 pub mod shader;
+pub mod raster;
 pub mod tex;
 
 /// Model space coordinate basis.

@@ -399,14 +399,24 @@ where
     type Diff = <Self as Affine>::Diff;
 
     #[inline]
-    fn vary(self, step: Self::Diff, max: Option<u32>) -> Self::Iter {
-        Iter::new(self, step, max)
+    fn vary(self, step: Self::Diff, n: Option<u32>) -> Self::Iter {
+        Iter { val: self, step, n }
     }
 
     /// Adds `delta` to `self`.
     #[inline]
     fn step(&self, delta: &Self::Diff) -> Self {
         self.add(delta)
+    }
+
+    /// Subtracts `other` from `self`.
+    fn diff(&self, other: &Self) -> Self::Diff {
+        self.sub(other)
+    }
+
+    /// Multiplies `diff` by `s`.
+    fn scale(diff: &Self::Diff, s: f32) -> Self::Diff {
+        diff.mul(s)
     }
 }
 
