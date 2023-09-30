@@ -16,7 +16,7 @@ pub struct World;
 #[derive(Copy, Clone, Debug, Default)]
 pub struct View;
 
-/// <abbr title="Normalized device coordinates">NDC</abbr> space coordinate basis.
+/// NDC (normalized device coordinates) space coordinate basis.
 #[derive(Copy, Clone, Debug, Default)]
 pub struct Ndc;
 

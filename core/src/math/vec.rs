@@ -392,15 +392,15 @@ impl Linear for f32 {
 /// TODO move to own module
 impl<V> Vary for V
 where
-    Self: Affine + Clone,
-    <Self as Affine>::Diff: Linear<Scalar = f32> + Clone,
+    Self: Affine,
+    <Self as Affine>::Diff: Linear<Scalar = f32>,
 {
     type Iter = Iter<Self>;
     type Diff = <Self as Affine>::Diff;
 
     #[inline]
-    fn vary(&self, step: &Self::Diff, max: Option<u32>) -> Self::Iter {
-        Iter::new(self.clone(), step.clone(), max)
+    fn vary(self, step: Self::Diff, max: Option<u32>) -> Self::Iter {
+        Iter::new(self, step, max)
     }
 
     /// Adds `delta` to `self`.

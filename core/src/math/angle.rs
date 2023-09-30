@@ -299,7 +299,7 @@ mod tests {
 
     #[test]
     fn varying() {
-        let mut i = degs(45.0).vary(&degs(15.0), Some(4));
+        let mut i = degs(45.0).vary(degs(15.0), Some(4));
 
         assert_approx_eq!(i.next(), Some(degs(45.0)));
         assert_approx_eq!(i.next(), Some(degs(60.0)));

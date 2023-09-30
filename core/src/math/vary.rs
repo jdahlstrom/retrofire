@@ -22,7 +22,7 @@ pub trait Vary: Sized {
     /// # Examples
     /// ```
     /// # use retrofire_core::math::vary::Vary;
-    /// let mut  iter = 0.0f32.vary(&0.2, Some(5));
+    /// let mut  iter = 0.0f32.vary(0.2, Some(5));
     /// assert_eq!(iter.next(), Some(0.0));
     /// assert_eq!(iter.next(), Some(0.2));
     /// assert_eq!(iter.next(), Some(0.4));
@@ -30,7 +30,7 @@ pub trait Vary: Sized {
     /// assert_eq!(iter.next(), Some(0.8));
     /// assert_eq!(iter.next(), None);
     /// ```
-    fn vary(&self, step: &Self::Diff, max: Option<u32>) -> Self::Iter;
+    fn vary(self, step: Self::Diff, max: Option<u32>) -> Self::Iter;
 
     /// Returns the result of offsetting `self` by `delta`.
     /// For normal arithmetic types this is simply addition.
@@ -45,12 +45,12 @@ pub struct Iter<T: Vary> {
 }
 
 impl<T: Vary> Iter<T> {
-    pub fn new(val: T, step: T::Diff, max: Option<u32>) -> Self {
-        Self { val, step, n: max }
+    pub fn new(val: T, step: T::Diff, n: Option<u32>) -> Self {
+        Self { val, step, n }
     }
 }
 
-impl<T: Clone + Vary> Iterator for Iter<T> {
+impl<T: Vary> Iterator for Iter<T> {
     type Item = T;
 
     #[inline]
@@ -74,7 +74,7 @@ mod tests {
     #[test]
     fn vary_f32() {
         use alloc::vec::Vec;
-        let varying = (-6.0f32).vary(&1.2, Some(10));
+        let varying = (-6.0f32).vary(1.2, Some(10));
         assert_approx_eq!(
             varying.collect::<Vec<_>>()[..],
             [-6.0, -4.8, -3.6, -2.4, -1.2, 0.0, 1.2, 2.4, 3.6, 4.8]
