@@ -1,4 +1,5 @@
-//! Linear interpolation
+//! Support for varyings: types that can be linearly interpolated across
+//! a face when rendering, such as colors, normals, or texture coordinates.
 
 use core::iter::{zip, Zip};
 use core::mem;

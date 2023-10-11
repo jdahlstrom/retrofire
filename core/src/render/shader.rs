@@ -103,10 +103,10 @@ where
 impl<Vs, Fs> Shader<Vs, Fs> {
     /// Returns a new `Shader` with `vs` as the vertex shader
     /// and `fs` as the fragment shader.
-    pub fn new<In, Uni, P, A>(vs: Vs, fs: Fs) -> Self
+    pub fn new<In, Uni, Pos, Attr>(vs: Vs, fs: Fs) -> Self
     where
-        Vs: VertexShader<In, Uni, Output = Vertex<P, A>>,
-        Fs: FragmentShader<Frag<A>>,
+        Vs: VertexShader<In, Uni, Output = Vertex<Pos, Attr>>,
+        Fs: FragmentShader<Frag<Attr>>,
     {
         Self {
             vertex_shader: vs,
