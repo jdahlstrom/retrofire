@@ -16,7 +16,8 @@ use core::ops::Range;
 
 use crate::geom::Vertex;
 use crate::math::{vary::Vary, vec::Real, Vec3};
-use crate::render::Screen;
+
+use super::Screen;
 
 /// A fragment, or a single "pixel" in a rasterized primitive.
 #[derive(Clone, Debug)]
@@ -26,14 +27,13 @@ pub struct Frag<V> {
 }
 
 /// A horizontal, 1-pixel-thick "slice" of a primitive being rasterized.
-#[derive(Clone, Debug)]
-pub struct Scanline<Frags> {
+pub struct Scanline<V: Vary> {
     /// The y coordinate of the line.
     pub y: usize,
     /// The range of x coordinates spanned by the line.
     pub xs: Range<usize>,
     /// Iterator emitting the fragments on the line.
-    pub frags: Frags,
+    pub frags: <Varyings<V> as Vary>::Iter,
 }
 
 /// Iterator emitting scanlines, linearly interpolating values between the
@@ -58,7 +58,7 @@ where
     V: Vary,
     V::Diff: Clone,
 {
-    type Item = Scanline<<Varyings<V> as Vary>::Iter>;
+    type Item = Scanline<V>;
 
     #[inline]
     fn next(&mut self) -> Option<Self::Item> {
@@ -80,7 +80,7 @@ where
         let (x0, x1) = (round_up_to_half(v0.0.x()), round_up_to_half(x1));
 
         // Adjust v0 to match the rounded x0
-        let v0 = v0.step(&<Varyings<V>>::scale(&self.df_dx, x0 - v0.0.x()));
+        let v0 = v0.step(&scale::<V>(&self.df_dx, x0 - v0.0.x()));
 
         let frags = v0.vary(self.df_dx.clone(), Some((x1 - x0) as u32));
 
@@ -102,7 +102,7 @@ where
 pub fn tri_fill<V, F>(mut verts: [Vertex<ScreenVec, V>; 3], mut scanline_fn: F)
 where
     V: Vary<Diff = V> + Clone,
-    F: FnMut(Scanline<<Varyings<V> as Vary>::Iter>),
+    F: FnMut(Scanline<V>),
 {
     // Sort by y coordinate, start from the top
     verts.sort_by(|a, b| a.pos.y().partial_cmp(&b.pos.y()).unwrap());
@@ -113,7 +113,7 @@ where
     // Interpolate a point on the "long" edge at the same y as `mid0`
     let mid1 = {
         let t = (mid_y - top_y) / (bot_y - top_y);
-        top.step(&<Varyings<V>>::scale(&bot.diff(&top), t))
+        top.step(&scale::<V>(&bot.diff(&top), t))
     };
 
     let (left, right) = if mid0.0.x() < mid1.0.x() {
@@ -174,14 +174,14 @@ where
     let inv_dy = (y1 - y0).recip();
 
     // df/dy for the left edge
-    let dl_dy = <Varyings<V>>::scale(&l1.diff(l0), inv_dy);
+    let dl_dy = scale::<V>(&l1.diff(l0), inv_dy);
     // df/dy for the right edge
-    let dr_dy = <Varyings<V>>::scale(&r1.diff(r0), inv_dy);
+    let dr_dy = scale::<V>(&r1.diff(r0), inv_dy);
 
     // df/dx is constant for the whole polygon; precompute it
     let df_dx = {
         let df = r0.step(&dr_dy).diff(&l0.step(&dl_dy));
-        <Varyings<V>>::scale(&df, df.0.x().recip())
+        scale::<V>(&df, df.0.x().recip())
     };
 
     // Find the y value of the next pixel center (.5) vertically
@@ -209,7 +209,7 @@ where
     let y_tweak = y0_rounded - y0;
 
     // Adjust varyings to correspond to the aligned y value
-    let l0 = l0.step(&<Varyings<V>>::scale(&dl_dy, y_tweak));
+    let l0 = l0.step(&scale::<V>(&dl_dy, y_tweak));
     let r0 = r0.0.x() + dr_dy.0.x() * y_tweak;
 
     ScanlineIter {
@@ -219,6 +219,13 @@ where
         df_dx,
         n: (y1_rounded - y0_rounded) as u32, // saturates to 0
     }
+}
+
+fn scale<V: Vary>(
+    d: &<Varyings<V> as Vary>::Diff,
+    s: f32,
+) -> <Varyings<V> as Vary>::Diff {
+    <Varyings<V> as Vary>::scale(d, s)
 }
 
 #[cfg(feature = "std")]

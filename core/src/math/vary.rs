@@ -1,14 +1,14 @@
 //! Linear interpolation
 
+use core::iter::{zip, Zip};
 use core::mem;
-use std::iter::{zip, Zip};
 
 /// A trait for types that can be linearly interpolated and distributed
 /// between two endpoints.
 ///
 /// This trait is designed particularly for *varyings:* types that are
 /// meant to be interpolated across the face of a polygon when rendering,
-/// but the methods are of course useful for various purposes.
+/// but the methods are useful for various purposes.
 pub trait Vary: Sized {
     /// The iterator returned by the [vary][Self::vary] method.
     type Iter: Iterator<Item = Self>;
