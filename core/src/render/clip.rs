@@ -1,8 +1,17 @@
-//! Clipping of rendering primitives against planes.
+//! Clipping of geometric shapes against planes.
 //!
-//! In particular, this module implements clipping of geometry against
-//! the six planes comprising the view frustum, in order to avoid drawing
-//! things that are behind the camera or out of bounds of the viewport.
+//! Clipping means converting a shape into another, such that only the points
+//! inside a volume enclosed by one or more planes remain; "inside" is defined
+//! as the half-space that the plane's normal vector points away from.
+//! In other words, clipping computes the intersection between a shape and
+//! a (possibly unbounded) convex polyhedron defined by the planes.
+//!
+//! In particular, this module implements clipping of geometry against the six
+//! planes comprising the [*view frustum*][view_frustum], in order to avoid
+//! drawing objects that are behind the camera or outside the bounds of the
+//! viewport. Clipping geometry before the raster stage is more efficient than
+//! doing it for every scanline individually.
+//!
 
 use alloc::vec;
 use alloc::vec::Vec;
@@ -10,17 +19,38 @@ use alloc::vec::Vec;
 use crate::geom::{Plane, Tri, Vertex};
 use crate::math::vec::{Affine, Linear, Proj4, Vec3, Vec4};
 
-/// Trait for types that can be clipped against planes.
+/// Trait for types that can be [clipped][self] against planes.
+///
+/// # Note to implementors
+/// This trait is primarily meant to be implemented on slices or other
+/// composites, so that several primitives can be clipped in a single call.
+/// This allows reuse of temporary buffers, for instance.
+///
+/// Implementations should avoid creating degenerate primitives, such as
+/// triangles with only two unique vertices.
 pub trait Clip {
+    /// Type of the clipped object. For example, `Self` if implemented for
+    /// the type itself, or `T` if implemented for `[T]`.
     type Item;
+
     /// Clips `self` against `planes`, returning the resulting zero or more
     /// primitives in the out parameter `out`.
+    ///
+    /// If a primitive being clipped lies entirely within the bounding volume,
+    /// it is emitted as it is. If it is entirely outside the volume, it is
+    /// skipped. If it is partially inside, it is clipped such that no points
+    /// outside the volume remain in the result.
+    ///
+    /// The result is unspecified if `out` is nonempty.
+    ///
+    /// TODO Investigate returning an iterator
     fn clip(&self, planes: &[ClipPlane], out: &mut Vec<Self::Item>);
 }
 
 /// A vector in clip space.
 pub type ClipVec = Vec4<Proj4>;
 
+/// A vertex in clip space.
 pub type ClipVert<A> = Vertex<ClipVec, A>;
 
 /// A plane in clip space.
@@ -47,8 +77,8 @@ impl ClipPlane {
     ///            ^       d > 0
     ///            |         x
     ///            |         |
-    ///            |-.       |
-    /// -----x-----+-`------------ self
+    ///            |_        |
+    /// -----x-----+-'------------ self
     ///    d = 0         |
     ///                  x
     ///                d < 0
@@ -109,6 +139,7 @@ impl ClipPlane {
                 // `t` is the fractional distance from `v0` to the intersection
                 // point. If conditions guarantee that `d1 - d0` is nonzero.
                 let t = -d0 / (d1 - d0);
+
                 verts_out.push(ClipVert {
                     pos: v0.pos.lerp(&v1.pos, t),
                     attrib: v0.attrib.lerp(&v1.attrib, t),
@@ -119,6 +150,19 @@ impl ClipPlane {
     }
 }
 
+/// A view frustum is a truncated, sideways pyramid representing the volume of
+/// space that is visible in a viewport with perspective projection. The left,
+/// top, right, and bottom sides of the frustum correspond to the edges of the
+/// viewport, while the near and far sides (the top and bottom of the pyramid)
+/// limit how close-up or far away objects can be drawn.
+///
+/// The far plane can be used to limit the amount of geometry that needs to be
+/// rendered per frame, usually combined with a fog effect so objects are not
+/// abruptly clipped. The near plane must have a positive offset from origin,
+/// and the offset plays a large role in dictating the distribution of depth
+/// values used for hidden surface removal.
+///
+/// TODO Describe clip space
 pub mod view_frustum {
     use crate::math::vec3;
 
@@ -136,11 +180,12 @@ pub mod view_frustum {
     ];
 }
 
-/// Clips the simple polygon given by the vertices in `verts_in` against
-/// `planes`, returning the result in `verts_out`.
+/// Clips the simple polygon given by the vertices in `verts_in` against the
+/// convex volume defined by `planes`, returning the result in `verts_out`.
+/// The result is unspecified if `verts_out` is not empty.
 ///
 /// This function uses an out parameter rather than the return value in order
-/// to avoid extra allocations. Also note that the value of `verts_in` after
+/// to avoid extra allocations. Also note that the content of `verts_in` after
 /// calling the function is not specified, as it is used as temporary storage.
 ///
 /// The algorithm used is Sutherland–Hodgman [1].
@@ -178,6 +223,8 @@ where
     type Item = Tri<ClipVert<A>>;
 
     fn clip(&self, planes: &[ClipPlane], out: &mut Vec<Self::Item>) {
+        debug_assert!(out.is_empty());
+
         // Avoid unnecessary allocations by reusing these
         let mut verts_in = vec![];
         let mut verts_out = vec![];
@@ -186,12 +233,23 @@ where
             verts_in.extend(tri.0);
             clip_simple_polygon(planes, &mut verts_in, &mut verts_out);
 
-            if let Some((v0, vs)) = verts_out.split_first() {
-                // Turn the resulting polygon into a fan of triangles
-                // with v0 as the common vertex
+            if let Some((a, rest)) = verts_out.split_first() {
+                // Clipping a triangle results in an n-gon, where n depends on
+                // how many planes the triangle intersects. Turn the resulting
+                // n-gon into a fan of triangles with common vertex `a`, for
+                // example here the polygon `abcd` is divided into triangles
+                // `abc` and `acd`:
+                //
+                //    _ _ _c____________d_ _
+                //         | \         /
+                //         |   \      /
+                //         |     \   /
+                //    _ _ _|_______\/_ _ _ _
+                //         b        a
+                //
                 out.extend(
-                    vs.windows(2)
-                        .map(|e| Tri([v0.clone(), e[0].clone(), e[1].clone()])),
+                    rest.windows(2)
+                        .map(|e| Tri([a.clone(), e[0].clone(), e[1].clone()])),
                 );
             }
             verts_in.clear();
@@ -379,11 +437,11 @@ mod tests {
         //    ^
         //    2-------0
         //    · \     |
-        //  - ----+   |
+        //  --1---+   |
         //    ·   | \ |
-        //    + - | - 1 - - > x
+        //    + - 1 - 2 - - > x
         //        |
-        //  - ----+
+        //  ------+
 
         let tr =
             tri(vec(2.0, 2.0, 2.0), vec(2.0, -2.0, 0.0), vec(0.0, -1.0, 2.0));
@@ -398,9 +456,9 @@ mod tests {
         //    ^
         //    2
         //    | \
-        //  - +---+
+        //  - 1---+
         //    |   | \
-        //    0---+---1 - - > x
+        //    0---1---2 - - > x
         //        |
         //  - ----+
 
