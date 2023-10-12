@@ -6,7 +6,6 @@
 
 use alloc::vec;
 use alloc::vec::Vec;
-use core::mem::swap;
 
 use crate::geom::{Plane, Tri, Vertex};
 use crate::math::vec::{Affine, Linear, Proj4, Vec3, Vec4};
@@ -151,19 +150,23 @@ pub mod view_frustum {
 ///        Communications of the ACM, vol. 17, pp. 32–42, 1974
 pub fn clip_simple_polygon<'a, A>(
     planes: &[Plane<ClipVec>],
-    mut verts_in: &'a mut Vec<ClipVert<A>>,
-    mut verts_out: &'a mut Vec<ClipVert<A>>,
+    verts_in: &'a mut Vec<ClipVert<A>>,
+    verts_out: &'a mut Vec<ClipVert<A>>,
 ) where
     A: Affine + Clone,
     A::Diff: Linear<Scalar = f32>,
 {
-    for p in planes {
-        verts_out.clear();
+    debug_assert!(verts_out.is_empty());
+
+    for (i, p) in planes.iter().enumerate() {
         p.clip_simple_polygon(verts_in, verts_out);
         if verts_out.is_empty() {
             break;
+        } else if i < planes.len() - 1 {
+            // Use the result of this iteration as the input of the next
+            verts_in.clear();
+            verts_in.append(verts_out);
         }
-        swap(&mut verts_in, &mut verts_out);
     }
 }
 
@@ -200,6 +203,8 @@ where
 #[cfg(test)]
 mod tests {
     use alloc::vec;
+
+    use crate::math::vary::Vary;
 
     use super::view_frustum::*;
     use super::*;
@@ -412,6 +417,7 @@ mod tests {
             ]
         );
     }
+
     #[test]
     fn tri_clip_all_planes_result_is_heptagon() {
         //        z
@@ -429,7 +435,51 @@ mod tests {
 
         let res = &mut vec![];
         [tr].clip(&PLANES, res);
+
         // 7 intersection points -> clipped shape made of 5 triangles
         assert_eq!(res.len(), 5);
+        assert!(res.iter().all(in_bounds));
+    }
+
+    #[test]
+    fn tri_clip_all_cases() {
+        // Methodically go through every possible combination of every
+        // vertex inside/outside of every plane, including degenerate cases.
+
+        let xs = || (-1.5).vary(1.5, Some(5));
+
+        let pts = || {
+            xs().flat_map(move |x| {
+                xs().flat_map(move |y| xs().map(move |z| vec(x, y, z)))
+            })
+        };
+
+        let tris = pts().flat_map(|a| {
+            pts().flat_map(move |b| pts().map(move |c| tri(a, b, c)))
+        });
+
+        let mut in_tris = 0;
+        let mut out_tris = 0;
+        for tr in tris {
+            let res = &mut vec![];
+            [tr].clip(&PLANES, res);
+            if !res.iter().all(in_bounds) {
+                panic!(
+                    "clip returned oob vertex:\n  from: {:#?}\n  to: {:#?}",
+                    tr, &res
+                );
+            }
+            in_tris += 1;
+            out_tris += res.len();
+        }
+        assert_eq!(in_tris, 5i32.pow(9));
+        assert_eq!(out_tris, 1033639);
+    }
+
+    fn in_bounds(tri: &Tri<ClipVert<f32>>) -> bool {
+        tri.0
+            .iter()
+            .flat_map(|v| v.pos.project_to_real().0)
+            .all(|a| a.abs() <= 1.00001)
     }
 }
