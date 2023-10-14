@@ -1,10 +1,13 @@
 [package]
 name = "retrofire-demos"
-version = "0.3.0"
-edition = "2021"
-license.workspace = true
+description = "Demo programs showcasing retrofire features."
 
-# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+edition.workspace = true
+version.workspace = true
+authors.workspace = true
+license.workspace = true
+keywords.workspace = true
+categories.workspace = true
 
 [dependencies]
 re = { path = "../core", package="retrofire-core", features = ["std"] }

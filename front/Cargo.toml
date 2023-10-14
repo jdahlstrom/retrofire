@@ -1,8 +1,13 @@
 [package]
 name = "retrofire-front"
-version = "0.3.0"
-edition = "2021"
+description = "Frontends for writing simple programs with retrofire."
+
+edition.workspace = true
+version.workspace = true
+authors.workspace = true
 license.workspace = true
+keywords.workspace = true
+categories.workspace = true
 
 [dependencies]
 retrofire-core = { path = "../core" }

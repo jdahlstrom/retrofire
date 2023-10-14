@@ -7,4 +7,18 @@ members = [
 resolver = "2"
 
 [workspace.package]
+edition = "2021"
+version = "0.3.0"
+authors = ["Johannes Dahlström <johannes.dahlstrom@gmail.com>"]
 license = "MIT OR Apache-2.0"
+keywords = ["graphics", "gamedev", "demoscene", "retrocomputing", "rendering"]
+categories = ["graphics", "game-development", "no-std"]
+
+[profile.release]
+opt-level = 2
+lto = "thin"
+debug = 1
+
+[profile.dev]
+opt-level = 1
+split-debuginfo = "unpacked"

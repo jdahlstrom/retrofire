@@ -1,8 +1,13 @@
 [package]
 name = "retrofire-core"
-version = "0.3.0"
-edition = "2021"
+description = "Core functionality of the retrofire project."
+
+edition.workspace = true
+version.workspace = true
+authors.workspace = true
 license.workspace = true
+keywords.workspace = true
+categories.workspace = true
 
 [features]
 std = []
