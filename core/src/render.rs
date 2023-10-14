@@ -18,7 +18,6 @@ use crate::math::mat::{RealToProjective, RealToReal};
 use crate::math::{Linear, Mat4x4, Vec3};
 
 pub mod clip;
-pub mod ctx;
 pub mod raster;
 pub mod shader;
 pub mod target;

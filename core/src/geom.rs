@@ -13,3 +13,7 @@ pub struct Tri<V>(pub [V; 3]);
 #[derive(Copy, Clone, Debug, Eq, PartialEq)]
 #[repr(transparent)]
 pub struct Plane<V>(pub(crate) V);
+
+pub fn vertex<P, A>(pos: P, attrib: A) -> Vertex<P, A> {
+    Vertex { pos, attrib }
+}
