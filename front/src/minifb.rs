@@ -3,13 +3,14 @@
 use std::ops::ControlFlow::{self, Break};
 use std::time::{Duration, Instant};
 
-use minifb::{Key, KeyRepeat, WindowOptions};
+use minifb::{Key, WindowOptions};
 
 use retrofire_core::render::target::Framebuf;
 use retrofire_core::util::buf::{AsMutSlice2, Buf2};
 
 use crate::Frame;
 
+/// A lightweight wrapper of a `minibuf` window.
 pub struct Window {
     /// The wrapped minifb window.
     pub imp: minifb::Window,
@@ -47,7 +48,8 @@ impl<'t> Builder<'t> {
         self.title = title;
         self
     }
-    /// Sets the fps cap of the window.
+    /// Sets the frame rate cap of the window. `None` means unlimited
+    /// frame rate (the main loop runs as fast as possible).
     pub fn max_fps(mut self, fps: Option<f32>) -> Self {
         self.max_fps = fps;
         self
@@ -84,14 +86,23 @@ impl Window {
         Builder::default()
     }
 
-    /// Updates the window content with `fb`.
+    /// Updates the window content with pixel data from `fb`.
+    ///
+    /// The data is interpreted as colors in `0x00_RR_GG_BB` format.
     /// # Panics
+    /// If `fb.len() < self.size.0 * self.size.1`.
     pub fn present(&mut self, fb: &[u32]) {
         let (w, h) = self.size;
         self.imp.update_with_buffer(fb, w, h).unwrap();
     }
 
-    /// Repeatedly calls `frame_fn`
+    /// Runs the main loop of the program, invoking the callback on each
+    /// iteration to compute and draw the next frame.
+    ///
+    /// The main loop stops and this function returns if:
+    /// * the user closes the window via the GUI (eg. titlebar close button);
+    /// * the Esc key is pressed; or
+    /// * the callback returns `ControlFlow::Break`.
     pub fn run<F>(&mut self, mut frame_fn: F)
     where
         F: FnMut(&mut Frame) -> ControlFlow<()>,
@@ -103,11 +114,7 @@ impl Window {
         let start = Instant::now();
         let mut last = Instant::now();
         loop {
-            if !self.imp.is_open()
-                || self
-                    .imp
-                    .is_key_pressed(Key::Escape, KeyRepeat::No)
-            {
+            if !self.imp.is_open() || self.imp.is_key_down(Key::Escape) {
                 return;
             }
 

@@ -9,10 +9,20 @@
 //!                                          /_____,´
 //! ```
 //!
+//! Core functionality of the `retrofire` project.
+//!
+//! Includes a math library with vectors, matrices, colors, and angles; basic
+//! geometry primitives; a software 3D renderer with customizable shaders;
 //! # Features
-//! * `std`: Enables `std` support.
-//!   This makes available items requiring `std::time` or floating-point
-//!   functions. Disabled by default; only `alloc` is required.
+//! * `std`:
+//!   Makes available items requiring floating-point functions or
+//!   `std::time`. If disabled, this crate only depends on `alloc`.
+//!
+//! * `micromath`:
+//!   Provides an alternative, no-std implementation of floating-point
+//!   functions via [micromath](https://crates.io/crates/micromath).
+//!
+//! All features are disabled by default.
 
 #![cfg_attr(not(feature = "std"), no_std)]
 

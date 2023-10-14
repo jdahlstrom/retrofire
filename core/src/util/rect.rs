@@ -1,3 +1,5 @@
+//! Rectangular regions; essentially two-dimensional ranges.
+
 use core::fmt::Debug;
 use core::ops::{Bound::*, RangeBounds, RangeFull, Sub};
 
@@ -5,9 +7,13 @@ use crate::math::vec::{Real, Vector};
 
 #[derive(Copy, Clone, Debug, Default, Eq, PartialEq)]
 pub struct Rect<T = usize> {
+    /// The left bound of `self`, if any.
     pub left: Option<T>,
+    /// The top bound of `self`, if any.
     pub top: Option<T>,
+    /// The right bound of `self`, if any.
     pub right: Option<T>,
+    /// The bottom bound of `self`, if any.
     pub bottom: Option<T>,
 }
 

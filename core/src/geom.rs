@@ -1,3 +1,5 @@
+//! Basic geometric primitives.
+
 /// Vertex with position and arbitrary other attributes.
 #[derive(Copy, Clone, Debug, Eq, PartialEq)]
 pub struct Vertex<P, A> {
@@ -5,7 +7,7 @@ pub struct Vertex<P, A> {
     pub attrib: A,
 }
 
-/// Triangle, consisting of three vertices.
+/// Triangle, defined by three vertices.
 #[derive(Copy, Clone, Debug, Eq, PartialEq)]
 pub struct Tri<V>(pub [V; 3]);
 

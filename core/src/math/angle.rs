@@ -95,8 +95,8 @@ impl Angle {
     /// assert_approx_eq!(degs(400.0).wrap(Angle::ZERO, Angle::FULL), degs(40.0))
     /// ```
     #[must_use]
-    pub fn wrap(self, Self(min): Self, Self(max): Self) -> Self {
-        Self(min + (self.0 - min).rem_euclid(max - min))
+    pub fn wrap(self, min: Self, max: Self) -> Self {
+        Self(min.0 + (self.0 - min.0).rem_euclid(max.0 - min.0))
     }
 }
 

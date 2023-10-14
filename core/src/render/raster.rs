@@ -142,11 +142,11 @@ where
 }
 
 /// Returns an iterator that emits a scanline for each line from `y0` to `y1`,
-/// interpolating fragment values from `l0` to `l1` on the left side and from
-/// `r0` to `r1` on the right side.
+/// interpolating varyings from `l0` to `l1` on the left and from `r0` to `r1`
+/// on the right side.
 ///
-/// The three input ranges define a *trapezoid* with horizontal top and bottom
-/// edges, or, in the special case where `l0 == r0` or `l1 == r1`, a triangle:
+/// The three input ranges define a *trapezoid* with horizontal bases, or, in
+/// the special case where `l0 == r0` or `l1 == r1`, a triangle:
 /// ```text
 ///            l0___________ r0
 /// y0        _|____________|     .next()
@@ -158,9 +158,9 @@ where
 /// Any convex polygon can be converted into scanlines by dividing it into
 /// trapezoidal segments and calling this function for each segment.
 ///
-/// Which exact pixels to draw is determined by whether the vector shape
-/// *covers* a pixel or not. A pixel is covered, and drawn, if and only if
-/// its center point lies inside the shape. This ensures that if two polygons
+/// The exact pixels that are drawn are determined by whether the vector shape
+/// *covers* a pixel or not. A pixel is covered, and drawn, if and only if its
+/// center point lies inside the shape. This ensures that if two polygons
 /// share an edge, or several share a vertex, each pixel at the boundary will
 /// be drawn by exactly one of the polygons, with no gaps or overdrawn pixels.
 pub fn scan<V>(

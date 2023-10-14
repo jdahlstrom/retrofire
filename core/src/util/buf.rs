@@ -1,3 +1,7 @@
+//! Two-dimensional buffers, with owned and borrowed variants.
+//!
+//! Useful for storing pixel data of any kind, among other things.
+
 use alloc::vec::Vec;
 use core::fmt::{Debug, Formatter};
 use core::iter::repeat;
@@ -9,14 +13,14 @@ use inner::Inner;
 // Traits
 //
 
-/// A trait for types that can provide a view of their data as a `Slice2`
+/// A trait for types that can provide a view of their data as a [`Slice2`].
 pub trait AsSlice2<T> {
     /// Returns a borrowed `Slice2` view of `Self`.
     fn as_slice2(&self) -> Slice2<T>;
 }
 
 /// A trait for types that can provide a mutable view of their data
-/// as a `MutSlice2`
+/// as a [`MutSlice2`].
 pub trait AsMutSlice2<T> {
     /// Returns a mutably borrowed `MutSlice2` view of `Self`.
     fn as_mut_slice2(&mut self) -> MutSlice2<T>;
@@ -28,8 +32,11 @@ pub trait AsMutSlice2<T> {
 
 /// A rectangular 2D buffer that owns its elements, backed by a `Vec`.
 ///
+/// Unlike `Vec`, however, `Buf2` cannot be resized after construction
+/// without explicitly copying the contents to a new, larger buffer.
+///
 /// `Buf2` stores its elements contiguously, in standard row-major order,
-/// such that element (x, y) maps to element at index
+/// such that the coordinate pair (x, y) maps to the index
 /// ```text
 /// buf.width() * y + x
 /// ```
@@ -79,8 +86,8 @@ pub struct MutSlice2<'a, T>(Inner<T, &'a mut [T]>);
 //
 
 impl<T> Buf2<T> {
-    /// Returns a buffer with size `w` × `h`, with elements initialized
-    /// with values from `init` in row-major order.
+    /// Returns a buffer with size `w` × `h`, with elements initialized in
+    /// row-major order with values yielded by `init`.
     ///
     /// # Panics
     /// If there are fewer than `w * h` elements in `init`.

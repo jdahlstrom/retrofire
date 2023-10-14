@@ -85,16 +85,16 @@ impl<E, T: ApproxEq<T, E>> ApproxEq<Self, E> for Option<T> {
 /// If the given values are not approximately equal.
 ///
 /// # Examples
-///
-/// The following assertion passes even though `assert_eq` fails:
+/// `assert_eq` would fail, but `assert_approx_eq` passes:
 /// ```
 /// # use retrofire_core::assert_approx_eq;
+/// assert_ne!(0.1 + 0.2, 0.3);
 /// assert_approx_eq!(0.1 + 0.2, 0.3);
-/// //assert_eq!(0.1 + 0.2, 0.3); Would panic!
 /// ```
 /// A relative epsilon is used:
 /// ```
 /// # use retrofire_core::assert_approx_eq;
+/// assert_ne!(1e7, 1e7 + 1.0);
 /// assert_approx_eq!(1e7, 1e7 + 1.0);
 /// ```
 /// A custom epsilon can be given:
@@ -102,13 +102,13 @@ impl<E, T: ApproxEq<T, E>> ApproxEq<Self, E> for Option<T> {
 /// # use retrofire_core::assert_approx_eq;
 /// assert_approx_eq!(100.0, 101.0, eps = 0.01);
 /// ```
-/// Like `assert_eq`, supports custom panic messages. The epsilon is
-/// optional but must come before the format string.
+/// Like `assert_eq`, this macro supports custom panic messages.
+/// The epsilon, if present, must come before the format string.
 /// ```should_panic
 /// # use std::f32;
 /// # use retrofire_core::assert_approx_eq;
 /// assert_approx_eq!(f32::sin(3.14), 0.0, eps = 0.001,
-///     "3.14 is not close enough to {}!", f32::consts::PI);
+///     "3.14 is not a good approximation of {}!", f32::consts::PI);
 /// ```
 #[macro_export]
 macro_rules! assert_approx_eq {
