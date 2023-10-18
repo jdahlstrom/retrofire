@@ -1,26 +1,30 @@
 //! ```text
-//!                                                     _______
-//!                        ____                       /´  ____/_
-//!       __ ______ ____ _/   /__ _ ______ _____ ____/   /_/___/  __ _____ _____
-//!    ==/  ´ ____/ __   \   ____/ ´ ____/  __  ` __    ___.  /==/  ´  ___/ __   \
-//!   ==/   /´=/   ______/  /==/   /´=/   /==/   /=/   /=/   /==/   /´=/   ______/
-//!  ==/   /==/   /____/   /__/   /==/   /__/   /=/   /=/   /__/   /==/   /_____
-//! ==/___/===\_______/\______,__/===\________/__/   /==\______/__/===\________/
-//!                                          /_____,´
+//!                                                     ______
+//!                        ____                       /´  ____/\
+//!       __ ______ _____ /   /\_ _ ______ _____ __  /   /_/___/\ __ _____ ______
+//!    ==/  ´ ____/ __   \   ____/ ´ ____/  __  ` __    ___,  /==/  ´  ___/ __   \
+//!   ==/   /´=/   ______/  /==/   /´=/   /==/   /=/   /=/   /==/   /´=/   ______/\
+//!  ==/   /==/   /____/   /__/   /==/   /__/   /=/   /=/   /__/   /==/   /______\/
+//! ==/___/ ==\_______/\______/__/ ==\________,´_/   /==\______/__/ ==\________/\
+//! ==\___\/ ==\______\/\_____\__\/ ==\______/_____,´ /==\_____\___\/==\_______\/
+//!                                          \_____\,´
 //! ```
 //!
 //! Core functionality of the `retrofire` project.
 //!
 //! Includes a math library with vectors, matrices, colors, and angles; basic
 //! geometry primitives; a software 3D renderer with customizable shaders;
-//! # Features
+//! with more to come.
+//!
+//! # Cargo features
+//!
 //! * `std`:
-//!   Makes available items requiring floating-point functions or
-//!   `std::time`. If disabled, this crate only depends on `alloc`.
+//!   Makes available items requiring floating-point functions or timekeeping.
+//!   If disabled, this crate only depends on `alloc`.
 //!
 //! * `micromath`:
 //!   Provides an alternative, no-std implementation of floating-point
-//!   functions via [micromath](https://crates.io/crates/micromath).
+//!   functions via the [micromath](https://crates.io/crates/micromath) crate.
 //!
 //! All features are disabled by default.
 

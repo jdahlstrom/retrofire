@@ -1,0 +1,95 @@
+
+                                                    ______
+                       ____                       /´  ____/\
+      __ ______ _____ /   /\_ _ ______ _____ __  /   /_/___/\ __ _____ ______
+   ==/  ´ ____/ __   \   ____/ ´ ____/  __  ` __    ___,  /==/  ´  ___/ __   \
+  ==/   /´=/   ______/  /==/   /´=/   /==/   /=/   /=/   /==/   /´=/   ______/\
+ ==/   /==/   /____/   /__/   /==/   /__/   /=/   /=/   /__/   /==/   /______\/
+==/___/ ==\_______/\______/__/ ==\________,´_/   /==\______/__/ ==\________/\
+==\___\/ ==\______\/\_____\__\/ ==\______/_____,´ /==\_____\___\/==\_______\/
+                                         \_____\,´
+
+================================ Introduction ================================
+
+       Note: This document is best viewed on a 80-column VGA terminal.
+
+The retrofire project began as a shamelessly nostalgic effort to explore the
+state of graphics programming as it was in the mid-to-late 90s in the gamedev
+and demoscene circles of the era, before the proliferation of hardware 3D ac-
+celeration. More recently, as a result of the author's frustration when debug-
+ging the earlier versions, it has grown into an experiment on using the Rust
+type system to prevent several types of bugs common in graphics programming
+that might normally manifest as graphical glitches or runtime panics at best.
+
+
+================================= Philosophy =================================
+
+Keeping with the do-it-yourself mentality of the demoscene and the 90s state
+of software dev in general, retrofire aims to have the bare minimum number of
+external dependencies. The current number of nonoptional dependencies is zero.
+
+On the other hand, retrofire also aims to utilize the bare minimum amount of
+unsafe code, and only if shown to have a measurable effect on performance by
+a profiler. The current number of unsafe lines of code in retrofire is zero.
+
+A third aim of this project, again in the demoscene spirit, is to function on
+puny hardware with few or no operating system services required. To that end,
+all core functionality only requires `alloc`, and components requiring `std`
+are behind optional features or split into separate crates. Support for custom
+allocators is planned in order to make `alloc` optional as well.
+
+
+================================== Features ==================================
+
+Done:
+
+  * Software 3D rendering pipeline with a subpixel-precise rasterizer
+  * Trait-based interpolation of arbitrary vertex attributes
+  * User-definable vertex and fragment shaders, written in Rust
+  * Typed vector and color spaces and bases, to avoid bugs
+  * Typed affine transformations and projections
+  * Fully customizable rasterization stage
+  * Frontends for the sdl2, minifb, and softbuffer libraries
+
+In progress:
+
+  = Triangle mesh data structure and builtin shapes
+  = Sprite and text primitives
+  = Perspective-correct texture mapping
+  = Spherical, cube, etc UV mapping
+  = Mipmapping and automatic mipmap generation
+  = Bezier curves and splines
+  = Procedural noise generation
+  = Simple random number generation and distributions
+
+Planned:
+
+  - Hierarchical transforms
+  - More procedural generation
+  - Basic animation support
+  - Particle simulations
+
+
+================================ Organization ================================
+
+retrofire is split into several crates:
+
+  * core: math, renderer, basic utilities; no-std compatible
+  * front: frontends for writing simple graphical applications
+  * demos: binaries showcasing retrofire features
+
+
+================================== License ===================================
+
+Copyright 2020-2023 Johannes Dahlström. retrofire is licensed under either of:
+
+  * Apache License, Version 2.0
+    (LICENSE-APACHE or http://www.apache.org/licenses/LICENSE-2.0)
+
+  * MIT license (LICENSE-MIT or http://opensource.org/licenses/MIT)
+
+at your option.
+
+Unless you explicitly state otherwise, any contribution intentionally submit-
+ted for inclusion in the work by you, as defined in the Apache-2.0 license,
+shall be dual licensed as above, without any additional terms or conditions.

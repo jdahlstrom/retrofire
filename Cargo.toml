@@ -1,3 +1,13 @@
+#                                                     ______
+#                        ___                        /´  ____/\
+#       __ ______ _____ /   /\_ _ ______ _____ __  /   /_/___/\ __ _____ ______
+#    ==/  ´ ____/ __   \   ____/ ´ ____/  __  ` __    ___,  /==/  ´  ___/ __   \
+#   ==/   /´=/   ______/  /==/   /´=/   /==/   /=/   /=/   /==/   /´=/   ______/\
+#  ==/   /==/   /____/   /__/   /==/   /__/   /=/   /=/   /__/   /==/   /______\/
+# ==/___/ ==\_______/\______/__/ ==\________,´_/   /==\______/__/ ==\________/\
+# ==\___\/ ==\______\/\_____\__\/ ==\______/_____,´ /==\_____\___\/==\_______\/
+#                                          \_____\,´
+
 [workspace]
 members = [
     "core",
@@ -9,7 +19,7 @@ resolver = "2"
 [workspace.package]
 edition = "2021"
 version = "0.3.0"
-authors = ["Johannes Dahlström <johannes.dahlstrom@gmail.com>"]
+authors = ["Johannes 'Sharlin' Dahlström <johannes.dahlstrom@gmail.com>"]
 license = "MIT OR Apache-2.0"
 keywords = ["graphics", "gamedev", "demoscene", "retrocomputing", "rendering"]
 categories = ["graphics", "game-development", "no-std"]
