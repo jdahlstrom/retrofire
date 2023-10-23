@@ -217,10 +217,10 @@ fn human_time(d: Duration) -> String {
 
 #[cfg(test)]
 mod tests {
-    use std::array::from_fn;
-    use std::time::Duration;
+    use core::array::from_fn;
+    use core::time::Duration;
 
-    use crate::render::stats::{human_num, human_time, Stats, Throughput};
+    use super::*;
 
     #[test]
     fn stats_display() {
@@ -229,40 +229,40 @@ mod tests {
             calls: 5678.0,
             time: Duration::from_millis(4321),
             throughput: from_fn(|i| Throughput {
-                i: 12345 * (i + 1) as u64,
-                o: 4321 * (i + 1) as u64,
+                i: 12345 * (i + 1) as usize,
+                o: 4321 * (i + 1) as usize,
             }),
         };
 
         assert_eq!(
             format!("{}", stats),
             " \
- I/O              TOTAL │          PER SEC │        PER FRAME
-────────────────────────┼──────────────────┼──────────────────
- time              4.3s │                  │            3.5ms
- calls             5678 │           1314.0 │              4.6
- frames            1234 │            285.6 │
-────────────────────────┼──────────────────┼──────────────────
- objs     12.3k /  4.3k │     2.9k /  1.0k │       10 /     3
- prims    24.7k /  8.6k │     5.7k /  2.0k │       20 /     7
- verts    37.0k / 13.0k │     8.6k /  3.0k │       30 /    10
- frags    49.4k / 17.3k │    11.4k /  4.0k │       40 /    14
+ STATS             TOTAL │          PER SEC │        PER FRAME
+─────────────────────────┼──────────────────┼──────────────────
+ time               4.3s │                  │            3.5ms
+ calls              5678 │           1314.0 │              4.6
+ frames             1234 │            285.6 │
+─────────────────────────┼──────────────────┼──────────────────
+ objs      12.3k /  4.3k │     2.9k /  1.0k │       10 /     3
+ prims     24.7k /  8.6k │     5.7k /  2.0k │       20 /     7
+ verts     37.0k / 13.0k │     8.6k /  3.0k │       30 /    10
+ frags     49.4k / 17.3k │    11.4k /  4.0k │       40 /    14
 "
         );
 
         assert_eq!(
             format!("{:#}", stats),
             " \
- I/O              TOTAL │          PER SEC │        PER FRAME
-────────────────────────┼──────────────────┼──────────────────
- time              4.3s │                  │            3.5ms
- calls             5678 │           1314.0 │              4.6
- frames            1234 │            285.6 │
-────────────────────────┼──────────────────┼──────────────────
- objs             35.0% │            35.0% │            30.0%
- prims            35.0% │            35.0% │            35.0%
- verts            35.0% │            35.0% │            33.3%
- frags            35.0% │            35.0% │            35.0%
+ STATS             TOTAL │          PER SEC │        PER FRAME
+─────────────────────────┼──────────────────┼──────────────────
+ time               4.3s │                  │            3.5ms
+ calls              5678 │           1314.0 │              4.6
+ frames             1234 │            285.6 │
+─────────────────────────┼──────────────────┼──────────────────
+ objs              35.0% │            35.0% │            30.0%
+ prims             35.0% │            35.0% │            35.0%
+ verts             35.0% │            35.0% │            33.3%
+ frags             35.0% │            35.0% │            35.0%
 "
         );
     }
@@ -281,9 +281,9 @@ mod tests {
 
     #[test]
     fn human_times() {
-        assert_eq!(human_time(1.23e-4), "123.0us");
-        assert_eq!(human_time(0.123), "123.0ms");
-        assert_eq!(human_time(1.234), "1.2s ");
-        assert_eq!(human_time(1234.0), "21min 34s");
+        assert_eq!(human_time(Duration::from_micros(123)), "123.0μs");
+        assert_eq!(human_time(Duration::from_millis(123)), "123.0ms");
+        assert_eq!(human_time(Duration::from_millis(1234)), "1.2s");
+        assert_eq!(human_time(Duration::from_secs(1234)), "21min 34s");
     }
 }

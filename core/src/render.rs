@@ -7,7 +7,6 @@
 
 use alloc::{vec, vec::Vec};
 use core::fmt::Debug;
-use std::time::Instant;
 
 use clip::{view_frustum, Clip, ClipVec};
 use raster::{tri_fill, Frag};
@@ -75,7 +74,7 @@ where
     Uni: Copy,
     Tgt: Target,
 {
-    let start = Instant::now();
+    let start = std::time::Instant::now();
     let mut stats = Stats::new();
 
     stats.calls = 1.0;
