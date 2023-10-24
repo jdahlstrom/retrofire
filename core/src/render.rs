@@ -11,6 +11,7 @@ use core::fmt::Debug;
 use clip::{view_frustum, Clip, ClipVec};
 use raster::{tri_fill, Frag};
 use shader::{FragmentShader, VertexShader};
+use stats::Stats;
 use target::{Config, Target};
 
 use crate::geom::{Tri, Vertex};
@@ -20,6 +21,7 @@ use crate::math::{Linear, Mat4x4, Vec3};
 pub mod clip;
 pub mod raster;
 pub mod shader;
+pub mod stats;
 pub mod target;
 pub mod tex;
 
@@ -63,7 +65,8 @@ pub fn render<A, B, Sh, Uni, Tgt>(
     uni: Uni,
     vport_tf: Mat4x4<NdcToScreen>,
     target: &mut Tgt,
-) where
+) -> Stats
+where
     A: Clone + Debug,
     B: Linear<Scalar = f32> + Clone + Debug,
     Sh: VertexShader<Vertex<Vec3, A>, Uni, Output = Vertex<ClipVec, B>>
@@ -71,6 +74,13 @@ pub fn render<A, B, Sh, Uni, Tgt>(
     Uni: Copy,
     Tgt: Target,
 {
+    let start = std::time::Instant::now();
+    let mut stats = Stats::new();
+
+    stats.calls = 1.0;
+    stats.prims().i += tris.len();
+    stats.verts().i += verts.len();
+
     // Vertex shader
     let verts: Vec<_> = verts
         .iter()
@@ -92,6 +102,9 @@ pub fn render<A, B, Sh, Uni, Tgt>(
     for tri in clipped {
         // TODO Backface culling
 
+        stats.prims().o += 1;
+        stats.verts().o += 3;
+
         let vs = tri.0.clone().map(|v| Vertex {
             pos: {
                 // Perspective divide
@@ -103,6 +116,14 @@ pub fn render<A, B, Sh, Uni, Tgt>(
         });
 
         // Fragment shader and rasterization
-        tri_fill(vs, |s| target.rasterize(s, shader, Config::default()))
+        tri_fill(vs, |scanline| {
+            stats.frags().i += scanline.xs.len();
+            // TODO count only frags that were actually output
+            stats.frags().o += scanline.xs.len();
+            target.rasterize(scanline, shader, Config::default())
+        })
     }
+
+    stats.time += start.elapsed();
+    stats
 }
