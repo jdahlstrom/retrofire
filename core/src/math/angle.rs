@@ -1,11 +1,11 @@
-//! Angular quantities.
+//! Angular quantities, including polar and spherical coordinate vectors.
 
 use core::f32::consts::{PI, TAU};
 use core::fmt::{self, Debug, Display};
 use core::ops::{Add, Div, Mul, Neg, Rem, Sub};
 
 use crate::math::approx::ApproxEq;
-use crate::math::vec::{Affine, Linear};
+use crate::math::{vec2, vec3, Affine, Linear, Vec2, Vec3, Vector};
 
 //
 // Types
@@ -20,8 +20,20 @@ use crate::math::vec::{Affine, Linear};
 #[repr(transparent)]
 pub struct Angle(f32);
 
-const RADS_PER_DEG: f32 = PI / 180.0;
-const RADS_PER_TURN: f32 = TAU;
+/// Tag type for a polar coordinate space
+#[derive(Copy, Clone, Debug, Default, Eq, PartialEq)]
+pub struct Polar;
+
+/// Tag type for a spherical coordinate space.
+#[derive(Copy, Clone, Debug, Default, Eq, PartialEq)]
+pub struct Spherical;
+
+/// A polar coordinate vector, with radius and azimuth components.
+pub type PolarVec = Vector<[f32; 2], Polar>;
+
+/// A spherical coordinate vector, with radius, azimuth, and altitude
+/// (elevation) components.
+pub type SphericalVec = Vector<[f32; 3], Spherical>;
 
 //
 // Free fns and consts
@@ -93,6 +105,22 @@ pub fn atan2(y: f32, x: f32) -> Angle {
     Angle(y.atan2(x))
 }
 
+/// Returns a polar coordinate vector with azimuth `az` and radius `r`.
+pub const fn polar(r: f32, az: Angle) -> PolarVec {
+    Vector::new([az.to_rads(), r])
+}
+
+/// Returns a spherical coordinate vector with azimuth `az`,
+/// altitude `alt`, and radius `r`.
+///
+/// An altitude of +90° corresponds to straight up and -90° to straight down.
+pub const fn spherical(r: f32, az: Angle, alt: Angle) -> SphericalVec {
+    Vector::new([az.to_rads(), alt.to_rads(), r])
+}
+
+const RADS_PER_DEG: f32 = PI / 180.0;
+const RADS_PER_TURN: f32 = TAU;
+
 //
 // Inherent impls
 //
@@ -146,7 +174,6 @@ impl Angle {
     /// Returns `self` clamped to the range `min..=max`.
     ///
     /// # Examples
-    ///
     /// ```
     /// # use retrofire_core::math::angle::degs;
     /// let (min, max) = (degs(0.0), degs(45.0));
@@ -217,6 +244,37 @@ impl Angle {
     #[must_use]
     pub fn wrap(self, min: Self, max: Self) -> Self {
         Self(min.0 + (self.0 - min.0).rem_euclid(max.0 - min.0))
+    }
+}
+
+impl PolarVec {
+    /// Returns the azimuthal component of `self`.
+    #[inline]
+    pub fn az(&self) -> Angle {
+        rads(self.0[0])
+    }
+    /// Returns the radial component of `self`.
+    #[inline]
+    pub fn r(&self) -> f32 {
+        self.0[1]
+    }
+}
+
+impl SphericalVec {
+    /// Returns the radial component of `self`.
+    #[inline]
+    pub fn r(&self) -> f32 {
+        self.0[2]
+    }
+    /// Returns the azimuthal component of `self`.
+    #[inline]
+    pub fn az(&self) -> Angle {
+        rads(self.0[0])
+    }
+    /// Returns the altitude (elevation) component of `self`.
+    #[inline]
+    pub fn alt(&self) -> Angle {
+        rads(self.0[1])
     }
 }
 
@@ -328,10 +386,133 @@ impl Rem for Angle {
     }
 }
 
+#[cfg(feature = "std")]
+impl From<Vec2> for PolarVec {
+    /// Converts an Euclidean 2-vector into equivalent polar coordinates.
+    ///
+    /// The `r` component of the result equals the length of the input vector,
+    /// and the `az` component equals the angle between the vector and the
+    /// `x` axis in the range (-180°, 180°], positive `x` corresponding to
+    /// positive angles.
+    /// ```text
+    /// +y
+    /// ^    ^
+    /// |   /
+    /// |  /_ +az
+    /// | /  \
+    /// +----------> +x
+    /// ```
+    ///
+    /// # Examples
+    /// ```
+    /// # use retrofire_core::assert_approx_eq;
+    /// # use retrofire_core::math::{*, angle::*};
+    /// // A nonnegative x and zero y maps to zero azimuth
+    /// assert_eq!(PolarVec::from(vec2(0.0, 0.0)).az(), Angle::ZERO);
+    /// assert_eq!(PolarVec::from(vec2(1.0, 0.0)).az(), Angle::ZERO);
+    ///
+    /// // A zero x and positive y maps to right angle azimuth
+    /// assert_eq!(PolarVec::from(vec2(0.0, 1.0)).az(), Angle::RIGHT);
+    ///
+    /// // A zero x and negative y maps to negative right angle azimuth
+    /// assert_eq!(PolarVec::from(vec2(0.0, -1.0)).az(), -Angle::RIGHT);
+    ///
+    /// // A negative x and zero y maps to straight angle azimuth
+    /// assert_approx_eq!(PolarVec::from(vec2(-1.0, 0.0)).az(), Angle::STRAIGHT);
+    /// ```
+    fn from(v: Vec2) -> PolarVec {
+        let r = v.len();
+        let az = atan2(v.y(), v.x());
+        polar(r, az)
+    }
+}
+
+#[cfg(feature = "std")]
+impl From<PolarVec> for Vec2 {
+    /// Converts a polar vector into the equivalent Euclidean 2-vector.
+    ///
+    /// ```text
+    /// +y
+    /// ^     ^
+    /// | +r /
+    /// |   /
+    /// |  /_ +az
+    /// | /  \
+    /// +----------> +x
+    /// ```
+    ///
+    /// # Examples
+    /// ```
+    /// # use retrofire_core::assert_approx_eq;
+    /// # use retrofire_core::math::{*, angle::*};
+    /// // A nonnegative x and zero y maps to zero azimuth
+    /// assert_eq!(PolarVec::from(vec2(0.0, 0.0)).az(), Angle::ZERO);
+    /// assert_eq!(PolarVec::from(vec2(1.0, 0.0)).az(), Angle::ZERO);
+    ///
+    /// // A zero x and positive y maps to right angle azimuth
+    /// assert_eq!(PolarVec::from(vec2(0.0, 1.0)).az(), Angle::RIGHT);
+    ///
+    /// // A zero x and negative y maps to negative right angle azimuth
+    /// assert_eq!(PolarVec::from(vec2(0.0, -1.0)).az(), -Angle::RIGHT);
+    ///
+    /// // A negative x and zero y maps to straight angle azimuth
+    /// assert_approx_eq!(PolarVec::from(vec2(-1.0, 0.0)).az(), Angle::STRAIGHT);
+    /// ```
+    fn from(p: PolarVec) -> Self {
+        let (y, x) = p.az().sin_cos();
+        vec2(x, y).mul(p.r())
+    }
+}
+
+#[cfg(feature = "std")]
+impl From<Vec3> for SphericalVec {
+    /// Converts an Euclidean 3-vector into equivalent spherical coordinates.
+    ///
+    /// The `az` component is measured about the y axis,counterclockwise from
+    /// the x axis. The `alt` component is the angle between the vector and
+    /// its projection on the xz plane in the range [-90°, 90°], positive `y`
+    /// coordinates mapping to positive angles.
+    ///
+    /// # Examples
+    /// ```
+    /// # use retrofire_core::math::{*, angle::*};
+    /// assert_eq!(SphericalVec::from(vec3(2.0, 0.0, 0.0)), spherical(2.0 ,degs(0.0), degs(0.0)));
+    ///
+    /// assert_eq!(SphericalVec::from(vec3(0.0, 2.0, 0.0)), spherical(2.0 ,degs(0.0), degs(90.0)));
+    ///
+    /// assert_eq!(SphericalVec::from(vec3(0.0, 0.0, 2.0)), spherical(2.0 ,degs(90.0), degs(0.0)));
+    /// ```
+    fn from(v: Vec3) -> SphericalVec {
+        let [x, y, z] = v.0;
+        let az = atan2(z, x);
+        let alt = atan2(y * y, x * x + z * z);
+        let r = v.len();
+        spherical(r, az, alt)
+    }
+}
+
+#[cfg(feature = "std")]
+impl From<SphericalVec> for Vec3 {
+    /// Converts a spherical coordinate vector to an Euclidean 3-vector.
+    fn from(v: SphericalVec) -> Self {
+        let (sin_alt, cos_alt) = v.alt().sin_cos();
+        let (sin_az, cos_az) = v.az().sin_cos();
+
+        let x = cos_az * cos_alt;
+        let z = sin_az * cos_alt;
+        let y = sin_alt;
+
+        vec3(x, y, z).mul(v.r())
+    }
+}
+
 #[cfg(test)]
 mod tests {
+    use core::f32::consts::{PI, TAU};
+
     use crate::assert_approx_eq;
     use crate::math::vary::Vary;
+    use crate::math::vec3;
 
     use super::*;
 
@@ -442,5 +623,81 @@ mod tests {
         assert_approx_eq!(i.next(), Some(degs(75.0)));
         assert_approx_eq!(i.next(), Some(degs(90.0)));
         assert_approx_eq!(i.next(), None);
+    }
+
+    #[cfg(feature = "std")]
+    #[test]
+    fn polar_to_cartesian() {
+        assert_eq!(Vec2::from(polar(0.0, Angle::ZERO)), vec2(0.0, 0.0));
+        assert_eq!(Vec2::from(polar(0.0, Angle::RIGHT)), vec2(0.0, 0.0));
+
+        assert_eq!(Vec2::from(polar(2.0, Angle::ZERO)), vec2(2.0, 0.0));
+        assert_approx_eq!(Vec2::from(polar(2.0, Angle::RIGHT)), vec2(0.0, 2.0));
+        assert_approx_eq!(
+            Vec2::from(polar(2.0, -Angle::RIGHT)),
+            vec2(0.0, -2.0)
+        );
+        assert_approx_eq!(Vec2::from(polar(2.0, turns(0.75))), vec2(0.0, -2.0));
+        assert_approx_eq!(
+            Vec2::from(polar(2.0, turns(1.25))),
+            vec2(0.0, 2.0),
+            eps = 1e-6
+        );
+    }
+
+    #[cfg(feature = "std")]
+    #[test]
+    fn cartesian_to_polar() {
+        assert_eq!(PolarVec::from(vec2(0.0, 0.0)), polar(0.0, Angle::ZERO));
+        assert_eq!(PolarVec::from(vec2(1.0, 0.0)), polar(1.0, Angle::ZERO));
+
+        assert_eq!(PolarVec::from(vec2(0.0, 2.0)), polar(2.0, Angle::RIGHT));
+        assert_approx_eq!(
+            PolarVec::from(vec2(-2.0, 0.0)),
+            polar(2.0, Angle::STRAIGHT)
+        );
+        assert_eq!(PolarVec::from(vec2(0.0, -2.0)), polar(2.0, -Angle::RIGHT));
+    }
+
+    #[cfg(feature = "std")]
+    #[test]
+    fn spherical_to_cartesian() {
+        assert_eq!(
+            Vec3::from(spherical(0.0, Angle::ZERO, Angle::ZERO)),
+            vec3(0.0, 0.0, 0.0)
+        );
+        assert_eq!(
+            Vec3::from(spherical(1.0, Angle::ZERO, Angle::ZERO)),
+            vec3(1.0, 0.0, 0.0)
+        );
+        assert_approx_eq!(
+            Vec3::from(spherical(2.0, Angle::RIGHT, Angle::ZERO)),
+            vec3(0.0, 0.0, 2.0)
+        );
+        assert_approx_eq!(
+            Vec3::from(spherical(3.0, degs(123.0), Angle::RIGHT)),
+            vec3(0.0, 3.0, 0.0)
+        );
+    }
+
+    #[cfg(feature = "std")]
+    #[test]
+    fn cartesian_to_spherical() {
+        assert_eq!(
+            SphericalVec::from(vec3(0.0, 0.0, 0.0)),
+            spherical(0.0, Angle::ZERO, Angle::ZERO)
+        );
+        assert_eq!(
+            SphericalVec::from(vec3(1.0, 0.0, 0.0)),
+            spherical(1.0, Angle::ZERO, Angle::ZERO)
+        );
+        assert_eq!(
+            SphericalVec::from(vec3(0.0, 2.0, 0.0)),
+            spherical(2.0, Angle::ZERO, Angle::RIGHT)
+        );
+        assert_eq!(
+            SphericalVec::from(vec3(0.0, 0.0, 3.0)),
+            spherical(3.0, Angle::RIGHT, Angle::ZERO)
+        );
     }
 }
