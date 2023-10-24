@@ -71,20 +71,36 @@ impl Angle {
 #[cfg(feature = "std")]
 impl Angle {
     /// Returns the sine of `self`.
+    /// # Examples
+    /// ```
+    /// # use retrofire_core::math::angle::*;
+    /// assert_eq!(degs(30.0).sin(), 0.5)
+    /// ```
     pub fn sin(self) -> f32 {
         self.0.sin()
     }
     /// Returns the cosine of `self`.
+    /// # Examples
+    /// ```
+    /// # use retrofire_core::assert_approx_eq;
+    /// # use retrofire_core::math::angle::*;
+    /// assert_approx_eq!(degs(60.0).cos(), 0.5)
+    /// ```
     pub fn cos(self) -> f32 {
-        self.0.sin()
+        self.0.cos()
     }
     /// Simultaneously computes the sine and cosine of `self`.
     pub fn sin_cos(self) -> (f32, f32) {
         self.0.sin_cos()
     }
     /// Returns the tangent of `self`.
+    /// # Examples
+    /// ```
+    /// # use retrofire_core::math::angle::*;
+    /// assert_eq!(degs(45.0).tan(), 1.0)
+    /// ```
     pub fn tan(self) -> f32 {
-        self.0.sin()
+        self.0.tan()
     }
     /// Returns `self` "wrapped around" to the range `min..max`.
     ///
@@ -116,18 +132,39 @@ pub fn turns(a: f32) -> Angle {
 }
 
 /// Returns the arcsine of `x` as an `Angle`.
+///
+/// # Examples
+/// ```
+/// # use retrofire_core::assert_approx_eq;
+/// # use retrofire_core::math::angle::*;
+/// assert_approx_eq!(asin(1.0), degs(90.0));
+/// assert_approx_eq!(asin(-1.0), degs(-90.0));
+/// ```
 #[cfg(feature = "std")]
 pub fn asin(x: f32) -> Angle {
     Angle(x.asin())
 }
 
 /// Returns the arccosine of `x` as an `Angle`.
+///
+/// # Examples
+/// ```
+/// # use retrofire_core::math::angle::*;
+/// assert_eq!(acos(1.0), degs(0.0));
+/// ```
 #[cfg(feature = "std")]
 pub fn acos(x: f32) -> Angle {
     Angle(x.acos())
 }
 
 /// Returns the arctangent of `y` and `x` as an `Angle`.
+/// # Examples
+/// ```
+/// # use retrofire_core::math::angle::*;
+/// assert_eq!(atan2(0.0, 1.0), degs(0.0));
+/// assert_eq!(atan2(2.0, 2.0), degs(45.0));
+/// assert_eq!(atan2(3.0, 0.0), degs(90.0));
+/// ```
 #[cfg(feature = "std")]
 pub fn atan2(y: f32, x: f32) -> Angle {
     Angle(y.atan2(x))
