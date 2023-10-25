@@ -143,6 +143,7 @@ pub type Vec4i<Space = Real<4>> = Vector<[i32; 4], Space>;
 
 impl<R, Sp> Vector<R, Sp> {
     /// Returns a new vector with representation `repr`.
+    #[inline]
     pub const fn new(repr: R) -> Self {
         Self(repr, PhantomData)
     }
@@ -153,7 +154,8 @@ impl<R, Sp> Vector<R, Sp> {
     /// to another in order to make types match. One use case is
     /// to cast a "generic" vector returned by one of the constructor
     /// functions to a more specific space.
-    // Cannot be const due to E0493 :(
+    // TODO Cannot be const (yet?) due to E0493 :(
+    #[inline]
     pub fn to<S>(self) -> Vector<R, S> {
         Vector::new(self.0)
     }
@@ -170,6 +172,7 @@ impl<Sp, const N: usize> Vector<[f32; N], Sp> {
     /// Returns `self` normalized to unit length.
     #[cfg(feature = "std")]
     #[inline]
+    #[must_use]
     pub fn normalize(&self) -> Self {
         self.mul(self.len().recip())
     }
@@ -183,6 +186,7 @@ impl<Sp, const N: usize> Vector<[f32; N], Sp> {
 
     /// Returns the scalar projection of `self` onto `other`
     /// (the length of the component of `self` parallel to `other`).
+    #[must_use]
     pub fn scalar_project(&self, other: &Self) -> f32 {
         self.dot(other).mul(&other.dot(other).recip())
     }
@@ -199,8 +203,14 @@ impl<Sp, const N: usize> Vector<[f32; N], Sp> {
     ///  +-------'->-----> other
     ///         result
     /// ```
+    #[must_use]
     pub fn vector_project(&self, other: &Self) -> Self {
         other.mul(self.scalar_project(other))
+    }
+
+    #[must_use]
+    pub fn clamp(&self, min: &Self, max: &Self) -> Self {
+        array::from_fn(|i| self[i].clamp(min[i], max[i])).into()
     }
 }
 
@@ -241,12 +251,7 @@ where
     pub fn z(&self) -> Sc {
         self.0[2]
     }
-}
 
-impl<Sc, B> Vector<[Sc; 3], Real<3, B>>
-where
-    Sc: Copy + Mul<Output = Sc> + Sub<Output = Sc>,
-{
     /// Returns the cross product of `self` with `other`.
     ///
     /// The result is a vector perpendicular to both input
@@ -269,7 +274,11 @@ where
     ///     t  | /           /
     ///        +-----------> self
     /// ```
-    pub fn cross(&self, other: &Self) -> Self {
+    pub fn cross(&self, other: &Self) -> Self
+    where
+        Sc: Mul<Output = Sc> + Sub<Output = Sc>,
+        [Sc; 3]: Into<Self>,
+    {
         let x = self.0[1] * other.0[2] - self.0[2] * other.0[1];
         let y = self.0[2] * other.0[0] - self.0[0] * other.0[2];
         let z = self.0[0] * other.0[1] - self.0[1] * other.0[0];
@@ -442,14 +451,18 @@ where
 {
     fn fmt(&self, f: &mut Formatter<'_>) -> core::fmt::Result {
         const DIMS: [&str; 5] = ["", "", "²", "³", "⁴"];
-        let dim = DIMS.get(DIM).unwrap_or(&"?");
-        write!(f, "ℝ{}<{:?}>", dim, B::default())
+        if let Some(dim) = DIMS.get(DIM) {
+            write!(f, "ℝ{}<{:?}>", dim, B::default())
+        } else {
+            write!(f, "ℝ^{}<{:?}>", DIM, B::default())
+        }
     }
 }
 
 impl<R: Debug, Sp: Debug + Default> Debug for Vector<R, Sp> {
     fn fmt(&self, f: &mut Formatter<'_>) -> core::fmt::Result {
-        write!(f, "Vec<{:?}>{:.3?}", Sp::default(), self.0)
+        let p = f.precision().unwrap_or(3);
+        write!(f, "Vec<{:?}>{:.p$?}", Sp::default(), self.0)
     }
 }
 
