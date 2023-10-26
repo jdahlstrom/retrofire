@@ -164,8 +164,39 @@ impl<T: Linear<Scalar = f32> + Copy> BezierSpline<T> {
 
     /// Approximates `self` as a sequence of line segments.
     ///
-    /// Recursively subdivides the curve into two half-curves, stopping
-    /// once `halt` returns `true`.
+    /// Recursively subdivides the curve into two half-curves, stopping once
+    /// the approximation error is small enough, as determined by the `halt`
+    /// function.
+    ///
+    /// Given a curve segment between some points `p` and `r`, the parameter
+    /// passed to `halt` is the distance to the real midpoint `q` from its
+    /// linear approximation `q'`. If `halt` returns `true`, the line segment
+    /// `pr` is returned as the approximation of this curve segment, otherwise
+    /// the bisection continues.
+    ///
+    /// Note that this heuristic does not work well in certain edge cases
+    /// (consider, for example, an S-shaped curve where `q'` is very close
+    /// to `q`, yet a straight line would be a poor approximation). However,
+    /// in practice it tends to give reasonable results.
+    ///
+    /// ```text
+    ///               __----q----__
+    ///            ,-´      |      `-_
+    ///         _-´         |         `-_
+    ///       p-------------q'------------r
+    ///    _-´                             `-_
+    /// ```
+    ///
+    /// # Examples
+    /// ```
+    /// # use retrofire_core::math::spline::BezierSpline;
+    /// # use retrofire_core::math::vec2;
+    /// let curve = BezierSpline::new(
+    ///     &[vec2(0.0, 0.0), vec2(0.0, 1.0), vec2(1.0, 1.0), vec2(1.0, 0.0)
+    /// ]);
+    /// let approx = curve.approximate(|err| err.len() < 0.01);
+    /// assert_eq!(approx.len(), 17);
+    /// ```
     pub fn approximate(&self, halt: impl Fn(&T) -> bool) -> Vec<T> {
         let len = self.0.len();
         let mut res = Vec::with_capacity(3 * len);
