@@ -10,6 +10,9 @@ keywords.workspace = true
 categories.workspace = true
 
 [features]
-std = []
+float_fns = []
+std = ["float_fns"]
+micromath = ["float_fns", "dep:micromath"]
 
 [dependencies]
+micromath = { version= "2.0.0", optional = true }

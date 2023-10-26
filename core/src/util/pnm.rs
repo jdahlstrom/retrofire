@@ -13,15 +13,13 @@
 use alloc::{string::String, vec::Vec};
 use core::{
     fmt::{self, Debug, Display, Formatter},
-    num::ParseIntError,
+    num::{IntErrorKind, ParseIntError},
     str::FromStr,
 };
-use std::io;
-use std::num::IntErrorKind;
 #[cfg(feature = "std")]
 use std::{
     fs::File,
-    io::{BufReader, BufWriter, Read, Write},
+    io::{self, BufReader, BufWriter, Read, Write},
     path::Path,
 };
 
@@ -29,7 +27,7 @@ use Error::*;
 use Format::*;
 
 use crate::math::color::{rgb, Color3};
-use crate::util::buf::{AsSlice2, Buf2};
+use crate::util::buf::Buf2;
 
 /// The header of a PNM image
 #[derive(Copy, Clone, Debug, Eq, PartialEq)]
@@ -82,6 +80,7 @@ impl TryFrom<[u8; 2]> for Format {
 #[derive(Debug, Eq, PartialEq)]
 pub enum Error {
     /// An I/O error occurred.
+    #[cfg(feature = "std")]
     Io(io::ErrorKind),
     /// Unsupported magic number.
     Unsupported([u8; 2]),
@@ -114,6 +113,7 @@ impl From<ParseIntError> for Error {
     }
 }
 
+#[cfg(feature = "std")]
 impl From<io::Error> for Error {
     fn from(e: io::Error) -> Self {
         Io(e.kind())
@@ -213,7 +213,7 @@ pub fn read_pnm(src: impl IntoIterator<Item = u8>) -> Result<Buf2<Color3>> {
 #[cfg(feature = "std")]
 pub fn save_ppm(
     path: impl AsRef<Path>,
-    data: impl AsSlice2<Color3>,
+    data: impl super::buf::AsSlice2<Color3>,
 ) -> io::Result<()> {
     let mut w = BufWriter::new(File::create(path)?);
     let slice = data.as_slice2();
@@ -424,7 +424,4 @@ mod tests {
         assert_eq!(buf[0usize], [rgb(0x01, 0x12, 0x23), rgb(0x34, 0x45, 0x56)]);
         assert_eq!(buf[1usize], [rgb(0x67, 0x78, 0x89), rgb(0x9A, 0xAB, 0xBC)]);
     }
-
-    #[test]
-    fn save_pnm() {}
 }

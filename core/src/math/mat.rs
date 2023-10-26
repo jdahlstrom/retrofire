@@ -7,10 +7,13 @@ use core::fmt::{self, Debug, Formatter};
 use core::marker::PhantomData;
 use core::ops::Range;
 
-use crate::math::vec::{
-    Affine, Linear, Proj4, Real, Vec2i, Vec3, Vec4, Vector,
-};
+#[cfg(feature = "micromath")]
+#[allow(unused)]
+use micromath::F32Ext;
+
 use crate::render::{NdcToScreen, ViewToProjective};
+
+use super::vec::{Affine, Proj4, Real, Vec2i, Vec3, Vec4, Vector};
 
 /// A linear transform from one space (or basis) to another.
 ///
@@ -113,6 +116,7 @@ impl<const N: usize, Map> Matrix<[[f32; N]; N], Map> {
 
     /// Returns whether every element of `self` is finite
     /// (ie. neither `Inf`, `-Inf`, or `NaN`).
+    #[allow(unused)]
     fn is_finite(&self) -> bool {
         self.0.iter().flatten().all(|e| e.is_finite())
     }
@@ -237,7 +241,10 @@ impl<Src, Dst> Mat4x4<RealToReal<3, Src, Dst>> {
     /// * Panics in debug mode.
     /// * Does not panic in release mode, but the result may be inaccurate
     /// or contain `Inf`s or `NaN`s.
+    #[cfg(feature = "float_fns")]
     pub fn inverse(&self) -> Mat4x4<RealToReal<3, Dst, Src>> {
+        use super::Linear;
+
         if cfg!(debug_assertions) {
             let det = self.determinant();
             assert!(
@@ -462,7 +469,7 @@ pub fn orient_z(_new_z: Vec3, _x: Vec3) -> Mat4x4<RealToReal<3>> {
 }
 
 /// Returns a matrix applying a rotation by `a` about the x axis.
-#[cfg(feature = "std")]
+#[cfg(feature = "float_fns")]
 pub fn rotate_x(a: super::angle::Angle) -> Mat4x4<RealToReal<3>> {
     let (sin, cos) = a.sin_cos();
     [
@@ -474,7 +481,7 @@ pub fn rotate_x(a: super::angle::Angle) -> Mat4x4<RealToReal<3>> {
     .into()
 }
 /// Returns a matrix applying a rotation by `a` about the y axis.
-#[cfg(feature = "std")]
+#[cfg(feature = "float_fns")]
 pub fn rotate_y(a: super::angle::Angle) -> Mat4x4<RealToReal<3>> {
     let (sin, cos) = a.sin_cos();
     [
@@ -486,7 +493,7 @@ pub fn rotate_y(a: super::angle::Angle) -> Mat4x4<RealToReal<3>> {
     .into()
 }
 /// Returns a matrix applying a rotation of angle `a` about the z axis.
-#[cfg(feature = "std")]
+#[cfg(feature = "float_fns")]
 pub fn rotate_z(a: super::angle::Angle) -> Mat4x4<RealToReal<3>> {
     let (sin, cos) = a.sin_cos();
     [
@@ -575,12 +582,13 @@ pub fn viewport(bounds: Range<Vec2i>) -> Mat4x4<NdcToScreen> {
 #[cfg(test)]
 mod tests {
     use crate::assert_approx_eq;
-    use crate::math::{degs, vec3};
+    use crate::math::vec3;
 
     use super::*;
 
     #[derive(Debug, Default, Eq, PartialEq)]
     struct Basis1;
+
     #[derive(Debug, Default, Eq, PartialEq)]
     struct Basis2;
 
@@ -620,28 +628,70 @@ mod tests {
         assert_eq!(m.apply(&v), vec3(1.0, 7.0, 0.0));
     }
 
-    #[test]
-    #[cfg(feature = "std")]
-    fn rotation_x() {
-        let m = rotate_x(degs(90.0));
-        assert_eq!(m.apply(&0.0.into()), 0.0.into());
-        assert_approx_eq!(m.apply(&vec3(0.0, 0.0, 1.0)), vec3(0.0, 1.0, 0.0));
-    }
+    #[cfg(feature = "float_fns")]
+    mod float_fns {
+        use crate::assert_approx_eq;
+        use crate::math::{degs, vec3, Vec3};
 
-    #[test]
-    #[cfg(feature = "std")]
-    fn rotation_y() {
-        let m = rotate_y(degs(90.0));
-        assert_eq!(m.apply(&0.0.into()), 0.0.into());
-        assert_approx_eq!(m.apply(&vec3(1.0, 0.0, 0.0)), vec3(0.0, 0.0, 1.0));
-    }
+        use super::super::*;
+        use super::{Basis1, Basis2};
 
-    #[test]
-    #[cfg(feature = "std")]
-    fn rotation_z() {
-        let m = rotate_z(degs(90.0));
-        assert_eq!(m.apply(&0.0.into()), 0.0.into());
-        assert_approx_eq!(m.apply(&vec3(0.0, 1.0, 0.0)), vec3(1.0, 0.0, 0.0));
+        #[test]
+        fn rotation_x() {
+            let m = rotate_x(degs(90.0));
+            assert_eq!(m.apply(&0.0.into()), 0.0.into());
+            assert_approx_eq!(
+                m.apply(&vec3(0.0, 0.0, 1.0)),
+                vec3(0.0, 1.0, 0.0)
+            );
+        }
+
+        #[test]
+        fn rotation_y() {
+            let m = rotate_y(degs(90.0));
+            assert_eq!(m.apply(&0.0.into()), 0.0.into());
+            assert_approx_eq!(
+                m.apply(&vec3(1.0, 0.0, 0.0)),
+                vec3(0.0, 0.0, 1.0)
+            );
+        }
+
+        #[test]
+        fn rotation_z() {
+            let m = rotate_z(degs(90.0));
+            assert_eq!(m.apply(&0.0.into()), 0.0.into());
+            assert_approx_eq!(
+                m.apply(&vec3(0.0, 1.0, 0.0)),
+                vec3(1.0, 0.0, 0.0)
+            );
+        }
+
+        #[test]
+        fn mat_times_mat_inverse_is_identity() {
+            let m = translate(vec3(1.0e3, -2.0e2, 0.0))
+                .to::<RealToReal<3>>()
+                .then(&scale(vec3(0.5, 100.0, 42.0)).to::<RealToReal<3>>());
+
+            let m_inv = m.inverse();
+
+            assert_eq!(m.compose(&m_inv), Mat4x4::identity());
+            assert_eq!(m_inv.compose(&m), Mat4x4::identity());
+        }
+
+        #[test]
+        fn inverse_reverts_transform() {
+            let m: Mat4x4<RealToReal<3, Basis1, Basis2>> =
+                scale(vec3(1.0, 2.0, 0.5))
+                    .then(&translate(vec3(-2.0, 3.0, 0.0)))
+                    .to();
+            let m_inv: Mat4x4<RealToReal<3, Basis2, Basis1>> = m.inverse();
+
+            let v1: Vec3<Real<3, Basis1>> = vec3(1.0, -2.0, 3.0).to();
+            let v2: Vec3<Real<3, Basis2>> = vec3(2.0, 0.0, -2.0).to();
+
+            assert_eq!(m_inv.apply(&m.apply(&v1)), v1);
+            assert_eq!(m.apply(&m_inv.apply(&v2)), v2);
+        }
     }
 
     #[test]
@@ -657,33 +707,6 @@ mod tests {
 
         assert_eq!(ts.apply(&0.0.into()), vec3(3.0, 4.0, 3.0));
         assert_eq!(st.apply(&0.0.into()), vec3(1.0, 2.0, 3.0));
-    }
-
-    #[test]
-    fn mat_times_mat_inverse_is_identity() {
-        let m = translate(vec3(1.0e3, -2.0e2, 0.0))
-            .to::<RealToReal<3>>()
-            .then(&scale(vec3(0.5, 100.0, 42.0)).to::<RealToReal<3>>());
-
-        let m_inv = m.inverse();
-
-        assert_eq!(m.compose(&m_inv), Mat4x4::identity());
-        assert_eq!(m_inv.compose(&m), Mat4x4::identity());
-    }
-
-    #[test]
-    fn inverse_reverts_transform() {
-        let m: Mat4x4<RealToReal<3, Basis1, Basis2>> =
-            scale(vec3(1.0, 2.0, 0.5))
-                .then(&translate(vec3(-2.0, 3.0, 0.0)))
-                .to();
-        let m_inv: Mat4x4<RealToReal<3, Basis2, Basis1>> = m.inverse();
-
-        let v1: Vec3<Real<3, Basis1>> = vec3(1.0, -2.0, 3.0).to();
-        let v2: Vec3<Real<3, Basis2>> = vec3(2.0, 0.0, -2.0).to();
-
-        assert_eq!(m_inv.apply(&m.apply(&v1)), v1);
-        assert_eq!(m.apply(&m_inv.apply(&v2)), v2);
     }
 
     #[test]

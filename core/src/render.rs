@@ -74,6 +74,7 @@ where
     Uni: Copy,
     Tgt: Target,
 {
+    #[cfg(feature = "std")]
     let start = std::time::Instant::now();
     let mut stats = Stats::new();
 
@@ -124,6 +125,9 @@ where
         })
     }
 
-    stats.time += start.elapsed();
+    #[cfg(feature = "std")]
+    {
+        stats.time += start.elapsed();
+    }
     stats
 }

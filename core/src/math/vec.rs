@@ -5,6 +5,10 @@ use core::fmt::{Debug, Formatter};
 use core::marker::PhantomData;
 use core::ops::{Add, Div, Index, IndexMut, Mul, Neg, Sub};
 
+#[cfg(feature = "micromath")]
+#[allow(unused)]
+use micromath::F32Ext;
+
 use crate::math::approx::ApproxEq;
 use crate::math::vary::{Iter, Vary};
 
@@ -163,18 +167,30 @@ impl<R, Sp> Vector<R, Sp> {
 
 impl<Sp, const N: usize> Vector<[f32; N], Sp> {
     /// Returns the length (magnitude) of `self`.
-    #[cfg(feature = "std")]
+    #[cfg(feature = "float_fns")]
     #[inline]
     pub fn len(&self) -> f32 {
-        self.dot(self).sqrt()
+        let norm = self.dot(self);
+        if cfg!(all(not(feature = "std"), feature = "micromath")) {
+            if norm == 0.0 {
+                return norm;
+            }
+            let approx = norm.sqrt();
+            // Add precision by doing one round of Newton-Raphson
+            0.5 * (approx + norm / approx)
+        } else {
+            norm.sqrt()
+        }
     }
 
     /// Returns `self` normalized to unit length.
-    #[cfg(feature = "std")]
+    #[cfg(feature = "float_fns")]
     #[inline]
     #[must_use]
     pub fn normalize(&self) -> Self {
-        self.mul(self.len().recip())
+        let len = self.len();
+        assert_ne!(len, 0.0, "cannot normalize a null vector");
+        self.mul(len.recip())
     }
 
     /// Returns the dot product of `self` and `other`.
@@ -545,7 +561,7 @@ mod tests {
     mod f32 {
         use super::*;
 
-        #[cfg(feature = "std")]
+        #[cfg(feature = "float_fns")]
         #[test]
         fn length() {
             assert_eq!(vec2(3.0, 4.0).len(), 5.0);
