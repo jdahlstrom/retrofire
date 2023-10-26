@@ -1,5 +1,3 @@
-#![cfg(feature = "minifb")]
-
 use std::ops::ControlFlow::Continue;
 
 use re::geom::{vertex, Tri, Vertex};

@@ -28,11 +28,13 @@
 //!
 //! All features are disabled by default.
 
-#![cfg_attr(not(feature = "std"), no_std)]
+#![no_std]
 
 // TODO make alloc optional
 extern crate alloc;
 extern crate core;
+#[cfg(feature = "std")]
+extern crate std;
 
 pub mod geom;
 pub mod math;

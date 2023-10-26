@@ -14,6 +14,10 @@
 use core::fmt::Debug;
 use core::ops::Range;
 
+#[cfg(feature = "micromath")]
+#[allow(unused)]
+use micromath::F32Ext;
+
 use crate::geom::Vertex;
 use crate::math::{vary::Vary, vec::Real, Vec3};
 
@@ -228,12 +232,12 @@ fn scale<V: Vary>(
     <Varyings<V> as Vary>::scale(d, s)
 }
 
-#[cfg(feature = "std")]
+#[cfg(feature = "float_fns")]
 #[inline]
 fn round_up_to_half(x: f32) -> f32 {
     (x + 0.5).floor() + 0.5
 }
-#[cfg(not(feature = "std"))]
+#[cfg(not(feature = "float_fns"))]
 #[inline]
 fn round_up_to_half(x: f32) -> f32 {
     (x + 0.5) as i32 as f32 + 0.5
