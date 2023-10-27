@@ -42,7 +42,7 @@ pub struct RealToReal<const DIM: usize, SrcBasis = (), DstBasis = ()>(
 #[derive(Copy, Clone, Debug, Default, Eq, PartialEq)]
 pub struct RealToProjective<SrcBasis>(PhantomData<SrcBasis>);
 
-/// Dummy LinearMap to help with generic code.
+/// Dummy `LinearMap` to help with generic code.
 impl LinearMap for () {
     type Source = ();
     type Dest = ();
@@ -128,6 +128,7 @@ impl<M: LinearMap> Mat4x4<M> {
     /// (𝗠 ∘ 𝗡)𝘃 = 𝗠(𝗡𝘃)
     /// ```
     /// for some matrices 𝗠 and 𝗡 and a vector 𝘃.
+    #[must_use]
     pub fn compose<Inner>(
         &self,
         other: &Mat4x4<Inner>,
@@ -153,6 +154,7 @@ impl<M: LinearMap> Mat4x4<M> {
     /// the resulting matrix is equivalent to first applying `self` and then
     /// `other`. The call `self.then(other)` is thus equivalent to
     /// `other.compose(self)`.
+    #[must_use]
     pub fn then<Outer>(&self, other: &Mat4x4<Outer>) -> Mat4x4<Outer::Result>
     where
         Outer: Compose<M>,
@@ -173,6 +175,7 @@ impl<Src, Dst> Mat4x4<RealToReal<3, Src, Dst>> {
     ///         |      ·    | | v2 |
     ///         \ ·  ·  M33 / \  1 /
     /// ```
+    #[must_use]
     pub fn apply(&self, v: &Vec3<Real<3, Src>>) -> Vec3<Real<3, Dst>> {
         let v = Vector::from([v.x(), v.y(), v.z(), 1.0]);
         let x = self.row_vec(0).dot(&v);
@@ -237,6 +240,7 @@ impl<Src, Dst> Mat4x4<RealToReal<3, Src, Dst>> {
     /// * Panics in debug mode.
     /// * Does not panic in release mode, but the result may be inaccurate
     /// or contain `Inf`s or `NaN`s.
+    #[must_use]
     pub fn inverse(&self) -> Mat4x4<RealToReal<3, Dst, Src>> {
         if cfg!(debug_assertions) {
             let det = self.determinant();
@@ -327,6 +331,7 @@ impl<B> Mat4x4<RealToProjective<B>> {
     ///         |      ·    | | v2 |
     ///         \ ·  ·  M33 / \  1 /
     /// ```
+    #[must_use]
     pub fn apply(&self, v: &Vec3<Real<3, B>>) -> Vec4<Proj4> {
         let v = Vector::from([v.x(), v.y(), v.z(), 1.0]);
         [
@@ -586,7 +591,7 @@ mod tests {
 
     #[test]
     fn matrix_debug() {
-        let m: Mat4x4<RealToReal<3, Basis1, Basis2>> = [
+        let actual: Mat4x4<RealToReal<3, Basis1, Basis2>> = [
             [0.0, 1.0, 2.0, 3.0],
             [10.0, 11.0, 12.0, 13.0],
             [20.0, 21.0, 22.0, 23.0],
@@ -601,7 +606,7 @@ mod tests {
     [ 30.00,  31.00,  32.00,  33.00]
 ]"#;
 
-        assert_eq!(alloc::format!("{:?}", m), expected);
+        assert_eq!(alloc::format!("{actual:?}"), expected);
     }
 
     #[test]

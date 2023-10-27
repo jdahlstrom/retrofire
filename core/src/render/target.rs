@@ -60,8 +60,7 @@ impl Config {
     /// If `self.depth_test` is `None`, always returns `true`.
     pub fn depth_test(&self, new: f32, curr: f32) -> bool {
         self.depth_test
-            .map(|ord| new.partial_cmp(&curr) == Some(ord))
-            .unwrap_or(true)
+            .map_or(true, |ord| new.partial_cmp(&curr) == Some(ord))
     }
 }
 

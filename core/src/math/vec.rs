@@ -375,27 +375,27 @@ where
 /// TODO move to own module
 impl Affine for f32 {
     type Space = ();
-    type Diff = f32;
+    type Diff = Self;
     const DIM: usize = 1;
 
-    fn add(&self, other: &f32) -> f32 {
+    fn add(&self, other: &Self) -> Self {
         self + other
     }
-    fn sub(&self, other: &f32) -> f32 {
+    fn sub(&self, other: &Self) -> Self {
         self - other
     }
 }
 /// TODO move to own module
 impl Linear for f32 {
-    type Scalar = f32;
+    type Scalar = Self;
 
-    fn zero() -> f32 {
+    fn zero() -> Self {
         0.0
     }
-    fn neg(&self) -> f32 {
+    fn neg(&self) -> Self {
         -*self
     }
-    fn mul(&self, scalar: f32) -> f32 {
+    fn mul(&self, scalar: Self) -> Self {
         self * scalar
     }
 }
@@ -627,12 +627,12 @@ mod tests {
 
     #[test]
     fn approx_equal_pass() {
-        assert_approx_eq!(vec2(1.0, -10.0), vec2(1.01, -9.9), eps = 0.011)
+        assert_approx_eq!(vec2(1.0, -10.0), vec2(1.01, -9.9), eps = 0.011);
     }
     #[test]
     #[should_panic]
     fn approx_equal_fail() {
-        assert_approx_eq!(vec2(1.0, -10.0), vec2(1.0 + 1e-5, -10.0 - 1e-5))
+        assert_approx_eq!(vec2(1.0, -10.0), vec2(1.0 + 1e-5, -10.0 - 1e-5));
     }
 
     // TODO Tests for length, normalize, projections, Affine/Linear impls...

@@ -15,11 +15,11 @@ pub type TexCoord = Vec2<Real<2, Tex>>;
 
 impl TexCoord {
     /// Returns the u (horizontal) component of `self`.
-    pub fn u(&self) -> f32 {
+    pub const fn u(&self) -> f32 {
         self.0[0]
     }
     /// Returns the v (vertical) component of `self`.
-    pub fn v(&self) -> f32 {
+    pub const fn v(&self) -> f32 {
         self.0[1]
     }
 }
