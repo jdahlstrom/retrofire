@@ -18,7 +18,7 @@ use crate::math::{Affine, Linear};
 ///        \                     `-__          /    \
 ///        p0                        `---____-´      p2
 /// ```
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, Eq, PartialEq)]
 pub struct CubicBezier<T>(pub [T; 4]);
 
 /// Interpolates smoothly from 0.0 to 1.0 as `t` goes from 0.0 to 1.0.
@@ -112,7 +112,7 @@ where
 }
 
 /// A curve composed of one or more concatenated [cubic Bezier curves][Bezier].
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, Eq, PartialEq)]
 pub struct BezierSpline<T>(Vec<T>);
 
 impl<T: Linear<Scalar = f32> + Copy> BezierSpline<T> {
@@ -140,6 +140,7 @@ impl<T: Linear<Scalar = f32> + Copy> BezierSpline<T> {
     ///
     /// Returns the first point if `t` < 0 and the last point if `t` > 1.
     pub fn eval(&self, t: f32) -> T {
+        // invariant self.0.len() != 0 -> last always exists
         step(t, &self.0[0], self.0.last().unwrap(), |t| {
             let (t, seg) = self.segment(t);
             CubicBezier(seg).fast_eval(t)

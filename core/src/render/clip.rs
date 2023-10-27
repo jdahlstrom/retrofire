@@ -164,9 +164,10 @@ impl ClipPlane {
 ///
 /// TODO Describe clip space
 pub mod view_frustum {
+    use crate::geom::Plane;
     use crate::math::vec3;
 
-    use super::*;
+    use super::ClipPlane;
 
     /// The near, far, left, right, bottom, and top clipping planes,
     /// in that order.
@@ -521,17 +522,17 @@ mod tests {
         for tr in tris {
             let res = &mut vec![];
             [tr].clip(&PLANES, res);
-            if !res.iter().all(in_bounds) {
-                panic!(
-                    "clip returned oob vertex:\n  from: {:#?}\n  to: {:#?}",
-                    tr, &res
-                );
-            }
+            assert!(
+                res.iter().all(in_bounds),
+                "clip returned oob vertex:\n  from: {:#?}\n  to: {:#?}",
+                tr,
+                &res
+            );
             in_tris += 1;
             out_tris += res.len();
         }
         assert_eq!(in_tris, 5i32.pow(9));
-        assert_eq!(out_tris, 1033639);
+        assert_eq!(out_tris, 1_033_639);
     }
 
     fn in_bounds(tri: &Tri<ClipVert<f32>>) -> bool {

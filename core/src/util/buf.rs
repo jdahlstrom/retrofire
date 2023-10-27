@@ -476,10 +476,10 @@ mod inner {
                 (0..w).map(move |x| fill_fn(x, y)) //
             });
             if self.is_contiguous() {
-                self.data_mut().fill_with(|| fill.next().unwrap())
+                self.data_mut().fill_with(|| fill.next().unwrap());
             } else {
                 self.rows_mut().for_each(|row| {
-                    row.fill_with(|| fill.next().unwrap()) //
+                    row.fill_with(|| fill.next().unwrap()); //
                 })
             }
         }
@@ -635,13 +635,13 @@ mod tests {
     #[should_panic]
     fn buf_index_past_end_should_panic() {
         let buf = Buf2::new_default(4, 5);
-        let () = buf[[4, 0]];
+        let _: i32 = buf[[4, 0]];
     }
     #[test]
     #[should_panic]
     fn buf_negative_index_should_panic() {
         let buf = Buf2::new_default(4, 5);
-        let () = buf[[3, -1]];
+        let _: i32 = buf[[3, -1]];
     }
 
     #[test]

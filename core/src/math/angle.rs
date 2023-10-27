@@ -312,7 +312,7 @@ impl Linear for Angle {
 
     #[inline]
     fn zero() -> Self {
-        Angle::ZERO
+        Self::ZERO
     }
     #[inline]
     fn neg(&self) -> Self {
@@ -381,7 +381,7 @@ impl Div<f32> for Angle {
 }
 impl Rem for Angle {
     type Output = Self;
-    fn rem(self, rhs: Angle) -> Self {
+    fn rem(self, rhs: Self) -> Self {
         Self(self.0 % rhs.0)
     }
 }
@@ -420,7 +420,7 @@ impl From<Vec2> for PolarVec {
     /// // A negative x and zero y maps to straight angle azimuth
     /// assert_approx_eq!(PolarVec::from(vec2(-1.0, 0.0)).az(), Angle::STRAIGHT);
     /// ```
-    fn from(v: Vec2) -> PolarVec {
+    fn from(v: Vec2) -> Self {
         let r = v.len();
         let az = atan2(v.y(), v.x());
         polar(r, az)
@@ -482,7 +482,7 @@ impl From<Vec3> for SphericalVec {
     ///
     /// assert_eq!(SphericalVec::from(vec3(0.0, 0.0, 2.0)), spherical(2.0 ,degs(90.0), degs(0.0)));
     /// ```
-    fn from(v: Vec3) -> SphericalVec {
+    fn from(v: Vec3) -> Self {
         let [x, y, z] = v.0;
         let az = atan2(z, x);
         let alt = atan2(y * y, x * x + z * z);

@@ -36,6 +36,7 @@ pub trait Vary: Sized {
 
     /// Returns the result of offsetting `self` by `delta`.
     /// For arithmetic types this is simply addition.
+    #[must_use]
     fn step(&self, delta: &Self::Diff) -> Self;
 
     /// Returns the difference between `self` and `other`.
@@ -44,7 +45,7 @@ pub trait Vary: Sized {
 
     /// Scales `diff` by `s`.
     ///
-    /// TODO it's a bit ugly to have this method here and not on Self::Diff.
+    /// TODO it's a bit ugly to have this method here and not on `Self::Diff`.
     fn scale(diff: &Self::Diff, s: f32) -> Self::Diff;
 }
 
