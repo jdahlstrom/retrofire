@@ -58,9 +58,9 @@ pub type ViewToProjective = RealToProjective<View>;
 pub type NdcToScreen = RealToReal<3, Ndc, Screen>;
 
 /// Renders the given triangles into `target`.
-pub fn render<A, B, Sh, Uni, Tgt>(
+pub fn render<A, B, Sp, Sh, Uni, Tgt>(
     tris: &[Tri<usize>],
-    verts: &[Vertex<Vec3, A>],
+    verts: &[Vertex<Vec3<Sp>, A>],
     shader: &Sh,
     uni: Uni,
     vport_tf: Mat4x4<NdcToScreen>,
@@ -69,7 +69,8 @@ pub fn render<A, B, Sh, Uni, Tgt>(
 where
     A: Clone + Debug,
     B: Linear<Scalar = f32> + Clone + Debug,
-    Sh: VertexShader<Vertex<Vec3, A>, Uni, Output = Vertex<ClipVec, B>>
+    Sp: Clone,
+    Sh: VertexShader<Vertex<Vec3<Sp>, A>, Uni, Output = Vertex<ClipVec, B>>
         + FragmentShader<Frag<B>>,
     Uni: Copy,
     Tgt: Target,
@@ -120,8 +121,8 @@ where
             stats.frags().i += scanline.xs.len();
             // TODO count only frags that were actually output
             stats.frags().o += scanline.xs.len();
-            target.rasterize(scanline, shader, Config::default())
-        })
+            target.rasterize(scanline, shader, Config::default());
+        });
     }
 
     stats.time += start.elapsed();

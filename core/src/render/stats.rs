@@ -110,9 +110,9 @@ impl Throughput {
 
 impl Display for Stat {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
-        let mut str = format!("{:?}", self);
+        let mut str = format!("{self:?}");
         str.make_ascii_lowercase();
-        write!(f, "{:6}", str)
+        write!(f, "{str:6}")
     }
 }
 
@@ -139,11 +139,12 @@ impl Display for Stats {
         use Stat::*;
         for stat in [Objs, Prims, Verts, Frags] {
             let i = stat as usize;
-            let (s, ps, pf) = (self.throughput[i], ps.throughput[i], pf.throughput[i]);
+            let [s, ps, pf] = [self, &ps, &pf].map(|s| s.throughput[i]);
+
             if f.alternate() {
-                write!(f, " {} {:#w$} │ {:#w$} │ {:#w$}\n", stat, s, ps, pf)?;
+                writeln!(f, " {stat} {s:#w$} │ {ps:#w$} │ {pf:#w$}")?;
             } else {
-                write!(f, " {} {:w$} │ {:w$} │ {:w$}\n", stat, s, ps, pf)?;
+                writeln!(f, " {stat} {s:w$} │ {ps:w$} │ {pf:w$}")?;
             }
         }
         Ok(())
@@ -155,10 +156,10 @@ impl Display for Throughput {
         let &Self { i, o } = self;
         let w = f.width().unwrap_or(10);
         if f.alternate() {
-            if i != 0 {
-                write!(f, "{:>w$.1}%", 100.0 * o as f32 / i as f32, w = w - 1)
-            } else {
+            if i == 0 {
                 write!(f, "{:>w$}", "--")
+            } else {
+                write!(f, "{:>w$.1}%", 100.0 * o as f32 / i as f32, w = w - 1)
             }
         } else {
             write!(f, "{:>w$}", format!("{} / {}", human_num(i), human_num(o)),)
@@ -229,13 +230,13 @@ mod tests {
             calls: 5678.0,
             time: Duration::from_millis(4321),
             throughput: from_fn(|i| Throughput {
-                i: 12345 * (i + 1) as usize,
-                o: 4321 * (i + 1) as usize,
+                i: 12345 * (i + 1),
+                o: 4321 * (i + 1),
             }),
         };
 
         assert_eq!(
-            format!("{}", stats),
+            format!("{stats}"),
             " \
  STATS             TOTAL │          PER SEC │        PER FRAME
 ─────────────────────────┼──────────────────┼──────────────────
@@ -251,7 +252,7 @@ mod tests {
         );
 
         assert_eq!(
-            format!("{:#}", stats),
+            format!("{stats:#}"),
             " \
  STATS             TOTAL │          PER SEC │        PER FRAME
 ─────────────────────────┼──────────────────┼──────────────────
@@ -271,12 +272,12 @@ mod tests {
     fn human_nums() {
         assert_eq!(human_num(10), "   10");
         assert_eq!(human_num(123), "  123");
-        assert_eq!(human_num(1234), " 1.2k");
-        assert_eq!(human_num(123456), " 123k");
-        assert_eq!(human_num(1234567), " 1.2M");
-        assert_eq!(human_num(123456789), " 123M");
-        assert_eq!(human_num(1234567890), " 1.2G");
-        assert_eq!(human_num(123456789000), "1.2e11");
+        assert_eq!(human_num(1_234), " 1.2k");
+        assert_eq!(human_num(12_3456), " 123k");
+        assert_eq!(human_num(1_234_567), " 1.2M");
+        assert_eq!(human_num(123_456_789), " 123M");
+        assert_eq!(human_num(1_234_567_890), " 1.2G");
+        assert_eq!(human_num(123_456_789_000), "1.2e11");
     }
 
     #[test]

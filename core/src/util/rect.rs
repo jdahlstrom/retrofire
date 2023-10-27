@@ -57,6 +57,7 @@ impl<T: Copy> Rect<T> {
         [(left, right), (top, bottom)]
     }
 
+    #[must_use]
     pub fn intersect(&self, other: &Self) -> Self
     where
         T: Ord,
@@ -68,8 +69,7 @@ impl<T: Copy> Rect<T> {
         ) -> Option<T> {
             match (a, b) {
                 (None, None) => None,
-                (some, None) => some,
-                (None, some) => some,
+                (some, None) | (None, some) => some,
                 (Some(s), Some(o)) => Some(f(s, o)),
             }
         }
