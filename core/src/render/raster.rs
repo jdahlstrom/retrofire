@@ -332,7 +332,7 @@ mod tests {
             write!(s, "{:w$}", " ", w = scanline.xs.start).ok();
 
             for c in scanline.frags.map(|f| ((10.0 * f.0.z()) as u8)) {
-                write!(s, "{}", c).ok();
+                write!(s, "{c}").ok();
             }
             writeln!(s).ok();
         });

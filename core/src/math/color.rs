@@ -128,7 +128,7 @@ impl Color3 {
     #[inline]
     /// Returns a `u32` containing the component bytes of `self`
     /// in format `0x00_RR_GG_BB`.
-    pub fn to_rgb_u32(self) -> u32 {
+    pub const fn to_rgb_u32(self) -> u32 {
         let [r, g, b] = self.0;
         u32::from_be_bytes([0x00, r, g, b])
     }
@@ -138,13 +138,13 @@ impl Color4 {
     #[inline]
     /// Returns a `u32` containing the component bytes of `self`
     /// in format `0xRR_GG_BB_AA`.
-    pub fn to_rgba_u32(self) -> u32 {
+    pub const fn to_rgba_u32(self) -> u32 {
         u32::from_be_bytes(self.0)
     }
     /// Returns a `u32` containing the component bytes of `self`
     /// in format `0xAA_RR_GG_BB`.
     #[inline]
-    pub fn to_argb_u32(self) -> u32 {
+    pub const fn to_argb_u32(self) -> u32 {
         self.to_rgba_u32().rotate_right(8)
     }
 }

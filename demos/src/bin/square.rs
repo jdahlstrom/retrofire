@@ -3,19 +3,19 @@ use std::ops::ControlFlow::Continue;
 use re::geom::{vertex, Tri, Vertex};
 use re::math::color::{rgb, Color3f};
 use re::math::mat::{perspective, rotate_z, translate, viewport};
+use re::math::vec::Real;
 use re::math::{rads, vec2, vec3, Mat4x4, Vec3};
 use re::render::raster::Frag;
 use re::render::shader::Shader;
-use re::render::stats::Stats;
-use re::render::{render, ModelToProjective, ModelToView};
+use re::render::{render, Model, ModelToProjective, ModelToView};
 use rf::minifb::Window;
 
 fn main() {
-    let verts = [
-        vertex(vec3(-1.0, -1.0, 0.0), rgb(1.0, 0.3, 0.1)),
-        vertex(vec3(-1.0, 1.0, 0.0), rgb(0.2, 0.8, 0.3)),
-        vertex(vec3(1.0, -1.0, 0.0), rgb(0.2, 0.5, 1.0)),
-        vertex(vec3(1.0, 1.0, 0.0), rgb(1.0, 0.3, 0.1)),
+    let verts: [Vertex<Vec3<Real<3, Model>>, _>; 4] = [
+        vertex(vec3(-1.0, -1.0, 0.0).to(), rgb(1.0, 0.3, 0.1)),
+        vertex(vec3(-1.0, 1.0, 0.0).to(), rgb(0.2, 0.8, 0.3)),
+        vertex(vec3(1.0, -1.0, 0.0).to(), rgb(0.2, 0.5, 1.0)),
+        vertex(vec3(1.0, 1.0, 0.0).to(), rgb(1.0, 0.3, 0.1)),
     ];
 
     let mut win = Window::builder()
@@ -24,9 +24,8 @@ fn main() {
         .build();
 
     let shader = Shader::new(
-        |Vertex { pos, attrib }: Vertex<Vec3, _>,
-         mvp: &Mat4x4<ModelToProjective>| {
-            vertex(mvp.apply(&pos.to()), attrib)
+        |v: Vertex<_, _>, mvp: &Mat4x4<ModelToProjective>| {
+            vertex(mvp.apply(&v.pos), v.attrib)
         },
         |frag: Frag<Color3f>| frag.var.to_color4(),
     );

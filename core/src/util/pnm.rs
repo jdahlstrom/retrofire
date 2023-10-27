@@ -100,7 +100,7 @@ impl std::error::Error for Error {}
 
 impl Display for Error {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
-        write!(f, "error decoding pnm image: {:?}", self)
+        write!(f, "error decoding pnm image: {self:?}")
     }
 }
 
@@ -124,7 +124,7 @@ impl Header {
     /// Attempts to parse a PNM header from `src`.
     ///
     /// Currently supported formats are P3, P4, P5, and P6.
-    fn parse(src: impl IntoIterator<Item = u8>) -> Result<Header> {
+    fn parse(src: impl IntoIterator<Item = u8>) -> Result<Self> {
         let mut it = src.into_iter();
         let magic = [
             it.next().ok_or(UnexpectedEnd)?,
@@ -137,7 +137,7 @@ impl Header {
             TextBitmap | BinaryBitmap => 1,
             _ => parse_num(&mut it)?,
         };
-        Ok(Header {
+        Ok(Self {
             format,
             width,
             height,
@@ -149,15 +149,21 @@ impl Header {
 /// Loads a PNM image from a path into a buffer.
 ///
 /// Currently supported formats are P3, P4, P5, and P6.
+///
+/// # Errors
+/// Returns [`pnm::Error`][Error] in case of an I/O error or invalid PNM image.
 #[cfg(feature = "std")]
 pub fn load_pnm(path: impl AsRef<Path>) -> Result<Buf2<Color3>> {
     let r = &mut BufReader::new(File::open(path)?);
-    read_pnm(r.bytes().flat_map(|res| res.ok()))
+    read_pnm(r.bytes().map_while(io::Result::ok))
 }
 
 /// Attempts to decode a PNM image from an iterator of bytes.
 ///
 /// Currently supported formats are P3, P4, P5, and P6.
+///
+/// # Errors
+/// Returns [`pnm::Error`][Error] in case of an invalid PNM image.
 pub fn read_pnm(src: impl IntoIterator<Item = u8>) -> Result<Buf2<Color3>> {
     let mut it = src.into_iter();
     let h = Header::parse(&mut it)?;
@@ -192,7 +198,7 @@ pub fn read_pnm(src: impl IntoIterator<Item = u8>) -> Result<Buf2<Color3>> {
                 .flat_map(|i| {
                     col[i] = match parse_num(&mut it) {
                         Ok(c) => c,
-                        Err(e) => return Some(Err(e.into())),
+                        Err(e) => return Some(Err(e)),
                     };
                     (i == 2).then(|| Ok(col.into()))
                 })
@@ -210,7 +216,9 @@ pub fn read_pnm(src: impl IntoIterator<Item = u8>) -> Result<Buf2<Color3>> {
 }
 
 /// Saves an image as a binary PPM file (P6 format).
-#[cfg(feature = "std")]
+///
+/// # Errors
+/// Returns [`io::Error`][std::io::Error] in case of an I/O error while saving.
 pub fn save_ppm(
     path: impl AsRef<Path>,
     data: impl AsSlice2<Color3>,
@@ -424,7 +432,4 @@ mod tests {
         assert_eq!(buf[0usize], [rgb(0x01, 0x12, 0x23), rgb(0x34, 0x45, 0x56)]);
         assert_eq!(buf[1usize], [rgb(0x67, 0x78, 0x89), rgb(0x9A, 0xAB, 0xBC)]);
     }
-
-    #[test]
-    fn save_pnm() {}
 }
