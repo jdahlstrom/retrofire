@@ -17,7 +17,8 @@ use alloc::vec;
 use alloc::vec::Vec;
 
 use crate::geom::{Plane, Tri, Vertex};
-use crate::math::vec::{Affine, Linear, Proj4, Vec3, Vec4};
+use crate::math::vary::Vary;
+use crate::math::vec::{Proj4, Vec3, Vec4};
 
 /// Trait for types that can be [clipped][self] against planes.
 ///
@@ -110,8 +111,7 @@ impl ClipPlane {
         verts_in: &[ClipVert<A>],
         verts_out: &mut Vec<ClipVert<A>>,
     ) where
-        A: Affine + Clone,
-        A::Diff: Linear<Scalar = f32>,
+        A: Vary + Clone,
     {
         let mut verts = verts_in
             .iter()
@@ -128,7 +128,7 @@ impl ClipPlane {
                 verts_out.push((*v0).clone());
             } else {
                 // v0 is outside, discard it. If v1 is also outside, we don't
-                // have to do anything: it is discarded on the next iteration.
+                // have to do anything; it is discarded on the next iteration.
             }
             if d0 * d1 < 0.0 {
                 // Edge crosses the plane surface. Split the edge in two by
@@ -137,7 +137,7 @@ impl ClipPlane {
                 // edge coincident with the plane.
 
                 // `t` is the fractional distance from `v0` to the intersection
-                // point. If conditions guarantee that `d1 - d0` is nonzero.
+                // point. If condition guarantees that `d1 - d0` is nonzero.
                 let t = -d0 / (d1 - d0);
 
                 verts_out.push(ClipVert {
@@ -199,8 +199,7 @@ pub fn clip_simple_polygon<'a, A>(
     verts_in: &'a mut Vec<ClipVert<A>>,
     verts_out: &'a mut Vec<ClipVert<A>>,
 ) where
-    A: Affine + Clone,
-    A::Diff: Linear<Scalar = f32>,
+    A: Vary + Clone,
 {
     debug_assert!(verts_out.is_empty());
 
@@ -218,8 +217,7 @@ pub fn clip_simple_polygon<'a, A>(
 
 impl<A> Clip for [Tri<ClipVert<A>>]
 where
-    A: Affine + Clone,
-    A::Diff: Linear<Scalar = f32>,
+    A: Vary + Clone,
 {
     type Item = Tri<ClipVert<A>>;
 
