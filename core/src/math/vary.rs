@@ -47,6 +47,26 @@ pub trait Vary: Sized {
     ///
     /// TODO it's a bit ugly to have this method here and not on `Self::Diff`.
     fn scale(diff: &Self::Diff, s: f32) -> Self::Diff;
+
+    /// Linearly interpolates between `self` and `other`.
+    ///
+    /// This method does not panic if `t < 0.0` or `t > 1.0`,
+    /// or if `t` is `NaN`, but the return value is unspecified.
+    /// Individual implementations may offer stronger guarantees.
+    ///
+    /// # Examples
+    /// ```
+    /// # use retrofire_core::math::vary::Vary;
+    /// assert_eq!(2.0.lerp(&5.0, 0.0), 2.0);
+    /// assert_eq!(2.0.lerp(&5.0, 0.5), 3.5);
+    /// assert_eq!(2.0.lerp(&5.0, 1.0), 5.0);
+    ///
+    /// ```
+    #[inline]
+    fn lerp(&self, other: &Self, t: f32) -> Self {
+        let diff = other.diff(self);
+        self.step(&Self::scale(&diff, t))
+    }
 }
 
 #[derive(Copy, Clone, Debug)]

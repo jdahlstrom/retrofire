@@ -8,7 +8,7 @@
 use alloc::{vec, vec::Vec};
 use core::fmt::Debug;
 
-use clip::{view_frustum, Clip, ClipVec};
+use clip::{view_frustum, Clip};
 use raster::{tri_fill, Frag};
 use shader::{FragmentShader, VertexShader};
 use stats::Stats;
@@ -16,7 +16,8 @@ use target::{Config, Target};
 
 use crate::geom::{Tri, Vertex};
 use crate::math::mat::{RealToProjective, RealToReal};
-use crate::math::{Linear, Mat4x4, Vec3};
+use crate::math::{Mat4x4, Vary};
+use crate::render::clip::ClipVert;
 
 pub mod clip;
 pub mod raster;
@@ -58,9 +59,9 @@ pub type ViewToProjective = RealToProjective<View>;
 pub type NdcToScreen = RealToReal<3, Ndc, Screen>;
 
 /// Renders the given triangles into `target`.
-pub fn render<A, B, Sp, Sh, Uni, Tgt>(
-    tris: &[Tri<usize>],
-    verts: &[Vertex<Vec3<Sp>, A>],
+pub fn render<P, A, B, Sp, Sh, Uni, Tgt>(
+    tris: impl AsRef<[Tri<usize>]>,
+    verts: impl AsRef<[Vertex<P, A>]>,
     shader: &Sh,
     uni: Uni,
     vport_tf: Mat4x4<NdcToScreen>,
@@ -68,10 +69,10 @@ pub fn render<A, B, Sp, Sh, Uni, Tgt>(
 ) -> Stats
 where
     A: Clone + Debug,
-    B: Linear<Scalar = f32> + Clone + Debug,
-    Sp: Clone,
-    Sh: VertexShader<Vertex<Vec3<Sp>, A>, Uni, Output = Vertex<ClipVec, B>>
+    B: Vary</* TODO */ Diff = B> + Clone + Debug,
+    Sh: VertexShader<Vertex<P, A>, Uni, Output = ClipVert<B>>
         + FragmentShader<Frag<B>>,
+    Sp: Clone,
     Uni: Copy,
     Tgt: Target,
 {
@@ -79,11 +80,12 @@ where
     let mut stats = Stats::new();
 
     stats.calls = 1.0;
-    stats.prims().i += tris.len();
-    stats.verts().i += verts.len();
+    stats.prims().i += tris.as_ref().len();
+    stats.verts().i += verts.as_ref().len();
 
     // Vertex shader
     let verts: Vec<_> = verts
+        .as_ref()
         .iter()
         // TODO Pass vertex as ref to shader
         .cloned()
@@ -91,6 +93,7 @@ where
         .collect();
 
     let tris: Vec<_> = tris
+        .as_ref()
         .iter()
         .map(|tri| Tri(tri.0.map(|i| verts[i].clone())))
         .collect();

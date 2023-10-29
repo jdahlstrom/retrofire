@@ -2,7 +2,7 @@
 
 use alloc::vec::Vec;
 
-use crate::math::{Affine, Linear};
+use crate::math::{Affine, Linear, Vary};
 
 /// A cubic Bezier curve, defined by four control points.
 ///
