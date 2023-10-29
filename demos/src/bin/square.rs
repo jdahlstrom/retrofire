@@ -35,8 +35,6 @@ fn main() {
     let project = perspective(1.0, 4.0 / 3.0, 0.1..1000.0);
     let viewport = viewport(vec2(10, 10)..vec2(630, 470));
 
-    let mut stats = Stats::new();
-
     win.run(|frame| {
         let secs = frame.t.as_secs_f32();
 
@@ -46,7 +44,7 @@ fn main() {
             .to();
         let mvp = mv.then(&project);
 
-        stats += render(
+        *frame.stats += render(
             &[Tri([0, 1, 2]), Tri([3, 2, 1])],
             &verts,
             &shader,
@@ -54,10 +52,6 @@ fn main() {
             viewport,
             &mut frame.buf,
         );
-        stats.frames += 1.0;
-
         Continue(())
     });
-
-    println!("{}", stats);
 }

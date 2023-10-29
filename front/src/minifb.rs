@@ -5,6 +5,7 @@ use std::time::{Duration, Instant};
 
 use minifb::{Key, WindowOptions};
 
+use retrofire_core::render::stats::Stats;
 use retrofire_core::render::target::Framebuf;
 use retrofire_core::util::buf::{AsMutSlice2, Buf2};
 
@@ -113,9 +114,10 @@ impl Window {
 
         let start = Instant::now();
         let mut last = Instant::now();
+        let mut stats = Stats::new();
         loop {
-            if !self.imp.is_open() || self.imp.is_key_down(Key::Escape) {
-                return;
+            if self.should_quit() {
+                break;
             }
 
             cb.fill(0);
@@ -128,12 +130,20 @@ impl Window {
                     color_buf: cb.as_mut_slice2(),
                     depth_buf: zb.as_mut_slice2(),
                 },
+                stats: &mut stats,
             };
             last = Instant::now();
-            if let Break(()) = frame_fn(frame) {
-                return;
+            if let Break(_) = frame_fn(frame) {
+                break;
             }
             self.present(cb.data_mut());
+
+            stats.frames += 1.0;
         }
+        println!("{}", stats);
+    }
+
+    fn should_quit(&self) -> bool {
+        !self.imp.is_open() || self.imp.is_key_down(Key::Escape)
     }
 }
