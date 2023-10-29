@@ -53,11 +53,7 @@ pub type ScreenVec = Vec3<Real<3, Screen>>;
 /// Values to interpolate across a rasterized primitive.
 pub type Varyings<V> = (ScreenVec, V);
 
-impl<V> Iterator for ScanlineIter<V>
-where
-    V: Vary,
-    V::Diff: Clone,
-{
+impl<V: Vary> Iterator for ScanlineIter<V> {
     type Item = Scanline<V>;
 
     #[inline]
@@ -101,7 +97,7 @@ where
 /// information on the scanline conversion, see [`scan`].
 pub fn tri_fill<V, F>(mut verts: [Vertex<ScreenVec, V>; 3], mut scanline_fn: F)
 where
-    V: Vary<Diff = V> + Clone,
+    V: Vary,
     F: FnMut(Scanline<V>),
 {
     // Sort by y coordinate, start from the top
@@ -163,14 +159,11 @@ where
 /// center point lies inside the shape. This ensures that if two polygons
 /// share an edge, or several share a vertex, each pixel at the boundary will
 /// be drawn by exactly one of the polygons, with no gaps or overdrawn pixels.
-pub fn scan<V>(
+pub fn scan<V: Vary>(
     Range { start: y0, end: y1 }: Range<f32>,
     Range { start: l0, end: l1 }: Range<&Varyings<V>>,
     Range { start: r0, end: r1 }: Range<&Varyings<V>>,
-) -> ScanlineIter<V>
-where
-    V: Vary<Diff = V>,
-{
+) -> ScanlineIter<V> {
     let inv_dy = (y1 - y0).recip();
 
     // df/dy for the left edge
