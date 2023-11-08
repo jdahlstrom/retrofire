@@ -1,5 +1,9 @@
 //! Basic geometric primitives.
 
+pub use mesh::Mesh;
+
+pub mod mesh;
+
 /// Vertex with position and arbitrary other attributes.
 #[derive(Copy, Clone, Debug, Eq, PartialEq)]
 pub struct Vertex<P, A> {
