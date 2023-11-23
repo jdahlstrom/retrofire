@@ -23,5 +23,5 @@ jobs:
     - name: Build
       run: cargo build --workspace --verbose --all-targets
     - name: Run tests
-      run: cargo test --workspace --verbose --all-targets
+      run: cargo test --workspace --verbose
 
