@@ -13,15 +13,13 @@
 use alloc::{string::String, vec::Vec};
 use core::{
     fmt::{self, Debug, Display, Formatter},
-    num::ParseIntError,
+    num::{IntErrorKind, ParseIntError},
     str::FromStr,
 };
-use std::io;
-use std::num::IntErrorKind;
 #[cfg(feature = "std")]
 use std::{
     fs::File,
-    io::{BufReader, BufWriter, Read, Write},
+    io::{self, BufReader, BufWriter, Read, Write},
     path::Path,
 };
 
@@ -82,6 +80,7 @@ impl TryFrom<[u8; 2]> for Format {
 #[derive(Debug, Eq, PartialEq)]
 pub enum Error {
     /// An I/O error occurred.
+    #[cfg(feature = "std")]
     Io(io::ErrorKind),
     /// Unsupported magic number.
     Unsupported([u8; 2]),
@@ -114,6 +113,7 @@ impl From<ParseIntError> for Error {
     }
 }
 
+#[cfg(feature = "std")]
 impl From<io::Error> for Error {
     fn from(e: io::Error) -> Self {
         Io(e.kind())
@@ -219,6 +219,7 @@ pub fn read_pnm(src: impl IntoIterator<Item = u8>) -> Result<Buf2<Color3>> {
 ///
 /// # Errors
 /// Returns [`io::Error`][std::io::Error] in case of an I/O error while saving.
+#[cfg(feature = "std")]
 pub fn save_ppm(
     path: impl AsRef<Path>,
     data: impl AsSlice2<Color3>,
