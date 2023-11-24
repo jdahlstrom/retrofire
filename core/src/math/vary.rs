@@ -1,7 +1,6 @@
 //! Support for varyings: types that can be linearly interpolated across
 //! a face when rendering, such as colors, normals, or texture coordinates.
 
-use core::iter::{zip, Zip};
 use core::mem;
 
 /// A trait for types that can be linearly interpolated and distributed
@@ -76,16 +75,33 @@ pub struct Iter<T: Vary> {
     pub n: Option<u32>,
 }
 
+#[inline]
+pub fn lerp<V: Vary>(t: f32, from: V, to: V) -> V {
+    from.lerp(&to, t)
+}
+
+impl Vary for () {
+    type Iter = Iter<()>;
+    type Diff = ();
+
+    fn vary(self, step: Self::Diff, n: Option<u32>) -> Self::Iter {
+        Iter { val: (), step: (), n }
+    }
+    fn step(&self, delta: &Self::Diff) {}
+    fn diff(&self, other: &Self) {}
+    fn scale(diff: &Self::Diff, s: f32) {}
+}
+
 impl<T: Vary, U: Vary> Vary for (T, U) {
-    type Iter = Zip<T::Iter, U::Iter>;
+    type Iter = Iter<Self>;
     type Diff = (T::Diff, U::Diff);
 
-    fn vary(self, step: Self::Diff, max: Option<u32>) -> Self::Iter {
-        zip(self.0.vary(step.0, max), self.1.vary(step.1, max))
+    fn vary(self, step: Self::Diff, n: Option<u32>) -> Self::Iter {
+        Iter { val: self, step, n }
     }
 
-    fn step(&self, delta: &Self::Diff) -> Self {
-        (self.0.step(&delta.0), self.1.step(&delta.1))
+    fn step(&self, (d0, d1): &Self::Diff) -> Self {
+        (self.0.step(&d0), self.1.step(&d1))
     }
 
     fn diff(&self, other: &Self) -> Self::Diff {
