@@ -18,9 +18,10 @@
 //! to matching vectors. Angles are strongly typed as well, to allow working
 //! with different angular units without confusion.
 
-pub use angle::{degs, rads, turns, Angle};
+pub use angle::{degs, polar, rads, spherical, turns, Angle};
+pub use approx::ApproxEq;
 pub use mat::{Mat3x3, Mat4x4, Matrix};
-pub use vary::Vary;
+pub use vary::{lerp, Vary};
 pub use vec::{vec2, vec3, vec4};
 pub use vec::{Affine, Linear};
 pub use vec::{Vec2, Vec2i, Vec3, Vec3i, Vec4, Vec4i, Vector};
