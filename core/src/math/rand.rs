@@ -78,6 +78,16 @@ pub struct UnitSphere(pub XorShift64);
 #[derive(Copy, Clone, Debug, Default)]
 pub struct UnitBall(pub XorShift64);
 
+/// A Bernoulli distribution.
+///
+/// Generates boolean values such that:
+/// * P(true) = p
+/// * P(false) = 1 - p.
+///
+///  given a parameter p ∈ [0.0, 1.0].
+#[derive(Copy, Clone, Debug)]
+pub struct Bernoulli(pub XorShift64, pub f32);
+
 impl Distrib for Uniform<i32> {
     type Output = i32;
 
@@ -178,6 +188,18 @@ impl Distrib for UnitBall {
     }
 }
 
+impl Distrib for Bernoulli {
+    type Output = bool;
+
+    /// Returns boolean values sampled from a Bernoulli distribution.
+    fn next(&mut self) -> bool {
+        let mut d = Uniform(self.0, 0.0f32..1.0);
+        let res = d.next() < self.1;
+        self.0 = d.0;
+        res
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -216,5 +238,17 @@ mod tests {
             let r = d.next();
             assert!(-1.23 <= r && r < 4.56);
         }
+    }
+
+    #[test]
+    fn bernoulli() {
+        let gen = XorShift64::default();
+        let mut d = Bernoulli(gen, 0.1);
+
+        let mut trues = 0;
+        for _ in 0..COUNT {
+            trues += d.next() as u32;
+        }
+        assert_eq!(trues, 93);
     }
 }
