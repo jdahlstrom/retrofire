@@ -30,6 +30,7 @@ pub mod angle;
 pub mod approx;
 pub mod color;
 pub mod mat;
+pub mod rand;
 pub mod spline;
 pub mod vary;
 pub mod vec;
