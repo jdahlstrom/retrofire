@@ -1,9 +1,10 @@
+use std::array::from_fn;
 use std::mem::swap;
 use std::ops::ControlFlow::Continue;
 
+use re::math::rand::{Distrib, Uniform, UnitDisk, XorShift64};
 use re::math::spline::BezierSpline;
-use re::math::vary::Vary;
-use re::math::{vec2, Affine, Linear, Vec2, Vec2i};
+use re::math::{vec2, Affine, Linear, Vary, Vec2, Vec2i};
 use rf::minifb::Window;
 
 fn line([mut p0, mut p1]: [Vec2; 2]) -> impl Iterator<Item = Vec2i> {
@@ -11,11 +12,11 @@ fn line([mut p0, mut p1]: [Vec2; 2]) -> impl Iterator<Item = Vec2i> {
         swap(&mut p0, &mut p1);
     }
     let [dx, dy] = p1.sub(&p0).0;
-    let dxa = dx.abs();
+    let abs_dx = dx.abs();
 
-    let (step, n) = if dxa > dy {
-        let dy_dx = dy / dxa;
-        (vec2(dx.signum(), dy_dx), dxa)
+    let (step, n) = if abs_dx > dy {
+        let dy_dx = dy / abs_dx;
+        (vec2(dx.signum(), dy_dx), abs_dx)
     } else {
         let dx_dy = dx / dy;
         (vec2(dx_dy, 1.0), dy)
@@ -30,35 +31,30 @@ const H: usize = 480;
 
 fn main() {
     let mut win = Window::builder()
-        .title("minifb front demo")
+        .title("Bezier")
         .size(W, H)
         .build();
 
-    let mut pts = [
-        vec2(200.0, 100.0),
-        vec2(0.0, H as f32),
-        vec2(W as f32, 100.0),
-        vec2(500.0, 300.0),
-    ];
+    let gen = XorShift64::from_time();
 
-    let mut deltas = [
-        vec2(1.0, 0.2),
-        vec2(-0.2, -0.7),
-        vec2(0.8, 0.4),
-        vec2(-0.6, 0.6),
-    ];
+    let mut pts: [Vec2; 4] = {
+        let mut d = Uniform(gen, [0.0, 0.0]..[W as f32, H as f32]);
+        from_fn(|_| d.next().into())
+    };
+    let mut deltas: [Vec2; 4] = {
+        let mut d = UnitDisk(gen);
+        from_fn(|_| d.next().into())
+    };
 
     win.run(|frame| {
         let b = BezierSpline::new(&pts);
         // Stop once error is less than one pixel
-        let apx = b.approximate(|a| a.len() < 1.0);
-        let buf = &mut frame.buf.color_buf;
+        let apx = b.approximate(|err| err.len() < 1.0);
 
         for seg in apx.windows(2) {
-            for pt in line(seg.try_into().unwrap()) {
-                if let Some(p) = buf.get_mut(pt) {
-                    *p = 0xFF_FF_FF
-                };
+            for pt in line([seg[0], seg[1]]) {
+                // The curve can't go out of bounds if the control points don't
+                frame.buf.color_buf[pt] = 0xFF_FF_FF;
             }
         }
 
