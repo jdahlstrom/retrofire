@@ -24,7 +24,10 @@ minifb = ["dep:minifb", "rf/minifb"]
 name = "square"
 required-features = ["minifb"]
 
-
 [[bin]]
 name = "bezier"
+required-features = ["minifb"]
+
+[[bin]]
+name = "sprites"
 required-features = ["minifb"]
