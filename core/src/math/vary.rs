@@ -84,12 +84,12 @@ impl Vary for () {
     type Iter = Iter<()>;
     type Diff = ();
 
-    fn vary(self, step: Self::Diff, n: Option<u32>) -> Self::Iter {
+    fn vary(self, _step: Self::Diff, n: Option<u32>) -> Self::Iter {
         Iter { val: (), step: (), n }
     }
-    fn step(&self, delta: &Self::Diff) {}
-    fn diff(&self, other: &Self) {}
-    fn scale(diff: &Self::Diff, s: f32) {}
+    fn step(&self, _delta: &Self::Diff) {}
+    fn diff(&self, _other: &Self) {}
+    fn scale(_diff: &Self::Diff, _s: f32) {}
 }
 
 impl<T: Vary, U: Vary> Vary for (T, U) {
