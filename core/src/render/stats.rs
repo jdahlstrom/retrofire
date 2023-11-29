@@ -4,8 +4,8 @@ use alloc::{format, string::String};
 use core::fmt::{self, Display, Formatter};
 use core::ops::AddAssign;
 use core::time::Duration;
-
-use Stat::*;
+#[cfg(feature = "std")]
+use std::time::Instant;
 
 //
 // Types
@@ -34,7 +34,13 @@ pub struct Stats {
     pub frames: f32,
 
     /// Objects, primitives, vertices, and fragments input/output.
-    throughput: [Throughput; 4],
+    pub objs: Throughput,
+    pub prims: Throughput,
+    pub verts: Throughput,
+    pub frags: Throughput,
+
+    #[cfg(feature = "std")]
+    start: Option<Instant>,
 }
 
 #[derive(Copy, Clone, Debug, Default)]
@@ -50,21 +56,37 @@ pub struct Throughput {
 //
 
 impl Stats {
+    /// Creates a new zeroed `Stats` instance.
     pub fn new() -> Self {
         Self::default()
     }
+    /// Creates a `Stats` instance that records the time of its creation.
+    ///
+    /// Call [`finish`][Self::finish] to write the elapsed time to `self.time`.
+    /// Useful for timing frames, rendering calls, etc.
+    ///
+    /// Equivalent to [`Stats::new`] if the `std` feature is not enabled.
+    pub fn start() -> Self {
+        Self {
+            #[cfg(feature = "std")]
+            start: Some(Instant::now()),
+            ..Self::default()
+        }
+    }
 
-    pub fn objs(&mut self) -> &mut Throughput {
-        &mut self.throughput[Objs as usize]
-    }
-    pub fn prims(&mut self) -> &mut Throughput {
-        &mut self.throughput[Prims as usize]
-    }
-    pub fn verts(&mut self) -> &mut Throughput {
-        &mut self.throughput[Verts as usize]
-    }
-    pub fn frags(&mut self) -> &mut Throughput {
-        &mut self.throughput[Frags as usize]
+    /// Stops the timer and records the elapsed time to `self.time`.
+    ///
+    /// No-op if the timer was not running. This method is also no-op unless
+    /// the `std` feature is enabled.
+    pub fn finish(self) -> Self {
+        Self {
+            #[cfg(feature = "std")]
+            time: self
+                .start
+                .map(|st| st.elapsed())
+                .unwrap_or(self.time),
+            ..self
+        }
     }
 
     /// Returns average throughput in items per second.
@@ -74,22 +96,50 @@ impl Stats {
         } else {
             self.time.as_secs_f32()
         };
+        let [objs, prims, verts, frags] =
+            self.throughput().map(|stat| stat.per_sec(secs));
         Self {
             frames: self.frames / secs,
             calls: self.calls / secs,
             time: Duration::from_secs(1),
-            throughput: self.throughput.map(|stat| stat.per_sec(secs)),
+            objs,
+            prims,
+            verts,
+            frags,
+            #[cfg(feature = "std")]
+            start: None,
         }
     }
     /// Returns average throughput in items per frame.
     pub fn per_frame(&self) -> Self {
         let frames = self.frames.max(1.0);
+        let [objs, prims, verts, frags] = self
+            .throughput()
+            .map(|stat| stat.per_frame(frames));
         Self {
             frames: 1.0,
             calls: self.calls / frames,
             time: self.time.div_f32(frames),
-            throughput: self.throughput.map(|stat| stat.per_frame(frames)),
+            objs,
+            prims,
+            verts,
+            frags,
+            #[cfg(feature = "std")]
+            start: None,
         }
+    }
+
+    fn throughput(&self) -> [Throughput; 4] {
+        [self.objs, self.prims, self.verts, self.frags]
+    }
+
+    fn throughput_mut(&mut self) -> [&mut Throughput; 4] {
+        [
+            &mut self.objs,
+            &mut self.prims,
+            &mut self.verts,
+            &mut self.frags,
+        ]
     }
 }
 
@@ -139,7 +189,7 @@ impl Display for Stats {
         use Stat::*;
         for stat in [Objs, Prims, Verts, Frags] {
             let i = stat as usize;
-            let [s, ps, pf] = [self, &ps, &pf].map(|s| s.throughput[i]);
+            let [s, ps, pf] = [self, &ps, &pf].map(|s| s.throughput()[i]);
 
             if f.alternate() {
                 writeln!(f, " {stat} {s:#w$} │ {ps:#w$} │ {pf:#w$}")?;
@@ -173,7 +223,7 @@ impl AddAssign for Stats {
         self.calls += rhs.calls;
         self.frames += rhs.frames;
         for i in 0..4 {
-            self.throughput[i] += rhs.throughput[i];
+            *self.throughput_mut()[i] += rhs.throughput()[i];
         }
     }
 }
@@ -225,14 +275,20 @@ mod tests {
 
     #[test]
     fn stats_display() {
+        let [objs, prims, verts, frags] = from_fn(|i| Throughput {
+            i: 12345 * (i + 1),
+            o: 4321 * (i + 1),
+        });
         let stats = Stats {
             frames: 1234.0,
             calls: 5678.0,
             time: Duration::from_millis(4321),
-            throughput: from_fn(|i| Throughput {
-                i: 12345 * (i + 1),
-                o: 4321 * (i + 1),
-            }),
+            objs,
+            prims,
+            verts,
+            frags,
+            #[cfg(feature = "std")]
+            start: None,
         };
 
         assert_eq!(
