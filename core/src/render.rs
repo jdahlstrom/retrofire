@@ -68,19 +68,17 @@ pub fn render<P, A, V, Sh, U>(
 ) -> Stats
 where
     P: Clone,
-    A: Clone + Debug,
-    V: Vary + Debug,
+    A: Clone,
+    V: Vary,
     Sh: VertexShader<Vertex<P, A>, U, Output = ClipVert<V>>
         + FragmentShader<Frag<V>>,
     U: Copy,
 {
-    #[cfg(feature = "std")]
-    let start = std::time::Instant::now();
-    let mut stats = Stats::new();
+    let mut stats = Stats::start();
 
     stats.calls = 1.0;
-    stats.prims().i += tris.as_ref().len();
-    stats.verts().i += verts.as_ref().len();
+    stats.prims.i += tris.as_ref().len();
+    stats.verts.i += verts.as_ref().len();
 
     // Vertex shader: transform vertices to clip space
     let verts: Vec<_> = verts
@@ -109,8 +107,8 @@ where
     for Tri(vs) in clipped {
         // TODO Backface culling
 
-        stats.prims().o += 1;
-        stats.verts().o += 3;
+        stats.prims.o += 1;
+        stats.verts.o += 3;
 
         // Transform to screen space
         let vs = vs.map(|v| Vertex {
@@ -125,15 +123,11 @@ where
 
         // Fragment shader and rasterization
         tri_fill(vs, |scanline| {
-            stats.frags().i += scanline.xs.len();
+            stats.frags.i += scanline.xs.len();
             // TODO count only frags that were actually output
-            stats.frags().o += scanline.xs.len();
+            stats.frags.o += scanline.xs.len();
             target.rasterize(scanline, shader, Config::default());
         });
     }
-    #[cfg(feature = "std")]
-    {
-        stats.time += start.elapsed();
-    }
-    stats
+    stats.finish()
 }
