@@ -106,13 +106,11 @@ impl ClipPlane {
     ///         `--__  \
     ///              `--c
     /// ```
-    pub fn clip_simple_polygon<A>(
+    pub fn clip_simple_polygon<A: Vary>(
         &self,
         verts_in: &[ClipVert<A>],
         verts_out: &mut Vec<ClipVert<A>>,
-    ) where
-        A: Vary + Clone,
-    {
+    ) {
         let mut verts = verts_in
             .iter()
             .chain(&verts_in[..1])
@@ -194,13 +192,11 @@ pub mod view_frustum {
 ///
 /// [1]: Ivan Sutherland, Gary W. Hodgman: Reentrant Polygon Clipping.
 ///        Communications of the ACM, vol. 17, pp. 32–42, 1974
-pub fn clip_simple_polygon<'a, A>(
+pub fn clip_simple_polygon<'a, A: Vary>(
     planes: &[Plane<ClipVec>],
     verts_in: &'a mut Vec<ClipVert<A>>,
     verts_out: &'a mut Vec<ClipVert<A>>,
-) where
-    A: Vary + Clone,
-{
+) {
     debug_assert!(verts_out.is_empty());
 
     for (i, p) in planes.iter().enumerate() {
@@ -215,10 +211,7 @@ pub fn clip_simple_polygon<'a, A>(
     }
 }
 
-impl<A> Clip for [Tri<ClipVert<A>>]
-where
-    A: Vary + Clone,
-{
+impl<A: Vary> Clip for [Tri<ClipVert<A>>] {
     type Item = Tri<ClipVert<A>>;
 
     fn clip(&self, planes: &[ClipPlane], out: &mut Vec<Self::Item>) {
