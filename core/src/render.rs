@@ -58,22 +58,21 @@ pub type ViewToProjective = RealToProjective<View>;
 pub type NdcToScreen = RealToReal<3, Ndc, Screen>;
 
 /// Renders the given triangles into `target`.
-pub fn render<P, A, V, Sh, Uni, Tgt>(
+pub fn render<P, A, V, Sh, U>(
     tris: impl AsRef<[Tri<usize>]>,
     verts: impl AsRef<[Vertex<P, A>]>,
     shader: &Sh,
-    uni: Uni,
-    vport_tf: Mat4x4<NdcToScreen>,
-    target: &mut Tgt,
+    uniform: U,
+    viewport_tf: Mat4x4<NdcToScreen>,
+    target: &mut impl Target,
 ) -> Stats
 where
     P: Clone,
     A: Clone + Debug,
     V: Vary + Debug,
-    Sh: VertexShader<Vertex<P, A>, Uni, Output = ClipVert<V>>
+    Sh: VertexShader<Vertex<P, A>, U, Output = ClipVert<V>>
         + FragmentShader<Frag<V>>,
-    Uni: Copy,
-    Tgt: Target,
+    U: Copy,
 {
     #[cfg(feature = "std")]
     let start = std::time::Instant::now();
@@ -89,8 +88,10 @@ where
         .iter()
         // TODO Pass vertex as ref to shader
         .cloned()
-        .map(|v| shader.shade_vertex(v, uni))
+        .map(|v| shader.shade_vertex(v, uniform))
         .collect();
+
+    // TODO use outcodes to cull tris fully outside the frustum here
 
     // Map triangle vertex indices to actual vertices
     let tris: Vec<_> = tris
@@ -99,7 +100,7 @@ where
         .map(|Tri(vs)| Tri(vs.map(|i| verts[i].clone())))
         .collect();
 
-    // Clip against the frustum
+    // Clip against the view frustum
     let mut clipped = vec![];
     tris.clip(&view_frustum::PLANES, &mut clipped);
 
@@ -112,12 +113,12 @@ where
         stats.verts().o += 3;
 
         // Transform to screen space
-        let vs = vs.clone().map(|v| Vertex {
+        let vs = vs.map(|v| Vertex {
             pos: {
                 // Perspective divide
                 let pos = v.pos.project_to_real();
                 // Viewport transform
-                vport_tf.apply(&pos.to())
+                viewport_tf.apply(&pos.to())
             },
             attrib: v.attrib,
         });
