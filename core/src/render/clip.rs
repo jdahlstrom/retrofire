@@ -16,7 +16,7 @@
 use alloc::vec;
 use alloc::vec::Vec;
 
-use crate::geom::{Plane, Tri, Vertex};
+use crate::geom::{Plane, Sprite, Tri, Vertex};
 use crate::math::vary::Vary;
 use crate::math::vec::{Proj4, Vec3, Vec4};
 
@@ -244,6 +244,30 @@ impl<A: Vary> Clip for [Tri<ClipVert<A>>] {
                         .map(|e| Tri([a.clone(), e[0].clone(), e[1].clone()])),
                 );
             }
+            verts_in.clear();
+            verts_out.clear();
+        }
+    }
+}
+
+impl<P: Clone, A: Vary> Clip for [Sprite<P, ClipVert<A>>] {
+    type Item = Sprite<P, ClipVert<A>>;
+
+    fn clip(&self, planes: &[ClipPlane], out: &mut Vec<Self::Item>) {
+        let mut verts_in = vec![];
+        let mut verts_out = vec![];
+        for sp in self {
+            verts_in.extend(sp.verts.clone());
+            clip_simple_polygon(planes, &mut verts_in, &mut verts_out);
+
+            if let Some([ref a, ref b, ref c, ref d]) = verts_out.get(0..4) {
+                out.push(Sprite {
+                    center: sp.center.clone(),
+                    size: sp.size,
+                    verts: [a.clone(), b.clone(), c.clone(), d.clone()],
+                });
+            }
+
             verts_in.clear();
             verts_out.clear();
         }
