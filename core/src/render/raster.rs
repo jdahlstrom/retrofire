@@ -180,9 +180,9 @@ pub fn scan<V: Vary>(
     // Find the y value of the next pixel center (.5) vertically
     //
     // We want to draw exactly those pixels whose center is *covered* by this
-    // polygon. Thus if y_range.start.fract() > 0.5 we skip to the to the next
-    // line. We align the y values with the pixel grid so that on each line if
-    // x_range.start.fract() <= 0.5 the pixel is covered, otherwise it is not.
+    // polygon. Thus if y_range.start.fract() > 0.5, we skip to the next line.
+    // We align the y values with the pixel grid so that on each line, if
+    // x_range.start.fract() <= 0.5, the pixel is covered, otherwise it is not.
     //
     // This ensures that whenever two polygons share an edge, every pixel at
     // the edge belongs to exactly one of the polygons, avoiding both gaps and
@@ -237,7 +237,7 @@ mod tests {
     use alloc::string::{String, ToString};
     use core::iter::{once, repeat};
 
-    use crate::geom::Vertex;
+    use crate::geom::vertex;
     use crate::math::vec3;
     use crate::render::raster::tri_fill;
     use crate::util::buf::Buf2;
@@ -254,10 +254,7 @@ mod tests {
             vec3(14.0, 10.0, 0.0),
             vec3(20.0, 3.0, 0.0),
         ]
-        .map(|pos| Vertex {
-            pos: pos.to(),
-            attrib: 0.0,
-        });
+        .map(|pos| vertex(pos.to(), 0.0));
 
         let expected = r"
 00000001110000000000
@@ -300,10 +297,7 @@ mod tests {
             vec3(2.0, 8.0, 1.0),
             vec3(26.0, 14.0, 0.5),
         ]
-        .map(|pos| Vertex {
-            pos: pos.to(),
-            attrib: 0.0,
-        });
+        .map(|pos| vertex(pos.to(), 0.0));
 
         let expected = r"
               0
