@@ -1,15 +1,14 @@
-//! Linear algebra and more.
+//! Linear algebra and other useful mathematics.
 //!
 //! Includes [vectors][self::vec], [matrices][mat], [colors][color],
-//! [angles][angle], and [Bezier splines][spline], as well as support for
-//! custom affine and linear types usable as [varyings][vary], and utilities
-//! such as approximate equality comparisons.
-//! TODO: pseudorandom numbers.
+//! [angles][angle], [Bezier splines][spline] and [pseudo-random numbers][rand],
+//! as well as support for custom [varying][vary] types and utilities such as
+//! approximate equality comparisons.
 //!
-//! This library is more strongly typed than many other similar ones. It aims
-//! to diagnose at compile time many errors that might otherwise only manifest
-//! as graphical glitches, runtime panics, or even – particularly in languages
-//! that are unsafe-by-default – undefined behavior.
+//! This library is more strongly typed than many other similar math libraries.
+//! It aims  to diagnose at compile time many errors that might otherwise only
+//! manifest as graphical glitches, runtime panics, or even – particularly in
+//! languages that are unsafe-by-default – undefined behavior.
 //!
 //! In particular, vectors and colors are tagged with a type that represents
 //! the *space* they're embedded in, and values in different spaces cannot be
