@@ -2,6 +2,10 @@ use core::{array::from_fn, fmt::Debug, ops::Range};
 
 use crate::math::{Vec2, Vec3, Vector};
 
+//
+// Traits and types
+//
+
 /// Trait for generating values sampled from a probability distribution.
 pub trait Distrib {
     /// The type of the elements of the sample space of `Self`, also called
@@ -12,16 +16,6 @@ pub trait Distrib {
     /// Returns an iterator yielding samples from `self`.
     fn iter(&mut self) -> Iter<&mut Self> {
         Iter(self)
-    }
-}
-
-pub struct Iter<D>(D);
-
-impl<'a, D: Distrib> Iterator for Iter<&'a mut D> {
-    type Item = D::Sample;
-
-    fn next(&mut self) -> Option<Self::Item> {
-        Some(self.0.sample())
     }
 }
 
@@ -38,6 +32,43 @@ impl<'a, D: Distrib> Iterator for Iter<&'a mut D> {
 #[derive(Copy, Clone, Debug)]
 #[repr(transparent)]
 pub struct Xorshift64(pub u64);
+
+/// A uniform distribution of values in the given range.
+#[derive(Clone, Debug)]
+pub struct Uniform<T>(pub Xorshift64, pub Range<T>);
+
+/// A uniform distribution of 2-vectors on the (perimeter of) the unit circle.
+#[derive(Copy, Clone, Debug)]
+pub struct UnitCircle(pub Xorshift64);
+
+/// A uniform distribution of 2-vectors inside the (closed) unit disk.
+#[derive(Copy, Clone, Debug, Default)]
+pub struct UnitDisk(pub Xorshift64);
+
+/// A uniform distribution of 3-vectors on the (surface of) the unit sphere.
+#[derive(Copy, Clone, Debug, Default)]
+pub struct UnitSphere(pub Xorshift64);
+
+/// A uniform distribution of 3-vectors inside the (closed) unit ball.
+#[derive(Copy, Clone, Debug, Default)]
+pub struct UnitBall(pub Xorshift64);
+
+/// A Bernoulli distribution.
+///
+/// Generates boolean values such that:
+/// * P(true) = p
+/// * P(false) = 1 - p.
+///
+///  given a parameter p ∈ [0.0, 1.0].
+#[derive(Copy, Clone, Debug)]
+pub struct Bernoulli(pub Xorshift64, pub f32);
+
+/// Iterator returned by the [Distrib::iter()] method.
+pub struct Iter<D>(D);
+
+//
+// Inherent impls
+//
 
 impl Xorshift64 {
     /// Returns a new `Xorshift64` seeded by the given number.
@@ -101,41 +132,23 @@ impl Xorshift64 {
     }
 }
 
+//
+// Trait impls
+//
+
+impl<'a, D: Distrib> Iterator for Iter<&'a mut D> {
+    type Item = D::Sample;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        Some(self.0.sample())
+    }
+}
+
 impl Default for Xorshift64 {
     fn default() -> Self {
         Self::from_seed(1)
     }
 }
-
-/// A uniform distribution of values in the given range.
-#[derive(Clone, Debug)]
-pub struct Uniform<T>(pub Xorshift64, pub Range<T>);
-
-/// A uniform distribution of 2-vectors on the (perimeter of) the unit circle.
-#[derive(Copy, Clone, Debug)]
-pub struct UnitCircle(pub Xorshift64);
-
-/// A uniform distribution of 2-vectors inside the (closed) unit disk.
-#[derive(Copy, Clone, Debug, Default)]
-pub struct UnitDisk(pub Xorshift64);
-
-/// A uniform distribution of 3-vectors on the (surface of) the unit sphere.
-#[derive(Copy, Clone, Debug, Default)]
-pub struct UnitSphere(pub Xorshift64);
-
-/// A uniform distribution of 3-vectors inside the (closed) unit ball.
-#[derive(Copy, Clone, Debug, Default)]
-pub struct UnitBall(pub Xorshift64);
-
-/// A Bernoulli distribution.
-///
-/// Generates boolean values such that:
-/// * P(true) = p
-/// * P(false) = 1 - p.
-///
-///  given a parameter p ∈ [0.0, 1.0].
-#[derive(Copy, Clone, Debug)]
-pub struct Bernoulli(pub Xorshift64, pub f32);
 
 impl Distrib for Uniform<i32> {
     type Sample = i32;
