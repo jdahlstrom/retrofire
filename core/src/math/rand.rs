@@ -28,7 +28,7 @@ pub trait Distrib {
 /// number in the interval [1, 2<sup>64</sup>) exactly once before repeating.
 ///
 /// [^1]: Marsaglia, G. (2003). Xorshift RNGs. Journal of Statistical Software,
-///     8(14), 1–6. https://doi.org/10.18637/jss.v008.i14
+///     8(14), 1–6. <https://doi.org/10.18637/jss.v008.i14>
 #[derive(Copy, Clone, Debug)]
 #[repr(transparent)]
 pub struct Xorshift64(pub u64);

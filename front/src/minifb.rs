@@ -74,10 +74,7 @@ impl<'t> Builder<'t> {
             self.max_fps
                 .map(|fps| Duration::from_secs_f32(1.0 / fps)),
         );
-        Window {
-            imp,
-            size: self.size,
-        }
+        Window { imp, size: self.size }
     }
 }
 

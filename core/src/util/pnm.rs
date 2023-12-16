@@ -137,12 +137,7 @@ impl Header {
             TextBitmap | BinaryBitmap => 1,
             _ => parse_num(&mut it)?,
         };
-        Ok(Self {
-            format,
-            width,
-            height,
-            max,
-        })
+        Ok(Self { format, width, height, max })
     }
 }
 
@@ -218,7 +213,7 @@ pub fn read_pnm(src: impl IntoIterator<Item = u8>) -> Result<Buf2<Color3>> {
 /// Saves an image as a binary PPM file (P6 format).
 ///
 /// # Errors
-/// Returns [`io::Error`][std::io::Error] in case of an I/O error while saving.
+/// Returns [`io::Error`] in case of an I/O error while saving.
 #[cfg(feature = "std")]
 pub fn save_ppm(
     path: impl AsRef<Path>,
