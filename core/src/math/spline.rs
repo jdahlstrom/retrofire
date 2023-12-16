@@ -111,7 +111,8 @@ where
     }
 }
 
-/// A curve composed of one or more concatenated [cubic Bezier curves][Bezier].
+/// A curve composed of one or more concatenated
+/// [cubic Bezier curves][CubicBezier].
 #[derive(Debug, Clone, Eq, PartialEq)]
 pub struct BezierSpline<T>(Vec<T>);
 
@@ -181,11 +182,11 @@ impl<T: Linear<Scalar = f32> + Copy> BezierSpline<T> {
     /// in practice it tends to give reasonable results.
     ///
     /// ```text
-    ///               __----q----__
-    ///            ,-´      |      `-_
-    ///         _-´         |         `-_
-    ///       p-------------q'------------r
-    ///    _-´                             `-_
+    ///                 ___--- q ---___
+    ///             _--´       |       `--_
+    ///         _--´           |           `--_
+    ///      _-p ------------- q' ------------ r-_
+    ///   _-´                                     `-_
     /// ```
     ///
     /// # Examples

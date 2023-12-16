@@ -187,10 +187,11 @@ pub mod view_frustum {
 /// to avoid extra allocations. Also note that the content of `verts_in` after
 /// calling the function is not specified, as it is used as temporary storage.
 ///
-/// The algorithm used is Sutherland–Hodgman [1].
+/// The algorithm used is Sutherland–Hodgman [^1].
+///
 /// TODO Describe algorithm
 ///
-/// [1]: Ivan Sutherland, Gary W. Hodgman: Reentrant Polygon Clipping.
+/// [^1]: Ivan Sutherland, Gary W. Hodgman: Reentrant Polygon Clipping.
 ///        Communications of the ACM, vol. 17, pp. 32–42, 1974
 pub fn clip_simple_polygon<'a, A: Vary>(
     planes: &[Plane<ClipVec>],
@@ -202,6 +203,7 @@ pub fn clip_simple_polygon<'a, A: Vary>(
     for (i, p) in planes.iter().enumerate() {
         p.clip_simple_polygon(verts_in, verts_out);
         if verts_out.is_empty() {
+            // Nothing left to clip; the polygon was fully outside
             break;
         } else if i < planes.len() - 1 {
             // Use the result of this iteration as the input of the next
