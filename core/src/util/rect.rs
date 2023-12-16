@@ -94,12 +94,7 @@ impl<R: RangeBounds<usize>, S: RangeBounds<usize>> From<(R, S)> for Rect {
         let right = resolve(x.end_bound(), 1, 0);
         let bottom = resolve(y.end_bound(), 1, 0);
 
-        Self {
-            left,
-            top,
-            right,
-            bottom,
-        }
+        Self { left, top, right, bottom }
     }
 }
 
