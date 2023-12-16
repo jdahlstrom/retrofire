@@ -89,7 +89,7 @@ impl Stats {
         }
     }
 
-    /// Returns average throughput in items per second.
+    /// Returns the average throughput in items per second.
     pub fn per_sec(&self) -> Self {
         let secs = if self.time.is_zero() {
             1.0
@@ -110,7 +110,7 @@ impl Stats {
             start: None,
         }
     }
-    /// Returns average throughput in items per frame.
+    /// Returns the average throughput in items per frame.
     pub fn per_frame(&self) -> Self {
         let frames = self.frames.max(1.0);
         let [objs, prims, verts, frags] = self
@@ -218,12 +218,13 @@ impl Display for Throughput {
 }
 
 impl AddAssign for Stats {
-    fn add_assign(&mut self, rhs: Self) {
-        self.time += rhs.time;
-        self.calls += rhs.calls;
-        self.frames += rhs.frames;
+    /// Appends the stats of `other` to `self`.
+    fn add_assign(&mut self, other: Self) {
+        self.time += other.time;
+        self.calls += other.calls;
+        self.frames += other.frames;
         for i in 0..4 {
-            *self.throughput_mut()[i] += rhs.throughput()[i];
+            *self.throughput_mut()[i] += other.throughput()[i];
         }
     }
 }
