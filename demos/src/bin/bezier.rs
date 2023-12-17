@@ -2,9 +2,8 @@ use std::mem::swap;
 use std::ops::ControlFlow::Continue;
 
 use re::math::rand::{Distrib, Uniform, UnitDisk, Xorshift64};
-use re::math::space::{Affine, Linear};
 use re::math::spline::BezierSpline;
-use re::math::{vec2, Vary, Vec2, Vec2i};
+use re::math::{vec2, Linear, Vary, Vec2, Vec2i};
 use rf::minifb::Window;
 use rf::Frame;
 
@@ -12,7 +11,7 @@ fn line([mut p0, mut p1]: [Vec2; 2]) -> impl Iterator<Item = Vec2i> {
     if p0.y() > p1.y() {
         swap(&mut p0, &mut p1);
     }
-    let [dx, dy] = p1.sub(&p0).0;
+    let [dx, dy] = (p1 - p0).0;
     let abs_dx = dx.abs();
 
     let (step, n) = if abs_dx > dy {
@@ -59,9 +58,8 @@ fn main() {
 
         let max = vec2((W - 1) as f32, (H - 1) as f32);
         for (p, d) in pts.iter_mut().zip(deltas.iter_mut()) {
-            *p = p
-                .add(&d.mul(200.0 * dt.as_secs_f32()))
-                .clamp(&Vec2::zero(), &max);
+            let new_p = *p + *d * 200.0 * dt.as_secs_f32();
+            *p = new_p.clamp(&Vec2::zero(), &max);
 
             if p[0] == 0.0 || p[0] == max.x() {
                 d[0] = -d[0];

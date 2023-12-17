@@ -274,12 +274,12 @@ impl<Src, Dst> Mat4x4<RealToReal<3, Src, Dst>> {
         // Elementary row operation subtracting one row,
         // multiplied by a scalar, from another
         fn sub_row(m: &mut Mat4x4, from: usize, to: usize, mul: f32) {
-            m.0[to] = m.row_vec(to).add(&m.row_vec(from).mul(-mul)).0;
+            m.0[to] = (m.row_vec(to) - mul * m.row_vec(from)).0;
         }
 
         // Elementary row operation multiplying one row with a scalar
         fn mul_row(m: &mut Mat4x4, row: usize, mul: f32) {
-            m.0[row] = m.row_vec(row).mul(mul).0;
+            m.0[row] = (m.row_vec(row) * mul).0;
         }
 
         // Elementary row operation swapping two rows
@@ -581,8 +581,8 @@ pub fn perspective(
 /// * `lbn`: The left-bottom-near corner of the projection box.
 /// * `rtf`: The right-bottom-far corner of the projection box.
 pub fn orthographic(lbn: Vec3, rtf: Vec3) -> Mat4x4<ViewToProjective> {
-    let [dx, dy, dz] = rtf.sub(&lbn).0;
-    let [sx, sy, sz] = rtf.add(&lbn).0;
+    let [dx, dy, dz] = (rtf - lbn).0;
+    let [sx, sy, sz] = (rtf + lbn).0;
     [
         [2.0 / dx, 0.0, 0.0, -sx / dx],
         [0.0, 2.0 / dy, 0.0, -sy / dy],

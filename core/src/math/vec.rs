@@ -1,9 +1,11 @@
 //! Vectors and vector spaces.
 
 use core::array;
+use core::borrow::Borrow;
 use core::fmt::{Debug, Formatter};
 use core::marker::PhantomData;
 use core::ops::{Add, Div, Index, IndexMut, Mul, Neg, Sub};
+use core::ops::{AddAssign, DivAssign, MulAssign, SubAssign};
 
 use crate::math::approx::ApproxEq;
 use crate::math::space::{Affine, Linear, Proj4, Real};
@@ -81,7 +83,7 @@ impl<Sp, const N: usize> Vector<[f32; N], Sp> {
     #[inline]
     #[must_use]
     pub fn normalize(&self) -> Self {
-        self.mul(self.len().recip())
+        self / self.len()
     }
 
     /// Returns the dot product of `self` and `other`.
@@ -95,7 +97,7 @@ impl<Sp, const N: usize> Vector<[f32; N], Sp> {
     /// (the length of the component of `self` parallel to `other`).
     #[must_use]
     pub fn scalar_project(&self, other: &Self) -> f32 {
-        self.dot(other).mul(&other.dot(other).recip())
+        self.dot(other) / other.dot(other)
     }
     /// Returns the vector projection of `self` onto `other`
     /// (the vector component of `self` parallel to `other`).
@@ -112,7 +114,7 @@ impl<Sp, const N: usize> Vector<[f32; N], Sp> {
     /// ```
     #[must_use]
     pub fn vector_project(&self, other: &Self) -> Self {
-        other.mul(self.scalar_project(other))
+        other * self.scalar_project(other)
     }
 
     /// Returns a vector of the same dimension as `self` by component-wise
@@ -390,7 +392,7 @@ where
     Self: Linear,
     R: Index<usize, Output = <Self as Linear>::Scalar>,
 {
-    type Output = <Self as Linear>::Scalar;
+    type Output = R::Output;
 
     /// Returns the component of `self` with index `i`.
     ///
@@ -455,6 +457,173 @@ pub fn splat<Sp, Sc: Clone, const DIM: usize>(s: Sc) -> Vector<[Sc; DIM], Sp> {
     s.into()
 }
 
+//
+// Operator impls
+//
+
+/*
+   add | a+b &a+b a+&b &a+&b | a+=b a+=&b | Self     | Affine::add(&,&)
+   sub | a-b &a-b a-&b &a-&b | a-=b a-=&b | Self     | Affine::sub(&,&)
+   mul | a*k &a*k a*&k &a*&k | a*=k a*=&k | Self,Sc  | Linear::mul(&,)
+   div | a/k &a/k a/&k &a/&k | a/=k a/=&k | Self,f32 | Linear::mul(&,recip)
+
+   mul | a*k &a*k k*a  k*&a  | ----       | Sc,Self  | Linear::mul
+   neg | -a -&a              | ----       | Self     | Linear::neg
+*/
+
+macro_rules! impl_op {
+    ($tr:ident::$met:ident, $tr_assign:ident::$met_assign:ident) => {
+        impl_op!($tr::$met, $tr_assign::$met_assign, Vector<R, Sp>);
+    };
+    ($tr:ident::$met:ident, $tr_assign:ident::$met_assign:ident, $rhs:ty) => {
+        impl_op!($tr::$met, $tr_assign::$met_assign, Vector<R, Sp>, $rhs);
+
+        impl<R, Sp> $tr_assign<$rhs> for Vector<R, Sp>
+        where
+            Vector<R, Sp>: Linear,
+            for<'lhs, 'rhs> &'lhs Vector<R, Sp>:
+                $tr<&'rhs $rhs, Output = Vector<R, Sp>>,
+        {
+            #[inline]
+            fn $met_assign(&mut self, rhs: $rhs) {
+                *self = $tr::$met(&*self, rhs.borrow())
+            }
+        }
+        impl<R, Sp> $tr_assign<&$rhs> for Vector<R, Sp>
+        where
+            Vector<R, Sp>: Linear,
+            for<'lhs, 'rhs> &'lhs Vector<R, Sp>:
+                $tr<&'rhs $rhs, Output = Vector<R, Sp>>,
+        {
+            #[inline]
+            fn $met_assign(&mut self, rhs: &$rhs) {
+                *self = $tr::$met(&*self, rhs.borrow())
+            }
+        }
+    };
+    ($tr:ident::$met:ident, $tr_assign:ident::$met_assign:ident, $lhs:ty, $rhs:ty) => {
+        impl<R, Sp> $tr<$rhs> for $lhs
+        where
+            Vector<R, Sp>: Linear,
+            for<'lhs, 'rhs> &'lhs $lhs:
+                $tr<&'rhs $rhs, Output = Vector<R, Sp>>,
+        {
+            type Output = Vector<R, Sp>;
+            #[inline]
+            fn $met(self, rhs: $rhs) -> Self::Output {
+                $tr::$met(self.borrow(), rhs.borrow())
+            }
+        }
+        impl<R, Sp> $tr<&$rhs> for $lhs
+        where
+            Vector<R, Sp>: Linear,
+            for<'lhs, 'rhs> &'lhs $lhs:
+                $tr<&'rhs $rhs, Output = Vector<R, Sp>>,
+        {
+            type Output = Vector<R, Sp>;
+            #[inline]
+            fn $met(self, rhs: &$rhs) -> Self::Output {
+                $tr::$met(self.borrow(), rhs.borrow())
+            }
+        }
+        impl<R, Sp> $tr<$rhs> for &$lhs
+        where
+            Vector<R, Sp>: Linear,
+            for<'lhs, 'rhs> &'lhs $lhs:
+                $tr<&'rhs $rhs, Output = Vector<R, Sp>>,
+        {
+            type Output = Vector<R, Sp>;
+            #[inline]
+            fn $met(self, rhs: $rhs) -> Self::Output {
+                $tr::$met(self.borrow(), rhs.borrow())
+            }
+        }
+    };
+}
+
+impl<'l, 'r, R, Sp> Add<&'r Vector<R, Sp>> for &'l Vector<R, Sp>
+where
+    Vector<R, Sp>: Linear,
+{
+    type Output = Vector<R, Sp>;
+    #[inline]
+    fn add(self, rhs: &Vector<R, Sp>) -> Self::Output {
+        Affine::add(self, rhs)
+    }
+}
+impl_op!(Add::add, AddAssign::add_assign);
+
+impl<'l, 'r, R, Sp> Sub<&'r Vector<R, Sp>> for &'l Vector<R, Sp>
+where
+    Vector<R, Sp>: Linear,
+{
+    type Output = Vector<R, Sp>;
+    #[inline]
+    fn sub(self, rhs: &Vector<R, Sp>) -> Self::Output {
+        Affine::sub(self, rhs)
+    }
+}
+impl_op!(Sub::sub, SubAssign::sub_assign);
+
+impl<R, Sp, Sc: Copy> Mul<&Sc> for &Vector<R, Sp>
+where
+    Vector<R, Sp>: Linear<Scalar = Sc>,
+{
+    type Output = Vector<R, Sp>;
+    #[inline]
+    fn mul(self, rhs: &Sc) -> Self::Output {
+        Linear::mul(self, *rhs)
+    }
+}
+#[rustfmt::skip]
+impl_op!(Mul::mul, MulAssign::mul_assign, <Vector<R, Sp> as Linear>::Scalar);
+
+impl<R, Sp> Mul<&Vector<R, Sp>> for &<Vector<R, Sp> as Linear>::Scalar
+where
+    Vector<R, Sp>: Linear,
+    <Vector<R, Sp> as Linear>::Scalar: Copy,
+{
+    type Output = Vector<R, Sp>;
+    #[inline]
+    fn mul(self, rhs: &Vector<R, Sp>) -> Self::Output {
+        Linear::mul(rhs, *self)
+    }
+}
+impl_op!(Mul::mul, MulAssign::mul_assign, <Vector<R, Sp> as Linear>::Scalar, Vector<R, Sp>);
+
+impl<R, Sp> Div<&f32> for &Vector<R, Sp>
+where
+    Vector<R, Sp>: Linear<Scalar = f32>,
+{
+    type Output = Vector<R, Sp>;
+    #[inline]
+    fn div(self, rhs: &f32) -> Self::Output {
+        Linear::mul(self, rhs.recip())
+    }
+}
+impl_op!(Div::div, DivAssign::div_assign, f32);
+
+impl<R, Sp> Neg for Vector<R, Sp>
+where
+    Self: Linear,
+{
+    type Output = Self;
+    #[inline]
+    fn neg(self) -> Self {
+        Linear::neg(&self)
+    }
+}
+impl<R, Sp> Neg for &Vector<R, Sp>
+where
+    Vector<R, Sp>: Linear,
+{
+    type Output = Vector<R, Sp>;
+    #[inline]
+    fn neg(self) -> Self::Output {
+        Linear::neg(self)
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use core::f32::consts::{E, PI};
@@ -463,9 +632,25 @@ mod tests {
 
     use super::*;
 
-    mod f32 {
-        use crate::math::space::{Affine, Linear};
+    /// Tests each of the ref/non-ref operand type combinations for the given
+    /// binary operator, as well as both ref and non-ref operands for the 
+    /// corresponding op-assignment operator.
+    #[rustfmt::skip]
+    macro_rules! test_op {
+        ($a:expr, $b:expr, $c:expr, $op:tt) => {
+            assert_eq!($a $op $b, $c);
+            assert_eq!($a $op &$b, $c);
+            assert_eq!(&$a $op $b, $c);
+            assert_eq!(&$a $op &$b, $c);
+        };
+        ($a:expr, $b:expr, $c:expr, $op:tt, $assg_op:tt) => {
+            test_op!($a, $b, $c, $op);
+            assert_eq!({ let mut a = $a; a $assg_op $b; a }, $c);
+            assert_eq!({ let mut a = $a; a $assg_op &$b; a }, $c);
+        };
+    }
 
+    mod f32 {
         use super::*;
 
         #[cfg(feature = "std")]
@@ -477,21 +662,42 @@ mod tests {
 
         #[test]
         fn vector_addition() {
-            assert_eq!(vec2(1.0, 2.0).add(&vec2(-2.0, 1.0)), vec2(-1.0, 3.0));
-            assert_eq!(
-                vec3(1.0, 2.0, 0.0).add(&vec3(-2.0, 1.0, -1.0)),
-                vec3(-1.0, 3.0, -1.0)
-            );
+            test_op!(vec2(1.0, 2.0), vec2(-2.0, 1.0), vec2(-1.0, 3.0), +, +=);
+            test_op!(vec3(1.0, 2.0, 0.0), vec3(-2.0, 1.0, -1.0), vec3(-1.0, 3.0, -1.0), +, +=);
+        }
+        #[test]
+        fn vector_subtraction() {
+            test_op!(vec2(1.0, 2.0), vec2(-2.0, 1.0), vec2(3.0, 1.0), -, -=);
+            test_op!(vec3(1.0, 2.0, 0.0), vec3(-2.0, 1.0, -1.0), vec3(3.0, 1.0, 1.0), -, -=);
+        }
+
+        #[test]
+        fn vector_negation() {
+            assert_eq!(-vec2(1.0, -2.0), vec2(-1.0, 2.0));
+            assert_eq!(-&vec2(1.0, -2.0), vec2(-1.0, 2.0));
+            assert_eq!(-vec3(1.0, -2.0, 0.0), vec3(-1.0, 2.0, 0.0));
+            assert_eq!(-&vec3(1.0, -2.0, 0.0), vec3(-1.0, 2.0, 0.0));
+            assert_eq!(-vec4(1.0, -2.0, 0.0, 3.0), vec4(-1.0, 2.0, 0.0, -3.0));
+            assert_eq!(-&vec4(1.0, -2.0, 0.0, 3.0), vec4(-1.0, 2.0, 0.0, -3.0));
         }
 
         #[test]
         fn scalar_multiplication() {
-            assert_eq!(vec2(1.0, -2.0).mul(0.0), vec2(0.0, 0.0));
-            assert_eq!(vec3(1.0, -2.0, 3.0).mul(3.0), vec3(3.0, -6.0, 9.0));
-            assert_eq!(
-                vec4(1.0, -2.0, 0.0, -3.0).mul(3.0),
-                vec4(3.0, -6.0, 0.0, -9.0)
-            );
+            test_op!(vec2(1.0, -2.0), 0.0, vec2(0.0, 0.0), *, *=);
+            test_op!(0.0, vec2(1.0, -2.0), vec2(0.0, 0.0), *);
+
+            test_op!(vec3(1.0, -2.0, 3.0), 2.0, vec3(2.0, -4.0, 6.0), *, *=);
+            test_op!(2.0, vec3(1.0, -2.0, 3.0), vec3(2.0, -4.0, 6.0), *);
+
+            test_op!(vec4(1.0, -2.0, 0.0, -3.0), 3.0, vec4(3.0, -6.0, 0.0, -9.0), *, *=);
+            test_op!(3.0, vec4(1.0, -2.0, 0.0, -3.0), vec4(3.0, -6.0, 0.0, -9.0), *);
+        }
+
+        #[test]
+        fn scalar_division() {
+            test_op!(vec2(-3.0, 6.0), 2.0, vec2(-1.5, 3.0), /, /=);
+            test_op!(vec3(3.0, -8.0, 6.0), -2.0, vec3(-1.5, 4.0, -3.0), /, /=);
+            test_op!(vec4(1.0, -2.0, 0.0, -3.0), 0.5, vec4(2.0, -4.0, 0.0, -6.0), /, /=);
         }
 
         #[test]
@@ -506,21 +712,42 @@ mod tests {
     }
 
     mod i32 {
-        use crate::math::space::{Affine, Linear};
-
         use super::*;
 
         #[test]
         fn vector_addition() {
-            assert_eq!(vec2(1, 2).add(&vec2(-2, 1)), vec2(-1, 3));
-            assert_eq!(vec3(1, 2, 0).add(&vec3(-2, 1, -1)), vec3(-1, 3, -1));
+            test_op!(vec2(1, 2), vec2(-2, 1), vec2(-1, 3), +, +=);
+            test_op!(vec3(1, 2, 0), vec3(-2, 1, -1), vec3(-1, 3, -1), +, +=);
+            test_op!(vec4(1, 2, 0, 3), vec4(-2, 1, 1, -3), vec4(-1, 3, 1, 0), +, +=);
+        }
+
+        #[test]
+        fn vector_subtraction() {
+            test_op!(vec2(1, 2), vec2(-2, 1), vec2(3, 1), -, -=);
+            test_op!(vec3(1, 2, 0), vec3(-2, 1, -1), vec3(3, 1, 1), -, -=);
+            test_op!(vec4(1, 2, 0, 3), vec4(-2, 1, -1, -3), vec4(3, 1, 1, 6), -, -=);
+        }
+
+        #[test]
+        fn vector_negation() {
+            assert_eq!(-vec2(1, -2), vec2(-1, 2));
+            assert_eq!(-&vec2(1, -2), vec2(-1, 2));
+            assert_eq!(-vec3(1, -2, 0), vec3(-1, 2, 0));
+            assert_eq!(-&vec3(1, -2, 0), vec3(-1, 2, 0));
+            assert_eq!(-vec4(1, -2, 0, 3), vec4(-1, 2, 0, -3));
+            assert_eq!(-&vec4(1, -2, 0, 3), vec4(-1, 2, 0, -3));
         }
 
         #[test]
         fn scalar_multiplication() {
-            assert_eq!(vec2(1, -2).mul(0), vec2(0, 0));
-            assert_eq!(vec3(1, -2, 3).mul(3), vec3(3, -6, 9));
-            assert_eq!(vec4(1, -2, 0, -3).mul(3), vec4(3, -6, 0, -9));
+            test_op!(vec2(1, -2), 0, vec2(0, 0), *, *=);
+            test_op!(0, vec2(1, -2), vec2(0, 0), *);
+
+            test_op!(vec3(1, -2, 3), -2, vec3(-2, 4, -6), *, *=);
+            test_op!(-2, vec3(1, -2, 3), vec3(-2, 4, -6), *);
+
+            test_op!(vec4(1, -2, 0, -3), 3, vec4(3, -6, 0, -9), *, *=);
+            test_op!(3, vec4(1, -2, 0, -3), vec4(3, -6, 0, -9), *);
         }
 
         #[test]
