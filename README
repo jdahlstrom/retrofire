@@ -1,7 +1,7 @@
 
-                                                    ______
+                                                    _______
                        ____                       /´  ____/\
-      __ ______ _____ /   /\_ _ ______ _____ __  /   /_/___/\ __ _____ ______
+      __ ______ _____ /   /\_ _ ______ _____ ____/   /_/___/\ __ _____ ______
    ==/  ´ ____/ __   \   ____/ ´ ____/  __  ` __    ___,  /==/  ´  ___/ __   \
   ==/   /´=/   ______/  /==/   /´=/   /==/   /=/   /=/   /==/   /´=/   ______/\
  ==/   /==/   /____/   /__/   /==/   /__/   /=/   /=/   /__/   /==/   /______\/
@@ -26,7 +26,7 @@ that might normally manifest as graphical glitches or runtime panics at best.
 
 Keeping with the do-it-yourself mentality of the demoscene and the 90s state
 of software dev in general, retrofire aims to have the bare minimum number of
-external dependencies. The current number of nonoptional dependencies is zero.
+external dependencies. The current number of required dependencies is zero.
 
 On the other hand, retrofire also aims to utilize the bare minimum amount of
 unsafe code, and only if shown to have a measurable effect on performance by
@@ -46,28 +46,33 @@ Done:
   * Software 3D rendering pipeline with a subpixel-precise rasterizer
   * Trait-based interpolation of arbitrary vertex attributes
   * User-definable vertex and fragment shaders, written in Rust
-  * Typed vector and color spaces and bases, to avoid bugs
-  * Typed affine transformations and projections
+  * Type-tagged vector and color spaces and bases, to avoid bugs
+  * Type-tagged affine transforms and projections
   * Fully customizable rasterization stage
-  * Frontends for the sdl2, minifb, and softbuffer libraries
+  * Cubic Bezier curves and splines
+  * Simple random number generation and distributions
+  * Frontend for the `minifb` crate
 
 In progress:
 
-  = Triangle mesh data structure and builtin shapes
+  = Triangle mesh data structure and a library of shapes
   = Sprite and text primitives
   = Perspective-correct texture mapping
   = Spherical, cube, etc UV mapping
   = Mipmapping and automatic mipmap generation
-  = Bezier curves and splines
   = Procedural noise generation
-  = Simple random number generation and distributions
+  = Frontends for the `sdl2` and `softbuffer` crates
 
 Planned:
 
+  - Material support
+  - Different camera types
+  - Basic scene graph
   - Hierarchical transforms
   - More procedural generation
-  - Basic animation support
+  - Basic animation and sequencing
   - Particle simulations
+  - Frontends for the terminal and web
 
 
 ================================ Organization ================================
@@ -78,6 +83,18 @@ retrofire is split into several crates:
   * front: frontends for writing simple graphical applications
   * demos: binaries showcasing retrofire features
 
+================================ Dependencies ================================
+
+The minimum supported Rust version is the current stable, at least for now.
+
+The `core` package has no external non-optional dependencies. It requires only
+`alloc`, unless the optional feature `std` is enabled.
+
+The `front` crate contains a simple window abstraction wrapping the `minifb`
+crate. It can be used to write simple games and demos.
+
+The `demos` crate contains sample applications using `front` and `minifb` to
+exhibit various features of retrofire.
 
 ================================== License ===================================
 
