@@ -5,7 +5,8 @@ use core::fmt::{self, Debug, Display};
 use core::ops::{Add, Div, Mul, Neg, Rem, Sub};
 
 use crate::math::approx::ApproxEq;
-use crate::math::{vec2, vec3, Affine, Linear, Vec2, Vec3, Vector};
+use crate::math::space::{Affine, Linear};
+use crate::math::vec::{vec2, vec3, Vec2, Vec3, Vector};
 
 //
 // Types
