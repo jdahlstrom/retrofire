@@ -20,6 +20,7 @@ use crate::math::vary::Vary;
 
 pub mod clip;
 pub mod raster;
+pub mod scene;
 pub mod shader;
 pub mod stats;
 pub mod target;
