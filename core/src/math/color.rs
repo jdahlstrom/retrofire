@@ -3,7 +3,8 @@ use core::fmt::{self, Debug, Formatter};
 use core::marker::PhantomData;
 use core::ops::Index;
 
-use crate::math::vec::{Affine, Linear, Vector};
+use crate::math::space::{Affine, Linear};
+use crate::math::vec::Vector;
 
 /// A generic color type, similar to [`Vector`].
 ///

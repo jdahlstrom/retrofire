@@ -2,8 +2,9 @@ use std::mem::swap;
 use std::ops::ControlFlow::Continue;
 
 use re::math::rand::{Distrib, Uniform, UnitDisk, Xorshift64};
+use re::math::space::{Affine, Linear};
 use re::math::spline::BezierSpline;
-use re::math::{vec2, Affine, Linear, Vary, Vec2, Vec2i};
+use re::math::{vec2, Vary, Vec2, Vec2i};
 use rf::minifb::Window;
 use rf::Frame;
 

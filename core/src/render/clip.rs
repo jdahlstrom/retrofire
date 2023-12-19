@@ -1,4 +1,4 @@
-//! Clipping of geometric shapes against planes.
+//! Clipping geometric shapes against planes.
 //!
 //! Clipping means converting a shape into another, such that only the points
 //! inside a volume enclosed by one or more planes remain; "inside" is defined
@@ -17,8 +17,9 @@ use alloc::vec;
 use alloc::vec::Vec;
 
 use crate::geom::{Plane, Tri, Vertex};
+use crate::math::space::Proj4;
 use crate::math::vary::Vary;
-use crate::math::vec::{Proj4, Vec3, Vec4};
+use crate::math::vec::{Vec3, Vec4};
 
 /// Trait for types that can be [clipped][self] against planes.
 ///

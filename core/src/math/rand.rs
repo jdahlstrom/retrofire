@@ -283,7 +283,8 @@ impl Distrib for Bernoulli {
 #[cfg(test)]
 mod tests {
     use crate::assert_approx_eq;
-    use crate::math::{vec3, Affine, Linear};
+    use crate::math::space::{Affine, Linear};
+    use crate::math::vec3;
 
     use super::*;
 
