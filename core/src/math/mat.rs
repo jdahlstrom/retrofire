@@ -7,6 +7,7 @@ use core::fmt::{self, Debug, Formatter};
 use core::marker::PhantomData;
 use core::ops::Range;
 
+use crate::math::vec::splat;
 use crate::math::vec::{
     Affine, Linear, Proj4, Real, Vec2i, Vec3, Vec4, Vector,
 };
@@ -446,10 +447,11 @@ impl<Repr, M> From<Repr> for Matrix<Repr, M> {
 
 /// Returns a matrix applying a scaling by `s`.
 ///
-/// Tip: use `Vec3::from(f32)` to scale uniformly:
+/// Tip: use [`splat`][vec::splat] to scale uniformly:
 /// ```
 /// # use retrofire_core::math::mat::*;
-/// let m = scale(2.0.into());
+/// # use retrofire_core::math::vec::splat;
+/// let m = scale(splat(2.0));
 /// assert_eq!(m.0[0][0], 2.0);
 /// assert_eq!(m.0[1][1], 2.0);
 /// assert_eq!(m.0[2][2], 2.0);
@@ -498,8 +500,8 @@ pub fn orient_z(new_z: Vec3, x: Vec3) -> Mat4x4<RealToReal<3>> {
 
 #[cfg(feature = "std")]
 fn orient(new_y: Vec3, new_z: Vec3) -> Mat4x4<RealToReal<3>> {
-    assert!(!new_y.approx_eq(&0.0.into()));
-    assert!(!new_z.approx_eq(0.0.into()));
+    assert!(!new_y.approx_eq(&splat(0.0)));
+    assert!(!new_z.approx_eq(&splat(0.0)));
 
     let new_x = new_y.cross(&new_z);
     Mat4x4::from_basis(new_x, new_y, new_z)
@@ -668,7 +670,7 @@ mod tests {
     #[cfg(feature = "std")]
     fn rotation_x() {
         let m = rotate_x(degs(90.0));
-        assert_eq!(m.apply(&0.0.into()), 0.0.into());
+        assert_eq!(m.apply(&splat(0.0)), splat(0.0));
         assert_approx_eq!(m.apply(&vec3(0.0, 0.0, 1.0)), vec3(0.0, 1.0, 0.0));
     }
 
@@ -676,7 +678,7 @@ mod tests {
     #[cfg(feature = "std")]
     fn rotation_y() {
         let m = rotate_y(degs(90.0));
-        assert_eq!(m.apply(&0.0.into()), 0.0.into());
+        assert_eq!(m.apply(&splat(0.0)), splat(0.0));
         assert_approx_eq!(m.apply(&vec3(1.0, 0.0, 0.0)), vec3(0.0, 0.0, 1.0));
     }
 
@@ -684,7 +686,7 @@ mod tests {
     #[cfg(feature = "std")]
     fn rotation_z() {
         let m = rotate_z(degs(90.0));
-        assert_eq!(m.apply(&0.0.into()), 0.0.into());
+        assert_eq!(m.apply(&splat(0.0)), splat(0.0));
         assert_approx_eq!(m.apply(&vec3(0.0, 1.0, 0.0)), vec3(1.0, 0.0, 0.0));
     }
 
@@ -699,8 +701,8 @@ mod tests {
         assert_eq!(ts, s.compose(&t));
         assert_eq!(st, t.compose(&s));
 
-        assert_eq!(ts.apply(&0.0.into()), vec3(3.0, 4.0, 3.0));
-        assert_eq!(st.apply(&0.0.into()), vec3(1.0, 2.0, 3.0));
+        assert_eq!(ts.apply(&splat(0.0)), vec3(3.0, 4.0, 3.0));
+        assert_eq!(st.apply(&splat(0.0)), vec3(1.0, 2.0, 3.0));
     }
 
     #[test]
@@ -738,7 +740,7 @@ mod tests {
         let m = orthographic(lbn, rtf);
 
         assert_approx_eq!(m.apply(&lbn.to()), [-1.0, -1.0, -1.0, 1.0].into());
-        assert_approx_eq!(m.apply(&rtf.to()), 1.0.into());
+        assert_approx_eq!(m.apply(&rtf.to()), splat(1.0));
     }
 
     #[test]
@@ -750,11 +752,11 @@ mod tests {
 
         assert_approx_eq!(
             m.apply(&left_bot_near.to()).project_to_real(),
-            (-1.0).into()
+            splat(-1.0)
         );
         assert_approx_eq!(
             m.apply(&right_top_far.to()).project_to_real(),
-            1.0.into()
+            splat(1.0)
         );
     }
 }
