@@ -2,7 +2,7 @@
 
 use alloc::vec::Vec;
 
-use crate::math::vec::Real;
+use crate::math::space::Real;
 use crate::math::Vec3;
 use crate::render::Model;
 

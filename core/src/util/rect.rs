@@ -3,7 +3,8 @@
 use core::fmt::Debug;
 use core::ops::{Bound::*, RangeBounds, RangeFull, Sub};
 
-use crate::math::vec::{Real, Vector};
+use crate::math::space::Real;
+use crate::math::vec::Vector;
 
 #[derive(Copy, Clone, Debug, Default, Eq, PartialEq)]
 pub struct Rect<T = usize> {
