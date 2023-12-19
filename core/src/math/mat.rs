@@ -10,6 +10,7 @@ use core::ops::Range;
 use crate::math::vec::{
     Affine, Linear, Proj4, Real, Vec2i, Vec3, Vec4, Vector,
 };
+use crate::math::ApproxEq;
 use crate::render::{NdcToScreen, ViewToProjective};
 
 /// A linear transform from one space (or basis) to another.
@@ -79,12 +80,13 @@ impl<const N: usize, Map> Matrix<[[f32; N]; N], Map> {
     where
         [[f32; N]; N]: Default,
     {
-        let mut els = <[[f32; N]; N]>::default();
+        let mut els = [[0.0; N]; N];
         for i in 0..N {
             els[i][i] = 1.0;
         }
         els.into()
     }
+
     /// Returns the row vector of `self` with index `i`.
     /// The returned vector is in space `Map::Source`.
     ///
@@ -111,6 +113,17 @@ impl<const N: usize, Map> Matrix<[[f32; N]; N], Map> {
         array::from_fn(|j| self.0[j][i]).into()
     }
 
+    /// Returns `self` with its rows and columns swapped.
+    pub fn transpose(self) -> Self {
+        let mut res = [[0.0; N]; N];
+        for i in 0..N {
+            for j in 0..N {
+                res[i][j] = self.0[j][i];
+            }
+        }
+        res.into()
+    }
+
     /// Returns whether every element of `self` is finite
     /// (ie. neither `Inf`, `-Inf`, or `NaN`).
     fn is_finite(&self) -> bool {
@@ -119,6 +132,17 @@ impl<const N: usize, Map> Matrix<[[f32; N]; N], Map> {
 }
 
 impl<M: LinearMap> Mat4x4<M> {
+    /// Constructs a matrix from a set of basis vectors.
+    pub fn from_basis(i: Vec3, j: Vec3, k: Vec3) -> Self {
+        [
+            [i[0], i[1], i[2], 0.0],
+            [j[0], j[1], j[2], 0.0],
+            [k[0], k[1], k[2], 0.0],
+            [0.0, 0.0, 0.0, 1.0],
+        ]
+        .into()
+    }
+
     /// Returns the composite transform of `self` and `other`.
     ///
     /// Computes the matrix product of `self` and `other` such that applying
@@ -452,18 +476,33 @@ pub fn translate(t: Vec3) -> Mat4x4<RealToReal<3>> {
 }
 
 /// Returns a matrix applying a rotation such that the original y axis
-/// is now parallel with `new_y`.
+/// is now parallel with `new_y` and the new z axis is orthogonal to
+/// both `x` and `new_y`.
 ///
-/// TODO unimplemented
-pub fn orient_y(_new_y: Vec3, _x: Vec3) -> Mat4x4<RealToReal<3>> {
-    todo!()
+/// Returns an orthogonal basis. If `new_y` and `x` are unit vectors,
+/// the result is orthonormal.
+#[cfg(feature = "std")]
+pub fn orient_y(new_y: Vec3, x: Vec3) -> Mat4x4<RealToReal<3>> {
+    orient(new_y, x.cross(&new_y).normalize())
 }
-/// Returns a matrix applying a rotation such that the original y axis
-/// is now parallel with `new_y`.
+/// Returns a matrix applying a rotation such that the original z axis
+/// is now parallel with `new_z` and the new y axis is orthogonal to
+/// both `new_z` and `x`.
 ///
-/// TODO unimplemented
-pub fn orient_z(_new_z: Vec3, _x: Vec3) -> Mat4x4<RealToReal<3>> {
-    todo!()
+/// Returns an orthogonal basis. If `new_z` and `x` are unit vectors,
+/// the result is orthonormal.
+#[cfg(feature = "std")]
+pub fn orient_z(new_z: Vec3, x: Vec3) -> Mat4x4<RealToReal<3>> {
+    orient(new_z.cross(&x).normalize(), new_z)
+}
+
+#[cfg(feature = "std")]
+fn orient(new_y: Vec3, new_z: Vec3) -> Mat4x4<RealToReal<3>> {
+    assert!(!new_y.approx_eq(&0.0.into()));
+    assert!(!new_z.approx_eq(0.0.into()));
+
+    let new_x = new_y.cross(&new_z);
+    Mat4x4::from_basis(new_x, new_y, new_z)
 }
 
 /// Returns a matrix applying a rotation by `a` about the x axis.
