@@ -121,6 +121,10 @@ pub type Vec3i<Space = Real<3>> = Vector<[i32; 3], Space>;
 /// A 4D integer vector in `Space` (by default ℤ⁴).
 pub type Vec4i<Space = Real<4>> = Vector<[i32; 4], Space>;
 
+//
+// Inherent impls
+//
+
 impl<R, Sp> Vector<R, Sp> {
     /// Returns a new vector with representation `repr`.
     #[inline]
@@ -141,6 +145,7 @@ impl<R, Sp> Vector<R, Sp> {
     }
 }
 
+// TODO Many of these functions could be more generic
 impl<Sp, const N: usize> Vector<[f32; N], Sp> {
     /// Returns the length (magnitude) of `self`.
     #[cfg(feature = "std")]
@@ -188,6 +193,26 @@ impl<Sp, const N: usize> Vector<[f32; N], Sp> {
         other.mul(self.scalar_project(other))
     }
 
+    /// Returns a vector of the same dimension as `self` by component-wise
+    /// applying `f`.
+    #[inline]
+    #[must_use]
+    pub fn map<T>(self, mut f: impl FnMut(f32) -> T) -> Vector<[T; N], Sp> {
+        array::from_fn(|i| f(self[i])).into()
+    }
+
+    /// Returns `self` clamped component-wise to the given range.
+    ///
+    /// In other words, for each component `self[i]`, the result `r` has
+    /// `r[i]` equal to `self[i].clamp(min[i], max[i])`.
+    ///
+    /// # Examples
+    /// ```
+    /// # use retrofire_core::math::vec::{vec3,splat};
+    /// let v = vec3(0.5, 1.5, -2.0);
+    /// // Clamp to the unit cube
+    /// let v = v.clamp(&splat(-1.0), &splat(1.0));
+    /// assert_eq!(v, vec3(0.5, 1.0, -1.0));
     #[must_use]
     pub fn clamp(&self, min: &Self, max: &Self) -> Self {
         array::from_fn(|i| self[i].clamp(min[i], max[i])).into()
@@ -249,7 +274,7 @@ where
     ///     r  |
     ///     e  |
     ///     s  |    other
-    ///     u  |     ^-----------+
+    ///     u  |     ^ - - - - - +
     ///     l  |   /           /
     ///     t  | /           /
     ///        +-----------> self
@@ -307,6 +332,7 @@ where
 
 impl<Sc, Sp, const DIM: usize> Affine for Vector<[Sc; DIM], Sp>
 where
+    // TODO bundle into Scalar trait?
     Sc: Copy
         + Default
         + Add<Output = Sc>
@@ -322,6 +348,7 @@ where
 
     #[inline]
     fn add(&self, other: &Self) -> Self {
+        // TODO Profile performance of array::from_fn
         array::from_fn(|i| self.0[i] + other.0[i]).into()
     }
     #[inline]
@@ -441,8 +468,8 @@ where
 
 impl<R: Debug, Sp: Debug + Default> Debug for Vector<R, Sp> {
     fn fmt(&self, f: &mut Formatter<'_>) -> core::fmt::Result {
-        let p = f.precision().unwrap_or(3);
-        write!(f, "Vec<{:?}>{:.p$?}", Sp::default(), self.0)
+        write!(f, "Vec<{:?}>", Sp::default())?;
+        Debug::fmt(&self.0, f)
     }
 }
 
@@ -455,7 +482,8 @@ impl<R, Sp> From<R> for Vector<R, Sp> {
 
 impl<Sp, Sc: Clone, const DIM: usize> From<Sc> for Vector<[Sc; DIM], Sp> {
     /// Returns a vector with all components equal to `scalar`.
-    /// This operation is sometimes called "splat".
+    ///
+    /// This operation is also called "splat" or "broadcast".
     #[inline]
     fn from(scalar: Sc) -> Self {
         array::from_fn(|_| scalar.clone()).into()
@@ -502,6 +530,7 @@ where
 // Free functions
 //
 
+/// Returns a 2D Euclidean vector with components `x` and `y`.
 pub const fn vec2<Sc>(x: Sc, y: Sc) -> Vector<[Sc; 2], Real<2>> {
     Vector([x, y], PhantomData)
 }
@@ -516,8 +545,25 @@ pub const fn vec4<Sc>(x: Sc, y: Sc, z: Sc, w: Sc) -> Vector<[Sc; 4], Real<4>> {
     Vector([x, y, z, w], PhantomData)
 }
 
+/// Returns a vector with all components equal to the scalar `s`.
+///
+/// This operation is also called "broadcast".
+///
+/// # Examples
+/// ```
+/// # use retrofire_core::math::{vec3, Vec3};
+/// # use retrofire_core::math::vec::splat;
+/// let v: Vec3 = splat(1.23);
+/// assert_eq!(v, vec3(1.23, 1.23, 1.23));
+#[inline]
+pub fn splat<Sp, Sc: Clone, const DIM: usize>(s: Sc) -> Vector<[Sc; DIM], Sp> {
+    s.into()
+}
+
 #[cfg(test)]
 mod tests {
+    use core::f32::consts::{E, PI};
+
     use crate::assert_approx_eq;
 
     use super::*;
@@ -620,16 +666,16 @@ mod tests {
     #[test]
     fn debug() {
         assert_eq!(
-            alloc::format!("{:?}", vec2(1.0, -2.0)),
-            "Vec<ℝ²<()>>[1.000, -2.000]"
+            alloc::format!("{:?}", vec2(1.0, -E)),
+            "Vec<ℝ²<()>>[1.0, -2.7182817]"
         );
         assert_eq!(
             alloc::format!("{:?}", vec3(1.0, -2.0, 3.0)),
-            "Vec<ℝ³<()>>[1.000, -2.000, 3.000]"
+            "Vec<ℝ³<()>>[1.0, -2.0, 3.0]"
         );
         assert_eq!(
-            alloc::format!("{:?}", vec4(1.0, -2.0, 3.0, -4.0)),
-            "Vec<ℝ⁴<()>>[1.000, -2.000, 3.000, -4.000]"
+            alloc::format!("{:?}", vec4(1.0, -2.0, PI, -4.0)),
+            "Vec<ℝ⁴<()>>[1.0, -2.0, 3.1415927, -4.0]"
         );
     }
 }
