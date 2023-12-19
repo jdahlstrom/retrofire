@@ -9,7 +9,7 @@ categories.workspace = true
 repository.workspace = true
 
 [dependencies]
-re = { path = "../core", package="retrofire-core" }
+re = { path = "../core", package = "retrofire-core" }
 
 [features]
 std = ["re/std"]
