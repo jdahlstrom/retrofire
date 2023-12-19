@@ -6,6 +6,8 @@ use retrofire_core::render::stats::Stats;
 use retrofire_core::render::target::Framebuf;
 use retrofire_core::util::buf::MutSlice2;
 
+use crate::minifb::Window;
+
 #[cfg(feature = "minifb")]
 pub mod minifb;
 
@@ -21,6 +23,8 @@ pub struct Frame<'a> {
     pub dt: Duration,
     /// Framebuffer in which to draw.
     pub buf: Framebuf<MutSlice2<'a, u32>, MutSlice2<'a, f32>>,
+    /// Reference to the window object.
+    pub win: &'a Window,
     /// Rendering statistics.
     pub stats: &'a mut Stats,
 }
