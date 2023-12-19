@@ -127,6 +127,7 @@ impl Window {
                     color_buf: cb.as_mut_slice2(),
                     depth_buf: zb.as_mut_slice2(),
                 },
+                win: &self,
                 stats: &mut stats,
             };
             last = Instant::now();
