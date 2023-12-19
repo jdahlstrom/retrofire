@@ -7,10 +7,8 @@ use core::fmt::{self, Debug, Formatter};
 use core::marker::PhantomData;
 use core::ops::Range;
 
-use crate::math::vec::splat;
-use crate::math::vec::{
-    Affine, Linear, Proj4, Real, Vec2i, Vec3, Vec4, Vector,
-};
+use crate::math::space::{Affine, Linear, Proj4, Real};
+use crate::math::vec::{splat, Vec2i, Vec3, Vec4, Vector};
 use crate::math::ApproxEq;
 use crate::render::{NdcToScreen, ViewToProjective};
 

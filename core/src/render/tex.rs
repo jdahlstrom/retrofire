@@ -1,6 +1,7 @@
 //! Textures and texture samplers.
 
-use crate::math::vec::{Real, Vec2, Vector};
+use crate::math::space::Real;
+use crate::math::vec::{Vec2, Vector};
 use crate::util::buf::{AsSlice2, Buf2, Slice2};
 
 /// Basis of the texture space.
