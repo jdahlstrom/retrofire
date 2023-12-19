@@ -7,7 +7,7 @@ use re::prelude::*;
 use re::math::{mat::RealToReal, spline::smootherstep};
 use re::render::{cam::Camera, ModelToProj, ModelToWorld};
 use re_front::minifb::Window;
-use re_geom::solids::*;
+use re_geom::{io::parse_obj, solids::*};
 
 #[derive(Default)]
 struct Carousel {
@@ -55,6 +55,26 @@ fn main() {
         },
         |frag: Frag<Color3f>| frag.var.to_color4(),
     );
+
+    let teapot = parse_obj(*include_bytes!("teapot.obj"))
+        .unwrap()
+        .transform(
+            &scale(splat(0.4))
+                .then(&translate(vec3(0.0, -0.5, 0.0)))
+                .to(),
+        )
+        .with_vertex_normals()
+        .build();
+
+    let bunny = parse_obj(*include_bytes!("bunny.obj"))
+        .unwrap()
+        .transform(
+            &scale(splat(0.15))
+                .then(&translate(vec3(0.0, -1.0, 0.0)))
+                .to(),
+        )
+        .with_vertex_normals()
+        .build();
 
     let objs = [
         // The five Platonic solids

@@ -3,11 +3,13 @@
 use core::array::from_fn;
 use core::ops::Range;
 
-use re::geom::mesh::Builder;
-use re::geom::{vertex, Mesh, Vertex};
+use alloc::{vec, vec::Vec};
+
+use re::geom::{mesh::Builder, vertex, Mesh, Vertex};
 use re::math::angle::{degs, polar, turns, Angle};
 use re::math::mat::rotate_y;
 use re::math::vary::Vary;
+//use re::math::space::{Affine, Linear};
 use re::math::vec::{splat, vec2, vec3, Vec2, Vec3};
 use re::render::tex::{uv, TexCoord};
 
