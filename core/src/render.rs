@@ -23,6 +23,7 @@ use crate::math::{Mat4x4, Vary, Vec3};
 pub mod clip;
 pub mod ctx;
 pub mod raster;
+pub mod scene;
 pub mod shader;
 pub mod stats;
 pub mod target;

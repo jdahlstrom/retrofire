@@ -26,3 +26,12 @@ pub struct Frame<'a, Win> {
     /// Rendering context and config.
     pub ctx: &'a mut Context,
 }
+
+impl<W> Frame<'_, W> {
+    pub fn t_secs(&self) -> f32 {
+        self.t.as_secs_f32()
+    }
+    pub fn dt_secs(&self) -> f32 {
+        self.dt.as_secs_f32()
+    }
+}
