@@ -10,6 +10,7 @@ pub trait Affine: Sized {
     /// The type of the space that `Self` is the element of.
     type Space;
     /// The (signed) difference of two values of `Self`.
+    ///
     /// `Diff` must have the same dimension as `Self`.
     type Diff: Linear;
 

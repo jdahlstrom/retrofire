@@ -1,5 +1,6 @@
 //! Vectors and vector spaces.
 
+use core::any::type_name;
 use core::array;
 use core::fmt::{Debug, Formatter};
 use core::marker::PhantomData;
@@ -361,9 +362,12 @@ where
     }
 }
 
-impl<R: Debug, Sp: Debug + Default> Debug for Vector<R, Sp> {
+// Manual impl because derive adds a spurious `Sp: Debug` bound
+impl<R: Debug, Sp> Debug for Vector<R, Sp> {
     fn fmt(&self, f: &mut Formatter<'_>) -> core::fmt::Result {
-        write!(f, "Vec<{:?}>", Sp::default())?;
+        let sp = type_name::<Sp>();
+        let sp = sp.rsplit_once("::").map(|p| p.0).unwrap_or(sp);
+        write!(f, "Vec<{:?}>", sp)?;
         Debug::fmt(&self.0, f)
     }
 }
