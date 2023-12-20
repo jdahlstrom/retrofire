@@ -75,10 +75,7 @@ impl<Repr: Clone, Map> Matrix<Repr, Map> {
 
 impl<const N: usize, Map> Matrix<[[f32; N]; N], Map> {
     /// Returns the `N`×`N` identity matrix.
-    pub fn identity() -> Self
-    where
-        [[f32; N]; N]: Default,
-    {
+    pub fn identity() -> Self {
         let mut els = [[0.0; N]; N];
         for i in 0..N {
             els[i][i] = 1.0;
@@ -401,10 +398,7 @@ impl<R: Clone, M> Clone for Matrix<R, M> {
     }
 }
 
-impl<const N: usize, Map> Default for Matrix<[[f32; N]; N], Map>
-where
-    [[f32; N]; N]: Default,
-{
+impl<const N: usize, Map> Default for Matrix<[[f32; N]; N], Map> {
     /// Returns the `N`×`N` identity matrix.
     fn default() -> Self {
         Self::identity()
