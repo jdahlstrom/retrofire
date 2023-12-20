@@ -1,6 +1,7 @@
 //! Triangle meshes.
 
 use alloc::vec::Vec;
+use core::fmt::Debug;
 
 use crate::math::space::Real;
 use crate::math::Vec3;
@@ -17,6 +18,7 @@ pub type Vertex<A, Sp> = super::Vertex<Vec3<Sp>, A>;
 /// surface without holes or boundaries, so that every face shares each of its
 /// edges with another face. By using many faces, complex curved shapes can be
 /// approximated.
+#[derive(Clone, Debug, PartialEq)]
 pub struct Mesh<Attrib, Space = Real<3, Model>> {
     /// The faces of the mesh, with each face a triplet of indices
     /// to the `verts` vector.
