@@ -46,22 +46,25 @@ Done:
   * Software 3D rendering pipeline with a subpixel-precise rasterizer
   * Trait-based interpolation of arbitrary vertex attributes
   * User-definable vertex and fragment shaders, written in Rust
-  * Type-tagged vector and color spaces and bases, to avoid bugs
+  * Type-tagged vector and color spaces and bases
   * Type-tagged affine transforms and projections
   * Fully customizable rasterization stage
+  * Collecting rendering performance data
+  * Reading and writing pnm image files
   * Cubic Bezier curves and splines
   * Simple random number generation and distributions
-  * Frontend for the `minifb` crate
+  * Frontend for the minifb crate
 
 In progress:
 
   = Triangle mesh data structure and a library of shapes
   = Sprite and text primitives
+  = Simple bitmap font support
   = Perspective-correct texture mapping
   = Spherical, cube, etc UV mapping
-  = Mipmapping and automatic mipmap generation
   = Procedural noise generation
-  = Frontends for the `sdl2` and `softbuffer` crates
+  = Reading and writing Wavefront .obj files
+  = Frontends for the sdl2 and softbuffer crates
 
 Planned:
 
@@ -69,10 +72,13 @@ Planned:
   - Different camera types
   - Basic scene graph
   - Hierarchical transforms
+  - Cube mapping and skyboxes
+  - Mipmapping and mipmap generation
   - More procedural generation
   - Basic animation and sequencing
   - Particle simulations
-  - Frontends for the terminal and web
+  - Support for more file types
+  - Frontends for ncurses and wasm
 
 
 ================================ Organization ================================
