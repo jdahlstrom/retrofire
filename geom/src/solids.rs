@@ -1,3 +1,5 @@
+use alloc::{vec, vec::Vec};
+
 use re::geom::mesh::Mesh;
 use re::geom::{vertex, Tri};
 use re::math::{degs, lerp, polar, turns, vec2, vec3, Linear};
