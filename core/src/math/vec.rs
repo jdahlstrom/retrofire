@@ -46,6 +46,40 @@ pub type Vec3i<Space = Real<3>> = Vector<[i32; 3], Space>;
 pub type Vec4i<Space = Real<4>> = Vector<[i32; 4], Space>;
 
 //
+// Free functions
+//
+
+/// Returns a 2D Euclidean vector with components `x` and `y`.
+pub const fn vec2<Sc>(x: Sc, y: Sc) -> Vector<[Sc; 2], Real<2>> {
+    Vector([x, y], PhantomData)
+}
+
+/// Returns a 3D Euclidean vector with components `x`, `y`, and `z`.
+pub const fn vec3<Sc>(x: Sc, y: Sc, z: Sc) -> Vector<[Sc; 3], Real<3>> {
+    Vector([x, y, z], PhantomData)
+}
+/// Returns a 4D Euclidean vector with components `x`, `y`, `z`, and `w`.
+#[inline]
+pub const fn vec4<Sc>(x: Sc, y: Sc, z: Sc, w: Sc) -> Vector<[Sc; 4], Real<4>> {
+    Vector([x, y, z, w], PhantomData)
+}
+
+/// Returns a vector with all components equal to the scalar `s`.
+///
+/// This operation is also called "broadcast".
+///
+/// # Examples
+/// ```
+/// # use retrofire_core::math::{vec3, Vec3};
+/// # use retrofire_core::math::vec::splat;
+/// let v: Vec3 = splat(1.23);
+/// assert_eq!(v, vec3(1.23, 1.23, 1.23));
+#[inline]
+pub fn splat<Sp, Sc: Clone, const DIM: usize>(s: Sc) -> Vector<[Sc; DIM], Sp> {
+    s.into()
+}
+
+//
 // Inherent impls
 //
 
@@ -421,40 +455,6 @@ where
         assert!(i < Self::DIM, "index {i} out of bounds ({})", Self::DIM);
         &mut self.0[i]
     }
-}
-
-//
-// Free functions
-//
-
-/// Returns a 2D Euclidean vector with components `x` and `y`.
-pub const fn vec2<Sc>(x: Sc, y: Sc) -> Vector<[Sc; 2], Real<2>> {
-    Vector([x, y], PhantomData)
-}
-
-/// Returns a 3D Euclidean vector with components `x`, `y`, and `z`.
-pub const fn vec3<Sc>(x: Sc, y: Sc, z: Sc) -> Vector<[Sc; 3], Real<3>> {
-    Vector([x, y, z], PhantomData)
-}
-/// Returns a 4D Euclidean vector with components `x`, `y`, `z`, and `w`.
-#[inline]
-pub const fn vec4<Sc>(x: Sc, y: Sc, z: Sc, w: Sc) -> Vector<[Sc; 4], Real<4>> {
-    Vector([x, y, z, w], PhantomData)
-}
-
-/// Returns a vector with all components equal to the scalar `s`.
-///
-/// This operation is also called "broadcast".
-///
-/// # Examples
-/// ```
-/// # use retrofire_core::math::{vec3, Vec3};
-/// # use retrofire_core::math::vec::splat;
-/// let v: Vec3 = splat(1.23);
-/// assert_eq!(v, vec3(1.23, 1.23, 1.23));
-#[inline]
-pub fn splat<Sp, Sc: Clone, const DIM: usize>(s: Sc) -> Vector<[Sc; DIM], Sp> {
-    s.into()
 }
 
 //
