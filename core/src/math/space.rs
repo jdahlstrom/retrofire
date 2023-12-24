@@ -2,12 +2,14 @@
 
 use core::marker::PhantomData;
 
+use crate::math::vary::Iter;
+
 /// Trait for types representing elements of an affine space.
 ///
 /// # TODO
 /// * More documentation, definition of affine space
 pub trait Affine: Sized {
-    /// The type of the space that `Self` is the element of.
+    /// The space that `Self` is the element type of.
     type Space;
     /// The (signed) difference of two values of `Self`.
     /// `Diff` must have the same dimension as `Self`.
@@ -52,7 +54,7 @@ impl Affine for f32 {
 /// # TODO
 /// * More documentation
 pub trait Linear: Affine<Diff = Self> {
-    /// The scalar type associated with `Self`
+    /// The scalar type associated with `Self`.
     type Scalar: Sized;
 
     /// Returns the additive identity of `Self`.
@@ -99,5 +101,35 @@ impl Linear for f32 {
     }
     fn mul(&self, scalar: Self) -> Self {
         self * scalar
+    }
+}
+
+impl<V: Clone> Vary for V
+where
+    Self: Affine,
+    <Self as Affine>::Diff: Clone + Linear<Scalar = f32>,
+{
+    type Iter = Iter<Self>;
+    type Diff = <Self as Affine>::Diff;
+
+    #[inline]
+    fn vary(self, step: Self::Diff, n: Option<u32>) -> Self::Iter {
+        Iter { val: self, step, n }
+    }
+
+    /// Adds `delta` to `self`.
+    #[inline]
+    fn step(&self, delta: &Self::Diff) -> Self {
+        self.add(delta)
+    }
+
+    /// Subtracts `other` from `self`.
+    fn diff(&self, other: &Self) -> Self::Diff {
+        self.sub(other)
+    }
+
+    /// Multiplies `diff` by `s`.
+    fn scale(diff: &Self::Diff, s: f32) -> Self::Diff {
+        diff.mul(s)
     }
 }

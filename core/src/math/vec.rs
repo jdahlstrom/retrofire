@@ -7,7 +7,7 @@ use core::ops::{Add, Div, Index, IndexMut, Mul, Neg, Sub};
 
 use crate::math::approx::ApproxEq;
 use crate::math::space::{Affine, Linear, Proj4, Real};
-use crate::math::vary::{Iter, Vary};
+use crate::math::vary::Vary;
 
 //
 // Types
@@ -42,6 +42,40 @@ pub type Vec2i<Space = Real<2>> = Vector<[i32; 2], Space>;
 pub type Vec3i<Space = Real<3>> = Vector<[i32; 3], Space>;
 /// A 4D integer vector in `Space` (by default ℤ⁴).
 pub type Vec4i<Space = Real<4>> = Vector<[i32; 4], Space>;
+
+//
+// Free functions
+//
+
+/// Returns a 2D Euclidean vector with components `x` and `y`.
+pub const fn vec2<Sc>(x: Sc, y: Sc) -> Vector<[Sc; 2], Real<2>> {
+    Vector([x, y], PhantomData)
+}
+
+/// Returns a 3D Euclidean vector with components `x`, `y`, and `z`.
+pub const fn vec3<Sc>(x: Sc, y: Sc, z: Sc) -> Vector<[Sc; 3], Real<3>> {
+    Vector([x, y, z], PhantomData)
+}
+/// Returns a 4D Euclidean vector with components `x`, `y`, `z`, and `w`.
+#[inline]
+pub const fn vec4<Sc>(x: Sc, y: Sc, z: Sc, w: Sc) -> Vector<[Sc; 4], Real<4>> {
+    Vector([x, y, z, w], PhantomData)
+}
+
+/// Returns a vector with all components equal to the scalar `s`.
+///
+/// This operation is also called "broadcast".
+///
+/// # Examples
+/// ```
+/// # use retrofire_core::math::{vec3, Vec3};
+/// # use retrofire_core::math::vec::splat;
+/// let v: Vec3 = splat(1.23);
+/// assert_eq!(v, vec3(1.23, 1.23, 1.23));
+#[inline]
+pub fn splat<Sp, Sc: Clone, const DIM: usize>(s: Sc) -> Vector<[Sc; DIM], Sp> {
+    s.into()
+}
 
 //
 // Inherent impls
@@ -184,9 +218,9 @@ where
     /// The result is a vector perpendicular to both input
     /// vectors, with length proportional to the area of
     /// the parallelogram having the vectors as its sides.
-    /// Specifically, the length is given by the identity
+    /// Specifically, the length is given by the identity:
     ///
-    /// |𝗮 × 𝗯| = |𝗮| |𝗯| sin 𝜽
+    ///     |𝗮 × 𝗯| = |𝗮| |𝗯| sin 𝜽
     ///
     /// where |·| denotes the length of a vector and
     /// 𝜽 equals the angle between 𝗮 and 𝗯.
@@ -286,7 +320,7 @@ where
 {
     type Scalar = Sc;
 
-    /// Returns the zero vector.
+    /// Returns a vector with all-zero components, also called a null vector.
     #[inline]
     fn zero() -> Self {
         array::from_fn(|_| Sc::default()).into()
@@ -298,37 +332,6 @@ where
     #[inline]
     fn mul(&self, scalar: Self::Scalar) -> Self {
         array::from_fn(|i| self.0[i] * scalar).into()
-    }
-}
-
-/// TODO move to own module
-impl<V: Clone> Vary for V
-where
-    Self: Affine,
-    <Self as Affine>::Diff: Clone + Linear<Scalar = f32>,
-{
-    type Iter = Iter<Self>;
-    type Diff = <Self as Affine>::Diff;
-
-    #[inline]
-    fn vary(self, step: Self::Diff, n: Option<u32>) -> Self::Iter {
-        Iter { val: self, step, n }
-    }
-
-    /// Adds `delta` to `self`.
-    #[inline]
-    fn step(&self, delta: &Self::Diff) -> Self {
-        self.add(delta)
-    }
-
-    /// Subtracts `other` from `self`.
-    fn diff(&self, other: &Self) -> Self::Diff {
-        self.sub(other)
-    }
-
-    /// Multiplies `diff` by `s`.
-    fn scale(diff: &Self::Diff, s: f32) -> Self::Diff {
-        diff.mul(s)
     }
 }
 
@@ -396,7 +399,7 @@ where
     ///
     /// # Panics
     /// If `i >= Self::DIM`.
-    /// Note that `Self::DIM` may not be equal to the the length of `R`.
+    /// Note that `Self::DIM` can be less than the number of elements in `R`.
     #[inline]
     fn index(&self, i: usize) -> &Self::Output {
         assert!(i < Self::DIM, "index {i} out of bounds ({})", Self::DIM);
@@ -413,46 +416,12 @@ where
     ///
     /// # Panics
     /// If `i >= Self::DIM`.
-    /// Note that `Self::DIM` may not be equal to the length of `R`.
+    /// Note that `Self::DIM` can be less than the number of elements in `R`.
     #[inline]
     fn index_mut(&mut self, i: usize) -> &mut Self::Output {
         assert!(i < Self::DIM, "index {i} out of bounds ({})", Self::DIM);
         &mut self.0[i]
     }
-}
-
-//
-// Free functions
-//
-
-/// Returns a 2D Euclidean vector with components `x` and `y`.
-pub const fn vec2<Sc>(x: Sc, y: Sc) -> Vector<[Sc; 2], Real<2>> {
-    Vector([x, y], PhantomData)
-}
-
-/// Returns a 3D Euclidean vector with components `x`, `y`, and `z`.
-pub const fn vec3<Sc>(x: Sc, y: Sc, z: Sc) -> Vector<[Sc; 3], Real<3>> {
-    Vector([x, y, z], PhantomData)
-}
-/// Returns a 4D Euclidean vector with components `x`, `y`, `z`, and `w`.
-#[inline]
-pub const fn vec4<Sc>(x: Sc, y: Sc, z: Sc, w: Sc) -> Vector<[Sc; 4], Real<4>> {
-    Vector([x, y, z, w], PhantomData)
-}
-
-/// Returns a vector with all components equal to the scalar `s`.
-///
-/// This operation is also called "broadcast".
-///
-/// # Examples
-/// ```
-/// # use retrofire_core::math::{vec3, Vec3};
-/// # use retrofire_core::math::vec::splat;
-/// let v: Vec3 = splat(1.23);
-/// assert_eq!(v, vec3(1.23, 1.23, 1.23));
-#[inline]
-pub fn splat<Sp, Sc: Clone, const DIM: usize>(s: Sc) -> Vector<[Sc; DIM], Sp> {
-    s.into()
 }
 
 #[cfg(test)]
