@@ -1,13 +1,13 @@
 //! Triangle meshes.
 
-use alloc::vec::Vec;
+use alloc::{vec, vec::Vec};
 use core::fmt::Debug;
 
 use crate::math::space::Real;
-use crate::math::Vec3;
+use crate::math::{Affine, Linear, Vec3};
 use crate::render::Model;
 
-use super::Tri;
+use super::{vertex, Tri};
 
 /// Convenience type alias for a mesh vertex.
 pub type Vertex<A, Sp> = super::Vertex<Vec3<Sp>, A>;
@@ -66,5 +66,38 @@ impl<A, S> Mesh<A, S> {
             panic!("vertex index out of bounds at faces[{i}]: {face:?}");
         }
         Self { faces, verts }
+    }
+}
+
+impl Mesh<(), Real<3, Model>> {
+    pub fn with_vertex_normals(self) -> Mesh<Vec3> {
+        let Self { verts, faces } = self;
+
+        let face_normals: Vec<_> = faces
+            .iter()
+            .map(|Tri(vs)| {
+                let [a, b, c] = vs.map(|i| verts[i].pos);
+                b.sub(&a).cross(&c.sub(&a))
+            })
+            .collect();
+
+        let mut vert_normals = vec![Vec3::zero(); verts.len()];
+
+        for (&Tri([a, b, c]), &n) in faces.iter().zip(&face_normals) {
+            vert_normals[a] = vert_normals[a].add(&n);
+            vert_normals[b] = vert_normals[b].add(&n);
+            vert_normals[c] = vert_normals[c].add(&n);
+        }
+        for v in &mut vert_normals {
+            *v = v.normalize();
+        }
+
+        let verts = verts
+            .into_iter()
+            .zip(vert_normals)
+            .map(|(v, n)| vertex(v.pos, n.to()))
+            .collect();
+
+        Mesh { faces, verts }
     }
 }
