@@ -26,23 +26,23 @@ pub mod target;
 pub mod tex;
 
 /// Model space coordinate basis.
-#[derive(Copy, Clone, Debug, Default)]
+#[derive(Copy, Clone, Debug, Default, Eq, PartialEq)]
 pub struct Model;
 
 /// World space coordinate basis.
-#[derive(Copy, Clone, Debug, Default)]
+#[derive(Copy, Clone, Debug, Default, Eq, PartialEq)]
 pub struct World;
 
 /// View (camera) space coordinate basis.
-#[derive(Copy, Clone, Debug, Default)]
+#[derive(Copy, Clone, Debug, Default, Eq, PartialEq)]
 pub struct View;
 
 /// NDC space coordinate basis (normalized device coordinates).
-#[derive(Copy, Clone, Debug, Default)]
+#[derive(Copy, Clone, Debug, Default, Eq, PartialEq)]
 pub struct Ndc;
 
 /// Screen space coordinate basis.
-#[derive(Copy, Clone, Debug, Default)]
+#[derive(Copy, Clone, Debug, Default, Eq, PartialEq)]
 pub struct Screen;
 
 /// Mapping from model space to view space.
