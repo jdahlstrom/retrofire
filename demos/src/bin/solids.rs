@@ -4,7 +4,7 @@ use minifb::{Key, KeyRepeat};
 
 use re::prelude::*;
 
-use re::math::{mat::RealToReal, spline::smootherstep};
+use re::math::{color::gray, mat::RealToReal, spline::smootherstep};
 use re::render::{cam::Camera, ModelToProj, ModelToWorld};
 use re_front::minifb::Window;
 use re_geom::{io::parse_obj, solids::*};
@@ -18,8 +18,13 @@ struct Carousel {
 
 impl Carousel {
     fn start(&mut self) {
-        self.t = Some(0.0);
-        self.new_idx = self.idx + 1;
+        if self.t.is_none() {
+            self.t = Some(0.0);
+            self.new_idx = self.idx + 1;
+        } else {
+            // If already started, skip to next
+            self.new_idx += 1;
+        }
     }
     fn update(&mut self, dt: f32) -> Mat4x4<RealToReal<3>> {
         let Some(t) = self.t.as_mut() else {
@@ -48,15 +53,22 @@ fn main() {
         .size(W, H)
         .build();
 
+    win.ctx.color_clear = Some(gray(32).to_rgba());
+
     let shader = Shader::new(
-        |v: Vertex<_, Normal3>, (mvp, _): (&Mat4x4<ModelToProj>, _)| {
+        |v: Vertex<_, Normal3>,
+         (mvp, spin): (&Mat4x4<ModelToProj>, &Mat4x4<RealToReal<3>>)| {
+            let n = spin.apply(&v.attrib.to());
+            let diffuse = (n.z() + 0.2).max(0.2) * 0.8;
+
             let [x, y, z] = (0.45 * (v.attrib + splat(1.1))).0;
-            vertex(mvp.apply(&v.pos), rgb(x, y, z))
+
+            vertex(mvp.apply(&v.pos), rgb(x, y, z).mul(diffuse))
         },
         |frag: Frag<Color3f>| frag.var.to_color4(),
     );
 
-    let teapot = parse_obj(*include_bytes!("teapot.obj"))
+    let teapot = parse_obj(*include_bytes!("../../assets/teapot.obj"))
         .unwrap()
         .transform(
             &scale(splat(0.4))
@@ -66,7 +78,7 @@ fn main() {
         .with_vertex_normals()
         .build();
 
-    let bunny = parse_obj(*include_bytes!("bunny.obj"))
+    let bunny = parse_obj(*include_bytes!("../../assets/bunny.obj"))
         .unwrap()
         .transform(
             &scale(splat(0.15))
@@ -128,20 +140,22 @@ fn main() {
             minor_sectors: 8,
         }
         .build(),
+        teapot,
+        bunny,
     ];
 
-    let camera = Camera::with_mode(W, H, Mat4x4::identity())
+    let camera = Camera::with_mode(W, H, scale(vec3(1.0, -1.0, -1.0)).to())
         .perspective(1.5, 0.1..1000.0)
         .viewport(vec2(10, 10)..vec2(W - 10, H - 10));
 
-    let translate = translate(vec3(0.0, 0.0, 4.0));
+    let translate = translate(vec3(0.0, 0.0, -4.0));
 
     let mut carousel = Carousel::default();
     win.run(|frame| {
         let secs = frame.t.as_secs_f32();
 
-        let spin = rotate_y(rads(secs * 0.6)) //
-            .compose(&rotate_x(rads(secs * 0.7)));
+        let spin = rotate_x(rads(secs * 0.47)) //
+            .then(&rotate_y(rads(secs * 0.61)));
         let carouse = carousel.update(frame.dt.as_secs_f32());
 
         let model_to_world: Mat4x4<ModelToWorld> =
@@ -161,7 +175,7 @@ fn main() {
             &obj.verts,
             &model_to_world,
             &shader,
-            (),
+            &spin,
             &mut frame.buf,
             &frame.ctx,
         );
