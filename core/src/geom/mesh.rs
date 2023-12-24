@@ -1,14 +1,20 @@
 //! Triangle meshes.
 
-use core::fmt::{Debug, Formatter};
+use core::{
+    fmt::{Debug, Formatter},
+    iter::zip,
+};
 
 use alloc::{vec, vec::Vec};
 
-use crate::math::space::Real;
-use crate::math::Vec3;
+use crate::math::{
+    mat::{Mat4x4, RealToReal},
+    space::{Linear, Real},
+    vec::Vec3,
+};
 use crate::render::Model;
 
-use super::{vertex, Tri};
+use super::{vertex, Normal3, Tri};
 
 /// Convenience type alias for a mesh vertex.
 pub type Vertex<A, Sp = Real<3, Model>> = super::Vertex<Vec3<Sp>, A>;
@@ -28,9 +34,10 @@ pub struct Mesh<Attrib, Space = Real<3, Model>> {
     pub verts: Vec<Vertex<Attrib, Space>>,
 }
 
-#[derive(Clone, Debug)]
-pub struct Builder<Attrib = ()> {
-    pub mesh: Mesh<Attrib>,
+/// A builder type for creating meshes.
+#[derive(Clone)]
+pub struct Builder<Attrib = (), Space = Real<3, Model>> {
+    pub mesh: Mesh<Attrib, Space>,
 }
 
 impl<A, S> Mesh<A, S> {
@@ -86,6 +93,12 @@ impl<A> Mesh<A> {
     pub fn builder() -> Builder<A> {
         Builder::default()
     }
+
+    /// Consumes `self` and returns a mesh builder with the faces and vertices
+    ///  of `self`.
+    pub fn into_builder(self) -> Builder<A> {
+        Builder { mesh: self }
+    }
 }
 
 impl<A> Builder<A> {
@@ -126,11 +139,88 @@ impl<A> Builder<A> {
     }
 }
 
+impl Builder<()> {
+    /// Applies the given transform to the position of each vertex.
+    ///
+    /// This is an eager operation, that is, only vertices *currently*
+    /// added to the builder are transformed.
+    pub fn transform(
+        self,
+        tf: &Mat4x4<RealToReal<3, Model, Model>>,
+    ) -> Builder<()> {
+        let mesh = Mesh {
+            faces: self.mesh.faces,
+            verts: self
+                .mesh
+                .verts
+                .into_iter()
+                .map(|v| vertex(tf.apply(&v.pos), v.attrib))
+                .collect(),
+        };
+        mesh.into_builder()
+    }
+
+    /// Computes a vertex normal for each vertex as an area-weighted average
+    /// of normals of the faces adjacent to it.
+    ///
+    /// The algorithm is as follows:
+    /// 1. Initialize the normal of each vertex to **0**
+    /// 1. For each face:
+    ///     1. Take the cross product of two of the face's edge vectors
+    ///     2. Add the result to the normal of each of the face's vertices.
+    /// 3. Normalize each vertex normal to unit length.
+    ///
+    /// This is an eager operation, that is, only vertices *currently* added
+    /// to the builder are transformed. The attribute type of the result is
+    /// `Normal3`; the vertex type it accepts is changed accordingly.
+    pub fn with_vertex_normals(self) -> Builder<Normal3> {
+        let Mesh { verts, faces } = self.mesh;
+
+        // Compute weighted face normals...
+        let face_normals = faces.iter().map(|Tri(vs)| {
+            // TODO If n-gonal faces are supported some day,
+            // the cross product is not proportional to area anymore
+            let [a, b, c] = vs.map(|i| verts[i].pos);
+            (b - a).cross(&(c - a)).to()
+        });
+        // ...initialize vertex normals to zero...
+        let mut verts: Vec<_> = verts
+            .iter()
+            .map(|v| vertex(v.pos, Normal3::zero()))
+            .collect();
+        // ...accumulate normals...
+        for (&Tri(vs), n) in zip(&faces, face_normals) {
+            for i in vs {
+                verts[i].attrib += n;
+            }
+        }
+        // ...and normalize to unit length.
+        for v in &mut verts {
+            v.attrib = v.attrib.normalize();
+        }
+
+        Mesh::new(faces, verts).into_builder()
+    }
+}
+
+//
+// Foreign trait impls
+//
+
 impl<A: Debug, S: Debug + Default> Debug for Mesh<A, S> {
     fn fmt(&self, f: &mut Formatter<'_>) -> core::fmt::Result {
         f.debug_struct("Mesh")
             .field("faces", &self.faces)
             .field("verts", &self.verts)
+            .finish()
+    }
+}
+
+impl<A: Debug, S: Debug + Default> Debug for Builder<A, S> {
+    fn fmt(&self, f: &mut Formatter<'_>) -> core::fmt::Result {
+        f.debug_struct("Builder")
+            .field("faces", &self.mesh.faces)
+            .field("verts", &self.mesh.verts)
             .finish()
     }
 }
@@ -149,8 +239,11 @@ impl<A> Default for Builder<A> {
 
 #[cfg(test)]
 mod tests {
+    use core::f32::consts::FRAC_1_SQRT_2;
+
     use crate::geom::vertex;
     use crate::math::vec3;
+    use crate::prelude::splat;
 
     use super::*;
 
@@ -177,7 +270,35 @@ mod tests {
             (vec3(1.0, 1.0, 1.0), ()),
             (vec3(2.0, 2.0, 2.0), ()),
         ]);
-
         _ = b.build();
+    }
+
+    #[test]
+    fn vertex_normal_generation() {
+        // TODO Doesn't test weighting by area
+
+        let mut b = Mesh::builder();
+        b.push_faces([[0, 2, 1], [0, 1, 3], [0, 3, 2]]);
+        b.push_verts([
+            (vec3(0.0, 0.0, 0.0), ()),
+            (vec3(1.0, 0.0, 0.0), ()),
+            (vec3(0.0, 1.0, 0.0), ()),
+            (vec3(0.0, 0.0, 1.0), ()),
+        ]);
+        let b = b.with_vertex_normals();
+
+        const SQRT_3: f32 = 1.7320508076;
+
+        let expected = [
+            splat(-1.0 / SQRT_3),
+            vec3(0.0, -FRAC_1_SQRT_2, -FRAC_1_SQRT_2),
+            vec3(-FRAC_1_SQRT_2, 0.0, -FRAC_1_SQRT_2),
+            vec3(-FRAC_1_SQRT_2, -FRAC_1_SQRT_2, 0.0),
+        ];
+
+        assert_eq!(b.mesh.verts[0].attrib, expected[0]);
+        assert_eq!(b.mesh.verts[1].attrib, expected[1]);
+        assert_eq!(b.mesh.verts[2].attrib, expected[2]);
+        assert_eq!(b.mesh.verts[3].attrib, expected[3]);
     }
 }
