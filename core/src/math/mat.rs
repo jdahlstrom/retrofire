@@ -18,7 +18,7 @@ use crate::render::{NdcToScreen, ViewToProjective};
 /// statically ensure that only compatible maps can be composed, and that
 /// only compatible vectors can be transformed.
 pub trait LinearMap {
-    /// The source space, or domain, of `Self`.w
+    /// The source space, or domain, of `Self`.
     type Source;
     /// The destination space, or range, of `Self`.
     type Dest;
@@ -439,7 +439,7 @@ impl<Repr, M> From<Repr> for Matrix<Repr, M> {
 
 /// Returns a matrix applying a scaling by `s`.
 ///
-/// Tip: use [`splat`][vec::splat] to scale uniformly:
+/// Tip: use [`splat`] to scale uniformly:
 /// ```
 /// # use retrofire_core::math::mat::*;
 /// # use retrofire_core::math::vec::splat;
