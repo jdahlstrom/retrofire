@@ -82,13 +82,26 @@ type Result<T> = core::result::Result<T, Error>;
 #[cfg(feature = "std")]
 pub fn load_obj(path: impl AsRef<Path>) -> Result<Mesh<()>> {
     let r = &mut BufReader::new(File::open(path)?);
-    // TODO better error reporting
-    read_obj(r.bytes().map_while(|b| b.ok()))
+    read_from(r)
+}
+
+fn read_from(input: impl Read) -> Result<Mesh<()>> {
+    let mut io_err = None;
+    let res = read_obj(input.bytes().map_while(|r| match r {
+        Err(e) => {
+            io_err = Some(e.into());
+            None
+        }
+        Ok(b) => Some(b),
+    }));
+    if let Some(e) = io_err {
+        Err(e)
+    } else {
+        res
+    }
 }
 
 pub fn read_obj(src: impl IntoIterator<Item = u8>) -> Result<Mesh<()>> {
-    let mut it = src.into_iter().peekable();
-
     let mut faces = vec![];
     let mut verts = vec![];
     let mut norms = vec![];
@@ -96,11 +109,12 @@ pub fn read_obj(src: impl IntoIterator<Item = u8>) -> Result<Mesh<()>> {
 
     let mut max_indices = Indices { pos: 0, uv: None, n: None };
 
+    let mut it = src.into_iter().peekable();
     while it.peek().is_some() {
         // TODO Try to avoid collecting
         let line: Vec<_> = (&mut it).take_while(|&c| c != b'\n').collect();
 
-        if line.get(0) == Some(&b'#')
+        if line.first() == Some(&b'#')
             || line.iter().all(|c| c.is_ascii_whitespace())
         {
             continue;
@@ -109,14 +123,12 @@ pub fn read_obj(src: impl IntoIterator<Item = u8>) -> Result<Mesh<()>> {
         // TODO Don't collect, just use the iterator
         let tokens: Vec<&[u8]> = line.split(u8::is_ascii_whitespace).collect();
 
-        if tokens.is_empty() {
+        let Some((&item, params)) = tokens.split_first() else {
             continue;
-        }
-
-        let params = tokens.get(1..).ok_or(UnexpectedEnd)?;
+        };
 
         // TODO Doesn't handle leading whitespace
-        match tokens[0] {
+        match item {
             b"v" => verts.push(parse_vertex(params)?),
             b"vt" => texcs.push(parse_texcoord(params)?),
             b"vn" => norms.push(parse_normal(params)?),
@@ -132,6 +144,7 @@ pub fn read_obj(src: impl IntoIterator<Item = u8>) -> Result<Mesh<()>> {
                 faces.push(tri)
             }
 
+            // TODO or ignore?
             _ => return Err(UnsupportedItem),
         }
     }
@@ -192,25 +205,25 @@ impl From<std::io::Error> for Error {
     }
 }
 impl From<Utf8Error> for Error {
-    fn from(e: Utf8Error) -> Self {
+    fn from(_: Utf8Error) -> Self {
         InvalidValue
     }
 }
 impl From<ParseFloatError> for Error {
-    fn from(e: ParseFloatError) -> Self {
+    fn from(_: ParseFloatError) -> Self {
         InvalidValue
     }
 }
 impl From<ParseIntError> for Error {
-    fn from(e: ParseIntError) -> Self {
+    fn from(_: ParseIntError) -> Self {
         InvalidValue
     }
 }
 
 fn parse_face(f: &[&[u8]]) -> Result<Tri<Indices>> {
-    let a = parse_indices(f[0])?;
-    let b = parse_indices(f[1])?;
-    let c = parse_indices(f[2])?;
+    let a = parse_indices(f, 0)?;
+    let b = parse_indices(f, 1)?;
+    let c = parse_indices(f, 2)?;
     Ok(Tri([a, b, c]))
 }
 
@@ -235,8 +248,9 @@ fn parse_float(s: &[u8]) -> Result<f32> {
     Ok(from_utf8(s)?.parse()?)
 }
 
-fn parse_indices(s: &[u8]) -> Result<Indices> {
-    let mut indices = from_utf8(s)?.split('/');
+fn parse_indices(params: &[&[u8]], i: usize) -> Result<Indices> {
+    let param = params.get(i).ok_or(UnexpectedEnd)?;
+    let mut indices = from_utf8(param)?.split('/');
     let pos = indices
         .next()
         .ok_or(UnexpectedEnd)?
@@ -256,6 +270,8 @@ fn parse_indices(s: &[u8]) -> Result<Indices> {
 
 #[cfg(test)]
 mod tests {
+    use std::io::ErrorKind;
+
     use re::geom::Tri;
     use re::math::vec3;
 
@@ -274,7 +290,7 @@ v 1.0 0.0 0.0
 v 0.0 2.0 0.0
 v 1.0 2.0 0.0";
 
-        let mesh = read_obj(input.into_iter()).unwrap();
+        let mesh = read_obj(input).unwrap();
 
         assert_eq!(mesh.faces, vec![Tri([0, 1, 3]), Tri([3, 0, 2])]);
         assert_eq!(mesh.verts[3].pos, vec3(1.0, 2.0, 0.0).to());
@@ -283,13 +299,50 @@ v 1.0 2.0 0.0";
     #[test]
     fn vertex_index_out_of_bounds() {
         let input = *b"f 1 2 3\nv 0.0 0.0 0.0\nv 1.0 1.0 1.0";
-        let result = read_obj(input.into_iter());
-        assert!(matches!(result, Err(OutOfBounds("vertex", 2))));
+        let result = read_obj(input);
+        assert!(
+            matches!(result, Err(OutOfBounds("vertex", 2))),
+            "actual was: {result:?}",
+        );
     }
     #[test]
     fn texcoord_index_out_of_bounds() {
         let input = *b"f 1/1 1/4 1/2\nv 0.0 0.0 0.0\nvt 0.0 0.0\nvt 0.0 1.0";
-        let result = read_obj(input.into_iter());
-        assert!(matches!(result, Err(OutOfBounds("texcoord", 1))));
+        let result = read_obj(input);
+        assert!(
+            matches!(result, Err(OutOfBounds("texcoord", 3))),
+            "actual was: {result:?}",
+        );
+    }
+
+    #[test]
+    fn unexpected_end_of_input() {
+        let input = *b"f";
+        let result = read_obj(input);
+        assert!(matches!(result, Err(UnexpectedEnd)));
+    }
+
+    #[test]
+    fn io_error() {
+        struct R(bool);
+        impl Read for R {
+            fn read(&mut self, buf: &mut [u8]) -> std::io::Result<usize> {
+                if self.0 {
+                    self.0 = false;
+                    buf.copy_from_slice(b"t");
+                    Ok(7)
+                } else {
+                    Err(ErrorKind::BrokenPipe.into())
+                }
+            }
+        }
+
+        let result = read_from(R(true));
+
+        if let Err(Io(e)) = result {
+            assert_eq!(e.kind(), ErrorKind::BrokenPipe);
+        } else {
+            panic!("result should be Err(Io), was: {result:?}")
+        }
     }
 }
