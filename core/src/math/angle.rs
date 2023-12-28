@@ -461,7 +461,7 @@ impl From<PolarVec> for Vec2 {
     /// ```
     fn from(p: PolarVec) -> Self {
         let (y, x) = p.az().sin_cos();
-        vec2(x, y).mul(p.r())
+        vec2(x, y) * p.r()
     }
 }
 
