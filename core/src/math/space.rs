@@ -68,8 +68,7 @@ pub trait Linear: Affine<Diff = Self> {
     /// `mul` is commutative and associative, and distributes over
     /// `add` and `sub` (up to rounding errors):
     /// ```
-    /// # use std::ops::Mul;
-    /// # use retrofire_core::math::space::Affine;
+    /// # use retrofire_core::math::space::{Affine, Linear};
     /// # let [v, w, x, a] = [1.0f32, 2.0, 3.0, 4.0];
     /// v.mul(w) == w.mul(v);
     /// v.mul(w).mul(x) == v.mul(w.mul(x));
