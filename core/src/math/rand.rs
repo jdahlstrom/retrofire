@@ -281,9 +281,9 @@ impl Distrib for Bernoulli {
 }
 
 #[cfg(test)]
+#[allow(clippy::manual_range_contains)]
 mod tests {
     use crate::assert_approx_eq;
-    use crate::math::space::{Affine, Linear};
     use crate::math::vec3;
 
     use super::*;
@@ -330,10 +330,10 @@ mod tests {
             assert!(-2.0 <= v.x() && v.x() < 1.0);
             assert!(0.0 <= v.y() && v.y() < 2.0);
             assert!(-1.0 <= v.z() && v.z() < 3.0);
-            sum = sum.add(&v);
+            sum += v;
         }
         assert_approx_eq!(
-            sum.mul(1.0 / COUNT as f32),
+            sum * (1.0 / COUNT as f32),
             vec3(-0.5251561, 1.0114789, 0.9670243)
         );
     }

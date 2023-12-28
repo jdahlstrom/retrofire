@@ -4,10 +4,10 @@ use core::array;
 use core::fmt::{Debug, Formatter};
 use core::marker::PhantomData;
 use core::ops::{Add, Div, Index, IndexMut, Mul, Neg, Sub};
+use core::ops::{AddAssign, MulAssign, SubAssign};
 
 use crate::math::approx::ApproxEq;
 use crate::math::space::{Affine, Linear, Proj4, Real};
-use crate::math::vary::Vary;
 
 //
 // Types
@@ -62,7 +62,7 @@ pub const fn vec4<Sc>(x: Sc, y: Sc, z: Sc, w: Sc) -> Vector<[Sc; 4], Real<4>> {
     Vector([x, y, z, w], PhantomData)
 }
 
-/// Returns a vector with all components equal to the scalar `s`.
+/// Returns a vector with all components equal to the argument.
 ///
 /// This operation is also called "broadcast".
 ///
@@ -220,7 +220,9 @@ where
     /// the parallelogram having the vectors as its sides.
     /// Specifically, the length is given by the identity:
     ///
+    /// ```text
     ///     |𝗮 × 𝗯| = |𝗮| |𝗯| sin 𝜽
+    /// ```
     ///
     /// where |·| denotes the length of a vector and
     /// 𝜽 equals the angle between 𝗮 and 𝗯.
@@ -424,6 +426,95 @@ where
     }
 }
 
+//
+// Arithmetic traits
+//
+
+/// Implements an operator trait in terms of an op-assign trait.
+macro_rules! impl_op {
+    ($trait:ident :: $method:ident, $rhs:ty, $op:tt) => {
+        impl<R, Sp> $trait<$rhs> for Vector<R, Sp>
+        where
+            Self: Linear,
+        {
+            type Output = Self;
+            #[inline]
+            fn $method(mut self, rhs: $rhs) -> Self {
+                self $op rhs; self
+            }
+        }
+    };
+}
+
+/// The vector += vector operator.
+impl<R, Sp> AddAssign for Vector<R, Sp>
+where
+    Self: Linear,
+{
+    #[inline]
+    fn add_assign(&mut self, rhs: Self) {
+        *self = Affine::add(&*self, &rhs);
+    }
+}
+/// The vector + vector operator.
+impl_op!(Add::add, Self, +=);
+
+/// The vector -= vector operator.
+impl<R, Sp> SubAssign for Vector<R, Sp>
+where
+    Self: Linear,
+{
+    #[inline]
+    fn sub_assign(&mut self, rhs: Self) {
+        *self = Affine::sub(&*self, &rhs);
+    }
+}
+/// The vector - vector operator.
+impl_op!(Sub::sub, Self, -=);
+
+/// The vector *= scalar operator.
+impl<R, Sp> MulAssign<<Self as Linear>::Scalar> for Vector<R, Sp>
+where
+    Self: Linear,
+{
+    #[inline]
+    fn mul_assign(&mut self, rhs: <Self as Linear>::Scalar) {
+        *self = Linear::mul(&*self, rhs);
+    }
+}
+/// The vector * scalar operator.
+impl_op!(Mul::mul, <Self as Linear>::Scalar, *=);
+
+/// The vector negation operator.
+impl<R, Sp> Neg for Vector<R, Sp>
+where
+    Self: Linear,
+{
+    type Output = Self;
+
+    #[inline]
+    fn neg(self) -> Self::Output {
+        <Self as Linear>::neg(&self)
+    }
+}
+
+/// The scalar * vector operator.
+impl<R, Sp> Mul<Vector<R, Sp>> for <Vector<R, Sp> as Linear>::Scalar
+where
+    Vector<R, Sp>: Linear,
+{
+    type Output = Vector<R, Sp>;
+
+    #[inline]
+    fn mul(self, rhs: Vector<R, Sp>) -> Self::Output {
+        rhs * self
+    }
+}
+
+//
+// Unit tests
+//
+
 #[cfg(test)]
 mod tests {
     use core::f32::consts::{E, PI};
@@ -433,8 +524,6 @@ mod tests {
     use super::*;
 
     mod f32 {
-        use crate::math::space::{Affine, Linear};
-
         use super::*;
 
         #[cfg(feature = "std")]
@@ -446,19 +535,19 @@ mod tests {
 
         #[test]
         fn vector_addition() {
-            assert_eq!(vec2(1.0, 2.0).add(&vec2(-2.0, 1.0)), vec2(-1.0, 3.0));
+            assert_eq!(vec2(1.0, 2.0) + vec2(-2.0, 1.0), vec2(-1.0, 3.0));
             assert_eq!(
-                vec3(1.0, 2.0, 0.0).add(&vec3(-2.0, 1.0, -1.0)),
+                vec3(1.0, 2.0, 0.0) + vec3(-2.0, 1.0, -1.0),
                 vec3(-1.0, 3.0, -1.0)
             );
         }
 
         #[test]
         fn scalar_multiplication() {
-            assert_eq!(vec2(1.0, -2.0).mul(0.0), vec2(0.0, 0.0));
-            assert_eq!(vec3(1.0, -2.0, 3.0).mul(3.0), vec3(3.0, -6.0, 9.0));
+            assert_eq!(vec2(1.0, -2.0) * 0.0, vec2(0.0, 0.0));
+            assert_eq!(vec3(1.0, -2.0, 3.0) * 3.0, vec3(3.0, -6.0, 9.0));
             assert_eq!(
-                vec4(1.0, -2.0, 0.0, -3.0).mul(3.0),
+                vec4(1.0, -2.0, 0.0, -3.0) * 3.0,
                 vec4(3.0, -6.0, 0.0, -9.0)
             );
         }
@@ -475,21 +564,19 @@ mod tests {
     }
 
     mod i32 {
-        use crate::math::space::{Affine, Linear};
-
         use super::*;
 
         #[test]
         fn vector_addition() {
-            assert_eq!(vec2(1, 2).add(&vec2(-2, 1)), vec2(-1, 3));
-            assert_eq!(vec3(1, 2, 0).add(&vec3(-2, 1, -1)), vec3(-1, 3, -1));
+            assert_eq!(vec2(1, 2) + vec2(-2, 1), vec2(-1, 3));
+            assert_eq!(vec3(1, 2, 0) + vec3(-2, 1, -1), vec3(-1, 3, -1));
         }
 
         #[test]
         fn scalar_multiplication() {
-            assert_eq!(vec2(1, -2).mul(0), vec2(0, 0));
-            assert_eq!(vec3(1, -2, 3).mul(3), vec3(3, -6, 9));
-            assert_eq!(vec4(1, -2, 0, -3).mul(3), vec4(3, -6, 0, -9));
+            assert_eq!(vec2(1, -2) * 0, vec2(0, 0));
+            assert_eq!(vec3(1, -2, 3) * 3, vec3(3, -6, 9));
+            assert_eq!(vec4(1, -2, 0, -3) * 3, vec4(3, -6, 0, -9));
         }
 
         #[test]
