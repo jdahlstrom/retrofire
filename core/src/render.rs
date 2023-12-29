@@ -126,10 +126,9 @@ where
 
         // Fragment shader and rasterization
         tri_fill(vs, |scanline| {
-            stats.frags.i += scanline.xs.len();
-            // TODO count only frags that were actually output
-            stats.frags.o += scanline.xs.len();
-            target.rasterize(scanline, shader, Config::default());
+            // Convert to fragments and shade
+            stats.frags +=
+                target.rasterize(scanline, shader, Config::default());
         });
     }
     stats.finish()
