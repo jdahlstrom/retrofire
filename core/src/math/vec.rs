@@ -456,7 +456,7 @@ where
         *self = Affine::add(&*self, &rhs);
     }
 }
-/// The vector + vector operator.
+// The vector + vector operator.
 impl_op!(Add::add, Self, +=);
 
 /// The vector -= vector operator.
@@ -469,10 +469,10 @@ where
         *self = Affine::sub(&*self, &rhs);
     }
 }
-/// The vector - vector operator.
+// The vector - vector operator.
 impl_op!(Sub::sub, Self, -=);
 
-/// The vector *= scalar operator.
+// The vector *= scalar operator.
 impl<R, Sp> MulAssign<<Self as Linear>::Scalar> for Vector<R, Sp>
 where
     Self: Linear,
@@ -482,7 +482,7 @@ where
         *self = Linear::mul(&*self, rhs);
     }
 }
-/// The vector * scalar operator.
+// The vector * scalar operator.
 impl_op!(Mul::mul, <Self as Linear>::Scalar, *=);
 
 /// The vector negation operator.
@@ -573,6 +573,7 @@ mod tests {
         }
 
         #[test]
+        #[allow(clippy::erasing_op)]
         fn scalar_multiplication() {
             assert_eq!(vec2(1, -2) * 0, vec2(0, 0));
             assert_eq!(vec3(1, -2, 3) * 3, vec3(3, -6, 9));
