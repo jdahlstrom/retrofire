@@ -16,7 +16,8 @@ use target::{Config, Target};
 
 use crate::geom::{Tri, Vertex};
 use crate::math::mat::{RealToProjective, RealToReal};
-use crate::math::{Mat4x4, Vary};
+use crate::math::space::Real;
+use crate::math::{Mat4x4, Vary, Vec3};
 use crate::render::clip::ClipVec;
 
 pub mod clip;
@@ -104,8 +105,6 @@ where
     // TODO Optional depth sorting
 
     for Tri(vs) in clipped {
-        // TODO Backface culling
-
         stats.prims.o += 1;
         stats.verts.o += 3;
 
@@ -120,6 +119,11 @@ where
             attrib: v.attrib,
         });
 
+        // Backface culling
+        if is_backface(&vs) {
+            continue;
+        }
+
         // Fragment shader and rasterization
         tri_fill(vs, |scanline| {
             stats.frags.i += scanline.xs.len();
@@ -129,4 +133,10 @@ where
         });
     }
     stats.finish()
+}
+
+fn is_backface<V>(vs: &[Vertex<Vec3<Real<3, Screen>>, V>]) -> bool {
+    let v = vs[1].pos - vs[0].pos;
+    let u = vs[2].pos - vs[0].pos;
+    v[0] * u[1] - v[1] * u[0] > 0.0
 }
