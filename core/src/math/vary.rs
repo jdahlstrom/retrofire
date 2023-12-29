@@ -101,7 +101,7 @@ impl<T: Vary, U: Vary> Vary for (T, U) {
     }
 
     fn step(&self, (d0, d1): &Self::Diff) -> Self {
-        (self.0.step(&d0), self.1.step(&d1))
+        (self.0.step(d0), self.1.step(d1))
     }
 
     fn diff(&self, other: &Self) -> Self::Diff {

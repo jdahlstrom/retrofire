@@ -9,6 +9,7 @@ use core::ops::Range;
 
 use crate::math::space::{Proj4, Real};
 use crate::math::vec::{Vec2i, Vec3, Vec4, Vector};
+use crate::math::ApproxEq;
 use crate::render::{NdcToScreen, ViewToProj};
 
 /// A linear transform from one space (or basis) to another.
@@ -240,14 +241,14 @@ impl<Src, Dst> Mat4x4<RealToReal<3, Src, Dst>> {
     ///
     /// The inverse 𝝡<sup>-1</sup> of matrix 𝝡 is a matrix that, when
     /// composed with 𝝡, results in the identity matrix:
-    /// ```text
+    ///
     /// 𝝡 ∘ 𝝡<sup>-1</sup> = 𝝡<sup>-1</sup> ∘ 𝝡 = 𝐈
-    /// ```
+    ///
     /// In other words, it applies the transform of 𝝡 in reverse.
     /// Given vectors 𝘃 and 𝘂,
-    /// ```text
+    ///
     /// 𝝡𝘃 = 𝘂 ⇔ 𝝡<sup>-1</sup> 𝘂 = 𝘃.
-    /// ```
+    ///
     /// Only matrices with a nonzero determinant have a defined inverse.
     /// A matrix without an inverse is said to be singular.
     ///
@@ -439,7 +440,7 @@ impl<Repr, M> From<Repr> for Matrix<Repr, M> {
 
 /// Returns a matrix applying a scaling by `s`.
 ///
-/// Tip: use [`splat`] to scale uniformly:
+/// Tip: use [`splat`][super::vec::splat] to scale uniformly:
 /// ```
 /// # use retrofire_core::math::mat::*;
 /// # use retrofire_core::math::vec::splat;
