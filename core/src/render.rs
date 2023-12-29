@@ -17,6 +17,7 @@ use target::{Config, Target};
 use crate::geom::{Tri, Vertex};
 use crate::math::mat::{RealToProjective, RealToReal};
 use crate::math::{Mat4x4, Vary};
+use crate::render::clip::ClipVec;
 
 pub mod clip;
 pub mod raster;
@@ -70,7 +71,7 @@ where
     P: Clone,
     A: Clone,
     V: Vary,
-    Sh: VertexShader<Vertex<P, A>, U, Output = ClipVert<V>>
+    Sh: VertexShader<Vertex<P, A>, U, Output = Vertex<ClipVec, V>>
         + FragmentShader<Frag<V>>,
     U: Copy,
 {
@@ -86,10 +87,8 @@ where
         .iter()
         // TODO Pass vertex as ref to shader
         .cloned()
-        .map(|v| shader.shade_vertex(v, uniform))
+        .map(|v| ClipVert::new(shader.shade_vertex(v, uniform)))
         .collect();
-
-    // TODO use outcodes to cull tris fully outside the frustum here
 
     // Map triangle vertex indices to actual vertices
     let tris: Vec<_> = tris
