@@ -39,3 +39,7 @@ required-features = ["minifb", "re-geom"]
 [[bin]]
 name = "crates"
 required-features = ["minifb", "re-geom"]
+
+[[bin]]
+name = "sprites"
+required-features = ["minifb"]
