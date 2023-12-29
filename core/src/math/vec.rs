@@ -480,7 +480,7 @@ where
 // The vector - vector operator.
 impl_op!(Sub::sub, Self, -=);
 
-/// The vector *= scalar operator.
+// The vector *= scalar operator.
 impl<R, Sp> MulAssign<<Self as Linear>::Scalar> for Vector<R, Sp>
 where
     Self: Linear,
@@ -581,6 +581,7 @@ mod tests {
         }
 
         #[test]
+        #[allow(clippy::erasing_op)]
         fn scalar_multiplication() {
             assert_eq!(vec2(1, -2) * 0, vec2(0, 0));
             assert_eq!(vec3(1, -2, 3) * 3, vec3(3, -6, 9));
