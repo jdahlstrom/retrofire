@@ -20,6 +20,7 @@ use crate::geom::{Plane, Tri, Vertex};
 use crate::math::space::Proj4;
 use crate::math::vary::Vary;
 use crate::math::vec::{Vec3, Vec4};
+use crate::render::clip::view_frustum::{outcode, status};
 
 /// Trait for types that can be [clipped][self] against planes.
 ///
@@ -52,11 +53,32 @@ pub trait Clip {
 /// A vector in clip space.
 pub type ClipVec = Vec4<Proj4>;
 
-/// A vertex in clip space.
-pub type ClipVert<A> = Vertex<ClipVec, A>;
-
 /// A plane in clip space.
 pub type ClipPlane = Plane<ClipVec>;
+
+/// A vertex in clip space.
+#[derive(Copy, Clone, Debug, PartialEq)]
+pub struct ClipVert<A> {
+    pub pos: ClipVec,
+    pub attrib: A,
+    outcode: Outcode,
+}
+
+/// Records whether a point is inside or outside of each frustum plane.
+///
+/// Each plane is represented by a single bit, 1 meaning "inside".
+#[derive(Copy, Clone, Debug, Eq, PartialEq)]
+struct Outcode(u8);
+
+/// Visibility status of a polygon.
+enum Status {
+    /// Entirely inside view frustum
+    Visible,
+    /// Only partly inside, needs clipping
+    Clipped,
+    /// Entirely outside view frustum
+    Hidden,
+}
 
 impl ClipPlane {
     /// Creates a clip plane given a normal and offset from origin.
@@ -142,6 +164,7 @@ impl ClipPlane {
                 verts_out.push(ClipVert {
                     pos: v0.pos.lerp(&v1.pos, t),
                     attrib: v0.attrib.lerp(&v1.attrib, t),
+                    outcode: Outcode(0b111111), // inside!
                 });
             }
             (v0, d0) = (v1, d1);
@@ -166,7 +189,7 @@ pub mod view_frustum {
     use crate::geom::Plane;
     use crate::math::vec3;
 
-    use super::ClipPlane;
+    use super::*;
 
     /// The near, far, left, right, bottom, and top clipping planes,
     /// in that order.
@@ -178,6 +201,35 @@ pub mod view_frustum {
         Plane::new(vec3(0.0, -1.0, 0.0), -1.0), // Bottom
         Plane::new(vec3(0.0, 1.0, 0.0), -1.0),  // Top
     ];
+
+    /// Returns the outcode of the given point.
+    pub(super) fn outcode(pt: &ClipVec) -> Outcode {
+        // Top Btm Rgt Lft Far Near
+        //  1   2   4   8   16  32
+        let code = PLANES
+            .iter()
+            .fold(0, |code, p| code << 1 | (p.signed_dist(pt) <= 0.0) as u8);
+
+        Outcode(code)
+    }
+
+    /// Returns the visibility status of the polygon given by `vs`.
+    pub(super) fn status<V>(vs: &[ClipVert<V>]) -> Status {
+        let (all, any) = vs.iter().fold((!0, 0), |(all, any), v| {
+            (all & v.outcode.0, any | v.outcode.0)
+        });
+        if any != 0b111111 {
+            // If there's at least one plane that all vertices are outside of,
+            // then the whole polygon is hidden
+            Status::Hidden
+        } else if all == 0b111111 {
+            // If each vertex is inside all planes, the polygon is fully visible
+            Status::Visible
+        } else {
+            // Otherwise the polygon may have to be clipped
+            Status::Clipped
+        }
+    }
 }
 
 /// Clips the simple polygon given by the vertices in `verts_in` against the
@@ -214,6 +266,16 @@ pub fn clip_simple_polygon<'a, A: Vary>(
     }
 }
 
+impl<V> ClipVert<V> {
+    pub fn new(v: Vertex<ClipVec, V>) -> Self {
+        ClipVert {
+            pos: v.pos,
+            attrib: v.attrib,
+            outcode: outcode(&v.pos),
+        }
+    }
+}
+
 impl<A: Vary> Clip for [Tri<ClipVert<A>>] {
     type Item = Tri<ClipVert<A>>;
 
@@ -224,8 +286,17 @@ impl<A: Vary> Clip for [Tri<ClipVert<A>>] {
         let mut verts_in = vec![];
         let mut verts_out = vec![];
 
-        for tri in self.iter().cloned() {
-            verts_in.extend(tri.0);
+        for tri @ Tri(vs) in self {
+            match status(vs) {
+                Status::Visible => {
+                    out.push(tri.clone());
+                    continue;
+                }
+                Status::Hidden => continue,
+                Status::Clipped => { /* go on and clip */ }
+            }
+
+            verts_in.extend(vs.clone());
             clip_simple_polygon(planes, &mut verts_in, &mut verts_out);
 
             if let Some((a, rest)) = verts_out.split_first() {
@@ -255,6 +326,7 @@ impl<A: Vary> Clip for [Tri<ClipVert<A>>] {
 
 #[cfg(test)]
 mod tests {
+    use crate::geom::vertex;
     use alloc::vec;
 
     use crate::math::vary::Vary;
@@ -269,7 +341,7 @@ mod tests {
     }
 
     fn vtx(pos: ClipVec) -> ClipVert<f32> {
-        Vertex { pos, attrib: 0.0 }
+        ClipVert::new(vertex(pos, 0.0))
     }
 
     fn tri(a: ClipVec, b: ClipVec, c: ClipVec) -> Tri<ClipVert<f32>> {
@@ -282,6 +354,29 @@ mod tests {
         assert_eq!(FAR_PLANE.signed_dist(&vec(1.0, 0.0, 0.0)), -1.0);
         assert_eq!(FAR_PLANE.signed_dist(&vec(0.0, 2.0, 1.0)), 0.0);
         assert_eq!(FAR_PLANE.signed_dist(&vec(-3.0, 0.0, 2.0)), 1.0);
+    }
+
+    #[test]
+    fn outcode_inside() {
+        assert_eq!(outcode(&vec(0.0, 0.0, 0.0)).0, 0b111111);
+        assert_eq!(outcode(&vec(1.0, 0.0, 0.0)).0, 0b111111);
+        assert_eq!(outcode(&vec(0.0, -1.0, 0.0)).0, 0b111111);
+        assert_eq!(outcode(&vec(0.0, 1.0, 1.0)).0, 0b111111);
+    }
+
+    #[test]
+    fn outcode_outside() {
+        // Top Btm Rgt Lft Far Near
+        //  1   2   4   8   16  32
+
+        // Outside near == 32
+        assert_eq!(outcode(&vec(0.0, 0.0, -1.5)).0, 0b011111);
+        // Outside right == 4
+        assert_eq!(outcode(&vec(2.0, 0.0, 0.0)).0, 0b111011);
+        // Outside bottom == 2
+        assert_eq!(outcode(&vec(0.0, -1.01, 0.0)).0, 0b111101);
+        // Outside far left == 16|8
+        assert_eq!(outcode(&vec(-2.0, 0.0, 2.0)).0, 0b100111);
     }
 
     #[test]
