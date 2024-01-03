@@ -85,8 +85,9 @@ Planned:
 
 retrofire is split into several crates:
 
-  * core: math, renderer, basic utilities; no-std compatible
+  * core:  math, renderer, utilities; no-std compatible
   * front: frontends for writing simple graphical applications
+  * geom:  geometric shapes and mesh builders
   * demos: binaries showcasing retrofire features
 
 ================================ Dependencies ================================
