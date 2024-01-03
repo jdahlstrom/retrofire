@@ -12,7 +12,8 @@
 members = [
     "core",
     "demos",
-    "front"
+    "front",
+    "geom"
 ]
 resolver = "2"
 
