@@ -33,6 +33,14 @@ pub trait Vary: Sized + Clone {
     /// ```
     fn vary(self, step: Self::Diff, max: Option<u32>) -> Self::Iter;
 
+    /// Linearly distributes values between `self` and `other` *inclusive*.
+    #[inline]
+    fn vary_to(self, other: Self, n: u32) -> Self::Iter {
+        let diff = other.diff(&self);
+        let step = Self::scale(&diff, 1.0 / n as f32);
+        self.vary(step, Some(n + 1))
+    }
+
     /// Returns the result of offsetting `self` by `delta`.
     /// For arithmetic types this is simply addition.
     #[must_use]

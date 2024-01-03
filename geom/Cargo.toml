@@ -1,0 +1,14 @@
+[package]
+name = "retrofire-geom"
+edition.workspace = true
+version.workspace = true
+authors.workspace = true
+license.workspace = true
+keywords.workspace = true
+categories.workspace = true
+
+[dependencies]
+re = { path = "../core", package="retrofire-core" }
+
+[features]
+std = ["re/std"]
