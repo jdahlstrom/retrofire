@@ -30,7 +30,7 @@ pub struct Mesh<Attrib, Space = Real<3, Model>> {
 
 #[derive(Clone, Debug)]
 pub struct Builder<Attrib = ()> {
-    m: Mesh<Attrib>,
+    pub m: Mesh<Attrib>,
 }
 
 impl<A, S> Mesh<A, S> {
@@ -101,20 +101,8 @@ impl<A> Builder<A> {
     /// # Panics
     /// If any of the vertex indices in `faces` ≥ `verts.len()`.
     pub fn build(self) -> Mesh<A> {
-        let m = self.m;
-        let len = m.verts.len();
-        let oob = m
-            .faces
-            .iter()
-            .enumerate()
-            .find(|(_, f)| f.0.iter().any(|&i| i >= len));
-        if let Some((i, face)) = oob {
-            panic!(
-                "vertex index out of bounds at faces[{i}]: {face:?} (len={len})",
-            );
-        }
         // Sanity checks done by new()
-        Mesh::new(m.faces, m.verts)
+        Mesh::new(self.m.faces, self.m.verts)
     }
 }
 
