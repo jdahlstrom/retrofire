@@ -62,6 +62,18 @@ fn main() {
         Octahedron.build(),
         Dodecahedron.build(),
         Icosahedron.build(),
+        Lathe::new(
+            vec![
+                vec2(0.75, -0.5),
+                vec2(0.55, -0.25),
+                vec2(0.5, 0.0),
+                vec2(0.55, 0.25),
+                vec2(0.75, 0.5),
+            ],
+            13,
+        )
+        .capped(true)
+        .build(),
     ];
 
     let camera = translate(vec3(0.0, 0.0, 3.0));
