@@ -30,7 +30,7 @@ pub struct Mesh<Attrib, Space = Real<3, Model>> {
 
 #[derive(Clone, Debug)]
 pub struct Builder<Attrib = ()> {
-    m: Mesh<Attrib>,
+    pub mesh: Mesh<Attrib>,
 }
 
 impl<A, S> Mesh<A, S> {
@@ -91,7 +91,7 @@ impl<A> Mesh<A> {
 impl<A> Builder<A> {
     /// Appends a face with the given vertex indices.
     pub fn push_face(&mut self, a: usize, b: usize, c: usize) {
-        self.m.faces.push(Tri([a, b, c]));
+        self.mesh.faces.push(Tri([a, b, c]));
     }
 
     /// Appends all the faces yielded by the given iterator.
@@ -99,12 +99,12 @@ impl<A> Builder<A> {
     where
         Fs: IntoIterator<Item = [usize; 3]>,
     {
-        self.m.faces.extend(faces.into_iter().map(Tri));
+        self.mesh.faces.extend(faces.into_iter().map(Tri));
     }
 
     /// Appends a vertex with the given position and attribute.
     pub fn push_vert(&mut self, pos: Vec3, attrib: A) {
-        self.m.verts.push(vertex(pos.to(), attrib));
+        self.mesh.verts.push(vertex(pos.to(), attrib));
     }
 
     /// Appends all the vertices yielded by the given iterator.
@@ -113,7 +113,7 @@ impl<A> Builder<A> {
         Vs: IntoIterator<Item = (Vec3, A)>,
     {
         let vs = verts.into_iter().map(|(v, a)| vertex(v.to(), a));
-        self.m.verts.extend(vs);
+        self.mesh.verts.extend(vs);
     }
 
     /// Returns the finished mesh containing all the added faces and vertices.
@@ -122,7 +122,7 @@ impl<A> Builder<A> {
     /// If any of the vertex indices in `faces` ≥ `verts.len()`.
     pub fn build(self) -> Mesh<A> {
         // Sanity checks done by new()
-        Mesh::new(self.m.faces, self.m.verts)
+        Mesh::new(self.mesh.faces, self.mesh.verts)
     }
 }
 
@@ -143,7 +143,7 @@ impl<A, S> Default for Mesh<A, S> {
 
 impl<A> Default for Builder<A> {
     fn default() -> Self {
-        Self { m: Mesh::default() }
+        Self { mesh: Mesh::default() }
     }
 }
 
