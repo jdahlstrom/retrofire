@@ -30,7 +30,7 @@ pub struct Mesh<Attrib, Space = Real<3, Model>> {
 
 #[derive(Clone, Debug)]
 pub struct Builder<Attrib = ()> {
-    m: Mesh<Attrib>,
+    pub m: Mesh<Attrib>,
 }
 
 impl<A, S> Mesh<A, S> {
