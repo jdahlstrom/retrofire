@@ -4,7 +4,7 @@ use std::ops::ControlFlow::Continue;
 use re::prelude::*;
 
 use re::math::mat::RealToReal;
-use re::math::spline::smootherstep;
+use re::math::spline::{smootherstep, BezierSpline};
 use re::render::{render, ModelToProj};
 use re_front::minifb::Window;
 use re_geom::solids::*;
@@ -62,12 +62,57 @@ fn main() {
         Octahedron.build(),
         Dodecahedron.build(),
         Icosahedron.build(),
-        Lathe::new(vec![vec2(0.5, -0.5), vec2(1.0, 0.0), vec2(0.5, 0.5)], 7)
-            .capped(true)
-            .build(),
+        // Lathe-based objects
+        Lathe::new(
+            BezierSpline::new(&vec![
+                vec2(1.0, -1.0), // pt
+                vec2(1.0, -0.4),
+                vec2(0.2, -0.3),
+                vec2(0.2, 0.0), // pt
+                vec2(0.2, 0.3),
+                vec2(1.0, 0.4),
+                vec2(1.0, 1.0), //pt
+            ])
+            .approx(17),
+            17,
+        )
+        .capped(true)
+        .build(),
+        Sphere {
+            sectors: 17,
+            segments: 9,
+            radius: 1.0,
+        }
+        .build(),
+        Cylinder {
+            sectors: 17,
+            capped: true,
+            radius: 0.8,
+        }
+        .build(),
+        Cone {
+            sectors: 17,
+            capped: true,
+            base_radius: 1.1,
+            apex_radius: 0.1,
+        }
+        .build(),
+        Capsule {
+            sectors: 13,
+            cap_segments: 5,
+            radius: 0.5,
+        }
+        .build(),
+        Torus {
+            major_radius: 0.9,
+            minor_radius: 0.3,
+            major_sectors: 23,
+            minor_sectors: 11,
+        }
+        .build(),
     ];
 
-    let camera = translate(vec3(0.0, 0.0, 3.0));
+    let camera = translate(vec3(0.0, 0.0, 4.0));
     let project = perspective(1.5, 4.0 / 3.0, 0.1..1000.0);
     let viewport = viewport(vec2(10, 10)..vec2(630, 470));
 

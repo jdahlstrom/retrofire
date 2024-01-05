@@ -1,3 +1,5 @@
+//! Mesh approximations of various geometric shapes.
+//!
 use core::array::from_fn;
 use core::ops::Range;
 
@@ -5,7 +7,7 @@ use re::geom::mesh::Builder;
 use re::geom::{vertex, Mesh};
 use re::math::mat::rotate_y;
 use re::math::vec::splat;
-use re::math::{polar, turns, vec2, vec3, Angle, Vary, Vec2, Vec3};
+use re::math::{degs, polar, turns, vec2, vec3, Angle, Vary, Vec2, Vec3};
 use re::render::tex::{uv, TexCoord};
 
 /// A surface normal.
@@ -108,6 +110,46 @@ pub struct Lathe {
     pub az_range: Range<Angle>,
 }
 
+/// TODO
+pub struct Sphere {
+    pub sectors: u32,
+    pub segments: u32,
+    pub radius: f32,
+}
+
+/// Toroidal polyhedron.
+pub struct Torus {
+    /// Distance from the origin to the center of the tube.
+    pub major_radius: f32,
+    /// Radius of the cross-section of the tube.
+    pub minor_radius: f32,
+
+    pub major_sectors: u32,
+    pub minor_sectors: u32,
+}
+
+/// Right cylinder with regular *n*-gonal cross-section.
+pub struct Cylinder {
+    pub sectors: u32,
+    pub capped: bool,
+    pub radius: f32,
+}
+
+/// TODO
+pub struct Cone {
+    pub sectors: u32,
+    pub capped: bool,
+    pub base_radius: f32,
+    pub apex_radius: f32,
+}
+
+/// Cylinder with hemispherical caps.
+pub struct Capsule {
+    pub sectors: u32,
+    pub cap_segments: u32,
+    pub radius: f32,
+}
+
 //
 // Inherent impls
 //
@@ -115,6 +157,7 @@ pub struct Lathe {
 impl Tetrahedron {
     const FACES: [[usize; 3]; 4] = [[0, 2, 1], [0, 3, 2], [0, 1, 3], [1, 2, 3]];
 
+    /// Returns the tetrahedron mesh.
     pub fn build(self) -> Mesh<Normal3> {
         let sqrt = f32::sqrt;
         let coords = [
@@ -200,6 +243,7 @@ impl Box {
         }
     }
 
+    /// Returns the cuboid mesh.
     pub fn build(self) -> Mesh<Normal3> {
         let mut b = Mesh::builder();
 
@@ -259,6 +303,7 @@ impl Octahedron {
         [21, 22, 23],
     ];
 
+    /// Returns the octahedron mesh.
     pub fn build(self) -> Mesh<Normal3> {
         let mut b = Mesh::builder();
         for (i, vs) in Self::FACES.iter().enumerate() {
@@ -323,6 +368,7 @@ impl Dodecahedron {
     // The normals are exactly the vertices of the icosahedron, normalized.
     const NORMALS: [Vec3; 12] = Icosahedron::COORDS;
 
+    /// Returns the dodecahedron mesh.
     pub fn build(self) -> Mesh<Normal3> {
         let mut b = Mesh::builder();
 
@@ -372,6 +418,7 @@ impl Icosahedron {
     // The normals are exactly the vertices of the dodecahedron, normalized.
     const NORMALS: [Vec3; 20] = Dodecahedron::COORDS;
 
+    /// Returns the icosahedron mesh.
     pub fn build(self) -> Mesh<Normal3> {
         let mut b = Mesh::builder();
         for (i, vs) in Self::FACES.iter().enumerate() {
@@ -400,6 +447,7 @@ impl Lathe {
         Self { capped, ..self }
     }
 
+    /// Returns the finished lathe mesh.
     pub fn build(self) -> Mesh<Normal3> {
         let Self { pts, sectors, capped, az_range } = self;
         let secs = sectors as usize;
@@ -480,6 +528,92 @@ impl Lathe {
             }
         }
         b.build()
+    }
+}
+
+impl Sphere {
+    pub fn build(self) -> Mesh<Normal3> {
+        let Self { sectors, segments, radius } = self;
+
+        let pts = degs(-90.0)
+            .vary_to(degs(90.0), segments)
+            .map(|alt| polar(radius, alt).into())
+            .collect();
+
+        let mut mesh = Lathe::new(pts, sectors).build();
+
+        for v in &mut mesh.verts {
+            let normal = v.pos.normalize();
+            *v = vertex(v.pos, normal.to());
+        }
+        mesh
+    }
+}
+
+impl Torus {
+    /// Returns the finished toroidal mesh.
+    pub fn build(self) -> Mesh<Normal3> {
+        let pts = turns(0.0)
+            .vary_to(turns(1.0), self.minor_sectors)
+            .map(|alt| polar(self.minor_radius, alt))
+            .map(|p| vec2(self.major_radius, 0.0) + p.into())
+            .collect();
+
+        Lathe::new(pts, self.major_sectors).build()
+    }
+}
+
+impl Cylinder {
+    /// Returns the finished cylindrical mesh.
+    pub fn build(self) -> Mesh<Normal3> {
+        let Self { sectors, capped, radius } = self;
+        Cone {
+            sectors,
+            capped,
+            base_radius: radius,
+            apex_radius: radius,
+        }
+        .build()
+    }
+}
+
+impl Cone {
+    /// Returns the finished conical mesh.
+    pub fn build(self) -> Mesh<Normal3> {
+        let pts =
+            vec![vec2(self.base_radius, -1.0), vec2(self.apex_radius, 1.0)];
+        Lathe::new(pts, self.sectors)
+            .capped(self.capped)
+            .build()
+    }
+}
+
+impl Capsule {
+    /// Returns the finished capsule-shaped mesh.
+    pub fn build(self) -> Mesh<Normal3> {
+        let Self { sectors, cap_segments, radius } = self;
+
+        // Bottom hemisphere
+        let bottom_pts: Vec<_> = degs(-90.0)
+            .vary_to(degs(0.0), cap_segments)
+            .map(|alt| vec2(0.0, -1.0) + polar(radius, alt).to_cart())
+            .collect();
+
+        // Top hemisphere
+        let top_pts = bottom_pts
+            .iter()
+            .map(|v| vec2(v.x(), -v.y()))
+            .rev();
+
+        Lathe::new(
+            bottom_pts
+                .iter()
+                .copied()
+                .chain(top_pts)
+                .collect(),
+            sectors,
+        )
+        .build()
     }
 }
 
