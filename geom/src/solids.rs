@@ -1,9 +1,12 @@
+//! Mesh approximations of various geometric shapes.
+
 use std::array::from_fn;
 
 use re::geom::mesh::Mesh;
 use re::geom::{vertex, Tri};
+use re::math::vary::RangeExt;
 use re::math::vec::splat;
-use re::math::{polar, turns, vec3, Vary, Vec2, Vec3};
+use re::math::{degs, polar, turns, vec2, vec3, Vary, Vec2, Vec3};
 use re::render::tex::{uv, TexCoord};
 
 /// A surface normal.
@@ -36,6 +39,44 @@ pub struct Lathe {
     /// Whether to add flat caps to both ends of the object. Has no effect
     /// if the endpoints already lie on the y axis.
     pub capped: bool,
+}
+
+pub struct Sphere {
+    pub sectors: u32,
+    pub segments: u32,
+    pub radius: f32,
+}
+
+/// A toroidal polyhedron.
+pub struct Torus {
+    /// Distance from the origin to the center of the tube.
+    pub major_radius: f32,
+    /// Radius of the cross-section of the tube.
+    pub minor_radius: f32,
+
+    pub major_sectors: u32,
+    pub minor_sectors: u32,
+}
+
+/// A right cylinder with regular *n*-gonal cross-section.
+pub struct Cylinder {
+    pub sectors: u32,
+    pub capped: bool,
+    pub radius: f32,
+}
+
+pub struct Cone {
+    pub sectors: u32,
+    pub capped: bool,
+    pub base_radius: f32,
+    pub apex_radius: f32,
+}
+
+/// A cylinder with hemispherical caps.
+pub struct Capsule {
+    pub sectors: u32,
+    pub cap_segments: u32,
+    pub radius: f32,
 }
 
 impl Default for Box {
@@ -196,7 +237,7 @@ impl Lathe {
         for pt in &pts {
             let [r, y] = pt.0;
 
-            for az in turns(0.0).vary_to(turns(1.0), sectors) {
+            for az in (turns(0.0)..=turns(1.0)).vary(sectors) {
                 let pt: Vec2 = polar(r, az).into();
                 verts.push(vec3(pt.x(), y, pt.y()));
             }
@@ -219,7 +260,6 @@ impl Lathe {
             for i in 1..=secs {
                 faces.push([l, i - 1, i]);
             }
-
             // Top cap
             verts.push(vec3(0.0, pts[pts.len() - 1].y(), 0.0));
             for i in 1..=secs {
@@ -236,5 +276,90 @@ impl Lathe {
                 .map(|p| vertex(p.to(), splat(0.0))) // TODO
                 .collect(),
         )
+    }
+}
+
+impl Sphere {
+    pub fn build(self) -> Mesh<Normal3> {
+        let Self { sectors, segments, radius } = self;
+
+        let pts = (degs(-90.0)..=degs(90.0))
+            .vary(segments)
+            .map(|alt| polar(radius, alt).into())
+            .collect();
+
+        let mut mesh = Lathe::new(pts, sectors).build();
+
+        for v in &mut mesh.verts {
+            let normal = v.pos.normalize();
+            *v = vertex(v.pos, normal.to());
+        }
+        mesh
+    }
+}
+
+impl Torus {
+    pub fn build(self) -> Mesh<Normal3> {
+        let pts = (turns(0.0)..=turns(1.0))
+            .vary(self.minor_sectors)
+            .map(|alt| polar(self.minor_radius, alt))
+            .map(|p| vec2(self.major_radius, 0.0) + p.into())
+            .collect();
+
+        let mut mesh = Lathe::new(pts, self.major_sectors).build();
+
+        for v in &mut mesh.verts {
+            let n = vec3(v.pos.x(), 0.0, v.pos.z()).normalize();
+            *v = vertex(v.pos, n);
+        }
+        mesh
+    }
+}
+
+impl Cylinder {
+    pub fn build(self) -> Mesh<Normal3> {
+        let Self { sectors, capped, radius } = self;
+        Cone {
+            sectors,
+            capped,
+            base_radius: radius,
+            apex_radius: radius,
+        }
+        .build()
+    }
+}
+
+impl Cone {
+    pub fn build(self) -> Mesh<Normal3> {
+        let pts =
+            vec![vec2(self.base_radius, -1.0), vec2(self.apex_radius, 1.0)];
+        Lathe::new(pts, self.sectors)
+            .capped(self.capped)
+            .build()
+    }
+}
+
+impl Capsule {
+    pub fn build(self) -> Mesh<Normal3> {
+        let Self { sectors, cap_segments, radius } = self;
+
+        // Top hemisphere
+        let mut top_pts: Vec<_> = (degs(90.0)..=degs(0.0))
+            .vary(cap_segments)
+            .map(|alt| vec2(0.0, 1.0) + polar(radius, alt).into())
+            .collect();
+
+        // Bottom hemisphere
+        let bottom_pts = top_pts.iter().map(|v| vec2(v.x(), -v.y())).rev();
+
+        Lathe::new(
+            top_pts
+                .iter()
+                .copied()
+                .chain(bottom_pts)
+                .collect(),
+            sectors,
+        )
+        .build()
     }
 }
