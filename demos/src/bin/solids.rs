@@ -62,6 +62,7 @@ fn main() {
         Octahedron.build(),
         Dodecahedron.build(),
         Icosahedron.build(),
+        // Surfaces of revolution
         Lathe::new(
             vec![
                 vec2(0.75, -0.5),
@@ -74,9 +75,41 @@ fn main() {
         )
         .capped(true)
         .build(),
+        Sphere {
+            sectors: 12,
+            segments: 6,
+            radius: 1.0,
+        }
+        .build(),
+        Cylinder {
+            sectors: 12,
+            capped: true,
+            radius: 0.8,
+        }
+        .build(),
+        Cone {
+            sectors: 12,
+            capped: true,
+            base_radius: 1.1,
+            apex_radius: 0.1,
+        }
+        .build(),
+        Capsule {
+            sectors: 10,
+            cap_segments: 5,
+            radius: 0.5,
+        }
+        .build(),
+        Torus {
+            major_radius: 0.9,
+            minor_radius: 0.3,
+            major_sectors: 16,
+            minor_sectors: 8,
+        }
+        .build(),
     ];
 
-    let camera = translate(vec3(0.0, 0.0, 3.0));
+    let camera = translate(vec3(0.0, 0.0, 4.0));
     let project = perspective(1.5, 4.0 / 3.0, 0.1..1000.0);
     let viewport = viewport(vec2(10, 10)..vec2(630, 470));
 

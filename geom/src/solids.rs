@@ -1,12 +1,14 @@
+//! Mesh approximations of various geometric shapes.
+//!
 use core::array::from_fn;
 use core::ops::Range;
 
 use re::geom::mesh::Builder;
 use re::geom::{vertex, Mesh};
-use re::math::angle::{turns, Angle};
+use re::math::angle::{degs, polar, turns, Angle};
 use re::math::mat::rotate_y;
 use re::math::vary::Vary;
-use re::math::vec::{splat, vec3, Vec2, Vec3};
+use re::math::vec::{splat, vec2, vec3, Vec2, Vec3};
 use re::render::tex::{uv, TexCoord};
 
 /// A surface normal.
@@ -109,6 +111,46 @@ pub struct Lathe {
     pub az_range: Range<Angle>,
 }
 
+/// TODO
+pub struct Sphere {
+    pub sectors: u32,
+    pub segments: u32,
+    pub radius: f32,
+}
+
+/// Toroidal polyhedron.
+pub struct Torus {
+    /// Distance from the origin to the center of the tube.
+    pub major_radius: f32,
+    /// Radius of the cross-section of the tube.
+    pub minor_radius: f32,
+
+    pub major_sectors: u32,
+    pub minor_sectors: u32,
+}
+
+/// Right cylinder with regular *n*-gonal cross-section.
+pub struct Cylinder {
+    pub sectors: u32,
+    pub capped: bool,
+    pub radius: f32,
+}
+
+/// TODO
+pub struct Cone {
+    pub sectors: u32,
+    pub capped: bool,
+    pub base_radius: f32,
+    pub apex_radius: f32,
+}
+
+/// Cylinder with hemispherical caps.
+pub struct Capsule {
+    pub sectors: u32,
+    pub cap_segments: u32,
+    pub radius: f32,
+}
+
 //
 // Inherent impls
 //
@@ -116,7 +158,7 @@ pub struct Lathe {
 impl Tetrahedron {
     const FACES: [[usize; 3]; 4] = [[0, 2, 1], [0, 3, 2], [0, 1, 3], [1, 2, 3]];
 
-    // Builds the tetrahedral mesh.
+    /// Builds the tetrahedral mesh.
     pub fn build(self) -> Mesh<Normal3> {
         let sqrt = f32::sqrt;
         let coords = [
@@ -202,7 +244,7 @@ impl Box {
         }
     }
 
-    // Builds the cuboid mesh.
+    /// Builds the cuboid mesh.
     pub fn build(self) -> Mesh<Normal3> {
         let mut b = Mesh::builder();
         b.push_faces(Self::FACES);
@@ -258,7 +300,7 @@ impl Octahedron {
         [21, 22, 23],
     ];
 
-    // Builds the octahedral mesh.
+    /// Builds the octahedral mesh.
     pub fn build(self) -> Mesh<Normal3> {
         let mut b = Mesh::builder();
         for (i, vs) in Self::FACES.iter().enumerate() {
@@ -320,10 +362,10 @@ impl Dodecahedron {
         [11, 10, 13, 5, 17], [10, 11, 19, 7, 15],
     ];
 
-    // The normals are exactly the vertices of the icosahedron, normalized.
+    /// The normals are exactly the vertices of the icosahedron, normalized.
     const NORMALS: [Vec3; 12] = Icosahedron::COORDS;
 
-    // Builds the dodecahedral mesh.
+    /// Builds the dodecahedral mesh.
     pub fn build(self) -> Mesh<Normal3> {
         let mut b = Mesh::builder();
 
@@ -370,10 +412,10 @@ impl Icosahedron {
         [2, 9, 7], [3,  7, 11], // +X+Y   "
     ];
 
-    // The normals are exactly the vertices of the dodecahedron, normalized.
+    /// The normals are exactly the vertices of the dodecahedron, normalized.
     const NORMALS: [Vec3; 20] = Dodecahedron::COORDS;
 
-    // Builds the icosahedral mesh.
+    /// Builds the icosahedral mesh.
     pub fn build(self) -> Mesh<Normal3> {
         let mut b = Mesh::builder();
         for (i, vs) in Self::FACES.iter().enumerate() {
@@ -402,6 +444,7 @@ impl Lathe {
         Self { capped, ..self }
     }
 
+    /// Builds the lathe mesh.
     pub fn build(self) -> Mesh<Normal3> {
         let Self { pts, sectors, capped, az_range } = self;
         let secs = sectors as usize;
@@ -482,6 +525,93 @@ impl Lathe {
             }
         }
         b.build()
+    }
+}
+
+impl Sphere {
+    /// Builds the spherical mesh.
+    pub fn build(self) -> Mesh<Normal3> {
+        let Self { sectors, segments, radius } = self;
+
+        let pts = degs(-90.0)
+            .vary_to(degs(90.0), segments)
+            .map(|alt| polar(radius, alt).into())
+            .collect();
+
+        let mut mesh = Lathe::new(pts, sectors).build();
+
+        for v in &mut mesh.verts {
+            let normal = v.pos.normalize();
+            *v = vertex(v.pos, normal.to());
+        }
+        mesh
+    }
+}
+
+impl Torus {
+    /// Builds the toroidal mesh.
+    pub fn build(self) -> Mesh<Normal3> {
+        let pts = turns(0.0)
+            .vary_to(turns(1.0), self.minor_sectors)
+            .map(|alt| polar(self.minor_radius, alt))
+            .map(|p| vec2(self.major_radius, 0.0) + p.into())
+            .collect();
+
+        Lathe::new(pts, self.major_sectors).build()
+    }
+}
+
+impl Cylinder {
+    /// Builds the cylindrical mesh.
+    pub fn build(self) -> Mesh<Normal3> {
+        let Self { sectors, capped, radius } = self;
+        Cone {
+            sectors,
+            capped,
+            base_radius: radius,
+            apex_radius: radius,
+        }
+        .build()
+    }
+}
+
+impl Cone {
+    /// Builds the conical mesh.
+    pub fn build(self) -> Mesh<Normal3> {
+        let pts =
+            vec![vec2(self.base_radius, -1.0), vec2(self.apex_radius, 1.0)];
+        Lathe::new(pts, self.sectors)
+            .capped(self.capped)
+            .build()
+    }
+}
+
+impl Capsule {
+    /// Builds the capsule mesh.
+    pub fn build(self) -> Mesh<Normal3> {
+        let Self { sectors, cap_segments, radius } = self;
+
+        // Bottom hemisphere
+        let bottom_pts: Vec<_> = degs(-90.0)
+            .vary_to(degs(0.0), cap_segments)
+            .map(|alt| vec2(0.0, -1.0) + polar(radius, alt).to_cart())
+            .collect();
+
+        // Top hemisphere
+        let top_pts = bottom_pts
+            .iter()
+            .map(|v| vec2(v.x(), -v.y()))
+            .rev();
+
+        Lathe::new(
+            bottom_pts
+                .iter()
+                .copied()
+                .chain(top_pts)
+                .collect(),
+            sectors,
+        )
+        .build()
     }
 }
 
