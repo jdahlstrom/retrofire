@@ -9,7 +9,6 @@ use core::ops::Range;
 
 use crate::math::space::{Proj4, Real};
 use crate::math::vec::{Vec2i, Vec3, Vec4, Vector};
-use crate::math::ApproxEq;
 use crate::render::{NdcToScreen, ViewToProj};
 
 /// A linear transform from one space (or basis) to another.
