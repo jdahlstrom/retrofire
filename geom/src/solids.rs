@@ -25,6 +25,9 @@ pub struct Box {
 #[derive(Copy, Clone, Debug, Default)]
 pub struct Octahedron;
 
+#[derive(Copy, Clone, Debug, Default)]
+pub struct Icosahedron;
+
 impl Default for Box {
     /// Creates a cube with unit-length edges, centered at the origin.
     fn default() -> Self {
@@ -161,5 +164,55 @@ impl Octahedron {
                 .collect(),
             faces: Self::FACES.map(Tri).to_vec(),
         }
+    }
+}
+
+const PHI: f32 = 1.61803401f32;
+
+impl Icosahedron {
+    #[rustfmt::skip]
+    const COORDS: [Vec3; 12] = [
+        // -X
+        vec3(-PHI, 0.0, -1.0), vec3(-PHI, 0.0, 1.0),
+        // +X
+        vec3( PHI, 0.0, -1.0), vec3( PHI, 0.0, 1.0),
+        // -Y
+        vec3(-1.0, -PHI, 0.0), vec3(1.0, -PHI, 0.0),
+        // +Y
+        vec3(-1.0,  PHI, 0.0), vec3(1.0,  PHI, 0.0),
+        // -Z
+        vec3(0.0, -1.0, -PHI), vec3(0.0, 1.0, -PHI),
+        // +Z
+        vec3(0.0, -1.0,  PHI), vec3(0.0, 1.0,  PHI),
+    ];
+    #[rustfmt::skip]
+    const FACES: [[usize; 3]; 20] = [
+        // -X
+        [0, 1, 4], [0, 1, 6],
+        // +X
+        [2, 3, 5], [2, 3, 7],
+        // -Y
+        [4, 5, 8], [4, 5, 10],
+        // +Y
+        [6, 7, 9], [6, 7, 11],
+        // -Z
+        [8, 9, 0], [8, 9, 2],
+        // +Z
+        [10, 11, 1], [10, 11, 3],
+        // The "corners"
+        [0, 4,  8], [0, 6,  9],
+        [1, 4, 10], [1, 6, 11],
+        [2, 5,  8], [2, 7,  9],
+        [3, 5, 10], [3, 7, 11],
+    ];
+
+    pub fn build(self) -> Mesh<Normal3> {
+        // TODO normals
+        Mesh::new(
+            Self::FACES.map(Tri).to_vec(),
+            Self::COORDS
+                .map(|c| vertex(c.to(), 0.0.into()))
+                .to_vec(),
+        )
     }
 }
