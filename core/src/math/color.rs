@@ -188,7 +188,7 @@ impl Color3f<Rgb> {
     #[inline]
     pub fn to_color4(self) -> Color4 {
         let [r, g, b] = self.to_u8();
-        [r, g, b, 0xFF].into()
+        rgba(r, g, b, 0xFF)
     }
 
     #[inline]
