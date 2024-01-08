@@ -19,11 +19,17 @@ pub struct Box {
     pub right_top_far: Vec3,
 }
 
-/// A regular octahedron: a polyhedron with eight triangular faces.
+/// A regular octahedron: a Platonic solid with six vertices and eight
+/// equilateral triangle faces. The octahedron is the dual of the cube.
 ///
-/// Has vertices at (±1, 0, 0), (0, ±1, 0), and (0, 0, ±1).
+/// # Vertex coordinates
+///
+/// (±1, 0, 0), (0, ±1, 0), and (0, 0, ±1).
 #[derive(Copy, Clone, Debug, Default)]
 pub struct Octahedron;
+
+#[derive(Copy, Clone, Debug, Default)]
+pub struct Dodecahedron;
 
 #[derive(Copy, Clone, Debug, Default)]
 pub struct Icosahedron;
@@ -167,52 +173,124 @@ impl Octahedron {
     }
 }
 
-const PHI: f32 = 1.61803401f32;
+/// The golden ratio constant φ.
+const PHI: f32 = 1.61803401_f32;
+/// Reciprocal of φ.
+const R_PHI: f32 = 1.0 / PHI;
+
+impl Dodecahedron {
+    #[rustfmt::skip]
+    const COORDS: [Vec3; 20] = [
+        // -X
+        vec3(-PHI, -R_PHI, 0.0),
+        vec3(-PHI,  R_PHI, 0.0),
+        // +X
+        vec3( PHI, -R_PHI, 0.0),
+        vec3( PHI,  R_PHI, 0.0),
+        // -Y
+        vec3(0.0, -PHI, -R_PHI),
+        vec3(0.0, -PHI,  R_PHI),
+        // +Y
+        vec3(0.0,  PHI, -R_PHI),
+        vec3(0.0,  PHI,  R_PHI),
+        // -Z
+        vec3(-R_PHI, 0.0, -PHI),
+        vec3( R_PHI, 0.0, -PHI),
+        // +Z
+        vec3(-R_PHI, 0.0,  PHI),
+        vec3( R_PHI, 0.0,  PHI),
+
+        // Corner verts, corresponding to the corner faces of the icosahedron.
+        vec3(-1.0, -1.0, -1.0),
+        vec3(-1.0, -1.0,  1.0),
+        vec3(-1.0,  1.0, -1.0),
+        vec3(-1.0,  1.0,  1.0),
+        vec3( 1.0, -1.0, -1.0),
+        vec3( 1.0, -1.0,  1.0),
+        vec3( 1.0,  1.0, -1.0),
+        vec3( 1.0,  1.0,  1.0),
+
+    ];
+    const FACES: [[usize; 5]; 12] = [
+        [0, 1, 14, 8, 12],
+        [1, 0, 13, 10, 15],
+        [3, 2, 16, 9, 18],
+        [2, 3, 19, 11, 17],
+        [4, 5, 13, 0, 12],
+        [5, 4, 16, 2, 17],
+        [7, 6, 14, 1, 15],
+        [6, 7, 19, 3, 18],
+        [8, 9, 16, 4, 12],
+        [9, 8, 14, 6, 18],
+        [11, 10, 13, 5, 17],
+        [10, 11, 19, 7, 15],
+    ];
+
+    // The normals are exactly the vertices of the icosahedron, normalized.
+    const NORMALS: [Vec3; 12] = Icosahedron::COORDS;
+
+    pub fn build(self) -> Mesh<Normal3> {
+        let mut faces = vec![];
+        let mut verts = vec![];
+
+        for (i, face) in Self::FACES.iter().enumerate() {
+            let n = Self::NORMALS[i].normalize();
+            let i5 = 5 * i;
+            faces.push(Tri([i5, i5 + 1, i5 + 2]));
+            faces.push(Tri([i5, i5 + 2, i5 + 3]));
+            faces.push(Tri([i5, i5 + 3, i5 + 4]));
+            for &j in face {
+                verts.push(vertex(Self::COORDS[j].to().normalize(), n))
+            }
+        }
+
+        Mesh::new(faces, verts)
+    }
+}
 
 impl Icosahedron {
     #[rustfmt::skip]
     const COORDS: [Vec3; 12] = [
-        // -X
-        vec3(-PHI, 0.0, -1.0), vec3(-PHI, 0.0, 1.0),
-        // +X
-        vec3( PHI, 0.0, -1.0), vec3( PHI, 0.0, 1.0),
-        // -Y
-        vec3(-1.0, -PHI, 0.0), vec3(1.0, -PHI, 0.0),
-        // +Y
-        vec3(-1.0,  PHI, 0.0), vec3(1.0,  PHI, 0.0),
-        // -Z
-        vec3(0.0, -1.0, -PHI), vec3(0.0, 1.0, -PHI),
-        // +Z
-        vec3(0.0, -1.0,  PHI), vec3(0.0, 1.0,  PHI),
+        vec3(-PHI, 0.0, -1.0), vec3(-PHI, 0.0, 1.0), // -X
+        vec3( PHI, 0.0, -1.0), vec3( PHI, 0.0, 1.0), // +X
+
+        vec3(-1.0, -PHI, 0.0), vec3(1.0, -PHI, 0.0), // -Y
+        vec3(-1.0,  PHI, 0.0), vec3(1.0,  PHI, 0.0), // +Y
+
+        vec3(0.0, -1.0, -PHI), vec3(0.0, 1.0, -PHI), // -Z
+        vec3(0.0, -1.0,  PHI), vec3(0.0, 1.0,  PHI), // +Z
     ];
     #[rustfmt::skip]
     const FACES: [[usize; 3]; 20] = [
-        // -X
-        [0, 1, 4], [0, 1, 6],
-        // +X
-        [2, 3, 5], [2, 3, 7],
-        // -Y
-        [4, 5, 8], [4, 5, 10],
-        // +Y
-        [6, 7, 9], [6, 7, 11],
-        // -Z
-        [8, 9, 0], [8, 9, 2],
-        // +Z
-        [10, 11, 1], [10, 11, 3],
-        // The "corners"
-        [0, 4,  8], [0, 6,  9],
-        [1, 4, 10], [1, 6, 11],
-        [2, 5,  8], [2, 7,  9],
-        [3, 5, 10], [3, 7, 11],
+        [0,  4,  1], [0,  1,  6], // -X
+        [2,  3,  5], [2,  7,  3], // +X
+        [4,  8,  5], [4,  5, 10], // -Y
+        [6,  7,  9], [6,  11, 7], // +Y
+        [8,  0,  9], [8,  9,  2], // -Z
+        [10, 11, 1], [10, 3, 11], // +Z
+
+        // Corner faces, corresponding to the corner verts of the dodecahedron.
+        [0, 8, 4], [1,  4, 10], // -X-Y -Z,+Z
+        [0, 6, 9], [1, 11,  6], // -X+Y   "
+        [2, 5, 8], [3, 10,  5], // +X-Y   "
+        [2, 9, 7], [3,  7, 11], // +X+Y   "
     ];
 
+    /// The normals are exactly the vertices of the dodecahedron, normalized.
+    const NORMALS: [Vec3; 20] = Dodecahedron::COORDS;
+
     pub fn build(self) -> Mesh<Normal3> {
-        // TODO normals
-        Mesh::new(
-            Self::FACES.map(Tri).to_vec(),
-            Self::COORDS
-                .map(|c| vertex(c.to(), 0.0.into()))
-                .to_vec(),
-        )
+        let mut faces = vec![];
+        let mut verts = vec![];
+
+        for (i, &[a, b, c]) in Self::FACES.iter().enumerate() {
+            let n = Self::NORMALS[i].normalize();
+            faces.push(Tri([3 * i, 3 * i + 1, 3 * i + 2]));
+            verts.push(vertex(Self::COORDS[a].to().normalize(), n));
+            verts.push(vertex(Self::COORDS[b].to().normalize(), n));
+            verts.push(vertex(Self::COORDS[c].to().normalize(), n));
+        }
+
+        Mesh::new(faces, verts)
     }
 }
