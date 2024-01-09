@@ -2,7 +2,7 @@
 //! a face when rendering, such as colors, normals, or texture coordinates.
 
 use core::mem;
-use std::ops::{Range, RangeInclusive};
+use core::ops::{Range, RangeInclusive};
 
 /// A trait for types that can be linearly interpolated and distributed
 /// between two endpoints.

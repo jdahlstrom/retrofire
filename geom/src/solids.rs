@@ -1,6 +1,6 @@
 //! Mesh approximations of various geometric shapes.
 
-use std::array::from_fn;
+use core::array::from_fn;
 
 use re::geom::mesh::Mesh;
 use re::geom::{vertex, Tri};
@@ -28,9 +28,11 @@ pub struct Box {
 #[derive(Copy, Clone, Debug, Default)]
 pub struct Octahedron;
 
+/// A regular octahedron: a polyhedron with 12 pentagonal faces.
 #[derive(Copy, Clone, Debug, Default)]
 pub struct Dodecahedron;
 
+/// A regular octahedron: a polyhedron with 20 triangular faces.
 #[derive(Copy, Clone, Debug, Default)]
 pub struct Icosahedron;
 
@@ -47,6 +49,7 @@ pub struct Lathe {
     pub capped: bool,
 }
 
+#[derive(Copy, Clone, Debug)]
 pub struct Sphere {
     pub sectors: u32,
     pub segments: u32,
@@ -54,6 +57,7 @@ pub struct Sphere {
 }
 
 /// A toroidal polyhedron.
+#[derive(Copy, Clone, Debug)]
 pub struct Torus {
     /// Distance from the origin to the center of the tube.
     pub major_radius: f32,
@@ -65,12 +69,14 @@ pub struct Torus {
 }
 
 /// A right cylinder with regular *n*-gonal cross-section.
+#[derive(Copy, Clone, Debug)]
 pub struct Cylinder {
     pub sectors: u32,
     pub capped: bool,
     pub radius: f32,
 }
 
+#[derive(Copy, Clone, Debug)]
 pub struct Cone {
     pub sectors: u32,
     pub capped: bool,
@@ -79,6 +85,7 @@ pub struct Cone {
 }
 
 /// A cylinder with hemispherical caps.
+#[derive(Copy, Clone, Debug)]
 pub struct Capsule {
     pub sectors: u32,
     pub cap_segments: u32,
@@ -97,12 +104,10 @@ impl Default for Box {
 
 impl Box {
     const COORDS: [Vec3; 8] = [
-        // left
         vec3(0.0, 0.0, 0.0), // 0b000
         vec3(0.0, 0.0, 1.0), // 0b001
         vec3(0.0, 1.0, 0.0), // 0b010
         vec3(0.0, 1.0, 1.0), // 0b011
-        // right
         vec3(1.0, 0.0, 0.0), // 0b100
         vec3(1.0, 0.0, 1.0), // 0b101
         vec3(1.0, 1.0, 0.0), // 0b110
@@ -252,22 +257,19 @@ impl Dodecahedron {
         vec3( PHI,  1.0/PHI, 0.0),
     ];
     const FACES: [[usize; 5]; 12] = [
-        [0, 1, ],
-        [0, 2, ],
-        [0, 4, ],
-
-        [3, 1,],
-        [3, 2,],
-        [3, 7,],
-
+        [0, 1],
+        [0, 2],
+        [0, 4],
+        [3, 1],
+        [3, 2],
+        [3, 7],
         [5, 7],
-        [5, 1,],
-        [5, 4,],
-
-        [6, 7,],
+        [5, 1],
+        [5, 4],
+        [6, 7],
         [6, 4],
-        [6, 2, ],
-    ]
+        [6, 2],
+    ];
 
     pub fn build(self) -> Mesh<Normal3> {
         todo!()
@@ -333,7 +335,7 @@ impl Lathe {
     }
 
     pub fn build(self) -> Mesh<Normal3> {
-        let Self { pts, sectors, capped, .. } = self;
+        let Self { pts, sectors, capped } = self;
         let secs = sectors as usize;
 
         let mut verts = Vec::with_capacity(pts.len() * (secs + 1) + 2);
@@ -437,8 +439,10 @@ impl Cylinder {
 
 impl Cone {
     pub fn build(self) -> Mesh<Normal3> {
-        let pts =
-            vec![vec2(self.base_radius, -1.0), vec2(self.apex_radius, 1.0)];
+        let pts = vec![
+            vec2(self.base_radius, -1.0), //
+            vec2(self.apex_radius, 1.0),
+        ];
         Lathe::new(pts, self.sectors)
             .capped(self.capped)
             .build()
@@ -447,12 +451,10 @@ impl Cone {
 
 impl Capsule {
     pub fn build(self) -> Mesh<Normal3> {
-        let Self { sectors, cap_segments, radius } = self;
-
         // Top hemisphere
         let mut top_pts: Vec<_> = (degs(90.0)..=degs(0.0))
-            .vary(cap_segments)
-            .map(|alt| vec2(0.0, 1.0) + polar(radius, alt).into())
+            .vary(self.cap_segments)
+            .map(|alt| vec2(0.0, 1.0) + polar(self.radius, alt).into())
             .collect();
 
         // Bottom hemisphere
@@ -464,7 +466,7 @@ impl Capsule {
                 .copied()
                 .chain(bottom_pts)
                 .collect(),
-            sectors,
+            self.sectors,
         )
         .build()
     }
