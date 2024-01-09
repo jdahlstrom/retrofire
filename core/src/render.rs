@@ -15,7 +15,7 @@ use stats::Stats;
 use target::{Config, Target};
 
 use crate::geom::{Tri, Vertex};
-use crate::math::mat::{RealToProjective, RealToReal};
+use crate::math::mat::{RealToProj, RealToReal};
 use crate::math::space::Real;
 use crate::math::{Mat4x4, Vary, Vec3};
 use crate::render::clip::ClipVec;
@@ -51,10 +51,10 @@ pub struct Screen;
 pub type ModelToView = RealToReal<3, Model, View>;
 
 /// Mapping from model space to view space.
-pub type ModelToProjective = RealToProjective<Model>;
+pub type ModelToProj = RealToProj<Model>;
 
 /// Mapping from view space to projective space.
-pub type ViewToProjective = RealToProjective<View>;
+pub type ViewToProj = RealToProj<View>;
 
 /// Mapping from NDC space to screen space.
 pub type NdcToScreen = RealToReal<3, Ndc, Screen>;
