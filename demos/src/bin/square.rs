@@ -7,7 +7,7 @@ use re::math::space::Real;
 use re::math::{rads, vec2, vec3, Mat4x4, Vec3};
 use re::render::raster::Frag;
 use re::render::shader::Shader;
-use re::render::{render, Model, ModelToProjective, ModelToView};
+use re::render::{render, Model, ModelToProj, ModelToView};
 use re_front::minifb::Window;
 
 fn main() {
@@ -19,12 +19,12 @@ fn main() {
     ];
 
     let mut win = Window::builder()
-        .title("minifb front demo")
+        .title("retrofire//square")
         .size(640, 480)
         .build();
 
     let shader = Shader::new(
-        |v: Vertex<_, _>, mvp: &Mat4x4<ModelToProjective>| {
+        |v: Vertex<_, _>, mvp: &Mat4x4<ModelToProj>| {
             vertex(mvp.apply(&v.pos), v.attrib)
         },
         |frag: Frag<Color3f>| frag.var.to_color4(),

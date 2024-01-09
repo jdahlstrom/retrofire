@@ -32,7 +32,7 @@ const H: usize = 480;
 
 fn main() {
     let mut win = Window::builder()
-        .title("Bezier")
+        .title("retrofire//bezier")
         .size(W, H)
         .build();
 

@@ -9,7 +9,7 @@ use core::ops::Range;
 
 use crate::math::space::{Proj4, Real};
 use crate::math::vec::{Vec2i, Vec3, Vec4, Vector};
-use crate::render::{NdcToScreen, ViewToProjective};
+use crate::render::{NdcToScreen, ViewToProj};
 
 /// A linear transform from one space (or basis) to another.
 ///
@@ -31,7 +31,7 @@ pub trait Compose<Inner: LinearMap>: LinearMap<Source = Inner::Dest> {
     type Result: LinearMap<Source = Inner::Source, Dest = Self::Dest>;
 }
 
-/// A mapping from one basis to another in real vector space of dimension `DIM`.
+/// A change of basis in real vector space of dimension `DIM`.
 #[derive(Copy, Clone, Default, Eq, PartialEq)]
 pub struct RealToReal<const DIM: usize, SrcBasis = (), DstBasis = ()>(
     PhantomData<(SrcBasis, DstBasis)>,
@@ -39,7 +39,7 @@ pub struct RealToReal<const DIM: usize, SrcBasis = (), DstBasis = ()>(
 
 /// Mapping from real to projective space.
 #[derive(Copy, Clone, Debug, Default, Eq, PartialEq)]
-pub struct RealToProjective<SrcBasis>(PhantomData<SrcBasis>);
+pub struct RealToProj<SrcBasis>(PhantomData<SrcBasis>);
 
 /// Dummy `LinearMap` to help with generic code.
 impl LinearMap for () {
@@ -339,7 +339,7 @@ impl<Src, Dst> Mat4x4<RealToReal<3, Src, Dst>> {
     }
 }
 
-impl<B> Mat4x4<RealToProjective<B>> {
+impl<B> Mat4x4<RealToProj<B>> {
     /// Maps the real 3-vector 𝘃 from basis 𝖡 to the projective 4-space.
     ///
     /// Computes the matrix–vector multiplication 𝝡𝘃 where 𝘃 is interpreted as
@@ -379,13 +379,13 @@ impl<const DIM: usize, S, I, D> Compose<RealToReal<DIM, S, I>>
     type Result = RealToReal<DIM, S, D>;
 }
 
-impl<S> LinearMap for RealToProjective<S> {
+impl<S> LinearMap for RealToProj<S> {
     type Source = Real<3, S>;
     type Dest = Proj4;
 }
 
-impl<S, I> Compose<RealToReal<3, S, I>> for RealToProjective<I> {
-    type Result = RealToProjective<S>;
+impl<S, I> Compose<RealToReal<3, S, I>> for RealToProj<I> {
+    type Result = RealToProj<S>;
 }
 
 //
@@ -555,7 +555,7 @@ pub fn perspective(
     focal_ratio: f32,
     aspect_ratio: f32,
     near_far: Range<f32>,
-) -> Mat4x4<ViewToProjective> {
+) -> Mat4x4<ViewToProj> {
     let (near, far) = (near_far.start, near_far.end);
 
     assert!(focal_ratio > 0.0, "focal ratio must be positive");
@@ -581,7 +581,7 @@ pub fn perspective(
 /// # Parameters
 /// * `lbn`: The left-bottom-near corner of the projection box.
 /// * `rtf`: The right-bottom-far corner of the projection box.
-pub fn orthographic(lbn: Vec3, rtf: Vec3) -> Mat4x4<ViewToProjective> {
+pub fn orthographic(lbn: Vec3, rtf: Vec3) -> Mat4x4<ViewToProj> {
     let [dx, dy, dz] = (rtf - lbn).0;
     let [sx, sy, sz] = (rtf + lbn).0;
     [
