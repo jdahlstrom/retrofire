@@ -60,21 +60,17 @@ pub type ViewToProjective = RealToProjective<View>;
 pub type NdcToScreen = RealToReal<3, Ndc, Screen>;
 
 /// Renders the given triangles into `target`.
-pub fn render<P, A, V, Sh, U>(
+pub fn render<Vtx: Clone, Var: Vary, Uni: Copy, Shd>(
     tris: impl AsRef<[Tri<usize>]>,
-    verts: impl AsRef<[Vertex<P, A>]>,
-    shader: &Sh,
-    uniform: U,
+    verts: impl AsRef<[Vtx]>,
+    shader: &Shd,
+    uniform: Uni,
     viewport_tf: Mat4x4<NdcToScreen>,
     target: &mut impl Target,
 ) -> Stats
 where
-    P: Clone,
-    A: Clone,
-    V: Vary,
-    Sh: VertexShader<Vertex<P, A>, U, Output = Vertex<ClipVec, V>>
-        + FragmentShader<Frag<V>>,
-    U: Copy,
+    Shd: VertexShader<Vtx, Uni, Output = Vertex<ClipVec, Var>>
+        + FragmentShader<Frag<Var>>,
 {
     let mut stats = Stats::start();
 
