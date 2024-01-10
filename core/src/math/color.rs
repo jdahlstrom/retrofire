@@ -10,6 +10,8 @@ use crate::math::vec::Vector;
 // Types
 //
 
+// TODO Document color spaces better
+
 /// A generic color type, similar to [`Vector`].
 ///
 /// # Type parameters
@@ -20,41 +22,55 @@ use crate::math::vec::Vector;
 #[derive(Copy, Clone, Default, Eq, PartialEq)]
 pub struct Color<Repr, Space>(pub Repr, PhantomData<Space>);
 
-/// The (S)RGB color space.
+/// The (S)RGB (red, green, blue) color space.
 #[derive(Copy, Clone, Debug, Default, Eq, PartialEq)]
 pub struct Rgb;
 
-/// The (S)RGBA color space (RGB plus alpha, or opacity).
+/// The (S)RGB (red, green, blue) color space with alpha (opacity).
 #[derive(Copy, Clone, Debug, Default, Eq, PartialEq)]
 pub struct Rgba;
 
-/// The HSL color space (hue, saturation, luminance) .
+/// The HSL color space (hue, saturation, luminance).
 #[derive(Copy, Clone, Debug, Default, Eq, PartialEq)]
 pub struct Hsl;
 
-/// The HSL space with alpha (opacity).
+/// The HSL color space (hue, saturation, luminance) with alpha (opacity).
 #[derive(Copy, Clone, Debug, Default, Eq, PartialEq)]
 pub struct Hsla;
 
-/// An RGB color with `u8` components.
+/// A color with three `u8` channels, by default RGB.
 pub type Color3<Space = Rgb> = Color<[u8; 3], Space>;
 
-/// An RGBA color with `u8` components.
+/// A color with four `u8` channels, by default RGBA.
 pub type Color4<Space = Rgba> = Color<[u8; 4], Space>;
 
-/// An RGB color with `f32` components.
+/// A color with three `f32` channels, by default RGB.
+///
+/// The nominal range of values for each channel is [0.0, 1.0], but values
+/// outside the range can be useful as intermediate results in calculations.
 pub type Color3f<Space = Rgb> = Color<[f32; 3], Space>;
 
-/// An RGBA color with `f32` components.
+/// A color with four `f32` channels, by default RGBA.
+///
+/// The nominal range of values for each channel is [0.0, 1.0], but values
+/// outside the range can be useful as intermediate results in calculations.
 pub type Color4f<Space = Rgba> = Color<[f32; 4], Space>;
 
-/// Returns a new RGB color with `r`, `g`, and `b` components.
+/// Returns a new RGB color with the given color channels.
 pub const fn rgb<Ch>(r: Ch, g: Ch, b: Ch) -> Color<[Ch; 3], Rgb> {
     Color([r, g, b], PhantomData)
 }
-/// Returns a new RGBA color with `r`, `g`, `b`, and `c` components.
+/// Returns a new RGBA color with the given color channels.
 pub const fn rgba<Ch>(r: Ch, g: Ch, b: Ch, a: Ch) -> Color<[Ch; 4], Rgba> {
     Color([r, g, b, a], PhantomData)
+}
+/// Returns a new HSL color with the given color channels.
+pub const fn hsl<Ch>(h: Ch, s: Ch, l: Ch) -> Color<[Ch; 3], Hsl> {
+    Color([h, s, l], PhantomData)
+}
+/// Returns a new HSLA color with the given color channels.
+pub const fn hsla<Ch>(h: Ch, s: Ch, l: Ch, a: Ch) -> Color<[Ch; 4], Hsla> {
+    Color([h, s, l, a], PhantomData)
 }
 
 //
