@@ -6,6 +6,10 @@ use core::ops::Index;
 use crate::math::space::{Affine, Linear};
 use crate::math::vec::Vector;
 
+//
+// Types
+//
+
 /// A generic color type, similar to [`Vector`].
 ///
 /// # Type parameters
@@ -53,77 +57,9 @@ pub const fn rgba<Ch>(r: Ch, g: Ch, b: Ch, a: Ch) -> Color<[Ch; 4], Rgba> {
     Color([r, g, b, a], PhantomData)
 }
 
-impl<Sp, const DIM: usize> Affine for Color<[u8; DIM], Sp>
-where
-    [i16; DIM]: Default,
-{
-    type Space = Sp;
-    type Diff = Vector<[i16; DIM], Sp>;
-
-    const DIM: usize = DIM;
-
-    fn add(&self, other: &Self::Diff) -> Self {
-        array::from_fn(|i| {
-            (i16::from(self.0[i]) + other.0[i]).clamp(0, u8::MAX as i16) as u8
-        })
-        .into()
-    }
-    fn sub(&self, other: &Self) -> Self::Diff {
-        array::from_fn(|i| i16::from(self.0[i]) - i16::from(other.0[i])).into()
-    }
-}
-
-impl<Sp, const DIM: usize> Affine for Color<[f32; DIM], Sp>
-where
-    [f32; DIM]: Default,
-{
-    type Space = Sp;
-    type Diff = Self;
-
-    const DIM: usize = DIM;
-
-    #[inline]
-    fn add(&self, other: &Self::Diff) -> Self {
-        array::from_fn(|i| self.0[i] + other.0[i]).into()
-    }
-    #[inline]
-    fn sub(&self, other: &Self) -> Self::Diff {
-        array::from_fn(|i| self.0[i] - other.0[i]).into()
-    }
-}
-
-impl<Sp, const DIM: usize> Linear for Color<[f32; DIM], Sp>
-where
-    [f32; DIM]: Default,
-{
-    type Scalar = f32;
-
-    /// Returns the all-zeroes color (black).
-    fn zero() -> Self {
-        <[f32; DIM]>::default().into()
-    }
-    #[inline]
-    fn neg(&self) -> Self {
-        array::from_fn(|i| -self.0[i]).into()
-    }
-    #[inline]
-    fn mul(&self, scalar: Self::Scalar) -> Self {
-        array::from_fn(|i| self.0[i] * scalar).into()
-    }
-}
-
-impl<R: Debug, Space: Debug + Default> Debug for Color<R, Space> {
-    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
-        write!(f, "Color<{:?}>{:?}", Space::default(), self.0)
-    }
-}
-
-impl<R, Sp> From<R> for Color<R, Sp> {
-    #[inline]
-    fn from(els: R) -> Self {
-        Self(els, PhantomData)
-    }
-}
+//
+// Inherent impls
+//
 
 impl Color3 {
     #[inline]
@@ -289,6 +225,86 @@ where
     /// TODO
     pub fn to_rgba(&self) -> Color<R, Rgba> {
         todo!()
+    }
+}
+
+//
+// Local trait impls
+//
+
+impl<Sp, const DIM: usize> Affine for Color<[u8; DIM], Sp>
+where
+    [i16; DIM]: Default,
+{
+    type Space = Sp;
+    type Diff = Vector<[i16; DIM], Sp>;
+
+    const DIM: usize = DIM;
+
+    fn add(&self, other: &Self::Diff) -> Self {
+        array::from_fn(|i| {
+            (i16::from(self.0[i]) + other.0[i]).clamp(0, u8::MAX as i16) as u8
+        })
+        .into()
+    }
+    fn sub(&self, other: &Self) -> Self::Diff {
+        array::from_fn(|i| i16::from(self.0[i]) - i16::from(other.0[i])).into()
+    }
+}
+
+impl<Sp, const DIM: usize> Affine for Color<[f32; DIM], Sp>
+where
+    [f32; DIM]: Default,
+{
+    type Space = Sp;
+    type Diff = Self;
+
+    const DIM: usize = DIM;
+
+    #[inline]
+    fn add(&self, other: &Self::Diff) -> Self {
+        array::from_fn(|i| self.0[i] + other.0[i]).into()
+    }
+    #[inline]
+    fn sub(&self, other: &Self) -> Self::Diff {
+        array::from_fn(|i| self.0[i] - other.0[i]).into()
+    }
+}
+
+impl<Sp, const DIM: usize> Linear for Color<[f32; DIM], Sp>
+where
+    [f32; DIM]: Default,
+{
+    type Scalar = f32;
+
+    /// Returns the all-zeroes color (black).
+    fn zero() -> Self {
+        <[f32; DIM]>::default().into()
+    }
+    #[inline]
+    fn neg(&self) -> Self {
+        array::from_fn(|i| -self.0[i]).into()
+    }
+    #[inline]
+    fn mul(&self, scalar: Self::Scalar) -> Self {
+        array::from_fn(|i| self.0[i] * scalar).into()
+    }
+}
+
+//
+// Foreign trait impls
+//
+
+impl<R: Debug, Space: Debug + Default> Debug for Color<R, Space> {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        write!(f, "Color<{:?}>{:?}", Space::default(), self.0)
+    }
+}
+
+impl<R, Sp> From<R> for Color<R, Sp> {
+    #[inline]
+    fn from(els: R) -> Self {
+        Self(els, PhantomData)
     }
 }
 
