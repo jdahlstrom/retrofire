@@ -3,6 +3,7 @@ use core::fmt::{self, Debug, Formatter};
 use core::marker::PhantomData;
 use core::ops::Index;
 
+use crate::math::float::f32;
 use crate::math::space::{Affine, Linear};
 use crate::math::vec::Vector;
 
@@ -77,7 +78,7 @@ pub const fn hsla<Ch>(h: Ch, s: Ch, l: Ch, a: Ch) -> Color<[Ch; 4], Hsla> {
 // Inherent impls
 //
 
-impl Color3 {
+impl Color3<Rgb> {
     #[inline]
     /// Returns a `u32` containing the component bytes of `self`
     /// in format `0x00_RR_GG_BB`.
@@ -85,9 +86,40 @@ impl Color3 {
         let [r, g, b] = self.0;
         u32::from_be_bytes([0x00, r, g, b])
     }
+
+    /// Returns the HSL color equivalent to `self`.
+    pub fn to_hsl(self) -> Color3<Hsl> {
+        // Fixed point multiplier
+        const M: i32 = 256;
+
+        let [r, g, b] = self.0.map(i32::from);
+
+        let max = r.max(g).max(b);
+        let min = r.min(g).min(b);
+        let d = max - min; // Always non-negative
+
+        let h = if d == 0 {
+            0
+        } else if max == r {
+            (((g - b) * M) / d).rem_euclid(6 * M)
+        } else if max == g {
+            ((b - r) * M) / d + (2 * M)
+        } else {
+            ((r - g) * M) / d + (4 * M)
+        };
+        let h = h / 6;
+        let l = (max + min + 1) / 2;
+        let s = if l == 0 || l == 255 {
+            0
+        } else {
+            (d * M) / (M - (2 * l - M).abs())
+        };
+
+        [h, s, l].map(|c| c.clamp(0, 255) as u8).into()
+    }
 }
 
-impl Color4 {
+impl Color4<Rgba> {
     #[inline]
     /// Returns a `u32` containing the component bytes of `self`
     /// in format `0xRR_GG_BB_AA`.
@@ -100,9 +132,16 @@ impl Color4 {
     pub const fn to_argb_u32(self) -> u32 {
         self.to_rgba_u32().rotate_right(8)
     }
+
+    /// Returns the HSLA color equivalent to `self`.
+    pub fn to_hsla(self) -> Color4<Hsla> {
+        let [r, g, b, _] = self.0;
+        let [h, s, l] = rgb(r, g, b).to_hsl().0;
+        [h, s, l, self.a()].into()
+    }
 }
 
-impl Color3f {
+impl Color3f<Rgb> {
     /// Returns a `Color3` with the components of `self` mapped to `u8`
     /// with `(c.clamp(0.0, 1.0) * 255.0) as u8`.
     #[inline]
@@ -120,9 +159,41 @@ impl Color3f {
     fn to_u8(self) -> [u8; 3] {
         self.0.map(|c| (c.clamp(0.0, 1.0) * 255.0) as u8)
     }
+
+    /// Returns the HSL color equivalent to `self`.
+    pub fn to_hsl(self) -> Color3f<Hsl> {
+        let [r, g, b] = self.0;
+
+        let max = r.max(g).max(b);
+        let min = r.min(g).min(b);
+        let d = max - min;
+
+        let h = if d == 0.0 {
+            0.0
+        } else if max == r {
+            f32::rem_euclid((g - b) / d, 6.0)
+        } else if max == g {
+            (b - r) / d + 2.0
+        } else {
+            (r - g) / d + 4.0
+        };
+        let h = h / 6.0;
+        let l = (max + min) / 2.0;
+        let s = if l == 0.0 || l == 1.0 {
+            0.0
+        } else {
+            d / (1.0 - f32::abs(2.0 * l - 1.0))
+        };
+
+        for ch in [h, s, l] {
+            debug_assert!(0.0 <= ch && ch <= 1.0, "channel oob: {ch:?}");
+        }
+
+        hsl(h, s, l)
+    }
 }
 
-impl Color4f {
+impl Color4f<Rgba> {
     /// Returns a `Color3` with the components of `self` mapped to `u8`
     /// with `(c.clamp(0.0, 1.0) * 255.0) as u8`, discarding alpha.
     #[inline]
@@ -139,6 +210,94 @@ impl Color4f {
     #[inline]
     fn to_u8(self) -> [u8; 4] {
         self.0.map(|c| (c.clamp(0.0, 1.0) * 255.0) as u8)
+    }
+
+    /// Returns the HSLA color equivalent to `self`.
+    pub fn to_hsla(self) -> Color4f<Hsla> {
+        let [r, g, b, _] = self.0;
+        let [h, s, l] = rgb(r, g, b).to_hsl().0;
+        [h, s, l, self.a()].into()
+    }
+}
+
+impl Color3<Hsl> {
+    /// Returns the RGB color equivalent to `self`.
+    pub fn to_rgb(self) -> Color3<Rgb> {
+        // Fixed-point multiplier
+        const M: i32 = 256;
+
+        let [h, s, l] = self.0.map(i32::from);
+        let h = h * 6;
+
+        let c = (M - (2 * l - M).abs()) * s;
+        let x = c * (M - (h % (2 * M) - M).abs());
+        let m = M * l - c / 2;
+
+        let c = c / M;
+        let x = x / M / M;
+        let m = m / M;
+
+        let rgb = match h / M {
+            0 => [c, x, 0],
+            1 => [x, c, 0],
+            2 => [0, c, x],
+            3 => [0, x, c],
+            4 => [x, 0, c],
+            5 => [c, 0, x],
+            _ => unreachable!(),
+        };
+        rgb.map(|ch| {
+            let ch = ch + m;
+            debug_assert!(0 <= ch && ch < 256, "channel oob: {:?}", ch);
+            ch as u8
+        })
+        .into()
+    }
+}
+
+impl Color3f<Hsl> {
+    /// Returns the RGB color equivalent to `self`.
+    pub fn to_rgb(self) -> Color3f<Rgb> {
+        let [h, s, l] = self.0;
+        let h = h * 6.0;
+
+        let c = (1.0 - f32::abs(2.0 * l - 1.0)) * s;
+        let x = c * (1.0 - f32::abs(h % 2.0 - 1.0));
+        let m = 1.0 * l - c / 2.0;
+
+        let rgb = match (h - 0.5) as i32 {
+            0 => [c, x, 0.0],
+            1 => [x, c, 0.0],
+            2 => [0.0, c, x],
+            3 => [0.0, x, c],
+            4 => [x, 0.0, c],
+            5 => [c, 0.0, x],
+            _ => unreachable!("h={h}"),
+        };
+
+        rgb.map(|ch| {
+            let ch = ch + m;
+            debug_assert!(0.0 <= ch && ch <= 1.0, "channel oob: {ch:?}");
+            ch
+        })
+        .into()
+    }
+}
+
+impl Color4<Hsla> {
+    /// Returns the RGBA color equivalent to `self`.
+    pub fn to_rgba(self) -> Color4<Rgba> {
+        let [h, s, l, _] = self.0;
+        let [r, g, b] = hsl(h, s, l).to_rgb().0;
+        [r, g, b, self.a()].into()
+    }
+}
+impl Color4f<Hsla> {
+    /// Returns the RGBA color equivalent to `self`.
+    pub fn to_rgba(self) -> Color4f<Rgba> {
+        let [h, s, l, _] = self.0;
+        let [r, g, b] = hsl(h, s, l).to_rgb().0;
+        [r, g, b, self.a()].into()
     }
 }
 
@@ -158,11 +317,6 @@ where
     /// Returns the blue component of `self`.
     pub fn b(&self) -> Sc {
         self.0[2]
-    }
-
-    /// TODO
-    pub fn to_hsl(&self) -> Color<R, Hsl> {
-        todo!()
     }
 }
 
@@ -187,11 +341,6 @@ where
     pub fn a(&self) -> Sc {
         self.0[3]
     }
-
-    /// TODO
-    pub fn to_hsla(&self) -> Color<R, Hsla> {
-        todo!()
-    }
 }
 
 impl<R, Sc> Color<R, Hsl>
@@ -210,10 +359,6 @@ where
     /// Returns the luminance component of `self`.
     pub fn l(&self) -> Sc {
         self.0[2]
-    }
-    /// TODO
-    pub fn to_rgb(&self) -> Color<R, Rgb> {
-        todo!()
     }
 }
 
@@ -237,10 +382,6 @@ where
     /// Returns the alpha component of `self`.
     pub fn a(&self) -> Sc {
         self.0[3]
-    }
-    /// TODO
-    pub fn to_rgba(&self) -> Color<R, Rgba> {
-        todo!()
     }
 }
 
@@ -347,5 +488,128 @@ mod tests {
     fn rgba_to_u32() {
         assert_eq!(rgba(0x11, 0x22, 0x33, 0x44).to_rgba_u32(), 0x11_22_33_44);
         assert_eq!(rgba(0x11, 0x22, 0x33, 0x44).to_argb_u32(), 0x44_11_22_33);
+    }
+
+    #[test]
+    fn rgb_to_hsl() {
+        let cases = [
+            // Grays
+            (rgb(0, 0, 0), hsl(0, 0, 0)),
+            (rgb(64, 64, 64), hsl(0, 0, 64)),
+            (rgb(160, 160, 160), hsl(0, 0, 160)),
+            (rgb(255, 255, 255), hsl(0, 0, 255)),
+            // 100% RGB
+            (rgb(255, 0, 0), hsl(0, 255, 128)),
+            (rgb(0, 255, 0), hsl(85, 255, 128)),
+            (rgb(0, 0, 255), hsl(170, 255, 128)),
+            // 100% CMY
+            (rgb(255, 255, 0), hsl(42, 255, 128)),
+            (rgb(255, 0, 255), hsl(213, 255, 128)),
+            (rgb(0, 255, 255), hsl(128, 255, 128)),
+            // 50% RGB
+            (rgb(128, 0, 0), hsl(0, 255, 64)),
+            (rgb(0, 128, 0), hsl(85, 255, 64)),
+            (rgb(0, 0, 128), hsl(170, 255, 64)),
+            // 50% CMY
+            (rgb(128, 128, 0), hsl(42, 255, 64)),
+            (rgb(128, 0, 128), hsl(213, 255, 64)),
+            (rgb(0, 128, 128), hsl(128, 255, 64)),
+        ];
+
+        for (rgb, hsl) in cases {
+            assert_eq!(rgb.to_hsl(), hsl, "{rgb:?} vs {hsl:?}");
+        }
+    }
+
+    #[test]
+    fn hsl_to_rgb() {
+        let cases = [
+            // Grays
+            (rgb(0, 0, 0), hsl(0, 0, 0)),
+            (rgb(64, 64, 64), hsl(0, 0, 64)),
+            (rgb(160, 160, 160), hsl(0, 0, 160)),
+            (rgb(255, 255, 255), hsl(0, 0, 255)),
+            // 100% RGB
+            (rgb(255, 0, 0), hsl(0, 255, 128)),
+            (rgb(1, 255, 0), hsl(85, 255, 128)),
+            (rgb(0, 3, 255), hsl(170, 255, 128)), // !
+            // 100% CMY
+            (rgb(255, 251, 0), hsl(42, 255, 128)), // !
+            (rgb(253, 0, 255), hsl(213, 255, 128)), // !
+            (rgb(0, 255, 255), hsl(128, 255, 128)),
+            // 50% RGB
+            (rgb(127, 0, 0), hsl(0, 255, 64)), // !
+            (rgb(0, 127, 0), hsl(85, 255, 64)), // !
+            (rgb(0, 1, 127), hsl(170, 255, 64)), // !
+            // 50% CMY
+            (rgb(127, 125, 0), hsl(42, 255, 64)), // !
+            (rgb(126, 0, 127), hsl(213, 255, 64)), // !
+            (rgb(0, 127, 127), hsl(128, 255, 64)), // !
+        ];
+
+        for (rgb, hsl) in cases {
+            assert_eq!(hsl.to_rgb(), rgb, "{hsl:?} vs {rgb:?}");
+        }
+    }
+
+    #[test]
+    fn hsl_to_rgb_float() {
+        let cases = [
+            // Grays
+            (rgb(0.0, 0.0, 0.0), hsl(0.0, 0.0, 0.0)),
+            (rgb(0.25, 0.25, 0.25), hsl(0.0, 0.0, 0.25)),
+            (rgb(0.625, 0.625, 0.625), hsl(0.0, 0.0, 0.625)),
+            (rgb(1.0, 1.0, 1.0), hsl(0.0, 0.0, 1.0)),
+            // 100% RGB
+            (rgb(1.0, 0.0, 0.0), hsl(0.0, 1.0, 0.5)),
+            (rgb(0.0, 1.0, 0.0), hsl(1.0 / 3.0, 1.0, 0.5)),
+            (rgb(0.0, 0.0, 1.0), hsl(2.0 / 3.0, 1.0, 0.5)),
+            // 100% CMY
+            (rgb(1.0, 1.0, 0.0), hsl(1.0 / 6.0, 1.0, 0.5)),
+            (rgb(1.0, 0.0, 1.0), hsl(5.0 / 6.0, 1.0, 0.5)),
+            (rgb(0.0, 1.0, 1.0), hsl(0.5, 1.0, 0.5)),
+            // 50% RGB
+            (rgb(0.5, 0.0, 0.0), hsl(0.0, 1.0, 0.25)),
+            (rgb(0.0, 0.5, 0.0), hsl(1.0 / 3.0, 1.0, 0.25)),
+            (rgb(0.0, 0.0, 0.5), hsl(2.0 / 3.0, 1.0, 0.25)),
+            // 50% CMY
+            (rgb(0.5, 0.5, 0.0), hsl(1.0 / 6.0, 1.0, 0.25)),
+            (rgb(0.5, 0.0, 0.5), hsl(5.0 / 6.0, 1.0, 0.25)),
+            (rgb(0.0, 0.5, 0.5), hsl(0.5, 1.0, 0.25)),
+        ];
+
+        for (rgb, hsl) in cases {
+            assert_eq!(hsl.to_rgb(), rgb, "{hsl:?} to {rgb:?}");
+        }
+    }
+    #[test]
+    fn rgb_to_hsl_float() {
+        let cases = [
+            // Grays
+            (rgb(0.0, 0.0, 0.0), hsl(0.0, 0.0, 0.0)),
+            (rgb(0.25, 0.25, 0.25), hsl(0.0, 0.0, 0.25)),
+            (rgb(0.625, 0.625, 0.625), hsl(0.0, 0.0, 0.625)),
+            (rgb(1.0, 1.0, 1.0), hsl(0.0, 0.0, 1.0)),
+            // 100% RGB
+            (rgb(1.0, 0.0, 0.0), hsl(0.0, 1.0, 0.5)),
+            (rgb(0.0, 1.0, 0.0), hsl(1.0 / 3.0, 1.0, 0.5)),
+            (rgb(0.0, 0.0, 1.0), hsl(2.0 / 3.0, 1.0, 0.5)),
+            // 100% CMY
+            (rgb(1.0, 1.0, 0.0), hsl(1.0 / 6.0, 1.0, 0.5)),
+            (rgb(1.0, 0.0, 1.0), hsl(5.0 / 6.0, 1.0, 0.5)),
+            (rgb(0.0, 1.0, 1.0), hsl(0.5, 1.0, 0.5)),
+            // 50% RGB
+            (rgb(0.5, 0.0, 0.0), hsl(0.0, 1.0, 0.25)),
+            (rgb(0.0, 0.5, 0.0), hsl(1.0 / 3.0, 1.0, 0.25)),
+            (rgb(0.0, 0.0, 0.5), hsl(2.0 / 3.0, 1.0, 0.25)),
+            // 50% CMY
+            (rgb(0.5, 0.5, 0.0), hsl(1.0 / 6.0, 1.0, 0.25)),
+            (rgb(0.5, 0.0, 0.5), hsl(5.0 / 6.0, 1.0, 0.25)),
+            (rgb(0.0, 0.5, 0.5), hsl(0.5, 1.0, 0.25)),
+        ];
+
+        for (rgb, hsl) in cases {
+            assert_eq!(rgb.to_hsl(), hsl, "{rgb:?} to {hsl:?}");
+        }
     }
 }
