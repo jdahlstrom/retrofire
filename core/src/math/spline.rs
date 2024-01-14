@@ -159,7 +159,8 @@ impl<T: Linear<Scalar = f32> + Copy> BezierSpline<T> {
 
     fn segment(&self, t: f32) -> (f32, [T; 4]) {
         let segs = ((self.0.len() - 1) / 3) as f32;
-        let seg = (t * segs).floor().min(segs - 1.0);
+        // TODO use floor and make the code cleaner
+        let seg = ((t * segs) as u32 as f32).min(segs - 1.0);
         let t2 = t * segs - seg;
         let idx = 3 * (seg as usize);
         (t2, (self.0[idx..idx + 4]).try_into().unwrap())

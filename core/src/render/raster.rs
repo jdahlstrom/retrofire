@@ -221,12 +221,15 @@ fn scale<V: Vary>(
     <Varyings<V> as Vary>::scale(d, s)
 }
 
-#[cfg(feature = "std")]
+#[cfg(feature = "fp")]
 #[inline]
 fn round_up_to_half(x: f32) -> f32 {
+    #[cfg(feature = "mm")]
+    use micromath::F32Ext;
+
     (x + 0.5).floor() + 0.5
 }
-#[cfg(not(feature = "std"))]
+#[cfg(not(feature = "fp"))]
 #[inline]
 fn round_up_to_half(x: f32) -> f32 {
     (x + 0.5) as i32 as f32 + 0.5
