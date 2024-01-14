@@ -118,6 +118,14 @@ impl<Sp, const N: usize> Vector<[f32; N], Sp> {
         self.mul(self.len().recip())
     }
 
+    /// Returns the length of `self`, squared.
+    ///
+    /// This avoids taking the square root in cases it's not needed.
+    #[inline]
+    pub fn len_sqr(&self) -> f32 {
+        self.dot(self)
+    }
+
     /// Returns the dot product of `self` and `other`.
     #[inline]
     pub fn dot(&self, other: &Self) -> f32 {
