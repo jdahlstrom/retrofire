@@ -27,7 +27,10 @@ use Error::*;
 use Format::*;
 
 use crate::math::color::{rgb, Color3};
-use crate::util::buf::{AsSlice2, Buf2};
+use crate::util::buf::Buf2;
+
+#[cfg(feature = "std")]
+use crate::util::buf::AsSlice2;
 
 /// The header of a PNM image
 #[derive(Copy, Clone, Debug, Eq, PartialEq)]

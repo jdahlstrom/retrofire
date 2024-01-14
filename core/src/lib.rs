@@ -1,6 +1,6 @@
 //! ```text
-//!                                                     ______
-//!                        ____                       /´  ____/\
+//!                                                      ______
+//!                         ___                       /´  ____/\
 //!       __ ______ _____ /   /\_ _ ______ _____ __  /   /_/___/\ __ _____ ______
 //!    ==/  ´ ____/ __   \   ____/ ´ ____/  __  ` __    ___,  /==/  ´  ___/ __   \
 //!   ==/   /´=/   ______/  /==/   /´=/   /==/   /=/   /=/   /==/   /´=/   ______/\
@@ -16,19 +16,29 @@
 //! geometry primitives; a software 3D renderer with customizable shaders;
 //! with more to come.
 //!
-//! # Cargo features
+//! # Crate features
 //!
 //! * `std`:
-//!   Makes available items requiring floating-point functions or timekeeping.
-//!   If disabled, this crate only depends on `alloc`.
+//!   Makes available items requiring I/O, timekeeping, or any floating-point
+//!   functions not included in `core`. In particular this means trigonometric
+//!   and transcendental functions.
+//!   
+//!   If this feature is disabled, the crate only depends on `alloc`.
+//!
+//! * `libm`:
+//!   Provides software implementations of floating-point functions via the
+//!   [libm](https://crates.io/crates/libm) crate.
 //!
 //! * `micromath`:
-//!   Provides an alternative, no-std implementation of floating-point
-//!   functions via the [micromath](https://crates.io/crates/micromath) crate.
+//!   Provides fast approximate implementations of floating-point functions
+//!   via the [micromath](https://crates.io/crates/micromath) crate.
 //!
 //! All features are disabled by default.
 
-#![cfg_attr(not(feature = "std"), no_std)]
+#![no_std]
+
+#[cfg(feature = "std")]
+extern crate std;
 
 // TODO make alloc optional
 extern crate alloc;

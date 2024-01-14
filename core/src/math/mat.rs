@@ -7,9 +7,11 @@ use core::fmt::{self, Debug, Formatter};
 use core::marker::PhantomData;
 use core::ops::Range;
 
+#[cfg(feature = "mm")]
+use micromath::F32Ext;
+
 use crate::math::space::{Affine, Linear, Proj4, Real};
 use crate::math::vec::{splat, Vec2i, Vec3, Vec4, Vector};
-use crate::math::ApproxEq;
 use crate::render::{NdcToScreen, ViewToProjective};
 
 /// A linear transform from one space (or basis) to another.
@@ -260,6 +262,7 @@ impl<Src, Dst> Mat4x4<RealToReal<3, Src, Dst>> {
     /// * Panics in debug mode.
     /// * Does not panic in release mode, but the result may be inaccurate
     /// or contain `Inf`s or `NaN`s.
+    #[cfg(feature = "fp")] // TODO Only requires abs
     #[must_use]
     pub fn inverse(&self) -> Mat4x4<RealToReal<3, Dst, Src>> {
         if cfg!(debug_assertions) {
@@ -475,7 +478,7 @@ pub fn translate(t: Vec3) -> Mat4x4<RealToReal<3>> {
 ///
 /// Returns an orthogonal basis. If `new_y` and `x` are unit vectors,
 /// the result is orthonormal.
-#[cfg(feature = "std")]
+#[cfg(feature = "fp")]
 pub fn orient_y(new_y: Vec3, x: Vec3) -> Mat4x4<RealToReal<3>> {
     orient(new_y, x.cross(&new_y).normalize())
 }
@@ -485,13 +488,14 @@ pub fn orient_y(new_y: Vec3, x: Vec3) -> Mat4x4<RealToReal<3>> {
 ///
 /// Returns an orthogonal basis. If `new_z` and `x` are unit vectors,
 /// the result is orthonormal.
-#[cfg(feature = "std")]
+#[cfg(feature = "fp")]
 pub fn orient_z(new_z: Vec3, x: Vec3) -> Mat4x4<RealToReal<3>> {
     orient(new_z.cross(&x).normalize(), new_z)
 }
 
-#[cfg(feature = "std")]
+#[cfg(feature = "fp")]
 fn orient(new_y: Vec3, new_z: Vec3) -> Mat4x4<RealToReal<3>> {
+    use crate::math::ApproxEq;
     assert!(!new_y.approx_eq(&splat(0.0)));
     assert!(!new_z.approx_eq(&splat(0.0)));
 
@@ -500,7 +504,7 @@ fn orient(new_y: Vec3, new_z: Vec3) -> Mat4x4<RealToReal<3>> {
 }
 
 /// Returns a matrix applying a rotation by `a` about the x axis.
-#[cfg(feature = "std")]
+#[cfg(feature = "fp")]
 pub fn rotate_x(a: super::angle::Angle) -> Mat4x4<RealToReal<3>> {
     let (sin, cos) = a.sin_cos();
     [
@@ -512,7 +516,7 @@ pub fn rotate_x(a: super::angle::Angle) -> Mat4x4<RealToReal<3>> {
     .into()
 }
 /// Returns a matrix applying a rotation by `a` about the y axis.
-#[cfg(feature = "std")]
+#[cfg(feature = "fp")]
 pub fn rotate_y(a: super::angle::Angle) -> Mat4x4<RealToReal<3>> {
     let (sin, cos) = a.sin_cos();
     [
@@ -524,7 +528,7 @@ pub fn rotate_y(a: super::angle::Angle) -> Mat4x4<RealToReal<3>> {
     .into()
 }
 /// Returns a matrix applying a rotation of angle `a` about the z axis.
-#[cfg(feature = "std")]
+#[cfg(feature = "fp")]
 pub fn rotate_z(a: super::angle::Angle) -> Mat4x4<RealToReal<3>> {
     let (sin, cos) = a.sin_cos();
     [
@@ -659,7 +663,7 @@ mod tests {
     }
 
     #[test]
-    #[cfg(feature = "std")]
+    #[cfg(feature = "fp")]
     fn rotation_x() {
         let m = rotate_x(degs(90.0));
         assert_eq!(m.apply(&splat(0.0)), splat(0.0));
@@ -667,7 +671,7 @@ mod tests {
     }
 
     #[test]
-    #[cfg(feature = "std")]
+    #[cfg(feature = "fp")]
     fn rotation_y() {
         let m = rotate_y(degs(90.0));
         assert_eq!(m.apply(&splat(0.0)), splat(0.0));
@@ -675,7 +679,7 @@ mod tests {
     }
 
     #[test]
-    #[cfg(feature = "std")]
+    #[cfg(feature = "fp")]
     fn rotation_z() {
         let m = rotate_z(degs(90.0));
         assert_eq!(m.apply(&splat(0.0)), splat(0.0));
@@ -697,6 +701,7 @@ mod tests {
         assert_eq!(st.apply(&splat(0.0)), vec3(1.0, 2.0, 3.0));
     }
 
+    #[cfg(feature = "fp")]
     #[test]
     fn mat_times_mat_inverse_is_identity() {
         let m = translate(vec3(1.0e3, -2.0e2, 0.0))
@@ -709,6 +714,7 @@ mod tests {
         assert_eq!(m_inv.compose(&m), Mat4x4::identity());
     }
 
+    #[cfg(feature = "fp")]
     #[test]
     fn inverse_reverts_transform() {
         let m: Mat4x4<RealToReal<3, Basis1, Basis2>> =

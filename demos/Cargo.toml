@@ -11,19 +11,18 @@ categories.workspace = true
 
 [dependencies]
 re = { path = "../core", package="retrofire-core", features = ["std"] }
-rf = { path = "../front", package = "retrofire-front" }
+re-front = { path = "../front", package = "retrofire-front" }
 
 minifb = { version = "0.25.0", optional = true }
 softbuffer = { version = "0.3.0", optional = true }
 winit = { version = "0.28.6", optional = true }
 
 [features]
-minifb = ["dep:minifb", "rf/minifb"]
+minifb = ["dep:minifb", "re-front/minifb"]
 
 [[bin]]
 name = "square"
 required-features = ["minifb"]
-
 
 [[bin]]
 name = "bezier"
