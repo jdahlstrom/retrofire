@@ -1,5 +1,8 @@
 //! Textures and texture samplers.
 
+#[cfg(feature = "mm")]
+use micromath::F32Ext;
+
 use crate::math::space::Real;
 use crate::math::vec::{Vec2, Vector};
 use crate::util::buf::{AsSlice2, Buf2, Slice2};
@@ -94,7 +97,7 @@ pub struct SamplerRepeatPot {
     h_mask: i32,
 }
 
-#[cfg(feature = "std")]
+#[cfg(feature = "fp")] // TODO Should always provide floor
 impl SamplerRepeatPot {
     /// Creates a new `SamplerRepeatPot` based on the dimensions of `tex`.
     /// # Panics
@@ -145,7 +148,7 @@ impl SamplerRepeatPot {
 #[derive(Copy, Clone, Debug)]
 pub struct SamplerClamp;
 
-#[cfg(feature = "std")]
+#[cfg(feature = "fp")]
 impl SamplerClamp {
     /// Returns the color in `tex` at `tc` such that coordinates outside
     /// the range `0.0..1.0` are clamped to the range endpoints.
@@ -248,7 +251,7 @@ mod tests {
     }
 
     #[test]
-    #[cfg(feature = "std")]
+    #[cfg(feature = "fp")]
     fn sampler_repeat_pot() {
         let tex = tex();
         let s = SamplerRepeatPot::new(&tex);
@@ -264,7 +267,7 @@ mod tests {
     }
 
     #[test]
-    #[cfg(feature = "std")]
+    #[cfg(feature = "fp")]
     fn sampler_clamp() {
         let tex = tex();
         let s = SamplerClamp;

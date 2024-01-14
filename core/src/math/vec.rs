@@ -104,14 +104,16 @@ impl<R, Sp> Vector<R, Sp> {
 // TODO Many of these functions could be more generic
 impl<Sp, const N: usize> Vector<[f32; N], Sp> {
     /// Returns the length (magnitude) of `self`.
-    #[cfg(feature = "std")]
+    #[cfg(feature = "fp")]
     #[inline]
     pub fn len(&self) -> f32 {
+        #[cfg(feature = "mm")]
+        use micromath::F32Ext;
         self.dot(self).sqrt()
     }
 
     /// Returns `self` normalized to unit length.
-    #[cfg(feature = "std")]
+    #[cfg(feature = "fp")]
     #[inline]
     #[must_use]
     pub fn normalize(&self) -> Self {
@@ -464,7 +466,7 @@ where
         *self = Affine::add(&*self, &rhs);
     }
 }
-/// The vector + vector operator.
+// The vector + vector operator.
 impl_op!(Add::add, Self, +=);
 
 /// The vector -= vector operator.
@@ -477,7 +479,7 @@ where
         *self = Affine::sub(&*self, &rhs);
     }
 }
-/// The vector - vector operator.
+// The vector - vector operator.
 impl_op!(Sub::sub, Self, -=);
 
 /// The vector *= scalar operator.
@@ -490,7 +492,7 @@ where
         *self = Linear::mul(&*self, rhs);
     }
 }
-/// The vector * scalar operator.
+// The vector * scalar operator.
 impl_op!(Mul::mul, <Self as Linear>::Scalar, *=);
 
 /// The vector negation operator.
@@ -534,7 +536,7 @@ mod tests {
     mod f32 {
         use super::*;
 
-        #[cfg(feature = "std")]
+        #[cfg(feature = "fp")]
         #[test]
         fn length() {
             assert_eq!(vec2(3.0, 4.0).len(), 5.0);

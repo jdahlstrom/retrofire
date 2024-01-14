@@ -34,7 +34,10 @@ pub trait ApproxEq<Other: ?Sized = Self, Epsilon = Self> {
 
 impl ApproxEq for f32 {
     fn approx_eq_eps(&self, other: &Self, rel_eps: &Self) -> bool {
-        (self - other).abs() <= *rel_eps * self.abs().max(1.0)
+        // TODO Always provide abs
+        let diff = self.max(*other) - self.min(*other);
+        let abs_self = if *self >= 0.0 { *self } else { -self };
+        diff <= *rel_eps * abs_self.max(1.0)
     }
     fn relative_epsilon() -> Self {
         Self::EPSILON
