@@ -8,7 +8,7 @@ use re::math::{rads, vec2, vec3, Mat4x4, Vec3};
 use re::render::raster::Frag;
 use re::render::shader::Shader;
 use re::render::{render, Model, ModelToProjective, ModelToView};
-use rf::minifb::Window;
+use re_front::minifb::Window;
 
 fn main() {
     let verts: [Vertex<Vec3<Real<3, Model>>, _>; 4] = [

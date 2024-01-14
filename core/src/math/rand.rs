@@ -212,6 +212,7 @@ where
     }
 }
 
+#[cfg(feature = "fp")]
 impl Distrib for UnitCircle {
     type Sample = Vec2;
 
@@ -240,6 +241,7 @@ impl Distrib for UnitDisk {
     }
 }
 
+#[cfg(feature = "fp")]
 impl Distrib for UnitSphere {
     type Sample = Vec3;
 

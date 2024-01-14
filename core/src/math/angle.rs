@@ -4,6 +4,9 @@ use core::f32::consts::{PI, TAU};
 use core::fmt::{self, Debug, Display};
 use core::ops::{Add, Div, Mul, Neg, Rem, Sub};
 
+#[cfg(feature = "mm")]
+use micromath::F32Ext;
+
 use crate::math::approx::ApproxEq;
 use crate::math::space::{Affine, Linear};
 use crate::math::vec::{vec2, vec3, Vec2, Vec3, Vector};
@@ -68,7 +71,7 @@ pub fn turns(a: f32) -> Angle {
 /// ```
 /// # Panics
 /// If `x` is outside the range [-1.0, 1.0].
-#[cfg(feature = "std")]
+#[cfg(feature = "fp")]
 pub fn asin(x: f32) -> Angle {
     assert!(-1.0 <= x && x <= 1.0);
     Angle(x.asin())
@@ -85,7 +88,7 @@ pub fn asin(x: f32) -> Angle {
 /// ```
 /// # Panics
 /// If `x` is outside the range [-1.0, 1.0].
-#[cfg(feature = "std")]
+#[cfg(feature = "fp")]
 pub fn acos(x: f32) -> Angle {
     Angle(x.acos())
 }
@@ -101,7 +104,7 @@ pub fn acos(x: f32) -> Angle {
 /// assert_eq!(atan2(2.0, 2.0), degs(45.0));
 /// assert_eq!(atan2(3.0, 0.0), degs(90.0));
 /// ```
-#[cfg(feature = "std")]
+#[cfg(feature = "fp")]
 pub fn atan2(y: f32, x: f32) -> Angle {
     Angle(y.atan2(x))
 }
@@ -191,7 +194,7 @@ impl Angle {
     }
 }
 
-#[cfg(feature = "std")]
+#[cfg(feature = "fp")]
 impl Angle {
     /// Returns the sine of `self`.
     /// # Examples
@@ -387,7 +390,7 @@ impl Rem for Angle {
     }
 }
 
-#[cfg(feature = "std")]
+#[cfg(feature = "fp")]
 impl From<Vec2> for PolarVec {
     /// Converts an Euclidean 2-vector into equivalent polar coordinates.
     ///
@@ -428,7 +431,7 @@ impl From<Vec2> for PolarVec {
     }
 }
 
-#[cfg(feature = "std")]
+#[cfg(feature = "fp")]
 impl From<PolarVec> for Vec2 {
     /// Converts a polar vector into the equivalent Euclidean 2-vector.
     ///
@@ -465,7 +468,7 @@ impl From<PolarVec> for Vec2 {
     }
 }
 
-#[cfg(feature = "std")]
+#[cfg(feature = "fp")]
 impl From<Vec3> for SphericalVec {
     /// Converts an Euclidean 3-vector into equivalent spherical coordinates.
     ///
@@ -492,7 +495,7 @@ impl From<Vec3> for SphericalVec {
     }
 }
 
-#[cfg(feature = "std")]
+#[cfg(feature = "fp")]
 impl From<SphericalVec> for Vec3 {
     /// Converts a spherical coordinate vector to an Euclidean 3-vector.
     fn from(v: SphericalVec) -> Self {
@@ -556,7 +559,7 @@ mod tests {
         assert_eq!(degs(-50.0).clamp(min, max), min);
     }
 
-    #[cfg(feature = "std")]
+    #[cfg(feature = "fp")]
     #[test]
     fn trig_functions() {
         assert_eq!(degs(0.0).sin(), 0.0);
@@ -577,7 +580,7 @@ mod tests {
         assert_approx_eq!(degs(315.0).tan(), -1.0, eps = 1e-6);
     }
 
-    #[cfg(feature = "std")]
+    #[cfg(feature = "fp")]
     #[test]
     fn inverse_trig_functions() {
         assert_approx_eq!(asin(-1.0), degs(-90.0));
@@ -597,8 +600,8 @@ mod tests {
         assert_approx_eq!(atan2(-1.0, 1.0), degs(-45.0));
     }
 
+    #[cfg(feature = "fp")]
     #[test]
-    #[cfg(feature = "std")]
     fn wrapping() {
         use crate::assert_approx_eq;
 
@@ -626,7 +629,7 @@ mod tests {
         assert_approx_eq!(i.next(), None);
     }
 
-    #[cfg(feature = "std")]
+    #[cfg(feature = "fp")]
     #[test]
     fn polar_to_cartesian() {
         assert_eq!(Vec2::from(polar(0.0, Angle::ZERO)), vec2(0.0, 0.0));
@@ -646,7 +649,7 @@ mod tests {
         );
     }
 
-    #[cfg(feature = "std")]
+    #[cfg(feature = "fp")]
     #[test]
     fn cartesian_to_polar() {
         assert_eq!(PolarVec::from(vec2(0.0, 0.0)), polar(0.0, Angle::ZERO));
@@ -660,7 +663,7 @@ mod tests {
         assert_eq!(PolarVec::from(vec2(0.0, -2.0)), polar(2.0, -Angle::RIGHT));
     }
 
-    #[cfg(feature = "std")]
+    #[cfg(feature = "fp")]
     #[test]
     fn spherical_to_cartesian() {
         assert_eq!(
@@ -681,7 +684,7 @@ mod tests {
         );
     }
 
-    #[cfg(feature = "std")]
+    #[cfg(feature = "fp")]
     #[test]
     fn cartesian_to_spherical() {
         assert_eq!(

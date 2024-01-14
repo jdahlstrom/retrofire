@@ -5,8 +5,8 @@ use re::math::rand::{Distrib, Uniform, UnitDisk, Xorshift64};
 use re::math::space::{Affine, Linear};
 use re::math::spline::BezierSpline;
 use re::math::{vec2, Vary, Vec2, Vec2i};
-use rf::minifb::Window;
-use rf::Frame;
+use re_front::minifb::Window;
+use re_front::Frame;
 
 fn line([mut p0, mut p1]: [Vec2; 2]) -> impl Iterator<Item = Vec2i> {
     if p0.y() > p1.y() {
@@ -48,7 +48,7 @@ fn main() {
     win.run(|Frame { dt, buf, .. }| {
         let b = BezierSpline::new(&pts);
         // Stop once error is less than one pixel
-        let apx = b.approximate(|err| err.len() < 1.0);
+        let apx = b.approximate(|err| err.len_sqr() < 1.0);
 
         for seg in apx.windows(2) {
             for pt in line([seg[0], seg[1]]) {
