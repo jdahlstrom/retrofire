@@ -7,11 +7,8 @@ use core::fmt::{self, Debug, Formatter};
 use core::marker::PhantomData;
 use core::ops::Range;
 
-#[cfg(feature = "mm")]
-use micromath::F32Ext;
-
-use crate::math::space::{Affine, Linear, Proj4, Real};
-use crate::math::vec::{splat, Vec2i, Vec3, Vec4, Vector};
+use crate::math::space::{Proj4, Real};
+use crate::math::vec::{Vec2i, Vec3, Vec4, Vector};
 use crate::render::{NdcToScreen, ViewToProjective};
 
 /// A linear transform from one space (or basis) to another.
@@ -262,13 +259,13 @@ impl<Src, Dst> Mat4x4<RealToReal<3, Src, Dst>> {
     /// * Panics in debug mode.
     /// * Does not panic in release mode, but the result may be inaccurate
     /// or contain `Inf`s or `NaN`s.
-    #[cfg(feature = "fp")] // TODO Only requires abs
     #[must_use]
     pub fn inverse(&self) -> Mat4x4<RealToReal<3, Dst, Src>> {
+        use super::float::f32;
         if cfg!(debug_assertions) {
             let det = self.determinant();
             assert!(
-                det.abs() > f32::EPSILON,
+                f32::abs(det) > f32::EPSILON,
                 "a singular, near-singular, or non-finite matrix does not \
                  have a well-defined inverse (determinant = {det})"
             );
@@ -303,8 +300,8 @@ impl<Src, Dst> Mat4x4<RealToReal<3, Src, Dst>> {
         for idx in 0..4 {
             let pivot = (idx..4)
                 .max_by(|&r1, &r2| {
-                    let v1 = this.0[r1][idx].abs();
-                    let v2 = this.0[r2][idx].abs();
+                    let v1 = f32::abs(this.0[r1][idx]);
+                    let v2 = f32::abs(this.0[r2][idx]);
                     v1.partial_cmp(&v2).unwrap()
                 })
                 .unwrap();
@@ -495,7 +492,7 @@ pub fn orient_z(new_z: Vec3, x: Vec3) -> Mat4x4<RealToReal<3>> {
 
 #[cfg(feature = "fp")]
 fn orient(new_y: Vec3, new_z: Vec3) -> Mat4x4<RealToReal<3>> {
-    use crate::math::ApproxEq;
+    use crate::math::{vec::splat, ApproxEq};
     assert!(!new_y.approx_eq(&splat(0.0)));
     assert!(!new_z.approx_eq(&splat(0.0)));
 
@@ -617,7 +614,7 @@ pub fn viewport(bounds: Range<Vec2i>) -> Mat4x4<NdcToScreen> {
 #[cfg(test)]
 mod tests {
     use crate::assert_approx_eq;
-    use crate::math::{degs, vec3};
+    use crate::math::{degs, vec::splat, vec3};
 
     use super::*;
 

@@ -198,7 +198,7 @@ impl<T: Linear<Scalar = f32> + Copy> BezierSpline<T> {
     /// let curve = BezierSpline::new(
     ///     &[vec2(0.0, 0.0), vec2(0.0, 1.0), vec2(1.0, 1.0), vec2(1.0, 0.0)
     /// ]);
-    /// let approx = curve.approximate(|err| err.len() < 0.01);
+    /// let approx = curve.approximate(|err| err.len_sqr() < 0.01*0.01);
     /// assert_eq!(approx.len(), 17);
     /// ```
     pub fn approximate(&self, halt: impl Fn(&T) -> bool) -> Vec<T> {

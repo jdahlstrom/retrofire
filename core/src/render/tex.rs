@@ -1,8 +1,5 @@
 //! Textures and texture samplers.
 
-#[cfg(feature = "mm")]
-use micromath::F32Ext;
-
 use crate::math::space::Real;
 use crate::math::vec::{Vec2, Vector};
 use crate::util::buf::{AsSlice2, Buf2, Slice2};
@@ -97,7 +94,6 @@ pub struct SamplerRepeatPot {
     h_mask: i32,
 }
 
-#[cfg(feature = "fp")] // TODO Should always provide floor
 impl SamplerRepeatPot {
     /// Creates a new `SamplerRepeatPot` based on the dimensions of `tex`.
     /// # Panics
@@ -136,8 +132,9 @@ impl SamplerRepeatPot {
         tex: &Texture<impl AsSlice2<C>>,
         tc: TexCoord,
     ) -> C {
-        let u = (tc.u()).floor() as i32 & self.w_mask;
-        let v = (tc.v()).floor() as i32 & self.h_mask;
+        use crate::math::float::f32;
+        let u = f32::floor(tc.u()) as i32 & self.w_mask;
+        let v = f32::floor(tc.v()) as i32 & self.h_mask;
 
         tex.data.as_slice2()[[u, v]]
     }
@@ -172,8 +169,9 @@ impl SamplerClamp {
         tex: &Texture<impl AsSlice2<C>>,
         tc: TexCoord,
     ) -> C {
-        let u = (tc.u().clamp(0.0, tex.w - 1.0)).floor() as i32;
-        let v = (tc.v().clamp(0.0, tex.h - 1.0)).floor() as i32;
+        use crate::math::float::f32;
+        let u = f32::floor(tc.u().clamp(0.0, tex.w - 1.0)) as i32;
+        let v = f32::floor(tc.v().clamp(0.0, tex.h - 1.0)) as i32;
         tex.data.as_slice2()[[u, v]]
     }
 }
