@@ -11,17 +11,22 @@ env:
 
 jobs:
   build:
-
     runs-on: ubuntu-latest
 
     steps:
     - uses: actions/checkout@v2
     - name: Install libsdl
       run: sudo apt-get update && sudo apt-get -y install libsdl2-dev
-    - name: Check
-      run: cargo check --workspace --verbose --all-targets --all-features
-    - name: Build
-      run: cargo build --workspace --verbose --all-targets
-    - name: Run tests
-      run: cargo test --workspace --verbose
+
+    - name: Build core, no features
+      run: cargo build -p retrofire-core --verbose --all-targets --no-default-features
+    - name: Build core, micromath
+      run: cargo build -p retrofire-core --verbose --all-targets --no-default-features --features "mm"
+    - name: Build core, libm
+      run: cargo build -p retrofire-core --verbose --all-targets --no-default-features --features "libm"
+
+    - name: Build workspace, std
+      run: cargo build --workspace --verbose --all-targets --features "std"
+    - name: Run tests, std
+      run: cargo test --workspace --verbose --features "std"
 
