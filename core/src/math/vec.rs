@@ -1,4 +1,4 @@
-//! Vectors and vector spaces.
+//!
 
 use core::array;
 use core::fmt::{Debug, Formatter};
@@ -107,9 +107,7 @@ impl<Sp, const N: usize> Vector<[f32; N], Sp> {
     #[cfg(feature = "fp")]
     #[inline]
     pub fn len(&self) -> f32 {
-        #[cfg(feature = "mm")]
-        use micromath::F32Ext;
-        self.dot(self).sqrt()
+        super::float::f32::sqrt(self.dot(self))
     }
 
     /// Returns `self` normalized to unit length.
@@ -159,8 +157,8 @@ impl<Sp, const N: usize> Vector<[f32; N], Sp> {
         other.mul(self.scalar_project(other))
     }
 
-    /// Returns a vector of the same dimension as `self` by component-wise
-    /// applying `f`.
+    /// Returns a vector of the same dimension as `self` by applying `f`
+    /// component-wise.
     #[inline]
     #[must_use]
     pub fn map<T>(self, mut f: impl FnMut(f32) -> T) -> Vector<[T; N], Sp> {
