@@ -233,7 +233,7 @@ impl Distrib for UnitDisk {
         let mut d = Uniform(self.0, [-1.0f32; 2]..[1.0; 2]);
         loop {
             let v = Vec2::from(d.sample());
-            if v.dot(&v) <= 1.0 {
+            if v.len_sqr() <= 1.0 {
                 self.0 = d.0;
                 return v;
             }
@@ -262,7 +262,7 @@ impl Distrib for UnitBall {
         let mut d = Uniform(self.0, [-1.0; 3]..[1.0; 3]);
         loop {
             let v = Vec3::from(d.sample());
-            if v.dot(&v) <= 1.0 {
+            if v.len_sqr() <= 1.0 {
                 self.0 = d.0;
                 return v;
             }
@@ -352,12 +352,13 @@ mod tests {
         assert_eq!(trues, 93);
     }
 
+    #[cfg(feature = "fp")]
     #[test]
     fn unit_circle() {
         let gen = Xorshift64::default();
         let mut d = UnitCircle(gen);
         for v in d.iter().take(COUNT) {
-            assert_approx_eq!(v.len(), 1.0);
+            assert_approx_eq!(v.len_sqr(), 1.0, eps = 1e-5);
         }
     }
 
@@ -366,16 +367,17 @@ mod tests {
         let gen = Xorshift64::default();
         let mut d = UnitDisk(gen);
         for v in d.iter().take(COUNT) {
-            assert!(v.len() <= 1.0);
+            assert!(v.len_sqr() <= 1.0);
         }
     }
 
+    #[cfg(feature = "fp")]
     #[test]
     fn unit_sphere() {
         let gen = Xorshift64::default();
         let mut d = UnitSphere(gen);
         for v in d.iter().take(COUNT) {
-            assert_approx_eq!(v.len(), 1.0, eps = 1e-5);
+            assert_approx_eq!(v.len_sqr(), 1.0, eps = 1e-5);
         }
     }
 
@@ -384,7 +386,7 @@ mod tests {
         let gen = Xorshift64::default();
         let mut d = UnitBall(gen);
         for v in d.iter().take(COUNT) {
-            assert!(v.len() <= 1.0);
+            assert!(v.len_sqr() <= 1.0);
         }
     }
 }

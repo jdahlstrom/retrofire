@@ -224,10 +224,8 @@ fn scale<V: Vary>(
 #[cfg(feature = "fp")]
 #[inline]
 fn round_up_to_half(x: f32) -> f32 {
-    #[cfg(feature = "mm")]
-    use micromath::F32Ext;
-
-    (x + 0.5).floor() + 0.5
+    use crate::math::float::f32;
+    f32::floor(x + 0.5) + 0.5
 }
 #[cfg(not(feature = "fp"))]
 #[inline]

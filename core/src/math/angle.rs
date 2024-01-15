@@ -4,12 +4,13 @@ use core::f32::consts::{PI, TAU};
 use core::fmt::{self, Debug, Display};
 use core::ops::{Add, Div, Mul, Neg, Rem, Sub};
 
-#[cfg(feature = "mm")]
-use micromath::F32Ext;
-
 use crate::math::approx::ApproxEq;
+use crate::math::float::f32;
 use crate::math::space::{Affine, Linear};
-use crate::math::vec::{vec2, vec3, Vec2, Vec3, Vector};
+use crate::math::vec::Vector;
+
+#[cfg(feature = "fp")]
+use crate::math::vec::{vec2, vec3, Vec2, Vec3};
 
 //
 // Types
@@ -74,7 +75,7 @@ pub fn turns(a: f32) -> Angle {
 #[cfg(feature = "fp")]
 pub fn asin(x: f32) -> Angle {
     assert!(-1.0 <= x && x <= 1.0);
-    Angle(x.asin())
+    Angle(f32::asin(x))
 }
 
 /// Returns the arccosine of `x` as an `Angle`.
@@ -83,14 +84,15 @@ pub fn asin(x: f32) -> Angle {
 ///
 /// # Examples
 /// ```
+/// # use retrofire_core::assert_approx_eq;
 /// # use retrofire_core::math::angle::*;
-/// assert_eq!(acos(1.0), degs(0.0));
+/// assert_approx_eq!(acos(1.0), degs(0.0));
 /// ```
 /// # Panics
 /// If `x` is outside the range [-1.0, 1.0].
 #[cfg(feature = "fp")]
 pub fn acos(x: f32) -> Angle {
-    Angle(x.acos())
+    Angle(f32::acos(x))
 }
 
 /// Returns the four-quadrant arctangent of `y` and `x` as an `Angle`.
@@ -106,7 +108,7 @@ pub fn acos(x: f32) -> Angle {
 /// ```
 #[cfg(feature = "fp")]
 pub fn atan2(y: f32, x: f32) -> Angle {
-    Angle(y.atan2(x))
+    Angle(f32::atan2(y, x))
 }
 
 /// Returns a polar coordinate vector with azimuth `az` and radius `r`.
@@ -199,11 +201,12 @@ impl Angle {
     /// Returns the sine of `self`.
     /// # Examples
     /// ```
+    /// # use retrofire_core::assert_approx_eq;
     /// # use retrofire_core::math::angle::*;
-    /// assert_eq!(degs(30.0).sin(), 0.5)
+    /// assert_approx_eq!(degs(30.0).sin(), 0.5)
     /// ```
     pub fn sin(self) -> f32 {
-        self.0.sin()
+        f32::sin(self.0)
     }
     /// Returns the cosine of `self`.
     /// # Examples
@@ -213,7 +216,7 @@ impl Angle {
     /// assert_approx_eq!(degs(60.0).cos(), 0.5)
     /// ```
     pub fn cos(self) -> f32 {
-        self.0.cos()
+        f32::cos(self.0)
     }
     /// Simultaneously computes the sine and cosine of `self`.
     /// # Examples
@@ -225,7 +228,7 @@ impl Angle {
     /// assert_approx_eq!(cos, 0.0);
     /// ```
     pub fn sin_cos(self) -> (f32, f32) {
-        self.0.sin_cos()
+        (self.sin(), self.cos())
     }
     /// Returns the tangent of `self`.
     /// # Examples
@@ -234,7 +237,7 @@ impl Angle {
     /// assert_eq!(degs(45.0).tan(), 1.0)
     /// ```
     pub fn tan(self) -> f32 {
-        self.0.tan()
+        f32::tan(self.0)
     }
 
     /// Returns `self` "wrapped around" to the range `min..max`.
@@ -243,11 +246,11 @@ impl Angle {
     /// ```
     /// # use retrofire_core::assert_approx_eq;
     /// # use retrofire_core::math::angle::*;
-    /// assert_approx_eq!(degs(400.0).wrap(Angle::ZERO, Angle::FULL), degs(40.0))
+    /// assert_approx_eq!(degs(400.0).wrap(turns(0.0), turns(1.0)), degs(40.0))
     /// ```
     #[must_use]
     pub fn wrap(self, min: Self, max: Self) -> Self {
-        Self(min.0 + (self.0 - min.0).rem_euclid(max.0 - min.0))
+        Self(min.0 + f32::rem_euclid(self.0 - min.0, max.0 - min.0))
     }
 }
 
@@ -411,7 +414,7 @@ impl From<Vec2> for PolarVec {
     /// ```
     /// # use retrofire_core::assert_approx_eq;
     /// # use retrofire_core::math::{*, angle::*};
-    /// // A nonnegative x and zero y maps to zero azimuth
+    /// // A non-negative x and zero y maps to zero azimuth
     /// assert_eq!(PolarVec::from(vec2(0.0, 0.0)).az(), Angle::ZERO);
     /// assert_eq!(PolarVec::from(vec2(1.0, 0.0)).az(), Angle::ZERO);
     ///
@@ -480,11 +483,11 @@ impl From<Vec3> for SphericalVec {
     /// # Examples
     /// ```
     /// # use retrofire_core::math::{*, angle::*};
-    /// assert_eq!(SphericalVec::from(vec3(2.0, 0.0, 0.0)), spherical(2.0 ,degs(0.0), degs(0.0)));
+    /// assert_eq!(SphericalVec::from(vec3(2.0, 0.0, 0.0)), spherical(2.0, degs(0.0), degs(0.0)));
     ///
-    /// assert_eq!(SphericalVec::from(vec3(0.0, 2.0, 0.0)), spherical(2.0 ,degs(0.0), degs(90.0)));
+    /// assert_eq!(SphericalVec::from(vec3(0.0, 2.0, 0.0)), spherical(2.0, degs(0.0), degs(90.0)));
     ///
-    /// assert_eq!(SphericalVec::from(vec3(0.0, 0.0, 2.0)), spherical(2.0 ,degs(90.0), degs(0.0)));
+    /// assert_eq!(SphericalVec::from(vec3(0.0, 0.0, 2.0)), spherical(2.0, degs(90.0), degs(0.0)));
     /// ```
     fn from(v: Vec3) -> Self {
         let [x, y, z] = v.0;
@@ -576,7 +579,7 @@ mod tests {
         assert_approx_eq!(degs(0.0).tan(), 0.0);
         assert_approx_eq!(degs(45.0).tan(), 1.0);
         assert_approx_eq!(degs(135.0).tan(), -1.0);
-        assert_approx_eq!(degs(225.0).tan(), 1.0);
+        assert_approx_eq!(degs(225.0).tan(), 1.0, eps = 1e-6);
         assert_approx_eq!(degs(315.0).tan(), -1.0, eps = 1e-6);
     }
 

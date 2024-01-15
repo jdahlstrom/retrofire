@@ -28,6 +28,7 @@ pub use vec::{Vec2, Vec2i, Vec3, Vec3i, Vec4, Vec4i, Vector};
 pub mod angle;
 pub mod approx;
 pub mod color;
+pub mod float;
 pub mod mat;
 pub mod rand;
 pub mod space;
