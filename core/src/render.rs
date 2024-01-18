@@ -75,8 +75,8 @@ where
     let mut stats = Stats::start();
 
     stats.calls = 1.0;
-    stats.prims.i += tris.as_ref().len();
-    stats.verts.i += verts.as_ref().len();
+    stats.prims.i += tris.as_ref().len() as u64;
+    stats.verts.i += verts.as_ref().len() as u64;
 
     // Vertex shader: transform vertices to clip space
     let verts: Vec<_> = verts
