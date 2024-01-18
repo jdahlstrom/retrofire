@@ -85,7 +85,8 @@ impl<V: Vary> Iterator for ScanlineIter<V> {
 
         Some(Scanline {
             y: y as usize,
-            xs: x0 as usize..x1 as usize,
+            // TODO investigate: sometimes x0 > x1
+            xs: x0 as usize..x0.max(x1) as usize,
             frags,
         })
     }
