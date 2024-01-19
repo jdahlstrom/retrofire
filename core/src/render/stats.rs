@@ -178,7 +178,7 @@ impl Display for Stats {
               time   {:>w$} │ {empty:w$} │ {:>w$}\n \
               calls  {:>w$} │ {:>w$.1} │ {:>w$.1}\n \
               frames {:>w$} │ {:>w$.1} │\n\
-             ────────{empty:─>w$}─┼─{empty:─>w$}─┼─{empty:─>w$}─\n", 
+             ────────{empty:─>w$}─┼─{empty:─>w$}─┼─{empty:─>w$}─\n",
             "TOTAL", "PER SEC", "PER FRAME",
             human_time(self.time), human_time(pf.time),
             self.calls, ps.calls, pf.calls,
@@ -247,7 +247,7 @@ fn human_num(n: usize) -> String {
         format!("{:4.1}M", n as f32 / 1_000_000.)
     } else if n < 1_000_000_000 {
         format!("{:4}M", n / 1_000_000)
-    } else if n < 100_000_000_000 {
+    } else if (n as u64) < 100_000_000_000 {
         format!("{:4.1}G", n as f32 / 1_000_000_000.)
     } else {
         format!("{n:5.1e}")
