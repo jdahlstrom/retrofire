@@ -11,9 +11,10 @@
 [workspace]
 members = [
     "core",
-    "demos",
+    "geom",
     "front",
-    "geom"
+    "demos",
+    "demos/wasm"
 ]
 resolver = "2"
 

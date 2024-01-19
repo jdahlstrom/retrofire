@@ -126,6 +126,7 @@ impl Window {
                 } else {
                     let _ = inner.borrow_mut().take();
                 }
+
                 self.put_image_data(cbuf.data()).unwrap();
                 t_last = t;
             }));
