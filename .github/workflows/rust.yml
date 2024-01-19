@@ -28,5 +28,5 @@ jobs:
     - name: Build workspace, std
       run: cargo build --workspace --verbose --all-targets --features "std"
     - name: Run tests, std
-      run: cargo test --workspace --verbose --features "std"
+      run: cargo test --workspace --verbose --features "std" --exclude 'retrofire-demos*'
 
