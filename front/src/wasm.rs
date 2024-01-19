@@ -108,15 +108,6 @@ impl Window {
             if let Continue(_) = frame_fn(&mut frame) {
                 self.put_image_data(cb.data()).unwrap();
 
-                self.ctx.set_font("12px sans-serif");
-                self.ctx
-                    .set_fill_style(&JsValue::from_str("#CCC"));
-                self.ctx.fill_text(
-                    &format!("fps: {:.1}", dt.as_secs_f32().recip()),
-                    8.0,
-                    16.0,
-                );
-
                 requestAnimationFrame(inner.borrow().as_ref().unwrap());
             } else {
                 let _ = inner.borrow_mut().take();
