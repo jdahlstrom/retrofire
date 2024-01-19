@@ -11,7 +11,7 @@ categories.workspace = true
 repository.workspace = true
 
 [dependencies]
-re = { path = "../core", package="retrofire-core" }
+re = { path = "../core", package = "retrofire-core" }
 re-front = { path = "../front", package = "retrofire-front" }
 re-geom = { path = "../geom", package = "retrofire-geom", optional = true }
 
