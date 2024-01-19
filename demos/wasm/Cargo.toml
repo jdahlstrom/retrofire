@@ -1,0 +1,33 @@
+[package]
+name = "retrofire-wasm-demo"
+description = "retrofire WebAssembly demo"
+
+edition.workspace = true
+version.workspace = true
+authors.workspace = true
+license.workspace = true
+keywords.workspace = true
+categories.workspace = true
+repository.workspace = true
+
+[lib]
+crate-type = ["cdylib", "rlib"]
+
+[dependencies]
+wasm-bindgen = "0.2.92"
+web-sys = "0.3.69"
+console_error_panic_hook = "0.1.7"
+
+[dependencies.re]
+package = "retrofire-core"
+path = "../../core"
+features = ["mm"]
+
+[dependencies.re-front]
+package = "retrofire-front"
+path = "../../front"
+features = ["wasm-dev"]
+default-features = false
+
+[dev-dependencies]
+wasm-bindgen-test = "0.3.34"
