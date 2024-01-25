@@ -62,14 +62,19 @@ pub struct Buf2<T>(Inner<T, Vec<T>>);
 /// An immutable rectangular view to a region of a [`Buf2`], another `Slice2`,
 /// or in general any `&[T]` slice of memory. A two-dimensional analog to `&[T]`.
 ///
-/// A `Slice2` may be discontiguous:
+/// A `Slice2` may be non-contiguous in memory, in which case its *stride*
+/// (the number of elements between elements at (x, y) and (x, y + 1)) is
+/// greater than its width:
 /// ```text
-/// +------stride-----+
-/// |    ____w____    |
-/// |   |r0_______|   |
-/// |   |r1_______| h |
-/// |   |r2_______|   |
-/// +-----------------+
+///        stride
+/// +--------------------+
+/// |        w           |
+/// |   +---------+      |
+/// |   |r0.......|      |
+/// |   |r1.......| h    |
+/// |   |r2.......|      |
+/// |   +---------+      |
+/// +--------------------+
 /// ```
 /// TODO More documentation
 #[derive(Copy, Clone)]
@@ -436,6 +441,20 @@ mod inner {
         /// by the elements on row 1, and so on.
         pub fn iter(&self) -> impl Iterator<Item = &'_ T> {
             self.rows().flatten()
+        }
+
+        /// Copies the data of `self` into `dest`.
+        ///
+        /// If `self` is too large to fit into `dest`, it is clipped.
+        pub fn blit(&self, dest: &mut impl AsMutSlice2<T>)
+        where
+            T: Clone,
+        {
+            let mut dest = dest.as_mut_slice2();
+            let w = self.w.min(dest.w);
+            for (src, dst) in self.rows().zip(dest.rows_mut()) {
+                dst[..w].clone_from_slice(&src[..w]);
+            }
         }
     }
 
@@ -856,5 +875,56 @@ mod tests {
         assert_eq!(rows.next(), Some(&mut [5, 6][..]));
         assert_eq!(rows.next(), Some(&mut [8, 9][..]));
         assert_eq!(rows.next(), None);
+    }
+
+    #[test]
+    fn blit_buf_to_buf() {
+        let src = Buf2::new_with(3, 2, |x, y| 3 * y + x);
+        let mut dest = Buf2::new_default(4, 3);
+
+        src.blit(&mut dest);
+
+        assert_eq!(
+            dest.data(),
+            &[
+                0, 1, 2, 0, //
+                3, 4, 5, 0, //
+                0, 0, 0, 0,
+            ]
+        )
+    }
+    #[test]
+    fn blit_buf_to_slice() {
+        let src = Buf2::new_with(3, 2, |x, y| 3 * y + x);
+        let mut dest_buf = Buf2::new_default(5, 4);
+        let mut dest = dest_buf.slice_mut((2.., 1..));
+
+        src.blit(&mut dest);
+
+        assert_eq!(
+            dest_buf.data(),
+            &[
+                0, 0, 0, 0, 0, //
+                0, 0, 0, 1, 2, //
+                0, 0, 3, 4, 5, //
+                0, 0, 0, 0, 0,
+            ]
+        )
+    }
+
+    #[test]
+    fn blit_buf_to_buf_clipping() {
+        let src = Buf2::new_with(3, 2, |x, y| 3 * y + x);
+        let mut dest = Buf2::new_default(2, 2);
+
+        src.blit(&mut dest);
+
+        assert_eq!(
+            dest.0.data(),
+            &[
+                0, 1, //
+                3, 4, //
+            ]
+        )
     }
 }
