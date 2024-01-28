@@ -77,7 +77,6 @@ pub struct Buf2<T>(Inner<T, Vec<T>>);
 /// +--------------------+
 /// ```
 /// TODO More documentation
-#[derive(Copy, Clone)]
 #[repr(transparent)]
 pub struct Slice2<'a, T>(Inner<T, &'a [T]>);
 
@@ -223,6 +222,14 @@ impl<T> AsMutSlice2<T> for MutSlice2<'_, T> {
 // Foreign trait impls
 //
 
+impl<T> Copy for Slice2<'_, T> {}
+
+impl<T> Clone for Slice2<'_, T> {
+    fn clone(&self) -> Self {
+        Self(self.0.clone())
+    }
+}
+
 impl<T> Debug for Buf2<T> {
     fn fmt(&self, f: &mut Formatter<'_>) -> core::fmt::Result {
         self.0.debug_fmt(f, "Buf2")
@@ -282,7 +289,6 @@ mod inner {
 
     /// A helper type that abstracts over owned and borrowed buffers.
     /// The types `Buf2`, `Slice2`, and `MutSlice2` deref to `Inner`.
-    #[derive(Copy, Clone)]
     pub struct Inner<T, D> {
         w: usize,
         h: usize,
@@ -290,6 +296,10 @@ mod inner {
         data: D,
         _pd: PhantomData<T>,
     }
+
+    //
+    // Inherent impls
+    //
 
     impl<T, D> Inner<T, D> {
         /// Returns the width of `self`.
@@ -536,6 +546,24 @@ mod inner {
                 panic!("rect {rect:?} out of bounds: size = {sz:?}")
             });
             MutSlice2(Inner::new(x.len(), y.len(), stride, data))
+        }
+    }
+
+    //
+    // Foreign trait impls
+    //
+
+    impl<T, D: Copy> Copy for Inner<T, D> {}
+
+    impl<T, D: Clone> Clone for Inner<T, D> {
+        fn clone(&self) -> Self {
+            Self {
+                w: self.w,
+                h: self.h,
+                stride: self.stride,
+                data: self.data.clone(),
+                _pd: PhantomData,
+            }
         }
     }
 
@@ -858,7 +886,7 @@ mod tests {
 
     #[test]
     fn slice_rows() {
-        let mut buf = Buf2::new_with(4, 3, |x, y| 3 * y + x);
+        let buf = Buf2::new_with(4, 3, |x, y| 3 * y + x);
         let slice = buf.slice((2.., 1..));
         let mut rows = slice.rows();
 
