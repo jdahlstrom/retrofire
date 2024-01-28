@@ -26,6 +26,7 @@ pub mod shader;
 pub mod stats;
 pub mod target;
 pub mod tex;
+pub mod text;
 
 /// Model space coordinate basis.
 #[derive(Copy, Clone, Debug, Default, Eq, PartialEq)]
