@@ -87,6 +87,13 @@ impl Color3<Rgb> {
         u32::from_be_bytes([0x00, r, g, b])
     }
 
+    /// Returns `self` as RGBA, with alpha set to 0xFF (fully opaque).
+    #[inline]
+    pub const fn to_rgba(self) -> Color4 {
+        let [r, g, b] = self.0;
+        rgba(r, g, b, 0xFF)
+    }
+
     /// Returns the HSL color equivalent to `self`.
     pub fn to_hsl(self) -> Color3<Hsl> {
         // Fixed point multiplier
@@ -120,12 +127,19 @@ impl Color3<Rgb> {
 }
 
 impl Color4<Rgba> {
+    /// Returns `self` as RGB, discarding the alpha channel.
     #[inline]
+    pub fn to_rgb(self) -> Color3<Rgb> {
+        let [r, g, b, _] = self.0;
+        rgb(r, g, b)
+    }
+
     /// Returns a `u32` containing the component bytes of `self`
     /// in format `0xRR_GG_BB_AA`.
     pub const fn to_rgba_u32(self) -> u32 {
         u32::from_be_bytes(self.0)
     }
+
     /// Returns a `u32` containing the component bytes of `self`
     /// in format `0xAA_RR_GG_BB`.
     #[inline]
@@ -142,12 +156,20 @@ impl Color4<Rgba> {
 }
 
 impl Color3f<Rgb> {
+    /// Returns `self` as RGBA, with alpha set to 1.0 (fully opaque).
+    #[inline]
+    pub const fn to_rgba(self) -> Color4f {
+        let [r, g, b] = self.0;
+        rgba(r, g, b, 1.0)
+    }
+
     /// Returns a `Color3` with the components of `self` mapped to `u8`
     /// with `(c.clamp(0.0, 1.0) * 255.0) as u8`.
     #[inline]
     pub fn to_color3(self) -> Color3 {
         self.to_u8().into()
     }
+
     /// Returns a `Color4` with alpha 0xFF and the components of `self`
     /// mapped to `u8` with `(c.clamp(0.0, 1.0) * 255.0) as u8`.
     #[inline]
@@ -155,6 +177,7 @@ impl Color3f<Rgb> {
         let [r, g, b] = self.to_u8();
         [r, g, b, 0xFF].into()
     }
+
     #[inline]
     fn to_u8(self) -> [u8; 3] {
         self.0.map(|c| (c.clamp(0.0, 1.0) * 255.0) as u8)
@@ -194,6 +217,11 @@ impl Color3f<Rgb> {
 }
 
 impl Color4f<Rgba> {
+    /// Returns `self` as RGB, discarding the alpha channel.
+    pub fn to_rgb(self) -> Color3f<Rgb> {
+        let [r, g, b, _] = self.0;
+        rgb(r, g, b)
+    }
     /// Returns a `Color3` with the components of `self` mapped to `u8`
     /// with `(c.clamp(0.0, 1.0) * 255.0) as u8`, discarding alpha.
     #[inline]
@@ -285,19 +313,27 @@ impl Color3f<Hsl> {
 }
 
 impl Color4<Hsla> {
+    /// Returns `self` as HSL, discarding the alpha channel.
+    pub fn to_hsl(self) -> Color3<Hsl> {
+        let [h, s, l, _] = self.0;
+        hsl(h, s, l)
+    }
     /// Returns the RGBA color equivalent to `self`.
     pub fn to_rgba(self) -> Color4<Rgba> {
-        let [h, s, l, _] = self.0;
-        let [r, g, b] = hsl(h, s, l).to_rgb().0;
-        [r, g, b, self.a()].into()
+        let [r, g, b] = self.to_hsl().to_rgb().0;
+        rgba(r, g, b, self.a())
     }
 }
 impl Color4f<Hsla> {
+    /// Returns `self` as HSL, discarding the alpha channel.
+    pub fn to_hsl(self) -> Color3f<Hsl> {
+        let [h, s, l, _] = self.0;
+        hsl(h, s, l)
+    }
     /// Returns the RGBA color equivalent to `self`.
     pub fn to_rgba(self) -> Color4f<Rgba> {
-        let [h, s, l, _] = self.0;
-        let [r, g, b] = hsl(h, s, l).to_rgb().0;
-        [r, g, b, self.a()].into()
+        let [r, g, b] = self.to_hsl().to_rgb().0;
+        rgba(r, g, b, self.a())
     }
 }
 
