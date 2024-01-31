@@ -425,10 +425,7 @@ where
 // Local trait impls
 //
 
-impl<Sp, const DIM: usize> Affine for Color<[u8; DIM], Sp>
-where
-    [i16; DIM]: Default,
-{
+impl<Sp, const DIM: usize> Affine for Color<[u8; DIM], Sp> {
     type Space = Sp;
     type Diff = Vector<[i16; DIM], Sp>;
 
@@ -445,10 +442,7 @@ where
     }
 }
 
-impl<Sp, const DIM: usize> Affine for Color<[f32; DIM], Sp>
-where
-    [f32; DIM]: Default,
-{
+impl<Sp, const DIM: usize> Affine for Color<[f32; DIM], Sp> {
     type Space = Sp;
     type Diff = Self;
 
@@ -464,15 +458,12 @@ where
     }
 }
 
-impl<Sp, const DIM: usize> Linear for Color<[f32; DIM], Sp>
-where
-    [f32; DIM]: Default,
-{
+impl<Sp, const DIM: usize> Linear for Color<[f32; DIM], Sp> {
     type Scalar = f32;
 
     /// Returns the all-zeroes color (black).
     fn zero() -> Self {
-        <[f32; DIM]>::default().into()
+        [0.0; DIM].into()
     }
     #[inline]
     fn neg(&self) -> Self {
