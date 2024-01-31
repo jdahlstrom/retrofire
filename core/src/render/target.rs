@@ -101,7 +101,7 @@ where
         let cbuf_span = &mut self.color_buf.as_mut_slice2()[y][x0..x1];
         let zbuf_span = &mut self.depth_buf.as_mut_slice2()[y][x0..x1];
 
-        let mut io = Throughput { i: x1 - x0, o: 0 };
+        let mut io = Throughput { i: (x1 - x0) as u64, o: 0 };
         frags
             .zip(cbuf_span)
             .zip(zbuf_span)
@@ -138,7 +138,7 @@ impl<Buf: AsMutSlice2<u32>> Target for Buf {
         V: Vary,
         Fs: FragmentShader<Frag<V>>,
     {
-        let mut io = Throughput { i: sl.xs.len(), o: 0 };
+        let mut io = Throughput { i: sl.xs.len() as u64, o: 0 };
         let cbuf_span = &mut self.as_mut_slice2()[sl.y][sl.xs];
         sl.frags
             .zip(cbuf_span)

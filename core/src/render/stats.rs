@@ -46,9 +46,9 @@ pub struct Stats {
 #[derive(Copy, Clone, Debug, Default)]
 pub struct Throughput {
     // Count of items submitted for rendering.
-    pub i: usize,
+    pub i: u64,
     // Count of items output to the render target.
-    pub o: usize,
+    pub o: u64,
 }
 
 //
@@ -146,14 +146,14 @@ impl Stats {
 impl Throughput {
     fn per_sec(&self, secs: f32) -> Self {
         Self {
-            i: (self.i as f32 / secs) as usize,
-            o: (self.o as f32 / secs) as usize,
+            i: (self.i as f32 / secs) as u64,
+            o: (self.o as f32 / secs) as u64,
         }
     }
     fn per_frame(&self, frames: f32) -> Self {
         Self {
-            i: self.i / frames as usize,
-            o: self.o / frames as usize,
+            i: self.i / frames as u64,
+            o: self.o / frames as u64,
         }
     }
 }
@@ -236,7 +236,7 @@ impl AddAssign for Throughput {
     }
 }
 
-fn human_num(n: usize) -> String {
+fn human_num(n: u64) -> String {
     if n < 1_000 {
         format!("{n:5}")
     } else if n < 100_000 {
@@ -277,8 +277,8 @@ mod tests {
     #[test]
     fn stats_display() {
         let [objs, prims, verts, frags] = from_fn(|i| Throughput {
-            i: 12345 * (i + 1),
-            o: 4321 * (i + 1),
+            i: 12345 * (i as u64 + 1),
+            o: 4321 * (i as u64 + 1),
         });
         let stats = Stats {
             frames: 1234.0,

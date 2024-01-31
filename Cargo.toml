@@ -11,8 +11,9 @@
 [workspace]
 members = [
     "core",
+    "front",
     "demos",
-    "front"
+    "demos/wasm"
 ]
 resolver = "2"
 

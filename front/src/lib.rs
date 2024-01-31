@@ -1,6 +1,9 @@
 //! Frontends for creating simple applications with `retrofire`.
 
-use std::time::Duration;
+extern crate alloc;
+extern crate core;
+
+use core::time::Duration;
 
 use retrofire_core::render::stats::Stats;
 use retrofire_core::render::target::Framebuf;
@@ -12,7 +15,10 @@ pub mod minifb;
 #[cfg(feature = "sdl2")]
 pub mod sdl2;
 
-/// Per-frame state. `Window::run` passes an instance  of `Frame` to
+#[cfg(feature = "wasm")]
+pub mod wasm;
+
+/// Per-frame state. `Window::run` passes an instance of `Frame` to
 /// the callback function on every iteration of the main loop.
 pub struct Frame<'a> {
     /// Elapsed time since the start of the first frame.

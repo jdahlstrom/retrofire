@@ -168,6 +168,11 @@ impl<'a, T> Slice2<'a, T> {
     ) -> Self {
         Self(Inner::new(width, height, stride, data))
     }
+
+    /// Returns the data of `self` if it is a contiguous slice, otherwise `None`.
+    pub fn data(&self) -> Option<&[T]> {
+        self.is_contiguous().then_some(self.0.data())
+    }
 }
 
 impl<'a, T> MutSlice2<'a, T> {
@@ -175,6 +180,11 @@ impl<'a, T> MutSlice2<'a, T> {
     /// and stride `stride`.
     pub fn new(w: usize, h: usize, stride: usize, data: &'a mut [T]) -> Self {
         Self(Inner::new(w, h, stride, data))
+    }
+
+    /// Returns the data of `self` if it is contiguous, othewise `None`.
+    pub fn data(&mut self) -> Option<&mut [T]> {
+        self.is_contiguous().then_some(self.0.data_mut())
     }
 }
 
@@ -431,7 +441,7 @@ mod inner {
 
     impl<T, D: DerefMut<Target = [T]>> Inner<T, D> {
         /// Returns a mutably borrowed rectangular slice of `self`.
-        pub fn as_mut_slice(&mut self) -> MutSlice2<T> {
+        pub(super) fn as_mut_slice(&mut self) -> MutSlice2<T> {
             MutSlice2::new(self.w, self.h, self.stride, self.data_mut())
         }
         /// Returns the data of `self` as a single mutable slice.
@@ -665,7 +675,7 @@ mod tests {
         assert_eq!(slice.width(), 3);
         assert_eq!(slice.height(), 6);
         assert_eq!(slice.stride(), 10);
-        assert_eq!(slice.data().len(), 5 * 10 + 3);
+        assert_eq!(slice.0.data().len(), 5 * 10 + 3);
     }
 
     #[test]

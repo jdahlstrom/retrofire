@@ -1,0 +1,24 @@
+[package]
+name = "wasm"
+description = "retrofire wasm demo"
+
+edition.workspace = true
+version.workspace = true
+authors.workspace = true
+license.workspace = true
+keywords.workspace = true
+categories.workspace = true
+
+[lib]
+crate-type = ["cdylib", "rlib"]
+
+[dependencies]
+re = { package = "retrofire-core", path = "../../core", features=["mm"] }
+re-front = { package = "retrofire-front", path = "../../front", features=["wasm-dev"] }
+
+wasm-bindgen = "0.2.84"
+web-sys = "0.3.67"
+console_error_panic_hook = "0.1.7"
+
+[dev-dependencies]
+wasm-bindgen-test = "0.3.34"
