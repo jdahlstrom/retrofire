@@ -62,17 +62,21 @@ pub struct Buf2<T>(Inner<T, Vec<T>>);
 /// An immutable rectangular view to a region of a [`Buf2`], another `Slice2`,
 /// or in general any `&[T]` slice of memory. A two-dimensional analog to `&[T]`.
 ///
-/// A `Slice2` may be discontiguous:
+/// A `Slice2` may be non-contiguous in memory, in which case its *stride*
+/// (the number of elements between elements at (x, y) and (x, y + 1)) is
+/// greater than its width:
 /// ```text
-/// +------stride-----+
-/// |    ____w____    |
-/// |   |r0_______|   |
-/// |   |r1_______| h |
-/// |   |r2_______|   |
-/// +-----------------+
+///        stride
+/// +--------------------+
+/// |        w           |
+/// |   +---------+      |
+/// |   |r0.......|      |
+/// |   |r1.......| h    |
+/// |   |r2.......|      |
+/// |   +---------+      |
+/// +--------------------+
 /// ```
 /// TODO More documentation
-#[derive(Copy, Clone)]
 #[repr(transparent)]
 pub struct Slice2<'a, T>(Inner<T, &'a [T]>);
 
@@ -218,6 +222,14 @@ impl<T> AsMutSlice2<T> for MutSlice2<'_, T> {
 // Foreign trait impls
 //
 
+impl<T> Copy for Slice2<'_, T> {}
+
+impl<T> Clone for Slice2<'_, T> {
+    fn clone(&self) -> Self {
+        Self(self.0.clone())
+    }
+}
+
 impl<T> Debug for Buf2<T> {
     fn fmt(&self, f: &mut Formatter<'_>) -> core::fmt::Result {
         self.0.debug_fmt(f, "Buf2")
@@ -272,12 +284,11 @@ mod inner {
     use core::ops::{Deref, DerefMut, Index, IndexMut, Range};
 
     use crate::math::vec::Vec2i;
-    use crate::util::buf::{MutSlice2, Slice2};
+    use crate::util::buf::{AsMutSlice2, MutSlice2, Slice2};
     use crate::util::rect::Rect;
 
     /// A helper type that abstracts over owned and borrowed buffers.
     /// The types `Buf2`, `Slice2`, and `MutSlice2` deref to `Inner`.
-    #[derive(Copy, Clone)]
     pub struct Inner<T, D> {
         w: usize,
         h: usize,
@@ -285,6 +296,10 @@ mod inner {
         data: D,
         _pd: PhantomData<T>,
     }
+
+    //
+    // Inherent impls
+    //
 
     impl<T, D> Inner<T, D> {
         /// Returns the width of `self`.
@@ -327,6 +342,15 @@ mod inner {
                 return None;
             }
             Some(y as usize * self.stride + x as usize)
+        }
+
+        fn to_range(&self, rect: &Rect) -> Range<usize> {
+            let (x, y) = self.resolve_bounds(rect);
+            let start = self.to_index(x.start, y.start);
+            // Range end must be one-past-the-end of the last row (y.end - 1),
+            // not of one-row-past-the-last (y.end)
+            let end = self.to_index(x.end, y.end - 1).max(start);
+            start..end
         }
 
         fn resolve_bounds(&self, rect: &Rect) -> (Range<usize>, Range<usize>) {
@@ -394,16 +418,15 @@ mod inner {
         ///
         /// # Panics
         /// If any part of `rect` is outside the bounds of `self`.
-        pub fn slice(&self, rect: &Rect) -> Slice2<T> {
+        pub fn slice<R: Into<Rect>>(&self, rect: R) -> Slice2<T> {
+            let rect = &rect.into();
             let (x, y) = self.resolve_bounds(rect);
-            let start = self.to_index(x.start, y.start);
-            let end = self.to_index(x.end, y.end - 1).max(start);
-            Slice2::new(
-                x.end - x.start,
-                y.end - y.start,
-                self.stride,
-                &self.data()[start..end],
-            )
+            let range = self.to_range(rect);
+            let sz = (self.w, self.h);
+            let data = self.data().get(range).unwrap_or_else(|| {
+                panic!("rect {rect:?} out of bounds: size = {sz:?}",)
+            });
+            Slice2::new(x.len(), y.len(), self.stride, data)
         }
 
         /// Returns a reference to the element at `pos`,
@@ -417,6 +440,8 @@ mod inner {
         /// The length of each slice equals [`self.width()`](Self::width).
         pub fn rows(&self) -> impl Iterator<Item = &[T]> {
             self.data()
+                // Can't use chunks_exact as the last chunk only has length
+                // `self.w`, not `self.stride`
                 .chunks(self.stride)
                 .map(|row| &row[..self.w])
         }
@@ -426,6 +451,20 @@ mod inner {
         /// by the elements on row 1, and so on.
         pub fn iter(&self) -> impl Iterator<Item = &'_ T> {
             self.rows().flatten()
+        }
+
+        /// Copies the data of `self` into `dest`.
+        ///
+        /// If `self` is too large to fit into `dest`, it is clipped.
+        pub fn blit(&self, dest: &mut impl AsMutSlice2<T>)
+        where
+            T: Clone,
+        {
+            let mut dest = dest.as_mut_slice2();
+            let w = self.w.min(dest.w);
+            for (src, dst) in self.rows().zip(dest.rows_mut()) {
+                dst[..w].clone_from_slice(&src[..w]);
+            }
         }
     }
 
@@ -442,7 +481,9 @@ mod inner {
         /// The length of each slice equals [`self.width()`](Self::width).
         pub fn rows_mut(&mut self) -> impl Iterator<Item = &mut [T]> {
             self.data
-                .chunks_exact_mut(self.stride)
+                // Can't use chunks_exact as the last chunk only has length
+                // `self.w`, not `self.stride`
+                .chunks_mut(self.stride)
                 .map(|row| &mut row[..self.w])
         }
 
@@ -495,16 +536,34 @@ mod inner {
         ///
         /// # Panics
         /// If any part of `rect` is outside the bounds of `self`.
-        pub fn slice_mut(&mut self, rect: &Rect) -> MutSlice2<T> {
+        pub fn slice_mut<R: Into<Rect>>(&mut self, rect: R) -> MutSlice2<T> {
+            let rect = &rect.into();
             let (x, y) = self.resolve_bounds(rect);
-            let range =
-                self.to_index(x.start, y.start)..self.to_index(x.end, y.end);
-            MutSlice2(Inner::new(
-                x.len(),
-                y.len(),
-                self.stride,
-                &mut self.data_mut()[range],
-            ))
+            let range = self.to_range(rect);
+            let sz = (self.w, self.h);
+            let stride = self.stride;
+            let data = self.data_mut().get_mut(range).unwrap_or_else(|| {
+                panic!("rect {rect:?} out of bounds: size = {sz:?}")
+            });
+            MutSlice2(Inner::new(x.len(), y.len(), stride, data))
+        }
+    }
+
+    //
+    // Foreign trait impls
+    //
+
+    impl<T, D: Copy> Copy for Inner<T, D> {}
+
+    impl<T, D: Clone> Clone for Inner<T, D> {
+        fn clone(&self) -> Self {
+            Self {
+                w: self.w,
+                h: self.h,
+                stride: self.stride,
+                data: self.data.clone(),
+                _pd: PhantomData,
+            }
         }
     }
 
@@ -633,9 +692,15 @@ mod tests {
 
     #[test]
     #[should_panic]
-    fn buf_index_past_end_should_panic() {
+    fn buf_index_row_past_end_should_panic() {
         let buf = Buf2::new_default(4, 5);
         let _: i32 = buf[[4, 0]];
+    }
+    #[test]
+    #[should_panic]
+    fn buf_index_col_past_end_should_panic() {
+        let buf = Buf2::new_default(4, 5);
+        let _: i32 = buf[[3, 5]];
     }
     #[test]
     #[should_panic]
@@ -645,10 +710,80 @@ mod tests {
     }
 
     #[test]
+    fn buf_slice() {
+        let buf = Buf2::new_with(4, 5, |x, y| 10 * x + y);
+        let slice = buf.slice((1..3, 2..5));
+
+        assert_eq!(slice.width(), 2);
+        assert_eq!(slice.height(), 3);
+        assert_eq!(slice.stride(), 4);
+        assert_eq!(slice[[1, 1]], 23);
+    }
+
+    #[test]
+    fn buf_mut_slice() {
+        let mut buf = Buf2::new_with(4, 5, |x, y| 10 * x + y);
+        let mut slice = buf.slice_mut((1..3, 2..5));
+
+        assert_eq!(slice.width(), 2);
+        assert_eq!(slice.height(), 3);
+        assert_eq!(slice.stride(), 4);
+
+        slice[[1, 2]] = 123;
+        assert_eq!(buf[[2, 4]], 123);
+    }
+
+    #[test]
+    fn buf_slice_with_range_full() {
+        let buf = Buf2::new_with(3, 2, |x, y| 10 * x + y);
+        let slice = buf.slice(..);
+        assert_eq!(slice.width(), buf.width());
+        assert_eq!(slice.height(), buf.height());
+        assert_eq!(slice.stride(), buf.stride());
+        assert_eq!(slice[[2, 1]], 21);
+    }
+
+    #[test]
+    fn buf_slice_with_range_from() {
+        let buf = Buf2::new_with(3, 2, |x, y| 10 * x + y);
+        let slice = buf.slice((2.., 1..));
+        assert_eq!(slice.width(), 1);
+        assert_eq!(slice.height(), 1);
+        assert_eq!(slice.stride(), 3);
+        assert_eq!(slice[[0, 0]], 21);
+    }
+
+    #[test]
     #[should_panic]
-    fn slice_out_of_bounds_should_panic() {
+    fn buf_slice_out_of_bounds_should_panic() {
         let buf: Buf2<()> = Buf2::new_default(4, 5);
-        buf.slice(&(0..11, 0..10).into());
+        buf.slice((0..5, 0..5));
+    }
+
+    #[test]
+    #[should_panic]
+    fn buf_mut_slice_out_of_bounds_should_panic() {
+        let buf: Buf2<()> = Buf2::new_default(4, 5);
+        buf.slice((0..4, 0..6));
+    }
+
+    #[test]
+    fn buf_rows() {
+        let buf = Buf2::new_with(3, 2, |x, y| 3 * y + x);
+        let mut rows = buf.rows();
+
+        assert_eq!(rows.next(), Some(&[0, 1, 2][..]));
+        assert_eq!(rows.next(), Some(&[3, 4, 5][..]));
+        assert_eq!(rows.next(), None);
+    }
+    #[test]
+    fn buf_rows_mut() {
+        let mut buf = Buf2::new_with(3, 2, |x, y| 3 * y + x);
+        let mut rows = buf.rows_mut();
+
+        assert_eq!(rows.next(), Some(&mut [0, 1, 2][..]));
+        assert_eq!(rows.next(), Some(&mut [3, 4, 5][..]));
+        assert_eq!(rows.next(), None);
     }
 
     #[test]
@@ -661,7 +796,7 @@ mod tests {
     fn slice_extents() {
         let buf: Buf2<()> = Buf2::new_default(10, 10);
 
-        let slice = buf.slice(&(1..4, 2..8).into());
+        let slice = buf.slice((1..4, 2..8));
         assert_eq!(slice.width(), 3);
         assert_eq!(slice.height(), 6);
         assert_eq!(slice.stride(), 10);
@@ -673,24 +808,24 @@ mod tests {
         let buf: Buf2<()> = Buf2::new_default(10, 10);
 
         // Empty slice is contiguous
-        assert!(buf.slice(&(2..2, 2..8).into()).is_contiguous());
-        assert!(buf.slice(&(2..8, 2..2).into()).is_contiguous());
+        assert!(buf.slice((2..2, 2..8)).is_contiguous());
+        assert!(buf.slice((2..8, 2..2)).is_contiguous());
         // One-row slice is contiguous
-        assert!(buf.slice(&(2..8, 2..3).into()).is_contiguous());
+        assert!(buf.slice((2..8, 2..3)).is_contiguous());
         // Slice spanning whole width of buf is contiguous
-        assert!(buf.slice(&(0..10, 2..8).into()).is_contiguous());
-        assert!(buf.slice(&(.., 2..8).into()).is_contiguous());
+        assert!(buf.slice((0..10, 2..8)).is_contiguous());
+        assert!(buf.slice((.., 2..8)).is_contiguous());
 
-        assert!(!buf.slice(&(2..=2, 1..9).into()).is_contiguous());
-        assert!(!buf.slice(&(2..4, 0..9).into()).is_contiguous());
-        assert!(!buf.slice(&(2..4, 1..10).into()).is_contiguous());
+        assert!(!buf.slice((2..=2, 1..9)).is_contiguous());
+        assert!(!buf.slice((2..4, 0..9)).is_contiguous());
+        assert!(!buf.slice((2..4, 1..10)).is_contiguous());
     }
 
     #[test]
     #[rustfmt::skip]
     fn slice_fill() {
         let mut buf = Buf2::new_default(5, 4);
-        let mut slice = buf.slice_mut(&(2.., 1..3).into());
+        let mut slice = buf.slice_mut((2.., 1..3));
 
         slice.fill(1);
 
@@ -707,15 +842,15 @@ mod tests {
     #[rustfmt::skip]
     fn slice_fill_with() {
         let mut buf = Buf2::new_default(5, 4);
-        let mut slice = buf.slice_mut(&(2.., 1..3).into());
+        let mut slice = buf.slice_mut((2.., 1..3));
 
-        slice.fill_with(|x, y| x + y);
+        slice.fill_with(|x, y| 3 * y + x + 1);
 
         assert_eq!(
             buf.data(),
             &[0, 0, 0, 0, 0, 
-              0, 0, 0, 1, 2,
               0, 0, 1, 2, 3,
+              0, 0, 4, 5, 6,
               0, 0, 0, 0, 0]
         );
     }
@@ -723,7 +858,7 @@ mod tests {
     #[test]
     fn slice_indexing() {
         let buf = Buf2::new_with(5, 4, |x, y| x * 10 + y);
-        let slice = buf.slice(&(2.., 1..3).into());
+        let slice = buf.slice((2.., 1..3));
 
         assert_eq!(slice[vec2(0, 0)], 21);
         assert_eq!(slice[vec2(1, 0)], 31);
@@ -735,8 +870,8 @@ mod tests {
 
     #[test]
     fn slice_mut_indexing() {
-        let mut buf = Buf2::new_with(5, 5, |x, y| x * 10 + y);
-        let mut slice = buf.slice_mut(&(2.., 1..3).into());
+        let mut buf = Buf2::new_default(5, 4);
+        let mut slice = buf.slice_mut((2.., 1..3));
 
         slice[[2, 1]] = 123;
         assert_eq!(slice[vec2(2, 1)], 123);
@@ -745,18 +880,79 @@ mod tests {
         assert_eq!(slice.get(vec2(2, 2)), None);
 
         buf[[2, 2]] = 321;
-        let slice = buf.slice(&(1.., 2..).into());
+        let slice = buf.slice((1.., 2..));
         assert_eq!(slice[[1, 0]], 321);
     }
 
     #[test]
     fn slice_rows() {
-        let buf = Buf2::new_with(5, 4, |x, y| x * 10 + y);
-        let slice = buf.slice(&(2.., 1..3).into());
-
+        let buf = Buf2::new_with(4, 3, |x, y| 3 * y + x);
+        let slice = buf.slice((2.., 1..));
         let mut rows = slice.rows();
-        assert_eq!(rows.next(), Some(&[21, 31, 41][..]));
-        assert_eq!(rows.next(), Some(&[22, 32, 42][..]));
+
+        assert_eq!(rows.next(), Some(&[5, 6][..]));
+        assert_eq!(rows.next(), Some(&[8, 9][..]));
         assert_eq!(rows.next(), None);
+    }
+    #[test]
+    fn slice_rows_mut() {
+        let mut buf = Buf2::new_with(4, 3, |x, y| 3 * y + x);
+        let mut slice = buf.slice_mut((2.., 1..));
+        let mut rows = slice.rows_mut();
+
+        assert_eq!(rows.next(), Some(&mut [5, 6][..]));
+        assert_eq!(rows.next(), Some(&mut [8, 9][..]));
+        assert_eq!(rows.next(), None);
+    }
+
+    #[test]
+    fn blit_buf_to_buf() {
+        let src = Buf2::new_with(3, 2, |x, y| 3 * y + x);
+        let mut dest = Buf2::new_default(4, 3);
+
+        src.blit(&mut dest);
+
+        assert_eq!(
+            dest.data(),
+            &[
+                0, 1, 2, 0, //
+                3, 4, 5, 0, //
+                0, 0, 0, 0,
+            ]
+        )
+    }
+    #[test]
+    fn blit_buf_to_slice() {
+        let src = Buf2::new_with(3, 2, |x, y| 3 * y + x);
+        let mut dest_buf = Buf2::new_default(5, 4);
+        let mut dest = dest_buf.slice_mut((2.., 1..));
+
+        src.blit(&mut dest);
+
+        assert_eq!(
+            dest_buf.data(),
+            &[
+                0, 0, 0, 0, 0, //
+                0, 0, 0, 1, 2, //
+                0, 0, 3, 4, 5, //
+                0, 0, 0, 0, 0,
+            ]
+        )
+    }
+
+    #[test]
+    fn blit_buf_to_buf_clipping() {
+        let src = Buf2::new_with(3, 2, |x, y| 3 * y + x);
+        let mut dest = Buf2::new_default(2, 2);
+
+        src.blit(&mut dest);
+
+        assert_eq!(
+            dest.0.data(),
+            &[
+                0, 1, //
+                3, 4, //
+            ]
+        )
     }
 }
