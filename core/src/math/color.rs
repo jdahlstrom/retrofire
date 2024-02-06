@@ -31,6 +31,10 @@ pub struct Rgb;
 #[derive(Copy, Clone, Debug, Default, Eq, PartialEq)]
 pub struct Rgba;
 
+/// Linear RGB (red, green, blue) color space.
+#[derive(Copy, Clone, Debug, Default, Eq, PartialEq)]
+pub struct LinRgb;
+
 /// The HSL color space (hue, saturation, luminance).
 #[derive(Copy, Clone, Debug, Default, Eq, PartialEq)]
 pub struct Hsl;
@@ -73,6 +77,15 @@ pub const fn hsl<Ch>(h: Ch, s: Ch, l: Ch) -> Color<[Ch; 3], Hsl> {
 pub const fn hsla<Ch>(h: Ch, s: Ch, l: Ch, a: Ch) -> Color<[Ch; 4], Hsla> {
     Color([h, s, l, a], PhantomData)
 }
+
+/// Exponent for gamma conversion [from sRGB to linear sRGB][1].
+///
+/// [1]: Color3f<Rgb>::to_linear
+pub const GAMMA: f32 = 2.2;
+/// Exponent for gamma conversion [from linear sRGB to sRGB][1].
+///
+/// [1]: Color3f<LinRgb>::to_srgb
+pub const INV_GAMMA: f32 = 1.0 / GAMMA;
 
 //
 // Inherent impls
@@ -183,6 +196,22 @@ impl Color3f<Rgb> {
         self.0.map(|c| (c.clamp(0.0, 1.0) * 255.0) as u8)
     }
 
+    /// Returns `self` gamma-converted to linear RGB space.
+    ///
+    /// Linear interpolation, used to compute eg. gradients and blending,
+    /// is just an approximation if carried out in a nonlinear, gamma-corrected
+    /// color space such as the standard sRGB space. For the visually optimal
+    /// results, colors should be interpolated in a linear space and only
+    /// [converted to sRGB][1] right before writing to the output. Conversion,
+    /// however, incurs a small performance penalty.
+    ///
+    /// [1]: Color3f<LinRgb>::to_srgb()
+    #[cfg(feature = "fp")]
+    #[inline]
+    pub fn to_linear(self) -> Color3f<LinRgb> {
+        self.0.map(|c| f32::powf(c, GAMMA)).into()
+    }
+
     /// Returns the HSL color equivalent to `self`.
     pub fn to_hsl(self) -> Color3f<Hsl> {
         let [r, g, b] = self.0;
@@ -245,6 +274,24 @@ impl Color4f<Rgba> {
         let [r, g, b, _] = self.0;
         let [h, s, l] = rgb(r, g, b).to_hsl().0;
         [h, s, l, self.a()].into()
+    }
+}
+
+impl Color3f<LinRgb> {
+    /// Returns `self` gamma-converted to sRGB space.
+    ///
+    /// Linear interpolation, used to compute eg. gradients and blending,
+    /// is just an approximation if carried out in a nonlinear, gamma-corrected
+    /// color space such as the standard sRGB space. For visually optimal
+    /// results, sRGB input colors should be [converted to linear space][1]
+    /// before interpolation, and right before writing to the output.
+    /// Conversion, however, incurs a small performance penalty.
+    ///
+    /// [1]: Color3f<Rgb>::to_linear()
+    #[cfg(feature = "fp")]
+    #[inline]
+    pub fn to_srgb(self) -> Color3f<Rgb> {
+        self.0.map(|c| f32::powf(c, INV_GAMMA)).into()
     }
 }
 
