@@ -31,6 +31,10 @@ pub struct Rgb;
 #[derive(Copy, Clone, Debug, Default, Eq, PartialEq)]
 pub struct Rgba;
 
+/// Linear RGB (red, green, blue) color space.
+#[derive(Copy, Clone, Debug, Default, Eq, PartialEq)]
+pub struct LinRgb;
+
 /// The HSL color space (hue, saturation, luminance).
 #[derive(Copy, Clone, Debug, Default, Eq, PartialEq)]
 pub struct Hsl;
@@ -183,6 +187,11 @@ impl Color3f<Rgb> {
         self.0.map(|c| (c.clamp(0.0, 1.0) * 255.0) as u8)
     }
 
+    #[inline]
+    pub fn to_linear(self) -> Color3f<LinRgb> {
+        self.0.map(|c| c.powf(2.2)).into()
+    }
+
     /// Returns the HSL color equivalent to `self`.
     pub fn to_hsl(self) -> Color3f<Hsl> {
         let [r, g, b] = self.0;
@@ -245,6 +254,13 @@ impl Color4f<Rgba> {
         let [r, g, b, _] = self.0;
         let [h, s, l] = rgb(r, g, b).to_hsl().0;
         [h, s, l, self.a()].into()
+    }
+}
+
+impl Color3f<LinRgb> {
+    #[inline]
+    pub fn to_srgb(self) -> Color3f<Rgb> {
+        self.0.map(|c| c.powf(1.0 / 2.2)).into()
     }
 }
 
