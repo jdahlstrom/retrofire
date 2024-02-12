@@ -113,6 +113,7 @@ pub use fallback as f32;
 
 #[cfg(test)]
 mod tests {
+    #[cfg(feature = "fp")]
     use core::f32::consts::PI;
 
     #[cfg(feature = "libm")]

@@ -15,7 +15,8 @@ use core::fmt::Debug;
 use core::ops::Range;
 
 use crate::geom::Vertex;
-use crate::math::{space::Real, vary::Vary, Vec3};
+use crate::math::space::Real;
+use crate::math::{Vary, Vec3};
 
 use super::Screen;
 

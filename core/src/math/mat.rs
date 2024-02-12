@@ -9,7 +9,6 @@ use core::ops::Range;
 
 use crate::math::space::{Proj4, Real};
 use crate::math::vec::{Vec2i, Vec3, Vec4, Vector};
-use crate::math::ApproxEq;
 use crate::render::{NdcToScreen, ViewToProj};
 
 /// A linear transform from one space (or basis) to another.
@@ -615,7 +614,7 @@ pub fn viewport(bounds: Range<Vec2i>) -> Mat4x4<NdcToScreen> {
 #[cfg(test)]
 mod tests {
     use crate::assert_approx_eq;
-    use crate::math::{degs, vec::splat, vec3};
+    use crate::math::{vec::splat, vec3};
 
     use super::*;
 
@@ -660,26 +659,26 @@ mod tests {
         assert_eq!(m.apply(&v), vec3(1.0, 7.0, 0.0));
     }
 
-    #[test]
     #[cfg(feature = "fp")]
+    #[test]
     fn rotation_x() {
-        let m = rotate_x(degs(90.0));
+        let m = rotate_x(crate::math::degs(90.0));
         assert_eq!(m.apply(&splat(0.0)), splat(0.0));
         assert_approx_eq!(m.apply(&vec3(0.0, 0.0, 1.0)), vec3(0.0, 1.0, 0.0));
     }
 
-    #[test]
     #[cfg(feature = "fp")]
+    #[test]
     fn rotation_y() {
-        let m = rotate_y(degs(90.0));
+        let m = rotate_y(crate::math::degs(90.0));
         assert_eq!(m.apply(&splat(0.0)), splat(0.0));
         assert_approx_eq!(m.apply(&vec3(1.0, 0.0, 0.0)), vec3(0.0, 0.0, 1.0));
     }
 
-    #[test]
     #[cfg(feature = "fp")]
+    #[test]
     fn rotation_z() {
-        let m = rotate_z(degs(90.0));
+        let m = rotate_z(crate::math::degs(90.0));
         assert_eq!(m.apply(&splat(0.0)), splat(0.0));
         assert_approx_eq!(m.apply(&vec3(0.0, 1.0, 0.0)), vec3(1.0, 0.0, 0.0));
     }

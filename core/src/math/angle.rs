@@ -519,7 +519,6 @@ mod tests {
 
     use crate::assert_approx_eq;
     use crate::math::vary::Vary;
-    use crate::math::vec3;
 
     use super::*;
 
