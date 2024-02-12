@@ -66,6 +66,12 @@ const fn magic(bytes: &[u8; 2]) -> u16 {
     u16::from_be_bytes(*bytes)
 }
 
+impl Display for Format {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        write!(f, "P{}", ((*self as u8) & 0xFF) as char)
+    }
+}
+
 impl TryFrom<[u8; 2]> for Format {
     type Error = Error;
     fn try_from(magic: [u8; 2]) -> Result<Self> {
@@ -142,6 +148,17 @@ impl Header {
         };
         Ok(Self { format, width, height, max })
     }
+    /// Writes `self` to `dest` as a valid PNM header,
+    /// including a trailing newline.
+    #[cfg(feature = "std")]
+    fn write(&self, mut dest: impl Write) -> io::Result<()> {
+        let Self { format, width, height, max } = *self;
+        let max: &dyn Display = match format {
+            TextBitmap | BinaryBitmap => &"",
+            _ => &max,
+        };
+        writeln!(dest, "{} {} {} {}", format, width, height, max)
+    }
 }
 
 /// Loads a PNM image from a path into a buffer.
@@ -213,32 +230,49 @@ pub fn read_pnm(src: impl IntoIterator<Item = u8>) -> Result<Buf2<Color3>> {
     }
 }
 
-/// Saves an image as a binary PPM file (P6 format).
+/// Writes an image to a file in PPM format, P6 sub-format
+/// (binary 8-bits-per-channel RGB).
+///
+/// Caution: This function overwrites the file if it already exists.
+/// Use [`write_ppm`] for more control over file creation.
 ///
 /// # Errors
-/// Returns [`io::Error`] in case of an I/O error while saving.
+/// Returns [`std::io::Error`] if an error occurs while writing.
 #[cfg(feature = "std")]
 pub fn save_ppm(
     path: impl AsRef<Path>,
     data: impl AsSlice2<Color3>,
 ) -> io::Result<()> {
-    let mut w = BufWriter::new(File::create(path)?);
-    let slice = data.as_slice2();
-    writeln!(
-        w,
-        "{} {} {} 255",
-        BinaryPixmap as u16,
-        slice.width(),
-        slice.height()
-    )?;
+    let out = BufWriter::new(File::create(path)?);
+    write_ppm(out, data)
+}
 
-    slice
+/// Writes an image to `out` in PPM format, P6 sub-format
+/// (binary 8-bits-per-channel RGB).
+///
+/// # Errors
+/// Returns [`std::io::Error`] if an error occurs while writing.
+#[cfg(feature = "std")]
+pub fn write_ppm(
+    mut out: impl Write,
+    data: impl AsSlice2<Color3>,
+) -> io::Result<()> {
+    let slice = data.as_slice2();
+    Header {
+        format: Format::BinaryPixmap,
+        width: slice.width(),
+        height: slice.height(),
+        max: 255,
+    }
+    .write(&mut out)?;
+
+    let res = slice
         .rows()
         .flatten()
         .map(|c| c.0)
-        .try_for_each(|rgb| w.write_all(&rgb[..]))?;
+        .try_for_each(|rgb| out.write_all(&rgb[..]));
 
-    Ok(())
+    res
 }
 
 /// Parses a numeric value from `src`, skipping whitespace and comments.
@@ -373,6 +407,34 @@ mod tests {
         assert_eq!(read_pnm(data).err(), Some(UnexpectedEnd));
     }
 
+    #[cfg(feature = "std")]
+    #[test]
+    fn write_header_p1() {
+        let mut out = Vec::new();
+        let hdr = Header {
+            format: Format::TextBitmap,
+            width: 16,
+            height: 32,
+            max: 1,
+        };
+        hdr.write(&mut out).unwrap();
+        assert_eq!(&out, b"P1 16 32 \n");
+    }
+
+    #[cfg(feature = "std")]
+    #[test]
+    fn write_header_p6() {
+        let mut out = Vec::new();
+        let hdr = Header {
+            format: Format::BinaryPixmap,
+            width: 64,
+            height: 16,
+            max: 4,
+        };
+        hdr.write(&mut out).unwrap();
+        assert_eq!(&out, b"P6 64 16 4\n");
+    }
+
     #[test]
     fn read_pnm_p3() {
         let data = *b"P3 2 2 256 \n 0 0 0   123 0 42   0 64 128   255 255 255";
@@ -430,5 +492,29 @@ mod tests {
 
         assert_eq!(buf[0usize], [rgb(0x01, 0x12, 0x23), rgb(0x34, 0x45, 0x56)]);
         assert_eq!(buf[1usize], [rgb(0x67, 0x78, 0x89), rgb(0x9A, 0xAB, 0xBC)]);
+    }
+
+    #[cfg(feature = "std")]
+    #[test]
+    fn write_ppm() {
+        use alloc::vec;
+        let buf = vec![
+            rgb(0xFF, 0, 0),
+            rgb(0, 0xFF, 0),
+            rgb(0, 0, 0xFF),
+            rgb(0xFF, 0xFF, 0),
+        ];
+
+        let mut out = vec![];
+        super::write_ppm(&mut out, Buf2::new(2, 2, buf)).unwrap();
+
+        assert_eq!(
+            &out,
+            b"P6 2 2 255\n\
+              \xFF\x00\x00\
+              \x00\xFF\x00\
+              \x00\x00\xFF\
+              \xFF\xFF\x00"
+        );
     }
 }
