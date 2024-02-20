@@ -117,7 +117,7 @@ where
 
         // Backface culling
         if is_backface(&vs) {
-            continue;
+            //continue;
         }
 
         // Fragment shader and rasterization

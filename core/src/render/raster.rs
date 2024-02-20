@@ -33,6 +33,7 @@ pub struct Scanline<V: Vary> {
     /// The range of x coordinates spanned by the line.
     pub xs: Range<usize>,
     /// Iterator emitting the fragments on the line.
+    // TODO Rename, doesn't yield Frags but Varyings
     pub frags: <Varyings<V> as Vary>::Iter,
 }
 
