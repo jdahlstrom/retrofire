@@ -231,7 +231,7 @@ const PHI: f32 = 1.61803401_f32;
 
 impl Dodecahedron {
     #[rustfmt::skip]
-    const COORDS: [Vec3; 20] = [
+    const _COORDS: [Vec3; 20] = [
         vec3(-1.0, -1.0, -1.0),
         vec3(-1.0, -1.0,  1.0),
         vec3(-1.0,  1.0, -1.0),
@@ -256,7 +256,8 @@ impl Dodecahedron {
         vec3( PHI, -1.0/PHI, 0.0),
         vec3( PHI,  1.0/PHI, 0.0),
     ];
-    const FACES: [[usize; 5]; 12] = [
+    // TODO
+    const _FACES: [[usize; 2]; 12] = [
         [0, 1],
         [0, 2],
         [0, 4],
@@ -338,50 +339,114 @@ impl Lathe {
         let Self { pts, sectors, capped } = self;
         let secs = sectors as usize;
 
-        let mut verts = Vec::with_capacity(pts.len() * (secs + 1) + 2);
+        let mut coords = Vec::with_capacity(pts.len() * (secs + 1) + 2);
+        let mut norms = Vec::with_capacity(pts.len() * (secs + 1) + 2);
         let mut faces = Vec::with_capacity(pts.len() * secs * 2);
 
-        // Create vertices
+        let azimuths = || (turns(0.0)..=turns(1.0)).vary(sectors + 1);
+
+        // Create vertex coords
         for pt in &pts {
             let [r, y] = pt.0;
 
-            for az in (turns(0.0)..=turns(1.0)).vary(sectors) {
+            for az in azimuths() {
                 let pt: Vec2 = polar(r, az).into();
-                verts.push(vec3(pt.x(), y, pt.y()));
+                coords.push(vec3(pt.x(), y, pt.y()));
             }
         }
+
+        // Create vertex normals
+        for i in 0..pts.len() {
+            let n = if i == 0 {
+                vec2(pts[1].y() - pts[0].y(), pts[0].x() - pts[1].x())
+            } else if i == pts.len() - 1 {
+                vec2(pts[i].y() - pts[i - 1].y(), pts[i].x() - pts[i - 1].x())
+            } else {
+                let d1 = pts[i] - pts[i - 1];
+                let d2 = pts[i + 1] - pts[i];
+
+                let n1 = vec2(d1.y(), -d1.x());
+                let n2 = vec2(d2.y(), -d2.x());
+
+                n1 + n2
+            };
+
+            for az in azimuths() {
+                let n2: Vec2 = polar(n.x(), az).into();
+                norms.push(vec3(n2.x(), n.y(), n2.y()).normalize())
+            }
+        }
+
+        assert_eq!(coords.len(), norms.len());
+
         // Create faces
-        for j in 1..pts.len() {
+        for j in (1..pts.len()).map(|j| j * (secs + 1)) {
             for i in 1..=secs {
-                let a = (j - 1) * (secs + 1) + i - 1;
-                let b = (j - 1) * (secs + 1) + i;
-                let c = j * (secs + 1) + i - 1;
-                let d = j * (secs + 1) + i;
-                faces.push([a, b, d]);
-                faces.push([a, d, c]);
+                let a = (j - secs - 1) + i - 1;
+                let b = j - secs - 1 + i;
+                let c = j + i - 1;
+                let d = j + i;
+
+                if (j ^ i) & 1 == 0 {
+                    faces.push([a, b, d]);
+                    faces.push([a, d, c]);
+                } else {
+                    faces.push([b, c, a]);
+                    faces.push([b, d, c]);
+                }
             }
         }
+
         if capped && !pts.is_empty() {
-            let l = verts.len();
-            // Bottom cap
-            verts.push(vec3(0.0, pts[0].y(), 0.0));
-            for i in 1..=secs {
-                faces.push([l, i - 1, i]);
+            //// Bottom cap
+            let l = coords.len();
+            // Center point
+            let [r, y] = pts[0].0;
+            coords.push(vec3(0.0, y, 0.0));
+            norms.push(vec3(0.0, -1.0, 0.0));
+            // Circum points
+            for az in azimuths() {
+                let pt: Vec2 = polar(r, az).into();
+                coords.push(vec3(pt.x(), y, pt.y()));
+                norms.push(vec3(0.0, -1.0, 0.0));
             }
-            // Top cap
-            verts.push(vec3(0.0, pts[pts.len() - 1].y(), 0.0));
+            // Faces
             for i in 1..=secs {
-                let a = l + 1;
-                let b = (l - 1) - secs + i - 1;
-                let c = (l - 1) - secs + i;
+                let a = l;
+                let b = l + i;
+                let c = l + i + 1;
+                faces.push([a, b, c]);
+            }
+
+            //// Top cap
+            let l = coords.len();
+            // Center point
+            let [r, y] = pts[pts.len() - 1].0;
+            coords.push(vec3(0.0, y, 0.0));
+            norms.push(vec3(0.0, 1.0, 0.0));
+            // Circum points
+            for az in azimuths() {
+                let pt: Vec2 = polar(r, az).into();
+                coords.push(vec3(pt.x(), y, pt.y()));
+                norms.push(vec3(0.0, 1.0, 0.0));
+            }
+            // Faces
+            for i in 1..=secs {
+                let a = l;
+                let b = l + i;
+                let c = l + i + 1;
                 faces.push([a, b, c]);
             }
         }
+
+        assert_eq!(coords.len(), norms.len());
+
         Mesh::new(
             faces.into_iter().map(Tri).collect(),
-            verts
+            coords
                 .into_iter()
-                .map(|p| vertex(p.to(), splat(0.0))) // TODO
+                .zip(norms)
+                .map(|(c, n)| vertex(c.to(), n))
                 .collect(),
         )
     }
@@ -414,13 +479,7 @@ impl Torus {
             .map(|p| vec2(self.major_radius, 0.0) + p.into())
             .collect();
 
-        let mut mesh = Lathe::new(pts, self.major_sectors).build();
-
-        for v in &mut mesh.verts {
-            let n = vec3(v.pos.x(), 0.0, v.pos.z()).normalize();
-            *v = vertex(v.pos, n);
-        }
-        mesh
+        Lathe::new(pts, self.major_sectors).build()
     }
 }
 
@@ -452,7 +511,7 @@ impl Cone {
 impl Capsule {
     pub fn build(self) -> Mesh<Normal3> {
         // Top hemisphere
-        let mut top_pts: Vec<_> = (degs(90.0)..=degs(0.0))
+        let top_pts: Vec<_> = (degs(90.0)..=degs(0.0))
             .vary(self.cap_segments)
             .map(|alt| vec2(0.0, 1.0) + polar(self.radius, alt).into())
             .collect();
