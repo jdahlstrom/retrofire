@@ -2,9 +2,9 @@ use std::mem::swap;
 use std::ops::ControlFlow::Continue;
 
 use re::math::rand::{Distrib, Uniform, UnitDisk, Xorshift64};
-use re::math::space::{Affine, Linear};
 use re::math::spline::BezierSpline;
-use re::math::{vec2, Vary, Vec2, Vec2i};
+use re::prelude::*;
+
 use re_front::minifb::Window;
 use re_front::Frame;
 
@@ -12,7 +12,7 @@ fn line([mut p0, mut p1]: [Vec2; 2]) -> impl Iterator<Item = Vec2i> {
     if p0.y() > p1.y() {
         swap(&mut p0, &mut p1);
     }
-    let [dx, dy] = p1.sub(&p0).0;
+    let [dx, dy] = (p1 - p0).0;
     let abs_dx = dx.abs();
 
     let (step, n) = if abs_dx > dy {
@@ -39,7 +39,7 @@ fn main() {
     let gen = Xorshift64::from_time();
 
     let (mut pts, mut deltas): (Vec<Vec2>, Vec<Vec2>) =
-        Uniform(gen, Vec2::zero()..vec2(W as f32, H as f32))
+        Uniform(gen, vec2(0.0, 0.0)..vec2(W as f32, H as f32))
             .iter()
             .zip(UnitDisk(gen).iter())
             .take(4)
@@ -59,8 +59,7 @@ fn main() {
 
         let max = vec2((W - 1) as f32, (H - 1) as f32);
         for (p, d) in pts.iter_mut().zip(deltas.iter_mut()) {
-            *p = p
-                .add(&d.mul(200.0 * dt.as_secs_f32()))
+            *p = (*p + *d * 200.0 * dt.as_secs_f32()) //
                 .clamp(&Vec2::zero(), &max);
 
             if p[0] == 0.0 || p[0] == max.x() {
