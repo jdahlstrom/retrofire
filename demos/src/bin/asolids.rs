@@ -1,7 +1,8 @@
-use std::io;
+use std::process::exit;
 use std::time::{Duration, Instant};
+use std::{env, io};
 
-use ascii_forge::prelude::{self as af, Render};
+use ascii_forge::prelude::{self as af, Render, Stylize};
 
 use re::prelude::*;
 
@@ -13,51 +14,23 @@ use re::render::target::{Config, Target};
 use re::render::{render, ModelToProj};
 use re_geom::solids::*;
 
-struct Framebuf<'a>(&'a mut af::Buffer, Buf2<f32>);
+struct Framebuf<'a>(&'a mut af::Buffer, Buf2<f32>, Shading);
 
-impl Target for Framebuf<'_> {
-    fn rasterize<V, Fs>(
-        &mut self,
-        scanline: Scanline<V>,
-        frag_shader: &Fs,
-        _: Config,
-    ) -> Throughput
-    where
-        V: Vary,
-        Fs: FragmentShader<Frag<V>>,
-    {
-        for (pos, var) in scanline.frags {
-            let [x, y, z] = pos.0;
-            let f = Frag { pos: vec3(x, y, 0.0).to(), var };
-
-            let curr_z = &mut self.1[vec2(x as i32, y as i32)];
-            if z > *curr_z {
-                continue;
-            }
-            let Some(c) = frag_shader.shade_fragment(f) else {
-                continue;
-            };
-            *curr_z = z;
-
-            //let col =
-            //    af::Cell::chr(b" .-,:;co%#@W"[c.r() as usize / 24] as char);
-            let col = af::Color::Rgb { r: c.r(), g: c.g(), b: c.b() };
-            //let col = af::Color::AnsiValue(
-            //    16 + (c.r() / 43) * 36 + (c.g() / 43) * 6 + (c.b() / 43),
-            //);
-            let cs = af::ContentStyle {
-                background_color: Some(col),
-                ..Default::default()
-            };
-            let c = af::Cell::style(af::StyledContent::new(cs, ' '));
-            c.render((x as u16, y as u16).into(), self.0);
-        }
-        let w = scanline.xs.len();
-        Throughput { i: w, o: w }
-    }
+#[derive(Copy, Clone, Debug)]
+enum Shading {
+    Ascii,
+    EightBit,
+    TrueColor,
 }
 
 fn main() -> io::Result<()> {
+    let shading = match env::args().nth(1).as_deref() {
+        Some("ascii") | None => Shading::Ascii,
+        Some("8bit") => Shading::EightBit,
+        Some("24bit") => Shading::TrueColor,
+        Some(_) => exit(1),
+    };
+
     let shader = Shader::new(
         |v: Vertex<_, _>, mvp: &Mat4x4<ModelToProj>| {
             vertex(mvp.apply(&v.pos), v.attrib)
@@ -77,15 +50,15 @@ fn main() -> io::Result<()> {
         Octahedron.build(),
         Cylinder {
             sectors: 9,
-            capped: true,
             radius: 0.8,
+            capped: true,
         }
         .build(),
         Cone {
-            sectors: 7,
-            capped: true,
+            sectors: 11,
             base_radius: 1.2,
             apex_radius: 0.2,
+            capped: true,
         }
         .build(),
         Lathe {
@@ -97,15 +70,15 @@ fn main() -> io::Result<()> {
                 vec2(1.0, 0.75),
                 vec2(1.0, 1.0),
             ],
-            sectors: 13,
+            sectors: 6,
             capped: true,
         }
         .build(),
         Torus {
             major_radius: 0.8,
             minor_radius: 0.3,
-            major_sectors: 17,
-            minor_sectors: 9,
+            major_sectors: 15,
+            minor_sectors: 7,
         }
         .build(),
     ];
@@ -138,18 +111,19 @@ fn main() -> io::Result<()> {
             .then(&project);
 
         win.update(Duration::from_millis(10))?;
+
         if win.code(af::KeyCode::Esc) {
             break;
         } else if win.code(af::KeyCode::Char(' ')) {
             anim = anim.or(Some(0.0));
             new_idx = idx + 1;
         }
-        if let Some(a) = &mut anim {
-            *a += d_secs;
-            if *a >= 0.5 {
+        if let Some(t) = &mut anim {
+            *t += d_secs;
+            if *t >= 0.5 {
                 idx = new_idx;
             }
-            if *a >= 1.0 {
+            if *t >= 1.0 {
                 anim = None
             }
         }
@@ -165,8 +139,52 @@ fn main() -> io::Result<()> {
         let mut framebuf = Framebuf(
             &mut buf,
             Buf2::new_with(w as usize, h as usize, |_, _| f32::INFINITY),
+            shading,
         );
         render(&faces, &verts, &shader, &mvp, viewport, &mut framebuf);
     }
     win.restore()
+}
+
+impl Target for Framebuf<'_> {
+    fn rasterize<V, Fs>(
+        &mut self,
+        scanline: Scanline<V>,
+        shader: &Fs,
+        _: Config,
+    ) -> Throughput
+    where
+        V: Vary,
+        Fs: FragmentShader<Frag<V>>,
+    {
+        for (pos, var) in scanline.frags {
+            let curr_z = &mut self.1[vec2(pos.x() as i32, pos.y() as i32)];
+            if pos.z() > *curr_z {
+                continue;
+            }
+            let Some(c) = shader.shade_fragment(Frag { pos, var }) else {
+                continue;
+            };
+            *curr_z = pos.z();
+            let [r, g, b, _] = c.0;
+            let cell = match self.2 {
+                Shading::Ascii => {
+                    // quick and dirty monochrome conversion
+                    let shade = (r / 3 + g / 2 + b / 10) / 24;
+                    (b" .,:;coO%#@W"[shade as usize] as char).on_black()
+                }
+                Shading::EightBit => {
+                    ' '.on(af::Color::AnsiValue(
+                        // 6x6x6 color cube in range 16..232
+                        16 + (r / 43) * 36 + (g / 43) * 6 + (b / 43),
+                    ))
+                }
+                Shading::TrueColor => ' '.on(af::Color::Rgb { r, g, b }),
+            };
+            af::Cell::from(cell)
+                .render((pos.x() as u16, pos.y() as u16).into(), self.0);
+        }
+        let w = scanline.xs.len();
+        Throughput { i: w, o: w }
+    }
 }
