@@ -1,12 +1,8 @@
 use std::ops::ControlFlow::Continue;
 
-use re::geom::{vertex, Tri, Vertex};
-use re::math::color::{rgb, Color3f};
-use re::math::mat::{perspective, rotate_z, translate, viewport};
+use re::prelude::*;
+
 use re::math::space::Real;
-use re::math::{rads, vec2, vec3, Mat4x4, Vec3};
-use re::render::raster::Frag;
-use re::render::shader::Shader;
 use re::render::{render, Model, ModelToProj, ModelToView};
 use re_front::minifb::Window;
 
