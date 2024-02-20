@@ -35,9 +35,5 @@ name = "solids"
 required-features = ["minifb", "re-geom", "re-geom/teapot"]
 
 [[bin]]
-name = "forge"
-required-features = ["ascii-forge"]
-
-[[bin]]
 name = "asolids"
 required-features = ["ascii-forge"]
