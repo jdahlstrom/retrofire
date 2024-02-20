@@ -152,6 +152,8 @@ impl<V: Vary> RangeExt<V> for RangeInclusive<V> {
 
 #[cfg(test)]
 mod tests {
+    use alloc::vec::*;
+
     use crate::assert_approx_eq;
 
     use super::*;
