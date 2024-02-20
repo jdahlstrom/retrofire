@@ -1,16 +1,10 @@
 use minifb::{Key, KeyRepeat};
 use std::ops::ControlFlow::Continue;
 
-use re::geom::{vertex, Mesh, Vertex};
-use re::math::color::rgba;
-use re::math::mat::{
-    perspective, rotate_x, rotate_y, translate, viewport, RealToReal,
-};
+use re::prelude::*;
+
+use re::math::mat::RealToReal;
 use re::math::spline::smootherstep;
-use re::math::vec::splat;
-use re::math::{rads, turns, vec2, vec3, Mat4x4};
-use re::render::raster::Frag;
-use re::render::shader::Shader;
 use re::render::{render, ModelToProj};
 use re_front::minifb::Window;
 use re_geom::solids::*;
