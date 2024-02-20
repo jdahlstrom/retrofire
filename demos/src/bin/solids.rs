@@ -1,15 +1,10 @@
 use minifb::{Key, KeyRepeat};
 use std::ops::ControlFlow::Continue;
 
-use re::geom::{vertex, Mesh, Vertex};
-use re::math::color::rgba;
-use re::math::mat::{perspective, rotate_x, rotate_y, translate, viewport};
+use re::prelude::*;
+
 use re::math::spline::smootherstep;
-use re::math::vec::splat;
-use re::math::{rads, turns, vec2, vec3, Mat4x4};
-use re::render::raster::Frag;
-use re::render::shader::Shader;
-use re::render::{render, ModelToProjective};
+use re::render::{render, ModelToProj};
 use re_front::minifb::Window;
 use re_geom::solids::*;
 
@@ -22,7 +17,7 @@ fn main() {
         .build();
 
     let shader = Shader::new(
-        |v: Vertex<_, _>, mvp: &Mat4x4<ModelToProjective>| {
+        |v: Vertex<_, _>, mvp: &Mat4x4<ModelToProj>| {
             vertex(mvp.apply(&v.pos), v.attrib)
         },
         |frag: Frag<Normal3>| {
@@ -39,12 +34,32 @@ fn main() {
         .build(),
         Octahedron.build(),
         Icosahedron.build(),
-        /*Lathe {
-            pts: vec![vec2(1.0, -0.75), vec2(0.25, 0.0), vec2(1.0, 0.75)],
-            sectors: 12,
+        Lathe {
+            pts: vec![
+                vec2(1.0, -1.0),
+                vec2(1.0, -0.75),
+                vec2(0.3, -0.5),
+                vec2(0.3, 0.5),
+                vec2(1.0, 0.75),
+                vec2(1.0, 1.0),
+            ],
+            sectors: 13,
             capped: true,
         }
-        .build(),*/
+        .build(),
+        Torus {
+            major_radius: 0.8,
+            minor_radius: 0.3,
+            major_sectors: 17,
+            minor_sectors: 9,
+        }
+        .build(),
+        Cylinder {
+            sectors: 9,
+            capped: true,
+            radius: 0.8,
+        }
+        .build(),
     ];
 
     let camera = translate(vec3(0.0, 0.0, 5.0));
@@ -59,9 +74,9 @@ fn main() {
 
         let carousel = rotate_y(turns(smootherstep(anim.unwrap_or(0.0))));
 
-        let spin = rotate_y(rads(secs)).compose(&rotate_x(rads(secs * 0.7)));
+        let spin = rotate_x(rads(secs * 0.7)).then(&rotate_z(rads(secs)));
 
-        let mvp: Mat4x4<ModelToProjective> = spin
+        let mvp: Mat4x4<ModelToProj> = spin
             .then(&camera)
             .then(&carousel)
             .to()
