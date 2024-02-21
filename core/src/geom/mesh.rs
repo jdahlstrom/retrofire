@@ -1,6 +1,7 @@
 //! Triangle meshes.
 
 use alloc::vec::Vec;
+use core::fmt::{Debug, Formatter};
 
 use crate::math::space::Real;
 use crate::math::Vec3;
@@ -64,5 +65,14 @@ impl<A, S> Mesh<A, S> {
             panic!("vertex index out of bounds at faces[{i}]: {face:?}");
         }
         Self { faces, verts }
+    }
+}
+
+impl<A: Debug, S: Debug + Default> Debug for Mesh<A, S> {
+    fn fmt(&self, f: &mut Formatter<'_>) -> core::fmt::Result {
+        f.debug_struct("Mesh")
+            .field("faces", &self.faces)
+            .field("verts", &self.verts)
+            .finish()
     }
 }

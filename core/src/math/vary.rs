@@ -2,6 +2,7 @@
 //! a face when rendering, such as colors, normals, or texture coordinates.
 
 use core::mem;
+use core::ops::{Range, RangeInclusive};
 
 /// A trait for types that can be linearly interpolated and distributed
 /// between two endpoints.
@@ -68,6 +69,10 @@ pub trait Vary: Sized + Clone {
     }
 }
 
+pub trait RangeExt<V: Vary> {
+    fn vary(self, count: u32) -> V::Iter;
+}
+
 #[derive(Copy, Clone, Debug)]
 pub struct Iter<T: Vary> {
     pub val: T,
@@ -128,8 +133,27 @@ impl<T: Vary> Iterator for Iter<T> {
     }
 }
 
+impl<V: Vary> RangeExt<V> for Range<V> {
+    fn vary(self, count: u32) -> V::Iter {
+        let diff = self.end.diff(&self.start);
+        let step = V::scale(&diff, 1.0 / count as f32);
+        self.start.vary(step, Some(count))
+    }
+}
+
+impl<V: Vary> RangeExt<V> for RangeInclusive<V> {
+    fn vary(self, count: u32) -> V::Iter {
+        let (start, end) = self.into_inner();
+        let diff = end.diff(&start);
+        let step = V::scale(&diff, 1.0 / (count - 1) as f32);
+        start.vary(step, Some(count))
+    }
+}
+
 #[cfg(test)]
 mod tests {
+    use alloc::vec::*;
+
     use crate::assert_approx_eq;
 
     use super::*;
@@ -141,6 +165,24 @@ mod tests {
         assert_approx_eq!(
             varying.collect::<Vec<_>>()[..],
             [-6.0, -4.8, -3.6, -2.4, -1.2, 0.0, 1.2, 2.4, 3.6, 4.8]
+        );
+    }
+
+    #[test]
+    fn vary_range() {
+        let varying = (-1.0..2.0).vary(6);
+        assert_eq!(
+            varying.collect::<Vec<_>>(),
+            [-1.0, -0.5, 0.0, 0.5, 1.0, 1.5]
+        );
+    }
+
+    #[test]
+    fn vary_range_inclusive() {
+        let varying = (-1.0..=2.0).vary(7);
+        assert_eq!(
+            varying.collect::<Vec<_>>(),
+            [-1.0, -0.5, 0.0, 0.5, 1.0, 1.5, 2.0]
         );
     }
 }

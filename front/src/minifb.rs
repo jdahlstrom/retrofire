@@ -103,7 +103,7 @@ impl Window {
     /// * the callback returns `ControlFlow::Break`.
     pub fn run<F>(&mut self, mut frame_fn: F)
     where
-        F: FnMut(&mut Frame) -> ControlFlow<()>,
+        F: FnMut(&mut Frame<Self>) -> ControlFlow<()>,
     {
         let (w, h) = self.size;
         let mut cb = Buf2::new_default(w, h);
@@ -127,6 +127,7 @@ impl Window {
                     color_buf: cb.as_mut_slice2(),
                     depth_buf: zb.as_mut_slice2(),
                 },
+                win: self,
                 stats: &mut stats,
             };
             last = Instant::now();

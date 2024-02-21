@@ -48,3 +48,27 @@ pub mod geom;
 pub mod math;
 pub mod render;
 pub mod util;
+
+pub mod prelude {
+    pub use crate::geom::{vertex, Mesh, Tri, Vertex};
+
+    pub use crate::math::angle::{degs, rads, turns, Angle};
+    pub use crate::math::color::{
+        hsl, hsla, rgb, rgba, Color3, Color3f, Color4, Color4f,
+    };
+    pub use crate::math::mat::{
+        perspective, rotate_x, rotate_y, rotate_z, translate, viewport, Mat3x3,
+        Mat4x4, Matrix,
+    };
+    pub use crate::math::vary::{lerp, Vary};
+    pub use crate::math::vec::{
+        splat, vec2, vec3, vec4, Vec2, Vec2i, Vec3, Vec3i, Vec4, Vec4i, Vector,
+    };
+
+    pub use crate::render::raster::Frag;
+    pub use crate::render::shader::Shader;
+
+    pub use crate::util::buf::{
+        AsMutSlice2, AsSlice2, Buf2, MutSlice2, Slice2,
+    };
+}
