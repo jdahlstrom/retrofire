@@ -360,7 +360,7 @@ impl Lathe {
             let n = if i == 0 {
                 vec2(pts[1].y() - pts[0].y(), pts[0].x() - pts[1].x())
             } else if i == pts.len() - 1 {
-                vec2(pts[i].y() - pts[i - 1].y(), pts[i].x() - pts[i - 1].x())
+                vec2(pts[i].y() - pts[i - 1].y(), pts[i - 1].x() - pts[i].x())
             } else {
                 let d1 = pts[i] - pts[i - 1];
                 let d2 = pts[i + 1] - pts[i];
