@@ -1,7 +1,6 @@
 use std::array::from_fn;
 
-use re::geom::mesh::Mesh;
-use re::geom::{vertex, Tri};
+use re::geom::{vertex, Mesh, Tri};
 use re::math::vec::splat;
 use re::math::{vec3, Vary, Vec3};
 use re::render::tex::{uv, TexCoord};
@@ -10,7 +9,19 @@ use re::render::tex::{uv, TexCoord};
 // TODO Use distinct type rather than alias
 pub type Normal3 = Vec3;
 
-/// A rectangular cuboid, defined by two opposite vertices.
+/// A regular tetrahedron.
+///
+/// A Platonic solid with four vertices and four equilateral triangle faces.
+/// The tetrahedron is its own dual.
+///
+/// `Tetrahedron`'s vertices are at:
+/// * (0, 1, 0),
+/// * (√(8/9), -1/3, 0),
+/// * (-√(2/9), -1/3, √(2/3)), and
+/// * (-√(8/9), -1/3, -√(2/3)).
+#[derive(Copy, Clone, Debug)]
+pub struct Tetrahedron;
+
 #[derive(Copy, Clone, Debug)]
 pub struct Box {
     /// The left bottom near corner of the box.
@@ -34,13 +45,29 @@ pub struct Dodecahedron;
 #[derive(Copy, Clone, Debug, Default)]
 pub struct Icosahedron;
 
-impl Default for Box {
-    /// Creates a cube with unit-length edges, centered at the origin.
-    fn default() -> Self {
-        Self {
-            left_bot_near: splat(-0.5),
-            right_top_far: splat(0.5),
+impl Tetrahedron {
+    const FACES: [[usize; 3]; 4] = [[0, 2, 1], [0, 3, 2], [0, 1, 3], [1, 2, 3]];
+
+    pub fn build(self) -> Mesh<Normal3> {
+        let sqrt = f32::sqrt;
+        let coords = [
+            vec3(0.0, 1.0, 0.0),
+            vec3(sqrt(8.0 / 9.0), -1.0 / 3.0, 0.0),
+            vec3(-sqrt(2.0 / 9.0), -1.0 / 3.0, sqrt(2.0 / 3.0)),
+            vec3(-sqrt(2.0 / 9.0), -1.0 / 3.0, -sqrt(2.0 / 3.0)),
+        ];
+        let norms = [-coords[3], -coords[1], -coords[2], -coords[0]];
+
+        let mut faces = vec![];
+        let mut verts = vec![];
+
+        for (i, [a, b, c]) in Self::FACES.into_iter().enumerate() {
+            faces.push(Tri([3 * i, 3 * i + 1, 3 * i + 2]));
+            verts.push(vertex(coords[a].to(), norms[i]));
+            verts.push(vertex(coords[b].to(), norms[i]));
+            verts.push(vertex(coords[c].to(), norms[i]));
         }
+        Mesh::new(faces, verts)
     }
 }
 
@@ -292,5 +319,15 @@ impl Icosahedron {
         }
 
         Mesh::new(faces, verts)
+    }
+}
+
+impl Default for Box {
+    /// Creates a cube with unit-length edges, centered at the origin.
+    fn default() -> Self {
+        Self {
+            left_bot_near: splat(-0.5),
+            right_top_far: splat(0.5),
+        }
     }
 }
