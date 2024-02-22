@@ -1,6 +1,8 @@
 //! Triangle meshes.
 
-use alloc::vec::Vec;
+use core::fmt::{Debug, Formatter};
+
+use alloc::{vec, vec::Vec};
 
 use crate::math::space::Real;
 use crate::math::Vec3;
@@ -17,12 +19,18 @@ pub type Vertex<A, Sp> = super::Vertex<Vec3<Sp>, A>;
 /// surface without holes or boundaries, so that every face shares each of its
 /// edges with another face. By using many faces, complex curved shapes can be
 /// approximated.
+#[derive(Clone)]
 pub struct Mesh<Attrib, Space = Real<3, Model>> {
     /// The faces of the mesh, with each face a triplet of indices
-    /// to the `verts` vector.
+    /// to the `verts` vector. Several faces can share a vertex.
     pub faces: Vec<Tri<usize>>,
     /// The vertices of the mesh.
     pub verts: Vec<Vertex<Attrib, Space>>,
+}
+
+#[derive(Clone, Debug)]
+pub struct Builder<Attrib = ()> {
+    m: Mesh<Attrib>,
 }
 
 impl<A, S> Mesh<A, S> {
@@ -64,5 +72,69 @@ impl<A, S> Mesh<A, S> {
             panic!("vertex index out of bounds at faces[{i}]: {face:?}");
         }
         Self { faces, verts }
+    }
+}
+
+impl<A> Mesh<A> {
+    /// Returns a new mesh builder.
+    pub fn builder() -> Builder<A> {
+        Builder::default()
+    }
+}
+
+impl<A> Builder<A> {
+    /// Pushes a face with the given vertex indices.
+    pub fn push_face(&mut self, a: usize, b: usize, c: usize) -> &mut Self {
+        self.m.faces.push(Tri([a, b, c]));
+        self
+    }
+    /// Pushes a vertex with the given position and attribute.
+    pub fn push_vert(&mut self, pos: Vec3, attrib: A) -> &mut Self {
+        self.m
+            .verts
+            .push(Vertex { pos: pos.to(), attrib });
+        self
+    }
+
+    /// Returns the finished mesh.
+    ///
+    /// # Panics
+    /// If any of the vertex indices in `faces` ≥ `verts.len()`.
+    pub fn build(self) -> Mesh<A> {
+        let m = self.m;
+        let len = m.verts.len();
+        let oob = m
+            .faces
+            .iter()
+            .enumerate()
+            .find(|(_, f)| f.0.iter().any(|&i| i >= len));
+        if let Some((i, face)) = oob {
+            panic!(
+                "vertex index out of bounds at faces[{i}]: {face:?} (len={len})",
+            );
+        }
+        // Sanity checks done by new()
+        Mesh::new(m.faces, m.verts)
+    }
+}
+
+impl<A: Debug, S: Debug + Default> Debug for Mesh<A, S> {
+    fn fmt(&self, f: &mut Formatter<'_>) -> core::fmt::Result {
+        f.debug_struct("Mesh")
+            .field("faces", &self.faces)
+            .field("verts", &self.verts)
+            .finish()
+    }
+}
+
+impl<A, S> Default for Mesh<A, S> {
+    fn default() -> Self {
+        Self { faces: vec![], verts: vec![] }
+    }
+}
+
+impl<A> Default for Builder<A> {
+    fn default() -> Self {
+        Self { m: Mesh::default() }
     }
 }
