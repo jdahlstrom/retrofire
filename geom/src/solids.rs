@@ -22,6 +22,23 @@ pub type Normal3 = Vec3;
 #[derive(Copy, Clone, Debug)]
 pub struct Tetrahedron;
 
+/// A rectangular cuboid.
+///
+/// Defined by the left-bottom-near and right-top-far vertices of the box.
+///
+/// An equilateral box is a cube, a platonic solid with six square faces.
+/// The dual of the cube is the octahedron.
+///
+/// Assuming the two defining vertices are (l, b, n) and (r, t, f),
+/// the vertices of a `Box` are at
+/// * (l, b, n)
+/// * (l, b, f)
+/// * (l, t, n)
+/// * (l, t, f)
+/// * (r, b, n)
+/// * (r, b, f)
+/// * (r, t, n)
+/// * (r, t, f)
 #[derive(Copy, Clone, Debug)]
 pub struct Box {
     /// The left bottom near corner of the box.
@@ -30,18 +47,46 @@ pub struct Box {
     pub right_top_far: Vec3,
 }
 
-/// A regular octahedron: a Platonic solid with six vertices and eight
-/// equilateral triangle faces. The octahedron is the dual of the cube.
+/// Regular octahedron.
 ///
-/// # Vertex coordinates
+/// A Platonic solid with six vertices and eight equilateral triangle faces.
+/// The octahedron is the dual of the cube.
 ///
-/// (±1, 0, 0), (0, ±1, 0), and (0, 0, ±1).
+/// `Octahedron`'s vertices are at (±1, 0, 0), (0, ±1, 0), and (0, 0, ±1).
 #[derive(Copy, Clone, Debug, Default)]
 pub struct Octahedron;
 
+/// Regular dodecahedron.
+///
+/// A Platonic solid with twenty vertices and twelve regular pentagonal faces.
+/// Three edges meet at every vertex. The dual of the dodecahedron is the
+/// icosahedron.
+///
+/// `Dodecahedron`'s vertices are at:
+/// * (±1, ±1, ±1)
+/// * (±φ, ±1/φ, 0)
+/// * (±1/φ, ±φ, 0)
+/// * (±φ, 0, ±1/φ)
+/// * (±1/φ, 0, ±φ)
+/// * (0, ±φ, ±1/φ)
+/// * (0, ±1/φ, ±φ)
+///
+/// where φ ≈ 1.618 is the golden ratio constant.
 #[derive(Copy, Clone, Debug, Default)]
 pub struct Dodecahedron;
 
+/// Regular icosahedron.
+///
+/// A Platonic solid with twelve vertices and twenty equilateral triangle
+/// faces. Five edges meet at every vertex. The dual of the icosahedron is
+/// the dodecahedron.
+///
+/// `Icosahedron`'s vertices are at:
+/// * (±1, 0, ±φ)
+/// * (±φ, ±1, 0)
+/// * (0, ±φ, ±1),
+///
+/// where φ ≈ 1.618 is the golden ratio constant.
 #[derive(Copy, Clone, Debug, Default)]
 pub struct Icosahedron;
 
@@ -125,6 +170,14 @@ impl Box {
         // back
         [20, 21, 23], [20, 23, 22],
     ];
+
+    /// Returns a cube centered on the origin, with the given side length.
+    pub fn cube(side_len: f32) -> Self {
+        Self {
+            left_bot_near: splat(-0.5 * side_len),
+            right_top_far: splat(0.5 * side_len),
+        }
+    }
 
     pub fn build(self) -> Mesh<Normal3> {
         let verts = Self::VERTS
@@ -238,19 +291,14 @@ impl Dodecahedron {
         vec3( 1.0,  1.0,  1.0),
 
     ];
+    #[rustfmt::skip]
     const FACES: [[usize; 5]; 12] = [
-        [0, 1, 14, 8, 12],
-        [1, 0, 13, 10, 15],
-        [3, 2, 16, 9, 18],
-        [2, 3, 19, 11, 17],
-        [4, 5, 13, 0, 12],
-        [5, 4, 16, 2, 17],
-        [7, 6, 14, 1, 15],
-        [6, 7, 19, 3, 18],
-        [8, 9, 16, 4, 12],
-        [9, 8, 14, 6, 18],
-        [11, 10, 13, 5, 17],
-        [10, 11, 19, 7, 15],
+        [ 0,  1, 14, 8, 12], [ 1, 0, 13, 10, 15],
+        [ 3,  2, 16, 9, 18], [ 2, 3, 19, 11, 17],
+        [ 4,  5, 13, 0, 12], [ 5, 4, 16,  2, 17],
+        [ 7,  6, 14, 1, 15], [ 6, 7, 19,  3, 18],
+        [ 8,  9, 16, 4, 12], [ 9, 8, 14,  6, 18],
+        [11, 10, 13, 5, 17], [10, 11, 19, 7, 15],
     ];
 
     // The normals are exactly the vertices of the icosahedron, normalized.
@@ -303,19 +351,19 @@ impl Icosahedron {
         [2, 9, 7], [3,  7, 11], // +X+Y   "
     ];
 
-    /// The normals are exactly the vertices of the dodecahedron, normalized.
+    // The normals are exactly the vertices of the dodecahedron, normalized.
     const NORMALS: [Vec3; 20] = Dodecahedron::COORDS;
 
     pub fn build(self) -> Mesh<Normal3> {
         let mut faces = vec![];
         let mut verts = vec![];
 
-        for (i, &[a, b, c]) in Self::FACES.iter().enumerate() {
+        for (i, vs) in Self::FACES.iter().enumerate() {
             let n = Self::NORMALS[i].normalize();
             faces.push(Tri([3 * i, 3 * i + 1, 3 * i + 2]));
-            verts.push(vertex(Self::COORDS[a].to().normalize(), n));
-            verts.push(vertex(Self::COORDS[b].to().normalize(), n));
-            verts.push(vertex(Self::COORDS[c].to().normalize(), n));
+            for vi in *vs {
+                verts.push(vertex(Self::COORDS[vi].to().normalize(), n));
+            }
         }
 
         Mesh::new(faces, verts)
