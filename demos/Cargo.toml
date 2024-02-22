@@ -27,3 +27,7 @@ required-features = ["minifb"]
 [[bin]]
 name = "bezier"
 required-features = ["minifb"]
+
+[[bin]]
+name = "sprite"
+required-features = ["minifb"]
