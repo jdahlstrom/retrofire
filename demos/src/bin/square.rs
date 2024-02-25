@@ -8,6 +8,9 @@ use re::math::{rads, vec2, vec3, Mat4x4, Vec3};
 use re::render::raster::Frag;
 use re::render::shader::Shader;
 use re::render::{render, Model, ModelToProj, ModelToView};
+use re::util::ansi::Attrib::{Background, Foreground, Reset};
+use re::util::ansi::Color::Red;
+use re::util::ansi::{Ansi, Color};
 use re_front::minifb::Window;
 
 fn main() {
@@ -53,4 +56,21 @@ fn main() {
         );
         Continue(())
     });
+
+    /*println!(
+        "{}{}{} HELLO {}{}",
+        Ansi::CursorSave,
+        Ansi::CursorUp(10),
+        Ansi::Graphic(Background(Color::Red)),
+        Ansi::Graphic(Reset),
+        Ansi::CursorRestore,
+    );*/
+
+    Ansi::start()
+        .cursor_save()
+        .cursor_up(10)
+        .bg_color(Red)
+        .write("HELLO")
+        .reset()
+        .cursor_restore();
 }
