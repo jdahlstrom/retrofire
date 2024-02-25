@@ -1,0 +1,2 @@
+[alias]
+run-demo = "run --release -p retrofire-demos -F minifb,re-geom --bin"
