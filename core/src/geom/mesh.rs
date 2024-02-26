@@ -9,7 +9,7 @@ use crate::render::Model;
 use super::Tri;
 
 /// Convenience type alias for a mesh vertex.
-pub type Vertex<A, Sp> = super::Vertex<Vec3<Sp>, A>;
+pub type Vertex<A, B> = super::Vertex<Vec3<B>, A>;
 
 /// A triangle mesh.
 ///
@@ -17,15 +17,15 @@ pub type Vertex<A, Sp> = super::Vertex<Vec3<Sp>, A>;
 /// surface without holes or boundaries, so that every face shares each of its
 /// edges with another face. By using many faces, complex curved shapes can be
 /// approximated.
-pub struct Mesh<Attrib, Space = Real<3, Model>> {
+pub struct Mesh<Attrib, Basis = Model> {
     /// The faces of the mesh, with each face a triplet of indices
     /// to the `verts` vector.
     pub faces: Vec<Tri<usize>>,
     /// The vertices of the mesh.
-    pub verts: Vec<Vertex<Attrib, Space>>,
+    pub verts: Vec<Vertex<Attrib, Basis>>,
 }
 
-impl<A, S> Mesh<A, S> {
+impl<A, B> Mesh<A, B> {
     /// Creates a new triangle mesh with the given faces and vertices.
     ///
     /// Each face in `faces` is a triplet of indices, referring to
@@ -55,7 +55,7 @@ impl<A, S> Mesh<A, S> {
     /// ```
     /// # Panics
     /// If any of the vertex indices in `faces` ≥ `verts.len()`.
-    pub fn new(faces: Vec<Tri<usize>>, verts: Vec<Vertex<A, S>>) -> Self {
+    pub fn new(faces: Vec<Tri<usize>>, verts: Vec<Vertex<A, B>>) -> Self {
         let oob = faces
             .iter()
             .enumerate()

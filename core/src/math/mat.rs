@@ -8,7 +8,7 @@ use core::marker::PhantomData;
 use core::ops::Range;
 
 use crate::math::space::{Proj4, Real};
-use crate::math::vec::{Vec2u, Vec3, Vec4, Vector};
+use crate::math::vec::{Vec2u, Vec3, Vector};
 use crate::render::{NdcToScreen, ViewToProj};
 
 /// A linear transform from one space (or basis) to another.
@@ -195,7 +195,7 @@ impl<Src, Dst> Mat4x4<RealToReal<3, Src, Dst>> {
     ///         \ ·  ·  M33 / \  1 /
     /// ```
     #[must_use]
-    pub fn apply(&self, v: &Vec3<Real<3, Src>>) -> Vec3<Real<3, Dst>> {
+    pub fn apply(&self, v: &Vec3<Src>) -> Vec3<Dst> {
         let v = Vector::from([v.x(), v.y(), v.z(), 1.0]);
         let x = self.row_vec(0).dot(&v);
         let y = self.row_vec(1).dot(&v);
@@ -352,7 +352,7 @@ impl<B> Mat4x4<RealToProj<B>> {
     ///         \ ·  ·  M33 / \  1 /
     /// ```
     #[must_use]
-    pub fn apply(&self, v: &Vec3<Real<3, B>>) -> Vec4<Proj4> {
+    pub fn apply(&self, v: &Vec3<B>) -> Vector<[f32; 4], Proj4> {
         let v = Vector::from([v.x(), v.y(), v.z(), 1.0]);
         [
             self.row_vec(0).dot(&v),
@@ -720,8 +720,8 @@ mod tests {
                 .to();
         let m_inv: Mat4x4<RealToReal<3, Basis2, Basis1>> = m.inverse();
 
-        let v1: Vec3<Real<3, Basis1>> = vec3(1.0, -2.0, 3.0).to();
-        let v2: Vec3<Real<3, Basis2>> = vec3(2.0, 0.0, -2.0).to();
+        let v1: Vec3<Basis1> = vec3(1.0, -2.0, 3.0).to();
+        let v2: Vec3<Basis2> = vec3(2.0, 0.0, -2.0).to();
 
         assert_eq!(m_inv.apply(&m.apply(&v1)), v1);
         assert_eq!(m.apply(&m_inv.apply(&v2)), v2);

@@ -15,7 +15,6 @@ use core::fmt::Debug;
 use core::ops::Range;
 
 use crate::geom::Vertex;
-use crate::math::space::Real;
 use crate::math::{Vary, Vec3};
 
 use super::Screen;
@@ -50,7 +49,7 @@ pub struct ScanlineIter<V: Vary> {
 
 /// Vector in screen space.
 /// `x` and `y` are viewport pixel coordinates, `z` is depth.
-pub type ScreenVec = Vec3<Real<3, Screen>>;
+pub type ScreenVec = Vec3<Screen>;
 
 /// Values to interpolate across a rasterized primitive.
 pub type Varyings<V> = (ScreenVec, V);
