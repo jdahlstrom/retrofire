@@ -8,7 +8,7 @@ use re::prelude::*;
 use re_front::minifb::Window;
 use re_front::Frame;
 
-fn line([mut p0, mut p1]: [Vec2; 2]) -> impl Iterator<Item = Vec2i> {
+fn line([mut p0, mut p1]: [Vec2; 2]) -> impl Iterator<Item = Vec2u> {
     if p0.y() > p1.y() {
         swap(&mut p0, &mut p1);
     }
@@ -16,19 +16,17 @@ fn line([mut p0, mut p1]: [Vec2; 2]) -> impl Iterator<Item = Vec2i> {
     let abs_dx = dx.abs();
 
     let (step, n) = if abs_dx > dy {
-        let dy_dx = dy / abs_dx;
-        (vec2(dx.signum(), dy_dx), abs_dx)
+        (vec2(dx.signum(), dy / abs_dx), abs_dx)
     } else {
-        let dx_dy = dx / dy;
-        (vec2(dx_dy, 1.0), dy)
+        (vec2(dx / dy, 1.0), dy)
     };
 
     p0.vary(step, Some(n as u32))
-        .map(|p| vec2(p.x() as i32, p.y() as i32))
+        .map(|p| vec2(p.x() as u32, p.y() as u32))
 }
 
-const W: usize = 640;
-const H: usize = 480;
+const W: u32 = 640;
+const H: u32 = 480;
 
 fn main() {
     let mut win = Window::builder()

@@ -91,17 +91,17 @@ impl<T> Buf2<T> {
     ///
     /// # Panics
     /// If there are fewer than `w * h` elements in `init`.
-    pub fn new<I>(w: usize, h: usize, init: I) -> Self
+    pub fn new<I>(w: u32, h: u32, init: I) -> Self
     where
         I: IntoIterator<Item = T>,
     {
-        let data: Vec<_> = init.into_iter().take(w * h).collect();
-        assert_eq!(data.len(), w * h);
+        let data: Vec<_> = init.into_iter().take((w * h) as usize).collect();
+        assert_eq!(data.len(), (w * h) as usize);
         Self(Inner::new(w, h, w, data))
     }
     /// Returns a buffer with size `w` × `h`, with every element
     /// initialized by calling `T::default()`.
-    pub fn new_default(w: usize, h: usize) -> Self
+    pub fn new_default(w: u32, h: u32) -> Self
     where
         T: Clone + Default,
     {
@@ -110,9 +110,9 @@ impl<T> Buf2<T> {
     /// Returns a buffer with size `w` × `h`, with every element
     /// initialized by calling `init_fn(x, y)` where x is the column index
     /// and y the row index of the element being initialized.
-    pub fn new_with<F>(w: usize, h: usize, mut init_fn: F) -> Self
+    pub fn new_with<F>(w: u32, h: u32, mut init_fn: F) -> Self
     where
-        F: Copy + FnMut(usize, usize) -> T,
+        F: Copy + FnMut(u32, u32) -> T,
     {
         let init = (0..h).flat_map(move |y| {
             (0..w).map(move |x| init_fn(x, y)) //
@@ -160,12 +160,7 @@ impl<'a, T> Slice2<'a, T> {
     /// # Panics
     /// if `stride < width` or if the slice would overflow `data`.
     ///
-    pub fn new(
-        width: usize,
-        height: usize,
-        stride: usize,
-        data: &'a [T],
-    ) -> Self {
+    pub fn new(width: u32, height: u32, stride: u32, data: &'a [T]) -> Self {
         Self(Inner::new(width, height, stride, data))
     }
 }
@@ -173,7 +168,7 @@ impl<'a, T> Slice2<'a, T> {
 impl<'a, T> MutSlice2<'a, T> {
     /// Returns a new `MutSlice2` view to `data` with dimensions `w` and `h`
     /// and stride `stride`.
-    pub fn new(w: usize, h: usize, stride: usize, data: &'a mut [T]) -> Self {
+    pub fn new(w: u32, h: u32, stride: u32, data: &'a mut [T]) -> Self {
         Self(Inner::new(w, h, stride, data))
     }
 }
@@ -271,7 +266,7 @@ mod inner {
     use core::marker::PhantomData;
     use core::ops::{Deref, DerefMut, Index, IndexMut, Range};
 
-    use crate::math::vec::Vec2i;
+    use crate::math::vec::Vec2u;
     use crate::util::buf::{MutSlice2, Slice2};
     use crate::util::rect::Rect;
 
@@ -279,9 +274,9 @@ mod inner {
     /// The types `Buf2`, `Slice2`, and `MutSlice2` deref to `Inner`.
     #[derive(Copy, Clone)]
     pub struct Inner<T, D> {
-        w: usize,
-        h: usize,
-        stride: usize,
+        w: u32,
+        h: u32,
+        stride: u32,
         data: D,
         _pd: PhantomData<T>,
     }
@@ -290,17 +285,17 @@ mod inner {
         /// Returns the width of `self`.
         #[inline]
         pub fn width(&self) -> usize {
-            self.w
+            self.w as usize
         }
         /// Returns the height of `self`.
         #[inline]
         pub fn height(&self) -> usize {
-            self.h
+            self.h as usize
         }
         /// Returns the stride of `self`.
         #[inline]
         pub fn stride(&self) -> usize {
-            self.stride
+            self.stride as usize
         }
         /// Returns whether the rows of `self` are stored contiguously
         /// in memory. `Buf2` instances are always contiguous. `Slice2`
@@ -309,27 +304,21 @@ mod inner {
         pub fn is_contiguous(&self) -> bool {
             self.stride == self.w || self.h <= 1 || self.w == 0
         }
-        /// Returns whether `self` has no elements (if its width or height is 0).
+        /// Returns whether `self` contains no elements.
         pub fn is_empty(&self) -> bool {
             self.w == 0 || self.h == 0
         }
 
         #[inline]
-        fn to_index(&self, x: usize, y: usize) -> usize {
-            y * self.stride + x
+        fn to_index(&self, x: u32, y: u32) -> usize {
+            (y * self.stride + x) as usize
         }
         #[inline]
-        fn to_index_checked(&self, x: i32, y: i32) -> Option<usize> {
-            if x < 0 || (x as usize) >= self.w {
-                return None;
-            }
-            if y < 0 || (y as usize) >= self.h {
-                return None;
-            }
-            Some(y as usize * self.stride + x as usize)
+        fn to_index_checked(&self, x: u32, y: u32) -> Option<usize> {
+            (x < self.w && y < self.h).then(|| self.to_index(x, y))
         }
 
-        fn resolve_bounds(&self, rect: &Rect) -> (Range<usize>, Range<usize>) {
+        fn resolve_bounds(&self, rect: &Rect<u32>) -> (Range<u32>, Range<u32>) {
             let l = rect.left.unwrap_or(0);
             let t = rect.top.unwrap_or(0);
             let r = rect.right.unwrap_or(self.w);
@@ -347,7 +336,7 @@ mod inner {
         #[cold]
         #[inline(never)]
         #[track_caller]
-        fn position_out_of_bounds(&self, x: i32, y: i32) -> ! {
+        fn position_out_of_bounds(&self, x: u32, y: u32) -> ! {
             panic!(
                 "position (x={x}, y={y}) out of bounds (0..{}, 0..{})",
                 self.w, self.h
@@ -372,11 +361,11 @@ mod inner {
         /// # Panics
         /// if `stride < w` or if the slice would overflow `data`.
         #[rustfmt::skip]
-        pub(super) fn new(w: usize, h: usize, stride: usize, data: D)
+        pub(super) fn new(w: u32, h: u32, stride: u32, data: D)
             -> Self
         {
             assert!(stride >= w);
-            assert!(h == 0 || (h - 1) * stride + w <= data.len());
+            assert!(h == 0 || ((h - 1) * stride + w) as usize <= data.len());
             Self { w, h, stride, data, _pd: PhantomData, }
         }
 
@@ -408,7 +397,7 @@ mod inner {
 
         /// Returns a reference to the element at `pos`,
         /// or `None` if `pos` is out of bounds.
-        pub fn get(&self, pos: Vec2i) -> Option<&T> {
+        pub fn get(&self, pos: Vec2u) -> Option<&T> {
             self.to_index_checked(pos.x(), pos.y())
                 .map(|i| &self.data()[i])
         }
@@ -417,8 +406,8 @@ mod inner {
         /// The length of each slice equals [`self.width()`](Self::width).
         pub fn rows(&self) -> impl Iterator<Item = &[T]> {
             self.data()
-                .chunks(self.stride)
-                .map(|row| &row[..self.w])
+                .chunks(self.stride())
+                .map(|row| &row[..self.width()])
         }
 
         /// Returns an iterator over all the elements of `self` in row-major
@@ -442,8 +431,8 @@ mod inner {
         /// The length of each slice equals [`self.width()`](Self::width).
         pub fn rows_mut(&mut self) -> impl Iterator<Item = &mut [T]> {
             self.data
-                .chunks_exact_mut(self.stride)
-                .map(|row| &mut row[..self.w])
+                .chunks_exact_mut(self.stride as usize)
+                .map(|row| &mut row[..self.w as usize])
         }
 
         /// Returns an iterator over all the elements of `self` in row-major
@@ -469,7 +458,7 @@ mod inner {
         /// `x` and `y` are the column and row of the element, respectively.
         pub fn fill_with<F>(&mut self, mut fill_fn: F)
         where
-            F: Copy + FnMut(usize, usize) -> T,
+            F: Copy + FnMut(u32, u32) -> T,
         {
             let w = self.w;
             let mut fill = (0..self.h).flat_map(move |y| {
@@ -486,7 +475,7 @@ mod inner {
 
         /// Returns a mutable reference to the element at `pos`,
         /// or `None` if `pos` is out of bounds.
-        pub fn get_mut(&mut self, pos: Vec2i) -> Option<&mut T> {
+        pub fn get_mut(&mut self, pos: Vec2u) -> Option<&mut T> {
             self.to_index_checked(pos.x(), pos.y())
                 .map(|i| &mut self.data[i])
         }
@@ -500,8 +489,8 @@ mod inner {
             let range =
                 self.to_index(x.start, y.start)..self.to_index(x.end, y.end);
             MutSlice2(Inner::new(
-                x.len(),
-                y.len(),
+                x.len() as u32,
+                y.len() as u32,
                 self.stride,
                 &mut self.data_mut()[range],
             ))
@@ -515,7 +504,7 @@ mod inner {
         /// The returned slice has length `self.width()`.
         #[inline]
         fn index(&self, i: usize) -> &[T] {
-            &self.data()[i * self.stride..][..self.w]
+            &self.data()[i * self.stride()..][..self.width()]
         }
     }
 
@@ -528,8 +517,8 @@ mod inner {
         /// The returned slice has length `self.width()`.
         #[inline]
         fn index_mut(&mut self, row: usize) -> &mut [T] {
-            let idx = row * self.stride;
-            let w = self.w;
+            let idx = row * self.stride();
+            let w = self.width();
             &mut self.data_mut()[idx..idx + w]
         }
     }
@@ -537,7 +526,7 @@ mod inner {
     impl<T, D, Pos> Index<Pos> for Inner<T, D>
     where
         D: Deref<Target = [T]>,
-        Pos: Into<Vec2i>,
+        Pos: Into<Vec2u>,
     {
         type Output = T;
 
@@ -558,7 +547,7 @@ mod inner {
     impl<T, D, Pos> IndexMut<Pos> for Inner<T, D>
     where
         D: DerefMut<Target = [T]>,
-        Pos: Into<Vec2i>,
+        Pos: Into<Vec2u>,
     {
         /// Returns a mutable reference to the element of `self`
         /// at position `pos`.
@@ -636,12 +625,6 @@ mod tests {
     fn buf_index_past_end_should_panic() {
         let buf = Buf2::new_default(4, 5);
         let _: i32 = buf[[4, 0]];
-    }
-    #[test]
-    #[should_panic]
-    fn buf_negative_index_should_panic() {
-        let buf = Buf2::new_default(4, 5);
-        let _: i32 = buf[[3, -1]];
     }
 
     #[test]
