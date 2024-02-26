@@ -284,18 +284,18 @@ mod inner {
     impl<T, D> Inner<T, D> {
         /// Returns the width of `self`.
         #[inline]
-        pub fn width(&self) -> usize {
-            self.w as usize
+        pub fn width(&self) -> u32 {
+            self.w
         }
         /// Returns the height of `self`.
         #[inline]
-        pub fn height(&self) -> usize {
-            self.h as usize
+        pub fn height(&self) -> u32 {
+            self.h
         }
         /// Returns the stride of `self`.
         #[inline]
-        pub fn stride(&self) -> usize {
-            self.stride as usize
+        pub fn stride(&self) -> u32 {
+            self.stride
         }
         /// Returns whether the rows of `self` are stored contiguously
         /// in memory. `Buf2` instances are always contiguous. `Slice2`
@@ -383,8 +383,8 @@ mod inner {
         ///
         /// # Panics
         /// If any part of `rect` is outside the bounds of `self`.
-        pub fn slice(&self, rect: &Rect) -> Slice2<T> {
-            let (x, y) = self.resolve_bounds(rect);
+        pub fn slice(&self, rect: impl Into<Rect>) -> Slice2<T> {
+            let (x, y) = self.resolve_bounds(&rect.into());
             let start = self.to_index(x.start, y.start);
             let end = self.to_index(x.end, y.end - 1).max(start);
             Slice2::new(
@@ -406,8 +406,8 @@ mod inner {
         /// The length of each slice equals [`self.width()`](Self::width).
         pub fn rows(&self) -> impl Iterator<Item = &[T]> {
             self.data()
-                .chunks(self.stride())
-                .map(|row| &row[..self.width()])
+                .chunks(self.stride as usize)
+                .map(|row| &row[..self.w as usize])
         }
 
         /// Returns an iterator over all the elements of `self` in row-major
@@ -484,8 +484,8 @@ mod inner {
         ///
         /// # Panics
         /// If any part of `rect` is outside the bounds of `self`.
-        pub fn slice_mut(&mut self, rect: &Rect) -> MutSlice2<T> {
-            let (x, y) = self.resolve_bounds(rect);
+        pub fn slice_mut(&mut self, rect: impl Into<Rect>) -> MutSlice2<T> {
+            let (x, y) = self.resolve_bounds(&rect.into());
             let range =
                 self.to_index(x.start, y.start)..self.to_index(x.end, y.end);
             MutSlice2(Inner::new(
@@ -504,7 +504,7 @@ mod inner {
         /// The returned slice has length `self.width()`.
         #[inline]
         fn index(&self, i: usize) -> &[T] {
-            &self.data()[i * self.stride()..][..self.width()]
+            &self.data()[i * self.stride as usize..][..self.w as usize]
         }
     }
 
@@ -517,8 +517,8 @@ mod inner {
         /// The returned slice has length `self.width()`.
         #[inline]
         fn index_mut(&mut self, row: usize) -> &mut [T] {
-            let idx = row * self.stride();
-            let w = self.width();
+            let idx = row * self.stride as usize;
+            let w = self.w as usize;
             &mut self.data_mut()[idx..idx + w]
         }
     }
@@ -631,7 +631,7 @@ mod tests {
     #[should_panic]
     fn slice_out_of_bounds_should_panic() {
         let buf: Buf2<()> = Buf2::new_default(4, 5);
-        buf.slice(&(0..11, 0..10).into());
+        buf.slice((0..11, 0..10));
     }
 
     #[test]
@@ -644,7 +644,7 @@ mod tests {
     fn slice_extents() {
         let buf: Buf2<()> = Buf2::new_default(10, 10);
 
-        let slice = buf.slice(&(1..4, 2..8).into());
+        let slice = buf.slice((1..4, 2..8));
         assert_eq!(slice.width(), 3);
         assert_eq!(slice.height(), 6);
         assert_eq!(slice.stride(), 10);
@@ -656,24 +656,24 @@ mod tests {
         let buf: Buf2<()> = Buf2::new_default(10, 10);
 
         // Empty slice is contiguous
-        assert!(buf.slice(&(2..2, 2..8).into()).is_contiguous());
-        assert!(buf.slice(&(2..8, 2..2).into()).is_contiguous());
+        assert!(buf.slice((2..2, 2..8)).is_contiguous());
+        assert!(buf.slice((2..8, 2..2)).is_contiguous());
         // One-row slice is contiguous
-        assert!(buf.slice(&(2..8, 2..3).into()).is_contiguous());
+        assert!(buf.slice((2..8, 2..3)).is_contiguous());
         // Slice spanning whole width of buf is contiguous
-        assert!(buf.slice(&(0..10, 2..8).into()).is_contiguous());
-        assert!(buf.slice(&(.., 2..8).into()).is_contiguous());
+        assert!(buf.slice((0..10, 2..8)).is_contiguous());
+        assert!(buf.slice((.., 2..8)).is_contiguous());
 
-        assert!(!buf.slice(&(2..=2, 1..9).into()).is_contiguous());
-        assert!(!buf.slice(&(2..4, 0..9).into()).is_contiguous());
-        assert!(!buf.slice(&(2..4, 1..10).into()).is_contiguous());
+        assert!(!buf.slice((2..=2, 1..9)).is_contiguous());
+        assert!(!buf.slice((2..4, 0..9)).is_contiguous());
+        assert!(!buf.slice((2..4, 1..10)).is_contiguous());
     }
 
     #[test]
     #[rustfmt::skip]
     fn slice_fill() {
         let mut buf = Buf2::new_default(5, 4);
-        let mut slice = buf.slice_mut(&(2.., 1..3).into());
+        let mut slice = buf.slice_mut((2.., 1..3));
 
         slice.fill(1);
 
@@ -690,7 +690,7 @@ mod tests {
     #[rustfmt::skip]
     fn slice_fill_with() {
         let mut buf = Buf2::new_default(5, 4);
-        let mut slice = buf.slice_mut(&(2.., 1..3).into());
+        let mut slice = buf.slice_mut((2.., 1..3));
 
         slice.fill_with(|x, y| x + y);
 
@@ -706,7 +706,7 @@ mod tests {
     #[test]
     fn slice_indexing() {
         let buf = Buf2::new_with(5, 4, |x, y| x * 10 + y);
-        let slice = buf.slice(&(2.., 1..3).into());
+        let slice = buf.slice((2.., 1..3));
 
         assert_eq!(slice[vec2(0, 0)], 21);
         assert_eq!(slice[vec2(1, 0)], 31);
@@ -719,7 +719,7 @@ mod tests {
     #[test]
     fn slice_mut_indexing() {
         let mut buf = Buf2::new_with(5, 5, |x, y| x * 10 + y);
-        let mut slice = buf.slice_mut(&(2.., 1..3).into());
+        let mut slice = buf.slice_mut((2.., 1..3));
 
         slice[[2, 1]] = 123;
         assert_eq!(slice[vec2(2, 1)], 123);
@@ -728,14 +728,14 @@ mod tests {
         assert_eq!(slice.get(vec2(2, 2)), None);
 
         buf[[2, 2]] = 321;
-        let slice = buf.slice(&(1.., 2..).into());
+        let slice = buf.slice((1.., 2..));
         assert_eq!(slice[[1, 0]], 321);
     }
 
     #[test]
     fn slice_rows() {
         let buf = Buf2::new_with(5, 4, |x, y| x * 10 + y);
-        let slice = buf.slice(&(2.., 1..3).into());
+        let slice = buf.slice((2.., 1..3));
 
         let mut rows = slice.rows();
         assert_eq!(rows.next(), Some(&[21, 31, 41][..]));
