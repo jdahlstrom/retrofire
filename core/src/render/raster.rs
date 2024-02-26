@@ -273,12 +273,12 @@ mod tests {
 
         tri_fill([verts[0], verts[1], verts[2]], |sl| {
             for x in sl.xs {
-                buf[[x as i32, sl.y as i32]] += 1;
+                buf[[x as u32, sl.y as u32]] += 1;
             }
         });
         tri_fill([verts[0], verts[2], verts[3]], |sl| {
             for x in sl.xs {
-                buf[[x as i32, sl.y as i32]] += 1;
+                buf[[x as u32, sl.y as u32]] += 1;
             }
         });
 

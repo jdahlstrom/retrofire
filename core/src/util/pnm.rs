@@ -36,8 +36,8 @@ use crate::util::buf::AsSlice2;
 #[derive(Copy, Clone, Debug, Eq, PartialEq)]
 struct Header {
     format: Format,
-    width: usize,
-    height: usize,
+    width: u32,
+    height: u32,
     #[allow(unused)]
     // TODO Currently not used
     max: u16,
@@ -140,8 +140,8 @@ impl Header {
             it.next().ok_or(UnexpectedEnd)?,
         ];
         let format = magic.try_into()?;
-        let width: usize = parse_num(&mut it)?;
-        let height: usize = parse_num(&mut it)?;
+        let width: u32 = parse_num(&mut it)?;
+        let height: u32 = parse_num(&mut it)?;
         let max: u16 = match &format {
             TextBitmap | BinaryBitmap => 1,
             _ => parse_num(&mut it)?,
@@ -192,7 +192,7 @@ pub fn read_pnm(src: impl IntoIterator<Item = u8>) -> Result<Buf2<Color3>> {
                     col[i] = c;
                     (i == 2).then(|| col.into())
                 })
-                .take(count)
+                .take(count as usize)
                 .collect()
         }
         BinaryGraymap => it //
@@ -217,13 +217,13 @@ pub fn read_pnm(src: impl IntoIterator<Item = u8>) -> Result<Buf2<Color3>> {
                     };
                     (i == 2).then(|| Ok(col.into()))
                 })
-                .take(count)
+                .take(count as usize)
                 .collect::<Result<Vec<_>>>()?
         }
         _ => unimplemented!(),
     };
 
-    if data.len() < h.width * h.height {
+    if data.len() < (h.width * h.height) as usize {
         Err(UnexpectedEnd)
     } else {
         Ok(Buf2::new(h.width, h.height, data))
@@ -260,8 +260,8 @@ pub fn write_ppm(
     let slice = data.as_slice2();
     Header {
         format: Format::BinaryPixmap,
-        width: slice.width(),
-        height: slice.height(),
+        width: slice.width() as u32,
+        height: slice.height() as u32,
         max: 255,
     }
     .write(&mut out)?;
