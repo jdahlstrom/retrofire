@@ -1,10 +1,17 @@
-//! Rectangular regions; essentially two-dimensional ranges.
-
 use core::fmt::Debug;
 use core::ops::{Bound::*, Range, RangeBounds, RangeFull, Sub};
 
 use crate::math::vec::Vec2u;
 
+/// An axis-aligned rectangular region.
+///
+/// Each of the four sides of a `Rect` can be either bounded (`Some(_)`) or
+/// unbounded (`None`). If bounded, the start bounds (left and top) are always
+/// inclusive, and the end bounds (right and bottom) are always exclusive.
+///
+/// If `left` and `right` are unbounded and `right` ≤ `left`, the `Rect` is
+/// considered empty. The same holds for `top` and `bottom`. This matches the
+/// semantics of the standard `Range` type.
 #[derive(Copy, Clone, Debug, Default, Eq, PartialEq)]
 pub struct Rect<T = u32> {
     /// The left bound of `self`, if any.
@@ -18,6 +25,9 @@ pub struct Rect<T = u32> {
 }
 
 impl<T: Copy> Rect<T> {
+    /// Returns the width of `self`, or `None` if horizontally unbounded.
+    ///
+    /// Returns 0 if `right` <= `left`.
     pub fn width(&self) -> Option<T::Output>
     where
         T: Ord + Sub,
@@ -25,6 +35,9 @@ impl<T: Copy> Rect<T> {
         let (r, l) = (self.right?, self.left?);
         Some(r - r.min(l)) // Clamp width to 0
     }
+    /// Returns the height of `self`, or `None` if vertically unbounded.
+    ///
+    /// Returns 0 if `bottom` <= `top`.
     pub fn height(&self) -> Option<T::Output>
     where
         T: Ord + Sub,
@@ -45,6 +58,7 @@ impl<T: Copy> Rect<T> {
         h_empty || v_empty
     }
 
+    /// Returns whether the point (x, y)  is contained within `self`.
     pub fn contains(&self, x: T, y: T) -> bool
     where
         T: PartialOrd,
@@ -53,6 +67,7 @@ impl<T: Copy> Rect<T> {
         horiz.contains(&x) && vert.contains(&y)
     }
 
+    /// Returns the horizontal and vertical extents of `self`.
     pub fn bounds(&self) -> [impl RangeBounds<T>; 2] {
         let left = self.left.map(Included).unwrap_or(Unbounded);
         let top = self.top.map(Included).unwrap_or(Unbounded);
@@ -62,12 +77,18 @@ impl<T: Copy> Rect<T> {
         [(left, right), (top, bottom)]
     }
 
+    /// Returns the intersection of `self` and `other`.
+    ///
+    /// The intersection is a rect that contains exactly the points contained
+    /// by both `self` and `other`. If the input rects are disjoint, i.e.
+    /// contain no common points, the result is an empty rect with unspecified
+    /// top-left coordinates.
     #[must_use]
     pub fn intersect(&self, other: &Self) -> Self
     where
         T: Ord,
     {
-        pub fn zip_with<T>(
+        fn extremum<T>(
             a: Option<T>,
             b: Option<T>,
             f: fn(T, T) -> T,
@@ -79,10 +100,10 @@ impl<T: Copy> Rect<T> {
             }
         }
         Self {
-            left: zip_with(self.left, other.left, T::max),
-            top: zip_with(self.top, other.top, T::max),
-            right: zip_with(self.right, other.right, T::min),
-            bottom: zip_with(self.bottom, other.bottom, T::min),
+            left: extremum(self.left, other.left, T::max),
+            top: extremum(self.top, other.top, T::max),
+            right: extremum(self.right, other.right, T::min),
+            bottom: extremum(self.bottom, other.bottom, T::min),
         }
     }
 }
@@ -119,6 +140,7 @@ impl From<Range<Vec2u>> for Rect<u32> {
 }
 
 impl<T> From<RangeFull> for Rect<T> {
+    /// Creates a `Rect` with all sides unbounded.
     fn from(_: RangeFull) -> Self {
         Self {
             left: None,
@@ -225,33 +247,52 @@ mod tests {
     }
 
     #[test]
-    fn intersect() {
+    fn intersect_two_bounded() {
         let r = rect(10, 20, 100, 40);
         let s = rect(30, 0, 60, 50);
 
         assert_eq!(r.intersect(&s), rect(30, 20, 60, 40));
     }
     #[test]
-    fn intersect_unbounded() {
+    fn intersect_bounded_and_unbounded() {
+        let r = rect(10, 20, 50, 40);
+        let s = rect(30, 0, None, 50);
+
+        assert_eq!(r.intersect(&s), rect(30, 20, 50, 40));
+    }
+    #[test]
+    fn intersect_two_unbounded_to_unbounded() {
         let r = rect(0, 0, 10, None);
         let s = rect(0, 10, 10, None);
 
         assert_eq!(r.intersect(&s), rect(0, 10, 10, None));
     }
     #[test]
-    fn intersect_unbounded_to_bounded() {
+    fn intersect_two_unbounded_to_bounded() {
         let r = rect(None, 0, 30, 10);
         let s = rect(10, 0, None, 10);
 
         assert_eq!(r.intersect(&s), rect(10, 0, 30, 10));
     }
-
+    #[test]
+    fn intersect_empty() {
+        let r = rect(0, 0, 20, 20);
+        let s = rect(10, 10, 10, 10);
+        assert!(r.intersect(&s).is_empty());
+    }
+    #[test]
+    fn intersect_full() {
+        let r = rect(0, 0, 10, 20);
+        let s = (..).into();
+        assert_eq!(r.intersect(&s), r);
+    }
     #[test]
     fn intersect_disjoint() {
         let r = rect(None, -10i32, 100, None);
         let s = rect(100, None, None, None);
 
         let t = r.intersect(&s);
+        assert!(t.is_empty());
         assert_eq!(t.width(), Some(0));
         assert_eq!(t.height(), None);
     }
