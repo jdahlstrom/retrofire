@@ -1,10 +1,9 @@
 //! Rectangular regions; essentially two-dimensional ranges.
 
 use core::fmt::Debug;
-use core::ops::{Bound::*, RangeBounds, RangeFull, Sub};
+use core::ops::{Bound::*, Range, RangeBounds, RangeFull, Sub};
 
-use crate::math::space::Real;
-use crate::math::vec::Vector;
+use crate::math::vec::Vec2u;
 
 #[derive(Copy, Clone, Debug, Default, Eq, PartialEq)]
 pub struct Rect<T = usize> {
@@ -104,17 +103,15 @@ impl<R: RangeBounds<usize>, S: RangeBounds<usize>> From<(R, S)> for Rect {
     }
 }
 
-type Vec2u = Vector<[usize; 2], Real<2>>;
-
-impl From<(Vec2u, Vec2u)> for Rect {
+impl From<Range<Vec2u>> for Rect {
     /// Creates a `Rect` from two vectors designating the left-top
     /// and right-bottom corners of the `Rect`.
-    fn from((l_t, r_b): (Vec2u, Vec2u)) -> Self {
+    fn from(r: Range<Vec2u>) -> Self {
         Self {
-            left: Some(l_t.x()),
-            top: Some(l_t.y()),
-            right: Some(r_b.x()),
-            bottom: Some(r_b.y()),
+            left: Some(r.start.x() as usize),
+            top: Some(r.start.y() as usize),
+            right: Some(r.end.x() as usize),
+            bottom: Some(r.end.y() as usize),
         }
     }
 }
@@ -272,9 +269,9 @@ mod tests {
     }
 
     #[test]
-    fn from_pair_of_vecs() {
+    fn from_range_of_vecs() {
         assert_eq!(
-            Rect::from((vec2(10, 20), vec2(40, 80))),
+            Rect::from(vec2(10, 20)..vec2(40, 80)),
             rect(10, 20, 40, 80)
         );
     }
