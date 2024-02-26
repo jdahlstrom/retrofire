@@ -34,11 +34,16 @@ impl<T: Copy> Rect<T> {
         Some(b - b.min(t)) // Clamp height to 0
     }
 
+    /// Returns whether `self` contains no points.
     pub fn is_empty(&self) -> bool
     where
-        T: PartialEq,
+        T: PartialOrd,
     {
-        self.left == self.right || self.top == self.bottom
+        let Rect { left, top, right, bottom } = self;
+        // Empty if either extent is a bounded, empty range
+        let h_empty = left.is_some() && right.is_some() && left >= right;
+        let v_empty = top.is_some() && bottom.is_some() && top >= bottom;
+        h_empty || v_empty
     }
 
     pub fn contains(&self, x: T, y: T) -> bool
@@ -171,6 +176,42 @@ mod tests {
         assert!(r.contains(-9999, 9999));
         assert!(r.contains(99, 0));
         assert!(!r.contains(100, 0));
+    }
+
+    #[test]
+    fn is_empty_bounded() {
+        assert!(rect(10, 10, 10, 20).is_empty());
+        assert!(rect(10, 20, 10, 10).is_empty());
+    }
+    #[test]
+    fn is_empty_negative_extent() {
+        assert!(rect(20, 10, 10, 20).is_empty());
+        assert!(rect(10, 20, 20, 10).is_empty());
+    }
+
+    #[test]
+    fn is_empty_unbounded() {
+        assert!(rect(10, 10, 10, None).is_empty());
+        assert!(rect(10, 10, None, 10).is_empty());
+        assert!(rect(10, None, 10, 10).is_empty());
+        assert!(rect(None, 10, 10, 10).is_empty());
+    }
+    #[test]
+    fn is_empty_bounded_not_empty() {
+        assert!(!rect(10, 10, 20, 20).is_empty());
+        assert!(!rect(10, -10, 20, 10).is_empty());
+    }
+
+    #[test]
+    fn is_empty_unbounded_not_empty() {
+        assert!(!rect(10, 10, 20, None).is_empty());
+        assert!(!rect(10, 10, None, 20).is_empty());
+        assert!(!rect(10, None, 20, 10).is_empty());
+        assert!(!rect(None, 10, 10, 20).is_empty());
+
+        assert!(!rect(10, None, 20, None).is_empty());
+        assert!(!rect(None, 10, 10, None).is_empty());
+        assert!(!rect::<i32>(None, None, None, None).is_empty());
     }
 
     #[test]
