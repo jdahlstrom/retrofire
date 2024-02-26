@@ -226,7 +226,7 @@ pub fn read_pnm(src: impl IntoIterator<Item = u8>) -> Result<Buf2<Color3>> {
     if data.len() < (h.width * h.height) as usize {
         Err(UnexpectedEnd)
     } else {
-        Ok(Buf2::new(h.width, h.height, data))
+        Ok(Buf2::new_from(h.width, h.height, data))
     }
 }
 
@@ -506,7 +506,7 @@ mod tests {
         ];
 
         let mut out = vec![];
-        super::write_ppm(&mut out, Buf2::new(2, 2, buf)).unwrap();
+        super::write_ppm(&mut out, Buf2::new_from(2, 2, buf)).unwrap();
 
         assert_eq!(
             &out,

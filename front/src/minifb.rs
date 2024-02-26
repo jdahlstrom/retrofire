@@ -104,8 +104,8 @@ impl Window {
         F: FnMut(&mut Frame<Self>) -> ControlFlow<()>,
     {
         let (w, h) = self.size;
-        let mut cb = Buf2::new_default(w, h);
-        let mut zb = Buf2::new_default(w, h);
+        let mut cb = Buf2::new(w, h);
+        let mut zb = Buf2::new(w, h);
 
         let start = Instant::now();
         let mut last = Instant::now();

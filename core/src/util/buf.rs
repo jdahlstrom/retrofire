@@ -47,7 +47,7 @@ pub trait AsMutSlice2<T> {
 /// # use retrofire_core::util::buf::*;
 /// # use retrofire_core::math::vec::*;
 /// // Elements initialized with `Default::default()`
-/// let mut buf = Buf2::new_default(4, 4);
+/// let mut buf = Buf2::new(4, 4);
 /// // Indexing with a 2D vector (x, y) yields element at row y, column x:
 /// buf[vec2(2, 1)] = 123;
 /// // Indexing with an usize i yields row with index i as a slice:
@@ -86,26 +86,26 @@ pub struct MutSlice2<'a, T>(Inner<T, &'a mut [T]>);
 //
 
 impl<T> Buf2<T> {
+    /// Returns a buffer with size `w` × `h`, with every element
+    /// initialized by calling `T::default()`.
+    pub fn new(w: u32, h: u32) -> Self
+    where
+        T: Clone + Default,
+    {
+        Self::new_from(w, h, repeat(T::default()))
+    }
     /// Returns a buffer with size `w` × `h`, with elements initialized in
     /// row-major order with values yielded by `init`.
     ///
     /// # Panics
     /// If there are fewer than `w * h` elements in `init`.
-    pub fn new<I>(w: u32, h: u32, init: I) -> Self
+    pub fn new_from<I>(w: u32, h: u32, init: I) -> Self
     where
         I: IntoIterator<Item = T>,
     {
         let data: Vec<_> = init.into_iter().take((w * h) as usize).collect();
         assert_eq!(data.len(), (w * h) as usize);
         Self(Inner::new(w, h, w, data))
-    }
-    /// Returns a buffer with size `w` × `h`, with every element
-    /// initialized by calling `T::default()`.
-    pub fn new_default(w: u32, h: u32) -> Self
-    where
-        T: Clone + Default,
-    {
-        Self::new(w, h, repeat(T::default()))
     }
     /// Returns a buffer with size `w` × `h`, with every element
     /// initialized by calling `init_fn(x, y)` where x is the column index
@@ -117,7 +117,7 @@ impl<T> Buf2<T> {
         let init = (0..h).flat_map(move |y| {
             (0..w).map(move |x| init_fn(x, y)) //
         });
-        Self::new(w, h, init)
+        Self::new_from(w, h, init)
     }
 
     /// Returns a view of the backing data of `self`.
@@ -573,13 +573,13 @@ mod tests {
 
     #[test]
     fn buf_new() {
-        let buf = Buf2::new(3, 2, 1..);
+        let buf = Buf2::new_from(3, 2, 1..);
         assert_eq!(buf.data(), &[1, 2, 3, 4, 5, 6]);
     }
 
     #[test]
     fn buf_new_default() {
-        let buf: Buf2<i32> = Buf2::new_default(3, 2);
+        let buf: Buf2<i32> = Buf2::new(3, 2);
         assert_eq!(buf.data(), &[0, 0, 0, 0, 0, 0]);
     }
 
@@ -591,7 +591,7 @@ mod tests {
 
     #[test]
     fn buf_extents() {
-        let buf: Buf2<()> = Buf2::new_default(8, 10);
+        let buf: Buf2<()> = Buf2::new(8, 10);
         assert_eq!(buf.width(), 8);
         assert_eq!(buf.height(), 10);
         assert_eq!(buf.stride(), 8);
@@ -623,14 +623,14 @@ mod tests {
     #[test]
     #[should_panic]
     fn buf_index_past_end_should_panic() {
-        let buf = Buf2::new_default(4, 5);
+        let buf = Buf2::new(4, 5);
         let _: i32 = buf[[4, 0]];
     }
 
     #[test]
     #[should_panic]
     fn slice_out_of_bounds_should_panic() {
-        let buf: Buf2<()> = Buf2::new_default(4, 5);
+        let buf: Buf2<()> = Buf2::new(4, 5);
         buf.slice((0..11, 0..10));
     }
 
@@ -642,7 +642,7 @@ mod tests {
 
     #[test]
     fn slice_extents() {
-        let buf: Buf2<()> = Buf2::new_default(10, 10);
+        let buf: Buf2<()> = Buf2::new(10, 10);
 
         let slice = buf.slice((1..4, 2..8));
         assert_eq!(slice.width(), 3);
@@ -653,7 +653,7 @@ mod tests {
 
     #[test]
     fn slice_contiguity() {
-        let buf: Buf2<()> = Buf2::new_default(10, 10);
+        let buf: Buf2<()> = Buf2::new(10, 10);
 
         // Empty slice is contiguous
         assert!(buf.slice((2..2, 2..8)).is_contiguous());
@@ -672,7 +672,7 @@ mod tests {
     #[test]
     #[rustfmt::skip]
     fn slice_fill() {
-        let mut buf = Buf2::new_default(5, 4);
+        let mut buf = Buf2::new(5, 4);
         let mut slice = buf.slice_mut((2.., 1..3));
 
         slice.fill(1);
@@ -689,7 +689,7 @@ mod tests {
     #[test]
     #[rustfmt::skip]
     fn slice_fill_with() {
-        let mut buf = Buf2::new_default(5, 4);
+        let mut buf = Buf2::new(5, 4);
         let mut slice = buf.slice_mut((2.., 1..3));
 
         slice.fill_with(|x, y| x + y);

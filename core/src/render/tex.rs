@@ -236,7 +236,7 @@ mod tests {
 
     #[rustfmt::skip]
     fn tex() -> Texture<Buf2<Color3>> {
-        Texture::from(Buf2::new(
+        Texture::from(Buf2::new_from(
             2, 2, vec![
                 rgb(0xFF, 0, 0),
                 rgb(0, 0xFF, 0),
