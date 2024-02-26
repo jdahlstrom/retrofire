@@ -34,6 +34,7 @@ pub type Vec2<Space = Real<2>> = Vector<[f32; 2], Space>;
 /// A 3D float vector in `Space` (by default ℝ³).
 pub type Vec3<Space = Real<3>> = Vector<[f32; 3], Space>;
 /// A 4D float vector in `Space` (by default ℝ⁴).
+// TODO Are these 4-dim variants really necessary?
 pub type Vec4<Space = Real<4>> = Vector<[f32; 4], Space>;
 
 /// A 2D integer vector in `Space` (by default ℤ²).
@@ -42,6 +43,10 @@ pub type Vec2i<Space = Real<2>> = Vector<[i32; 2], Space>;
 pub type Vec3i<Space = Real<3>> = Vector<[i32; 3], Space>;
 /// A 4D integer vector in `Space` (by default ℤ⁴).
 pub type Vec4i<Space = Real<4>> = Vector<[i32; 4], Space>;
+
+/// A 2D unsigned integer vector in `Space` (by default ℕ²).
+pub type Vec2u<Space = Real<2>> = Vector<[u32; 2], Space>;
+// Will add Vec3u if needed at some point.
 
 //
 // Free functions

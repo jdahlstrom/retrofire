@@ -60,8 +60,8 @@ pub mod prelude {
         space::{Affine, Linear},
         vary::{lerp, Vary},
         vec::{
-            splat, vec2, vec3, vec4, Vec2, Vec2i, Vec3, Vec3i, Vec4, Vec4i,
-            Vector,
+            splat, vec2, vec3, vec4, Vec2, Vec2i, Vec2u, Vec3, Vec3i, Vec4,
+            Vec4i, Vector,
         },
     };
 
