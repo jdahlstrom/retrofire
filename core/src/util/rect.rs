@@ -6,7 +6,7 @@ use core::ops::{Bound::*, Range, RangeBounds, RangeFull, Sub};
 use crate::math::vec::Vec2u;
 
 #[derive(Copy, Clone, Debug, Default, Eq, PartialEq)]
-pub struct Rect<T = usize> {
+pub struct Rect<T = u32> {
     /// The left bound of `self`, if any.
     pub left: Option<T>,
     /// The top bound of `self`, if any.
@@ -87,31 +87,33 @@ impl<T: Copy> Rect<T> {
     }
 }
 
-impl<R: RangeBounds<usize>, S: RangeBounds<usize>> From<(R, S)> for Rect {
-    fn from((x, y): (R, S)) -> Self {
+impl<H: RangeBounds<u32>, V: RangeBounds<u32>> From<(H, V)> for Rect<u32> {
+    /// Creates a `Rect` from two ranges specifying the horizontal and
+    /// vertical extents of the `Rect` respectively.
+    fn from((horiz, vert): (H, V)) -> Self {
         let resolve = |b, i, e| match b {
             Included(&x) => Some(x + i),
             Excluded(&x) => Some(x + e),
             Unbounded => None,
         };
-        let left = resolve(x.start_bound(), 0, 1);
-        let top = resolve(y.start_bound(), 0, 1);
-        let right = resolve(x.end_bound(), 1, 0);
-        let bottom = resolve(y.end_bound(), 1, 0);
+        let left = resolve(horiz.start_bound(), 0, 1);
+        let top = resolve(vert.start_bound(), 0, 1);
+        let right = resolve(horiz.end_bound(), 1, 0);
+        let bottom = resolve(vert.end_bound(), 1, 0);
 
         Self { left, top, right, bottom }
     }
 }
 
-impl From<Range<Vec2u>> for Rect {
+impl From<Range<Vec2u>> for Rect<u32> {
     /// Creates a `Rect` from two vectors designating the left-top
     /// and right-bottom corners of the `Rect`.
     fn from(r: Range<Vec2u>) -> Self {
         Self {
-            left: Some(r.start.x() as usize),
-            top: Some(r.start.y() as usize),
-            right: Some(r.end.x() as usize),
-            bottom: Some(r.end.y() as usize),
+            left: Some(r.start.x()),
+            top: Some(r.start.y()),
+            right: Some(r.end.x()),
+            bottom: Some(r.end.y()),
         }
     }
 }

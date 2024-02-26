@@ -16,12 +16,12 @@ pub struct Window {
     /// The wrapped minifb window.
     pub imp: minifb::Window,
     /// The width and height of the window.
-    pub size: (usize, usize),
+    pub size: (u32, u32),
 }
 
 /// Builder for creating `Window`s.
 pub struct Builder<'title> {
-    pub size: (usize, usize),
+    pub size: (u32, u32),
     pub title: &'title str,
     pub max_fps: Option<f32>,
     pub opts: WindowOptions,
@@ -40,7 +40,7 @@ impl Default for Builder<'_> {
 
 impl<'t> Builder<'t> {
     /// Sets the width and height of the window.
-    pub fn size(mut self, w: usize, h: usize) -> Self {
+    pub fn size(mut self, w: u32, h: u32) -> Self {
         self.size = (w, h);
         self
     }
@@ -63,18 +63,14 @@ impl<'t> Builder<'t> {
 
     /// Creates the window.
     pub fn build(self) -> Window {
-        let mut imp = minifb::Window::new(
-            self.title,
-            self.size.0,
-            self.size.1,
-            self.opts,
-        )
-        .unwrap();
+        let Self { size, title, max_fps, opts } = self;
+        let mut imp =
+            minifb::Window::new(title, size.0 as usize, size.1 as usize, opts)
+                .unwrap();
         imp.limit_update_rate(
-            self.max_fps
-                .map(|fps| Duration::from_secs_f32(1.0 / fps)),
+            max_fps.map(|fps| Duration::from_secs_f32(1.0 / fps)),
         );
-        Window { imp, size: self.size }
+        Window { imp, size }
     }
 }
 
@@ -91,7 +87,9 @@ impl Window {
     /// If `fb.len() < self.size.0 * self.size.1`.
     pub fn present(&mut self, fb: &[u32]) {
         let (w, h) = self.size;
-        self.imp.update_with_buffer(fb, w, h).unwrap();
+        self.imp
+            .update_with_buffer(fb, w as usize, h as usize)
+            .unwrap();
     }
 
     /// Runs the main loop of the program, invoking the callback on each

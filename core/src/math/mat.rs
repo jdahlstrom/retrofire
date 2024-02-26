@@ -8,7 +8,7 @@ use core::marker::PhantomData;
 use core::ops::Range;
 
 use crate::math::space::{Proj4, Real};
-use crate::math::vec::{Vec2i, Vec3, Vec4, Vector};
+use crate::math::vec::{Vec2u, Vec3, Vec4, Vector};
 use crate::render::{NdcToScreen, ViewToProj};
 
 /// A linear transform from one space (or basis) to another.
@@ -598,7 +598,7 @@ pub fn orthographic(lbn: Vec3, rtf: Vec3) -> Mat4x4<ViewToProj> {
 ///
 /// # Parameters
 /// * `bounds`: the left-top and right-bottom coordinates of the viewport.
-pub fn viewport(bounds: Range<Vec2i>) -> Mat4x4<NdcToScreen> {
+pub fn viewport(bounds: Range<Vec2u>) -> Mat4x4<NdcToScreen> {
     let Range { start, end } = bounds;
     let h = (end.x() - start.x()) as f32 / 2.0;
     let v = (end.y() - start.y()) as f32 / 2.0;

@@ -90,8 +90,8 @@ impl<'a, C> From<Slice2<'a, C>> for Texture<Slice2<'a, C>> {
 /// textures with dimensions that are powers of two.
 #[derive(Copy, Clone, Debug)]
 pub struct SamplerRepeatPot {
-    w_mask: i32,
-    h_mask: i32,
+    w_mask: u32,
+    h_mask: u32,
 }
 
 impl SamplerRepeatPot {
@@ -103,10 +103,7 @@ impl SamplerRepeatPot {
         let h = tex.height() as u32;
         assert!(w.is_power_of_two(), "width must be 2^n, was {w}");
         assert!(h.is_power_of_two(), "height must be 2^n, was {h}");
-        Self {
-            w_mask: w as i32 - 1,
-            h_mask: h as i32 - 1,
-        }
+        Self { w_mask: w - 1, h_mask: h - 1 }
     }
 
     /// Returns the color in `tex` at `tc` in relative coordinates, such that
@@ -133,8 +130,9 @@ impl SamplerRepeatPot {
         tc: TexCoord,
     ) -> C {
         use crate::math::float::f32;
-        let u = f32::floor(tc.u()) as i32 & self.w_mask;
-        let v = f32::floor(tc.v()) as i32 & self.h_mask;
+        // Convert first to signed int to avoid clamping to zero
+        let u = f32::floor(tc.u()) as i32 as u32 & self.w_mask;
+        let v = f32::floor(tc.v()) as i32 as u32 & self.h_mask;
 
         tex.data.as_slice2()[[u, v]]
     }
@@ -170,8 +168,8 @@ impl SamplerClamp {
         tc: TexCoord,
     ) -> C {
         use crate::math::float::f32;
-        let u = f32::floor(tc.u().clamp(0.0, tex.w - 1.0)) as i32;
-        let v = f32::floor(tc.v().clamp(0.0, tex.h - 1.0)) as i32;
+        let u = f32::floor(tc.u().clamp(0.0, tex.w - 1.0)) as u32;
+        let v = f32::floor(tc.v().clamp(0.0, tex.h - 1.0)) as u32;
         tex.data.as_slice2()[[u, v]]
     }
 }
@@ -216,12 +214,12 @@ impl SamplerOnce {
         tex: &Texture<impl AsSlice2<C>>,
         tc: TexCoord,
     ) -> C {
-        let u = tc.u() as i32;
-        let v = tc.v() as i32;
+        let u = tc.u() as u32;
+        let v = tc.v() as u32;
 
         let d = tex.data.as_slice2();
-        debug_assert!(u < d.width() as i32, "u={u}");
-        debug_assert!(v < d.height() as i32, "v={v}");
+        debug_assert!(u < d.width() as u32, "u={u}");
+        debug_assert!(v < d.height() as u32, "v={v}");
 
         d[[u, v]]
     }
