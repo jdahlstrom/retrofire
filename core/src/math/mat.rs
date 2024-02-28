@@ -578,12 +578,13 @@ pub fn perspective(
 
 /// Creates an orthographic projection matrix.
 ///
-/// # Parameters
-/// * `lbn`: The left-bottom-near corner of the projection box.
-/// * `rtf`: The right-bottom-far corner of the projection box.
-pub fn orthographic(lbn: Vec3, rtf: Vec3) -> Mat4x4<ViewToProj> {
-    let [dx, dy, dz] = (rtf - lbn).0;
-    let [sx, sy, sz] = (rtf + lbn).0;
+/// Orthographic projection maps 3d points onto a plane by projecting
+/// each point to the point on the plane directly under it.
+///
+///
+pub fn orthographic(bounds: Range<Vec3>) -> Mat4x4<ViewToProj> {
+    let [dx, dy, dz] = (bounds.end - bounds.start).0;
+    let [sx, sy, sz] = (bounds.end + bounds.start).0;
     [
         [2.0 / dx, 0.0, 0.0, -sx / dx],
         [0.0, 2.0 / dy, 0.0, -sy / dy],
@@ -732,7 +733,7 @@ mod tests {
         let lbn = vec3(-20.0, 0.0, 0.01);
         let rtf = vec3(100.0, 50.0, 100.0);
 
-        let m = orthographic(lbn, rtf);
+        let m = orthographic(lbn..rtf);
 
         assert_approx_eq!(m.apply(&lbn.to()), [-1.0, -1.0, -1.0, 1.0].into());
         assert_approx_eq!(m.apply(&rtf.to()), splat(1.0));
