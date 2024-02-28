@@ -4,7 +4,7 @@ use minifb::MouseMode;
 
 use re::prelude::*;
 
-use re::render::cam::{Camera, FirstPerson};
+use re::render::cam::{Camera, FirstPerson, VGA_640_480};
 use re::render::ModelToProj;
 
 use re_front::minifb::Window;
@@ -22,7 +22,7 @@ fn main() {
         |frag: Frag<Color3f>| frag.var.to_color4(),
     );
 
-    let mut cam = Camera::with_mode(640, 480, FirstPerson::default())
+    let mut cam = Camera::<FirstPerson>::new(VGA_640_480)
         .viewport((10..630, 10..470))
         .perspective(1.0, 0.1..1000.0);
 
