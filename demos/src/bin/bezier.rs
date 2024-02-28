@@ -48,7 +48,7 @@ fn main() {
     win.run(|Frame { dt, buf, .. }| {
         let b = BezierSpline::new(&pts);
         // Stop once error is less than one pixel
-        let apx = b.approximate(|err| err.len_sqr() < 1.0);
+        let apx = b.approx_by(|err| err.len_sqr() < 1.0);
 
         for seg in apx.windows(2) {
             for pt in line([seg[0], seg[1]]) {

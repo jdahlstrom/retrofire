@@ -2,8 +2,8 @@
 
 use alloc::vec::Vec;
 
-use crate::math::space::{Affine, Linear};
-use crate::math::Vary;
+use super::space::{Affine, Linear};
+use super::vary::Vary;
 
 /// A cubic Bezier curve, defined by four control points.
 ///
@@ -166,7 +166,25 @@ impl<T: Linear<Scalar = f32> + Copy> BezierSpline<T> {
         (t2, (self.0[idx..idx + 4]).try_into().unwrap())
     }
 
-    /// Approximates `self` as a sequence of line segments.
+    /// Approximates `self` as a sequence of `n` line segments.
+    ///
+    /// This function simply evaluates the curve at regular intervals:
+    ///
+    /// * t<sub>0</sub> = 0
+    /// * t<sub>1</sub> = 1/n
+    /// * t<sub>2</sub> = 2/n
+    /// * ...
+    /// * t<sub>n-1</sub> = (n-1)/n
+    /// * t<sub>n</sub> = 1
+    ///
+    /// and returns the resulting n+1 points in a vector.
+    pub fn approx(&self, n: u32) -> Vec<T> {
+        0.0.vary_to(1.0, n)
+            .map(|t| self.eval(t))
+            .collect()
+    }
+
+    /// Adaptively approximates `self` as a sequence of line segments.
     ///
     /// Recursively subdivides the curve into two half-curves, stopping once
     /// the approximation error is small enough, as determined by the `halt`
@@ -198,10 +216,10 @@ impl<T: Linear<Scalar = f32> + Copy> BezierSpline<T> {
     /// let curve = BezierSpline::new(
     ///     &[vec2(0.0, 0.0), vec2(0.0, 1.0), vec2(1.0, 1.0), vec2(1.0, 0.0)
     /// ]);
-    /// let approx = curve.approximate(|err| err.len_sqr() < 0.01*0.01);
+    /// let approx = curve.approx_by(|err| err.len_sqr() < 0.01*0.01);
     /// assert_eq!(approx.len(), 17);
     /// ```
-    pub fn approximate(&self, halt: impl Fn(&T) -> bool) -> Vec<T> {
+    pub fn approx_by(&self, halt: impl Fn(&T) -> bool) -> Vec<T> {
         let len = self.0.len();
         let mut res = Vec::with_capacity(3 * len);
         self.do_approx(0.0, 1.0, 10 + len.ilog2(), &halt, &mut res);
@@ -213,7 +231,7 @@ impl<T: Linear<Scalar = f32> + Copy> BezierSpline<T> {
         &self,
         a: f32,
         b: f32,
-        max_dep: u32,
+        max_depth: u32,
         halt: &impl Fn(&T) -> bool,
         accum: &mut Vec<T>,
     ) {
@@ -225,11 +243,11 @@ impl<T: Linear<Scalar = f32> + Copy> BezierSpline<T> {
         let real = self.eval(mid);
         let approx = ap.lerp(&bp, 0.5);
 
-        if max_dep == 0 || halt(&real.sub(&approx)) {
+        if max_depth == 0 || halt(&real.sub(&approx)) {
             accum.push(ap);
         } else {
-            self.do_approx(a, mid, max_dep - 1, halt, accum);
-            self.do_approx(mid, b, max_dep - 1, halt, accum);
+            self.do_approx(a, mid, max_depth - 1, halt, accum);
+            self.do_approx(mid, b, max_depth - 1, halt, accum);
         }
     }
 }
