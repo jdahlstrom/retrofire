@@ -113,7 +113,7 @@ pub fn atan2(y: f32, x: f32) -> Angle {
 
 /// Returns a polar coordinate vector with azimuth `az` and radius `r`.
 pub const fn polar(r: f32, az: Angle) -> PolarVec {
-    Vector::new([az.to_rads(), r])
+    Vector::new([r, az.to_rads()])
 }
 
 /// Returns a spherical coordinate vector with azimuth `az`,
@@ -121,7 +121,7 @@ pub const fn polar(r: f32, az: Angle) -> PolarVec {
 ///
 /// An altitude of +90° corresponds to straight up and -90° to straight down.
 pub const fn spherical(r: f32, az: Angle, alt: Angle) -> SphericalVec {
-    Vector::new([az.to_rads(), alt.to_rads(), r])
+    Vector::new([r, az.to_rads(), alt.to_rads()])
 }
 
 const RADS_PER_DEG: f32 = PI / 180.0;
@@ -258,12 +258,12 @@ impl PolarVec {
     /// Returns the azimuthal component of `self`.
     #[inline]
     pub fn az(&self) -> Angle {
-        rads(self.0[0])
+        rads(self.0[1])
     }
     /// Returns the radial component of `self`.
     #[inline]
     pub fn r(&self) -> f32 {
-        self.0[1]
+        self.0[0]
     }
 }
 
@@ -271,17 +271,17 @@ impl SphericalVec {
     /// Returns the radial component of `self`.
     #[inline]
     pub fn r(&self) -> f32 {
-        self.0[2]
+        self.0[0]
     }
     /// Returns the azimuthal component of `self`.
     #[inline]
     pub fn az(&self) -> Angle {
-        rads(self.0[0])
+        rads(self.0[1])
     }
     /// Returns the altitude (elevation) component of `self`.
     #[inline]
     pub fn alt(&self) -> Angle {
-        rads(self.0[1])
+        rads(self.0[2])
     }
 }
 
@@ -380,6 +380,12 @@ impl Mul<f32> for Angle {
         Self(self.0 * rhs)
     }
 }
+impl Mul<Angle> for f32 {
+    type Output = Angle;
+    fn mul(self, rhs: Angle) -> Angle {
+        rhs * self
+    }
+}
 impl Div<f32> for Angle {
     type Output = Self;
     fn div(self, rhs: f32) -> Self {
@@ -395,7 +401,7 @@ impl Rem for Angle {
 
 #[cfg(feature = "fp")]
 impl From<Vec2> for PolarVec {
-    /// Converts an Euclidean 2-vector into equivalent polar coordinates.
+    /// Converts a Euclidean 2-vector into equivalent polar coordinates.
     ///
     /// The `r` component of the result equals the length of the input vector,
     /// and the `az` component equals the angle between the vector and the
@@ -473,11 +479,11 @@ impl From<PolarVec> for Vec2 {
 
 #[cfg(feature = "fp")]
 impl From<Vec3> for SphericalVec {
-    /// Converts an Euclidean 3-vector into equivalent spherical coordinates.
+    /// Converts a Euclidean 3-vector into equivalent spherical coordinates.
     ///
-    /// The `az` component is measured about the y axis,counterclockwise from
-    /// the x axis. The `alt` component is the angle between the vector and
-    /// its projection on the xz plane in the range [-90°, 90°], positive `y`
+    /// The `az` component is measured about the y-axis,counterclockwise from
+    /// the x-axis. The `alt` component is the angle between the vector and
+    /// its projection on the xz-plane in the range [-90°, 90°], positive `y`
     /// coordinates mapping to positive angles.
     ///
     /// # Examples
@@ -500,7 +506,7 @@ impl From<Vec3> for SphericalVec {
 
 #[cfg(feature = "fp")]
 impl From<SphericalVec> for Vec3 {
-    /// Converts a spherical coordinate vector to an Euclidean 3-vector.
+    /// Converts a spherical coordinate vector to a Euclidean 3-vector.
     fn from(v: SphericalVec) -> Self {
         let (sin_alt, cos_alt) = v.alt().sin_cos();
         let (sin_az, cos_az) = v.az().sin_cos();
@@ -629,6 +635,21 @@ mod tests {
         assert_approx_eq!(i.next(), Some(degs(75.0)));
         assert_approx_eq!(i.next(), Some(degs(90.0)));
         assert_approx_eq!(i.next(), None);
+    }
+
+    #[test]
+    fn polar_component_order() {
+        let v = polar(2.0, rads(3.0));
+        assert!(v.r() == v[0] && v[0] == 2.0);
+        assert!(v.az().to_rads() == v[1] && v[1] == 3.0);
+    }
+
+    #[test]
+    fn spherical_component_order() {
+        let v = spherical(2.0, rads(3.0), rads(4.0));
+        assert!(v.r() == v[0] && v[0] == 2.0);
+        assert!(v.az().to_rads() == v[1] && v[1] == 3.0);
+        assert!(v.alt().to_rads() == v[2] && v[2] == 4.0);
     }
 
     #[cfg(feature = "fp")]
