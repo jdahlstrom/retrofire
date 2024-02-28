@@ -8,20 +8,19 @@
 use alloc::{vec, vec::Vec};
 use core::fmt::Debug;
 
-use clip::{view_frustum, Clip, ClipVert};
-use raster::{tri_fill, Frag};
+use clip::{view_frustum, Clip, ClipVec, ClipVert};
+use raster::{tri_fill, Frag, ScreenVec};
 use shader::{FragmentShader, VertexShader};
 use stats::Stats;
 use target::{Config, Target};
 
 use crate::geom::{Tri, Vertex};
-use crate::math::mat::{RealToProj, RealToReal};
-use crate::math::space::Real;
-use crate::math::{Mat4x4, Vary, Vec3};
-use crate::render::clip::ClipVec;
+use crate::math::mat::{Mat4x4, RealToProj, RealToReal};
+use crate::math::vary::Vary;
 
 pub mod clip;
 pub mod raster;
+pub mod scene;
 pub mod shader;
 pub mod stats;
 pub mod target;
@@ -130,7 +129,7 @@ where
     stats.finish()
 }
 
-fn is_backface<V>(vs: &[Vertex<Vec3<Real<3, Screen>>, V>]) -> bool {
+fn is_backface<V>(vs: &[Vertex<ScreenVec, V>]) -> bool {
     let v = vs[1].pos - vs[0].pos;
     let u = vs[2].pos - vs[0].pos;
     v[0] * u[1] - v[1] * u[0] > 0.0

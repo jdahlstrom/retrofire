@@ -15,7 +15,6 @@ use core::fmt::Debug;
 use core::ops::Range;
 
 use crate::geom::Vertex;
-use crate::math::space::Real;
 use crate::math::{Vary, Vec3};
 
 use super::Screen;
@@ -50,7 +49,7 @@ pub struct ScanlineIter<V: Vary> {
 
 /// Vector in screen space.
 /// `x` and `y` are viewport pixel coordinates, `z` is depth.
-pub type ScreenVec = Vec3<Real<3, Screen>>;
+pub type ScreenVec = Vec3<Screen>;
 
 /// Values to interpolate across a rasterized primitive.
 pub type Varyings<V> = (ScreenVec, V);
@@ -238,7 +237,7 @@ fn round_up_to_half(x: f32) -> f32 {
 #[cfg(test)]
 mod tests {
     use alloc::string::{String, ToString};
-    use core::iter::{once, repeat};
+    use core::iter::once;
 
     use crate::geom::vertex;
     use crate::math::vec3;
@@ -249,7 +248,7 @@ mod tests {
 
     #[test]
     fn shared_edge_should_not_have_gaps_or_overdraw() {
-        let mut buf = Buf2::new(20, 10, repeat(0));
+        let mut buf = Buf2::new(20, 10);
 
         let verts = [
             vec3(8.0, 0.0, 0.0),
@@ -273,12 +272,12 @@ mod tests {
 
         tri_fill([verts[0], verts[1], verts[2]], |sl| {
             for x in sl.xs {
-                buf[[x as i32, sl.y as i32]] += 1;
+                buf[[x as u32, sl.y as u32]] += 1;
             }
         });
         tri_fill([verts[0], verts[2], verts[3]], |sl| {
             for x in sl.xs {
-                buf[[x as i32, sl.y as i32]] += 1;
+                buf[[x as u32, sl.y as u32]] += 1;
             }
         });
 

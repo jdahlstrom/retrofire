@@ -27,21 +27,26 @@ use crate::math::space::{Affine, Linear, Proj4, Real};
 /// TODO
 #[repr(transparent)]
 #[derive(Copy, Clone, Default, Eq, PartialEq)]
-pub struct Vector<Repr, Space = ()>(pub Repr, PhantomData<Space>);
+pub struct Vector<Repr, Space>(pub Repr, PhantomData<Space>);
 
 /// A 2D float vector in `Space` (by default ℝ²).
-pub type Vec2<Space = Real<2>> = Vector<[f32; 2], Space>;
+pub type Vec2<B = ()> = Vector<[f32; 2], Real<2, B>>;
 /// A 3D float vector in `Space` (by default ℝ³).
-pub type Vec3<Space = Real<3>> = Vector<[f32; 3], Space>;
+pub type Vec3<B = ()> = Vector<[f32; 3], Real<3, B>>;
 /// A 4D float vector in `Space` (by default ℝ⁴).
-pub type Vec4<Space = Real<4>> = Vector<[f32; 4], Space>;
+// TODO Are these 4-dim variants really necessary?
+pub type Vec4<B = ()> = Vector<[f32; 4], Real<4, B>>;
 
 /// A 2D integer vector in `Space` (by default ℤ²).
-pub type Vec2i<Space = Real<2>> = Vector<[i32; 2], Space>;
+pub type Vec2i<B = ()> = Vector<[i32; 2], Real<2, B>>;
 /// A 3D integer vector in `Space` (by default ℤ³).
-pub type Vec3i<Space = Real<3>> = Vector<[i32; 3], Space>;
+pub type Vec3i<B = ()> = Vector<[i32; 3], Real<3, B>>;
 /// A 4D integer vector in `Space` (by default ℤ⁴).
-pub type Vec4i<Space = Real<4>> = Vector<[i32; 4], Space>;
+pub type Vec4i<B = ()> = Vector<[i32; 4], Real<4, B>>;
+
+/// A 2D unsigned integer vector in `Space` (by default ℕ²).
+pub type Vec2u<B = ()> = Vector<[u32; 2], Real<2, B>>;
+// Will add Vec3u if needed at some point.
 
 //
 // Free functions

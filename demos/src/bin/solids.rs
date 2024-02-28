@@ -5,6 +5,7 @@ use re::prelude::*;
 
 use re::math::mat::RealToReal;
 use re::math::spline::smootherstep;
+use re::render::shader::normal_to_color;
 use re::render::{render, ModelToProj};
 use re_front::minifb::Window;
 use re_geom::solids::*;
@@ -42,17 +43,14 @@ fn main() {
 
     let mut win = Window::builder()
         .title("retrofire//solids")
-        .size(640, 480)
+        .size(1280, 720)
         .build();
 
     let shader = Shader::new(
         |v: Vertex<_, _>, mvp: &Mat4x4<ModelToProj>| {
             vertex(mvp.apply(&v.pos), v.attrib)
         },
-        |frag: Frag<Normal3>| {
-            let [x, y, z] = (128.0 * (frag.var + splat(1.1))).0;
-            rgba(x as u8, y as u8, z as u8, 0)
-        },
+        |frag: Frag<Normal3>| normal_to_color(frag.var),
     );
 
     let objs = [

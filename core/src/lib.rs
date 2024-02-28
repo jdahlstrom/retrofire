@@ -55,13 +55,15 @@ pub mod prelude {
     pub use crate::math::{
         angle::{degs, rads, turns, Angle},
         color::{hsl, hsla, rgb, rgba, Color3, Color3f, Color4, Color4f},
-        mat::{perspective, translate, viewport, Mat3x3, Mat4x4, Matrix},
+        mat::{
+            perspective, scale, translate, viewport, Mat3x3, Mat4x4, Matrix,
+        },
         rand::Distrib,
         space::{Affine, Linear},
         vary::{lerp, Vary},
         vec::{
-            splat, vec2, vec3, vec4, Vec2, Vec2i, Vec3, Vec3i, Vec4, Vec4i,
-            Vector,
+            splat, vec2, vec3, vec4, Vec2, Vec2i, Vec2u, Vec3, Vec3i, Vec4,
+            Vec4i, Vector,
         },
     };
 

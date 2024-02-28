@@ -15,7 +15,8 @@
 //! rasterized, such as color, texture coordinate, or normal vector.
 
 use crate::geom::Vertex;
-use crate::math::color::Color4;
+use crate::math::color::{rgba, Color4};
+use crate::math::vec::{splat, Vec3};
 
 use super::raster::Frag;
 
@@ -78,6 +79,11 @@ where
 pub struct Shader<Vs, Fs> {
     pub vertex_shader: Vs,
     pub fragment_shader: Fs,
+}
+
+pub fn normal_to_color(n: Vec3) -> Color4 {
+    let [x, y, z] = (128.0 * (n + splat(1.0))).0;
+    rgba(x as u8, y as u8, z as u8, 0)
 }
 
 impl<In, Vs, Fs, Uni> VertexShader<In, Uni> for Shader<Vs, Fs>

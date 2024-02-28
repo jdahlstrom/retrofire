@@ -19,7 +19,7 @@ use alloc::vec::Vec;
 use crate::geom::{Plane, Tri, Vertex};
 use crate::math::space::Proj4;
 use crate::math::vary::Vary;
-use crate::math::vec::{Vec3, Vec4};
+use crate::math::vec::{Vec3, Vector};
 use crate::render::clip::view_frustum::{outcode, status};
 
 /// Trait for types that can be [clipped][self] against planes.
@@ -51,7 +51,7 @@ pub trait Clip {
 }
 
 /// A vector in clip space.
-pub type ClipVec = Vec4<Proj4>;
+pub type ClipVec = Vector<[f32; 4], Proj4>;
 
 /// A plane in clip space.
 pub type ClipPlane = Plane<ClipVec>;

@@ -8,7 +8,7 @@ use core::marker::PhantomData;
 use core::ops::Range;
 
 use crate::math::space::{Proj4, Real};
-use crate::math::vec::{Vec2i, Vec3, Vec4, Vector};
+use crate::math::vec::{Vec2u, Vec3, Vector};
 use crate::render::{NdcToScreen, ViewToProj};
 
 /// A linear transform from one space (or basis) to another.
@@ -195,7 +195,7 @@ impl<Src, Dst> Mat4x4<RealToReal<3, Src, Dst>> {
     ///         \ ·  ·  M33 / \  1 /
     /// ```
     #[must_use]
-    pub fn apply(&self, v: &Vec3<Real<3, Src>>) -> Vec3<Real<3, Dst>> {
+    pub fn apply(&self, v: &Vec3<Src>) -> Vec3<Dst> {
         let v = Vector::from([v.x(), v.y(), v.z(), 1.0]);
         let x = self.row_vec(0).dot(&v);
         let y = self.row_vec(1).dot(&v);
@@ -352,7 +352,7 @@ impl<B> Mat4x4<RealToProj<B>> {
     ///         \ ·  ·  M33 / \  1 /
     /// ```
     #[must_use]
-    pub fn apply(&self, v: &Vec3<Real<3, B>>) -> Vec4<Proj4> {
+    pub fn apply(&self, v: &Vec3<B>) -> Vector<[f32; 4], Proj4> {
         let v = Vector::from([v.x(), v.y(), v.z(), 1.0]);
         [
             self.row_vec(0).dot(&v),
@@ -578,12 +578,13 @@ pub fn perspective(
 
 /// Creates an orthographic projection matrix.
 ///
-/// # Parameters
-/// * `lbn`: The left-bottom-near corner of the projection box.
-/// * `rtf`: The right-bottom-far corner of the projection box.
-pub fn orthographic(lbn: Vec3, rtf: Vec3) -> Mat4x4<ViewToProj> {
-    let [dx, dy, dz] = (rtf - lbn).0;
-    let [sx, sy, sz] = (rtf + lbn).0;
+/// Orthographic projection maps 3d points onto a plane by projecting
+/// each point to the point on the plane directly under it.
+///
+///
+pub fn orthographic(bounds: Range<Vec3>) -> Mat4x4<ViewToProj> {
+    let [dx, dy, dz] = (bounds.end - bounds.start).0;
+    let [sx, sy, sz] = (bounds.end + bounds.start).0;
     [
         [2.0 / dx, 0.0, 0.0, -sx / dx],
         [0.0, 2.0 / dy, 0.0, -sy / dy],
@@ -598,7 +599,7 @@ pub fn orthographic(lbn: Vec3, rtf: Vec3) -> Mat4x4<ViewToProj> {
 ///
 /// # Parameters
 /// * `bounds`: the left-top and right-bottom coordinates of the viewport.
-pub fn viewport(bounds: Range<Vec2i>) -> Mat4x4<NdcToScreen> {
+pub fn viewport(bounds: Range<Vec2u>) -> Mat4x4<NdcToScreen> {
     let Range { start, end } = bounds;
     let h = (end.x() - start.x()) as f32 / 2.0;
     let v = (end.y() - start.y()) as f32 / 2.0;
@@ -720,8 +721,8 @@ mod tests {
                 .to();
         let m_inv: Mat4x4<RealToReal<3, Basis2, Basis1>> = m.inverse();
 
-        let v1: Vec3<Real<3, Basis1>> = vec3(1.0, -2.0, 3.0).to();
-        let v2: Vec3<Real<3, Basis2>> = vec3(2.0, 0.0, -2.0).to();
+        let v1: Vec3<Basis1> = vec3(1.0, -2.0, 3.0).to();
+        let v2: Vec3<Basis2> = vec3(2.0, 0.0, -2.0).to();
 
         assert_eq!(m_inv.apply(&m.apply(&v1)), v1);
         assert_eq!(m.apply(&m_inv.apply(&v2)), v2);
@@ -732,7 +733,7 @@ mod tests {
         let lbn = vec3(-20.0, 0.0, 0.01);
         let rtf = vec3(100.0, 50.0, 100.0);
 
-        let m = orthographic(lbn, rtf);
+        let m = orthographic(lbn..rtf);
 
         assert_approx_eq!(m.apply(&lbn.to()), [-1.0, -1.0, -1.0, 1.0].into());
         assert_approx_eq!(m.apply(&rtf.to()), splat(1.0));
