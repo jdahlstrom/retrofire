@@ -101,9 +101,9 @@ impl<M: CameraMode> Camera<M> {
     }
 
     /// Returns an orthographic camera.
-    pub fn orthographic(self, lbn: Vec3, rtf: Vec3) -> Self {
+    pub fn orthographic(self, bounds: Range<Vec3>) -> Self {
         Self {
-            project: orthographic(lbn, rtf),
+            project: orthographic(bounds),
             ..self
         }
     }
