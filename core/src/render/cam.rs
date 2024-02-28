@@ -32,10 +32,10 @@ pub trait Mode {
 }
 
 /// Encapsulates the world-to-screen transform sequence.
-#[derive(Copy, Clone, Debug, Default)]
+#[derive(Copy, Clone, Debug)]
 pub struct Camera<M> {
     pub mode: M,
-    pub res: (u32, u32),
+    pub res: Resolution,
     pub project: Mat4x4<ViewToProj>,
     pub viewport: Mat4x4<NdcToScreen>,
 }
@@ -48,52 +48,66 @@ pub struct FirstPerson {
     pub heading: SphericalVec,
 }
 
+#[derive(Copy, Clone, Debug, Eq, PartialEq)]
+pub struct Resolution(pub u32, pub u32);
+
+pub const VGA_640_480: Resolution = Resolution(640, 480);
+pub const SVGA_800_600: Resolution = Resolution(800, 600);
+pub const HD_1280_720: Resolution = Resolution(1280, 720);
+pub const HD_1920_1080: Resolution = Resolution(1920, 1080);
+
 //
 // Inherent impls
 //
 
 impl<M: Mode> Camera<M> {
     /// Returns a new camera with the given resolution.
-    pub fn new(res_x: u32, res_y: u32) -> Self
+    pub fn new(res: Resolution) -> Self
     where
         M: Default,
     {
-        Self::with_mode(res_x, res_y, M::default())
+        Self::with_mode(res, M::default())
     }
 
     /// Returns a new camera with the given resolution and mode.
-    pub fn with_mode(res_x: u32, res_y: u32, mode: M) -> Self {
+    pub fn with_mode(res: Resolution, mode: M) -> Self {
         Self {
-            res: (res_x, res_y),
+            res,
             mode,
             project: Default::default(),
-            viewport: viewport(vec2(0, 0)..vec2(res_x, res_y)),
+            viewport: viewport(vec2(0, 0)..vec2(res.0, res.1)),
         }
     }
 
     /// Sets the viewport bounds of this camera.
     pub fn viewport(self, bounds: impl Into<Rect<u32>>) -> Self {
-        let (w, h) = self.res;
-        let b @ Rect { left, top, right, bottom } =
-            bounds.into().intersect(&(0..w, 0..h).into());
+        let Rect {
+            left: Some(l),
+            top: Some(t),
+            right: Some(r),
+            bottom: Some(b),
+        } = bounds
+            .into()
+            .intersect(&(0..self.res.0, 0..self.res.1).into())
+        else {
+            unreachable!("intersect with bounded is always bounded")
+        };
 
         // Intersection with a bounded rect always results in a bounded rect
-        let viewport = viewport(
-            vec2(left.unwrap(), top.unwrap())
-                ..vec2(right.unwrap(), bottom.unwrap()),
-        );
         Self {
-            res: (b.width().unwrap(), b.height().unwrap()),
-            viewport,
+            viewport: viewport(vec2(l, t)..vec2(r, b)),
             ..self
         }
     }
 
     /// Sets the projection of this camera to perspective.
     pub fn perspective(self, focal_ratio: f32, near_far: Range<f32>) -> Self {
-        let aspect_ratio = self.res.0 as f32 / self.res.1 as f32;
         Self {
-            project: perspective(focal_ratio, aspect_ratio, near_far),
+            project: perspective(
+                focal_ratio,
+                self.res.aspect_ratio(),
+                near_far,
+            ),
             ..self
         }
     }
@@ -171,6 +185,12 @@ impl FirstPerson {
         self.pos += Mat4x4::<RealToReal<3>>::from_basis(right, up, fwd)
             .transpose()
             .apply(&delta);
+    }
+}
+
+impl Resolution {
+    pub fn aspect_ratio(&self) -> f32 {
+        self.0 as f32 / self.1 as f32
     }
 }
 
