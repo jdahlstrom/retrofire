@@ -8,19 +8,20 @@
 use alloc::{vec, vec::Vec};
 use core::fmt::Debug;
 
-use clip::{view_frustum, Clip, ClipVert};
+use clip::{view_frustum, Clip, ClipVec, ClipVert};
+use ctx::{Context, DepthSort, FaceCull};
 use raster::{tri_fill, Frag};
 use shader::{FragmentShader, VertexShader};
 use stats::Stats;
-use target::{Config, Target};
+use target::Target;
 
 use crate::geom::{Tri, Vertex};
 use crate::math::mat::{RealToProj, RealToReal};
 use crate::math::space::Real;
 use crate::math::{Mat4x4, Vary, Vec3};
-use crate::render::clip::ClipVec;
 
 pub mod clip;
+pub mod ctx;
 pub mod raster;
 pub mod shader;
 pub mod stats;
@@ -67,8 +68,8 @@ pub fn render<Vtx: Clone, Var: Vary, Uni: Copy, Shd>(
     uniform: Uni,
     viewport_tf: Mat4x4<NdcToScreen>,
     target: &mut impl Target,
-) -> Stats
-where
+    ctx: &Context,
+) where
     Shd: VertexShader<Vtx, Uni, Output = Vertex<ClipVec, Var>>
         + FragmentShader<Frag<Var>>,
 {
@@ -98,7 +99,9 @@ where
     let mut clipped = vec![];
     tris.clip(&view_frustum::PLANES, &mut clipped);
 
-    // TODO Optional depth sorting
+    if let Some(d) = ctx.depth_sort {
+        depth_sort(&mut clipped, d);
+    }
 
     for Tri(vs) in clipped {
         stats.prims.o += 1;
@@ -115,19 +118,32 @@ where
             attrib: v.attrib,
         });
 
-        // Backface culling
-        if is_backface(&vs) {
-            continue;
+        // Back/frontface culling
+        match ctx.face_cull {
+            Some(FaceCull::Back) if is_backface(&vs) => continue,
+            Some(FaceCull::Front) if !is_backface(&vs) => continue,
+            _ => {}
         }
 
         // Fragment shader and rasterization
         tri_fill(vs, |scanline| {
             // Convert to fragments and shade
-            stats.frags +=
-                target.rasterize(scanline, shader, Config::default());
+            stats.frags += target.rasterize(scanline, shader, &ctx);
         });
     }
-    stats.finish()
+    *ctx.stats.borrow_mut() += stats.finish();
+}
+
+fn depth_sort<A>(tris: &mut Vec<Tri<ClipVert<A>>>, d: DepthSort) {
+    tris.sort_unstable_by(|t, u| {
+        let z = t.0[0].pos.z() + t.0[1].pos.z() + t.0[2].pos.z();
+        let w = u.0[0].pos.z() + u.0[1].pos.z() + u.0[2].pos.z();
+        if d == DepthSort::FrontToBack {
+            z.total_cmp(&w)
+        } else {
+            w.total_cmp(&z)
+        }
+    });
 }
 
 fn is_backface<V>(vs: &[Vertex<Vec3<Real<3, Screen>>, V>]) -> bool {
