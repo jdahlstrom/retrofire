@@ -39,13 +39,14 @@ fn main() {
             .to();
         let mvp = mv.then(&project);
 
-        *frame.stats += render(
+        render(
             [Tri([0, 1, 2]), Tri([3, 2, 1])],
             verts,
             &shader,
             &mvp,
             viewport,
             &mut frame.buf,
+            &frame.win.ctx,
         );
         Continue(())
     });

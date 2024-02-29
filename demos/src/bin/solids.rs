@@ -91,8 +91,15 @@ fn main() {
         }
 
         let Mesh { faces, verts } = &objs[carousel.idx % objs.len()];
-        *frame.stats +=
-            render(&faces, &verts, &shader, &mvp, viewport, &mut frame.buf);
+        render(
+            &faces,
+            &verts,
+            &shader,
+            &mvp,
+            viewport,
+            &mut frame.buf,
+            &frame.ctx,
+        );
 
         Continue(())
     });
