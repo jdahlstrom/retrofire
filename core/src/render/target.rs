@@ -4,14 +4,13 @@
 //! depth buffer, and possible auxiliary buffers. Special render targets can
 //! be used, for example, for visibility or occlusion computations.
 
-use core::cmp::Ordering;
-
 use crate::math::vary::Vary;
-use crate::render::stats::Throughput;
 use crate::util::buf::AsMutSlice2;
 
+use super::ctx::Context;
 use super::raster::{Frag, Scanline};
 use super::shader::FragmentShader;
+use super::stats::Throughput;
 
 /// Trait for types that can be used as render targets.
 pub trait Target {
@@ -22,33 +21,11 @@ pub trait Target {
         &mut self,
         scanline: Scanline<V>,
         frag_shader: &Fs,
-        config: Config,
+        ctx: &Context,
     ) -> Throughput
     where
         V: Vary,
         Fs: FragmentShader<Frag<V>>;
-}
-
-/// Configuration for fragment processing.
-#[derive(Copy, Clone, Debug)]
-pub struct Config {
-    /// Whether to do depth testing and which predicate to use.
-    ///
-    /// If set to `Some(Ordering::Less)`, a fragment passes the depth test
-    /// *iff* `new_z < old_z` (the default). If set to `None`, depth test is
-    /// not performed. This setting has no effect if the render target does
-    /// not support z-buffering.
-    pub depth_test: Option<Ordering>,
-
-    /// Whether to write color values. If `false`, other fragment processing
-    /// is done but there is no color output. This setting has no effect if
-    /// the render target does not support color writes.
-    pub color_write: bool,
-
-    /// Whether to write depth values. If `false`, other fragment processing
-    /// is done but there is no depth output. This setting has no effect if
-    /// the render target does not support depth writes.
-    pub depth_write: bool,
 }
 
 /// Framebuffer, combining a color (pixel) buffer and a depth buffer.
@@ -56,26 +33,6 @@ pub struct Config {
 pub struct Framebuf<Col, Dep> {
     pub color_buf: Col,
     pub depth_buf: Dep,
-}
-
-impl Config {
-    /// Compares the depth value `new` to `curr` and returns whether
-    /// `new` passes the depth test specified by `self.depth_test`.
-    /// If `self.depth_test` is `None`, always returns `true`.
-    pub fn depth_test(&self, new: f32, curr: f32) -> bool {
-        self.depth_test
-            .map_or(true, |ord| new.partial_cmp(&curr) == Some(ord))
-    }
-}
-
-impl Default for Config {
-    fn default() -> Self {
-        Self {
-            color_write: true,
-            depth_test: Some(Ordering::Less),
-            depth_write: true,
-        }
-    }
 }
 
 impl<Col, Dep> Target for Framebuf<Col, Dep>
@@ -88,7 +45,7 @@ where
         &mut self,
         sl: Scanline<V>,
         fs: &Fs,
-        cfg: Config,
+        ctx: &Context,
     ) -> Throughput
     where
         V: Vary,
@@ -107,15 +64,15 @@ where
             .zip(zbuf_span)
             .for_each(|(((pos, var), c), z)| {
                 let new_z = pos.z();
-                if cfg.depth_test(new_z, *z) {
+                if ctx.depth_test(new_z, *z) {
                     let frag = Frag { pos, var };
                     if let Some(new_c) = fs.shade_fragment(frag) {
-                        if cfg.color_write {
+                        if ctx.color_write {
                             // TODO Blending should happen here
                             io.o += 1;
                             *c = new_c.to_argb_u32();
                         }
-                        if cfg.depth_write {
+                        if ctx.depth_write {
                             *z = new_z;
                         }
                     }
@@ -132,7 +89,7 @@ impl<Buf: AsMutSlice2<u32>> Target for Buf {
         &mut self,
         sl: Scanline<V>,
         fs: &Fs,
-        cfg: Config,
+        ctx: &Context,
     ) -> Throughput
     where
         V: Vary,
@@ -145,7 +102,7 @@ impl<Buf: AsMutSlice2<u32>> Target for Buf {
             .for_each(|((pos, var), pix)| {
                 let frag = Frag { pos, var };
                 if let Some(color) = fs.shade_fragment(frag) {
-                    if cfg.color_write {
+                    if ctx.color_write {
                         io.o += 1;
                         *pix = color.to_argb_u32();
                     }

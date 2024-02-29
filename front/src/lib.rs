@@ -2,7 +2,7 @@
 
 use std::time::Duration;
 
-use retrofire_core::render::stats::Stats;
+use retrofire_core::render::ctx::Context;
 use retrofire_core::render::target::Framebuf;
 use retrofire_core::util::buf::MutSlice2;
 
@@ -23,6 +23,6 @@ pub struct Frame<'a, Win> {
     pub buf: Framebuf<MutSlice2<'a, u32>, MutSlice2<'a, f32>>,
     /// Reference to the window object.
     pub win: &'a mut Win,
-    /// Rendering statistics.
-    pub stats: &'a mut Stats,
+    /// Rendering context and config.
+    pub ctx: &'a mut Context,
 }
