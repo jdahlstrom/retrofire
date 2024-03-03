@@ -103,6 +103,7 @@ impl Xorshift64 {
     ///
     /// #  Examples
     /// ```
+    /// # #![allow(deprecated)]
     /// # use std::thread;
     /// # use retrofire_core::math::rand::Xorshift64;
     /// let mut g = Xorshift64::from_time();

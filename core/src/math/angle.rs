@@ -265,6 +265,39 @@ impl PolarVec {
     pub fn r(&self) -> f32 {
         self.0[1]
     }
+
+    /// Returns `self` converted to the equivalent Cartesian 2-vector.
+    ///
+    /// Let the components of self be `(r, az)`. Then the `x` component of the
+    /// result equals `r * cos(az)`, and the `y` component equals `r * sin(az)`.
+    ///
+    /// ```text
+    /// +y
+    /// ^     ^
+    /// | +r /
+    /// |   /
+    /// |  /_ +az
+    /// | /  \
+    /// +----------> +x
+    /// ```
+    ///
+    /// # Examples
+    /// ```
+    /// # use retrofire_core::assert_approx_eq;
+    /// # use retrofire_core::math::angle::{polar, degs};
+    /// # use retrofire_core::math::vec::vec2;
+    /// assert_approx_eq!(polar(2.0, degs(0.0)).to_cart(), vec2(2.0, 0.0));
+    ///
+    /// assert_approx_eq!(polar(2.0, degs(90.0)).to_cart(), vec2(0.0, 2.0));
+    ///
+    /// assert_approx_eq!(polar(2.0, degs(-180.0)).to_cart(), vec2(-2.0, 0.0), eps=1e-6);
+    ///
+    /// ```
+    #[cfg(feature = "fp")]
+    pub fn to_cart(&self) -> Vec2 {
+        let (y, x) = self.az().sin_cos();
+        vec2(x, y) * self.r()
+    }
 }
 
 impl SphericalVec {
@@ -282,6 +315,104 @@ impl SphericalVec {
     #[inline]
     pub fn alt(&self) -> Angle {
         rads(self.0[1])
+    }
+
+    /// Returns `self` converted to the equivalent Cartesian 3-vector.
+    ///
+    /// # Examples
+    ///
+    /// TODO examples
+    #[cfg(feature = "fp")]
+    pub fn to_cart(&self) -> Vec3 {
+        let (sin_alt, cos_alt) = self.alt().sin_cos();
+        let (sin_az, cos_az) = self.az().sin_cos();
+
+        let x = cos_az * cos_alt;
+        let z = sin_az * cos_alt;
+        let y = sin_alt;
+
+        vec3(x, y, z).mul(self.r())
+    }
+}
+
+#[cfg(feature = "fp")]
+impl Vec2 {
+    /// Returns `self` converted into the equivalent polar coordinate vector.
+    ///
+    /// The `r` component of the result equals the length `self`.
+    ///
+    /// The `az` component equals the angle between the vector and the x-axis
+    /// in the range (-180°, 180°], positive `y` mapping to positive `az`.
+    /// ```text
+    /// +y
+    /// ^    ^
+    /// |   /
+    /// |  /_ +az
+    /// | /  \
+    /// +----------> +x
+    /// ```
+    ///
+    /// # Examples
+    /// ```
+    /// # use retrofire_core::assert_approx_eq;
+    /// # use retrofire_core::math::{*, angle::*};
+    /// // A non-negative x and zero y maps to zero azimuth
+    /// assert_eq!(vec2(0.0, 0.0).to_polar().az(), degs(0.0));
+    /// assert_eq!(vec2(1.0, 0.0).to_polar().az(), degs(0.0));
+    ///
+    /// // A zero x and positive y maps to right angle azimuth
+    /// assert_eq!(vec2(0.0, 1.0).to_polar().az(), degs(90.0));
+    ///
+    /// // A zero x and negative y maps to negative right angle azimuth
+    /// assert_eq!(vec2(0.0, -1.0).to_polar().az(), degs(-90.0));
+    ///
+    /// // A negative x and zero y maps to straight angle azimuth
+    /// assert_approx_eq!(vec2(-1.0, 0.0).to_polar().az(), degs(180.0));
+    /// ```
+    pub fn to_polar(&self) -> PolarVec {
+        let r = self.len();
+        let az = atan2(self.y(), self.x());
+        polar(r, az)
+    }
+}
+
+#[cfg(feature = "fp")]
+impl Vec3 {
+    /// Converts `self` into the equivalent spherical coordinate vector.
+    ///
+    /// The `r` component of the result equals `self.len()`.
+    ///
+    /// The `az` component is the angle between `self` and the xy-plane in the
+    /// range (-180°, 180°], such that positive `z` maps to positive `az`.
+    ///
+    /// The `alt` component is the angle between `self` and the xz-plane in the
+    /// range [-90°, 90°], positive `y` mapping to positive `alt`.
+    ///
+    /// # Examples
+    /// ```
+    /// # use retrofire_core::math::{*, angle::*};
+    /// // The positive x-axis lies at zero azimuth and altitude
+    /// assert_eq!(
+    ///     vec3(2.0, 0.0, 0.0).to_spherical(),
+    ///     spherical(2.0, degs(0.0), degs(0.0))
+    /// );
+    /// // The positive y-axis lies at 90° altitude
+    /// assert_eq!(
+    ///     vec3(0.0, 2.0, 0.0).to_spherical(),
+    ///     spherical(2.0, degs(0.0), degs(90.0))
+    /// );
+    /// // The positive z axis lies at 90° azimuth
+    /// assert_eq!(
+    ///     vec3(0.0, 0.0, 2.0).to_spherical(),
+    ///     spherical(2.0, degs(90.0), degs(0.0))
+    /// );
+    /// ```
+    pub fn to_spherical(&self) -> SphericalVec {
+        let [x, y, z] = self.0;
+        let az = atan2(z, x);
+        let alt = atan2(y * y, x * x + z * z);
+        let r = self.len();
+        spherical(r, az, alt)
     }
 }
 
@@ -394,122 +525,42 @@ impl Rem for Angle {
 }
 
 #[cfg(feature = "fp")]
-impl From<Vec2> for PolarVec {
-    /// Converts an Euclidean 2-vector into equivalent polar coordinates.
-    ///
-    /// The `r` component of the result equals the length of the input vector,
-    /// and the `az` component equals the angle between the vector and the
-    /// `x` axis in the range (-180°, 180°], positive `x` corresponding to
-    /// positive angles.
-    /// ```text
-    /// +y
-    /// ^    ^
-    /// |   /
-    /// |  /_ +az
-    /// | /  \
-    /// +----------> +x
-    /// ```
-    ///
-    /// # Examples
-    /// ```
-    /// # use retrofire_core::assert_approx_eq;
-    /// # use retrofire_core::math::{*, angle::*};
-    /// // A non-negative x and zero y maps to zero azimuth
-    /// assert_eq!(PolarVec::from(vec2(0.0, 0.0)).az(), Angle::ZERO);
-    /// assert_eq!(PolarVec::from(vec2(1.0, 0.0)).az(), Angle::ZERO);
-    ///
-    /// // A zero x and positive y maps to right angle azimuth
-    /// assert_eq!(PolarVec::from(vec2(0.0, 1.0)).az(), Angle::RIGHT);
-    ///
-    /// // A zero x and negative y maps to negative right angle azimuth
-    /// assert_eq!(PolarVec::from(vec2(0.0, -1.0)).az(), -Angle::RIGHT);
-    ///
-    /// // A negative x and zero y maps to straight angle azimuth
-    /// assert_approx_eq!(PolarVec::from(vec2(-1.0, 0.0)).az(), Angle::STRAIGHT);
-    /// ```
-    fn from(v: Vec2) -> Self {
-        let r = v.len();
-        let az = atan2(v.y(), v.x());
-        polar(r, az)
-    }
-}
-
-#[cfg(feature = "fp")]
 impl From<PolarVec> for Vec2 {
-    /// Converts a polar vector into the equivalent Euclidean 2-vector.
+    /// Converts a polar vector into the equivalent Cartesian vector.
     ///
-    /// ```text
-    /// +y
-    /// ^     ^
-    /// | +r /
-    /// |   /
-    /// |  /_ +az
-    /// | /  \
-    /// +----------> +x
-    /// ```
-    ///
-    /// # Examples
-    /// ```
-    /// # use retrofire_core::assert_approx_eq;
-    /// # use retrofire_core::math::{*, angle::*};
-    /// // A nonnegative x and zero y maps to zero azimuth
-    /// assert_eq!(PolarVec::from(vec2(0.0, 0.0)).az(), Angle::ZERO);
-    /// assert_eq!(PolarVec::from(vec2(1.0, 0.0)).az(), Angle::ZERO);
-    ///
-    /// // A zero x and positive y maps to right angle azimuth
-    /// assert_eq!(PolarVec::from(vec2(0.0, 1.0)).az(), Angle::RIGHT);
-    ///
-    /// // A zero x and negative y maps to negative right angle azimuth
-    /// assert_eq!(PolarVec::from(vec2(0.0, -1.0)).az(), -Angle::RIGHT);
-    ///
-    /// // A negative x and zero y maps to straight angle azimuth
-    /// assert_approx_eq!(PolarVec::from(vec2(-1.0, 0.0)).az(), Angle::STRAIGHT);
-    /// ```
+    /// See [PolarVec::to_cart] for more information.
     fn from(p: PolarVec) -> Self {
-        let (y, x) = p.az().sin_cos();
-        vec2(x, y) * p.r()
+        p.to_cart()
     }
 }
 
 #[cfg(feature = "fp")]
-impl From<Vec3> for SphericalVec {
-    /// Converts an Euclidean 3-vector into equivalent spherical coordinates.
+impl From<Vec2> for PolarVec {
+    /// Converts a Cartesian 2-vector into the equivalent polar vector.
     ///
-    /// The `az` component is measured about the y axis,counterclockwise from
-    /// the x axis. The `alt` component is the angle between the vector and
-    /// its projection on the xz plane in the range [-90°, 90°], positive `y`
-    /// coordinates mapping to positive angles.
-    ///
-    /// # Examples
-    /// ```
-    /// # use retrofire_core::math::{*, angle::*};
-    /// assert_eq!(SphericalVec::from(vec3(2.0, 0.0, 0.0)), spherical(2.0, degs(0.0), degs(0.0)));
-    ///
-    /// assert_eq!(SphericalVec::from(vec3(0.0, 2.0, 0.0)), spherical(2.0, degs(0.0), degs(90.0)));
-    ///
-    /// assert_eq!(SphericalVec::from(vec3(0.0, 0.0, 2.0)), spherical(2.0, degs(90.0), degs(0.0)));
-    /// ```
-    fn from(v: Vec3) -> Self {
-        let [x, y, z] = v.0;
-        let az = atan2(z, x);
-        let alt = atan2(y * y, x * x + z * z);
-        let r = v.len();
-        spherical(r, az, alt)
+    /// See [Vec2::to_polar] for more information.
+    fn from(v: Vec2) -> Self {
+        v.to_polar()
     }
 }
 
 #[cfg(feature = "fp")]
 impl From<SphericalVec> for Vec3 {
-    /// Converts a spherical coordinate vector to an Euclidean 3-vector.
+    /// Converts a spherical coordinate vector to a Euclidean 3-vector.
+    ///
+    /// See [SphericalVec::to_cart] for more information.
     fn from(v: SphericalVec) -> Self {
-        let (sin_alt, cos_alt) = v.alt().sin_cos();
-        let (sin_az, cos_az) = v.az().sin_cos();
+        v.to_cart()
+    }
+}
 
-        let x = cos_az * cos_alt;
-        let z = sin_az * cos_alt;
-        let y = sin_alt;
-
-        vec3(x, y, z).mul(v.r())
+#[cfg(feature = "fp")]
+impl From<Vec3> for SphericalVec {
+    /// Converts a Cartesian 3-vector into the equivalent spherical vector.
+    ///
+    /// See [Vec3::to_spherical] for more information.
+    fn from(v: Vec3) -> Self {
+        v.to_spherical()
     }
 }
 

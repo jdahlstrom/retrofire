@@ -539,6 +539,28 @@ impl<R, Sp> From<R> for Color<R, Sp> {
     }
 }
 
+impl From<u32> for Color3<Rgb> {
+    /// Converts a number of form 0x00_RR_GG_BB into an RGB color equal to
+    /// [`rgb`]`(0xRR, 0xGG, 0xBB)`.
+    ///
+    /// # Panics
+    /// If debug assertions are enabled, panics if the most significant byte
+    /// is nonzero. Otherwise, the value of the MSB is ignored.
+    fn from(value: u32) -> Self {
+        debug_assert!(value <= 0xFF_FF_FF);
+        let [_, rgb @ ..] = value.to_be_bytes();
+        rgb.into()
+    }
+}
+
+impl From<u32> for Color4<Rgba> {
+    /// Converts a number of form 0xRR_GG_BB_AA into an RGBA equal to
+    /// [`rgba`]`(0xRR, 0xGG, 0xBB, 0xAA)`.
+    fn from(value: u32) -> Self {
+        value.to_be_bytes().into()
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -560,6 +582,19 @@ mod tests {
     }
     #[test]
     fn rgba_to_u32() {
+        assert_eq!(Color4::from(0x11_22_33_44), rgba(0x11, 0x22, 0x33, 0x44));
+    }
+    #[test]
+    fn rgb_from_u24() {
+        assert_eq!(Color3::from(0x11_22_33), rgb(0x11, 0x22, 0x33));
+    }
+    #[test]
+    #[should_panic]
+    fn rgb_from_u32_panics() {
+        let _ = Color3::from(0x11_22_33_44);
+    }
+    #[test]
+    fn rgba_from_u32() {
         assert_eq!(rgba(0x11, 0x22, 0x33, 0x44).to_rgba_u32(), 0x11_22_33_44);
         assert_eq!(rgba(0x11, 0x22, 0x33, 0x44).to_argb_u32(), 0x44_11_22_33);
     }
