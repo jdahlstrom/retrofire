@@ -116,19 +116,13 @@ where
         Iter { val: self, step, n }
     }
 
+    fn dv_dt(&self, other: &Self, recip_dt: f32) -> Self::Diff {
+        other.sub(self).mul(recip_dt)
+    }
+
     /// Adds `delta` to `self`.
     #[inline]
     fn step(&self, delta: &Self::Diff) -> Self {
         self.add(delta)
-    }
-
-    /// Subtracts `other` from `self`.
-    fn diff(&self, other: &Self) -> Self::Diff {
-        self.sub(other)
-    }
-
-    /// Multiplies `diff` by `s`.
-    fn scale(diff: &Self::Diff, s: f32) -> Self::Diff {
-        diff.mul(s)
     }
 }
