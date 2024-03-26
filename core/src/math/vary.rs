@@ -23,7 +23,7 @@ pub trait Vary: Sized + Clone {
     /// # Examples
     /// ```
     /// # use retrofire_core::math::vary::Vary;
-    /// let mut  iter = 0.0f32.vary(0.2, Some(5));
+    /// let mut iter = 0.0f32.vary(0.2, Some(5));
     /// assert_eq!(iter.next(), Some(0.0));
     /// assert_eq!(iter.next(), Some(0.2));
     /// assert_eq!(iter.next(), Some(0.4));
@@ -36,29 +36,22 @@ pub trait Vary: Sized + Clone {
     /// Linearly distributes values between `self` and `other` *inclusive*.
     #[inline]
     fn vary_to(self, other: Self, n: u32) -> Self::Iter {
-        let diff = other.diff(&self);
-        let step = Self::scale(&diff, 1.0 / n as f32);
+        let step = self.dv_dt(&other, 1.0 / n as f32);
         self.vary(step, Some(n + 1))
     }
 
-    /// Returns the result of offsetting `self` by `delta`.
-    /// For arithmetic types this is simply addition.
+    /// Returns, conceptually, `(other - self) / dt`.
+    fn dv_dt(&self, other: &Self, recip_dt: f32) -> Self::Diff;
+
+    /// Returns the result of offsetting `self` by `delta`, conceptually
+    /// `self + delta`.
     #[must_use]
     fn step(&self, delta: &Self::Diff) -> Self;
 
-    /// Returns the difference between `self` and `other`.
-    /// For arithmetic types this is simply subtraction.
-    fn diff(&self, other: &Self) -> Self::Diff;
-
-    /// Scales `diff` by `s`.
-    ///
-    /// TODO it's a bit ugly to have this method here and not on `Self::Diff`.
-    fn scale(diff: &Self::Diff, s: f32) -> Self::Diff;
-
     /// Linearly interpolates between `self` and `other`.
     ///
-    /// This method does not panic if `t < 0.0` or `t > 1.0`,
-    /// or if `t` is `NaN`, but the return value is unspecified.
+    /// This method does not panic if `t < 0.0` or `t > 1.0`, or if `t`
+    /// is a `NaN`, but the return value in those cases is unspecified.
     /// Individual implementations may offer stronger guarantees.
     ///
     /// # Examples
@@ -71,8 +64,7 @@ pub trait Vary: Sized + Clone {
     /// ```
     #[inline]
     fn lerp(&self, other: &Self, t: f32) -> Self {
-        let diff = other.diff(self);
-        self.step(&Self::scale(&diff, t))
+        self.step(&self.dv_dt(other, t))
     }
 }
 
@@ -92,12 +84,11 @@ impl Vary for () {
     type Iter = Iter<()>;
     type Diff = ();
 
-    fn vary(self, _step: Self::Diff, n: Option<u32>) -> Self::Iter {
+    fn vary(self, _: Self::Diff, n: Option<u32>) -> Self::Iter {
         Iter { val: (), step: (), n }
     }
-    fn step(&self, _delta: &Self::Diff) {}
-    fn diff(&self, _other: &Self) {}
-    fn scale(_diff: &Self::Diff, _s: f32) {}
+    fn dv_dt(&self, _: &Self, _: f32) {}
+    fn step(&self, _: &Self::Diff) {}
 }
 
 impl<T: Vary, U: Vary> Vary for (T, U) {
@@ -107,17 +98,14 @@ impl<T: Vary, U: Vary> Vary for (T, U) {
     fn vary(self, step: Self::Diff, n: Option<u32>) -> Self::Iter {
         Iter { val: self, step, n }
     }
-
+    fn dv_dt(&self, other: &Self, recip_dt: f32) -> Self::Diff {
+        (
+            self.0.dv_dt(&other.0, recip_dt),
+            self.1.dv_dt(&other.1, recip_dt),
+        )
+    }
     fn step(&self, (d0, d1): &Self::Diff) -> Self {
         (self.0.step(d0), self.1.step(d1))
-    }
-
-    fn diff(&self, other: &Self) -> Self::Diff {
-        (self.0.diff(&other.0), self.1.diff(&other.1))
-    }
-
-    fn scale(diff: &Self::Diff, s: f32) -> Self::Diff {
-        (T::scale(&diff.0, s), U::scale(&diff.1, s))
     }
 }
 
