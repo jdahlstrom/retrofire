@@ -44,7 +44,7 @@ pub struct ScanlineIter<V: Vary> {
     y: f32,
     left: <Varyings<V> as Vary>::Iter,
     right: <f32 as Vary>::Iter,
-    df_dx: <Varyings<V> as Vary>::Diff,
+    dv_dx: <Varyings<V> as Vary>::Diff,
     n: u32,
 }
 
@@ -70,7 +70,7 @@ impl<V: Vary> Iterator for ScanlineIter<V> {
         // Find the next pixel centers to the right
         //
         // If left.pos.x().fract() < 0.5, the pixel is covered and thus drawn;
-        // otherwise it's not and we skip to the next pixel.
+        // otherwise it's not, and we skip to the next pixel.
         //
         // Similarly, if x_right.fract() < 0.5 that's the "one-past-the-end"
         // pixel, otherwise it's the last covered pixel and the next one is
@@ -78,9 +78,9 @@ impl<V: Vary> Iterator for ScanlineIter<V> {
         let (x0, x1) = (round_up_to_half(v0.0.x()), round_up_to_half(x1));
 
         // Adjust v0 to match the rounded x0
-        let v0 = v0.step(&scale::<V>(&self.df_dx, x0 - v0.0.x()));
+        let v0 = v0.lerp(&v0.step(&self.dv_dx), x0 - v0.0.x());
 
-        let frags = v0.vary(self.df_dx.clone(), Some((x1 - x0) as u32));
+        let frags = v0.vary(self.dv_dx.clone(), Some((x1 - x0) as u32));
 
         self.y += 1.0;
         self.n -= 1;
@@ -109,10 +109,7 @@ where
     let [top_y, mid_y, bot_y] = [top.0.y(), mid0.0.y(), bot.0.y()];
 
     // Interpolate a point on the "long" edge at the same y as `mid0`
-    let mid1 = {
-        let t = (mid_y - top_y) / (bot_y - top_y);
-        top.step(&scale::<V>(&bot.diff(&top), t))
-    };
+    let mid1 = top.lerp(&bot, (mid_y - top_y) / (bot_y - top_y));
 
     let (left, right) = if mid0.0.x() < mid1.0.x() {
         (mid0, mid1)
@@ -166,17 +163,18 @@ pub fn scan<V: Vary>(
     Range { start: l0, end: l1 }: Range<&Varyings<V>>,
     Range { start: r0, end: r1 }: Range<&Varyings<V>>,
 ) -> ScanlineIter<V> {
-    let inv_dy = (y1 - y0).recip();
+    let recip_dy = (y1 - y0).recip();
 
-    // df/dy for the left edge
-    let dl_dy = scale::<V>(&l1.diff(l0), inv_dy);
-    // df/dy for the right edge
-    let dr_dy = scale::<V>(&r1.diff(r0), inv_dy);
+    // dv/dy for the left edge
+    let dl_dy = l0.dv_dt(l1, recip_dy);
+    // dv/dy for the right edge
+    let dr_dy = r0.dv_dt(r1, recip_dy);
 
-    // df/dx is constant for the whole polygon; precompute it
-    let df_dx = {
-        let df = r0.step(&dr_dy).diff(&l0.step(&dl_dy));
-        scale::<V>(&df, df.0.x().recip())
+    // dv/dx is constant for the whole polygon; precompute it
+    let dv_dx = {
+        let (l0, r0) = (l0.step(&dl_dy), r0.step(&dr_dy));
+        let recip_dx = (r0.0.x() - l0.0.x()).recip();
+        l0.dv_dt(&r0, recip_dx)
     };
 
     // Find the y value of the next pixel center (.5) vertically
@@ -192,9 +190,9 @@ pub fn scan<V: Vary>(
     //
     //      COVERED               NOT COVERED             NOT COVERED
     //   +-----/-----+           +---------/-+           +-----------+
-    //   |    /·     |           |     ·  /  |           |     ·     |
-    //   | · p +  ·  | p.y=0.5   |  ·  + p · | p.y=0.5   |  ·  +  ·  |
-    //   |  /  ·     |           |     ·/    |           |   p-------- p.y>0.5
+    //   |    /······|           |        /··|           |     ·     |
+    //   |   p·+·····| p.y=0.5   |     + p···| p.y=0.5   |  ·  +  ·  |
+    //   |  /········|           |      /····|           |   p-------- p.y>0.5
     //   +-/---------+           +-----/-----+           +--/--------+
     //    p.x<0.5                    p.x>0.5              p.x<0.5
     //
@@ -204,23 +202,16 @@ pub fn scan<V: Vary>(
     let y_tweak = y0_rounded - y0;
 
     // Adjust varyings to correspond to the aligned y value
-    let l0 = l0.step(&scale::<V>(&dl_dy, y_tweak));
+    let l0 = l0.lerp(&l0.step(&dl_dy), y_tweak);
     let r0 = r0.0.x() + dr_dy.0.x() * y_tweak;
 
     ScanlineIter {
         y: y0_rounded,
         left: l0.vary(dl_dy, None),
         right: r0.vary(dr_dy.0.x(), None),
-        df_dx,
+        dv_dx,
         n: (y1_rounded - y0_rounded) as u32, // saturates to 0
     }
-}
-
-fn scale<V: Vary>(
-    d: &<Varyings<V> as Vary>::Diff,
-    s: f32,
-) -> <Varyings<V> as Vary>::Diff {
-    <Varyings<V> as Vary>::scale(d, s)
 }
 
 #[cfg(feature = "fp")]
