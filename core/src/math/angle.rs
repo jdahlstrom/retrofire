@@ -10,6 +10,8 @@ use crate::math::space::{Affine, Linear};
 use crate::math::vec::Vector;
 
 #[cfg(feature = "fp")]
+use crate::math::float::f32;
+#[cfg(feature = "fp")]
 use crate::math::vec::{vec2, vec3, Vec2, Vec3};
 
 //
@@ -331,7 +333,7 @@ impl SphericalVec {
         let z = sin_az * cos_alt;
         let y = sin_alt;
 
-        vec3(x, y, z).mul(self.r())
+        self.r() * vec3(x, y, z)
     }
 }
 
@@ -410,7 +412,7 @@ impl Vec3 {
     pub fn to_spherical(&self) -> SphericalVec {
         let [x, y, z] = self.0;
         let az = atan2(z, x);
-        let alt = atan2(y * y, x * x + z * z);
+        let alt = atan2(y, f32::sqrt(x * x + z * z));
         let r = self.len();
         spherical(r, az, alt)
     }
