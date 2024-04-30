@@ -113,7 +113,7 @@ pub fn atan2(y: f32, x: f32) -> Angle {
 
 /// Returns a polar coordinate vector with azimuth `az` and radius `r`.
 pub const fn polar(r: f32, az: Angle) -> PolarVec {
-    Vector::new([az.to_rads(), r])
+    Vector::new([r, az.to_rads()])
 }
 
 /// Returns a spherical coordinate vector with azimuth `az`,
@@ -121,7 +121,7 @@ pub const fn polar(r: f32, az: Angle) -> PolarVec {
 ///
 /// An altitude of +90° corresponds to straight up and -90° to straight down.
 pub const fn spherical(r: f32, az: Angle, alt: Angle) -> SphericalVec {
-    Vector::new([az.to_rads(), alt.to_rads(), r])
+    Vector::new([r, az.to_rads(), alt.to_rads()])
 }
 
 const RADS_PER_DEG: f32 = PI / 180.0;
@@ -255,15 +255,15 @@ impl Angle {
 }
 
 impl PolarVec {
-    /// Returns the azimuthal component of `self`.
-    #[inline]
-    pub fn az(&self) -> Angle {
-        rads(self.0[0])
-    }
     /// Returns the radial component of `self`.
     #[inline]
     pub fn r(&self) -> f32 {
-        self.0[1]
+        self.0[0]
+    }
+    /// Returns the azimuthal component of `self`.
+    #[inline]
+    pub fn az(&self) -> Angle {
+        rads(self.0[1])
     }
 
     /// Returns `self` converted to the equivalent Cartesian 2-vector.
@@ -304,17 +304,17 @@ impl SphericalVec {
     /// Returns the radial component of `self`.
     #[inline]
     pub fn r(&self) -> f32 {
-        self.0[2]
+        self.0[0]
     }
     /// Returns the azimuthal component of `self`.
     #[inline]
     pub fn az(&self) -> Angle {
-        rads(self.0[0])
+        rads(self.0[1])
     }
     /// Returns the altitude (elevation) component of `self`.
     #[inline]
     pub fn alt(&self) -> Angle {
-        rads(self.0[1])
+        rads(self.0[2])
     }
 
     /// Returns `self` converted to the equivalent Cartesian 3-vector.
