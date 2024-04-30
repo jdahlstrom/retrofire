@@ -5,7 +5,6 @@ use core::fmt::{self, Debug, Display};
 use core::ops::{Add, Div, Mul, Neg, Rem, Sub};
 
 use crate::math::approx::ApproxEq;
-use crate::math::float::f32;
 use crate::math::space::{Affine, Linear};
 use crate::math::vec::Vector;
 
@@ -341,10 +340,10 @@ impl SphericalVec {
 impl Vec2 {
     /// Returns `self` converted into the equivalent polar coordinate vector.
     ///
-    /// The `r` component of the result equals the length `self`.
+    /// The `r` component of the result equals `self.len()`.
     ///
     /// The `az` component equals the angle between the vector and the x-axis
-    /// in the range (-180°, 180°], positive `y` mapping to positive `az`.
+    /// in the range (-180°, 180°] such that positive `y` maps to positive `az`.
     /// ```text
     /// +y
     /// ^    ^
@@ -385,10 +384,10 @@ impl Vec3 {
     /// The `r` component of the result equals `self.len()`.
     ///
     /// The `az` component is the angle between `self` and the xy-plane in the
-    /// range (-180°, 180°], such that positive `z` maps to positive `az`.
+    /// range (-180°, 180°] such that positive `z` maps to positive `az`.
     ///
     /// The `alt` component is the angle between `self` and the xz-plane in the
-    /// range [-90°, 90°], positive `y` mapping to positive `alt`.
+    /// range [-90°, 90°] such that positive `y` maps to positive `alt`.
     ///
     /// # Examples
     /// ```
@@ -568,12 +567,14 @@ impl From<Vec3> for SphericalVec {
 
 #[cfg(test)]
 mod tests {
-    use core::f32::consts::{PI, TAU};
+    use core::f32::consts::{PI, SQRT_2, TAU};
 
     use crate::assert_approx_eq;
     use crate::math::vary::Vary;
 
     use super::*;
+
+    const SQRT_3: f32 = 1.7320508;
 
     #[test]
     fn rads_to_degs() {
@@ -649,9 +650,9 @@ mod tests {
         assert_approx_eq!(acos(1.0), degs(0.0));
 
         assert_approx_eq!(atan2(0.0, 1.0), degs(0.0));
-        assert_approx_eq!(atan2(1.0, 1.0), degs(45.0));
+        assert_approx_eq!(atan2(1.0, SQRT_3), degs(30.0));
         assert_approx_eq!(atan2(1.0, -1.0), degs(135.0));
-        assert_approx_eq!(atan2(-1.0, -1.0), degs(-135.0));
+        assert_approx_eq!(atan2(-SQRT_3, -1.0), degs(-120.0));
         assert_approx_eq!(atan2(-1.0, 1.0), degs(-45.0));
     }
 
@@ -686,77 +687,113 @@ mod tests {
 
     #[cfg(feature = "fp")]
     #[test]
-    fn polar_to_cartesian() {
-        assert_eq!(Vec2::from(polar(0.0, Angle::ZERO)), vec2(0.0, 0.0));
-        assert_eq!(Vec2::from(polar(0.0, Angle::RIGHT)), vec2(0.0, 0.0));
+    fn polar_to_cartesian_zero_r() {
+        assert_eq!(polar(0.0, degs(0.0)).to_cart(), vec2(0.0, 0.0));
+        assert_eq!(polar(0.0, degs(30.0)).to_cart(), vec2(0.0, 0.0));
+        assert_eq!(polar(0.0, degs(-120.0)).to_cart(), vec2(0.0, 0.0));
+    }
 
-        assert_eq!(Vec2::from(polar(2.0, Angle::ZERO)), vec2(2.0, 0.0));
-        assert_approx_eq!(Vec2::from(polar(2.0, Angle::RIGHT)), vec2(0.0, 2.0));
+    #[cfg(feature = "fp")]
+    #[test]
+    fn polar_to_cartesian_zero_az() {
+        assert_eq!(polar(2.0, degs(0.0)).to_cart(), vec2(2.0, 0.0));
+        assert_eq!(polar(-3.0, degs(0.0)).to_cart(), vec2(-3.0, 0.0));
+    }
+
+    #[cfg(feature = "fp")]
+    #[test]
+    fn polar_to_cartesian() {
+        assert_approx_eq!(polar(2.0, degs(60.0)).to_cart(), vec2(1.0, SQRT_3));
+
         assert_approx_eq!(
-            Vec2::from(polar(2.0, -Angle::RIGHT)),
-            vec2(0.0, -2.0)
-        );
-        assert_approx_eq!(Vec2::from(polar(2.0, turns(0.75))), vec2(0.0, -2.0));
-        assert_approx_eq!(
-            Vec2::from(polar(2.0, turns(1.25))),
-            vec2(0.0, 2.0),
+            polar(3.0, degs(-90.0)).to_cart(),
+            vec2(0.0, -3.0),
             eps = 1e-6
+        );
+        assert_approx_eq!(polar(4.0, degs(270.0)).to_cart(), vec2(0.0, -4.0));
+
+        assert_approx_eq!(
+            polar(5.0, turns(1.25)).to_cart(),
+            vec2(0.0, 5.0),
+            eps = 2e-6
         );
     }
 
     #[cfg(feature = "fp")]
     #[test]
+    fn cartesian_to_polar_zero_y() {
+        assert_eq!(vec2(0.0, 0.0).to_polar(), polar(0.0, degs(0.0)));
+        assert_eq!(vec2(1.0, 0.0).to_polar(), polar(1.0, degs(0.0)));
+    }
+    #[cfg(feature = "fp")]
+    #[test]
     fn cartesian_to_polar() {
-        assert_eq!(PolarVec::from(vec2(0.0, 0.0)), polar(0.0, Angle::ZERO));
-        assert_eq!(PolarVec::from(vec2(1.0, 0.0)), polar(1.0, Angle::ZERO));
-
-        assert_eq!(PolarVec::from(vec2(0.0, 2.0)), polar(2.0, Angle::RIGHT));
-        assert_approx_eq!(
-            PolarVec::from(vec2(-2.0, 0.0)),
-            polar(2.0, Angle::STRAIGHT)
-        );
-        assert_eq!(PolarVec::from(vec2(0.0, -2.0)), polar(2.0, -Angle::RIGHT));
+        assert_eq!(vec2(SQRT_3, 1.0).to_polar(), polar(2.0, degs(30.0)));
+        assert_eq!(vec2(0.0, 2.0).to_polar(), polar(2.0, degs(90.0)));
+        assert_approx_eq!(vec2(-3.0, 0.0).to_polar(), polar(3.0, degs(180.0)));
+        assert_eq!(vec2(0.0, -4.0).to_polar(), polar(4.0, degs(-90.0)));
     }
 
     #[cfg(feature = "fp")]
     #[test]
     fn spherical_to_cartesian() {
         assert_eq!(
-            Vec3::from(spherical(0.0, Angle::ZERO, Angle::ZERO)),
+            spherical(0.0, degs(0.0), degs(0.0)).to_cart(),
             vec3(0.0, 0.0, 0.0)
         );
         assert_eq!(
-            Vec3::from(spherical(1.0, Angle::ZERO, Angle::ZERO)),
+            spherical(1.0, degs(0.0), degs(0.0)).to_cart(),
             vec3(1.0, 0.0, 0.0)
         );
         assert_approx_eq!(
-            Vec3::from(spherical(2.0, Angle::RIGHT, Angle::ZERO)),
+            spherical(2.0, degs(60.0), degs(0.0)).to_cart(),
+            vec3(1.0, 0.0, SQRT_3)
+        );
+        assert_approx_eq!(
+            spherical(2.0, degs(90.0), degs(0.0)).to_cart(),
             vec3(0.0, 0.0, 2.0)
         );
         assert_approx_eq!(
-            Vec3::from(spherical(3.0, degs(123.0), Angle::RIGHT)),
+            spherical(3.0, degs(123.0), degs(90.0)).to_cart(),
             vec3(0.0, 3.0, 0.0)
         );
     }
 
     #[cfg(feature = "fp")]
     #[test]
+    fn cartesian_to_spherical_zero_alt() {
+        assert_eq!(
+            vec3(0.0, 0.0, 0.0).to_spherical(),
+            spherical(0.0, degs(0.0), degs(0.0))
+        );
+        assert_eq!(
+            vec3(1.0, 0.0, 0.0).to_spherical(),
+            spherical(1.0, degs(0.0), degs(0.0))
+        );
+        assert_approx_eq!(
+            vec3(1.0, SQRT_3, 0.0).to_spherical(),
+            spherical(2.0, degs(0.0), degs(60.0))
+        );
+        assert_eq!(
+            vec3(0.0, 2.0, 0.0).to_spherical(),
+            spherical(2.0, degs(0.0), degs(90.0))
+        );
+    }
+
+    #[cfg(feature = "fp")]
+    #[test]
     fn cartesian_to_spherical() {
-        assert_eq!(
-            SphericalVec::from(vec3(0.0, 0.0, 0.0)),
-            spherical(0.0, Angle::ZERO, Angle::ZERO)
+        assert_approx_eq!(
+            vec3(SQRT_3, 0.0, 1.0).to_spherical(),
+            spherical(2.0, degs(30.0), degs(0.0))
+        );
+        assert_approx_eq!(
+            vec3(1.0, SQRT_2, 1.0).to_spherical(),
+            spherical(2.0, degs(45.0), degs(45.0))
         );
         assert_eq!(
-            SphericalVec::from(vec3(1.0, 0.0, 0.0)),
-            spherical(1.0, Angle::ZERO, Angle::ZERO)
-        );
-        assert_eq!(
-            SphericalVec::from(vec3(0.0, 2.0, 0.0)),
-            spherical(2.0, Angle::ZERO, Angle::RIGHT)
-        );
-        assert_eq!(
-            SphericalVec::from(vec3(0.0, 0.0, 3.0)),
-            spherical(3.0, Angle::RIGHT, Angle::ZERO)
+            vec3(0.0, 0.0, 3.0).to_spherical(),
+            spherical(3.0, degs(90.0), degs(0.0))
         );
     }
 }
