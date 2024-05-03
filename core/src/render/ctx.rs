@@ -79,7 +79,7 @@ impl Default for Context {
         Self {
             color_clear: Some(rgba(0, 0, 0, 0xFF)),
             depth_clear: Some(f32::INFINITY),
-            face_cull: None,
+            face_cull: Some(FaceCull::Back),
             depth_sort: None,
             color_write: true,
             depth_test: Some(Ordering::Less),
