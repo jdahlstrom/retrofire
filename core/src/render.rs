@@ -104,9 +104,6 @@ pub fn render<Vtx: Clone, Var: Vary, Uni: Copy, Shd>(
     }
 
     for Tri(vs) in clipped {
-        stats.prims.o += 1;
-        stats.verts.o += 3;
-
         // Transform to screen space
         let vs = vs.map(|v| Vertex {
             pos: {
@@ -124,6 +121,10 @@ pub fn render<Vtx: Clone, Var: Vary, Uni: Copy, Shd>(
             Some(FaceCull::Front) if !is_backface(&vs) => continue,
             _ => {}
         }
+
+        // Log output stats after culling
+        stats.prims.o += 1;
+        stats.verts.o += 3;
 
         // Fragment shader and rasterization
         tri_fill(vs, |scanline| {
