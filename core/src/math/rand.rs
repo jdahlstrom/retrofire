@@ -63,7 +63,7 @@ pub struct UnitBall(pub Xorshift64);
 #[derive(Copy, Clone, Debug)]
 pub struct Bernoulli(pub Xorshift64, pub f32);
 
-/// Iterator returned by the [Distrib::iter()] method.
+/// Iterator returned by the [`Distrib::iter()`] method.
 pub struct Iter<D>(D);
 
 //
@@ -347,7 +347,7 @@ mod tests {
 
         let mut trues = 0;
         for b in d.iter().take(COUNT) {
-            trues += b as u32;
+            trues += b as u32
         }
         assert_eq!(trues, 93);
     }

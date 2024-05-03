@@ -75,7 +75,7 @@ impl<A, S> Mesh<A, S> {
             assert!(
                 vs.iter().all(|&j| j < verts.len()),
                 "vertex index out of bounds at faces[{i}]: {vs:?}"
-            )
+            );
         }
         Self { faces, verts }
     }
@@ -155,7 +155,7 @@ mod tests {
     use super::*;
 
     #[test]
-    #[should_panic]
+    #[should_panic(expected = "")]
     fn mesh_new_panics_if_vertex_index_oob() {
         _ = Mesh::new(
             [Tri([0, 1, 2]), Tri([1, 2, 3])],
@@ -168,7 +168,7 @@ mod tests {
     }
 
     #[test]
-    #[should_panic]
+    #[should_panic(expected = "")]
     fn mesh_builder_panics_if_vertex_index_oob() {
         let mut b = Mesh::builder();
         b.push_faces([[0, 1, 2], [1, 2, 3]]);

@@ -323,7 +323,7 @@ impl Color3<Hsl> {
         };
         rgb.map(|ch| {
             let ch = ch + m;
-            debug_assert!(0 <= ch && ch < 256, "channel oob: {:?}", ch);
+            debug_assert!(0 <= ch && ch < 256, "channel oob: {ch:?}");
             ch as u8
         })
         .into()

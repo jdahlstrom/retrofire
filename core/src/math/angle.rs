@@ -46,7 +46,7 @@ pub type SphericalVec = Vector<[f32; 3], Spherical>;
 //
 
 /// Returns an angle of `a` radians.
-pub fn rads(a: f32) -> Angle {
+pub const fn rads(a: f32) -> Angle {
     Angle(a)
 }
 
@@ -258,12 +258,12 @@ impl Angle {
 impl PolarVec {
     /// Returns the radial component of `self`.
     #[inline]
-    pub fn r(&self) -> f32 {
+    pub const fn r(&self) -> f32 {
         self.0[0]
     }
     /// Returns the azimuthal component of `self`.
     #[inline]
-    pub fn az(&self) -> Angle {
+    pub const fn az(&self) -> Angle {
         rads(self.0[1])
     }
 
@@ -304,17 +304,17 @@ impl PolarVec {
 impl SphericalVec {
     /// Returns the radial component of `self`.
     #[inline]
-    pub fn r(&self) -> f32 {
+    pub const fn r(&self) -> f32 {
         self.0[0]
     }
     /// Returns the azimuthal component of `self`.
     #[inline]
-    pub fn az(&self) -> Angle {
+    pub const fn az(&self) -> Angle {
         rads(self.0[1])
     }
     /// Returns the altitude (elevation) component of `self`.
     #[inline]
-    pub fn alt(&self) -> Angle {
+    pub const fn alt(&self) -> Angle {
         rads(self.0[2])
     }
 
@@ -529,7 +529,7 @@ impl Rem for Angle {
 impl From<PolarVec> for Vec2 {
     /// Converts a polar vector into the equivalent Cartesian vector.
     ///
-    /// See [PolarVec::to_cart] for more information.
+    /// See [`PolarVec::to_cart`] for more information.
     fn from(p: PolarVec) -> Self {
         p.to_cart()
     }
@@ -539,7 +539,7 @@ impl From<PolarVec> for Vec2 {
 impl From<Vec2> for PolarVec {
     /// Converts a Cartesian 2-vector into the equivalent polar vector.
     ///
-    /// See [Vec2::to_polar] for more information.
+    /// See [`Vec2::to_polar`] for more information.
     fn from(v: Vec2) -> Self {
         v.to_polar()
     }
@@ -549,7 +549,7 @@ impl From<Vec2> for PolarVec {
 impl From<SphericalVec> for Vec3 {
     /// Converts a spherical coordinate vector to a Euclidean 3-vector.
     ///
-    /// See [SphericalVec::to_cart] for more information.
+    /// See [`SphericalVec::to_cart`] for more information.
     fn from(v: SphericalVec) -> Self {
         v.to_cart()
     }
@@ -559,7 +559,7 @@ impl From<SphericalVec> for Vec3 {
 impl From<Vec3> for SphericalVec {
     /// Converts a Cartesian 3-vector into the equivalent spherical vector.
     ///
-    /// See [Vec3::to_spherical] for more information.
+    /// See [`Vec3::to_spherical`] for more information.
     fn from(v: Vec3) -> Self {
         v.to_spherical()
     }

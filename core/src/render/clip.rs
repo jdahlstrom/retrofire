@@ -213,16 +213,18 @@ pub mod view_frustum {
         Outcode(code)
     }
 
+    pub(super) const INSIDE: u8 = 0b111111;
+
     /// Returns the visibility status of the polygon given by `vs`.
     pub(super) fn status<V>(vs: &[ClipVert<V>]) -> Status {
         let (all, any) = vs.iter().fold((!0, 0), |(all, any), v| {
             (all & v.outcode.0, any | v.outcode.0)
         });
-        if any != 0b111111 {
+        if any != INSIDE {
             // If there's at least one plane that all vertices are outside of,
             // then the whole polygon is hidden
             Status::Hidden
-        } else if all == 0b111111 {
+        } else if all == INSIDE {
             // If each vertex is inside all planes, the polygon is fully visible
             Status::Visible
         } else {
@@ -336,6 +338,13 @@ mod tests {
 
     const FAR_PLANE: ClipPlane = PLANES[1];
 
+    const NEAR_BIT: u8 = 0x20;
+    const FAR_BIT: u8 = 0x10;
+    const LEFT_BIT: u8 = 0x8;
+    const RIGHT_BIT: u8 = 0x4;
+    const BOTTOM_BIT: u8 = 0x2;
+    const TOP_BIT: u8 = 0x1;
+
     fn vec(x: f32, y: f32, z: f32) -> ClipVec {
         [x, y, z, 1.0].into()
     }
@@ -358,25 +367,22 @@ mod tests {
 
     #[test]
     fn outcode_inside() {
-        assert_eq!(outcode(&vec(0.0, 0.0, 0.0)).0, 0b111111);
-        assert_eq!(outcode(&vec(1.0, 0.0, 0.0)).0, 0b111111);
-        assert_eq!(outcode(&vec(0.0, -1.0, 0.0)).0, 0b111111);
-        assert_eq!(outcode(&vec(0.0, 1.0, 1.0)).0, 0b111111);
+        assert_eq!(outcode(&vec(0.0, 0.0, 0.0)).0, INSIDE);
+        assert_eq!(outcode(&vec(1.0, 0.0, 0.0)).0, INSIDE);
+        assert_eq!(outcode(&vec(0.0, -1.0, 0.0)).0, INSIDE);
+        assert_eq!(outcode(&vec(0.0, 1.0, 1.0)).0, INSIDE);
     }
 
     #[test]
     fn outcode_outside() {
-        // Top Btm Rgt Lft Far Near
-        //  1   2   4   8   16  32
-
-        // Outside near == 32
-        assert_eq!(outcode(&vec(0.0, 0.0, -1.5)).0, 0b011111);
-        // Outside right == 4
-        assert_eq!(outcode(&vec(2.0, 0.0, 0.0)).0, 0b111011);
-        // Outside bottom == 2
-        assert_eq!(outcode(&vec(0.0, -1.01, 0.0)).0, 0b111101);
-        // Outside far left == 16|8
-        assert_eq!(outcode(&vec(-2.0, 0.0, 2.0)).0, 0b100111);
+        assert_eq!(outcode(&vec(0.0, 0.0, -1.5)).0, INSIDE & !NEAR_BIT);
+        assert_eq!(outcode(&vec(2.0, 0.0, 0.0)).0, INSIDE & !RIGHT_BIT);
+        assert_eq!(outcode(&vec(0.0, -1.01, 0.0)).0, INSIDE & !BOTTOM_BIT);
+        assert_eq!(outcode(&vec(0.0, 2.0, 0.0)).0, INSIDE & !TOP_BIT);
+        assert_eq!(
+            outcode(&vec(-2.0, 0.0, 2.0)).0,
+            INSIDE & !(FAR_BIT | LEFT_BIT)
+        );
     }
 
     #[test]

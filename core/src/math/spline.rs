@@ -235,6 +235,7 @@ impl<T: Linear<Scalar = f32> + Copy> BezierSpline<T> {
 }
 
 #[cfg(test)]
+#[allow(clippy::float_cmp)]
 mod tests {
     use alloc::vec;
 

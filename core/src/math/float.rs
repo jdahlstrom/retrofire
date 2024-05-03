@@ -112,6 +112,7 @@ pub type f32 = core::primitive::f32;
 pub use fallback as f32;
 
 #[cfg(test)]
+#[allow(clippy::float_cmp)]
 mod tests {
     #[cfg(feature = "fp")]
     use core::f32::consts::PI;

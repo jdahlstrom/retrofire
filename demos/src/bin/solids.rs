@@ -137,13 +137,13 @@ fn main() {
 
         let Mesh { faces, verts } = &objs[carousel.idx % objs.len()];
         render(
-            &faces,
-            &verts,
+            faces,
+            verts,
             &shader,
             &mvp,
             viewport,
             &mut frame.buf,
-            &frame.ctx,
+            frame.ctx,
         );
 
         Continue(())

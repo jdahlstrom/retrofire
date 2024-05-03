@@ -205,7 +205,8 @@ impl SamplerOnce {
     /// respectively.
     ///
     /// Uses nearest neighbor sampling. Passing out-of-range coordinates
-    /// to this function is sound (not UB) but is not otherwise specified.
+    /// to this function is sound (not undefined behavior) but the result is
+    /// not otherwise specified.
     ///
     /// # Panics
     /// May panic if `tc` is not in the valid range.

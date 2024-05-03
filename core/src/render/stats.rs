@@ -81,10 +81,7 @@ impl Stats {
     pub fn finish(self) -> Self {
         Self {
             #[cfg(feature = "std")]
-            time: self
-                .start
-                .map(|st| st.elapsed())
-                .unwrap_or(self.time),
+            time: self.start.map_or(self.time, |st| st.elapsed()),
             ..self
         }
     }
@@ -178,7 +175,7 @@ impl Display for Stats {
               time   {:>w$} │ {empty:w$} │ {:>w$}\n \
               calls  {:>w$} │ {:>w$.1} │ {:>w$.1}\n \
               frames {:>w$} │ {:>w$.1} │\n\
-             ────────{empty:─>w$}─┼─{empty:─>w$}─┼─{empty:─>w$}─\n", 
+             ────────{empty:─>w$}─┼─{empty:─>w$}─┼─{empty:─>w$}─\n",
             "TOTAL", "PER SEC", "PER FRAME",
             human_time(self.time), human_time(pf.time),
             self.calls, ps.calls, pf.calls,

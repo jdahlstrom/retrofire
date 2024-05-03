@@ -315,7 +315,7 @@ impl Octahedron {
 }
 
 /// The golden ratio constant φ.
-const PHI: f32 = 1.61803401_f32;
+const PHI: f32 = 1.618_034_f32;
 /// Reciprocal of φ.
 const R_PHI: f32 = 1.0 / PHI;
 

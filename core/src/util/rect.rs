@@ -51,7 +51,7 @@ impl<T: Copy> Rect<T> {
     where
         T: PartialOrd,
     {
-        let Rect { left, top, right, bottom } = self;
+        let Self { left, top, right, bottom } = self;
         // Empty if either extent is a bounded, empty range
         let h_empty = left.is_some() && right.is_some() && left >= right;
         let v_empty = top.is_some() && bottom.is_some() && top >= bottom;
@@ -69,10 +69,10 @@ impl<T: Copy> Rect<T> {
 
     /// Returns the horizontal and vertical extents of `self`.
     pub fn bounds(&self) -> [impl RangeBounds<T>; 2] {
-        let left = self.left.map(Included).unwrap_or(Unbounded);
-        let top = self.top.map(Included).unwrap_or(Unbounded);
-        let right = self.right.map(Excluded).unwrap_or(Unbounded);
-        let bottom = self.bottom.map(Excluded).unwrap_or(Unbounded);
+        let left = self.left.map_or(Unbounded, Included);
+        let top = self.top.map_or(Unbounded, Included);
+        let right = self.right.map_or(Unbounded, Excluded);
+        let bottom = self.bottom.map_or(Unbounded, Excluded);
 
         [(left, right), (top, bottom)]
     }

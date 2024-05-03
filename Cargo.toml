@@ -9,12 +9,7 @@
 #                                          \_____\,´
 
 [workspace]
-members = [
-    "core",
-    "demos",
-    "front",
-    "geom"
-]
+members = ["core", "demos", "front", "geom"]
 resolver = "2"
 
 [workspace.package]

@@ -68,7 +68,7 @@ const fn magic(bytes: &[u8; 2]) -> u16 {
 
 impl Display for Format {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
-        write!(f, "P{}", ((*self as u8) & 0xFF) as char)
+        write!(f, "P{}", (*self as u16).to_be_bytes()[1] as char)
     }
 }
 
@@ -157,7 +157,7 @@ impl Header {
             TextBitmap | BinaryBitmap => &"",
             _ => &max,
         };
-        writeln!(dest, "{} {} {} {}", format, width, height, max)
+        writeln!(dest, "{format} {width} {height} {max}")
     }
 }
 

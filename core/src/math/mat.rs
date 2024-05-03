@@ -109,6 +109,7 @@ impl<const N: usize, Map> Matrix<[[f32; N]; N], Map> {
     }
 
     /// Returns `self` with its rows and columns swapped.
+    #[must_use]
     pub fn transpose(self) -> Self {
         let mut res = [[0.0; N]; N];
         for i in 0..N {
@@ -633,12 +634,12 @@ mod tests {
         ]
         .into();
 
-        let expected = r#"Matrix<Basis1→Basis2>[
+        let expected = r"Matrix<Basis1→Basis2>[
     [  0.00,   1.00,   2.00,   3.00]
     [ 10.00,  11.00,  12.00,  13.00]
     [ 20.00,  21.00,  22.00,  23.00]
     [ 30.00,  31.00,  32.00,  33.00]
-]"#;
+]";
 
         assert_eq!(alloc::format!("{actual:?}"), expected);
     }

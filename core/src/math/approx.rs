@@ -151,6 +151,7 @@ macro_rules! assert_approx_eq {
 mod tests {
 
     mod f32 {
+        const EPS: f32 = 1e-7;
         #[test]
         fn approx_eq_zero() {
             assert_approx_eq!(0.0, 0.0);
@@ -160,20 +161,20 @@ mod tests {
 
         #[test]
         fn approx_eq_positive() {
-            assert_approx_eq!(0.0, 0.0000001);
-            assert_approx_eq!(0.0000001, 0.0);
-            assert_approx_eq!(0.9999999, 1.0);
-            assert_approx_eq!(1.0, 1.0000001);
-            assert_approx_eq!(1.0e10, 1.0000001e10);
+            assert_approx_eq!(0.0, EPS);
+            assert_approx_eq!(EPS, 0.0);
+            assert_approx_eq!(1.0 - EPS, 1.0);
+            assert_approx_eq!(1.0, 1.0 + EPS);
+            assert_approx_eq!(1e10, (1.0 + EPS) * 1e10);
         }
 
         #[test]
         fn approx_eq_negative() {
-            assert_approx_eq!(0.0, -0.0000001);
-            assert_approx_eq!(-0.0000001, 0.0);
-            assert_approx_eq!(-1.0, -1.0000001);
-            assert_approx_eq!(-0.9999999, -1.0);
-            assert_approx_eq!(-1.0e10, -1.0000001e10);
+            assert_approx_eq!(0.0, -EPS);
+            assert_approx_eq!(-EPS, 0.0);
+            assert_approx_eq!(-1.0, -1.0 - EPS);
+            assert_approx_eq!(-1.0 + EPS, -1.0);
+            assert_approx_eq!(-1e10, -(1.0 + EPS) * 1e10);
         }
 
         #[test]
@@ -185,22 +186,22 @@ mod tests {
         }
 
         #[test]
-        #[should_panic]
+        #[should_panic(expected = "asdf")]
         fn zero_not_approx_eq_to_one() {
             assert_approx_eq!(0.0, 1.0);
         }
         #[test]
-        #[should_panic]
+        #[should_panic(expected = "")]
         fn one_not_approx_eq_to_1_000001() {
             assert_approx_eq!(1.0, 1.000001);
         }
         #[test]
-        #[should_panic]
+        #[should_panic(expected = "")]
         fn inf_not_approx_eq_to_inf() {
             assert_approx_eq!(f32::INFINITY, f32::INFINITY);
         }
         #[test]
-        #[should_panic]
+        #[should_panic(expected = "")]
         fn nan_not_approx_eq_to_nan() {
             assert_approx_eq!(f32::NAN, f32::NAN);
         }
