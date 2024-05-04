@@ -284,18 +284,18 @@ mod inner {
     impl<T, D> Inner<T, D> {
         /// Returns the width of `self`.
         #[inline]
-        pub fn width(&self) -> usize {
-            self.w as usize
+        pub fn width(&self) -> u32 {
+            self.w
         }
         /// Returns the height of `self`.
         #[inline]
-        pub fn height(&self) -> usize {
-            self.h as usize
+        pub fn height(&self) -> u32 {
+            self.h
         }
         /// Returns the stride of `self`.
         #[inline]
-        pub fn stride(&self) -> usize {
-            self.stride as usize
+        pub fn stride(&self) -> u32 {
+            self.stride
         }
         /// Returns whether the rows of `self` are stored contiguously
         /// in memory. `Buf2` instances are always contiguous. `Slice2`
@@ -406,8 +406,8 @@ mod inner {
         /// The length of each slice equals [`self.width()`](Self::width).
         pub fn rows(&self) -> impl Iterator<Item = &[T]> {
             self.data()
-                .chunks(self.stride())
-                .map(|row| &row[..self.width()])
+                .chunks(self.stride as usize)
+                .map(|row| &row[..self.w as usize])
         }
 
         /// Returns an iterator over all the elements of `self` in row-major
@@ -504,7 +504,7 @@ mod inner {
         /// The returned slice has length `self.width()`.
         #[inline]
         fn index(&self, i: usize) -> &[T] {
-            &self.data()[i * self.stride()..][..self.width()]
+            &self.data()[i * self.stride as usize..][..self.w as usize]
         }
     }
 
@@ -517,9 +517,9 @@ mod inner {
         /// The returned slice has length `self.width()`.
         #[inline]
         fn index_mut(&mut self, row: usize) -> &mut [T] {
-            let idx = row * self.stride();
-            let w = self.width();
-            &mut self.data_mut()[idx..idx + w]
+            let idx = row * self.stride as usize;
+            let w = self.w;
+            &mut self.data_mut()[idx..idx + w as usize]
         }
     }
 
@@ -696,7 +696,7 @@ mod tests {
 
         assert_eq!(
             buf.data(),
-            &[0, 0, 0, 0, 0, 
+            &[0, 0, 0, 0, 0,
               0, 0, 0, 1, 2,
               0, 0, 1, 2, 3,
               0, 0, 0, 0, 0]
