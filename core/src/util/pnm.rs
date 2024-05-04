@@ -260,8 +260,8 @@ pub fn write_ppm(
     let slice = data.as_slice2();
     Header {
         format: Format::BinaryPixmap,
-        width: slice.width() as u32,
-        height: slice.height() as u32,
+        width: slice.width(),
+        height: slice.height(),
         max: 255,
     }
     .write(&mut out)?;
