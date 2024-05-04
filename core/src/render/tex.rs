@@ -218,8 +218,8 @@ impl SamplerOnce {
         let v = tc.v() as u32;
 
         let d = tex.data.as_slice2();
-        debug_assert!(u < d.width() as u32, "u={u}");
-        debug_assert!(v < d.height() as u32, "v={v}");
+        debug_assert!(u < d.width(), "u={u}");
+        debug_assert!(v < d.height(), "v={v}");
 
         d[[u, v]]
     }
