@@ -46,12 +46,13 @@ fn main() {
         .build();
 
     let shader = Shader::new(
-        |v: Vertex<_, _>, mvp: &Mat4x4<ModelToProj>| {
-            vertex(mvp.apply(&v.pos), v.attrib)
+        |v: Vertex<_, Normal3>, mvp: &Mat4x4<ModelToProj>| {
+            let [x, y, z] = (128.0 * (v.attrib + splat(1.1))).0;
+            vertex(mvp.apply(&v.pos), rgb(x, y, z))
         },
-        |frag: Frag<Normal3>| {
-            let [x, y, z] = (128.0 * (frag.var + splat(1.1))).0;
-            rgba(x as u8, y as u8, z as u8, 0)
+        |frag: Frag<Color3f>| {
+            let [r, g, b] = frag.var.0;
+            rgba(r as u8, g as u8, b as u8, 0)
         },
     );
 
