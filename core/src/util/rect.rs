@@ -88,17 +88,11 @@ impl<T: Copy> Rect<T> {
     where
         T: Ord,
     {
-        fn extremum<T>(
-            a: Option<T>,
-            b: Option<T>,
-            f: fn(T, T) -> T,
-        ) -> Option<T> {
-            match (a, b) {
-                (None, None) => None,
-                (some, None) | (None, some) => some,
-                (Some(s), Some(o)) => Some(f(s, o)),
-            }
-        }
+        let extremum = |a, b, f: fn(_, _) -> _| match (a, b) {
+            (None, None) => None,
+            (some, None) | (None, some) => some,
+            (Some(s), Some(o)) => Some(f(s, o)),
+        };
         Self {
             left: extremum(self.left, other.left, T::max),
             top: extremum(self.top, other.top, T::max),
