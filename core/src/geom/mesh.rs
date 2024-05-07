@@ -11,7 +11,7 @@ use crate::render::Model;
 use super::{vertex, Tri};
 
 /// Convenience type alias for a mesh vertex.
-pub type Vertex<A, Sp> = super::Vertex<Vec3<Sp>, A>;
+pub type Vertex<A, Sp = Real<3, Model>> = super::Vertex<Vec3<Sp>, A>;
 
 /// A triangle mesh.
 ///
