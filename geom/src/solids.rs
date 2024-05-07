@@ -4,7 +4,7 @@ use core::array::from_fn;
 use core::ops::Range;
 
 use re::geom::mesh::Builder;
-use re::geom::{vertex, Mesh};
+use re::geom::{vertex, Mesh, Vertex};
 use re::math::angle::{degs, polar, turns, Angle};
 use re::math::mat::rotate_y;
 use re::math::vary::Vary;
@@ -14,6 +14,7 @@ use re::render::tex::{uv, TexCoord};
 /// A surface normal.
 // TODO Use distinct type rather than alias
 pub type Normal3 = Vec3;
+pub type Normal2 = Vec2;
 
 /// A regular tetrahedron.
 ///
@@ -101,7 +102,7 @@ pub struct Icosahedron;
 #[derive(Clone, Debug, Default)]
 pub struct Lathe {
     /// The polyline defining the shape.
-    pub pts: Vec<Vec2>,
+    pub pts: Vec<Vertex<Vec2, Normal2>>,
     /// The number of facets used to approximate the surface of revolution.
     pub sectors: u32,
     /// Whether to add flat caps to both ends of the object. Has no effect
@@ -430,7 +431,7 @@ impl Icosahedron {
 }
 
 impl Lathe {
-    pub fn new(pts: Vec<Vec2>, sectors: u32) -> Self {
+    pub fn new(pts: Vec<Vertex<Vec2, Normal2>>, sectors: u32) -> Self {
         assert!(sectors >= 3, "sectors must be at least 3, was {sectors}");
         Self {
             pts,
@@ -460,44 +461,29 @@ impl Lathe {
         let rot = rotate_y((az_range.end - az_range.start) / secs as f32);
 
         // Create vertices
-        for i in 0..pts.len() {
-            // The normal is the weighted average of the normals of the two
-            // line segments meeting at this point, or just one if this is
-            // either the first or last point.
-            let n_prev = if i == 0 {
-                0.0.into()
-            } else {
-                let tan = pts[i] - pts[i - 1];
-                vec3(tan.y(), -tan.x(), 0.0)
-            };
-            let n_next = if i == pts.len() - 1 {
-                0.0.into()
-            } else {
-                let tan = pts[i + 1] - pts[i];
-                vec3(tan.y(), -tan.x(), 0.0)
-            };
-            let mut pt = vec3(pts[i].x(), pts[i].y(), 0.0);
-            let mut n = (n_prev + n_next).normalize();
+        for Vertex { pos, attrib: n } in &pts {
+            let mut pos = start.apply(&vec3(pos.x(), pos.y(), 0.0));
+            let mut norm = start.apply(&vec3(n.x(), n.y(), 0.0)).normalize();
 
-            pt = start.apply(&pt);
-            n = start.apply(&n);
             for _ in 0..=secs {
-                b.push_vert(pt, n);
-                pt = rot.apply(&pt);
-                n = rot.apply(&n);
+                b.push_vert(pos, norm);
+                pos = rot.apply(&pos);
+                norm = rot.apply(&norm);
             }
         }
         // Create faces
         for j in 1..pts.len() {
-            for i in 1..=secs {
-                let p = (j - 1) * (secs + 1) + i - 1;
-                let q = (j - 1) * (secs + 1) + i;
-                let r = j * (secs + 1) + i - 1;
-                let s = j * (secs + 1) + i;
+            let n = secs + 1;
+            for i in 1..n {
+                let p = (j - 1) * n + i - 1;
+                let q = (j - 1) * n + i;
+                let r = j * n + i - 1;
+                let s = j * n + i;
                 b.push_face(p, s, q);
                 b.push_face(p, r, s);
             }
         }
+        // Create optional caps
         if capped && !pts.is_empty() {
             let l = b.mesh.verts.len();
             let bottom_rng = 0..=secs;
@@ -535,16 +521,11 @@ impl Sphere {
 
         let pts = degs(-90.0)
             .vary_to(degs(90.0), segments)
-            .map(|alt| polar(radius, alt).into())
+            .map(|alt| polar(radius, alt).to_cart())
+            .map(|pos| vertex(pos, pos))
             .collect();
 
-        let mut mesh = Lathe::new(pts, sectors).build();
-
-        for v in &mut mesh.verts {
-            let normal = v.pos.normalize();
-            *v = vertex(v.pos, normal.to());
-        }
-        mesh
+        Lathe::new(pts, sectors).build()
     }
 }
 
@@ -553,8 +534,8 @@ impl Torus {
     pub fn build(self) -> Mesh<Normal3> {
         let pts = turns(0.0)
             .vary_to(turns(1.0), self.minor_sectors)
-            .map(|alt| polar(self.minor_radius, alt))
-            .map(|p| vec2(self.major_radius, 0.0) + p.into())
+            .map(|alt| polar(self.minor_radius, alt).to_cart())
+            .map(|v| vertex(vec2(self.major_radius, 0.0) + v, v))
             .collect();
 
         Lathe::new(pts, self.major_sectors).build()
@@ -578,8 +559,11 @@ impl Cylinder {
 impl Cone {
     /// Builds the conical mesh.
     pub fn build(self) -> Mesh<Normal3> {
-        let pts =
-            vec![vec2(self.base_radius, -1.0), vec2(self.apex_radius, 1.0)];
+        let base_pt = vec2(self.base_radius, -1.0);
+        let apex_pt = vec2(self.apex_radius, 1.0);
+        let n = apex_pt - base_pt;
+        let n = vec2(n.y(), -n.x());
+        let pts = vec![vertex(base_pt, n), vertex(apex_pt, n)];
         Lathe::new(pts, self.sectors)
             .capped(self.capped)
             .build()
@@ -594,13 +578,16 @@ impl Capsule {
         // Bottom hemisphere
         let bottom_pts: Vec<_> = degs(-90.0)
             .vary_to(degs(0.0), cap_segments)
-            .map(|alt| vec2(0.0, -1.0) + polar(radius, alt).to_cart())
+            .map(|alt| polar(radius, alt).to_cart())
+            .map(|v| vertex(vec2(0.0, -1.0) + v, v))
             .collect();
 
         // Top hemisphere
         let top_pts = bottom_pts
             .iter()
-            .map(|v| vec2(v.x(), -v.y()))
+            .map(|Vertex { pos, attrib: n }| {
+                vertex(vec2(pos.x(), -pos.y()), vec2(n.x(), -n.y()))
+            })
             .rev();
 
         Lathe::new(
