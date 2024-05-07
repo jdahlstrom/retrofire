@@ -1,5 +1,6 @@
-use minifb::{Key, KeyRepeat};
 use std::ops::ControlFlow::Continue;
+
+use minifb::{Key, KeyRepeat};
 
 use re::prelude::*;
 
@@ -66,11 +67,11 @@ fn main() {
         // Surfaces of revolution
         Lathe::new(
             vec![
-                vec2(0.75, -0.5),
-                vec2(0.55, -0.25),
-                vec2(0.5, 0.0),
-                vec2(0.55, 0.25),
-                vec2(0.75, 0.5),
+                vertex(vec2(0.75, -0.5), vec2(1.0, 1.0)),
+                vertex(vec2(0.55, -0.25), vec2(1.0, 0.5)),
+                vertex(vec2(0.5, 0.0), vec2(1.0, 0.0)),
+                vertex(vec2(0.55, 0.25), vec2(1.0, -0.5)),
+                vertex(vec2(0.75, 0.5), vec2(1.0, 1.0)),
             ],
             13,
         )
