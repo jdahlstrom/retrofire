@@ -18,7 +18,7 @@ use target::Target;
 use crate::geom::{Tri, Vertex};
 use crate::math::mat::{RealToProj, RealToReal};
 use crate::math::space::Real;
-use crate::math::{Mat4x4, Vary, Vec3};
+use crate::math::{vec3, Mat4x4, Vary, Vec3};
 
 pub mod clip;
 pub mod ctx;
@@ -105,14 +105,21 @@ pub fn render<Vtx: Clone, Var: Vary, Uni: Copy, Shd>(
 
     for Tri(vs) in clipped {
         // Transform to screen space
-        let vs = vs.map(|v| Vertex {
-            pos: {
-                // Perspective divide
-                let pos = v.pos.project_to_real();
+        let vs = vs.map(|v| {
+            let [x, y, _, w] = v.pos.0;
+            // Perspective division (projection to the real plane)
+            //
+            // We use the screen-space z coordinate to store the reciprocal
+            // of the original view-space depth. The interpolated reciprocal
+            // is used in fragment processing for depth testing (larger values
+            // are closer) and for perspective correction of the varyings.
+            let pos = vec3(x, y, 1.0).z_div(w);
+            Vertex {
                 // Viewport transform
-                viewport_tf.apply(&pos.to())
-            },
-            attrib: v.attrib,
+                pos: viewport_tf.apply(&pos.to()),
+                // Perspective correction
+                attrib: v.attrib.z_div(w),
+            }
         });
 
         // Back/frontface culling

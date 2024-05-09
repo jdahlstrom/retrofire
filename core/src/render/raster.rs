@@ -33,9 +33,8 @@ pub struct Scanline<V: Vary> {
     pub y: usize,
     /// The range of x coordinates spanned by the line.
     pub xs: Range<usize>,
-    /// Iterator emitting the fragments on the line.
-    // TODO Rename, doesn't yield Frags but Varyings
-    pub frags: <Varyings<V> as Vary>::Iter,
+    /// Iterator emitting the varyings on the line.
+    pub vs: <Varyings<V> as Vary>::Iter,
 }
 
 /// Iterator emitting scanlines, linearly interpolating values between the
@@ -54,6 +53,15 @@ pub type ScreenVec = Vec3<Real<3, Screen>>;
 
 /// Values to interpolate across a rasterized primitive.
 pub type Varyings<V> = (ScreenVec, V);
+
+impl<V: Vary> Scanline<V> {
+    pub fn fragments(&mut self) -> impl Iterator<Item = Frag<V>> + '_ {
+        self.vs.by_ref().map(|v| {
+            let (pos, var) = v.z_div(v.0.z());
+            Frag { pos, var }
+        })
+    }
+}
 
 impl<V: Vary> Iterator for ScanlineIter<V> {
     type Item = Scanline<V>;
@@ -80,7 +88,7 @@ impl<V: Vary> Iterator for ScanlineIter<V> {
         // Adjust v0 to match the rounded x0
         let v0 = v0.lerp(&v0.step(&self.dv_dx), x0 - v0.0.x());
 
-        let frags = v0.vary(self.dv_dx.clone(), Some((x1 - x0) as u32));
+        let vs = v0.vary(self.dv_dx.clone(), Some((x1 - x0) as u32));
 
         self.y += 1.0;
         self.n -= 1;
@@ -88,7 +96,7 @@ impl<V: Vary> Iterator for ScanlineIter<V> {
         Some(Scanline {
             y: y as usize,
             xs: x0 as usize..x1 as usize,
-            frags,
+            vs,
         })
     }
 }
@@ -173,8 +181,8 @@ pub fn scan<V: Vary>(
     // dv/dx is constant for the whole polygon; precompute it
     let dv_dx = {
         let (l0, r0) = (l0.step(&dl_dy), r0.step(&dr_dy));
-        let recip_dx = (r0.0.x() - l0.0.x()).recip();
-        l0.dv_dt(&r0, recip_dx)
+        let dx = r0.0.x() - l0.0.x();
+        l0.dv_dt(&r0, dx.recip())
     };
 
     // Find the y value of the next pixel center (.5) vertically
@@ -214,16 +222,17 @@ pub fn scan<V: Vary>(
     }
 }
 
-#[cfg(feature = "fp")]
 #[inline]
 fn round_up_to_half(x: f32) -> f32 {
-    use crate::math::float::f32;
-    f32::floor(x + 0.5) + 0.5
-}
-#[cfg(not(feature = "fp"))]
-#[inline]
-fn round_up_to_half(x: f32) -> f32 {
-    (x + 0.5) as i32 as f32 + 0.5
+    #[cfg(feature = "fp")]
+    {
+        use crate::math::float::f32;
+        f32::floor(x + 0.5) + 0.5
+    }
+    #[cfg(not(feature = "fp"))]
+    {
+        (x + 0.5) as i32 as f32 + 0.5
+    }
 }
 
 #[cfg(test)]
@@ -291,7 +300,7 @@ mod tests {
             vec3(2.0, 8.0, 1.0),
             vec3(26.0, 14.0, 0.5),
         ]
-        .map(|pos| vertex(pos.to(), 0.0));
+        .map(|pos| vertex(vec3(pos.x(), pos.y(), 1.0).to(), pos.z()));
 
         let expected = r"
               0
@@ -309,10 +318,10 @@ mod tests {
 ";
         let mut s = "\n".to_string();
 
-        super::tri_fill(verts, |scanline| {
-            write!(s, "{:w$}", " ", w = scanline.xs.start).ok();
+        super::tri_fill(verts, |mut sl| {
+            write!(s, "{:w$}", " ", w = sl.xs.start).ok();
 
-            for c in scanline.frags.map(|f| ((10.0 * f.0.z()) as u8)) {
+            for c in sl.fragments().map(|f| ((10.0 * f.var) as u8)) {
                 write!(s, "{c}").ok();
             }
             writeln!(s).ok();
