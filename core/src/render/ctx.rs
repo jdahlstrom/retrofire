@@ -65,12 +65,14 @@ pub enum FaceCull {
 }
 
 impl Context {
-    /// Compares the depth value `new` to `curr` and returns whether
-    /// `new` passes the depth test specified by `self.depth_test`.
+    /// Compares the reciprocal depth value `new` to `curr` and returns
+    /// whether `new` passes the depth test specified by `self.depth_test`.
     /// If `self.depth_test` is `None`, always returns `true`.
+    #[inline]
     pub fn depth_test(&self, new: f32, curr: f32) -> bool {
+        // Reverse comparison because we're comparing reciprocals
         self.depth_test
-            .map_or(true, |ord| new.partial_cmp(&curr) == Some(ord))
+            .map_or(true, |ord| curr.partial_cmp(&new) == Some(ord))
     }
 }
 
