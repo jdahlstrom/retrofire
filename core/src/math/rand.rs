@@ -335,7 +335,7 @@ mod tests {
             sum += v;
         }
         assert_approx_eq!(
-            sum * (1.0 / COUNT as f32),
+            sum / COUNT as f32,
             vec3(-0.5251561, 1.0114789, 0.9670243)
         );
     }
