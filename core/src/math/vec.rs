@@ -26,7 +26,6 @@ use crate::math::space::{Affine, Linear, Proj4, Real};
 /// # Examples
 /// TODO
 #[repr(transparent)]
-#[derive(Copy, Clone, Default, Eq, PartialEq)]
 pub struct Vector<Repr, Space = ()>(pub Repr, PhantomData<Space>);
 
 /// A 2D float vector in `Space` (by default ℝ²).
@@ -364,6 +363,31 @@ impl<Sc: ApproxEq, Sp, const N: usize> ApproxEq<Self, Sc>
 //
 // Foreign trait impls
 //
+
+// Manual impls of Copy, Clone, Eq, and PartialEq to avoid
+// superfluous where S: Trait bound
+
+impl<R: Copy, S> Copy for Vector<R, S> {}
+
+impl<R: Clone, S> Clone for Vector<R, S> {
+    fn clone(&self) -> Self {
+        Self(self.0.clone(), PhantomData)
+    }
+}
+
+impl<R: Default, S> Default for Vector<R, S> {
+    fn default() -> Self {
+        Self(R::default(), PhantomData)
+    }
+}
+
+impl<R: Eq, S> Eq for Vector<R, S> {}
+
+impl<R: PartialEq, S> PartialEq for Vector<R, S> {
+    fn eq(&self, other: &Self) -> bool {
+        self.0 == other.0
+    }
+}
 
 impl<const DIM: usize, B> Debug for Real<DIM, B>
 where
