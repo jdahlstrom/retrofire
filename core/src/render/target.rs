@@ -43,7 +43,7 @@ where
     /// Rasterizes `scanline` into this framebuffer.
     fn rasterize<V, Fs>(
         &mut self,
-        sl: Scanline<V>,
+        mut sl: Scanline<V>,
         fs: &Fs,
         ctx: &Context,
     ) -> Throughput
@@ -51,29 +51,28 @@ where
         V: Vary,
         Fs: FragmentShader<Frag<V>>,
     {
-        let Scanline { y, xs, frags } = sl;
-
-        let x0 = xs.start;
-        let x1 = xs.end.max(xs.start);
-        let cbuf_span = &mut self.color_buf.as_mut_slice2()[y][x0..x1];
-        let zbuf_span = &mut self.depth_buf.as_mut_slice2()[y][x0..x1];
+        let x0 = sl.xs.start;
+        let x1 = sl.xs.end.max(x0);
+        let cbuf_span = &mut self.color_buf.as_mut_slice2()[sl.y][x0..x1];
+        let zbuf_span = &mut self.depth_buf.as_mut_slice2()[sl.y][x0..x1];
 
         let mut io = Throughput { i: x1 - x0, o: 0 };
-        frags
+
+        sl.fragments()
             .zip(cbuf_span)
             .zip(zbuf_span)
-            .for_each(|(((pos, var), c), z)| {
-                let new_z = pos.z();
-                if ctx.depth_test(new_z, *z) {
-                    let frag = Frag { pos, var };
-                    if let Some(new_c) = fs.shade_fragment(frag) {
+            .for_each(|((frag, curr_col), curr_z)| {
+                let new_z = frag.pos.z();
+
+                if ctx.depth_test(new_z, *curr_z) {
+                    if let Some(new_col) = fs.shade_fragment(frag) {
                         if ctx.color_write {
-                            // TODO Blending should happen here
                             io.o += 1;
-                            *c = new_c.to_argb_u32();
+                            // TODO Blending should happen here
+                            *curr_col = new_col.to_argb_u32();
                         }
                         if ctx.depth_write {
-                            *z = new_z;
+                            *curr_z = new_z;
                         }
                     }
                 }
@@ -87,7 +86,7 @@ impl<Buf: AsMutSlice2<u32>> Target for Buf {
     /// Does no z-buffering.
     fn rasterize<V, Fs>(
         &mut self,
-        sl: Scanline<V>,
+        mut sl: Scanline<V>,
         fs: &Fs,
         ctx: &Context,
     ) -> Throughput
@@ -95,16 +94,18 @@ impl<Buf: AsMutSlice2<u32>> Target for Buf {
         V: Vary,
         Fs: FragmentShader<Frag<V>>,
     {
-        let mut io = Throughput { i: sl.xs.len(), o: 0 };
-        let cbuf_span = &mut self.as_mut_slice2()[sl.y][sl.xs];
-        sl.frags
+        let x0 = sl.xs.start;
+        let x1 = sl.xs.end.max(x0);
+        let mut io = Throughput { i: x1 - x0, o: 0 };
+        let cbuf_span = &mut self.as_mut_slice2()[sl.y][x0..x1];
+
+        sl.fragments()
             .zip(cbuf_span)
-            .for_each(|((pos, var), pix)| {
-                let frag = Frag { pos, var };
+            .for_each(|(frag, c)| {
                 if let Some(color) = fs.shade_fragment(frag) {
                     if ctx.color_write {
                         io.o += 1;
-                        *pix = color.to_argb_u32();
+                        *c = color.to_argb_u32();
                     }
                 }
             });

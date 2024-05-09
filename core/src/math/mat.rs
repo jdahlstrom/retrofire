@@ -745,13 +745,10 @@ mod tests {
 
         let m = perspective(0.8, 2.0, 0.1..100.0);
 
-        assert_approx_eq!(
-            m.apply(&left_bot_near.to()).project_to_real(),
-            splat(-1.0)
-        );
-        assert_approx_eq!(
-            m.apply(&right_top_far.to()).project_to_real(),
-            splat(1.0)
-        );
+        let lbn = m.apply(&left_bot_near.to());
+        assert_approx_eq!(lbn / lbn.w(), [-1.0, -1.0, -1.0, 1.0].into());
+
+        let rtf = m.apply(&right_top_far.to());
+        assert_approx_eq!(rtf / rtf.w(), splat(1.0));
     }
 }
