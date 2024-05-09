@@ -3,15 +3,16 @@ use std::ops::ControlFlow::Continue;
 use re::prelude::*;
 
 use re::math::space::Real;
+use re::render::tex::{uv, SamplerClamp, TexCoord, Texture};
 use re::render::{render, Model, ModelToProj, ModelToView};
 use re_front::minifb::Window;
 
 fn main() {
-    let verts: [Vertex<Vec3<Real<3, Model>>, _>; 4] = [
-        vertex(vec3(-1.0, -1.0, 0.0).to(), rgb(1.0, 0.3, 0.1)),
-        vertex(vec3(-1.0, 1.0, 0.0).to(), rgb(0.2, 0.8, 0.3)),
-        vertex(vec3(1.0, -1.0, 0.0).to(), rgb(0.2, 0.5, 1.0)),
-        vertex(vec3(1.0, 1.0, 0.0).to(), rgb(1.0, 0.3, 0.1)),
+    let verts: [Vertex<Vec3<Real<3, Model>>, TexCoord>; 4] = [
+        vertex(vec3(-1.0, -1.0, 0.0).to(), uv(0.0, 0.0)),
+        vertex(vec3(-1.0, 1.0, 0.0).to(), uv(0.0, 1.0)),
+        vertex(vec3(1.0, -1.0, 0.0).to(), uv(1.0, 0.0)),
+        vertex(vec3(1.0, 1.0, 0.0).to(), uv(1.0, 1.0)),
     ];
 
     let mut win = Window::builder()
@@ -19,11 +20,18 @@ fn main() {
         .size(640, 480)
         .build();
 
+    win.ctx.face_cull = None;
+
+    let tex = Texture::from(Buf2::new_with(8, 8, |x, y| {
+        let xor = (x ^ y) & 1;
+        rgba(xor as u8 * 255, 128, 255 - xor as u8 * 128, 0)
+    }));
+
     let shader = Shader::new(
-        |v: Vertex<_, _>, mvp: &Mat4x4<ModelToProj>| {
+        |v: Vertex<_, TexCoord>, mvp: &Mat4x4<ModelToProj>| {
             vertex(mvp.apply(&v.pos), v.attrib)
         },
-        |frag: Frag<Color3f>| frag.var.to_color4(),
+        |frag: Frag<TexCoord>| SamplerClamp.sample(&tex, frag.var),
     );
 
     let modelview = translate(vec3(0.0, 0.0, 2.0));
@@ -34,8 +42,8 @@ fn main() {
         let secs = frame.t.as_secs_f32();
 
         let mv: Mat4x4<ModelToView> = modelview
-            .compose(&rotate_z(rads(secs)))
-            .compose(&translate(vec3(0.0, 0.0, secs.sin())))
+            //.compose(&translate(vec3(0.0, 0.0, secs.sin())))
+            .compose(&rotate_y(rads(secs)))
             .to();
         let mvp = mv.then(&project);
 

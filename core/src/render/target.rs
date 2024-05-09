@@ -43,7 +43,7 @@ where
     /// Rasterizes `scanline` into this framebuffer.
     fn rasterize<V, Fs>(
         &mut self,
-        sl: Scanline<V>,
+        Scanline { y, xs, vs }: Scanline<V>,
         fs: &Fs,
         ctx: &Context,
     ) -> Throughput
@@ -51,34 +51,33 @@ where
         V: Vary,
         Fs: FragmentShader<Frag<V>>,
     {
-        let Scanline { y, xs, frags } = sl;
-
         let x0 = xs.start;
         let x1 = xs.end.max(xs.start);
         let cbuf_span = &mut self.color_buf.as_mut_slice2()[y][x0..x1];
         let zbuf_span = &mut self.depth_buf.as_mut_slice2()[y][x0..x1];
+        let mut frag_out = 0;
 
-        let mut io = Throughput { i: x1 - x0, o: 0 };
-        frags
-            .zip(cbuf_span)
-            .zip(zbuf_span)
-            .for_each(|(((pos, var), c), z)| {
+        vs.zip(cbuf_span).zip(zbuf_span).for_each(
+            |(((pos, var), curr_col), curr_z)| {
                 let new_z = pos.z();
-                if ctx.depth_test(new_z, *z) {
-                    let frag = Frag { pos, var };
-                    if let Some(new_c) = fs.shade_fragment(frag) {
+
+                if ctx.depth_test(new_z, *curr_z) {
+                    let frag = Frag { pos, var: var.z_div(new_z) };
+
+                    if let Some(new_col) = fs.shade_fragment(frag) {
                         if ctx.color_write {
                             // TODO Blending should happen here
-                            io.o += 1;
-                            *c = new_c.to_argb_u32();
+                            frag_out += 1;
+                            *curr_col = new_col.to_argb_u32();
                         }
                         if ctx.depth_write {
-                            *z = new_z;
+                            *curr_z = new_z;
                         }
                     }
                 }
-            });
-        io
+            },
+        );
+        Throughput { i: x1 - x0, o: frag_out }
     }
 }
 
@@ -97,7 +96,7 @@ impl<Buf: AsMutSlice2<u32>> Target for Buf {
     {
         let mut io = Throughput { i: sl.xs.len(), o: 0 };
         let cbuf_span = &mut self.as_mut_slice2()[sl.y][sl.xs];
-        sl.frags
+        sl.vs
             .zip(cbuf_span)
             .for_each(|((pos, var), pix)| {
                 let frag = Frag { pos, var };
