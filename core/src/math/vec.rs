@@ -4,7 +4,7 @@ use core::array;
 use core::fmt::{Debug, Formatter};
 use core::marker::PhantomData;
 use core::ops::{Add, Div, Index, IndexMut, Mul, Neg, Sub};
-use core::ops::{AddAssign, MulAssign, SubAssign};
+use core::ops::{AddAssign, DivAssign, MulAssign, SubAssign};
 
 use crate::math::approx::ApproxEq;
 use crate::math::space::{Affine, Linear, Proj4, Real};
@@ -119,7 +119,7 @@ impl<Sp, const N: usize> Vector<[f32; N], Sp> {
     #[inline]
     #[must_use]
     pub fn normalize(&self) -> Self {
-        self.mul(self.len().recip())
+        *self / self.len()
     }
 
     /// Returns the length of `self`, squared.
@@ -141,7 +141,7 @@ impl<Sp, const N: usize> Vector<[f32; N], Sp> {
     /// (the length of the component of `self` parallel to `other`).
     #[must_use]
     pub fn scalar_project(&self, other: &Self) -> f32 {
-        self.dot(other).mul(&other.dot(other).recip())
+        self.dot(other) / other.dot(other)
     }
     /// Returns the vector projection of `self` onto `other`
     /// (the vector component of `self` parallel to `other`).
@@ -158,7 +158,7 @@ impl<Sp, const N: usize> Vector<[f32; N], Sp> {
     /// ```
     #[must_use]
     pub fn vector_project(&self, other: &Self) -> Self {
-        other.mul(self.scalar_project(other))
+        *other * self.scalar_project(other)
     }
 
     /// Returns a vector of the same dimension as `self` by applying `f`
@@ -470,11 +470,15 @@ where
 /// Implements an operator trait in terms of an op-assign trait.
 macro_rules! impl_op {
     ($trait:ident :: $method:ident, $rhs:ty, $op:tt) => {
+        impl_op!($trait::$method, $rhs, $op, bound=Linear);
+    };
+    ($trait:ident :: $method:ident, $rhs:ty, $op:tt, bound=$bnd:path) => {
         impl<R, Sp> $trait<$rhs> for Vector<R, Sp>
         where
-            Self: Linear,
+            Self: $bnd,
         {
             type Output = Self;
+            /// TODO
             #[inline]
             fn $method(mut self, rhs: $rhs) -> Self {
                 self $op rhs; self
@@ -522,6 +526,21 @@ where
 // The vector * scalar operator.
 impl_op!(Mul::mul, <Self as Linear>::Scalar, *=);
 
+// The vector /= scalar operator.
+impl<R, Sp> DivAssign<f32> for Vector<R, Sp>
+where
+    Self: Linear<Scalar = f32>,
+{
+    #[inline]
+    fn div_assign(&mut self, rhs: f32) {
+        debug_assert!(rhs.abs() < 1e-7);
+        *self = Linear::mul(&*self, rhs.recip());
+    }
+}
+
+// The vector / scalar operator.
+impl_op!(Div::div, f32, /=, bound=Linear<Scalar = f32>);
+
 /// The vector negation operator.
 impl<R, Sp> Neg for Vector<R, Sp>
 where
@@ -567,7 +586,7 @@ mod tests {
         #[test]
         fn length() {
             assert_eq!(vec2(3.0, 4.0).len(), 5.0);
-            assert_eq!(vec2(3.0, -4.0).len(), 5.0);
+            assert_eq!(vec2(-4.0, 3.0).len(), 5.0);
         }
 
         #[test]
@@ -583,9 +602,24 @@ mod tests {
         fn scalar_multiplication() {
             assert_eq!(vec2(1.0, -2.0) * 0.0, vec2(0.0, 0.0));
             assert_eq!(vec3(1.0, -2.0, 3.0) * 3.0, vec3(3.0, -6.0, 9.0));
+            assert_eq!(3.0 * vec3(1.0, -2.0, 3.0), vec3(3.0, -6.0, 9.0));
             assert_eq!(
                 vec4(1.0, -2.0, 0.0, -3.0) * 3.0,
                 vec4(3.0, -6.0, 0.0, -9.0)
+            );
+            assert_eq!(
+                3.0 * vec4(1.0, -2.0, 0.0, -3.0),
+                vec4(3.0, -6.0, 0.0, -9.0)
+            );
+        }
+
+        #[test]
+        fn scalar_division() {
+            assert_eq!(vec2(1.0, -2.0) / 1.0, vec2(1.0, -2.0));
+            assert_eq!(vec3(3.0, -6.0, 9.0) / 3.0, vec3(1.0, -2.0, 3.0));
+            assert_eq!(
+                vec4(3.0, -6.0, 0.0, -9.0) / 3.0,
+                vec4(1.0, -2.0, 0.0, -3.0)
             );
         }
 
@@ -613,8 +647,12 @@ mod tests {
         #[allow(clippy::erasing_op)]
         fn scalar_multiplication() {
             assert_eq!(vec2(1, -2) * 0, vec2(0, 0));
+
             assert_eq!(vec3(1, -2, 3) * 3, vec3(3, -6, 9));
+            assert_eq!(3 * vec3(1, -2, 3), vec3(3, -6, 9));
+
             assert_eq!(vec4(1, -2, 0, -3) * 3, vec4(3, -6, 0, -9));
+            assert_eq!(3 * vec4(1, -2, 0, -3), vec4(3, -6, 0, -9));
         }
 
         #[test]
@@ -654,7 +692,7 @@ mod tests {
         assert_approx_eq!(vec2(1.0, -10.0), vec2(1.0 + 1e-5, -10.0 - 1e-5));
     }
 
-    // TODO Tests for length, normalize, projections, Affine/Linear impls...
+    // TODO Tests for normalize, projections, Affine/Linear impls...
 
     #[test]
     fn debug() {
