@@ -376,11 +376,17 @@ mod inner {
         pub(super) fn new(w: u32, h: u32, stride: u32, data: D) -> Self {
             let len = data.len() as u32;
             assert!(w <= stride, "width ({w}) > stride ({stride})");
-            assert!(h <= 1 || stride <= len, "stride ({stride}) > data length ({len})");
+            assert!(
+                h <= 1 || stride <= len,
+                "stride ({stride}) > data length ({len})"
+            );
             assert!(h <= len, "height ({h}) > date length ({len})");
             if h > 0 {
                 let size = (h - 1) * stride + w;
-                assert!(size <= len, "required size ({size}) > data length ({len})");
+                assert!(
+                    size <= len,
+                    "required size ({size}) > data length ({len})"
+                );
             }
             Self { w, h, stride, data, _pd: PhantomData }
         }
@@ -451,7 +457,7 @@ mod inner {
             self.rows_mut().flatten()
         }
 
-        /// Fills the buffer with clones of `val`.
+        /// Fills `self` with clones of `val`.
         pub fn fill(&mut self, val: T)
         where
             T: Clone,
@@ -463,7 +469,7 @@ mod inner {
                     .for_each(|row| row.fill(val.clone()));
             }
         }
-        /// Fills the buffer by invoking `f(x, y)` for every element, where
+        /// Fills `self` by invoking `f(x, y)` for every element, where
         /// `x` and `y` are the column and row of the element, respectively.
         pub fn fill_with<F>(&mut self, mut fill_fn: F)
         where
