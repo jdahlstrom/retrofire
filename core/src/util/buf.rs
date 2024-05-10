@@ -598,7 +598,7 @@ mod tests {
     }
 
     #[test]
-    fn buf_indexing() {
+    fn buf_index() {
         let buf = Buf2::new_with(4, 5, |x, y| x * 10 + y);
 
         assert_eq!(buf[[0, 0]], 0);
@@ -610,7 +610,7 @@ mod tests {
     }
 
     #[test]
-    fn buf_mut_indexing() {
+    fn buf_index_mut() {
         let mut buf = Buf2::new_with(4, 5, |x, y| x * 10 + y);
 
         buf[[3, 4]] = 123;
@@ -704,7 +704,7 @@ mod tests {
     }
 
     #[test]
-    fn slice_indexing() {
+    fn slice_index() {
         let buf = Buf2::new_with(5, 4, |x, y| x * 10 + y);
         let slice = buf.slice(&(2.., 1..3).into());
 
@@ -717,7 +717,7 @@ mod tests {
     }
 
     #[test]
-    fn slice_mut_indexing() {
+    fn slice_index_mut() {
         let mut buf = Buf2::new_with(5, 5, |x, y| x * 10 + y);
         let mut slice = buf.slice_mut(&(2.., 1..3).into());
 
