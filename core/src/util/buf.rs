@@ -199,13 +199,13 @@ impl<T> AsSlice2<T> for MutSlice2<'_, T> {
 impl<T> AsMutSlice2<T> for Buf2<T> {
     #[inline]
     fn as_mut_slice2(&mut self) -> MutSlice2<T> {
-        self.0.as_mut_slice()
+        self.0.as_mut_slice2()
     }
 }
 impl<T> AsMutSlice2<T> for MutSlice2<'_, T> {
     #[inline]
     fn as_mut_slice2(&mut self) -> MutSlice2<T> {
-        self.0.as_mut_slice()
+        self.0.as_mut_slice2()
     }
 }
 
@@ -361,9 +361,7 @@ mod inner {
         /// # Panics
         /// if `stride < w` or if the slice would overflow `data`.
         #[rustfmt::skip]
-        pub(super) fn new(w: u32, h: u32, stride: u32, data: D)
-            -> Self
-        {
+        pub(super) fn new(w: u32, h: u32, stride: u32, data: D) -> Self {
             assert!(stride >= w);
             assert!(h == 0 || ((h - 1) * stride + w) as usize <= data.len());
             Self { w, h, stride, data, _pd: PhantomData, }
@@ -376,7 +374,7 @@ mod inner {
 
         /// Borrows `self` as a `Slice2`.
         pub fn as_slice2(&self) -> Slice2<T> {
-            Slice2(Inner::new(self.w, self.h, self.stride, &self.data))
+            Slice2::new(self.w, self.h, self.stride, &self.data)
         }
 
         /// Returns a borrowed rectangular slice of `self`.
@@ -421,7 +419,7 @@ mod inner {
 
     impl<T, D: DerefMut<Target = [T]>> Inner<T, D> {
         /// Returns a mutably borrowed rectangular slice of `self`.
-        pub fn as_mut_slice(&mut self) -> MutSlice2<T> {
+        pub fn as_mut_slice2(&mut self) -> MutSlice2<T> {
             MutSlice2::new(self.w, self.h, self.stride, &mut self.data)
         }
         /// Returns the data of `self` as a single mutable slice.
@@ -432,7 +430,7 @@ mod inner {
         /// The length of each slice equals [`self.width()`](Self::width).
         pub fn rows_mut(&mut self) -> impl Iterator<Item = &mut [T]> {
             self.data
-                .chunks_exact_mut(self.stride as usize)
+                .chunks_mut(self.stride as usize)
                 .map(|row| &mut row[..self.w as usize])
         }
 
