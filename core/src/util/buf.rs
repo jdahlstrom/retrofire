@@ -2,9 +2,8 @@
 //!
 //! Useful for storing pixel data of any kind, among other things.
 
-use alloc::vec::Vec;
+use alloc::{vec, vec::Vec};
 use core::fmt::{Debug, Formatter};
-use core::iter::repeat;
 use core::ops::{Deref, DerefMut};
 
 use inner::Inner;
@@ -47,7 +46,7 @@ pub trait AsMutSlice2<T> {
 /// # use retrofire_core::util::buf::*;
 /// # use retrofire_core::math::vec::*;
 /// // Elements initialized with `Default::default()`
-/// let mut buf = Buf2::new_default(4, 4);
+/// let mut buf = Buf2::new(4, 4);
 /// // Indexing with a 2D vector (x, y) yields element at row y, column x:
 /// buf[vec2(2, 1)] = 123;
 /// // Indexing with an usize i yields row with index i as a slice:
@@ -91,7 +90,7 @@ impl<T> Buf2<T> {
     ///
     /// # Panics
     /// If there are fewer than `w * h` elements in `init`.
-    pub fn new<I>(w: u32, h: u32, init: I) -> Self
+    pub fn new_from<I>(w: u32, h: u32, init: I) -> Self
     where
         I: IntoIterator<Item = T>,
     {
@@ -101,23 +100,25 @@ impl<T> Buf2<T> {
     }
     /// Returns a buffer with size `w` × `h`, with every element
     /// initialized by calling `T::default()`.
-    pub fn new_default(w: u32, h: u32) -> Self
+    pub fn new(w: u32, h: u32) -> Self
     where
         T: Clone + Default,
     {
-        Self::new(w, h, repeat(T::default()))
+        let data = vec![T::default(); (w * h) as usize];
+        Self(Inner::new(w, h, w, data))
     }
     /// Returns a buffer with size `w` × `h`, with every element
     /// initialized by calling `init_fn(x, y)` where x is the column index
     /// and y the row index of the element being initialized.
-    pub fn new_with<F>(w: u32, h: u32, mut init_fn: F) -> Self
+    pub fn new_with<F>(w: u32, h: u32, init_fn: F) -> Self
     where
-        F: Copy + FnMut(u32, u32) -> T,
+        F: Clone + FnMut(u32, u32) -> T,
     {
         let init = (0..h).flat_map(move |y| {
+            let mut init_fn = init_fn.clone();
             (0..w).map(move |x| init_fn(x, y)) //
         });
-        Self::new(w, h, init)
+        Self::new_from(w, h, init)
     }
 
     /// Returns a view of the backing data of `self`.
@@ -577,14 +578,14 @@ mod tests {
     use super::*;
 
     #[test]
-    fn buf_new() {
-        let buf = Buf2::new(3, 2, 1..);
+    fn buf_new_from() {
+        let buf = Buf2::new_from(3, 2, 1..);
         assert_eq!(buf.data(), &[1, 2, 3, 4, 5, 6]);
     }
 
     #[test]
-    fn buf_new_default() {
-        let buf: Buf2<i32> = Buf2::new_default(3, 2);
+    fn buf_new() {
+        let buf: Buf2<i32> = Buf2::new(3, 2);
         assert_eq!(buf.data(), &[0, 0, 0, 0, 0, 0]);
     }
 
@@ -596,7 +597,7 @@ mod tests {
 
     #[test]
     fn buf_extents() {
-        let buf: Buf2<()> = Buf2::new_default(8, 10);
+        let buf: Buf2<()> = Buf2::new(8, 10);
         assert_eq!(buf.width(), 8);
         assert_eq!(buf.height(), 10);
         assert_eq!(buf.stride(), 8);
@@ -636,27 +637,27 @@ mod tests {
     #[test]
     #[should_panic]
     fn buf_index_x_out_of_bounds_should_panic() {
-        let buf = Buf2::new_default(4, 5);
+        let buf = Buf2::new(4, 5);
         let _: i32 = buf[[4, 0]];
     }
 
     #[test]
     #[should_panic]
     fn buf_index_y_out_of_bounds_should_panic() {
-        let buf = Buf2::new_default(5, 4);
+        let buf = Buf2::new(5, 4);
         let _: i32 = buf[[0, 4]];
     }
 
     #[test]
     #[should_panic]
     fn buf_index_row_out_of_bounds_should_panic() {
-        let buf = Buf2::new_default(4, 5);
+        let buf = Buf2::new(4, 5);
         let _: &[i32] = &buf[5usize];
     }
 
     #[test]
     fn buf_slice_empty_range() {
-        let buf: Buf2<()> = Buf2::new_default(4, 5);
+        let buf: Buf2<()> = Buf2::new(4, 5);
 
         let empty = buf.slice(vec2(1, 1)..vec2(1, 3));
         assert_eq!(empty.width(), 0);
@@ -672,14 +673,14 @@ mod tests {
     #[test]
     #[should_panic]
     fn buf_slice_x_out_of_bounds_should_panic() {
-        let buf: Buf2<()> = Buf2::new_default(4, 5);
+        let buf: Buf2<()> = Buf2::new(4, 5);
         buf.slice((0..5, 1..3));
     }
 
     #[test]
     #[should_panic]
     fn buf_slice_y_out_of_bounds_should_panic() {
-        let buf: Buf2<()> = Buf2::new_default(4, 5);
+        let buf: Buf2<()> = Buf2::new(4, 5);
         buf.slice((1..3, 0..6));
     }
 
@@ -697,7 +698,7 @@ mod tests {
 
     #[test]
     fn slice_extents() {
-        let buf: Buf2<()> = Buf2::new_default(10, 10);
+        let buf: Buf2<()> = Buf2::new(10, 10);
 
         let slice = buf.slice((1..4, 2..8));
         assert_eq!(slice.width(), 3);
@@ -708,7 +709,7 @@ mod tests {
 
     #[test]
     fn slice_contiguity() {
-        let buf: Buf2<()> = Buf2::new_default(10, 10);
+        let buf: Buf2<()> = Buf2::new(10, 10);
         // Buf2 is always contiguous
         assert!(buf.is_contiguous());
 
@@ -730,7 +731,7 @@ mod tests {
     #[test]
     #[rustfmt::skip]
     fn slice_fill() {
-        let mut buf = Buf2::new_default(5, 4);
+        let mut buf = Buf2::new(5, 4);
         let mut slice = buf.slice_mut((2.., 1..3));
 
         slice.fill(1);
@@ -747,7 +748,7 @@ mod tests {
     #[test]
     #[rustfmt::skip]
     fn slice_fill_with() {
-        let mut buf = Buf2::new_default(5, 4);
+        let mut buf = Buf2::new(5, 4);
         let mut slice = buf.slice_mut((2.., 1..3));
 
         slice.fill_with(|x, y| x + y);
