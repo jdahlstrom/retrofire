@@ -50,7 +50,7 @@ pub trait AsMutSlice2<T> {
 /// // Indexing with a 2D vector (x, y) yields element at row y, column x:
 /// buf[vec2(2, 1)] = 123;
 /// // Indexing with an usize i yields row with index i as a slice:
-/// assert_eq!(&buf[1usize], &[0, 0, 123, 0]);
+/// assert_eq!(buf[1usize], [0, 0, 123, 0]);
 /// // Thus you can also do this, row first, column second:
 /// assert_eq!(buf[1usize][2], 123)
 /// ```
@@ -319,23 +319,38 @@ mod inner {
             (y * self.stride + x) as usize
         }
         #[inline]
+        fn to_index_strict(&self, x: u32, y: u32) -> usize {
+            self.to_index_checked(x, y)
+                .unwrap_or_else(|| self.position_out_of_bounds(x, y))
+        }
+        #[inline]
         fn to_index_checked(&self, x: u32, y: u32) -> Option<usize> {
             (x < self.w && y < self.h).then(|| self.to_index(x, y))
         }
 
-        fn resolve_bounds(&self, rect: &Rect<u32>) -> (Range<u32>, Range<u32>) {
+        fn resolve_bounds(&self, rect: &Rect<u32>) -> (u32, u32, Range<usize>) {
             let l = rect.left.unwrap_or(0);
             let t = rect.top.unwrap_or(0);
             let r = rect.right.unwrap_or(self.w);
             let b = rect.bottom.unwrap_or(self.h);
 
-            if l > self.w || t > self.h {
-                self.position_out_of_bounds(l as _, t as _);
-            }
+            assert!(l <= r, "range left ({l}) > right ({r})");
+            assert!(t <= b, "range top ({l}) > bottom ({r})");
+
             if r > self.w || b > self.h {
-                self.position_out_of_bounds(l as _, t as _);
+                self.position_out_of_bounds(r, b);
             }
-            (l..r, t..b)
+
+            let start = self.to_index(l, t);
+            // Slice end is the end of the last row
+            let end = if b == t {
+                self.to_index(r, t)
+            } else {
+                // b != 0 because b > t
+                self.to_index(r, b - 1)
+            };
+
+            (r - l, b - t, start..end)
         }
 
         #[cold]
@@ -387,16 +402,8 @@ mod inner {
         /// # Panics
         /// If any part of `rect` is outside the bounds of `self`.
         pub fn slice(&self, rect: impl Into<Rect>) -> Slice2<T> {
-            let (x, y) = self.resolve_bounds(&rect.into());
-            let start = self.to_index(x.start, y.start);
-            // Slice end is the end of the last row
-            let end = self.to_index(x.end, y.end - 1).max(start);
-            Slice2::new(
-                x.end - x.start,
-                y.end - y.start,
-                self.stride,
-                &self.data[start..end],
-            )
+            let (w, h, rg) = self.resolve_bounds(&rect.into());
+            Slice2::new(w, h, self.stride, &self.data[rg])
         }
 
         /// Returns a reference to the element at `pos`,
@@ -490,16 +497,8 @@ mod inner {
         /// # Panics
         /// If any part of `rect` is outside the bounds of `self`.
         pub fn slice_mut(&mut self, rect: impl Into<Rect>) -> MutSlice2<T> {
-            let (x, y) = self.resolve_bounds(&rect.into());
-            let start = self.to_index(x.start, y.start);
-            // Slice end is the end of the last row
-            let end = self.to_index(x.end, y.end - 1).max(start);
-            MutSlice2(Inner::new(
-                x.end - x.start,
-                y.end - y.start,
-                self.stride,
-                &mut self.data[start..end],
-            ))
+            let (w, h, rg) = self.resolve_bounds(&rect.into());
+            MutSlice2(Inner::new(w, h, self.stride, &mut self.data[rg]))
         }
     }
 
@@ -510,7 +509,7 @@ mod inner {
         /// The returned slice has length `self.width()`.
         #[inline]
         fn index(&self, i: usize) -> &[T] {
-            &self.data[i * self.stride as usize..][..self.w as usize]
+            &self.data[self.to_index(0, i as u32)..][..self.w as usize]
         }
     }
 
@@ -523,7 +522,7 @@ mod inner {
         /// The returned slice has length `self.width()`.
         #[inline]
         fn index_mut(&mut self, row: usize) -> &mut [T] {
-            let idx = row * self.stride as usize;
+            let idx = self.to_index(0, row as u32);
             let w = self.w;
             &mut self.data[idx..idx + w as usize]
         }
@@ -542,11 +541,7 @@ mod inner {
         #[inline]
         fn index(&self, pos: Pos) -> &T {
             let [x, y] = pos.into().0;
-            // TODO Better error message in debug
-            let idx = self
-                .to_index_checked(x, y)
-                .unwrap_or_else(|| self.position_out_of_bounds(x, y));
-            &self.data[idx]
+            &self.data[self.to_index_strict(x, y)]
         }
     }
 
@@ -562,10 +557,7 @@ mod inner {
         #[inline]
         fn index_mut(&mut self, pos: Pos) -> &mut T {
             let [x, y] = pos.into().0;
-            // TODO Better error message in debug
-            let idx = self
-                .to_index_checked(x, y)
-                .unwrap_or_else(|| self.position_out_of_bounds(x, y));
+            let idx = self.to_index_strict(x, y);
             &mut self.data[idx]
         }
     }
