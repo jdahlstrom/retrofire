@@ -229,7 +229,7 @@ fn round_up_to_half(x: f32) -> f32 {
 #[cfg(test)]
 mod tests {
     use alloc::string::{String, ToString};
-    use core::iter::{once, repeat};
+    use core::iter::once;
 
     use crate::geom::vertex;
     use crate::math::vec3;
@@ -240,7 +240,7 @@ mod tests {
 
     #[test]
     fn shared_edge_should_not_have_gaps_or_overdraw() {
-        let mut buf = Buf2::new(20, 10, repeat(0));
+        let mut buf = Buf2::new(20, 10);
 
         let verts = [
             vec3(8.0, 0.0, 0.0),
