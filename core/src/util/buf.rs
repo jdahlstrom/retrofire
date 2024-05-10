@@ -320,8 +320,12 @@ mod inner {
         }
         #[inline]
         fn to_index_strict(&self, x: u32, y: u32) -> usize {
-            self.to_index_checked(x, y)
-                .unwrap_or_else(|| self.position_out_of_bounds(x, y))
+            self.to_index_checked(x, y).unwrap_or_else(|| {
+                panic!(
+                    "position (x={x}, y={y}) out of bounds (0..{}, 0..{})",
+                    self.w, self.h
+                )
+            })
         }
         #[inline]
         fn to_index_checked(&self, x: u32, y: u32) -> Option<usize> {
@@ -336,10 +340,8 @@ mod inner {
 
             assert!(l <= r, "range left ({l}) > right ({r})");
             assert!(t <= b, "range top ({l}) > bottom ({r})");
-
-            if r > self.w || b > self.h {
-                self.position_out_of_bounds(r, b);
-            }
+            assert!(r <= self.w, "range right ({r}) > width ({})", self.w);
+            assert!(b <= self.h, "range bottom ({b}) > height ({})", self.h);
 
             let start = self.to_index(l, t);
             // Slice end is the end of the last row
@@ -349,18 +351,7 @@ mod inner {
                 // b != 0 because b > t
                 self.to_index(r, b - 1)
             };
-
             (r - l, b - t, start..end)
-        }
-
-        #[cold]
-        #[inline(never)]
-        #[track_caller]
-        fn position_out_of_bounds(&self, x: u32, y: u32) -> ! {
-            panic!(
-                "position (x={x}, y={y}) out of bounds (0..{}, 0..{})",
-                self.w, self.h
-            )
         }
 
         /// A helper for implementing `Debug`.
@@ -382,9 +373,15 @@ mod inner {
         /// if `stride < w` or if the slice would overflow `data`.
         #[rustfmt::skip]
         pub(super) fn new(w: u32, h: u32, stride: u32, data: D) -> Self {
-            assert!(stride >= w);
-            assert!(h == 0 || ((h - 1) * stride + w) as usize <= data.len());
-            Self { w, h, stride, data, _pd: PhantomData, }
+            let len = data.len() as u32;
+            assert!(w <= stride, "width ({w}) > stride ({stride})");
+            assert!(h <= 1 || stride <= len, "stride ({stride}) > data length ({len})");
+            assert!(h <= len, "height ({h}) > date length ({len})");
+            if h > 0 {
+                let size = (h - 1) * stride + w;
+                assert!(size <= len, "required size ({size}) > data length ({len})");
+            }
+            Self { w, h, stride, data, _pd: PhantomData }
         }
 
         /// Returns the data of `self` as a linear slice.
@@ -509,7 +506,8 @@ mod inner {
         /// The returned slice has length `self.width()`.
         #[inline]
         fn index(&self, i: usize) -> &[T] {
-            &self.data[self.to_index(0, i as u32)..][..self.w as usize]
+            let idx = self.to_index_strict(0, i as u32);
+            &self.data[idx..][..self.w as usize]
         }
     }
 
@@ -522,9 +520,9 @@ mod inner {
         /// The returned slice has length `self.width()`.
         #[inline]
         fn index_mut(&mut self, row: usize) -> &mut [T] {
-            let idx = self.to_index(0, row as u32);
-            let w = self.w;
-            &mut self.data[idx..idx + w as usize]
+            let idx = self.to_index_strict(0, row as u32);
+            let w = self.w as usize;
+            &mut self.data[idx..][..w]
         }
     }
 
@@ -627,21 +625,21 @@ mod tests {
     }
 
     #[test]
-    #[should_panic]
+    #[should_panic = "position (x=4, y=0) out of bounds (0..4, 0..5)"]
     fn buf_index_x_out_of_bounds_should_panic() {
         let buf = Buf2::new(4, 5);
         let _: i32 = buf[[4, 0]];
     }
 
     #[test]
-    #[should_panic]
+    #[should_panic = "position (x=0, y=4) out of bounds (0..5, 0..4)"]
     fn buf_index_y_out_of_bounds_should_panic() {
         let buf = Buf2::new(5, 4);
         let _: i32 = buf[[0, 4]];
     }
 
     #[test]
-    #[should_panic]
+    #[should_panic = "position (x=0, y=5) out of bounds (0..4, 0..5)"]
     fn buf_index_row_out_of_bounds_should_panic() {
         let buf = Buf2::new(4, 5);
         let _: &[i32] = &buf[5usize];
@@ -663,29 +661,29 @@ mod tests {
     }
 
     #[test]
-    #[should_panic]
+    #[should_panic = "range right (5) > width (4)"]
     fn buf_slice_x_out_of_bounds_should_panic() {
         let buf: Buf2<()> = Buf2::new(4, 5);
         buf.slice((0..5, 1..3));
     }
 
     #[test]
-    #[should_panic]
+    #[should_panic = "range bottom (6) > height (5)"]
     fn buf_slice_y_out_of_bounds_should_panic() {
         let buf: Buf2<()> = Buf2::new(4, 5);
         buf.slice((1..3, 0..6));
     }
 
     #[test]
-    #[should_panic]
+    #[should_panic = "width (4) > stride (3)"]
     fn slice_stride_less_than_width_should_panic() {
         let _ = Slice2::new(4, 4, 3, &[0; 16]);
     }
 
     #[test]
-    #[should_panic]
+    #[should_panic = "required size (19) > data length (16)"]
     fn slice_larger_than_data_should_panic() {
-        let _ = Slice2::new(4, 4, 4, &[0; 15]);
+        let _ = Slice2::new(4, 4, 5, &[0; 16]);
     }
 
     #[test]
