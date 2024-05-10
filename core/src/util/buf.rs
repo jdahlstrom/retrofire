@@ -400,9 +400,9 @@ mod inner {
 
         /// Returns a reference to the element at `pos`,
         /// or `None` if `pos` is out of bounds.
-        pub fn get(&self, pos: Vec2u) -> Option<&T> {
-            self.to_index_checked(pos.x(), pos.y())
-                .map(|i| &self.data[i])
+        pub fn get(&self, pos: impl Into<Vec2u>) -> Option<&T> {
+            let [x, y] = pos.into().0;
+            self.to_index_checked(x, y).map(|i| &self.data[i])
         }
 
         /// Returns an iterator over the rows of `self` as `&[T]` slices.
@@ -478,8 +478,9 @@ mod inner {
 
         /// Returns a mutable reference to the element at `pos`,
         /// or `None` if `pos` is out of bounds.
-        pub fn get_mut(&mut self, pos: Vec2u) -> Option<&mut T> {
-            self.to_index_checked(pos.x(), pos.y())
+        pub fn get_mut(&mut self, pos: impl Into<Vec2u>) -> Option<&mut T> {
+            let [x, y] = pos.into().0;
+            self.to_index_checked(x, y)
                 .map(|i| &mut self.data[i])
         }
 
@@ -611,9 +612,9 @@ mod tests {
         assert_eq!(buf[vec2(1, 0)], 10);
         assert_eq!(buf[vec2(3, 4)], 34);
 
-        assert_eq!(buf.get(vec2(2, 3)), Some(&23));
-        assert_eq!(buf.get(vec2(4, 4)), None);
-        assert_eq!(buf.get(vec2(3, 5)), None);
+        assert_eq!(buf.get([2, 3]), Some(&23));
+        assert_eq!(buf.get([4, 4]), None);
+        assert_eq!(buf.get([3, 5]), None);
     }
 
     #[test]
