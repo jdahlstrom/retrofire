@@ -386,6 +386,7 @@ mod inner {
         pub fn slice(&self, rect: &Rect) -> Slice2<T> {
             let (x, y) = self.resolve_bounds(rect);
             let start = self.to_index(x.start, y.start);
+            // Slice end is the end of the last row
             let end = self.to_index(x.end, y.end - 1).max(start);
             Slice2::new(
                 x.end - x.start,
@@ -486,13 +487,14 @@ mod inner {
         /// If any part of `rect` is outside the bounds of `self`.
         pub fn slice_mut(&mut self, rect: &Rect) -> MutSlice2<T> {
             let (x, y) = self.resolve_bounds(rect);
-            let range =
-                self.to_index(x.start, y.start)..self.to_index(x.end, y.end);
+            let start = self.to_index(x.start, y.start);
+            // Slice end is the end of the last row
+            let end = self.to_index(x.end, y.end - 1).max(start);
             MutSlice2(Inner::new(
-                x.len() as u32,
-                y.len() as u32,
+                x.end - x.start,
+                y.end - y.start,
                 self.stride,
-                &mut self.data[range],
+                &mut self.data[start..end],
             ))
         }
     }
@@ -735,11 +737,24 @@ mod tests {
     #[test]
     fn slice_rows() {
         let buf = Buf2::new_with(5, 4, |x, y| x * 10 + y);
-        let slice = buf.slice(&(2.., 1..3).into());
+        let slice = buf.slice(&(2..4, 1..).into());
 
         let mut rows = slice.rows();
-        assert_eq!(rows.next(), Some(&[21, 31, 41][..]));
-        assert_eq!(rows.next(), Some(&[22, 32, 42][..]));
+        assert_eq!(rows.next(), Some(&[21, 31][..]));
+        assert_eq!(rows.next(), Some(&[22, 32][..]));
+        assert_eq!(rows.next(), Some(&[23, 33][..]));
+        assert_eq!(rows.next(), None);
+    }
+
+    #[test]
+    fn slice_rows_mut() {
+        let mut buf = Buf2::new_with(5, 4, |x, y| x * 10 + y);
+        let mut slice = buf.slice_mut(&(2..4, 1..).into());
+
+        let mut rows = slice.rows_mut();
+        assert_eq!(rows.next(), Some(&mut [21, 31][..]));
+        assert_eq!(rows.next(), Some(&mut [22, 32][..]));
+        assert_eq!(rows.next(), Some(&mut [23, 33][..]));
         assert_eq!(rows.next(), None);
     }
 }
