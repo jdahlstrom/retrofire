@@ -376,7 +376,7 @@ mod inner {
 
         /// Borrows `self` as a `Slice2`.
         pub fn as_slice2(&self) -> Slice2<T> {
-            Slice2(Inner::new(self.w, self.h, self.stride, self.data()))
+            Slice2(Inner::new(self.w, self.h, self.stride, &self.data))
         }
 
         /// Returns a borrowed rectangular slice of `self`.
@@ -391,7 +391,7 @@ mod inner {
                 x.end - x.start,
                 y.end - y.start,
                 self.stride,
-                &self.data()[start..end],
+                &self.data[start..end],
             )
         }
 
@@ -399,13 +399,13 @@ mod inner {
         /// or `None` if `pos` is out of bounds.
         pub fn get(&self, pos: Vec2u) -> Option<&T> {
             self.to_index_checked(pos.x(), pos.y())
-                .map(|i| &self.data()[i])
+                .map(|i| &self.data[i])
         }
 
         /// Returns an iterator over the rows of `self` as `&[T]` slices.
         /// The length of each slice equals [`self.width()`](Self::width).
         pub fn rows(&self) -> impl Iterator<Item = &[T]> {
-            self.data()
+            self.data
                 .chunks(self.stride as usize)
                 .map(|row| &row[..self.w as usize])
         }
@@ -421,7 +421,7 @@ mod inner {
     impl<T, D: DerefMut<Target = [T]>> Inner<T, D> {
         /// Returns a mutably borrowed rectangular slice of `self`.
         pub fn as_mut_slice(&mut self) -> MutSlice2<T> {
-            MutSlice2::new(self.w, self.h, self.stride, self.data_mut())
+            MutSlice2::new(self.w, self.h, self.stride, &mut self.data)
         }
         /// Returns the data of `self` as a single mutable slice.
         pub(super) fn data_mut(&mut self) -> &mut [T] {
@@ -448,7 +448,7 @@ mod inner {
             T: Clone,
         {
             if self.is_contiguous() {
-                self.data_mut().fill(val);
+                self.data.fill(val);
             } else {
                 self.rows_mut()
                     .for_each(|row| row.fill(val.clone()));
@@ -465,7 +465,7 @@ mod inner {
                 (0..w).map(move |x| fill_fn(x, y)) //
             });
             if self.is_contiguous() {
-                self.data_mut().fill_with(|| fill.next().unwrap());
+                self.data.fill_with(|| fill.next().unwrap());
             } else {
                 self.rows_mut().for_each(|row| {
                     row.fill_with(|| fill.next().unwrap()); //
@@ -492,7 +492,7 @@ mod inner {
                 x.len() as u32,
                 y.len() as u32,
                 self.stride,
-                &mut self.data_mut()[range],
+                &mut self.data[range],
             ))
         }
     }
@@ -504,7 +504,7 @@ mod inner {
         /// The returned slice has length `self.width()`.
         #[inline]
         fn index(&self, i: usize) -> &[T] {
-            &self.data()[i * self.stride as usize..][..self.w as usize]
+            &self.data[i * self.stride as usize..][..self.w as usize]
         }
     }
 
@@ -519,7 +519,7 @@ mod inner {
         fn index_mut(&mut self, row: usize) -> &mut [T] {
             let idx = row * self.stride as usize;
             let w = self.w;
-            &mut self.data_mut()[idx..idx + w as usize]
+            &mut self.data[idx..idx + w as usize]
         }
     }
 
