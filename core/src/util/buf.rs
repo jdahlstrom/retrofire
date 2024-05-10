@@ -646,6 +646,51 @@ mod tests {
     }
 
     #[test]
+    fn buf_slice_range_full() {
+        let buf: Buf2<()> = Buf2::new(4, 5);
+
+        let slice = buf.slice(..);
+        assert_eq!(slice.width(), 4);
+        assert_eq!(slice.height(), 5);
+        assert_eq!(slice.stride(), 4);
+
+        let slice = buf.slice((.., ..));
+        assert_eq!(slice.width(), 4);
+        assert_eq!(slice.height(), 5);
+        assert_eq!(slice.stride(), 4);
+    }
+
+    #[test]
+    fn buf_slice_range_inclusive() {
+        let buf: Buf2<()> = Buf2::new(4, 5);
+
+        let slice = buf.slice((1..=3, 0..=3));
+        assert_eq!(slice.width(), 3);
+        assert_eq!(slice.height(), 4);
+        assert_eq!(slice.stride(), 4);
+    }
+
+    #[test]
+    fn buf_slice_range_to() {
+        let buf: Buf2<()> = Buf2::new(4, 5);
+
+        let slice = buf.slice((..2, ..4));
+        assert_eq!(slice.width(), 2);
+        assert_eq!(slice.height(), 4);
+        assert_eq!(slice.stride(), 4);
+    }
+
+    #[test]
+    fn buf_slice_range_from() {
+        let buf: Buf2<()> = Buf2::new(4, 5);
+
+        let slice = buf.slice((3.., 2..));
+        assert_eq!(slice.width(), 1);
+        assert_eq!(slice.height(), 3);
+        assert_eq!(slice.stride(), 4);
+    }
+
+    #[test]
     fn buf_slice_empty_range() {
         let buf: Buf2<()> = Buf2::new(4, 5);
 
