@@ -168,6 +168,8 @@ impl<'a, T> Slice2<'a, T> {
 impl<'a, T> MutSlice2<'a, T> {
     /// Returns a new `MutSlice2` view to `data` with dimensions `w` and `h`
     /// and stride `stride`.
+    ///
+    /// See [`Slice2::new`] for more information.
     pub fn new(w: u32, h: u32, stride: u32, data: &'a mut [T]) -> Self {
         Self(Inner::new(w, h, stride, data))
     }
@@ -297,10 +299,12 @@ mod inner {
         pub fn stride(&self) -> u32 {
             self.stride
         }
-        /// Returns whether the rows of `self` are stored contiguously
-        /// in memory. `Buf2` instances are always contiguous. `Slice2`
-        /// and `MutSlice2` instances are contiguous if their width equals
-        /// their stride, if their height is 1, or if they are empty.
+        /// Returns whether the rows of `self` are stored as one contiguous
+        /// slice, without gaps between rows.
+        ///
+        /// `Buf2` instances are always contiguous. A `Slice2` or `MutSlice2`
+        /// instance is contiguous if its width equals its stride, if its
+        /// height is 1, or if it is empty.
         pub fn is_contiguous(&self) -> bool {
             self.stride == self.w || self.h <= 1 || self.w == 0
         }
