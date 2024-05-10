@@ -270,8 +270,9 @@ mod inner {
     use core::ops::{Deref, DerefMut, Index, IndexMut, Range};
 
     use crate::math::vec::Vec2u;
-    use crate::util::buf::{MutSlice2, Slice2};
     use crate::util::rect::Rect;
+
+    use super::{AsSlice2, MutSlice2, Slice2};
 
     /// A helper type that abstracts over owned and borrowed buffers.
     /// The types `Buf2`, `Slice2`, and `MutSlice2` deref to `Inner`.
@@ -478,6 +479,33 @@ mod inner {
                 self.rows_mut().for_each(|row| {
                     row.fill_with(|| fill.next().unwrap()); //
                 })
+            }
+        }
+
+        /// Copies each element in `src` to the same position in `self`.
+        ///
+        /// This operation is often called "blitting".
+        ///
+        /// # Panics
+        /// if the dimensions of `self` and `src` don't match.
+        #[doc(alias = "blit")]
+        pub fn copy_from(&mut self, src: impl AsSlice2<T>)
+        where
+            T: Copy,
+        {
+            let src = src.as_slice2();
+            assert_eq!(
+                self.w, src.w,
+                "width ({}) != source width ({})",
+                self.w, src.w
+            );
+            assert_eq!(
+                self.h, src.h,
+                "height ({}) != source height ({})",
+                self.h, src.h
+            );
+            for (dest, src) in self.rows_mut().zip(src.rows()) {
+                dest.copy_from_slice(src);
             }
         }
 
@@ -794,6 +822,23 @@ mod tests {
               0, 0, 0, 1, 2,
               0, 0, 1, 2, 3,
               0, 0, 0, 0, 0]
+        );
+    }
+
+    #[test]
+    #[rustfmt::skip]
+    fn slice_copy_from() {
+        let mut dest = Buf2::new(5, 4);
+        let src = Buf2::new_with(3, 3, |x, y| x + y);
+
+        dest.slice_mut((1..4, 1..)).copy_from(src);
+
+        assert_eq!(
+            dest.data(),
+            &[0, 0, 0, 0, 0,
+              0, 0, 1, 2, 0,
+              0, 1, 2, 3, 0,
+              0, 2, 3, 4, 0]
         );
     }
 
