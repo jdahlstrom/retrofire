@@ -602,8 +602,10 @@ mod tests {
     }
 
     #[test]
-    fn buf_index() {
+    fn buf_index_and_get() {
         let buf = Buf2::new_with(4, 5, |x, y| x * 10 + y);
+
+        assert_eq!(buf[2usize], [2, 12, 22, 32]);
 
         assert_eq!(buf[[0, 0]], 0);
         assert_eq!(buf[vec2(1, 0)], 10);
@@ -611,31 +613,73 @@ mod tests {
 
         assert_eq!(buf.get(vec2(2, 3)), Some(&23));
         assert_eq!(buf.get(vec2(4, 4)), None);
+        assert_eq!(buf.get(vec2(3, 5)), None);
     }
 
     #[test]
-    fn buf_index_mut() {
+    fn buf_index_mut_and_get_mut() {
         let mut buf = Buf2::new_with(4, 5, |x, y| x * 10 + y);
 
-        buf[[3, 4]] = 123;
-        assert_eq!(buf[vec2(3, 4)], 123);
+        buf[2usize][1] = 123;
+        assert_eq!(buf[2usize], [2, 123, 22, 32]);
 
-        assert_eq!(buf.get_mut(vec2(3, 4)), Some(&mut 123));
-        assert_eq!(buf.get(vec2(4, 4)), None);
+        buf[vec2(2, 3)] = 234;
+        assert_eq!(buf[[2, 3]], 234);
+
+        *buf.get_mut([3, 4]).unwrap() = 345;
+        assert_eq!(buf.get_mut([3, 4]), Some(&mut 345));
+        assert_eq!(buf.get_mut([4, 4]), None);
+        assert_eq!(buf.get_mut([3, 5]), None);
     }
 
     #[test]
     #[should_panic]
-    fn buf_index_past_end_should_panic() {
+    fn buf_index_x_out_of_bounds_should_panic() {
         let buf = Buf2::new_default(4, 5);
         let _: i32 = buf[[4, 0]];
     }
 
     #[test]
     #[should_panic]
-    fn slice_out_of_bounds_should_panic() {
+    fn buf_index_y_out_of_bounds_should_panic() {
+        let buf = Buf2::new_default(5, 4);
+        let _: i32 = buf[[0, 4]];
+    }
+
+    #[test]
+    #[should_panic]
+    fn buf_index_row_out_of_bounds_should_panic() {
+        let buf = Buf2::new_default(4, 5);
+        let _: &[i32] = &buf[5usize];
+    }
+
+    #[test]
+    fn buf_slice_empty_range() {
         let buf: Buf2<()> = Buf2::new_default(4, 5);
-        buf.slice((0..11, 0..10));
+
+        let empty = buf.slice(vec2(1, 1)..vec2(1, 3));
+        assert_eq!(empty.width(), 0);
+        assert_eq!(empty.height(), 2);
+        assert_eq!(empty.stride(), 4);
+
+        let empty = buf.slice(vec2(1, 1)..vec2(3, 1));
+        assert_eq!(empty.width(), 2);
+        assert_eq!(empty.height(), 0);
+        assert_eq!(empty.stride(), 4);
+    }
+
+    #[test]
+    #[should_panic]
+    fn buf_slice_x_out_of_bounds_should_panic() {
+        let buf: Buf2<()> = Buf2::new_default(4, 5);
+        buf.slice((0..5, 1..3));
+    }
+
+    #[test]
+    #[should_panic]
+    fn buf_slice_y_out_of_bounds_should_panic() {
+        let buf: Buf2<()> = Buf2::new_default(4, 5);
+        buf.slice((1..3, 0..6));
     }
 
     #[test]
@@ -664,6 +708,8 @@ mod tests {
     #[test]
     fn slice_contiguity() {
         let buf: Buf2<()> = Buf2::new_default(10, 10);
+        // Buf2 is always contiguous
+        assert!(buf.is_contiguous());
 
         // Empty slice is contiguous
         assert!(buf.slice((2..2, 2..8)).is_contiguous());
@@ -674,6 +720,7 @@ mod tests {
         assert!(buf.slice((0..10, 2..8)).is_contiguous());
         assert!(buf.slice((.., 2..8)).is_contiguous());
 
+        // Slice not spanning the width of buf is not contiguous
         assert!(!buf.slice((2..=2, 1..9)).is_contiguous());
         assert!(!buf.slice((2..4, 0..9)).is_contiguous());
         assert!(!buf.slice((2..4, 1..10)).is_contiguous());
