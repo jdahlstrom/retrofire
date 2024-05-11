@@ -25,10 +25,13 @@ use super::{
     NdcToScreen, RealToProj, ViewToProj, World, WorldToView,
 };
 
+/// Camera movement mode.
 pub trait Mode {
+    /// Returns the current world-to-view matrix of this camera mode.
     fn world_to_view(&self) -> Mat4x4<WorldToView>;
 }
 
+/// Encapsulates the world-to-screen transform sequence.
 #[derive(Copy, Clone, Debug, Default)]
 pub struct Camera<M> {
     pub mode: M,
@@ -37,6 +40,7 @@ pub struct Camera<M> {
     pub viewport: Mat4x4<NdcToScreen>,
 }
 
+/// First-person camera mode.
 #[cfg(feature = "fp")]
 #[derive(Copy, Clone, Debug, Default)]
 pub struct FirstPerson {
@@ -49,7 +53,7 @@ pub struct FirstPerson {
 //
 
 impl<M: Mode> Camera<M> {
-    ///
+    /// Returns a new camera with the given resolution.
     pub fn new(res_x: u32, res_y: u32) -> Self
     where
         M: Default,
@@ -57,7 +61,7 @@ impl<M: Mode> Camera<M> {
         Self::with_mode(res_x, res_y, M::default())
     }
 
-    ///
+    /// Returns a new camera with the given resolution and mode.
     pub fn with_mode(res_x: u32, res_y: u32, mode: M) -> Self {
         Self {
             res: (res_x, res_y),
@@ -67,7 +71,7 @@ impl<M: Mode> Camera<M> {
         }
     }
 
-    ///
+    /// Sets the viewport bounds of this camera.
     pub fn viewport(self, bounds: impl Into<Rect<u32>>) -> Self {
         let (w, h) = self.res;
         let b @ Rect { left, top, right, bottom } =
@@ -85,7 +89,7 @@ impl<M: Mode> Camera<M> {
         }
     }
 
-    /// Returns a perspective camera.
+    /// Sets the projection of this camera to perspective.
     pub fn perspective(self, focal_ratio: f32, near_far: Range<f32>) -> Self {
         let aspect_ratio = self.res.0 as f32 / self.res.1 as f32;
         Self {
@@ -94,7 +98,7 @@ impl<M: Mode> Camera<M> {
         }
     }
 
-    /// Returns an orthographic camera.
+    /// Sets the projection of this camera to orthographic.
     pub fn orthographic(self, bounds: Range<Vec3>) -> Self {
         Self {
             project: orthographic(bounds),
@@ -102,6 +106,7 @@ impl<M: Mode> Camera<M> {
         }
     }
 
+    /// Renders the given geometry from the viewpoint of this camera.
     pub fn render<B, Vtx: Clone, Var: Vary, Uni: Copy, Shd>(
         &self,
         tris: impl AsRef<[Tri<usize>]>,
