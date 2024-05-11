@@ -4,15 +4,17 @@ use minifb::MouseMode;
 
 use re::prelude::*;
 
-use re::render::cam::{Camera, FirstPerson, VGA_640_480};
+use re::render::cam::{Camera, FirstPerson, Fov, SVGA_800_600};
 use re::render::ModelToProj;
 
 use re_front::minifb::Window;
 
 fn main() {
+    let res = SVGA_800_600;
+
     let mut win = Window::builder()
         .title("minifb front demo")
-        .size(640, 480)
+        .size(res.0, res.1)
         .build();
 
     let shader = Shader::new(
@@ -22,9 +24,9 @@ fn main() {
         |frag: Frag<Color3f>| frag.var.to_color4(),
     );
 
-    let mut cam = Camera::<FirstPerson>::new(VGA_640_480)
-        .viewport((10..630, 10..470))
-        .perspective(1.0, 0.1..1000.0);
+    let mut cam = Camera::<FirstPerson>::new(res)
+        .viewport((10..790, 10..590))
+        .perspective(Fov::Horizontal(degs(90.0)), 0.1..1000.0);
 
     let floor = floor();
 

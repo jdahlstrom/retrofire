@@ -594,8 +594,10 @@ pub fn orthographic(bounds: Range<Vec3>) -> Mat4x4<ViewToProj> {
     .into()
 }
 
-/// Creates a viewport transform matrix. A viewport matrix is used to
-/// transform points from the NDC space to screen space for rasterization.
+/// Creates a viewport transform matrix.
+///
+/// A viewport matrix is used to transform points from NDC space
+/// to screen space for rasterization.
 ///
 /// # Parameters
 /// * `bounds`: the left-top and right-bottom coordinates of the viewport.

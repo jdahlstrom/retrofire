@@ -2,11 +2,14 @@ use core::ops::Range;
 
 use crate::{
     geom::{Tri, Vertex},
-    math::mat::{
-        orthographic, perspective, translate, viewport, Mat4x4, RealToReal,
+    math::{
+        angle,
+        mat::{
+            orthographic, perspective, translate, viewport, Mat4x4, RealToReal,
+        },
+        vary::Vary,
+        vec::{vec2, vec3, Vec3},
     },
-    math::vary::Vary,
-    math::vec::{vec2, vec3, Vec3},
     util::rect::Rect,
 };
 
@@ -46,6 +49,24 @@ pub struct Camera<M> {
 pub struct FirstPerson {
     pub pos: Vec3,
     pub heading: SphericalVec,
+}
+
+/// Camera field of view.
+#[derive(Copy, Clone, Debug)]
+pub enum Fov {
+    /// Angle of view measured horizontally from the left to the right edge.
+    #[cfg(feature = "fp")]
+    Horizontal(Angle),
+    /// Angle of view measured diagonally from one corner to the opposite.
+    #[cfg(feature = "fp")]
+    Diagonal(Angle),
+    /// Ratio of focal length to aperture size.
+    ///
+    /// A ratio of 1.0 corresponds to a horizontal angle of view of 90 degrees.
+    /// The larger the ratio, the narrower the field of view.
+    FocalRatio(f32),
+    /// 35mm film equivalent focal length.
+    ThirtyFiveEquiv(f32),
 }
 
 #[derive(Copy, Clone, Debug, Eq, PartialEq)]
@@ -92,22 +113,20 @@ impl<M: Mode> Camera<M> {
         else {
             unreachable!("intersect with bounded is always bounded")
         };
-
-        // Intersection with a bounded rect always results in a bounded rect
         Self {
+            // TODO res should probably remain the original
+            res: Resolution(r - l, b - t),
             viewport: viewport(vec2(l, t)..vec2(r, b)),
             ..self
         }
     }
 
     /// Sets the projection of this camera to perspective.
-    pub fn perspective(self, focal_ratio: f32, near_far: Range<f32>) -> Self {
+    pub fn perspective(self, fov: Fov, near_far: Range<f32>) -> Self {
+        let ar = self.res.aspect_ratio();
+        let fr = fov.focal_ratio(ar);
         Self {
-            project: perspective(
-                focal_ratio,
-                self.res.aspect_ratio(),
-                near_far,
-            ),
+            project: perspective(fr, ar, near_far),
             ..self
         }
     }
@@ -194,6 +213,24 @@ impl Resolution {
     }
 }
 
+impl Fov {
+    fn focal_ratio(self, aspect: f32) -> f32 {
+        use Fov::*;
+        match self {
+            #[cfg(feature = "fp")]
+            Horizontal(a) => 1.0 / (a / 2.0).tan(),
+            #[cfg(feature = "fp")]
+            Diagonal(a) => {
+                let b = angle::atan2(1.0, aspect);
+                let base_to_diag = b.cos();
+                base_to_diag / (a / 2.0).tan()
+            }
+            FocalRatio(f) => f,
+            ThirtyFiveEquiv(f) => f / 18.0, // Half width of 35mm film
+        }
+    }
+}
+
 //
 // Local trait impls
 //
@@ -210,5 +247,31 @@ impl Mode for FirstPerson {
         let orient = orient_z(fwd.into(), right);
 
         transl.then(&orient).to()
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    #[cfg(feature = "fp")]
+    fn fov_focal_ratio_square() {
+        use core::f32::consts::FRAC_1_SQRT_2;
+
+        assert_eq!(Fov::Horizontal(degs(90.0)).focal_ratio(1.0), 1.0);
+        assert_eq!(Fov::Diagonal(degs(90.0)).focal_ratio(1.0), FRAC_1_SQRT_2);
+        assert_eq!(Fov::FocalRatio(1.0).focal_ratio(1.0), 1.0);
+        assert_eq!(Fov::ThirtyFiveEquiv(18.0).focal_ratio(1.0), 1.0);
+    }
+
+    #[test]
+    #[cfg(feature = "fp")]
+    fn fov_focal_ratio_four_thirds() {
+        let ar = 4.0 / 3.0;
+        assert_eq!(Fov::Horizontal(degs(90.0)).focal_ratio(ar), 1.0);
+        assert_eq!(Fov::Diagonal(degs(90.0)).focal_ratio(ar), 0.8);
+        assert_eq!(Fov::FocalRatio(1.0).focal_ratio(ar), 1.0);
+        assert_eq!(Fov::ThirtyFiveEquiv(18.0).focal_ratio(ar), 1.0);
     }
 }
