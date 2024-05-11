@@ -43,7 +43,7 @@ fn main() {
             .take(4)
             .unzip();
 
-    win.run(|Frame { dt, buf, .. }| {
+    win.run(|frame| {
         let b = BezierSpline::new(&pts);
         // Stop once error is less than one pixel
         let apx = b.approximate(|err| err.len_sqr() < 1.0);
@@ -51,13 +51,13 @@ fn main() {
         for seg in apx.windows(2) {
             for pt in line([seg[0], seg[1]]) {
                 // The curve can't go out of bounds if the control points don't
-                buf.color_buf[pt] = 0xFF_FF_FF;
+                frame.buf.color_buf[pt] = 0xFF_FF_FF;
             }
         }
 
         let max = vec2((W - 1) as f32, (H - 1) as f32);
         for (p, d) in pts.iter_mut().zip(deltas.iter_mut()) {
-            *p = (*p + *d * 200.0 * dt.as_secs_f32()) //
+            *p = (*p + *d * 200.0 * frame.dt_secs()) //
                 .clamp(&Vec2::zero(), &max);
 
             if p[0] == 0.0 || p[0] == max.x() {

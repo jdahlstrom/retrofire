@@ -31,7 +31,7 @@ fn main() {
     let viewport = viewport(vec2(10, 10)..vec2(630, 470));
 
     win.run(|frame| {
-        let secs = frame.t.as_secs_f32();
+        let secs = frame.t_secs();
 
         let mv: Mat4x4<ModelToView> = modelview
             .compose(&rotate_z(rads(secs)))
