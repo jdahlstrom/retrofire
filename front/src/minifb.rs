@@ -7,7 +7,7 @@ use minifb::{Key, WindowOptions};
 
 use retrofire_core::render::ctx::Context;
 use retrofire_core::render::target::Framebuf;
-use retrofire_core::util::buf::{AsMutSlice2, Buf2};
+use retrofire_core::util::buf::Buf2;
 
 use crate::Frame;
 
@@ -107,8 +107,8 @@ impl Window {
         F: FnMut(&mut Frame<Self>) -> ControlFlow<()>,
     {
         let (w, h) = self.size;
-        let mut cbuf = Buf2::new_default(w, h);
-        let mut zbuf = Buf2::new_default(w, h);
+        let mut cbuf = Buf2::new(w, h);
+        let mut zbuf = Buf2::new(w, h);
         let mut ctx = self.ctx.clone();
 
         let start = Instant::now();
