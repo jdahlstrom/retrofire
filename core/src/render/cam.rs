@@ -2,14 +2,18 @@ use core::ops::Range;
 
 use crate::{
     geom::{Tri, Vertex},
-    math::angle::{degs, spherical, Angle, SphericalVec},
     math::mat::{
-        orient_z, orthographic, perspective, rotate_y, translate, viewport,
-        Mat4x4, RealToReal,
+        orthographic, perspective, translate, viewport, Mat4x4, RealToReal,
     },
     math::vary::Vary,
     math::vec::{vec2, vec3, Vec3},
     util::rect::Rect,
+};
+
+#[cfg(feature = "fp")]
+use crate::{
+    math::angle::{degs, spherical, Angle, SphericalVec},
+    math::mat::{orient_z, rotate_y},
 };
 
 use super::{
@@ -33,6 +37,7 @@ pub struct Camera<M> {
     pub viewport: Mat4x4<NdcToScreen>,
 }
 
+#[cfg(feature = "fp")]
 #[derive(Copy, Clone, Debug, Default)]
 pub struct FirstPerson {
     pub pos: Vec3,
@@ -129,6 +134,7 @@ impl<M: Mode> Camera<M> {
     }
 }
 
+#[cfg(feature = "fp")]
 impl FirstPerson {
     pub fn look_at(&mut self, pt: Vec3) {
         self.heading = (pt - self.pos).into();
@@ -167,6 +173,7 @@ impl FirstPerson {
 // Local trait impls
 //
 
+#[cfg(feature = "fp")]
 impl Mode for FirstPerson {
     fn world_to_view(&self) -> Mat4x4<WorldToView> {
         let &Self { pos, heading: dir, .. } = self;
