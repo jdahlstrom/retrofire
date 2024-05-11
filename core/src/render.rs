@@ -20,6 +20,7 @@ use crate::math::mat::{RealToProj, RealToReal};
 use crate::math::space::Real;
 use crate::math::{vec3, Mat4x4, Vary, Vec3};
 
+pub mod cam;
 pub mod clip;
 pub mod ctx;
 pub mod raster;
@@ -47,6 +48,12 @@ pub struct Ndc;
 /// Screen space coordinate basis.
 #[derive(Copy, Clone, Debug, Default, Eq, PartialEq)]
 pub struct Screen;
+
+// Mapping from model space to world space.
+pub type ModelToWorld = RealToReal<3, Model, World>;
+
+// Mapping from world space to view space.
+pub type WorldToView = RealToReal<3, World, View>;
 
 /// Mapping from model space to view space.
 pub type ModelToView = RealToReal<3, Model, View>;
