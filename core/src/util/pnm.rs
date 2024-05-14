@@ -33,7 +33,7 @@ use super::buf::AsSlice2;
 
 use super::{buf::Buf2, Dims};
 
-/// The header of a PNM image
+/// The header of a PNM image.
 #[derive(Copy, Clone, Debug, Eq, PartialEq)]
 struct Header {
     format: Format,
@@ -76,6 +76,7 @@ impl TryFrom<[u8; 2]> for Format {
     type Error = Error;
     fn try_from(magic: [u8; 2]) -> Result<Self> {
         Ok(match &magic {
+            b"P2" => TextGraymap,
             b"P3" => TextPixmap,
             b"P4" => BinaryBitmap,
             b"P5" => BinaryGraymap,
@@ -106,7 +107,15 @@ impl core::error::Error for Error {}
 
 impl Display for Error {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
-        write!(f, "error decoding pnm image: {self:?}")
+        match *self {
+            #[cfg(feature = "std")]
+            Io(kind) => write!(f, "i/o error {kind}"),
+            Unsupported([c, d]) => {
+                write!(f, "unsupported magic number {}{}", c as char, d as char)
+            }
+            UnexpectedEnd => write!(f, "unexpected end of input"),
+            InvalidNumber => write!(f, "invalid numeric value"),
+        }
     }
 }
 
@@ -129,6 +138,8 @@ impl From<io::Error> for Error {
 
 impl Header {
     /// Attempts to parse a PNM header from an iterator.
+    ///
+    /// Currently supported formats are P2, P3, P4, P5, and P6.
     fn parse(input: impl IntoIterator<Item = u8>) -> Result<Self> {
         let mut it = input.into_iter();
         let magic = [
@@ -158,7 +169,7 @@ impl Header {
 
 /// Loads a PNM image from a path into a buffer.
 ///
-/// Currently supported formats are P3, P4, P5, and P6.
+/// Currently supported formats are P2, P3, P4, P5, and P6.
 /// Read more about the formats in the [module docs][self].
 ///
 /// # Errors
@@ -171,7 +182,7 @@ pub fn load_pnm(path: impl AsRef<Path>) -> Result<Buf2<Color3>> {
 
 /// Reads a PNM image into a buffer.
 ///
-/// Currently supported PNM formats are P3, P4, P5, and P6.
+/// Currently supported PNM formats are P2, P3, P4, P5, and P6.
 /// Read more about the formats in the [module docs][self].
 ///
 /// # Errors
@@ -183,7 +194,7 @@ pub fn read_pnm(input: impl Read) -> Result<Buf2<Color3>> {
 
 /// Attempts to decode a PNM image from an iterator of bytes.
 ///
-/// Currently supported PNM formats are P3, P4, P5, and P6.
+/// Currently supported PNM formats are P2, P3, P4, P5, and P6.
 /// Read more about the formats in the [module docs][self].
 ///
 /// # Errors
@@ -229,7 +240,13 @@ pub fn parse_pnm(input: impl IntoIterator<Item = u8>) -> Result<Buf2<Color3>> {
                 .take(count as usize)
                 .collect::<Result<Vec<_>>>()?
         }
-        _ => unimplemented!(),
+        TextGraymap => (0..count)
+            .map(|_| {
+                let val = parse_num(&mut it)?;
+                Ok(rgb(val, val, val))
+            })
+            .collect::<Result<Vec<_>>>()?,
+        _ => return Err(Unsupported((h.format as u16).to_be_bytes())),
     };
 
     if data.len() < count as usize {
@@ -386,8 +403,8 @@ mod tests {
 
     #[test]
     fn parse_header_unsupported_magic() {
-        let res = Header::parse(*b"P2 1 1 1 ");
-        assert_eq!(res, Err(Unsupported(*b"P2")));
+        let res = Header::parse(*b"P7 1 1 1 ");
+        assert_eq!(res, Err(Unsupported(*b"P7")));
     }
 
     #[test]
