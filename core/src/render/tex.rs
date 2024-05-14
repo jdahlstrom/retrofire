@@ -1,8 +1,9 @@
 //! Textures and texture samplers.
 
-use crate::{
-    math::vec::{Vec2, Vector},
-    util::buf::{AsSlice2, Buf2, Slice2},
+use crate::math::{pt2, vec2, Point2u, Vec2, Vector};
+use crate::util::{
+    buf::{AsSlice2, Buf2, Slice2},
+    Dims,
 };
 
 /// Basis of the texture space.
@@ -51,18 +52,75 @@ pub struct Texture<D> {
     data: D,
 }
 
+#[derive(Clone)]
+pub struct Atlas<C> {
+    pub layout: Layout,
+    pub texture: Texture<Buf2<C>>,
+}
+
+/// Method of arranging sub-textures in an [atlas][Atlas].
+#[derive(Copy, Clone, Debug)]
+pub enum Layout {
+    /// A regular grid of equal-sized cells.
+    Grid { sub_dims: Dims },
+}
+
 impl<D> Texture<D> {
-    /// Returns the width of `Self` as `f32`.
+    /// Returns the width of `self` as `f32`.
     #[inline]
     pub fn width(&self) -> f32 {
         self.w
     }
-    /// Returns the height of `Self` as `f32`.
+    /// Returns the height of `self` as `f32`.
     #[inline]
     pub fn height(&self) -> f32 {
         self.h
     }
+    /// Returns the pixel data of `self`.
+    pub fn data(&self) -> &D {
+        &self.data
+    }
 }
+
+impl<C> Atlas<C> {
+    /// Creates a new texture atlas from a texture.
+    pub fn new(layout: Layout, texture: Texture<Buf2<C>>) -> Self {
+        Self { layout, texture }
+    }
+
+    /// Returns the top-left and bottom-right pixel coordinates
+    /// of the sub-texture with index `i`.
+    fn rect(&self, i: u32) -> [Point2u; 2] {
+        match self.layout {
+            Layout::Grid { sub_dims: (sub_w, sub_h) } => {
+                let subs_per_row = self.texture.data.width() / sub_w;
+                let top_left =
+                    pt2(i % subs_per_row * sub_w, i / subs_per_row * sub_h);
+                [top_left, top_left + vec2(sub_w as i32, sub_h as i32)]
+            }
+        }
+    }
+
+    /// Returns the sub-texture with index `i`.
+    pub fn get(&self, i: u32) -> Texture<Slice2<C>> {
+        let [p0, p1] = self.rect(i);
+        self.texture.data.slice(p0..p1).into()
+    }
+
+    /// Returns the texture coordinates of the sub-texture with index `i`.
+    pub fn coords(&self, i: u32) -> [TexCoord; 4] {
+        let tex_w = self.texture.width();
+        let tex_h = self.texture.height();
+        let [(x0, y0), (x1, y1)] = self
+            .rect(i)
+            .map(|p| (p.x() as f32 / tex_w, p.y() as f32 / tex_h));
+        [uv(x0, y0), uv(x1, y0), uv(x0, y1), uv(x1, y1)]
+    }
+}
+
+//
+// Trait impls
+//
 
 impl<C> From<Buf2<C>> for Texture<Buf2<C>> {
     /// Creates a new texture from owned pixel data.
