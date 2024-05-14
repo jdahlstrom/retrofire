@@ -35,6 +35,10 @@ name = "bezier"
 required-features = ["minifb"]
 
 [[bin]]
+name = "hello"
+required-features = ["minifb"]
+
+[[bin]]
 name = "solids"
 required-features = ["minifb", "re-geom"]
 
