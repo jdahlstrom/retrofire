@@ -117,11 +117,11 @@ fn main() {
 
     let mut carousel = Carousel::default();
     win.run(|frame| {
-        let secs = frame.t.as_secs_f32();
+        let secs = frame.t_secs();
 
         let spin = rotate_y(rads(secs * 0.6)) //
             .compose(&rotate_x(rads(secs * 0.7)));
-        let carouse = carousel.update(frame.dt.as_secs_f32());
+        let carouse = carousel.update(frame.dt_secs());
 
         let mvp: Mat4x4<ModelToProj> = spin
             .then(&camera)
