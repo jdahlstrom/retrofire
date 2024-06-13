@@ -3,9 +3,8 @@ use std::ops::ControlFlow::*;
 use re::prelude::*;
 
 use re::math::space::Real;
-use re::render::tex::{uv, SamplerClamp, TexCoord, Texture};
-use re::render::{render, Model, ModelToProj};
-use re_front::minifb::Window;
+use re::render::{render, tex::SamplerClamp, Model, ModelToProj};
+use re_front::sdl2::Window;
 
 fn main() {
     let verts: [Vertex<Vec3<Real<3, Model>>, TexCoord>; 4] = [
@@ -28,10 +27,10 @@ fn main() {
     }));
 
     let shader = Shader::new(
-        |v: Vertex<_, TexCoord>, mvp: &Mat4x4<ModelToProj>| {
+        |v: Vertex<_, _>, mvp: &Mat4x4<ModelToProj>| {
             vertex(mvp.apply(&v.pos), v.attrib)
         },
-        |frag: Frag<TexCoord>| SamplerClamp.sample(&checker, frag.var),
+        |frag: Frag<_>| SamplerClamp.sample(&checker, frag.var),
     );
 
     let project = perspective(1.0, 4.0 / 3.0, 0.1..1000.0);
