@@ -1,12 +1,13 @@
 //! Frontend using the `minifb` crate for window creation and event handling.
 
-use core::ops::ControlFlow::{self, Break};
+use std::ops::ControlFlow::{self, Break};
 use std::time::Instant;
 
 use minifb::{Key, WindowOptions};
 
-use retrofire_core::render::{ctx::Context, target::Framebuf};
-use retrofire_core::util::{buf::Buf2, Dims};
+use retrofire_core::render::ctx::Context;
+use retrofire_core::render::target;
+use retrofire_core::util::{buf::Buf2, buf::MutSlice2, Dims};
 
 use crate::{dims::SVGA_800_600, Frame};
 
@@ -27,6 +28,9 @@ pub struct Builder<'title> {
     pub target_fps: Option<u32>,
     pub opts: WindowOptions,
 }
+
+pub type Framebuf<'a> =
+    target::Framebuf<MutSlice2<'a, u32>, MutSlice2<'a, f32>>;
 
 impl Default for Builder<'_> {
     fn default() -> Self {
@@ -103,7 +107,7 @@ impl Window {
     /// * the callback returns `ControlFlow::Break`.
     pub fn run<F>(&mut self, mut frame_fn: F)
     where
-        F: FnMut(&mut Frame<Self>) -> ControlFlow<()>,
+        F: FnMut(&mut Frame<Self, Framebuf>) -> ControlFlow<()>,
     {
         let (w, h) = self.dims;
         let mut cbuf = Buf2::new((w, h));

@@ -1,7 +1,5 @@
 use core::ops::ControlFlow::Continue;
 
-use minifb::{Key, KeyRepeat};
-
 use re::prelude::*;
 
 use re::math::{
@@ -9,7 +7,7 @@ use re::math::{
 };
 use re::render::batch::Batch;
 use re::render::{cam::Camera, Model, ModelToProj, ModelToWorld};
-use re_front::{minifb::Window, Frame};
+use re_front::{sdl2::Window, Frame};
 use re_geom::{io::parse_obj, solids::*};
 
 // Carousel animation for switching between objects.
@@ -91,9 +89,9 @@ fn main() {
         let Frame { t, dt, win, .. } = frame;
 
         // Press Space to trigger carousel animation
-        if win.imp.is_key_pressed(Key::Space, KeyRepeat::No) {
-            carousel.start();
-        }
+        //if win.imp.is_key_pressed(Key::Space, KeyRepeat::No) {
+        //  carousel.start();
+        //}
 
         let theta = rads(t.as_secs_f32());
         let spin = rotate_x(theta * 0.47).then(&rotate_y(theta * 0.61));

@@ -20,16 +20,16 @@ fn main() {
 
     win.ctx.face_cull = None;
 
-    let checker = Texture::from(Buf2::new_with(8, 8, |x, y| {
+    let checker = Texture::from(Buf2::new_with((8, 8), |x, y| {
         let xor = (x ^ y) & 1;
         rgba(xor as u8 * 255, 128, 255 - xor as u8 * 128, 0)
     }));
 
     let shader = Shader::new(
-        |v: Vertex<_, TexCoord>, mvp: &Mat4x4<ModelToProj>| {
+        |v: Vertex<_, _>, mvp: &Mat4x4<ModelToProj>| {
             vertex(mvp.apply(&v.pos), v.attrib)
         },
-        |frag: Frag<TexCoord>| SamplerClamp.sample(&checker, frag.var),
+        |frag: Frag<_>| SamplerClamp.sample(&checker, frag.var),
     );
 
     let (w, h) = win.dims;
