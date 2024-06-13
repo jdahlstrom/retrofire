@@ -4,7 +4,8 @@ use re::prelude::*;
 
 use re::math::space::Real;
 use re::render::{render, Model, ModelToProj, ModelToView};
-use re_front::minifb::Window;
+
+use re_front::sdl2::Window;
 
 fn main() {
     let verts: [Vertex<Vec3<Real<3, Model>>, _>; 4] = [
