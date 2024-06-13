@@ -26,10 +26,10 @@ fn main() {
     }));
 
     let shader = Shader::new(
-        |v: Vertex<_, TexCoord>, mvp: &Mat4x4<ModelToProj>| {
+        |v: Vertex<_, _>, mvp: &Mat4x4<ModelToProj>| {
             vertex(mvp.apply(&v.pos), v.attrib)
         },
-        |frag: Frag<TexCoord>| SamplerClamp.sample(&checker, frag.var),
+        |frag: Frag<_>| SamplerClamp.sample(&checker, frag.var),
     );
 
     let (w, h) = win.dims;
