@@ -67,7 +67,11 @@ pub mod prelude {
 
     pub use crate::geom::{vertex, Mesh, Normal2, Normal3, Tri, Vertex};
 
-    pub use crate::render::{raster::Frag, shader::Shader};
+    pub use crate::render::{
+        raster::Frag,
+        shader::Shader,
+        tex::{uv, TexCoord, Texture},
+    };
 
     pub use crate::util::buf::{
         AsMutSlice2, AsSlice2, Buf2, MutSlice2, Slice2,
