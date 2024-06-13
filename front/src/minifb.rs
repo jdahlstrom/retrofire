@@ -1,13 +1,13 @@
 //! Frontend using the `minifb` crate for window creation and event handling.
 
 use std::ops::ControlFlow::{self, Break};
-use std::time::{Duration, Instant};
+use std::time::Instant;
 
 use minifb::{Key, WindowOptions};
 
 use retrofire_core::render::ctx::Context;
-use retrofire_core::render::target::Framebuf;
-use retrofire_core::util::buf::Buf2;
+use retrofire_core::render::target;
+use retrofire_core::util::buf::{Buf2, MutSlice2};
 
 use crate::Frame;
 
@@ -28,6 +28,9 @@ pub struct Builder<'title> {
     pub max_fps: Option<f32>,
     pub opts: WindowOptions,
 }
+
+pub type Framebuf<'a> =
+    target::Framebuf<MutSlice2<'a, u32>, MutSlice2<'a, f32>>;
 
 impl Default for Builder<'_> {
     fn default() -> Self {
@@ -69,9 +72,9 @@ impl<'t> Builder<'t> {
         let mut imp =
             minifb::Window::new(title, size.0 as usize, size.1 as usize, opts)
                 .unwrap();
-        imp.limit_update_rate(
-            max_fps.map(|fps| Duration::from_secs_f32(1.0 / fps)),
-        );
+        if let Some(fps) = max_fps {
+            imp.set_target_fps(fps as usize);
+        }
         let ctx = Context::default();
         Window { imp, size, ctx }
     }
@@ -104,7 +107,7 @@ impl Window {
     /// * the callback returns `ControlFlow::Break`.
     pub fn run<F>(&mut self, mut frame_fn: F)
     where
-        F: FnMut(&mut Frame<Self>) -> ControlFlow<()>,
+        F: FnMut(&mut Frame<Self, Framebuf>) -> ControlFlow<()>,
     {
         let (w, h) = self.size;
         let mut cbuf = Buf2::new(w, h);
