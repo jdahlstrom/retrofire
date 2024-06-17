@@ -296,24 +296,25 @@ where
     T: FromStr,
     Error: From<T::Err>,
 {
-    // Skip whitespace and comments
-    let mut in_comment = false;
-    let mut whitespace_or_comment = |b| match b {
-        b'#' => {
-            in_comment = true;
-            true
+    let mut whitespace_or_comment = {
+        let mut in_comment = false;
+        move |b: &u8| match *b {
+            b'#' => {
+                in_comment = true;
+                true
+            }
+            b'\n' => {
+                in_comment = false;
+                true
+            }
+            _ => in_comment || b.is_ascii_whitespace(),
         }
-        b'\n' => {
-            in_comment = false;
-            true
-        }
-        _ => in_comment || b.is_ascii_whitespace(),
     };
 
     let str = src
         .into_iter()
-        .skip_while(|&b| whitespace_or_comment(b))
-        .take_while(|&b| !b.is_ascii_whitespace())
+        .skip_while(whitespace_or_comment)
+        .take_while(|b| !whitespace_or_comment(b))
         .map(char::from)
         .collect::<String>();
 
@@ -341,8 +342,13 @@ mod tests {
     }
 
     #[test]
-    fn parse_num_with_comment() {
+    fn parse_num_with_comment_before() {
         assert_eq!(parse_num(*b"# this is a comment\n42"), Ok(42));
+    }
+
+    #[test]
+    fn parse_num_with_comment_after() {
+        assert_eq!(parse_num(*b"42#this is a comment"), Ok(42));
     }
 
     #[test]
