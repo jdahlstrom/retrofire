@@ -48,6 +48,10 @@ pub trait Vary: Sized + Clone {
     #[must_use]
     fn step(&self, delta: &Self::Diff) -> Self;
 
+    /// Performs perspective division.
+    #[must_use]
+    fn z_div(&self, z: f32) -> Self;
+
     /// Linearly interpolates between `self` and `other`.
     ///
     /// This method does not panic if `t < 0.0` or `t > 1.0`, or if `t`
@@ -60,7 +64,6 @@ pub trait Vary: Sized + Clone {
     /// assert_eq!(2.0.lerp(&5.0, 0.0), 2.0);
     /// assert_eq!(2.0.lerp(&5.0, 0.5), 3.5);
     /// assert_eq!(2.0.lerp(&5.0, 1.0), 5.0);
-    ///
     /// ```
     #[inline]
     fn lerp(&self, other: &Self, t: f32) -> Self {
@@ -89,6 +92,8 @@ impl Vary for () {
     }
     fn dv_dt(&self, _: &Self, _: f32) {}
     fn step(&self, _: &Self::Diff) {}
+
+    fn z_div(&self, _: f32) {}
 }
 
 impl<T: Vary, U: Vary> Vary for (T, U) {
@@ -106,6 +111,10 @@ impl<T: Vary, U: Vary> Vary for (T, U) {
     }
     fn step(&self, (d0, d1): &Self::Diff) -> Self {
         (self.0.step(d0), self.1.step(d1))
+    }
+
+    fn z_div(&self, z: f32) -> Self {
+        (self.0.z_div(z), self.1.z_div(z))
     }
 }
 

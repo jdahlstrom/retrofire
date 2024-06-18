@@ -20,7 +20,8 @@ use crate::geom::{Plane, Tri, Vertex};
 use crate::math::space::Proj4;
 use crate::math::vary::Vary;
 use crate::math::vec::{Vec3, Vec4};
-use crate::render::clip::view_frustum::{outcode, status};
+
+use view_frustum::{outcode, status};
 
 /// Trait for types that can be [clipped][self] against planes.
 ///
@@ -627,7 +628,7 @@ mod tests {
     fn in_bounds(tri: &Tri<ClipVert<f32>>) -> bool {
         tri.0
             .iter()
-            .flat_map(|v| v.pos.project_to_real().0)
+            .flat_map(|v| (v.pos / v.pos.w()).0)
             .all(|a| a.abs() <= 1.00001)
     }
 }

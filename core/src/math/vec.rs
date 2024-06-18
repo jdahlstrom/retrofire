@@ -287,14 +287,6 @@ where
     pub fn w(&self) -> Sc {
         self.0[3]
     }
-
-    #[inline]
-    pub fn project_to_real(&self) -> Vector<[Sc; 3], Real<3>>
-    where
-        Sc: Div<Output = Sc>,
-    {
-        array::from_fn(|i| self.0[i] / self.0[3]).into()
-    }
 }
 
 //

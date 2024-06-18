@@ -121,7 +121,8 @@ impl Window {
                 cbuf.fill(c.to_argb_u32());
             }
             if let Some(c) = ctx.depth_clear {
-                zbuf.fill(c);
+                // Depth buffer contains reciprocal depth values
+                zbuf.fill(c.recip());
             }
 
             let frame = &mut Frame {

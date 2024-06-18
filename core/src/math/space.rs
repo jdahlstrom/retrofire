@@ -105,8 +105,7 @@ impl Linear for f32 {
 
 impl<V: Clone> Vary for V
 where
-    Self: Affine,
-    <Self as Affine>::Diff: Clone + Linear<Scalar = f32>,
+    Self: Linear<Scalar = f32>,
 {
     type Iter = Iter<Self>;
     type Diff = <Self as Affine>::Diff;
@@ -124,5 +123,9 @@ where
     #[inline]
     fn step(&self, delta: &Self::Diff) -> Self {
         self.add(delta)
+    }
+
+    fn z_div(&self, z: f32) -> Self {
+        self.mul(z.recip())
     }
 }
