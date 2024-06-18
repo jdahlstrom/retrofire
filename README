@@ -48,6 +48,7 @@ Done:
   * User-definable vertex and fragment shaders, written in Rust
   * Type-tagged vector and color spaces and bases
   * Type-tagged affine transforms and projections
+  * Perspective-correct texture mapping
   * Triangle mesh data structure and a library of shapes
   * Fully customizable rasterization stage
   * Collecting rendering performance data
@@ -60,7 +61,6 @@ In progress:
 
   = Sprite and text primitives
   = Simple bitmap font support
-  = Perspective-correct texture mapping
   = Spherical, cube, etc UV mapping
   = Procedural noise generation
   = Reading and writing Wavefront .obj files
