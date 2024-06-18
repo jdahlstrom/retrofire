@@ -1,10 +1,10 @@
-use std::ops::ControlFlow::Continue;
+use std::ops::ControlFlow::*;
 
 use re::prelude::*;
 
 use re::math::space::Real;
 use re::render::tex::{uv, SamplerClamp, TexCoord, Texture};
-use re::render::{render, Model, ModelToProj, ModelToView};
+use re::render::{render, Model, ModelToProj};
 use re_front::minifb::Window;
 
 fn main() {
@@ -22,7 +22,7 @@ fn main() {
 
     win.ctx.face_cull = None;
 
-    let tex = Texture::from(Buf2::new_with(8, 8, |x, y| {
+    let checker = Texture::from(Buf2::new_with(8, 8, |x, y| {
         let xor = (x ^ y) & 1;
         rgba(xor as u8 * 255, 128, 255 - xor as u8 * 128, 0)
     }));
@@ -31,21 +31,19 @@ fn main() {
         |v: Vertex<_, TexCoord>, mvp: &Mat4x4<ModelToProj>| {
             vertex(mvp.apply(&v.pos), v.attrib)
         },
-        |frag: Frag<TexCoord>| SamplerClamp.sample(&tex, frag.var),
+        |frag: Frag<TexCoord>| SamplerClamp.sample(&checker, frag.var),
     );
 
-    let modelview = translate(vec3(0.0, 0.0, 2.0));
     let project = perspective(1.0, 4.0 / 3.0, 0.1..1000.0);
     let viewport = viewport(vec2(10, 10)..vec2(630, 470));
 
     win.run(|frame| {
         let secs = frame.t.as_secs_f32();
 
-        let mv: Mat4x4<ModelToView> = modelview
-            //.compose(&translate(vec3(0.0, 0.0, secs.sin())))
-            .compose(&rotate_y(rads(secs)))
-            .to();
-        let mvp = mv.then(&project);
+        let mvp = rotate_y(rads(secs))
+            .then(&translate(vec3(0.0, 0.0, 3.0 + secs.sin())))
+            .to()
+            .then(&project);
 
         render(
             [Tri([0, 1, 2]), Tri([3, 2, 1])],
@@ -54,7 +52,7 @@ fn main() {
             &mvp,
             viewport,
             &mut frame.buf,
-            &frame.win.ctx,
+            &frame.ctx,
         );
         Continue(())
     });
