@@ -12,6 +12,7 @@
 //! written into the framebuffer. Fragments that fail the test are discarded.
 
 use core::fmt::Debug;
+use core::iter::empty;
 use core::ops::Range;
 
 use crate::geom::Vertex;
@@ -33,8 +34,10 @@ pub struct Scanline<V: Vary> {
     pub y: usize,
     /// The range of x coordinates spanned by the line.
     pub xs: Range<usize>,
-    /// Iterator emitting the varyings on the line.
-    pub vs: <Varyings<V> as Vary>::Iter,
+    /// The range of varyings on the line.
+    pub vs: Range<Varyings<V>>,
+
+    pub dv_dx: <Varyings<V> as Vary>::Diff,
 }
 
 /// Iterator emitting scanlines, linearly interpolating values between the
@@ -42,7 +45,7 @@ pub struct Scanline<V: Vary> {
 pub struct ScanlineIter<V: Vary> {
     y: f32,
     left: <Varyings<V> as Vary>::Iter,
-    right: <f32 as Vary>::Iter,
+    right: <Varyings<V> as Vary>::Iter,
     dv_dx: <Varyings<V> as Vary>::Diff,
     n: u32,
 }
@@ -54,6 +57,27 @@ pub type ScreenVec = Vec3<Real<3, Screen>>;
 /// Values to interpolate across a rasterized primitive.
 pub type Varyings<V> = (ScreenVec, V);
 
+impl<V: Vary> Scanline<V> {
+    pub fn fragments(&self) -> impl Iterator<Item = Frag<V>> + '_ {
+        /*let mut vs = self
+            .vs
+            .clone()
+            .step_by(16)
+            .map(|v| v.z_div(v.0.z()));
+        let mut v0 = vs.next();
+
+        vs.flat_map(move |v1| {
+            let iter = v0.clone().unwrap().vary_to(v1.clone(), 16);
+
+            v0 = Some(v1);
+            iter
+        })
+        .map(|(pos, var)| Frag { pos, var })*/
+        todo!();
+        empty()
+    }
+}
+
 impl<V: Vary> Iterator for ScanlineIter<V> {
     type Item = Scanline<V>;
 
@@ -63,8 +87,9 @@ impl<V: Vary> Iterator for ScanlineIter<V> {
             return None;
         }
         let v0 = self.left.next()?;
-        let x1 = self.right.next()?;
+        let v1 = self.right.next()?;
         let y = self.y;
+        let dv_dx = self.dv_dx.clone();
 
         // Find the next pixel centers to the right
         //
@@ -74,12 +99,10 @@ impl<V: Vary> Iterator for ScanlineIter<V> {
         // Similarly, if x_right.fract() < 0.5 that's the "one-past-the-end"
         // pixel, otherwise it's the last covered pixel and the next one is
         // the actual one-past-the-end pixel.
-        let (x0, x1) = (round_up_to_half(v0.0.x()), round_up_to_half(x1));
+        let (x0, x1) = (round_up_to_half(v0.0.x()), round_up_to_half(v1.0.x()));
 
         // Adjust v0 to match the rounded x0
-        let v0 = v0.lerp(&v0.step(&self.dv_dx), x0 - v0.0.x());
-
-        let vs = v0.vary(self.dv_dx.clone(), Some((x1 - x0) as u32));
+        let v0 = v0.lerp(&v0.step(&dv_dx), x0 - v0.0.x());
 
         self.y += 1.0;
         self.n -= 1;
@@ -87,7 +110,8 @@ impl<V: Vary> Iterator for ScanlineIter<V> {
         Some(Scanline {
             y: y as usize,
             xs: x0 as usize..x1 as usize,
-            vs,
+            vs: v0..v1,
+            dv_dx,
         })
     }
 }
@@ -169,7 +193,7 @@ pub fn scan<V: Vary>(
     // dv/dy for the right edge
     let dr_dy = r0.dv_dt(r1, recip_dy);
 
-    // dv/dx is constant for the whole polygon; precompute it
+    // dv/dx is constant for the whole face; precompute it
     let dv_dx = {
         let (l0, r0) = (l0.step(&dl_dy), r0.step(&dr_dy));
         let dx = r0.0.x() - l0.0.x();
@@ -202,12 +226,12 @@ pub fn scan<V: Vary>(
 
     // Adjust varyings to correspond to the aligned y value
     let l0 = l0.lerp(&l0.step(&dl_dy), y_tweak);
-    let r0 = r0.0.x() + dr_dy.0.x() * y_tweak;
+    let r0 = r0.lerp(&r0.step(&dr_dy), y_tweak);
 
     ScanlineIter {
         y: y0_rounded,
         left: l0.vary(dl_dy, None),
-        right: r0.vary(dr_dy.0.x(), None),
+        right: r0.vary(dr_dy, None),
         dv_dx,
         n: (y1_rounded - y0_rounded) as u32, // saturates to 0
     }
@@ -232,8 +256,9 @@ mod tests {
     use core::iter::once;
 
     use crate::geom::vertex;
-    use crate::math::vec3;
-    use crate::render::raster::tri_fill;
+    use crate::math::vary::Vary;
+    use crate::math::vec::vec3;
+    use crate::render::raster::{tri_fill, Scanline};
     use crate::util::buf::Buf2;
 
     // TODO Test different orientations and various edge cases
@@ -309,10 +334,12 @@ mod tests {
 ";
         let mut s = "\n".to_string();
 
-        super::tri_fill(verts, |scanline| {
-            write!(s, "{:w$}", " ", w = scanline.xs.start).ok();
+        super::tri_fill(verts, |Scanline { xs, vs, dv_dx, .. }| {
+            write!(s, "{:w$}", " ", w = xs.start).ok();
 
-            for c in scanline.vs.map(|f| ((10.0 * f.0.z()) as u8)) {
+            let vs = vs.start.vary(dv_dx, Some(xs.len() as u32));
+
+            for c in vs.map(|f| ((10.0 * f.0.z()) as u8)) {
                 write!(s, "{c}").ok();
             }
             writeln!(s).ok();
