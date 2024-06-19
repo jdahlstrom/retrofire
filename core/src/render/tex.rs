@@ -50,6 +50,12 @@ pub struct Texture<D> {
     data: D,
 }
 
+pub struct Atlas<C> {
+    sub_w: u32,
+    sub_h: u32,
+    buf: Buf2<C>,
+}
+
 impl<D> Texture<D> {
     /// Returns the width of `Self` as `f32`.
     #[inline]
@@ -61,7 +67,31 @@ impl<D> Texture<D> {
     pub fn height(&self) -> f32 {
         self.h
     }
+    pub fn data(&self) -> &D {
+        &self.data
+    }
 }
+
+impl<C> Atlas<C> {
+    pub fn new(sub_w: u32, sub_h: u32, buf: Buf2<C>) -> Self {
+        Self { sub_w, sub_h, buf }
+    }
+
+    pub fn get(&self, i: u32) -> Texture<Slice2<C>> {
+        let Self { sub_w, sub_h, buf } = self;
+        let subs_per_row = buf.width() / sub_w;
+
+        let (x, y) = (i % subs_per_row * sub_w, i / subs_per_row * sub_h);
+
+        self.buf
+            .slice((x..x + sub_w, y..y + sub_h))
+            .into()
+    }
+}
+
+//
+// Trait impls
+//
 
 impl<C> From<Buf2<C>> for Texture<Buf2<C>> {
     /// Creates a new texture from owned pixel data.
