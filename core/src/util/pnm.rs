@@ -1,14 +1,14 @@
 //! PNM, also known as NetPBM, file format support.
 //!
 //! PNM is a venerable family of extremely simple image formats, each
-//! consisting of a simple textual header followed by either text or
+//! consisting of a simple textual header followed by either textual or
 //! binary pixel data.
 //!
-//! Type  | Magic | Pixel format
-//! ----- | ------| ------------
-//! PBM   | P1/P4 | 1 bpp monochrome
-//! PGM   | P2/P5 | 8 bpp grayscale
-//! PPM   | P3/P6 | 3x8 bpp RGB
+//! Type  | Txt | Bin | Pixel format
+//! ------+-----+-----+-----------------
+//! PBM   | P1  | P4  | 1 bpp monochrome
+//! PGM   | P2  | P5  | 8 bpp grayscale
+//! PPM   | P3  | P6  | 3x8 bpp RGB
 
 use alloc::{string::String, vec::Vec};
 use core::{
@@ -378,6 +378,32 @@ mod tests {
     }
 
     #[test]
+    fn parse_header_p2() {
+        assert_eq!(
+            Header::parse(*b"P2 123 456 789"),
+            Ok(Header {
+                format: TextGraymap,
+                width: 123,
+                height: 456,
+                max: 789,
+            })
+        );
+    }
+
+    #[test]
+    fn parse_header_p3() {
+        assert_eq!(
+            Header::parse(*b"P3 123 456 789"),
+            Ok(Header {
+                format: TextPixmap,
+                width: 123,
+                height: 456,
+                max: 789,
+            })
+        );
+    }
+
+    #[test]
     fn parse_header_p4() {
         assert_eq!(
             Header::parse(*b"P4 123 456 "),
@@ -393,12 +419,25 @@ mod tests {
     #[test]
     fn parse_header_p5() {
         assert_eq!(
-            Header::parse(*b"P5 123 456 64 "),
+            Header::parse(*b"P5 123 456 789 "),
             Ok(Header {
                 format: BinaryGraymap,
                 width: 123,
                 height: 456,
-                max: 64,
+                max: 789,
+            })
+        );
+    }
+
+    #[test]
+    fn parse_header_p6() {
+        assert_eq!(
+            Header::parse(*b"P6 123 456 789 "),
+            Ok(Header {
+                format: BinaryPixmap,
+                width: 123,
+                height: 456,
+                max: 789,
             })
         );
     }
@@ -434,12 +473,12 @@ mod tests {
         let mut out = Vec::new();
         let hdr = Header {
             format: Format::TextBitmap,
-            width: 16,
-            height: 32,
+            width: 123,
+            height: 456,
             max: 1,
         };
         hdr.write(&mut out).unwrap();
-        assert_eq!(&out, b"P1 16 32 \n");
+        assert_eq!(&out, b"P1 123 456 \n");
     }
 
     #[cfg(feature = "std")]
@@ -448,12 +487,27 @@ mod tests {
         let mut out = Vec::new();
         let hdr = Header {
             format: Format::BinaryPixmap,
-            width: 64,
-            height: 16,
-            max: 4,
+            width: 123,
+            height: 456,
+            max: 789,
         };
         hdr.write(&mut out).unwrap();
-        assert_eq!(&out, b"P6 64 16 4\n");
+        assert_eq!(&out, b"P6 123 456 789\n");
+    }
+
+    #[test]
+    fn read_pnm_p2() {
+        let data = *b"P2 2 2 128 \n 12 34 56 78";
+
+        let buf = read_pnm(data).unwrap();
+
+        assert_eq!(buf.width(), 2);
+        assert_eq!(buf.height(), 2);
+
+        assert_eq!(buf[[0, 0]], rgb(12, 12, 12));
+        assert_eq!(buf[[1, 0]], rgb(34, 34, 34));
+        assert_eq!(buf[[0, 1]], rgb(56, 56, 56));
+        assert_eq!(buf[[1, 1]], rgb(78, 78, 78));
     }
 
     #[test]
