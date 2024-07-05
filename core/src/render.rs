@@ -31,6 +31,7 @@ pub use {
     stats::Stats,
     target::{Framebuf, Target},
     tex::{uv, TexCoord, Texture},
+    text::Text,
 };
 
 pub mod batch;
@@ -42,6 +43,7 @@ pub mod shader;
 pub mod stats;
 pub mod target;
 pub mod tex;
+pub mod text;
 
 /// Model space coordinate basis.
 #[derive(Copy, Clone, Debug, Default, Eq, PartialEq)]
