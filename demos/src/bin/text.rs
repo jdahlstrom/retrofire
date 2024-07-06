@@ -1,14 +1,12 @@
 use std::ops::ControlFlow::Continue;
 
-use re::prelude::*;
-
 use re::math::space::Real;
-use re::render::tex::{uv, Atlas, SamplerClamp, TexCoord};
-use re::render::{render, Model, ModelToProj};
+use re::prelude::*;
+use re::render::{Model, ModelToProj, render};
+use re::render::tex::{Atlas, SamplerClamp, TexCoord, uv};
 use re::util::pnm::read_pnm;
-
-use re_front::minifb::Window;
 use re_front::Frame;
+use re_front::minifb::Window;
 
 fn main() {
     let verts: [Vertex<Vec3<Real<3, Model>>, _>; 4] = [
@@ -18,9 +16,9 @@ fn main() {
         vertex(vec3(1.0, 1.0, 0.0).to(), uv(1.0, 1.0)),
     ];
 
-    let font = *include_bytes!("../../../assets/font_12x20.pbm");
+    let font = *include_bytes!("../../../assets/font_16x24.pbm");
     let font = read_pnm(font).unwrap();
-    let (cw, ch) = dbg!((font.width() / 16, font.height() / 16));
+    let (cw, ch) = (font.width() / 16, font.height() / 16);
     let font = Atlas::new(cw, ch, font);
 
     let text = b"Hello, World! \x01";
