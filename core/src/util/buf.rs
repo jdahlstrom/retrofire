@@ -186,6 +186,12 @@ impl<T> AsSlice2<T> for Buf2<T> {
         self.0.as_slice2()
     }
 }
+impl<T> AsSlice2<T> for &Buf2<T> {
+    #[inline]
+    fn as_slice2(&self) -> Slice2<T> {
+        self.0.as_slice2()
+    }
+}
 impl<T> AsSlice2<T> for Slice2<'_, T> {
     #[inline]
     fn as_slice2(&self) -> Slice2<T> {
@@ -200,6 +206,12 @@ impl<T> AsSlice2<T> for MutSlice2<'_, T> {
 }
 
 impl<T> AsMutSlice2<T> for Buf2<T> {
+    #[inline]
+    fn as_mut_slice2(&mut self) -> MutSlice2<T> {
+        self.0.as_mut_slice2()
+    }
+}
+impl<T> AsMutSlice2<T> for &mut Buf2<T> {
     #[inline]
     fn as_mut_slice2(&mut self) -> MutSlice2<T> {
         self.0.as_mut_slice2()
