@@ -73,7 +73,7 @@ pub fn render<Vtx: Clone, Var: Vary, Uni: Copy, Shd>(
     verts: impl AsRef<[Vtx]>,
     shader: &Shd,
     uniform: Uni,
-    viewport_tf: Mat4x4<NdcToScreen>,
+    to_screen: Mat4x4<NdcToScreen>,
     target: &mut impl Target,
     ctx: &Context,
 ) where
@@ -123,7 +123,7 @@ pub fn render<Vtx: Clone, Var: Vary, Uni: Copy, Shd>(
             let pos = vec3(x, y, 1.0).z_div(w);
             Vertex {
                 // Viewport transform
-                pos: viewport_tf.apply(&pos.to()),
+                pos: to_screen.apply(&pos.to()),
                 // Perspective correction
                 attrib: v.attrib.z_div(w),
             }
