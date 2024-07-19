@@ -86,7 +86,7 @@ impl Default for Context {
             color_write: true,
             depth_test: Some(Ordering::Less),
             depth_write: true,
-            stats: RefCell::new(Stats::new()),
+            stats: Default::default(),
         }
     }
 }
