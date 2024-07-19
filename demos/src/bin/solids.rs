@@ -48,13 +48,10 @@ fn main() {
 
     let shader = Shader::new(
         |v: Vertex<_, Normal3>, mvp: &Mat4x4<ModelToProj>| {
-            let [x, y, z] = (128.0 * (v.attrib + splat(1.1))).0;
+            let [x, y, z] = (0.45 * (v.attrib + splat(1.1))).0;
             vertex(mvp.apply(&v.pos), rgb(x, y, z))
         },
-        |frag: Frag<Color3f>| {
-            let [r, g, b] = frag.var.0;
-            rgba(r as u8, g as u8, b as u8, 0)
-        },
+        |frag: Frag<Color3f>| frag.var.to_color4(),
     );
 
     let objs = [
