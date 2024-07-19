@@ -1,12 +1,11 @@
-use std::ops::ControlFlow::Continue;
+use core::ops::ControlFlow::Continue;
 
 use minifb::{Key, KeyRepeat};
 
 use re::prelude::*;
 
-use re::math::mat::RealToReal;
-use re::math::spline::smootherstep;
-use re::render::{render, ModelToProj};
+use re::math::{mat::RealToReal, spline::smootherstep};
+use re::render::{cam::Camera, ModelToProj, ModelToWorld};
 use re_front::minifb::Window;
 use re_geom::solids::*;
 
@@ -39,15 +38,18 @@ impl Carousel {
 }
 
 fn main() {
+    const W: u32 = 640;
+    const H: u32 = 480;
+
     eprintln!("Press Space to cycle between objects...");
 
     let mut win = Window::builder()
         .title("retrofire//solids")
-        .size(640, 480)
+        .size(W, H)
         .build();
 
     let shader = Shader::new(
-        |v: Vertex<_, Normal3>, mvp: &Mat4x4<ModelToProj>| {
+        |v: Vertex<_, Normal3>, (mvp, _): (&Mat4x4<ModelToProj>, _)| {
             let [x, y, z] = (0.45 * (v.attrib + splat(1.1))).0;
             vertex(mvp.apply(&v.pos), rgb(x, y, z))
         },
@@ -108,9 +110,11 @@ fn main() {
         .build(),
     ];
 
-    let camera = translate(vec3(0.0, 0.0, 4.0));
-    let project = perspective(1.5, 4.0 / 3.0, 0.1..1000.0);
-    let viewport = viewport(vec2(10, 10)..vec2(630, 470));
+    let camera = Camera::with_mode(W, H, Mat4x4::identity())
+        .perspective(1.5, 0.1..1000.0)
+        .viewport(vec2(10, 10)..vec2(W - 10, H - 10));
+
+    let translate = translate(vec3(0.0, 0.0, 4.0));
 
     let mut carousel = Carousel::default();
     win.run(|frame| {
@@ -120,11 +124,8 @@ fn main() {
             .compose(&rotate_x(rads(secs * 0.7)));
         let carouse = carousel.update(frame.dt.as_secs_f32());
 
-        let mvp: Mat4x4<ModelToProj> = spin
-            .then(&camera)
-            .then(&carouse)
-            .to()
-            .then(&project);
+        let model_to_world: Mat4x4<ModelToWorld> =
+            spin.then(&translate).then(&carouse).to();
 
         if frame
             .win
@@ -134,13 +135,13 @@ fn main() {
             carousel.start();
         }
 
-        let Mesh { faces, verts } = &objs[carousel.idx % objs.len()];
-        render(
-            &faces,
-            &verts,
+        let obj = &objs[carousel.idx % objs.len()];
+        camera.render(
+            &obj.faces,
+            &obj.verts,
+            &model_to_world,
             &shader,
-            &mvp,
-            viewport,
+            (),
             &mut frame.buf,
             &frame.ctx,
         );
