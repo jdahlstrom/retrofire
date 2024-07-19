@@ -56,8 +56,10 @@ pub type Varyings<V> = (ScreenVec, V);
 
 impl<V: Vary> Scanline<V> {
     pub fn fragments(&mut self) -> impl Iterator<Item = Frag<V>> + '_ {
-        self.vs.by_ref().map(|v| {
-            let (pos, var) = v.z_div(v.0.z());
+        self.vs.by_ref().map(|(pos, var)| {
+            // Perspective correct varyings
+            // TODO optimization: only every 16 or so pixels
+            let var = var.z_div(pos.z());
             Frag { pos, var }
         })
     }
@@ -240,10 +242,13 @@ mod tests {
     use alloc::string::{String, ToString};
     use core::iter::once;
 
+    use crate::assert_approx_eq;
     use crate::geom::vertex;
+    use crate::math::vary::Vary;
     use crate::math::vec3;
-    use crate::render::raster::tri_fill;
     use crate::util::buf::Buf2;
+
+    use super::{tri_fill, Frag, Scanline};
 
     // TODO Test different orientations and various edge cases
 
@@ -327,5 +332,40 @@ mod tests {
             writeln!(s).ok();
         });
         assert_eq!(s, expected);
+    }
+
+    #[test]
+    fn scanline_fragments_iter() {
+        let w0 = 2.0;
+        let w1 = 4.0;
+        let mut sl = Scanline {
+            y: 42,
+            xs: 8..16,
+            vs: Vary::vary_to(
+                (vec3(8.0, 42.0, 1.0 / w0).to(), 3.0.z_div(w0)),
+                (vec3(16.0, 42.0, 1.0 / w1).to(), 5.0.z_div(w1)),
+                8,
+            ),
+        };
+
+        // Perspective correct values
+        let zs = [
+            2.0f32, 2.1333334, 2.2857144, 2.4615386, 2.6666667, 2.909091, 3.2,
+            3.5555556, 4.0,
+        ];
+        let vars = [
+            3.0f32, 3.1333334, 3.2857144, 3.4615386, 3.6666667, 3.909091,
+            4.2000003, 4.555556, 5.0,
+        ];
+        let mut x = 8.0;
+
+        for ((Frag { pos, var }, z), v) in sl.fragments().zip(zs).zip(vars) {
+            assert_approx_eq!(pos, vec3(x, 42.0, z.recip()).to());
+            assert_approx_eq!(var, v);
+
+            x += 1.0;
+        }
+        // vary_to is inclusive
+        assert_eq!(x, 17.0);
     }
 }
