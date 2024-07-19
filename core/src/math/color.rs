@@ -69,6 +69,11 @@ pub const fn rgb<Ch>(r: Ch, g: Ch, b: Ch) -> Color<[Ch; 3], Rgb> {
 pub const fn rgba<Ch>(r: Ch, g: Ch, b: Ch, a: Ch) -> Color<[Ch; 4], Rgba> {
     Color([r, g, b, a], PhantomData)
 }
+/// Returns a new RGB color with all channels set to the same value.
+pub const fn gray<Ch: Copy>(lum: Ch) -> Color<[Ch; 3], Rgb> {
+    rgb(lum, lum, lum)
+}
+
 /// Returns a new HSL color with the given color channels.
 pub const fn hsl<Ch>(h: Ch, s: Ch, l: Ch) -> Color<[Ch; 3], Hsl> {
     Color([h, s, l], PhantomData)
@@ -568,10 +573,10 @@ mod tests {
     fn rgb_to_hsl() {
         let cases = [
             // Grays
-            (rgb(0, 0, 0), hsl(0, 0, 0)),
-            (rgb(64, 64, 64), hsl(0, 0, 64)),
-            (rgb(160, 160, 160), hsl(0, 0, 160)),
-            (rgb(255, 255, 255), hsl(0, 0, 255)),
+            (gray(0), hsl(0, 0, 0)),
+            (gray(64), hsl(0, 0, 64)),
+            (gray(160), hsl(0, 0, 160)),
+            (gray(255), hsl(0, 0, 255)),
             // 100% RGB
             (rgb(255, 0, 0), hsl(0, 255, 128)),
             (rgb(0, 255, 0), hsl(85, 255, 128)),
@@ -597,12 +602,13 @@ mod tests {
 
     #[test]
     fn hsl_to_rgb() {
+        // Not exactly the same as in `rgb_to_hsl` due to rounding errors
         let cases = [
             // Grays
-            (rgb(0, 0, 0), hsl(0, 0, 0)),
-            (rgb(64, 64, 64), hsl(0, 0, 64)),
-            (rgb(160, 160, 160), hsl(0, 0, 160)),
-            (rgb(255, 255, 255), hsl(0, 0, 255)),
+            (gray(0), hsl(0, 0, 0)),
+            (gray(64), hsl(0, 0, 64)),
+            (gray(160), hsl(0, 0, 160)),
+            (gray(255), hsl(0, 0, 255)),
             // 100% RGB
             (rgb(255, 0, 0), hsl(0, 255, 128)),
             (rgb(1, 255, 0), hsl(85, 255, 128)),
@@ -626,63 +632,39 @@ mod tests {
         }
     }
 
+    const RGB_HSL_FLOAT_CASES: [(Color3f, Color3f<Hsl>); 16] = [
+        // Grays
+        (gray(0.0), hsl(0.0, 0.0, 0.0)),
+        (gray(0.25), hsl(0.0, 0.0, 0.25)),
+        (gray(0.625), hsl(0.0, 0.0, 0.625)),
+        (gray(1.0), hsl(0.0, 0.0, 1.0)),
+        // 100% RGB
+        (rgb(1.0, 0.0, 0.0), hsl(0.0, 1.0, 0.5)),
+        (rgb(0.0, 1.0, 0.0), hsl(1.0 / 3.0, 1.0, 0.5)),
+        (rgb(0.0, 0.0, 1.0), hsl(2.0 / 3.0, 1.0, 0.5)),
+        // 100% CMY
+        (rgb(1.0, 1.0, 0.0), hsl(1.0 / 6.0, 1.0, 0.5)),
+        (rgb(1.0, 0.0, 1.0), hsl(5.0 / 6.0, 1.0, 0.5)),
+        (rgb(0.0, 1.0, 1.0), hsl(0.5, 1.0, 0.5)),
+        // 50% RGB
+        (rgb(0.5, 0.0, 0.0), hsl(0.0, 1.0, 0.25)),
+        (rgb(0.0, 0.5, 0.0), hsl(1.0 / 3.0, 1.0, 0.25)),
+        (rgb(0.0, 0.0, 0.5), hsl(2.0 / 3.0, 1.0, 0.25)),
+        // 50% CMY
+        (rgb(0.5, 0.5, 0.0), hsl(1.0 / 6.0, 1.0, 0.25)),
+        (rgb(0.5, 0.0, 0.5), hsl(5.0 / 6.0, 1.0, 0.25)),
+        (rgb(0.0, 0.5, 0.5), hsl(0.5, 1.0, 0.25)),
+    ];
+
     #[test]
     fn hsl_to_rgb_float() {
-        let cases = [
-            // Grays
-            (rgb(0.0, 0.0, 0.0), hsl(0.0, 0.0, 0.0)),
-            (rgb(0.25, 0.25, 0.25), hsl(0.0, 0.0, 0.25)),
-            (rgb(0.625, 0.625, 0.625), hsl(0.0, 0.0, 0.625)),
-            (rgb(1.0, 1.0, 1.0), hsl(0.0, 0.0, 1.0)),
-            // 100% RGB
-            (rgb(1.0, 0.0, 0.0), hsl(0.0, 1.0, 0.5)),
-            (rgb(0.0, 1.0, 0.0), hsl(1.0 / 3.0, 1.0, 0.5)),
-            (rgb(0.0, 0.0, 1.0), hsl(2.0 / 3.0, 1.0, 0.5)),
-            // 100% CMY
-            (rgb(1.0, 1.0, 0.0), hsl(1.0 / 6.0, 1.0, 0.5)),
-            (rgb(1.0, 0.0, 1.0), hsl(5.0 / 6.0, 1.0, 0.5)),
-            (rgb(0.0, 1.0, 1.0), hsl(0.5, 1.0, 0.5)),
-            // 50% RGB
-            (rgb(0.5, 0.0, 0.0), hsl(0.0, 1.0, 0.25)),
-            (rgb(0.0, 0.5, 0.0), hsl(1.0 / 3.0, 1.0, 0.25)),
-            (rgb(0.0, 0.0, 0.5), hsl(2.0 / 3.0, 1.0, 0.25)),
-            // 50% CMY
-            (rgb(0.5, 0.5, 0.0), hsl(1.0 / 6.0, 1.0, 0.25)),
-            (rgb(0.5, 0.0, 0.5), hsl(5.0 / 6.0, 1.0, 0.25)),
-            (rgb(0.0, 0.5, 0.5), hsl(0.5, 1.0, 0.25)),
-        ];
-
-        for (rgb, hsl) in cases {
+        for (rgb, hsl) in RGB_HSL_FLOAT_CASES {
             assert_eq!(hsl.to_rgb(), rgb, "{hsl:?} to {rgb:?}");
         }
     }
     #[test]
     fn rgb_to_hsl_float() {
-        let cases = [
-            // Grays
-            (rgb(0.0, 0.0, 0.0), hsl(0.0, 0.0, 0.0)),
-            (rgb(0.25, 0.25, 0.25), hsl(0.0, 0.0, 0.25)),
-            (rgb(0.625, 0.625, 0.625), hsl(0.0, 0.0, 0.625)),
-            (rgb(1.0, 1.0, 1.0), hsl(0.0, 0.0, 1.0)),
-            // 100% RGB
-            (rgb(1.0, 0.0, 0.0), hsl(0.0, 1.0, 0.5)),
-            (rgb(0.0, 1.0, 0.0), hsl(1.0 / 3.0, 1.0, 0.5)),
-            (rgb(0.0, 0.0, 1.0), hsl(2.0 / 3.0, 1.0, 0.5)),
-            // 100% CMY
-            (rgb(1.0, 1.0, 0.0), hsl(1.0 / 6.0, 1.0, 0.5)),
-            (rgb(1.0, 0.0, 1.0), hsl(5.0 / 6.0, 1.0, 0.5)),
-            (rgb(0.0, 1.0, 1.0), hsl(0.5, 1.0, 0.5)),
-            // 50% RGB
-            (rgb(0.5, 0.0, 0.0), hsl(0.0, 1.0, 0.25)),
-            (rgb(0.0, 0.5, 0.0), hsl(1.0 / 3.0, 1.0, 0.25)),
-            (rgb(0.0, 0.0, 0.5), hsl(2.0 / 3.0, 1.0, 0.25)),
-            // 50% CMY
-            (rgb(0.5, 0.5, 0.0), hsl(1.0 / 6.0, 1.0, 0.25)),
-            (rgb(0.5, 0.0, 0.5), hsl(5.0 / 6.0, 1.0, 0.25)),
-            (rgb(0.0, 0.5, 0.5), hsl(0.5, 1.0, 0.25)),
-        ];
-
-        for (rgb, hsl) in cases {
+        for (rgb, hsl) in RGB_HSL_FLOAT_CASES {
             assert_eq!(rgb.to_hsl(), hsl, "{rgb:?} to {hsl:?}");
         }
     }
