@@ -492,9 +492,10 @@ pub fn orient_z(new_z: Vec3, x: Vec3) -> Mat4x4<RealToReal<3>> {
 
 #[cfg(feature = "fp")]
 fn orient(new_y: Vec3, new_z: Vec3) -> Mat4x4<RealToReal<3>> {
-    use crate::math::{vec::splat, ApproxEq};
-    assert!(!new_y.approx_eq(&splat(0.0)));
-    assert!(!new_z.approx_eq(&splat(0.0)));
+    use crate::{math::ApproxEq, prelude::Linear};
+
+    assert!(!new_y.approx_eq(&Vec3::zero()));
+    assert!(!new_z.approx_eq(&Vec3::zero()));
 
     let new_x = new_y.cross(&new_z);
     Mat4x4::from_basis(new_x, new_y, new_z)
