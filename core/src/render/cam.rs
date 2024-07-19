@@ -64,7 +64,7 @@ pub struct FirstPerson {
 //
 
 impl<M: Mode> Camera<M> {
-    /// Returns a new camera with the given resolution.
+    /// Creates a camera with the given resolution.
     pub fn new(res_x: u32, res_y: u32) -> Self
     where
         M: Default,
@@ -72,7 +72,7 @@ impl<M: Mode> Camera<M> {
         Self::with_mode(res_x, res_y, M::default())
     }
 
-    /// Returns a new camera with the given resolution and mode.
+    /// Creates a camera with the given resolution and mode.
     pub fn with_mode(res_x: u32, res_y: u32, mode: M) -> Self {
         Self {
             res: (res_x, res_y),
@@ -154,7 +154,7 @@ impl<M: Mode> Camera<M> {
 }
 
 impl FirstPerson {
-    /// Returns a `FirstPerson` with position in the origin and heading
+    /// Creates a first-person mode with position in the origin and heading
     /// in the direction of the positive x-axis.
     pub fn new() -> Self {
         Self {
@@ -218,12 +218,19 @@ impl Mode for FirstPerson {
     }
 }
 
+impl Mode for Mat4x4<WorldToView> {
+    fn world_to_view(&self) -> Mat4x4<WorldToView> {
+        *self
+    }
+}
+
 //
 // Foreign trait impls
 //
 
 #[cfg(feature = "fp")]
 impl Default for FirstPerson {
+    /// Returns [`FirstPerson::new`].
     fn default() -> Self {
         Self::new()
     }
