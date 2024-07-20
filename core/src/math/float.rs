@@ -98,15 +98,15 @@ pub mod fallback {
     }
 }
 
-#[cfg(feature = "mm")]
-pub use mm as f32;
-
-#[cfg(all(feature = "libm", not(feature = "mm")))]
-pub use libm as f32;
-
-#[cfg(all(feature = "std", not(feature = "mm"), not(feature = "libm")))]
+#[cfg(feature = "std")]
 #[allow(non_camel_case_types)]
 pub type f32 = core::primitive::f32;
+
+#[cfg(all(feature = "libm", not(feature = "std")))]
+pub use libm as f32;
+
+#[cfg(all(feature = "mm", not(feature = "std"), not(feature = "libm")))]
+pub use mm as f32;
 
 #[cfg(not(feature = "fp"))]
 pub use fallback as f32;
