@@ -22,6 +22,7 @@ edition = "2021"
 version = "0.3.0"
 authors = ["Johannes 'Sharlin' Dahlström <johannes.dahlstrom@gmail.com>"]
 license = "MIT OR Apache-2.0"
+repository = "https://github.com/jdahlstrom/retrofire"
 keywords = ["graphics", "gamedev", "demoscene", "retrocomputing", "rendering"]
 categories = ["graphics", "game-development", "no-std"]
 
