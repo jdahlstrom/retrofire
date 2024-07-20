@@ -17,8 +17,8 @@ use crate::math::vec::Vector;
 ///
 /// # Type parameters
 /// * `Repr`: the representation of the components of `Self`.
-/// Color components are also called *channels*.
-/// * `Space`: the color space that `Self` is an element of.
+///   Color components are also called *channels*.
+/// * `Space`: the color space to which `Self` belongs.
 #[repr(transparent)]
 #[derive(Copy, Clone, Default, Eq, PartialEq)]
 pub struct Color<Repr, Space>(pub Repr, PhantomData<Space>);
@@ -32,6 +32,8 @@ pub struct Rgb;
 pub struct Rgba;
 
 /// Linear RGB (red, green, blue) color space.
+///
+/// TODO Document better
 #[derive(Copy, Clone, Debug, Default, Eq, PartialEq)]
 pub struct LinRgb;
 
@@ -90,7 +92,7 @@ pub const GAMMA: f32 = 2.2;
 /// Exponent for gamma conversion [from linear sRGB to sRGB][1].
 ///
 /// [1]: Color3f<LinRgb>::to_srgb
-pub const INV_GAMMA: f32 = 1.0 / GAMMA;
+pub const RECIP_GAMMA: f32 = 1.0 / GAMMA;
 
 //
 // Inherent impls
@@ -296,7 +298,7 @@ impl Color3f<LinRgb> {
     #[cfg(feature = "fp")]
     #[inline]
     pub fn to_srgb(self) -> Color3f<Rgb> {
-        self.0.map(|c| f32::powf(c, INV_GAMMA)).into()
+        self.0.map(|c| f32::powf(c, RECIP_GAMMA)).into()
     }
 }
 
@@ -479,18 +481,18 @@ where
 
 impl<Sp, const DIM: usize> Affine for Color<[u8; DIM], Sp> {
     type Space = Sp;
-    type Diff = Vector<[i16; DIM], Sp>;
+    type Diff = Vector<[i32; DIM], Sp>;
 
     const DIM: usize = DIM;
 
     fn add(&self, other: &Self::Diff) -> Self {
         array::from_fn(|i| {
-            (i16::from(self.0[i]) + other.0[i]).clamp(0, u8::MAX as i16) as u8
+            (i32::from(self.0[i]) + other.0[i]).clamp(0, u8::MAX as i32) as u8
         })
         .into()
     }
     fn sub(&self, other: &Self) -> Self::Diff {
-        array::from_fn(|i| i16::from(self.0[i]) - i16::from(other.0[i])).into()
+        array::from_fn(|i| i32::from(self.0[i]) - i32::from(other.0[i])).into()
     }
 }
 
@@ -505,7 +507,7 @@ impl<Sp, const DIM: usize> Affine for Color<[f32; DIM], Sp> {
         array::from_fn(|i| self.0[i] + other.0[i]).into()
     }
     #[inline]
-    fn sub(&self, other: &Self) -> Self::Diff {
+    fn sub(&self, other: &Self) -> Self {
         array::from_fn(|i| self.0[i] - other.0[i]).into()
     }
 }
@@ -522,7 +524,7 @@ impl<Sp, const DIM: usize> Linear for Color<[f32; DIM], Sp> {
         array::from_fn(|i| -self.0[i]).into()
     }
     #[inline]
-    fn mul(&self, scalar: Self::Scalar) -> Self {
+    fn mul(&self, scalar: f32) -> Self {
         array::from_fn(|i| self.0[i] * scalar).into()
     }
 }

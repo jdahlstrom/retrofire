@@ -29,19 +29,6 @@ pub trait Affine: Sized {
     fn sub(&self, other: &Self) -> Self::Diff;
 }
 
-impl Affine for f32 {
-    type Space = ();
-    type Diff = Self;
-    const DIM: usize = 1;
-
-    fn add(&self, other: &Self) -> Self {
-        self + other
-    }
-    fn sub(&self, other: &Self) -> Self {
-        self - other
-    }
-}
-
 /// Trait for types representing elements of a linear space (vector space).
 ///
 /// A `Linear` type is a type that is `Affine` and
@@ -89,11 +76,75 @@ pub struct Real<const DIM: usize, Basis = ()>(PhantomData<Basis>);
 #[derive(Copy, Clone, Debug, Default, Eq, PartialEq)]
 pub struct Proj4;
 
+//
+// Local trait impls
+//
+
+impl Affine for f32 {
+    type Space = ();
+    type Diff = Self;
+    const DIM: usize = 1;
+
+    fn add(&self, other: &Self) -> Self {
+        self + other
+    }
+    fn sub(&self, other: &Self) -> Self {
+        self - other
+    }
+}
+
+impl Affine for i32 {
+    type Space = ();
+    type Diff = Self;
+    const DIM: usize = 1;
+
+    fn add(&self, other: &Self) -> Self {
+        self + other
+    }
+    fn sub(&self, other: &Self) -> Self {
+        self - other
+    }
+}
+
+impl Affine for u32 {
+    type Space = ();
+    type Diff = i32;
+    const DIM: usize = 1;
+
+    fn add(&self, other: &i32) -> Self {
+        let (sum, o) = self.overflowing_add_signed(*other);
+        debug_assert!(!o, "overflow adding {other}_i32 to {self}_u32");
+        sum
+    }
+    fn sub(&self, other: &Self) -> i32 {
+        let diff = *self as i64 - *other as i64;
+        debug_assert!(
+            i32::try_from(diff).is_ok(),
+            "overflow subtracting {other}_u32 from {self}_u32"
+        );
+        diff as i32
+    }
+}
+
 impl Linear for f32 {
     type Scalar = Self;
 
     fn zero() -> Self {
         0.0
+    }
+    fn neg(&self) -> Self {
+        -*self
+    }
+    fn mul(&self, scalar: Self) -> Self {
+        self * scalar
+    }
+}
+
+impl Linear for i32 {
+    type Scalar = Self;
+
+    fn zero() -> Self {
+        0
     }
     fn neg(&self) -> Self {
         -*self
@@ -127,5 +178,45 @@ where
 
     fn z_div(&self, z: f32) -> Self {
         self.mul(z.recip())
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn u32_affine_add() {
+        assert_eq!(1_u32.add(&2_i32), 3_u32);
+        assert_eq!(3_u32.add(&-2_i32), 1_u32);
+    }
+
+    #[test]
+    #[should_panic]
+    fn u32_affine_add_underflow_should_panic() {
+        _ = 3_u32.add(&-4_i32);
+    }
+
+    #[test]
+    #[should_panic]
+    fn u32_affine_add_overflow_should_panic() {
+        _ = (u32::MAX / 2 + 2).add(&i32::MAX);
+    }
+
+    #[test]
+    fn u32_affine_sub() {
+        assert_eq!(3_u32.sub(&2_u32), 1_i32);
+        assert_eq!(3_u32.sub(&4_u32), -1_i32);
+    }
+
+    #[test]
+    #[should_panic]
+    fn u32_affine_sub_underflow_should_panic() {
+        _ = 3_u32.sub(&u32::MAX);
+    }
+    #[test]
+    #[should_panic]
+    fn u32_affine_sub_overflow_should_panic() {
+        _ = u32::MAX.sub(&1_u32);
     }
 }

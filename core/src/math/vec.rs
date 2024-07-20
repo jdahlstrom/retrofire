@@ -295,50 +295,45 @@ where
 
 impl<Sc, Sp, const DIM: usize> Affine for Vector<[Sc; DIM], Sp>
 where
-    // TODO bundle into Scalar trait?
-    Sc: Copy
-        + Default
-        + Add<Output = Sc>
-        + Sub<Output = Sc>
-        + Neg<Output = Sc>
-        + Mul<Output = Sc>,
+    Sc: Affine + Copy,
+    Sc::Diff: Linear<Scalar = Sc::Diff> + Copy,
 {
     type Space = Sp;
-    type Diff = Self;
+    type Diff = Vector<[<Sc as Affine>::Diff; DIM], Sp>;
 
     /// The dimension (number of components) of `Self`.
     const DIM: usize = DIM;
 
     #[inline]
-    fn add(&self, other: &Self) -> Self {
+    fn add(&self, other: &Self::Diff) -> Self {
         // TODO Profile performance of array::from_fn
-        array::from_fn(|i| self.0[i] + other.0[i]).into()
+        array::from_fn(|i| self.0[i].add(&other.0[i])).into()
     }
     #[inline]
-    fn sub(&self, other: &Self) -> Self {
-        array::from_fn(|i| self.0[i] - other.0[i]).into()
+    fn sub(&self, other: &Self) -> Self::Diff {
+        array::from_fn(|i| self.0[i].sub(&other.0[i])).into()
     }
 }
 
 impl<Sc, Sp, const DIM: usize> Linear for Vector<[Sc; DIM], Sp>
 where
-    Self: Affine<Diff = Self>,
-    Sc: Copy + Default + Neg<Output = Sc> + Mul<Output = Sc>,
+    Self: Affine<Space = Sp, Diff = Self>,
+    Sc: Linear<Scalar = Sc> + Copy,
 {
     type Scalar = Sc;
 
     /// Returns a vector with all-zero components, also called a null vector.
     #[inline]
     fn zero() -> Self {
-        array::from_fn(|_| Sc::default()).into()
+        array::from_fn(|_| Sc::zero()).into()
     }
     #[inline]
     fn neg(&self) -> Self {
-        array::from_fn(|i| -self.0[i]).into()
+        array::from_fn(|i| self.0[i].neg()).into()
     }
     #[inline]
-    fn mul(&self, scalar: Self::Scalar) -> Self {
-        array::from_fn(|i| self.0[i] * scalar).into()
+    fn mul(&self, scalar: Sc) -> Self {
+        array::from_fn(|i| Linear::mul(&self.0[i], scalar)).into()
     }
 }
 
@@ -471,7 +466,7 @@ macro_rules! impl_op {
             Self: $bnd,
         {
             type Output = Self;
-            /// TODO
+
             #[inline]
             fn $method(mut self, rhs: $rhs) -> Self {
                 self $op rhs; self
@@ -481,38 +476,40 @@ macro_rules! impl_op {
 }
 
 /// The vector += vector operator.
-impl<R, Sp> AddAssign for Vector<R, Sp>
+impl<D, R, Sp> AddAssign<D> for Vector<R, Sp>
 where
-    Self: Linear,
+    Self: Affine<Diff = D>,
+    D: Linear,
 {
     #[inline]
-    fn add_assign(&mut self, rhs: Self) {
+    fn add_assign(&mut self, rhs: D) {
         *self = Affine::add(&*self, &rhs);
     }
 }
 // The vector + vector operator.
-impl_op!(Add::add, Self, +=);
+impl_op!(Add::add, <Self as Affine>::Diff, +=, bound = Affine);
 
 /// The vector -= vector operator.
-impl<R, Sp> SubAssign for Vector<R, Sp>
+impl<D, R, Sp> SubAssign<D> for Vector<R, Sp>
 where
-    Self: Linear,
+    Self: Affine<Diff = D>,
+    D: Linear,
 {
     #[inline]
-    fn sub_assign(&mut self, rhs: Self) {
-        *self = Affine::sub(&*self, &rhs);
+    fn sub_assign(&mut self, rhs: D) {
+        *self = Affine::add(&*self, &rhs.neg());
     }
 }
 // The vector - vector operator.
-impl_op!(Sub::sub, Self, -=);
+impl_op!(Sub::sub, <Self as Affine>::Diff, -=, bound = Affine);
 
 // The vector *= scalar operator.
-impl<R, Sp> MulAssign<<Self as Linear>::Scalar> for Vector<R, Sp>
+impl<Sc, R, Sp> MulAssign<Sc> for Vector<R, Sp>
 where
-    Self: Linear,
+    Self: Linear<Scalar = Sc>,
 {
     #[inline]
-    fn mul_assign(&mut self, rhs: <Self as Linear>::Scalar) {
+    fn mul_assign(&mut self, rhs: Sc) {
         *self = Linear::mul(&*self, rhs);
     }
 }
@@ -526,7 +523,7 @@ where
 {
     #[inline]
     fn div_assign(&mut self, rhs: f32) {
-        debug_assert!(f32::abs(rhs) > 1e-7);
+        debug_assert!(!rhs.approx_eq(&0.0));
         *self = Linear::mul(&*self, rhs.recip());
     }
 }
@@ -653,6 +650,40 @@ mod tests {
             assert_eq!(Vec2i::from([1, -2]), vec2(1, -2));
             assert_eq!(Vec3i::from([1, -2, 3]), vec3(1, -2, 3));
             assert_eq!(Vec4i::from([1, -2, 3, -4]), vec4(1, -2, 3, -4));
+        }
+    }
+
+    mod u32 {
+        use super::*;
+
+        #[test]
+        fn vector_addition() {
+            assert_eq!(vec2(3u32, 2) + vec2(-2i32, 1), vec2(1, 3));
+            assert_eq!(vec3(3u32, 2, 1) + vec3(-2, 1, -1), vec3(1, 3, 0));
+        }
+
+        #[test]
+        fn vector_subtraction() {
+            assert_eq!(vec2(3u32, 2) - vec2(2i32, 2), vec2(1, 0));
+            assert_eq!(vec2(3u32, 2) - vec2(2i32, -2), vec2(1, 4));
+            assert_eq!(vec3(3u32, 2, 1) + vec3(-2, 1, -1), vec3(1, 3, 0));
+        }
+
+        #[test]
+        #[should_panic]
+        fn vector_addition_overflow_should_panic() {
+            _ = vec2(1u32, 2) + vec2(-2i32, 1i32);
+        }
+
+        #[test]
+        #[should_panic]
+        fn vector_subtraction_overflow_should_panic() {
+            _ = vec2(1u32, 2) - vec2(2i32, 1i32);
+        }
+
+        #[test]
+        fn from_array() {
+            assert_eq!(Vec2u::from([1, 2]), vec2(1, 2));
         }
     }
 
