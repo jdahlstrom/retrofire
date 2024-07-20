@@ -8,6 +8,7 @@ authors.workspace = true
 license.workspace = true
 keywords.workspace = true
 categories.workspace = true
+repository.workspace = true
 
 [dependencies]
 re = { path = "../core", package="retrofire-core" }
