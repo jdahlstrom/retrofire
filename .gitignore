@@ -1,5 +1,8 @@
 /target
 /Cargo.lock
 /.idea
+/.vscode
+/tmp
 *.iml
 *.DS_Store
+
