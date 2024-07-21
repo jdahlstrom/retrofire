@@ -22,7 +22,7 @@
 //!   Makes available items requiring I/O, timekeeping, or any floating-point
 //!   functions not included in `core`. In particular this means trigonometric
 //!   and transcendental functions.
-//!   
+//!
 //!   If this feature is disabled, the crate only depends on `alloc`.
 //!
 //! * `libm`:
@@ -67,7 +67,7 @@ pub mod prelude {
         },
     };
 
-    pub use crate::geom::{vertex, Mesh, Tri, Vertex};
+    pub use crate::geom::{vertex, Mesh, Normal2, Normal3, Tri, Vertex};
 
     pub use crate::render::{raster::Frag, shader::Shader};
 
