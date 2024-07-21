@@ -67,16 +67,15 @@ impl<'t> Builder<'t> {
     }
 
     /// Creates the window.
-    pub fn build(self) -> Window {
+    pub fn build(self) -> minifb::Result<Window> {
         let Self { dims, title, target_fps, opts } = self;
         let mut imp =
-            minifb::Window::new(title, dims.0 as usize, dims.1 as usize, opts)
-                .unwrap();
+            minifb::Window::new(title, dims.0 as usize, dims.1 as usize, opts)?;
         if let Some(fps) = target_fps {
             imp.set_target_fps(fps as usize);
         }
         let ctx = Context::default();
-        Window { imp, dims, ctx }
+        Ok(Window { imp, dims, ctx })
     }
 }
 

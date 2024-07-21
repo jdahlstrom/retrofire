@@ -51,7 +51,8 @@ fn main() {
 
     let mut win = Window::builder()
         .title("retrofire//solids")
-        .build();
+        .build()
+        .expect("should create window");
 
     win.ctx.color_clear = Some(gray(32).to_rgba());
 
