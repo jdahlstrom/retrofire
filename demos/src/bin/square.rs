@@ -17,7 +17,8 @@ fn main() {
     let mut win = Window::builder()
         .title("retrofire//square")
         .size(640, 480)
-        .build();
+        .build()
+        .unwrap_or_else(|e| panic!("Could not create window: {e}"));
 
     win.ctx.face_cull = None;
 
@@ -54,5 +55,6 @@ fn main() {
             &frame.ctx,
         );
         Continue(())
-    });
+    })
+    .expect("error in main loop");
 }

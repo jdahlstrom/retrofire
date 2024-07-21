@@ -20,7 +20,8 @@ pub fn start() {
 
     console_error_panic_hook::set_once();
 
-    let mut win = Window::new(W, H).expect("could not create window");
+    let mut win = Window::new(W, H)
+        .unwrap_or_else(|e| panic!("Could not create window: {e}"));
     win.ctx.color_clear = Some(rgba(0, 0, 0, 0x80));
 
     let vs = [

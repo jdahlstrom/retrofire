@@ -4,24 +4,24 @@ use std::{mem::replace, ops::ControlFlow, time::Instant};
 
 use sdl2::{event::Event, keyboard::Keycode, render::Texture};
 
-use retrofire_core::{
-    math::Vary,
-    render::ctx::Context,
-    render::raster::{Frag, Scanline},
-    render::shader::FragmentShader,
-    render::stats::Throughput,
-    render::target::Target,
-    util::buf::{Buf2, MutSlice2},
+use retrofire_core::math::Vary;
+use retrofire_core::render::{
+    ctx::Context,
+    raster::{Frag, Scanline},
+    shader::FragmentShader,
+    stats::Throughput,
+    target::Target,
 };
+use retrofire_core::util::buf::{Buf2, MutSlice2};
 
 use crate::Frame;
 
 /// A lightweight wrapper of an `SDL2` window.
 pub struct Window {
     /// The SDL canvas.
-    pub cvs: sdl2::render::WindowCanvas,
+    pub canvas: sdl2::render::WindowCanvas,
     /// The SDL event pump.
-    pub ep: sdl2::EventPump,
+    pub ev_pump: sdl2::EventPump,
     /// The width and height of the window.
     pub size: (u32, u32),
     /// Rendering context defaults.
@@ -70,35 +70,32 @@ impl<'t> Builder<'t> {
     }
 
     /// Creates the window.
-    pub fn build(self) -> Window {
+    pub fn build(self) -> Result<Window, String> {
         let Self { size, title, vsync } = self;
 
-        let sdl = sdl2::init().expect("could not initialize SDL");
+        let sdl = sdl2::init()?;
 
-        let mut cvs = sdl
-            .video()
-            .expect("could not get SDL video subsystem")
+        let mut canvas = sdl
+            .video()?
             .window(title, size.0, size.1)
             .build()
-            .expect("could not open SDL window")
+            .map_err(|e| e.to_string())?
             .into_canvas();
 
         if vsync {
-            cvs = cvs.present_vsync();
+            canvas = canvas.present_vsync();
         }
 
-        let cvs = cvs
+        let canvas = canvas
             .accelerated()
             .build()
-            .expect("could not create SDL canvas");
+            .map_err(|e| e.to_string())?;
 
-        let ep = sdl
-            .event_pump()
-            .expect("could not get SDL event pump");
+        let ev_pump = sdl.event_pump()?;
 
         let ctx = Context::default();
 
-        Window { cvs, ep, size, ctx }
+        Ok(Window { canvas, ev_pump, size, ctx })
     }
 }
 
@@ -108,11 +105,10 @@ impl Window {
         Builder::default()
     }
 
-    pub fn present(&mut self, tex: &Texture) {
-        self.cvs
-            .copy(&tex, None, None)
-            .expect("could not copy frame to canvas");
-        self.cvs.present();
+    pub fn present(&mut self, tex: &Texture) -> Result<(), String> {
+        self.canvas.copy(&tex, None, None)?;
+        self.canvas.present();
+        Ok(())
     }
 
     /// Runs the main loop of the program, invoking the callback on each
@@ -122,16 +118,16 @@ impl Window {
     /// * the user closes the window via the GUI (e.g. title bar close button);
     /// * the Esc key is pressed; or
     /// * the callback returns `ControlFlow::Break`.
-    pub fn run<F>(&mut self, mut frame_fn: F)
+    pub fn run<F>(&mut self, mut frame_fn: F) -> Result<(), String>
     where
         F: FnMut(&mut Frame<Self, Framebuf>) -> ControlFlow<()>,
     {
         let (w, h) = self.size;
 
-        let tc = self.cvs.texture_creator();
+        let tc = self.canvas.texture_creator();
         let mut tex = tc
             .create_texture_streaming(None, w, h)
-            .expect("could not create output texture");
+            .map_err(|e| e.to_string())?;
 
         let mut zbuf = Buf2::new(w, h);
         let mut ctx = self.ctx.clone();
@@ -139,7 +135,7 @@ impl Window {
         let start = Instant::now();
         let mut last = Instant::now();
         'main: loop {
-            for e in self.ep.poll_iter() {
+            for e in self.ev_pump.poll_iter() {
                 match e {
                     Event::Quit { .. }
                     | Event::KeyDown {
@@ -149,35 +145,33 @@ impl Window {
                 }
             }
 
-            if let Some(c) = ctx.depth_clear {
-                zbuf.fill(c);
-            }
+            let cf = tex.with_lock(None, |cbuf, pitch| {
+                if let Some(c) = ctx.depth_clear {
+                    zbuf.fill(c);
+                }
+                if let Some(c) = ctx.color_clear {
+                    let [r, g, b, a] = c.0;
+                    let mut iter = [b, g, r, a].into_iter().cycle();
+                    cbuf.fill_with(|| iter.next().expect("infinite iterator"));
+                }
 
-            let cf = tex
-                .with_lock(None, |cbuf, pitch| {
-                    if let Some(c) = ctx.color_clear {
-                        let [r, g, b, a] = c.0;
-                        let mut iter = [b, g, r, a].into_iter().cycle();
-                        cbuf.fill_with(|| iter.next().unwrap());
-                    }
+                let buf = Framebuf {
+                    color_buf: MutSlice2::new(4 * w, h, pitch as u32, cbuf),
+                    depth_buf: zbuf.as_mut_slice2(),
+                };
 
-                    let color_buf =
-                        MutSlice2::new(4 * w, h, pitch as u32, cbuf);
-                    let depth_buf = zbuf.as_mut_slice2();
+                let frame = &mut Frame {
+                    t: start.elapsed(),
+                    dt: replace(&mut last, Instant::now()).elapsed(),
+                    buf,
+                    win: self,
+                    ctx: &mut ctx,
+                };
 
-                    let frame = &mut Frame {
-                        t: start.elapsed(),
-                        dt: replace(&mut last, Instant::now()).elapsed(),
-                        buf: Framebuf { color_buf, depth_buf },
-                        win: self,
-                        ctx: &mut ctx,
-                    };
+                frame_fn(frame)
+            })?;
 
-                    frame_fn(frame)
-                })
-                .expect("could not render to texture");
-
-            self.present(&tex);
+            self.present(&tex)?;
             ctx.stats.borrow_mut().frames += 1.0;
 
             if cf.is_break() {
@@ -185,6 +179,7 @@ impl Window {
             }
         }
         println!("{}", ctx.stats.borrow());
+        Ok(())
     }
 }
 
