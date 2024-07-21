@@ -5,18 +5,14 @@ use core::ops::Range;
 
 use alloc::{vec, vec::Vec};
 
-use re::geom::{mesh::Builder, vertex, Mesh, Vertex};
-use re::math::angle::{degs, polar, turns, Angle};
-use re::math::mat::rotate_y;
-use re::math::vary::Vary;
-//use re::math::space::{Affine, Linear};
-use re::math::vec::{splat, vec2, vec3, Vec2, Vec3};
+use re::geom::{mesh::Builder, vertex, Mesh, Normal2, Normal3, Vertex};
+use re::math::{
+    angle::{degs, polar, turns, Angle},
+    mat::rotate_y,
+    vary::Vary,
+    vec::{splat, vec2, vec3, Vec2, Vec3},
+};
 use re::render::tex::{uv, TexCoord};
-
-/// A surface normal.
-// TODO Use distinct type rather than alias
-pub type Normal3 = Vec3;
-pub type Normal2 = Vec2;
 
 /// A regular tetrahedron.
 ///
