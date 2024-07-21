@@ -2,8 +2,7 @@ use std::ops::ControlFlow::*;
 
 use re::prelude::*;
 
-use re::render::tex::{uv, SamplerClamp, TexCoord, Texture};
-use re::render::{render, Model, ModelToProj};
+use re::render::{ctx::Context, render, tex::SamplerClamp, Model, ModelToProj};
 use re_front::minifb::Window;
 
 fn main() {
@@ -16,9 +15,16 @@ fn main() {
 
     let mut win = Window::builder()
         .title("retrofire//square")
-        .build();
+        .build()
+        .expect("should create window");
 
-    win.ctx.face_cull = None;
+    win.ctx = Context {
+        face_cull: None,
+        depth_test: None,
+        depth_clear: None,
+        depth_write: false,
+        ..win.ctx
+    };
 
     let checker = Texture::from(Buf2::new_with((8, 8), |x, y| {
         let xor = (x ^ y) & 1;
