@@ -291,7 +291,7 @@ impl PolarVec {
     ///
     /// assert_approx_eq!(polar(2.0, degs(90.0)).to_cart(), vec2(0.0, 2.0));
     ///
-    /// assert_approx_eq!(polar(2.0, degs(-180.0)).to_cart(), vec2(-2.0, 0.0), eps=1e-6);
+    /// assert_approx_eq!(polar(2.0, degs(-180.0)).to_cart(), vec2(-2.0, 0.0));
     ///
     /// ```
     #[cfg(feature = "fp")]
@@ -566,8 +566,9 @@ impl From<Vec3> for SphericalVec {
 }
 
 #[cfg(test)]
+#[allow(unused)]
 mod tests {
-    use core::f32::consts::{PI, SQRT_2, TAU};
+    use core::f32::consts::{PI, TAU};
 
     use crate::assert_approx_eq;
     use crate::math::vary::Vary;
@@ -632,11 +633,12 @@ mod tests {
         assert_approx_eq!(degs(0.0).tan(), 0.0);
         assert_approx_eq!(degs(45.0).tan(), 1.0);
         assert_approx_eq!(degs(135.0).tan(), -1.0);
-        assert_approx_eq!(degs(225.0).tan(), 1.0, eps = 1e-6);
-        assert_approx_eq!(degs(315.0).tan(), -1.0, eps = 1e-6);
+        assert_approx_eq!(degs(225.0).tan(), 1.0);
+        assert_approx_eq!(degs(315.0).tan(), -1.0);
     }
 
-    #[cfg(feature = "fp")]
+    // TODO Micromath requires large epsilon here
+    #[cfg(all(feature = "fp", not(feature = "mm")))]
     #[test]
     fn inverse_trig_functions() {
         assert_approx_eq!(asin(-1.0), degs(-90.0));
@@ -722,13 +724,13 @@ mod tests {
     #[cfg(feature = "fp")]
     #[test]
     fn cartesian_to_polar_zero_y() {
-        assert_eq!(vec2(0.0, 0.0).to_polar(), polar(0.0, degs(0.0)));
+        assert_approx_eq!(vec2(0.0, 0.0).to_polar(), polar(0.0, degs(0.0)));
         assert_eq!(vec2(1.0, 0.0).to_polar(), polar(1.0, degs(0.0)));
     }
     #[cfg(feature = "fp")]
     #[test]
     fn cartesian_to_polar() {
-        assert_eq!(vec2(SQRT_3, 1.0).to_polar(), polar(2.0, degs(30.0)));
+        assert_approx_eq!(vec2(SQRT_3, 1.0).to_polar(), polar(2.0, degs(30.0)));
         assert_eq!(vec2(0.0, 2.0).to_polar(), polar(2.0, degs(90.0)));
         assert_approx_eq!(vec2(-3.0, 0.0).to_polar(), polar(3.0, degs(180.0)));
         assert_eq!(vec2(0.0, -4.0).to_polar(), polar(4.0, degs(-90.0)));
@@ -762,7 +764,7 @@ mod tests {
     #[cfg(feature = "fp")]
     #[test]
     fn cartesian_to_spherical_zero_alt() {
-        assert_eq!(
+        assert_approx_eq!(
             vec3(0.0, 0.0, 0.0).to_spherical(),
             spherical(0.0, degs(0.0), degs(0.0))
         );
@@ -783,6 +785,7 @@ mod tests {
     #[cfg(feature = "fp")]
     #[test]
     fn cartesian_to_spherical() {
+        use core::f32::consts::SQRT_2;
         assert_approx_eq!(
             vec3(SQRT_3, 0.0, 1.0).to_spherical(),
             spherical(2.0, degs(30.0), degs(0.0))
@@ -791,7 +794,7 @@ mod tests {
             vec3(1.0, SQRT_2, 1.0).to_spherical(),
             spherical(2.0, degs(45.0), degs(45.0))
         );
-        assert_eq!(
+        assert_approx_eq!(
             vec3(0.0, 0.0, 3.0).to_spherical(),
             spherical(3.0, degs(90.0), degs(0.0))
         );

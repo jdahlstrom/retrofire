@@ -566,7 +566,7 @@ where
 
 #[cfg(test)]
 mod tests {
-    use core::f32::consts::{E, PI};
+    use core::f32::consts::*;
 
     use crate::assert_approx_eq;
 
@@ -578,8 +578,22 @@ mod tests {
         #[cfg(feature = "fp")]
         #[test]
         fn length() {
-            assert_eq!(vec2(3.0, 4.0).len(), 5.0);
-            assert_eq!(vec2(-4.0, 3.0).len(), 5.0);
+            assert_approx_eq!(vec2(1.0, 1.0).len(), SQRT_2);
+            assert_approx_eq!(vec2(-3.0, 4.0).len(), 5.0);
+        }
+
+        #[test]
+        fn length_squared() {
+            assert_eq!(vec2(1.0, 1.0).len_sqr(), 2.0);
+            assert_eq!(vec2(-4.0, 3.0).len_sqr(), 25.0);
+        }
+
+        #[test]
+        fn normalize() {
+            crate::assert_approx_eq!(
+                vec2(3.0, 4.0).normalize(),
+                vec2(0.6, 0.8)
+            );
         }
 
         #[test]
@@ -682,7 +696,8 @@ mod tests {
     #[test]
     #[should_panic]
     fn approx_equal_fail() {
-        assert_approx_eq!(vec2(1.0, -10.0), vec2(1.0 + 1e-5, -10.0 - 1e-5));
+        let eps = 2.0 * f32::relative_epsilon();
+        assert_approx_eq!(vec2(1.0, -10.0), vec2(1.0 + eps, -10.0 - eps));
     }
 
     // TODO Tests for normalize, projections, Affine/Linear impls...
