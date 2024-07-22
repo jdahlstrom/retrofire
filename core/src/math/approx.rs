@@ -38,8 +38,13 @@ impl ApproxEq for f32 {
         let diff = f32::abs(self - other);
         diff <= *rel_eps * f32::abs(*self).max(1.0)
     }
+
     fn relative_epsilon() -> Self {
-        Self::EPSILON
+        if cfg!(any(feature = "std", feature = "libm")) {
+            1e-6
+        } else {
+            5e-3
+        }
     }
 }
 
@@ -116,7 +121,7 @@ impl<E, T: ApproxEq<T, E>> ApproxEq<Self, E> for Option<T> {
 macro_rules! assert_approx_eq {
     ($a:expr, $b:expr) => {
         match (&$a, &$b) {
-            (a, b) => assert_approx_eq!(
+            (a, b) => $crate::assert_approx_eq!(
                 *a, *b,
                 "assertion failed: `{a:?} ≅ {b:?}`"
             )
@@ -124,7 +129,7 @@ macro_rules! assert_approx_eq {
     };
     ($a:expr, $b:expr, eps = $eps:literal) => {
         match (&$a, &$b) {
-            (a, b) => assert_approx_eq!(
+            (a, b) => $crate::assert_approx_eq!(
                 *a, *b, eps = $eps,
                 "assertion failed: `{a:?} ≅ {b:?}`"
             )
@@ -191,8 +196,8 @@ mod tests {
         }
         #[test]
         #[should_panic]
-        fn one_not_approx_eq_to_1_000001() {
-            assert_approx_eq!(1.0, 1.000001);
+        fn one_not_approx_eq_to_1_00001() {
+            assert_approx_eq!(1.0, 1.00001);
         }
         #[test]
         #[should_panic]

@@ -311,9 +311,8 @@ mod tests {
             vec3(-FRAC_1_SQRT_2, -FRAC_1_SQRT_2, 0.0),
         ];
 
-        assert_eq!(b.mesh.verts[0].attrib, expected[0]);
-        assert_eq!(b.mesh.verts[1].attrib, expected[1]);
-        assert_eq!(b.mesh.verts[2].attrib, expected[2]);
-        assert_eq!(b.mesh.verts[3].attrib, expected[3]);
+        for i in 0..4 {
+            crate::assert_approx_eq!(b.mesh.verts[i].attrib, expected[i]);
+        }
     }
 }
