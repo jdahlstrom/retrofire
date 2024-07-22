@@ -116,11 +116,28 @@ impl<Sp, const N: usize> Vector<[f32; N], Sp> {
     }
 
     /// Returns `self` normalized to unit length.
-    #[cfg(feature = "fp")]
+    ///
+    /// # Examples
+    /// ```
+    /// # use retrofire_core::math::vec::vec2;
+    /// # use retrofire_core::assert_approx_eq;
+    /// let normalized = vec2(3.0, 4.0).normalize();
+    /// assert_approx_eq!(normalized, vec2(0.6, 0.8), eps=1e-2);
+    /// assert_approx_eq!(normalized.len_sqr(), 1.0, eps=1e-2);
+    /// ```
+    ///
+    /// # Panics
+    /// Panics in dev mode if `self` is a zero vector.
     #[inline]
     #[must_use]
     pub fn normalize(&self) -> Self {
-        *self / self.len()
+        use super::float::f32;
+        #[cfg(feature = "std")]
+        use super::float::RecipSqrt;
+
+        let len_sqr = self.len_sqr();
+        debug_assert_ne!(len_sqr, 0.0, "cannot normalize a zero-length vector");
+        *self * f32::recip_sqrt(len_sqr)
     }
 
     /// Returns the length of `self`, squared.
