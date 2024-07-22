@@ -358,7 +358,7 @@ mod tests {
         let gen = Xorshift64::default();
         let mut d = UnitCircle(gen);
         for v in d.iter().take(COUNT) {
-            assert_approx_eq!(v.len_sqr(), 1.0, eps = 1e-5);
+            assert_approx_eq!(v.len_sqr(), 1.0);
         }
     }
 
@@ -377,7 +377,7 @@ mod tests {
         let gen = Xorshift64::default();
         let mut d = UnitSphere(gen);
         for v in d.iter().take(COUNT) {
-            assert_approx_eq!(v.len_sqr(), 1.0, eps = 1e-5);
+            assert_approx_eq!(v.len_sqr(), 1.0);
         }
     }
 
