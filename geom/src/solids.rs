@@ -159,6 +159,7 @@ impl Tetrahedron {
 
     /// Builds the tetrahedral mesh.
     pub fn build(self) -> Mesh<Normal3> {
+        use re::math::float::f32;
         let sqrt = f32::sqrt;
         let coords = [
             vec3(0.0, 1.0, 0.0),
