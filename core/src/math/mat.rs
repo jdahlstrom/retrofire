@@ -615,7 +615,7 @@ pub fn viewport(bounds: Range<Vec2u>) -> Mat4x4<NdcToScreen> {
 #[cfg(test)]
 mod tests {
     use crate::assert_approx_eq;
-    use crate::math::{vec::splat, vec3};
+    use crate::math::vec::{splat, vec3, zero};
 
     use super::*;
 
@@ -664,16 +664,16 @@ mod tests {
     #[test]
     fn rotation_x() {
         let m = rotate_x(crate::math::degs(90.0));
-        assert_eq!(m.apply(&splat(0.0)), splat(0.0));
-        assert_approx_eq!(m.apply(&vec3(0.0, 0.0, 1.0)), vec3(0.0, 1.0, 0.0));
+        assert_eq!(m.apply(&zero()), zero());
+        assert_approx_eq!(m.apply(&z(1.0)), y(1.0));
     }
 
     #[cfg(feature = "fp")]
     #[test]
     fn rotation_y() {
         let m = rotate_y(crate::math::degs(90.0));
-        assert_eq!(m.apply(&splat(0.0)), splat(0.0));
-        assert_approx_eq!(m.apply(&vec3(1.0, 0.0, 0.0)), vec3(0.0, 0.0, 1.0));
+        assert_eq!(m.apply(&zero()), zero());
+        assert_approx_eq!(m.apply(&x(1.0)), z(1.0));
     }
 
     #[cfg(feature = "fp")]

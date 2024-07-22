@@ -14,7 +14,7 @@ use crate::util::rect::Rect;
 use crate::math::{
     angle::Angle,
     mat::{orient_z, translate},
-    vec::vec3,
+    vec::{vec3, y},
 };
 
 use super::{
@@ -186,7 +186,7 @@ impl FirstPerson {
     pub fn translate(&mut self, delta: Vec3) {
         // Zero azimuth means parallel to the x-axis
         let fwd = spherical(1.0, self.heading.az(), turns(0.0)).to_cart();
-        let up = vec3(0.0, 1.0, 0.0);
+        let up = y(1.0);
         let right = up.cross(&fwd);
 
         // / rx ux fx \ / dx \     / rx ry rz \ T / dx \
@@ -209,7 +209,8 @@ impl Mode for FirstPerson {
         let &Self { pos, heading: dir, .. } = self;
         let fwd_move = spherical(1.0, dir.az(), turns(0.0));
         let fwd = self.heading;
-        let right = vec3(0.0, 1.0, 0.0).cross(&fwd_move.to_cart());
+        let up = y(1.0);
+        let right = up.cross(&fwd_move.to_cart());
 
         let transl = translate(-pos);
         let orient = orient_z(fwd.into(), right);

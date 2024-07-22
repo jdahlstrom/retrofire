@@ -2,14 +2,11 @@ use core::ops::ControlFlow::*;
 
 use wasm_bindgen::prelude::*;
 
-use re::geom::{vertex, Tri, Vertex};
-use re::math::{
-    color::{rgba, Color4f},
-    mat::{perspective, rotate_z, translate, viewport},
-    rads, vec2, vec3,
+use re::{
+    math::vec::z,
+    prelude::*,
+    render::{render, ModelToView},
 };
-use re::render::{raster::Frag, render, shader::Shader, ModelToView};
-
 use re_front::wasm::Window;
 
 // Entry point from JS
@@ -36,7 +33,7 @@ pub fn start() {
         let t = frame.t.as_secs_f32();
 
         let mv = rotate_z(rads(t))
-            .then(&translate(vec3(0.0, 0.0, 3.0 + 2.0 * t.sin())))
+            .then(&translate(z(3.0 + 2.0 * t.sin())))
             .to::<ModelToView>();
         let mvp = mv.then(&proj);
 

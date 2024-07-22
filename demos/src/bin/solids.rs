@@ -114,7 +114,7 @@ fn main() {
         .perspective(1.5, 0.1..1000.0)
         .viewport(vec2(10, 10)..vec2(W - 10, H - 10));
 
-    let translate = translate(vec3(0.0, 0.0, 4.0));
+    let translate = translate(z(4.0));
 
     let mut carousel = Carousel::default();
     win.run(|frame| {

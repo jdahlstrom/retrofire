@@ -85,7 +85,7 @@ fn main() {
                 let b = Box::cube(2.0).build();
 
                 let to_world = flip
-                    .then(&translate(vec3(i as f32, 0.0, j as f32)))
+                    .then(&translate(x(i as f32) + y(j as f32)))
                     .to();
 
                 cam.render(

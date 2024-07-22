@@ -188,7 +188,7 @@ impl ClipPlane {
 /// TODO Describe clip space
 pub mod view_frustum {
     use crate::geom::Plane;
-    use crate::math::vec3;
+    use crate::math::vec::{vec3, x, y, z};
 
     use super::*;
 
