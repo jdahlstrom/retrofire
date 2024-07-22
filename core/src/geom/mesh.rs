@@ -23,8 +23,9 @@ pub type Vertex<A, Sp = Real<3, Model>> = super::Vertex<Vec3<Sp>, A>;
 ///
 /// An object made of flat polygonal faces that typically form a contiguous
 /// surface without holes or boundaries, so that every face shares each of its
-/// edges with another face. By using many faces, complex curved shapes can be
-/// approximated.
+/// edges with another face. For instance, a cube can be represented by a mesh
+/// with 8 vertices and 12 faces. By using many faces, complex curved shapes
+/// can be approximated.
 #[derive(Clone)]
 pub struct Mesh<Attrib, Space = Real<3, Model>> {
     /// The faces of the mesh, with each face a triplet of indices
@@ -39,6 +40,10 @@ pub struct Mesh<Attrib, Space = Real<3, Model>> {
 pub struct Builder<Attrib = (), Space = Real<3, Model>> {
     pub mesh: Mesh<Attrib, Space>,
 }
+
+//
+// Inherent impls
+//
 
 impl<A, S> Mesh<A, S> {
     /// Creates a new triangle mesh with the given faces and vertices.
@@ -103,11 +108,19 @@ impl<A> Mesh<A> {
 
 impl<A> Builder<A> {
     /// Appends a face with the given vertex indices.
+    ///
+    /// Invalid indices (referring to vertices not yet added) are permitted,
+    /// as long as all indices are valid when the [`build`][Builder::build]
+    /// method is called.
     pub fn push_face(&mut self, a: usize, b: usize, c: usize) {
         self.mesh.faces.push(Tri([a, b, c]));
     }
 
     /// Appends all the faces yielded by the given iterator.
+    ///
+    /// The faces may include invalid vertex indices (referring to vertices
+    ///  not yet added) are permitted, as long as all indices are valid when
+    /// the [`build`][Builder::build] method is called.
     pub fn push_faces<Fs>(&mut self, faces: Fs)
     where
         Fs: IntoIterator<Item = [usize; 3]>,
@@ -226,12 +239,14 @@ impl<A: Debug, S: Debug + Default> Debug for Builder<A, S> {
 }
 
 impl<A, S> Default for Mesh<A, S> {
+    /// Returns an empty mesh.
     fn default() -> Self {
         Self { faces: vec![], verts: vec![] }
     }
 }
 
 impl<A> Default for Builder<A> {
+    /// Returns an empty builder.
     fn default() -> Self {
         Self { mesh: Mesh::default() }
     }
