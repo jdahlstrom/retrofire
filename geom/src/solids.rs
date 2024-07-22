@@ -8,7 +8,7 @@ use re::geom::{vertex, Mesh, Vertex};
 use re::math::angle::{degs, polar, turns, Angle};
 use re::math::mat::rotate_y;
 use re::math::vary::Vary;
-use re::math::vec::{splat, vec2, vec3, Vec2, Vec3};
+use re::math::vec::{splat, vec2, vec3, y, Vec2, Vec3};
 use re::render::tex::{uv, TexCoord};
 
 /// A surface normal.
@@ -492,7 +492,7 @@ impl Lathe {
             // Duplicate the bottom ring of vertices to make the bottom cap...
             let mut bottom_vs: Vec<_> = b.mesh.verts[bottom_rng]
                 .iter()
-                .map(|v| vertex(v.pos, vec3(0.0, -1.0, 0.0)))
+                .map(|v| vertex(v.pos, y(-1.0)))
                 .collect();
             b.mesh.verts.append(&mut bottom_vs);
             for i in 1..secs {
@@ -503,7 +503,7 @@ impl Lathe {
             let l = b.mesh.verts.len();
             let mut top_vs: Vec<_> = b.mesh.verts[top_rng]
                 .iter()
-                .map(|v| vertex(v.pos, vec3(0.0, 1.0, 0.0)))
+                .map(|v| vertex(v.pos, y(1.0)))
                 .collect();
             b.mesh.verts.append(&mut top_vs);
             for i in 1..secs {
@@ -579,7 +579,7 @@ impl Capsule {
         let bottom_pts: Vec<_> = degs(-90.0)
             .vary_to(degs(0.0), cap_segments)
             .map(|alt| polar(radius, alt).to_cart())
-            .map(|v| vertex(vec2(0.0, -1.0) + v, v))
+            .map(|v| vertex(y(-1.0) + v, v))
             .collect();
 
         // Top hemisphere

@@ -570,7 +570,7 @@ mod tests {
     use core::f32::consts::{PI, SQRT_2, TAU};
 
     use crate::assert_approx_eq;
-    use crate::math::vary::Vary;
+    use crate::math::{vary::Vary, vec::*};
 
     use super::*;
 
@@ -688,16 +688,16 @@ mod tests {
     #[cfg(feature = "fp")]
     #[test]
     fn polar_to_cartesian_zero_r() {
-        assert_eq!(polar(0.0, degs(0.0)).to_cart(), vec2(0.0, 0.0));
-        assert_eq!(polar(0.0, degs(30.0)).to_cart(), vec2(0.0, 0.0));
-        assert_eq!(polar(0.0, degs(-120.0)).to_cart(), vec2(0.0, 0.0));
+        assert_eq!(polar(0.0, degs(0.0)).to_cart(), zero());
+        assert_eq!(polar(0.0, degs(30.0)).to_cart(), zero());
+        assert_eq!(polar(0.0, degs(-120.0)).to_cart(), zero());
     }
 
     #[cfg(feature = "fp")]
     #[test]
     fn polar_to_cartesian_zero_az() {
-        assert_eq!(polar(2.0, degs(0.0)).to_cart(), vec2(2.0, 0.0));
-        assert_eq!(polar(-3.0, degs(0.0)).to_cart(), vec2(-3.0, 0.0));
+        assert_eq!(polar(2.0, degs(0.0)).to_cart(), zero());
+        assert_eq!(polar(-3.0, degs(0.0)).to_cart(), x(-3.0));
     }
 
     #[cfg(feature = "fp")]
@@ -707,14 +707,14 @@ mod tests {
 
         assert_approx_eq!(
             polar(3.0, degs(-90.0)).to_cart(),
-            vec2(0.0, -3.0),
+            y(-3.0),
             eps = 1e-6
         );
-        assert_approx_eq!(polar(4.0, degs(270.0)).to_cart(), vec2(0.0, -4.0));
+        assert_approx_eq!(polar(4.0, degs(270.0)).to_cart(), y(-4.0));
 
         assert_approx_eq!(
             polar(5.0, turns(1.25)).to_cart(),
-            vec2(0.0, 5.0),
+            y(5.0),
             eps = 2e-6
         );
     }
@@ -722,60 +722,49 @@ mod tests {
     #[cfg(feature = "fp")]
     #[test]
     fn cartesian_to_polar_zero_y() {
-        assert_eq!(vec2(0.0, 0.0).to_polar(), polar(0.0, degs(0.0)));
-        assert_eq!(vec2(1.0, 0.0).to_polar(), polar(1.0, degs(0.0)));
+        assert_eq!(zero().to_polar(), polar(0.0, degs(0.0)));
+        assert_eq!(x(1.0).to_polar(), polar(1.0, degs(0.0)));
     }
     #[cfg(feature = "fp")]
     #[test]
     fn cartesian_to_polar() {
         assert_eq!(vec2(SQRT_3, 1.0).to_polar(), polar(2.0, degs(30.0)));
-        assert_eq!(vec2(0.0, 2.0).to_polar(), polar(2.0, degs(90.0)));
-        assert_approx_eq!(vec2(-3.0, 0.0).to_polar(), polar(3.0, degs(180.0)));
-        assert_eq!(vec2(0.0, -4.0).to_polar(), polar(4.0, degs(-90.0)));
+        assert_eq!(y(2.0).to_polar(), polar(2.0, degs(90.0)));
+        assert_approx_eq!(x(-3.0).to_polar(), polar(3.0, degs(180.0)));
+        assert_eq!(y(-4.0).to_polar(), polar(4.0, degs(-90.0)));
     }
 
     #[cfg(feature = "fp")]
     #[test]
     fn spherical_to_cartesian() {
-        assert_eq!(
-            spherical(0.0, degs(0.0), degs(0.0)).to_cart(),
-            vec3(0.0, 0.0, 0.0)
-        );
-        assert_eq!(
-            spherical(1.0, degs(0.0), degs(0.0)).to_cart(),
-            vec3(1.0, 0.0, 0.0)
-        );
+        assert_eq!(spherical(0.0, degs(0.0), degs(0.0)).to_cart(), zero());
+        assert_eq!(spherical(1.0, degs(0.0), degs(0.0)).to_cart(), x(1.0));
+
         assert_approx_eq!(
             spherical(2.0, degs(60.0), degs(0.0)).to_cart(),
             vec3(1.0, 0.0, SQRT_3)
         );
         assert_approx_eq!(
             spherical(2.0, degs(90.0), degs(0.0)).to_cart(),
-            vec3(0.0, 0.0, 2.0)
+            z(2.0)
         );
         assert_approx_eq!(
             spherical(3.0, degs(123.0), degs(90.0)).to_cart(),
-            vec3(0.0, 3.0, 0.0)
+            y(3.0)
         );
     }
 
     #[cfg(feature = "fp")]
     #[test]
     fn cartesian_to_spherical_zero_alt() {
-        assert_eq!(
-            vec3(0.0, 0.0, 0.0).to_spherical(),
-            spherical(0.0, degs(0.0), degs(0.0))
-        );
-        assert_eq!(
-            vec3(1.0, 0.0, 0.0).to_spherical(),
-            spherical(1.0, degs(0.0), degs(0.0))
-        );
+        assert_eq!(zero().to_spherical(), spherical(0.0, degs(0.0), degs(0.0)));
+        assert_eq!(x(1.0).to_spherical(), spherical(1.0, degs(0.0), degs(0.0)));
         assert_approx_eq!(
             vec3(1.0, SQRT_3, 0.0).to_spherical(),
             spherical(2.0, degs(0.0), degs(60.0))
         );
         assert_eq!(
-            vec3(0.0, 2.0, 0.0).to_spherical(),
+            y(2.0).to_spherical(),
             spherical(2.0, degs(0.0), degs(90.0))
         );
     }
@@ -792,7 +781,7 @@ mod tests {
             spherical(2.0, degs(45.0), degs(45.0))
         );
         assert_eq!(
-            vec3(0.0, 0.0, 3.0).to_spherical(),
+            z(3.0).to_spherical(),
             spherical(3.0, degs(90.0), degs(0.0))
         );
     }

@@ -1,6 +1,6 @@
 //!
 
-use core::array;
+use core::array::{self, from_fn};
 use core::fmt::{Debug, Formatter};
 use core::marker::PhantomData;
 use core::ops::{Add, Div, Index, IndexMut, Mul, Neg, Sub};
@@ -53,11 +53,13 @@ pub type Vec2u<Space = Real<2>> = Vector<[u32; 2], Space>;
 //
 
 /// Returns a 2D Euclidean vector with components `x` and `y`.
+#[inline]
 pub const fn vec2<Sc>(x: Sc, y: Sc) -> Vector<[Sc; 2], Real<2>> {
     Vector([x, y], PhantomData)
 }
 
 /// Returns a 3D Euclidean vector with components `x`, `y`, and `z`.
+#[inline]
 pub const fn vec3<Sc>(x: Sc, y: Sc, z: Sc) -> Vector<[Sc; 3], Real<3>> {
     Vector([x, y, z], PhantomData)
 }
@@ -65,6 +67,54 @@ pub const fn vec3<Sc>(x: Sc, y: Sc, z: Sc) -> Vector<[Sc; 3], Real<3>> {
 #[inline]
 pub const fn vec4<Sc>(x: Sc, y: Sc, z: Sc, w: Sc) -> Vector<[Sc; 4], Real<4>> {
     Vector([x, y, z, w], PhantomData)
+}
+
+/// Convenience function for creating zero vectors.
+#[inline]
+pub const fn zero<Sp, const DIM: usize>() -> Vector<[f32; DIM], Sp> {
+    Vector([0.0; DIM], PhantomData)
+}
+
+/// Returns the Nth orthonormal basis vector of ℝ<sup>DIM</sup>.
+///
+/// That is, a vector
+///
+/// ( a<sub>0</sub>, a<sub>1</sub>, …, a<sub>N</sub>, …, a<sub>DIM-1</sub> )
+///
+/// where a<sub>k</sub> equals 1 if k equals N, otherwise 0.
+///
+/// # Examples
+/// ```
+/// # use retrofire_core::math::vec::*;
+/// let z = basis::<2, 4>();
+/// assert_eq!(z, vec4(0.0, 0.0, 1.0, 0.0));
+/// ```
+///
+/// ```compile_fail
+/// # use retrofire_core::math::vec::*;
+/// // This fails to compile because N >= DIM:
+/// let v = basis::<3, 3>();
+/// ```
+#[inline]
+pub fn basis<const N: usize, const DIM: usize>() -> Vector<[f32; DIM], Real<DIM>>
+{
+    const { assert!(N < DIM, "N must be less than DIM") }
+    // This is the Kronecker delta function
+    // TODO Make const when `from_fn` is const
+    Vector(from_fn(|i| (i == N) as i32 as f32), PhantomData)
+}
+
+#[inline]
+pub fn x<const DIM: usize>(x: f32) -> Vector<[f32; DIM], Real<DIM>> {
+    x * basis::<0, DIM>()
+}
+#[inline]
+pub fn y<const DIM: usize>(y: f32) -> Vector<[f32; DIM], Real<DIM>> {
+    y * basis::<1, DIM>()
+}
+#[inline]
+pub fn z<const DIM: usize>(z: f32) -> Vector<[f32; DIM], Real<DIM>> {
+    z * basis::<2, DIM>()
 }
 
 /// Returns a vector with all components equal to the argument.
@@ -593,7 +643,7 @@ mod tests {
 
         #[test]
         fn scalar_multiplication() {
-            assert_eq!(vec2(1.0, -2.0) * 0.0, vec2(0.0, 0.0));
+            assert_eq!(vec2(1.0, -2.0) * 0.0, zero());
             assert_eq!(vec3(1.0, -2.0, 3.0) * 3.0, vec3(3.0, -6.0, 9.0));
             assert_eq!(3.0 * vec3(1.0, -2.0, 3.0), vec3(3.0, -6.0, 9.0));
             assert_eq!(
@@ -624,6 +674,14 @@ mod tests {
                 Vec4::from([1.0, -2.0, 4.0, -3.0]),
                 vec4(1.0, -2.0, 4.0, -3.0)
             );
+        }
+
+        #[test]
+        fn basis_vectors() {
+            assert_eq!(basis::<2, 4>(), vec4(0.0, 0.0, 1.0, 0.0));
+            assert_eq!(x(2.0), vec3(2.0, 0.0, 0.0));
+            assert_eq!(y(3.0), vec2(0.0, 3.0));
+            assert_eq!(z(4.0), vec4(0.0, 0.0, 4.0, 0.0));
         }
     }
 
@@ -665,14 +723,8 @@ mod tests {
 
     #[test]
     fn cross_product() {
-        assert_eq!(
-            vec3(1.0, 0.0, 0.0).cross(&vec3(0.0, 1.0, 0.0)),
-            vec3(0.0, 0.0, 1.0)
-        );
-        assert_eq!(
-            vec3(0.0, 0.0, 1.0).cross(&vec3(0.0, 1.0, 0.0)),
-            vec3(-1.0, 0.0, 0.0)
-        );
+        assert_eq!(x(1.0).cross(&y(1.0)), z(1.0));
+        assert_eq!(z(1.0).cross(&y(1.0)), x(-1.0));
     }
 
     #[test]

@@ -286,7 +286,7 @@ impl Distrib for Bernoulli {
 #[allow(clippy::manual_range_contains)]
 mod tests {
     use crate::assert_approx_eq;
-    use crate::math::vec3;
+    use crate::math::vec::{vec3, zero};
 
     use super::*;
 
@@ -327,7 +327,7 @@ mod tests {
     fn uniform_vec3() {
         let gen = Xorshift64::default();
         let mut d = Uniform(gen, vec3(-2.0, 0.0, -1.0)..vec3(1.0, 2.0, 3.0));
-        let mut sum = vec3(0.0, 0.0, 0.0);
+        let mut sum = zero();
         for v in d.iter().take(COUNT) {
             assert!(-2.0 <= v.x() && v.x() < 1.0);
             assert!(0.0 <= v.y() && v.y() < 2.0);
