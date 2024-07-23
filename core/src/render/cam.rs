@@ -13,7 +13,7 @@ use crate::util::rect::Rect;
 #[cfg(feature = "fp")]
 use crate::math::{
     angle::Angle,
-    mat::{orient_z, translate},
+    mat::{orient_z, rotate_x, rotate_y, translate},
     vec::vec3,
 };
 
@@ -57,6 +57,16 @@ pub struct FirstPerson {
     pub pos: Vec3,
     /// Current heading of the camera in world space.
     pub heading: SphericalVec,
+}
+
+/// Orbiting camera mode.
+///
+/// This mode can rotate the camera around a fixed point, centered on the
+/// point, and change the camera's distance to the target point.
+#[derive(Copy, Clone, Debug)]
+pub struct Orbit {
+    pub target: Vec3,
+    pub dir: SphericalVec,
 }
 
 //
@@ -183,6 +193,10 @@ impl FirstPerson {
         );
     }
 
+    /// Translates the camera *in the camera's frame*.
+    ///
+    /// The components of `delta` determine how much the camera moves
+    /// left/right (x), up/down (y), and forward/back (z).
     pub fn translate(&mut self, delta: Vec3) {
         // Zero azimuth means parallel to the x-axis
         let fwd = spherical(1.0, self.heading.az(), turns(0.0)).to_cart();
@@ -196,6 +210,37 @@ impl FirstPerson {
         self.pos += Mat4x4::<RealToReal<3>>::from_basis(right, up, fwd)
             .transpose()
             .apply(&delta);
+    }
+}
+
+#[cfg(feature = "fp")]
+impl Orbit {
+    /// Adds the azimuth and altitude given to the camera's current direction.
+    pub fn rotate(&mut self, az_delta: Angle, alt_delta: Angle) {
+        self.rotate_to(self.dir.az() + az_delta, self.dir.alt() + alt_delta);
+    }
+
+    /// Rotates the camera to the *world-space* azimuth and altitude given.
+    pub fn rotate_to(&mut self, az: Angle, alt: Angle) {
+        self.dir = spherical(
+            self.dir.r(),
+            az.wrap(turns(-0.5), turns(0.5)),
+            alt.clamp(turns(-0.25), turns(0.25)),
+        );
+    }
+
+    /// Moves the camera towards or away from the target.
+    ///
+    /// Note that a *negative* delta means towards the target, because it is
+    /// simply added to the current distance. The distance is clamped to 0.0.
+    pub fn zoom(&mut self, r_delta: f32) {
+        self.zoom_to(self.dir.r() + r_delta);
+    }
+    /// Moves the camera to the given distance from the target.
+    ///
+    /// The distance is clamped to 0.0.
+    pub fn zoom_to(&mut self, r: f32) {
+        self.dir[0] = r.max(0.0);
     }
 }
 
@@ -218,6 +263,16 @@ impl Mode for FirstPerson {
     }
 }
 
+impl Mode for Orbit {
+    fn world_to_view(&self) -> Mat4x4<WorldToView> {
+        translate(self.target)
+            .then(&rotate_y(self.dir.az()))
+            .then(&rotate_x(self.dir.alt()))
+            .then(&translate(vec3(0.0, 0.0, self.dir.r())))
+            .to()
+    }
+}
+
 impl Mode for Mat4x4<WorldToView> {
     fn world_to_view(&self) -> Mat4x4<WorldToView> {
         *self
@@ -233,5 +288,15 @@ impl Default for FirstPerson {
     /// Returns [`FirstPerson::new`].
     fn default() -> Self {
         Self::new()
+    }
+}
+
+#[cfg(feature = "fp")]
+impl Default for Orbit {
+    fn default() -> Self {
+        Self {
+            target: Vec3::zero(),
+            dir: spherical(1.0, turns(0.0), turns(0.0)),
+        }
     }
 }
