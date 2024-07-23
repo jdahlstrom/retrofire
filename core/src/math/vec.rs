@@ -137,13 +137,18 @@ impl<Sp, const N: usize> Vector<[f32; N], Sp> {
     /// Panics in dev mode if `self` is a zero vector.
     #[inline]
     #[must_use]
-    pub fn normalize(&self) -> Self {
+    pub fn normalize(&self) -> Self
+    where
+        Self: Debug,
+    {
         use super::float::f32;
         #[cfg(feature = "std")]
         use super::float::RecipSqrt;
-
         let len_sqr = self.len_sqr();
-        debug_assert_ne!(len_sqr, 0.0, "cannot normalize a zero-length vector");
+        assert!(
+            len_sqr.is_finite() && !len_sqr.approx_eq(&0.0),
+            "cannot normalize a near-zero or non-finite vector: {self:?}"
+        );
         *self * f32::recip_sqrt(len_sqr)
     }
 
@@ -163,9 +168,18 @@ impl<Sp, const N: usize> Vector<[f32; N], Sp> {
     // TODO f32 and f64 have inherent clamp methods because they're not Ord.
     //      A generic clamp for Sc: Ord would conflict with this one. There is
     //      currently no clean way to support both floats and impl Ord types.
+    //      However, VecXi and VecXu should have their own inherent impls.
     #[must_use]
     pub fn clamp(&self, min: &Self, max: &Self) -> Self {
         array::from_fn(|i| self[i].clamp(min[i], max[i])).into()
+    }
+
+    /// Returns `true` if every component of `self` is finite,
+    /// `false` otherwise.
+    ///
+    /// See [`f32::is_finite()`].
+    pub fn is_finite(&self) -> bool {
+        self.0.iter().all(|c| c.is_finite())
     }
 }
 
