@@ -569,7 +569,7 @@ fn orient(new_y: Vec3, new_z: Vec3) -> Mat4x4<RealToReal<3>> {
     let new_x = new_y.cross(&new_z);
     assert!(
         !new_x.len_sqr().approx_eq(&0.0),
-        "{new_y:?} × {new_z:?} too close to zero vector"
+        "{new_y:?} × {new_z:?} non-finite or too close to zero vector"
     );
     Mat4x4::from_basis(new_x, new_y, new_z)
 }

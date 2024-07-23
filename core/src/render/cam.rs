@@ -10,7 +10,9 @@ use crate::math::{
 use crate::util::{rect::Rect, Dims};
 
 #[cfg(feature = "fp")]
-use crate::math::{orient_z, pt3, spherical, translate, turns, Angle, Vec3};
+use crate::math::{
+    orient_z, pt3, rotate_x, rotate_y, spherical, translate, turns, Angle, Vec3,
+};
 
 use super::{
     clip::ClipVec, Context, FragmentShader, NdcToScreen, RealToProj, Target,
@@ -56,6 +58,17 @@ pub type ViewToWorld = RealToReal<3, View, World>;
 #[cfg(feature = "fp")]
 fn az_alt(az: Angle, alt: Angle) -> SphericalVec {
     spherical(1.0, az, alt)
+}
+/// Orbiting camera mode.
+///
+/// This mode can rotate the camera around a fixed point, centered on the
+/// point, and change the camera's distance to the target point.
+#[derive(Copy, Clone, Debug)]
+pub struct Orbit {
+    /// The camera's target point in **world** space.
+    pub target: Point3<World>,
+    /// The camera's direction in **world** space.
+    pub dir: SphericalVec,
 }
 
 //
@@ -188,6 +201,7 @@ impl FirstPerson {
     }
 
     /// Translates the camera by a relative offset in *view* space.
+    // TODO Explain that up/down is actually in world space (dir of gravity)
     pub fn translate(&mut self, delta: Vec3<View>) {
         // Zero azimuth means parallel to the x-axis
         let fwd = az_alt(self.heading.az(), turns(0.0)).to_cart();
@@ -196,6 +210,50 @@ impl FirstPerson {
 
         let to_world = Mat4x4::from_basis(right, up, fwd);
         self.pos += to_world.apply(&delta);
+    }
+}
+
+#[cfg(feature = "fp")]
+impl Orbit {
+    /// Adds the azimuth and altitude given to the camera's current direction.
+    pub fn rotate(&mut self, az_delta: Angle, alt_delta: Angle) {
+        self.rotate_to(self.dir.az() + az_delta, self.dir.alt() + alt_delta);
+    }
+
+    /// Rotates the camera to the **world**-space azimuth and altitude given.
+    pub fn rotate_to(&mut self, az: Angle, alt: Angle) {
+        self.dir = spherical(
+            self.dir.r(),
+            az.wrap(turns(-0.5), turns(0.5)),
+            alt.clamp(turns(-0.25), turns(0.25)),
+        );
+    }
+
+    /// Translates the camera's target point in **world** space.
+    pub fn translate(&mut self, delta: Vec3<World>) {
+        self.target += delta;
+    }
+
+    /// Moves the camera towards or away from the target.
+    ///
+    /// Multiplies the current camera distance by `factor`. The distance is
+    /// clamped to zero. Note that if the distance becomes zero, you cannot use
+    /// this method to make it nonzero again!
+    ///
+    /// To set an absolute zoom distance, use [`zoom_to`][Self::zoom_to].
+    ///
+    /// # Panics
+    /// If debug assertions are enabled, panics if `factor < 0`.
+    pub fn zoom(&mut self, factor: f32) {
+        debug_assert!(factor >= 0.0, "zoom factor cannot be negative");
+        self.zoom_to(self.dir.r() * factor);
+    }
+    /// Moves the camera to the given distance from the target.
+    ///
+    /// The distance is clamped to 0.0.
+    pub fn zoom_to(&mut self, r: f32) {
+        debug_assert!(r >= 0.0, "camera distance cannot be negative");
+        self.dir[0] = r.max(0.0);
     }
 }
 
@@ -219,6 +277,23 @@ impl Mode for FirstPerson {
     }
 }
 
+#[cfg(feature = "fp")]
+impl Mode for Orbit {
+    fn world_to_view(&self) -> Mat4x4<WorldToView> {
+        // TODO Figure out how to do this with orient
+        //let fwd = self.dir.to_cart().normalize();
+        //let o = orient_z(fwd, Vec3::X - 0.1 * Vec3::Z);
+
+        // TODO Work out how and whether this is the correct inverse
+        //      of the view-to-world transform
+        translate(self.target.to_vec().to()) // to world-space target
+            .then(&rotate_y(self.dir.az())) // to world-space az
+            .then(&rotate_x(self.dir.alt())) // to world-space alt
+            .then(&translate(self.dir.r() * Vec3::Z)) // view space
+            .to()
+    }
+}
+
 impl Mode for Mat4x4<WorldToView> {
     fn world_to_view(&self) -> Mat4x4<WorldToView> {
         *self
@@ -234,6 +309,16 @@ impl Default for FirstPerson {
     /// Returns [`FirstPerson::new`].
     fn default() -> Self {
         Self::new()
+    }
+}
+
+#[cfg(feature = "fp")]
+impl Default for Orbit {
+    fn default() -> Self {
+        Self {
+            target: Point3::default(),
+            dir: az_alt(turns(0.0), turns(0.0)),
+        }
     }
 }
 
