@@ -206,6 +206,8 @@ impl<Src, Dst> Mat4x4<RealToReal<3, Src, Dst>> {
 
     /// Returns the determinant of `self`.
     ///
+    /// If the determinant is zero, the matrix is singular and has no inverse.
+    ///
     /// Given a matrix M,
     /// ```text
     ///         / a  b  c  d \
@@ -288,16 +290,17 @@ impl<Src, Dst> Mat4x4<RealToReal<3, Src, Dst>> {
             m.0.swap(r, s);
         }
 
-        // This algorithm attempts to reduce `this` to the identity matrix
+        // The algorithm attempts to reduce `this` to the identity matrix
         // by simultaneously applying elementary row operations to it and
         // another matrix `inv` which starts as the identity matrix. Once
-        // `this` is reduced, the value of `inv` has become the inverse of
-        // `this` and thus of `self`.
+        // `this` is reduced, `inv` has become the inverse of `this` and
+        // thus also of `self`.
 
         let inv = &mut Mat4x4::identity();
         let this = &mut self.to();
 
-        // Apply row operations to reduce the matrix to an upper echelon form
+        // Apply row operations to reduce the matrix to upper echelon form
+        // TODO Explain the steps better
         for idx in 0..4 {
             let pivot = (idx..4)
                 .max_by(|&r1, &r2| {
@@ -319,7 +322,7 @@ impl<Src, Dst> Mat4x4<RealToReal<3, Src, Dst>> {
                 }
             }
         }
-        // now in upper echelon form, back-substitute variables
+        // Now in upper echelon form, back-substitute variables
         for &idx in &[3, 2, 1] {
             let diag = this.0[idx][idx];
             for r in 0..idx {
@@ -329,7 +332,7 @@ impl<Src, Dst> Mat4x4<RealToReal<3, Src, Dst>> {
                 sub_row(inv, idx, r, x);
             }
         }
-        // normalize
+        // Normalize
         for r in 0..4 {
             let x = 1.0 / this.0[r][r];
             mul_row(this, r, x);
@@ -440,14 +443,15 @@ impl<Repr, M> From<Repr> for Matrix<Repr, M> {
 
 /// Returns a matrix applying a scaling by `s`.
 ///
+/// # Examples
+///
 /// Tip: use [`splat`][super::vec::splat] to scale uniformly:
 /// ```
-/// # use retrofire_core::math::mat::*;
-/// # use retrofire_core::math::vec::splat;
+/// # use retrofire_core::prelude::*;
 /// let m = scale(splat(2.0));
-/// assert_eq!(m.0[0][0], 2.0);
-/// assert_eq!(m.0[1][1], 2.0);
-/// assert_eq!(m.0[2][2], 2.0);
+/// let v = vec3(1.0, -2.0, 3.0);
+///
+/// assert_eq!(m.apply(&v), vec3(2.0, -4.0, 6.0));
 /// ```
 pub fn scale(s: Vec3) -> Mat4x4<RealToReal<3>> {
     [
@@ -460,6 +464,15 @@ pub fn scale(s: Vec3) -> Mat4x4<RealToReal<3>> {
 }
 
 /// Returns a matrix applying a translation by `t`.
+///
+/// # Example
+/// ```
+/// # use retrofire_core::prelude::*;
+/// let m = translate(vec3(-1.0, 0.0, 2.0));
+/// let v = vec3(1.0, 2.0, 3.0);
+///
+/// assert_eq!(m.apply(&v), vec3(0.0, 2.0, 5.0));
+/// ```
 pub fn translate(t: Vec3) -> Mat4x4<RealToReal<3>> {
     [
         [1.0, 0.0, 0.0, t[0]],
@@ -476,6 +489,9 @@ pub fn translate(t: Vec3) -> Mat4x4<RealToReal<3>> {
 ///
 /// Returns an orthogonal basis. If `new_y` and `x` are unit vectors,
 /// the result is orthonormal.
+///
+/// # Examples
+/// TODO
 #[cfg(feature = "fp")]
 pub fn orient_y(new_y: Vec3, x: Vec3) -> Mat4x4<RealToReal<3>> {
     orient(new_y, x.cross(&new_y).normalize())
@@ -486,12 +502,13 @@ pub fn orient_y(new_y: Vec3, x: Vec3) -> Mat4x4<RealToReal<3>> {
 ///
 /// Returns an orthogonal basis. If `new_z` and `x` are unit vectors,
 /// the result is orthonormal.
-#[cfg(feature = "fp")]
+///
+/// # Examples
+/// TODO
 pub fn orient_z(new_z: Vec3, x: Vec3) -> Mat4x4<RealToReal<3>> {
     orient(new_z.cross(&x).normalize(), new_z)
 }
 
-#[cfg(feature = "fp")]
 fn orient(new_y: Vec3, new_z: Vec3) -> Mat4x4<RealToReal<3>> {
     use crate::{math::ApproxEq, prelude::Linear};
 
@@ -503,6 +520,9 @@ fn orient(new_y: Vec3, new_z: Vec3) -> Mat4x4<RealToReal<3>> {
 }
 
 /// Returns a matrix applying a rotation by `a` about the x axis.
+///
+/// # Examples
+/// TODO
 #[cfg(feature = "fp")]
 pub fn rotate_x(a: super::angle::Angle) -> Mat4x4<RealToReal<3>> {
     let (sin, cos) = a.sin_cos();
@@ -515,6 +535,9 @@ pub fn rotate_x(a: super::angle::Angle) -> Mat4x4<RealToReal<3>> {
     .into()
 }
 /// Returns a matrix applying a rotation by `a` about the y axis.
+///
+/// # Examples
+/// TODO
 #[cfg(feature = "fp")]
 pub fn rotate_y(a: super::angle::Angle) -> Mat4x4<RealToReal<3>> {
     let (sin, cos) = a.sin_cos();
@@ -527,6 +550,9 @@ pub fn rotate_y(a: super::angle::Angle) -> Mat4x4<RealToReal<3>> {
     .into()
 }
 /// Returns a matrix applying a rotation of angle `a` about the z axis.
+///
+/// # Examples
+/// TODO
 #[cfg(feature = "fp")]
 pub fn rotate_z(a: super::angle::Angle) -> Mat4x4<RealToReal<3>> {
     let (sin, cos) = a.sin_cos();
@@ -595,11 +621,14 @@ pub fn orthographic(lbn: Vec3, rtf: Vec3) -> Mat4x4<ViewToProj> {
     .into()
 }
 
-/// Creates a viewport transform matrix. A viewport matrix is used to
-/// transform points from the NDC space to screen space for rasterization.
+/// Creates a viewport transform matrix.
 ///
-/// # Parameters
-/// * `bounds`: the left-top and right-bottom coordinates of the viewport.
+/// A viewport matrix is used to transform points from the NDC space
+/// to screen space for rasterization. The `bounds` parameter specifies
+/// the screen-space coordinates of the viewport's opposite corners.
+///
+/// # Examples
+/// TODO
 pub fn viewport(bounds: Range<Vec2u>) -> Mat4x4<NdcToScreen> {
     let Range { start, end } = bounds;
     let h = (end.x() - start.x()) as f32 / 2.0;
