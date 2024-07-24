@@ -174,7 +174,7 @@ impl Tetrahedron {
         for (i, vs) in Self::FACES.into_iter().enumerate() {
             b.push_face(3 * i, 3 * i + 1, 3 * i + 2);
             for v in vs {
-                b.push_vert(coords[v].to(), norms[i]);
+                b.push_vert(coords[v], norms[i]);
             }
         }
         b.build()
@@ -377,7 +377,7 @@ impl Dodecahedron {
             b.push_face(i5, i5 + 2, i5 + 3);
             b.push_face(i5, i5 + 3, i5 + 4);
             for &j in face {
-                b.push_vert(Self::COORDS[j].to().normalize(), n);
+                b.push_vert(Self::COORDS[j].normalize(), n);
             }
         }
         b.build()
@@ -422,7 +422,7 @@ impl Icosahedron {
             let n = Self::NORMALS[i].normalize();
             b.push_face(3 * i, 3 * i + 1, 3 * i + 2);
             for vi in *vs {
-                b.push_vert(Self::COORDS[vi].to().normalize(), n);
+                b.push_vert(Self::COORDS[vi].normalize(), n);
             }
         }
         b.build()
