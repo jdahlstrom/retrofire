@@ -11,6 +11,7 @@ use crate::render::{NdcToScreen, ViewToProj};
 
 use super::space::{Proj4, Real};
 use super::vec::{ProjVec4, Vec2u, Vec3, Vector};
+use super::ApproxEq;
 
 /// A linear transform from one space (or basis) to another.
 ///
@@ -398,6 +399,19 @@ impl<S, I> Compose<RealToReal<3, S, I>> for RealToProj<I> {
     type Result = RealToProj<S>;
 }
 
+impl<R, M, E> ApproxEq<Self, E> for Matrix<R, M>
+where
+    R: ApproxEq<R, E>,
+{
+    fn approx_eq_eps(&self, other: &Self, rel_eps: &E) -> bool {
+        self.0.approx_eq_eps(&other.0, rel_eps)
+    }
+
+    fn relative_epsilon() -> E {
+        R::relative_epsilon()
+    }
+}
+
 //
 // Foreign trait impls
 //
@@ -419,9 +433,10 @@ impl<S: Debug, M: Debug + Default, const N: usize> Debug
     for Matrix<[[S; N]; N], M>
 {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        let prec = f.precision().unwrap_or(3);
         writeln!(f, "Matrix<{:?}>[", M::default())?;
         for i in 0..N {
-            writeln!(f, "    {:6.2?}", self.0[i])?;
+            writeln!(f, "\t{:6.prec$?}", self.0[i])?;
         }
         write!(f, "]")
     }
@@ -738,17 +753,19 @@ mod tests {
     #[cfg(feature = "fp")]
     #[test]
     fn mat_times_mat_inverse_is_identity() {
+        use crate::math::degs;
+
         let m = translate(vec3(1.0e3, -2.0e2, 0.0))
-            .to::<RealToReal<3>>()
-            .then(&scale(vec3(0.5, 100.0, 42.0)).to::<RealToReal<3>>());
+            .then(&rotate_x(degs(25.0)))
+            .then(&scale(vec3(0.5, 100.0, 42.0)))
+            .then(&rotate_z(degs(-140.0)));
 
         let m_inv = m.inverse();
 
-        assert_eq!(m.compose(&m_inv), Mat4x4::identity());
-        assert_eq!(m_inv.compose(&m), Mat4x4::identity());
+        assert_approx_eq!(m.compose(&m_inv), Mat4x4::identity());
+        assert_approx_eq!(m_inv.compose(&m), Mat4x4::identity());
     }
 
-    #[cfg(feature = "fp")]
     #[test]
     fn inverse_reverts_transform() {
         let m: Mat4x4<RealToReal<3, Basis1, Basis2>> =
