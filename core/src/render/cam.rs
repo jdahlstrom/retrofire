@@ -188,8 +188,8 @@ impl FirstPerson {
     /// Rotates the camera so that world-space point `pt` is centered in the
     /// is centered in the view.
     pub fn look_at(&mut self, pt: Vec3<World>) {
-        self.heading = (pt - self.pos).to_spherical();
-        self.heading[0] = 1.0; // Normalize
+        let new_h = (pt - self.pos).to_spherical();
+        self.heading = spherical(1.0, new_h.az(), new_h.alt());
     }
 
     /// Rotates the camera relative to its current heading.
@@ -219,20 +219,11 @@ impl FirstPerson {
     /// left/right (x), up/down (y), and forward/back (z).
     // TODO Explain that up/down is actually in world space (dir of gravity)
     pub fn translate(&mut self, delta: Vec3<View>) {
-        // Zero azimuth means parallel to the x-axis
-        let fwd = spherical(1.0, self.heading.az(), turns(0.0)).to_cart();
-        let up = vec3(0.0, 1.0, 0.0);
-        let right = up.cross(&fwd);
+        // Map the translation from view to world space
+        let view_to_world: Mat4x4<RealToReal<3, _, _>> =
+            rotate_y(self.heading.az()).to();
 
-        // / rx ux fx \ / dx \     / rx ry rz \ T / dx \
-        // | ry uy fy | | dy |  =  | ux uy uz |   | dy |
-        // \ rz uz fz / \ dz /     \ fx fy fz /   \ dz /
-
-        let w2v = Mat4x4::<WorldToView>::from_basis(right, up, fwd);
-
-        let v2w = w2v.transpose();
-
-        self.pos += v2w.apply(&delta);
+        self.pos += view_to_world.apply(&delta);
     }
 }
 
@@ -275,15 +266,11 @@ impl Orbit {
 #[cfg(feature = "fp")]
 impl Mode for FirstPerson {
     fn world_to_view(&self) -> Mat4x4<WorldToView> {
-        let &Self { pos, heading: dir, .. } = self;
-        let fwd_move = spherical(1.0, dir.az(), turns(0.0));
-        let fwd = self.heading;
-        let right = vec3(0.0, 1.0, 0.0).cross(&fwd_move.to_cart());
-
-        let transl = translate(-pos.to());
-        let orient = orient_z(fwd.into(), right);
-
-        transl.then(&orient).to()
+        // Inverse of the view-to-world transform
+        translate(-self.pos.to())
+            .then(&rotate_y(-self.heading.az()))
+            .then(&rotate_x(-self.heading.alt()))
+            .to()
     }
 }
 
