@@ -13,10 +13,11 @@ use crate::util::rect::Rect;
 #[cfg(feature = "fp")]
 use crate::math::{
     angle::Angle,
-    mat::{rotate_x, rotate_y, translate},
+    mat::{orient_z, rotate_x, rotate_y, translate},
     vec::vec3,
 };
 
+use super::View;
 use super::{
     clip::ClipVec,
     ctx::Context,
@@ -54,7 +55,7 @@ pub struct Camera<M> {
 #[derive(Copy, Clone, Debug)]
 pub struct FirstPerson {
     /// Current position of the camera in world space.
-    pub pos: Vec3,
+    pub pos: Vec3<World>,
     /// Current heading of the camera in world space.
     pub heading: SphericalVec,
 }
@@ -65,7 +66,10 @@ pub struct FirstPerson {
 /// point, and change the camera's distance to the target point.
 #[derive(Copy, Clone, Debug)]
 pub struct Orbit {
-    pub target: Vec3,
+    /// The point the camera orbits around, in world space.
+    pub target: Vec3<World>,
+    /// The camera's distance and angular direction relative to `target`,
+    /// in world space.
     pub dir: SphericalVec,
 }
 
@@ -176,8 +180,8 @@ impl FirstPerson {
 
 #[cfg(feature = "fp")]
 impl FirstPerson {
-    pub fn look_at(&mut self, pt: Vec3) {
-        self.heading = (pt - self.pos).into();
+    pub fn look_at(&mut self, pt: Vec3<World>) {
+        self.heading = (pt - self.pos).to_spherical();
         self.heading[0] = 1.0;
     }
 
@@ -193,12 +197,12 @@ impl FirstPerson {
         );
     }
 
-    /// Translates the camera *in the camera's frame*.
+    /// Translates the camera in view space (in the camera's frame).
     ///
     /// The components of `delta` determine how much the camera moves
     /// left/right (x), up/down (y), and forward/back (z).
     // TODO Explain that up/down is actually in world space (dir of gravity)
-    pub fn translate(&mut self, delta: Vec3) {
+    pub fn translate(&mut self, delta: Vec3<View>) {
         // Zero azimuth means parallel to the x-axis
         let fwd = spherical(1.0, self.heading.az(), turns(0.0)).to_cart();
         let up = vec3(0.0, 1.0, 0.0);
@@ -208,9 +212,11 @@ impl FirstPerson {
         // | ry uy fy | | dy |  =  | ux uy uz |   | dy |
         // \ rz uz fz / \ dz /     \ fx fy fz /   \ dz /
 
-        self.pos += Mat4x4::<RealToReal<3>>::from_basis(right, up, fwd)
-            .transpose()
-            .apply(&delta);
+        let w2v = Mat4x4::<WorldToView>::from_basis(right, up, fwd);
+
+        let v2w = w2v.transpose();
+
+        self.pos += v2w.apply(&delta);
     }
 }
 
@@ -257,7 +263,7 @@ impl Mode for FirstPerson {
         let fwd = self.heading;
         let right = vec3(0.0, 1.0, 0.0).cross(&fwd_move.to_cart());
 
-        let transl = translate(-pos);
+        let transl = translate(-pos.to());
         let orient = orient_z(fwd.into(), right);
 
         transl.then(&orient).to()
@@ -267,7 +273,7 @@ impl Mode for FirstPerson {
 #[cfg(feature = "fp")]
 impl Mode for Orbit {
     fn world_to_view(&self) -> Mat4x4<WorldToView> {
-        translate(self.target)
+        translate(self.target.to())
             .then(&rotate_y(self.dir.az()))
             .then(&rotate_x(self.dir.alt()))
             .then(&translate(vec3(0.0, 0.0, self.dir.r())))
