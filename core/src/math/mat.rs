@@ -73,6 +73,23 @@ impl<Repr: Clone, Map> Matrix<Repr, Map> {
     }
 }
 
+impl<Sc, S, D, const N: usize, const M: usize>
+    Matrix<[[Sc; N]; N], RealToReal<M, S, D>>
+where
+    Sc: Copy + Default,
+{
+    /// Returns `self` with its rows and columns swapped.
+    pub fn transpose(self) -> Matrix<[[Sc; N]; N], RealToReal<M, D, S>> {
+        let mut res = [[Sc::default(); N]; N];
+        for i in 0..N {
+            for j in 0..N {
+                res[i][j] = self.0[j][i];
+            }
+        }
+        res.into()
+    }
+}
+
 impl<const N: usize, Map> Matrix<[[f32; N]; N], Map> {
     /// Returns the `N`×`N` identity matrix.
     pub fn identity() -> Self {
@@ -107,17 +124,6 @@ impl<const N: usize, Map> Matrix<[[f32; N]; N], Map> {
         Map: LinearMap,
     {
         array::from_fn(|j| self.0[j][i]).into()
-    }
-
-    /// Returns `self` with its rows and columns swapped.
-    pub fn transpose(self) -> Self {
-        let mut res = [[0.0; N]; N];
-        for i in 0..N {
-            for j in 0..N {
-                res[i][j] = self.0[j][i];
-            }
-        }
-        res.into()
     }
 
     /// Returns whether every element of `self` is finite
