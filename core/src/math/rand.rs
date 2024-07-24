@@ -326,7 +326,9 @@ mod tests {
     #[test]
     fn uniform_vec3() {
         let gen = Xorshift64::default();
-        let mut d = Uniform(gen, vec3(-2.0, 0.0, -1.0)..vec3(1.0, 2.0, 3.0));
+        let rg: Range<Vec3> = vec3(-2.0, 0.0, -1.0)..vec3(1.0, 2.0, 3.0);
+        let mut d = Uniform(gen, rg);
+
         let mut sum = vec3(0.0, 0.0, 0.0);
         for v in d.iter().take(COUNT) {
             assert!(-2.0 <= v.x() && v.x() < 1.0);
