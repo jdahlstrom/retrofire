@@ -1,13 +1,15 @@
 //! Colors and color spaces.
 
+use core::ops::{
+    Add, AddAssign, Div, DivAssign, Index, Mul, MulAssign, Neg, Sub, SubAssign,
+};
 use core::{
     array,
     fmt::{self, Debug, Formatter},
     marker::PhantomData,
-    ops::Index,
 };
 
-use crate::math::{Affine, Linear, Vector, float::f32, vary::ZDiv};
+use super::{Affine, Linear, Vector, vary::ZDiv};
 
 //
 // Types
@@ -195,6 +197,7 @@ impl Color3f<Rgb> {
     #[cfg(feature = "fp")]
     #[inline]
     pub fn to_linear(self) -> Color3f<LinRgb> {
+        use super::float::f32;
         self.0.map(|c| f32::powf(c, GAMMA)).into()
     }
 
@@ -209,7 +212,7 @@ impl Color3f<Rgb> {
         let h = if d == 0.0 {
             0.0
         } else if max == r {
-            f32::rem_euclid((g - b) / d, 6.0)
+            super::float::f32::rem_euclid((g - b) / d, 6.0)
         } else if max == g {
             (b - r) / d + 2.0
         } else {
@@ -277,6 +280,7 @@ impl Color3f<LinRgb> {
     #[cfg(feature = "fp")]
     #[inline]
     pub fn to_srgb(self) -> Color3f<Rgb> {
+        use super::float::f32;
         self.0.map(|c| f32::powf(c, INV_GAMMA)).into()
     }
 }
@@ -525,12 +529,102 @@ impl<R, Sp> From<R> for Color<R, Sp> {
     }
 }
 
+//
+// Arithmetic trait impls
+//
+
+//
+// Arithmetic traits
+//
+
+/// The color += color operator.
+impl<R, D, Sp> AddAssign<D> for Color<R, Sp>
+where
+    Self: Affine<Diff = D>,
+{
+    #[inline]
+    fn add_assign(&mut self, rhs: D) {
+        *self = Affine::add(&*self, &rhs);
+    }
+}
+
+/// The color -= color operator.
+impl<R, D, Sp> SubAssign<D> for Color<R, Sp>
+where
+    D: Linear,
+    Self: Affine<Diff = D>,
+{
+    #[inline]
+    fn sub_assign(&mut self, rhs: D) {
+        *self += rhs.neg();
+    }
+}
+
+// The color *= scalar operator.
+impl<R, Sc, Sp> MulAssign<Sc> for Color<R, Sp>
+where
+    Self: Linear<Scalar = Sc>,
+{
+    #[inline]
+    fn mul_assign(&mut self, rhs: Sc) {
+        *self = Linear::mul(&*self, rhs);
+    }
+}
+
+// The color /= scalar operator.
+impl<R, Sp> DivAssign<f32> for Color<R, Sp>
+where
+    Self: Linear<Scalar = f32>,
+{
+    #[inline]
+    fn div_assign(&mut self, rhs: f32) {
+        use crate::math::ApproxEq;
+        debug_assert!(!rhs.approx_eq(&0.0));
+        *self = Linear::mul(&*self, rhs.recip());
+    }
+}
+
+/// The color negation operator.
+impl<R, Sp> Neg for Color<R, Sp>
+where
+    Self: Linear,
+{
+    type Output = Self;
+
+    #[inline]
+    fn neg(self) -> Self {
+        <Self as Linear>::neg(&self)
+    }
+}
+
+/// The scalar * color operator.
+impl<R, Sp> Mul<Color<R, Sp>> for <Color<R, Sp> as Linear>::Scalar
+where
+    Color<R, Sp>: Linear,
+{
+    type Output = Color<R, Sp>;
+
+    #[inline]
+    fn mul(self, rhs: Color<R, Sp>) -> Color<R, Sp> {
+        rhs * self
+    }
+}
+
+// The color + color operator.
+impl_op!(Add::add, Color, <Self as Affine>::Diff, +=, bound=Affine);
+// The color - color operator.
+impl_op!(Sub::sub, Color, <Self as Affine>::Diff, -=, bound=Affine);
+// The color * scalar operator.
+impl_op!(Mul::mul, Color, <Self as Linear>::Scalar, *=);
+// The color / scalar operator.
+impl_op!(Div::div, Color, f32, /=, bound=Linear<Scalar = f32>);
+
 #[cfg(test)]
 mod tests {
     use super::*;
 
     #[test]
-    fn color_components() {
+    fn rgb_components() {
         assert_eq!(rgb(0xFF, 0, 0).r(), 0xFF);
         assert_eq!(rgb(0, 0xFF, 0).g(), 0xFF);
         assert_eq!(rgb(0, 0, 0xFF).b(), 0xFF);
@@ -539,6 +633,40 @@ mod tests {
         assert_eq!(rgba(0, 0xFF, 0, 0).g(), 0xFF);
         assert_eq!(rgba(0, 0, 0xFF, 0).b(), 0xFF);
         assert_eq!(rgba(0, 0, 0, 0xFF).a(), 0xFF);
+    }
+
+    #[test]
+    fn hsl_components() {
+        assert_eq!(hsl(0xFF, 0, 0).h(), 0xFF);
+        assert_eq!(hsl(0, 0xFF, 0).s(), 0xFF);
+        assert_eq!(hsl(0, 0, 0xFF).l(), 0xFF);
+
+        assert_eq!(hsla(0xFF, 0, 0, 0).h(), 0xFF);
+        assert_eq!(hsla(0, 0xFF, 0, 0).s(), 0xFF);
+        assert_eq!(hsla(0, 0, 0xFF, 0).l(), 0xFF);
+        assert_eq!(hsla(0, 0, 0, 0xFF).a(), 0xFF);
+    }
+
+    #[test]
+    fn rgb_f32_ops() {
+        let lhs = rgb(0.5, 0.625, 0.75);
+        let rhs = rgb(0.125, 0.25, 0.375);
+
+        assert_eq!(lhs + rhs, rgb(0.625, 0.875, 1.125));
+        assert_eq!(lhs - rhs, rgb(0.375, 0.375, 0.375));
+        assert_eq!(lhs * 0.5, rgb(0.25, 0.3125, 0.375));
+        assert_eq!(0.5 * lhs, rgb(0.25, 0.3125, 0.375));
+        assert_eq!(lhs / 2.0, rgb(0.25, 0.3125, 0.375));
+        assert_eq!(-lhs, rgb(-0.5, -0.625, -0.75));
+    }
+
+    #[test]
+    fn rgb_u8_ops() {
+        let lhs = rgb(0x77, 0x88, 0x99);
+        let rhs = [0x11_i32, 0x33, 0x55].into();
+
+        assert_eq!(lhs + rhs, rgb(0x88, 0xBB, 0xEE));
+        assert_eq!(lhs - rhs, rgb(0x66, 0x55, 0x44));
     }
 
     #[test]
