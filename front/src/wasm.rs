@@ -19,7 +19,7 @@ use web_sys::{
     HtmlCanvasElement as Canvas, ImageData,
 };
 
-use retrofire_core::render::{ctx::Context, stats::Stats, target::Framebuf};
+use retrofire_core::render::{ctx::Context, stats::Stats, target};
 use retrofire_core::util::buf::{AsMutSlice2, Buf2, MutSlice2};
 
 use crate::Frame;
@@ -47,6 +47,9 @@ pub struct Window {
 pub struct Builder {
     size: (u32, u32),
 }
+
+pub type Framebuf<'a> =
+    target::Framebuf<MutSlice2<'a, u32>, MutSlice2<'a, f32>>;
 
 impl Builder {
     pub fn size(self, w: u32, h: u32) -> Self {
@@ -83,7 +86,7 @@ impl Window {
 
     pub fn run<F>(mut self, mut frame_fn: F)
     where
-        F: FnMut(&mut Frame<Self>) -> ControlFlow<()> + 'static,
+        F: FnMut(&mut Frame<Self, Framebuf>) -> ControlFlow<()> + 'static,
     {
         let (w, h) = self.size;
         let mut ctx = self.ctx.clone();
