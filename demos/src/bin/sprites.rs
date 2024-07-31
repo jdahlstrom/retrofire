@@ -32,7 +32,8 @@ fn main() {
 
     let mut win = Window::builder()
         .title("retrofire//sprite")
-        .build();
+        .build()
+        .expect("should create window");
 
     let shader = Shader::new(
         |v: Vertex<Vec3<_>, Vec2<_>>,

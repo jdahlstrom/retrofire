@@ -16,7 +16,8 @@ use re_geom::solids::*;
 fn main() {
     let mut win = Window::builder()
         .title("retrofire//crates")
-        .build();
+        .build()
+        .expect("should create window");
 
     let floor_shader = Shader::new(
         |v: Vertex<_, _>, mvp: &Mat4x4<ModelToProj>| {
