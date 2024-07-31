@@ -3,7 +3,7 @@ use std::ops::ControlFlow::*;
 use re::prelude::*;
 
 use re::math::space::Real;
-use re::render::{render, tex::SamplerClamp, Model, ModelToProj};
+use re::render::{ctx::Context, render, tex::SamplerClamp, Model, ModelToProj};
 use re_front::sdl2::Window;
 
 fn main() {
@@ -18,9 +18,15 @@ fn main() {
         .title("retrofire//square")
         .size(640, 480)
         .build()
-        .unwrap_or_else(|e| panic!("Could not create window: {e}"));
+        .expect("window creation");
 
-    win.ctx.face_cull = None;
+    win.ctx = Context {
+        face_cull: None,
+        depth_test: None,
+        depth_clear: None,
+        depth_write: false,
+        ..win.ctx
+    };
 
     let checker = Texture::from(Buf2::new_with(8, 8, |x, y| {
         let xor = (x ^ y) & 1;

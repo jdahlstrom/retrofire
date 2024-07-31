@@ -144,12 +144,14 @@ impl Window {
 
             let cf = tex.with_lock(None, |cbuf, pitch| {
                 if let Some(c) = ctx.depth_clear {
-                    zbuf.fill(c);
+                    // Z-buffer stores reciprocals
+                    zbuf.fill(c.recip());
                 }
                 if let Some(c) = ctx.color_clear {
                     let [r, g, b, a] = c.0;
-                    let mut iter = [b, g, r, a].into_iter().cycle();
-                    cbuf.fill_with(|| iter.next().expect("infinite iterator"));
+                    cbuf.chunks_exact_mut(4).for_each(|ch| {
+                        ch.copy_from_slice(&[b, g, r, a]);
+                    });
                 }
 
                 let buf = Framebuf {
