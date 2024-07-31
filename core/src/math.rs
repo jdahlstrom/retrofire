@@ -40,6 +40,26 @@ pub use {
     mat::{orient_y, orient_z, rotate, rotate_x, rotate_y, rotate_z, rotate2},
 };
 
+/// Implements an operator trait in terms of an op-assign trait.
+macro_rules! impl_op {
+    ($trait:ident :: $method:ident, $self:ident, $rhs:ty, $op:tt) => {
+        impl_op!($trait::$method, $self, $rhs, $op, bound=Linear);
+    };
+    ($trait:ident :: $method:ident, $self:ident, $rhs:ty, $op:tt, bound=$bnd:path) => {
+        impl<R, Sp> $trait<$rhs> for $self<R, Sp>
+        where
+            Self: $bnd,
+        {
+            type Output = Self;
+            /// TODO
+            #[inline]
+            fn $method(mut self, rhs: $rhs) -> Self {
+                self $op rhs; self
+            }
+        }
+    };
+}
+
 pub mod angle;
 pub mod approx;
 pub mod color;
