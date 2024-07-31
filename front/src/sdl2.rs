@@ -1,8 +1,14 @@
 //! Frontend using the `minifb` crate for window creation and event handling.
 
-use std::{mem::replace, ops::ControlFlow, time::Instant};
+use std::{fmt, mem::replace, ops::ControlFlow, time::Instant};
 
-use sdl2::{event::Event, keyboard::Keycode, render::Texture};
+use sdl2::{
+    event::Event,
+    keyboard::Keycode,
+    render::{Texture, TextureValueError},
+    video::WindowBuildError,
+    IntegerOrSdlError,
+};
 
 use retrofire_core::math::Vary;
 use retrofire_core::render::{
@@ -15,6 +21,9 @@ use retrofire_core::render::{
 use retrofire_core::util::buf::{Buf2, MutSlice2};
 
 use crate::Frame;
+
+#[derive(Debug)]
+pub struct Error(String);
 
 /// A lightweight wrapper of an `SDL2` window.
 pub struct Window {
@@ -40,15 +49,9 @@ pub struct Framebuf<'a> {
     pub depth_buf: MutSlice2<'a, f32>,
 }
 
-impl Default for Builder<'_> {
-    fn default() -> Self {
-        Self {
-            size: (800, 600),
-            title: "// retrofire application //",
-            vsync: true,
-        }
-    }
-}
+//
+// Inherent impls
+//
 
 impl<'t> Builder<'t> {
     /// Sets the width and height of the window.
@@ -70,7 +73,7 @@ impl<'t> Builder<'t> {
     }
 
     /// Creates the window.
-    pub fn build(self) -> Result<Window, String> {
+    pub fn build(self) -> Result<Window, Error> {
         let Self { size, title, vsync } = self;
 
         let sdl = sdl2::init()?;
@@ -78,18 +81,14 @@ impl<'t> Builder<'t> {
         let mut canvas = sdl
             .video()?
             .window(title, size.0, size.1)
-            .build()
-            .map_err(|e| e.to_string())?
+            .build()?
             .into_canvas();
 
         if vsync {
             canvas = canvas.present_vsync();
         }
 
-        let canvas = canvas
-            .accelerated()
-            .build()
-            .map_err(|e| e.to_string())?;
+        let canvas = canvas.accelerated().build()?;
 
         let ev_pump = sdl.event_pump()?;
 
@@ -105,7 +104,7 @@ impl Window {
         Builder::default()
     }
 
-    pub fn present(&mut self, tex: &Texture) -> Result<(), String> {
+    pub fn present(&mut self, tex: &Texture) -> Result<(), Error> {
         self.canvas.copy(&tex, None, None)?;
         self.canvas.present();
         Ok(())
@@ -118,16 +117,14 @@ impl Window {
     /// * the user closes the window via the GUI (e.g. title bar close button);
     /// * the Esc key is pressed; or
     /// * the callback returns `ControlFlow::Break`.
-    pub fn run<F>(&mut self, mut frame_fn: F) -> Result<(), String>
+    pub fn run<F>(&mut self, mut frame_fn: F) -> Result<(), Error>
     where
         F: FnMut(&mut Frame<Self, Framebuf>) -> ControlFlow<()>,
     {
         let (w, h) = self.size;
 
         let tc = self.canvas.texture_creator();
-        let mut tex = tc
-            .create_texture_streaming(None, w, h)
-            .map_err(|e| e.to_string())?;
+        let mut tex = tc.create_texture_streaming(None, w, h)?;
 
         let mut zbuf = Buf2::new(w, h);
         let mut ctx = self.ctx.clone();
@@ -224,4 +221,42 @@ impl<'a> Target for Framebuf<'a> {
             });
         io
     }
+}
+
+//
+// Trait impls
+//
+
+impl Default for Builder<'_> {
+    fn default() -> Self {
+        Self {
+            size: (800, 600),
+            title: "// retrofire application //",
+            vsync: true,
+        }
+    }
+}
+
+impl std::error::Error for Error {}
+
+impl fmt::Display for Error {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "{}", self.0)
+    }
+}
+
+macro_rules! impl_from_error {
+    ($($e:ty)+) => { $(
+        impl From<$e> for Error {
+            fn from(e: $e) -> Self { Self(e.to_string()) }
+        }
+    )+ };
+}
+
+impl_from_error! {
+    String
+    sdl2::Error
+    WindowBuildError
+    TextureValueError
+    IntegerOrSdlError
 }

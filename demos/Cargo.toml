@@ -28,7 +28,7 @@ sdl2 = ["dep:sdl2", "re-front/sdl2"]
 
 [[bin]]
 name = "square"
-required-features = ["sdl2", "re-front/sdl2"]
+required-features = ["sdl2"]
 
 [[bin]]
 name = "bezier"
