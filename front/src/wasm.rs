@@ -9,7 +9,6 @@ use core::time::Duration;
 
 use alloc::rc::Rc;
 
-use retrofire_core::prelude::rgba;
 use wasm_bindgen::prelude::*;
 use wasm_bindgen::Clamped;
 
@@ -19,6 +18,7 @@ use web_sys::{
     HtmlCanvasElement as Canvas, ImageData,
 };
 
+use retrofire_core::math::color::rgba;
 use retrofire_core::render::{ctx::Context, stats::Stats, target::Framebuf};
 use retrofire_core::util::buf::{AsMutSlice2, Buf2, MutSlice2};
 
