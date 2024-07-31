@@ -1,7 +1,7 @@
 //! Frontend using the `minifb` crate for window creation and event handling.
 
-use std::ops::ControlFlow::{self, Break};
-use std::time::{Duration, Instant};
+use core::ops::ControlFlow::{self, Break};
+use std::time::Instant;
 
 use minifb::{Key, WindowOptions};
 
@@ -25,7 +25,7 @@ pub struct Window {
 pub struct Builder<'title> {
     pub size: (u32, u32),
     pub title: &'title str,
-    pub max_fps: Option<f32>,
+    pub target_fps: Option<u32>,
     pub opts: WindowOptions,
 }
 
@@ -34,7 +34,7 @@ impl Default for Builder<'_> {
         Self {
             size: (800, 600),
             title: "// retrofire application //",
-            max_fps: Some(60.0),
+            target_fps: Some(60),
             opts: WindowOptions::default(),
         }
     }
@@ -53,8 +53,8 @@ impl<'t> Builder<'t> {
     }
     /// Sets the frame rate cap of the window. `None` means unlimited
     /// frame rate (the main loop runs as fast as possible).
-    pub fn max_fps(mut self, fps: Option<f32>) -> Self {
-        self.max_fps = fps;
+    pub fn target_fps(mut self, fps: Option<u32>) -> Self {
+        self.target_fps = fps;
         self
     }
     /// Sets other `minifb` options.
@@ -65,13 +65,13 @@ impl<'t> Builder<'t> {
 
     /// Creates the window.
     pub fn build(self) -> Window {
-        let Self { size, title, max_fps, opts } = self;
+        let Self { size, title, target_fps, opts } = self;
         let mut imp =
             minifb::Window::new(title, size.0 as usize, size.1 as usize, opts)
                 .unwrap();
-        imp.limit_update_rate(
-            max_fps.map(|fps| Duration::from_secs_f32(1.0 / fps)),
-        );
+        if let Some(fps) = target_fps {
+            imp.set_target_fps(fps as usize);
+        }
         let ctx = Context::default();
         Window { imp, size, ctx }
     }
