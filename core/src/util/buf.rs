@@ -186,6 +186,12 @@ impl<T> AsSlice2<T> for Buf2<T> {
         self.0.as_slice2()
     }
 }
+impl<T> AsSlice2<T> for &Buf2<T> {
+    #[inline]
+    fn as_slice2(&self) -> Slice2<T> {
+        self.0.as_slice2()
+    }
+}
 impl<T> AsSlice2<T> for Slice2<'_, T> {
     #[inline]
     fn as_slice2(&self) -> Slice2<T> {
@@ -200,6 +206,12 @@ impl<T> AsSlice2<T> for MutSlice2<'_, T> {
 }
 
 impl<T> AsMutSlice2<T> for Buf2<T> {
+    #[inline]
+    fn as_mut_slice2(&mut self) -> MutSlice2<T> {
+        self.0.as_mut_slice2()
+    }
+}
+impl<T> AsMutSlice2<T> for &mut Buf2<T> {
     #[inline]
     fn as_mut_slice2(&mut self) -> MutSlice2<T> {
         self.0.as_mut_slice2()
@@ -899,5 +911,25 @@ mod tests {
         assert_eq!(rows.next(), Some(&mut [22, 32][..]));
         assert_eq!(rows.next(), Some(&mut [23, 33][..]));
         assert_eq!(rows.next(), None);
+    }
+
+    #[test]
+    fn buf_ref_as_slice() {
+        fn foo<T: AsSlice2<u32>>(buf: T) -> u32 {
+            buf.as_slice2().width()
+        }
+        let buf = Buf2::new(2, 2);
+        let w = foo(&buf);
+        assert_eq!(w, buf.width());
+    }
+
+    #[test]
+    fn buf_ref_as_slice_mut() {
+        fn foo<T: AsMutSlice2<u32>>(mut buf: T) {
+            buf.as_mut_slice2()[[1, 1]] = 42;
+        }
+        let mut buf = Buf2::new(2, 2);
+        foo(&mut buf);
+        assert_eq!(buf[[1, 1]], 42);
     }
 }
