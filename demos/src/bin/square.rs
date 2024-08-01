@@ -5,6 +5,7 @@ use re::prelude::*;
 use re::math::space::Real;
 use re::render::tex::{uv, SamplerClamp, TexCoord, Texture};
 use re::render::{render, Model, ModelToProj};
+use re::util::dims::Dims;
 use re_front::minifb::Window;
 
 fn main() {
@@ -17,12 +18,12 @@ fn main() {
 
     let mut win = Window::builder()
         .title("retrofire//square")
-        .size(640, 480)
+        .dims(Dims(640, 480))
         .build();
 
     win.ctx.face_cull = None;
 
-    let checker = Texture::from(Buf2::new_with(8, 8, |x, y| {
+    let checker = Texture::from(Buf2::new_with(Dims(8, 8), |x, y| {
         let xor = (x ^ y) & 1;
         rgba(xor as u8 * 255, 128, 255 - xor as u8 * 128, 0)
     }));

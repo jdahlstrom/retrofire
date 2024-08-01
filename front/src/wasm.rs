@@ -20,7 +20,10 @@ use web_sys::{
 
 use retrofire_core::math::color::rgba;
 use retrofire_core::render::{ctx::Context, stats::Stats, target::Framebuf};
-use retrofire_core::util::buf::{AsMutSlice2, Buf2, MutSlice2};
+use retrofire_core::util::{
+    buf::{AsMutSlice2, Buf2, MutSlice2},
+    dims::Dims,
+};
 
 use crate::Frame;
 
@@ -38,25 +41,25 @@ extern "C" {
 
 #[derive(Debug)]
 pub struct Window {
-    pub size: (u32, u32),
+    pub dims: Dims,
     pub ctx2d: Context2d,
     pub ctx: Context,
 }
 
 #[derive(Debug)]
 pub struct Builder {
-    size: (u32, u32),
+    dims: Dims,
 }
 
 impl Builder {
-    pub fn size(self, w: u32, h: u32) -> Self {
-        Self { size: (w, h), ..self }
+    pub fn dims(self, dims: Dims) -> Self {
+        Self { dims, ..self }
     }
 }
 
 impl Default for Builder {
     fn default() -> Self {
-        Self { size: (800, 600) }
+        Self { dims: Dims(800, 600) }
     }
 }
 
@@ -65,31 +68,31 @@ impl Window {
         Builder::default()
     }
 
-    pub fn new(w: u32, h: u32) -> Result<Self, &'static str> {
+    pub fn new(dims: Dims) -> Result<Self, &'static str> {
         log("Starting wasm app...");
 
         let doc = Self::document().ok_or("document object not found")?;
         let body = doc.body().ok_or("body element not found")?;
 
-        let cvs = Self::create_canvas(w, h).ok_or("could not create canvas")?;
+        let cvs = Self::create_canvas(dims).ok_or("could not create canvas")?;
         body.append_child(&cvs);
 
         let ctx2d = Self::context2d(&cvs).ok_or("could not get context")?;
         let ctx = Context::default();
 
         log("done!");
-        Ok(Self { size: (w, h), ctx2d, ctx })
+        Ok(Self { dims, ctx2d, ctx })
     }
 
     pub fn run<F>(mut self, mut frame_fn: F)
     where
         F: FnMut(&mut Frame<Self>) -> ControlFlow<()> + 'static,
     {
-        let (w, h) = self.size;
+        let dims = self.dims;
         let mut ctx = self.ctx.clone();
 
-        let mut cbuf = Buf2::new(w, h);
-        let mut zbuf = Buf2::new(w, h);
+        let mut cbuf = Buf2::new(dims);
+        let mut zbuf = Buf2::new(dims);
 
         let mut t_last = Duration::default();
 
@@ -137,7 +140,7 @@ impl Window {
         web_sys::window()?.document()
     }
 
-    fn create_canvas(w: u32, h: u32) -> Option<Canvas> {
+    fn create_canvas(Dims(w, h): Dims) -> Option<Canvas> {
         Self::document()?
             .create_element("canvas")
             .ok()?
@@ -168,7 +171,7 @@ impl Window {
         };
         let img = ImageData::new_with_u8_clamped_array(
             Clamped(&u8_data),
-            self.size.0,
+            self.dims.width(),
         )
         .map_err(|_| "could not create image data from color buf")?;
 

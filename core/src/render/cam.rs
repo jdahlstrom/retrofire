@@ -8,7 +8,7 @@ use crate::math::{
     vary::Vary,
     vec::{vec2, Vec3},
 };
-use crate::util::rect::Rect;
+use crate::util::{dims::Dims, rect::Rect};
 
 #[cfg(feature = "fp")]
 use crate::math::{
@@ -40,7 +40,8 @@ pub struct Camera<M> {
     /// The movement mode of the camera.
     pub mode: M,
     /// Viewport width and height.
-    pub res: (u32, u32),
+    // TODO Or window width and height?
+    pub res: Dims,
     /// Projection matrix.
     pub project: Mat4x4<ViewToProj>,
     /// Viewport matrix.
@@ -65,39 +66,37 @@ pub struct FirstPerson {
 
 impl<M: Mode> Camera<M> {
     /// Creates a camera with the given resolution.
-    pub fn new(res_x: u32, res_y: u32) -> Self
+    pub fn new(res: Dims) -> Self
     where
         M: Default,
     {
-        Self::with_mode(res_x, res_y, M::default())
+        Self::with_mode(res, M::default())
     }
 
     /// Creates a camera with the given resolution and mode.
-    pub fn with_mode(res_x: u32, res_y: u32, mode: M) -> Self {
+    pub fn with_mode(res: Dims, mode: M) -> Self {
         Self {
-            res: (res_x, res_y),
+            res,
             mode,
             project: Default::default(),
-            viewport: viewport(vec2(0, 0)..vec2(res_x, res_y)),
+            viewport: viewport(vec2(0, 0)..vec2(res.0, res.1)),
         }
     }
 
     /// Sets the viewport bounds of this camera.
     pub fn viewport(self, bounds: impl Into<Rect<u32>>) -> Self {
-        let (w, h) = self.res;
-
         let Rect {
             left: Some(l),
             top: Some(t),
             right: Some(r),
             bottom: Some(b),
-        } = bounds.into().intersect(&(0..w, 0..h).into())
+        } = bounds.into().intersect(&self.res.into())
         else {
             unreachable!("bounded ∩ bounded should be bounded")
         };
 
         Self {
-            res: (r.abs_diff(l), b.abs_diff(t)),
+            res: Dims(r.abs_diff(l), b.abs_diff(t)),
             viewport: viewport(vec2(l, t)..vec2(r, b)),
             ..self
         }
@@ -105,7 +104,7 @@ impl<M: Mode> Camera<M> {
 
     /// Sets up perspective projection.
     pub fn perspective(self, focal_ratio: f32, near_far: Range<f32>) -> Self {
-        let aspect_ratio = self.res.0 as f32 / self.res.1 as f32;
+        let aspect_ratio = self.res.aspect_ratio();
         Self {
             project: perspective(focal_ratio, aspect_ratio, near_far),
             ..self

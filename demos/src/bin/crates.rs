@@ -7,6 +7,7 @@ use re::prelude::*;
 use re::math::color::gray;
 use re::render::cam::{Camera, FirstPerson};
 use re::render::ModelToProj;
+use re::util::dims::Dims;
 
 use re_front::minifb::Window;
 use re_geom::solids::*;
@@ -17,7 +18,7 @@ fn main() {
 
     let mut win = Window::builder()
         .title("retrofire//crates")
-        .size(W, H)
+        .dims(Dims(W, H))
         .build();
 
     let floor_shader = Shader::new(
@@ -36,7 +37,7 @@ fn main() {
         },
     );
 
-    let mut cam = Camera::<FirstPerson>::new(W, H)
+    let mut cam = Camera::<FirstPerson>::new(Dims(W, H))
         .viewport((10..W - 10, 10..H - 10))
         .perspective(1.0, 0.1..1000.0);
 

@@ -6,6 +6,7 @@ use re::prelude::*;
 
 use re::math::{color::gray, mat::RealToReal, spline::smootherstep};
 use re::render::{cam::Camera, ModelToProj, ModelToWorld};
+use re::util::dims::Dims;
 use re_front::minifb::Window;
 use re_geom::{io::parse_obj, solids::*};
 
@@ -50,7 +51,7 @@ fn main() {
 
     let mut win = Window::builder()
         .title("retrofire//solids")
-        .size(W, H)
+        .dims(Dims(W, H))
         .build();
 
     win.ctx.color_clear = Some(gray(32).to_rgba());
@@ -144,9 +145,10 @@ fn main() {
         bunny,
     ];
 
-    let camera = Camera::with_mode(W, H, scale(vec3(1.0, -1.0, -1.0)).to())
-        .perspective(1.5, 0.1..1000.0)
-        .viewport(vec2(10, 10)..vec2(W - 10, H - 10));
+    let camera =
+        Camera::with_mode(Dims(W, H), scale(vec3(1.0, -1.0, -1.0)).to())
+            .perspective(1.5, 0.1..1000.0)
+            .viewport(vec2(10, 10)..vec2(W - 10, H - 10));
 
     let translate = translate(vec3(0.0, 0.0, -4.0));
 
