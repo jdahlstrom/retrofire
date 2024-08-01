@@ -21,7 +21,7 @@ use web_sys::{
 };
 
 use retrofire_core::{
-    math::color::rgba,
+    math::color::{pixel_fmt::Argb8888, rgba},
     render::{target, Context, Stats},
     util::buf::{AsMutSlice2, Buf2, MutSlice2},
     util::Dims,
