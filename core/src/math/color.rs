@@ -64,29 +64,20 @@ pub type Color3f<Space = Rgb> = Color<[f32; 3], Space>;
 pub type Color4f<Space = Rgba> = Color<[f32; 4], Space>;
 
 pub mod pixel_fmt {
-    pub trait Fmt {
-        type Type;
-    }
-    pub trait ToFmt<F: Fmt> {
-        fn write(&self, t: &mut F::Type);
+    pub trait Fmt<T> {}
+    pub trait ToFmt<T, F: Fmt<T>> {
+        fn write(&self, t: &mut T);
     }
     pub struct Rgb888;
     pub struct Rgba8888;
     pub struct Argb8888;
     pub struct Bgra8888;
 
-    impl Fmt for Rgb888 {
-        type Type = u32;
-    }
-    impl Fmt for Rgba8888 {
-        type Type = u32;
-    }
-    impl Fmt for Argb8888 {
-        type Type = u32;
-    }
-    impl Fmt for Bgra8888 {
-        type Type = u32;
-    }
+    impl Fmt<u32> for Rgb888 {}
+    impl Fmt<[u8; 3]> for Rgb888 {}
+    impl Fmt<u32> for Rgba8888 {}
+    impl Fmt<u32> for Argb8888 {}
+    impl Fmt<u32> for Bgra8888 {}
 }
 
 //
@@ -129,17 +120,19 @@ pub const INV_GAMMA: f32 = 1.0 / GAMMA;
 //
 
 impl<R, Sp> Color<R, Sp> {
-    pub fn write<F: Fmt>(&self, _: F, to: &mut F::Type)
+    pub fn write<T, F>(&self, _: F, to: &mut T)
     where
-        Self: ToFmt<F>,
+        F: Fmt<T>,
+        Self: ToFmt<T, F>,
     {
-        ToFmt::<F>::write(self, to);
+        ToFmt::write(self, to);
     }
 
-    pub fn to_fmt<F: Fmt>(&self, fmt: F) -> F::Type
+    pub fn to_fmt<T, F>(&self, fmt: F) -> T
     where
-        Self: ToFmt<F>,
-        F::Type: Sized + Default,
+        Self: ToFmt<T, F>,
+        F: Fmt<T>,
+        T: Sized + Default,
     {
         let mut to = Default::default();
         self.write(fmt, &mut to);
@@ -565,24 +558,29 @@ impl<Sc, Sp, const N: usize> ZDiv for Color<[Sc; N], Sp> where Sc: ZDiv + Copy {
 
 use pixel_fmt::*;
 
-impl ToFmt<Rgb888> for Color3 {
+impl ToFmt<u32, Rgb888> for Color3 {
     fn write(&self, t: &mut u32) {
         let [r, g, b] = self.0;
         *t = u32::from_be_bytes([0, r, g, b]);
     }
 }
-impl ToFmt<Rgba8888> for Color4 {
+impl ToFmt<[u8; 3], Rgb888> for Color3 {
+    fn write(&self, t: &mut [u8; 3]) {
+        *t = self.0;
+    }
+}
+impl ToFmt<u32, Rgba8888> for Color4 {
     fn write(&self, t: &mut u32) {
         *t = u32::from_be_bytes(self.0);
     }
 }
-impl ToFmt<Argb8888> for Color4 {
+impl ToFmt<u32, Argb8888> for Color4 {
     fn write(&self, t: &mut u32) {
         let [r, g, b, a] = self.0;
         *t = u32::from_be_bytes([a, r, g, b]);
     }
 }
-impl ToFmt<Bgra8888> for Color4 {
+impl ToFmt<u32, Bgra8888> for Color4 {
     fn write(&self, t: &mut u32) {
         let [r, g, b, a] = self.0;
         *t = u32::from_be_bytes([b, g, r, a]);
@@ -639,7 +637,7 @@ mod tests {
     }
     #[test]
     fn rgb_to_u32() {
-        assert_eq!(RGB.to_fmt(Rgb888), 0x00_44_88_CC);
+        assert_eq!(RGB.to_fmt::<u32, _>(Rgb888), 0x00_44_88_CC);
     }
     #[test]
     fn rgba_to_u32() {
