@@ -4,9 +4,10 @@
 //! depth buffer, and possible auxiliary buffers. Special render targets can
 //! be used, for example, for visibility or occlusion computations.
 
-use crate::math::color::pixel_fmt::Argb8888;
-use crate::math::vary::Vary;
-use crate::util::buf::AsMutSlice2;
+use crate::{
+    math::vary::Vary,
+    util::{buf::AsMutSlice2, pixfmt::Argb8888},
+};
 
 use super::{
     ctx::Context, raster::Scanline, shader::FragmentShader, stats::Throughput,
