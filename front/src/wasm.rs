@@ -18,7 +18,7 @@ use web_sys::{
     HtmlCanvasElement as Canvas, ImageData,
 };
 
-use retrofire_core::math::color::rgba;
+use retrofire_core::math::color::{pixel_fmt::Argb8888, rgba};
 use retrofire_core::render::{ctx::Context, stats::Stats, target::Framebuf};
 use retrofire_core::util::buf::{AsMutSlice2, Buf2, MutSlice2};
 
@@ -100,7 +100,7 @@ impl Window {
             .replace(Closure::new(move |ms| {
                 // TODO add clear method to Framebuf?
                 if let Some(c) = ctx.color_clear {
-                    cbuf.fill(c.to_argb_u32());
+                    cbuf.fill(c.to_fmt(Argb8888));
                 }
                 if let Some(z) = ctx.depth_clear {
                     // Depth buffer contains reciprocal depth values

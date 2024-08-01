@@ -4,6 +4,7 @@
 //! depth buffer, and possible auxiliary buffers. Special render targets can
 //! be used, for example, for visibility or occlusion computations.
 
+use crate::math::color::pixel_fmt::Argb8888;
 use crate::math::vary::Vary;
 use crate::util::buf::AsMutSlice2;
 
@@ -68,7 +69,7 @@ where
                         if ctx.color_write {
                             io.o += 1;
                             // TODO Blending should happen here
-                            *curr_col = new_col.to_argb_u32();
+                            new_col.write(Argb8888, curr_col);
                         }
                         if ctx.depth_write {
                             *curr_z = new_z;
@@ -100,11 +101,11 @@ impl<Buf: AsMutSlice2<u32>> Target for Buf {
 
         sl.fragments()
             .zip(cbuf_span)
-            .for_each(|(frag, c)| {
-                if let Some(color) = fs.shade_fragment(frag) {
+            .for_each(|(frag, curr)| {
+                if let Some(new) = fs.shade_fragment(frag) {
                     if ctx.color_write {
                         io.o += 1;
-                        *c = color.to_argb_u32();
+                        new.write(Argb8888, curr);
                     }
                 }
             });
