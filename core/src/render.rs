@@ -17,7 +17,7 @@ use crate::math::{
 
 use clip::{view_frustum, Clip, ClipVert};
 use ctx::{Context, DepthSort, FaceCull};
-use raster::{tri_fill, Frag};
+use raster::tri_fill;
 use shader::{FragmentShader, VertexShader};
 use stats::Stats;
 use target::Target;
@@ -72,13 +72,12 @@ pub type NdcToScreen = RealToReal<3, Ndc, Screen>;
 
 /// Alias for combined vertex+fragment shader types
 pub trait Shader<Vtx, Var, Uni>:
-    VertexShader<Vtx, Uni, Output = Vertex<ProjVec4, Var>>
-    + FragmentShader<Frag<Var>>
+    VertexShader<Vtx, Uni, Output = Vertex<ProjVec4, Var>> + FragmentShader<Var>
 {
 }
 impl<S, Vtx, Var, Uni> Shader<Vtx, Var, Uni> for S where
     S: VertexShader<Vtx, Uni, Output = Vertex<ProjVec4, Var>>
-        + FragmentShader<Frag<Var>>
+        + FragmentShader<Var>
 {
 }
 
