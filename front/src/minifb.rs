@@ -5,6 +5,7 @@ use std::time::Instant;
 
 use minifb::{Key, WindowOptions};
 
+use retrofire_core::math::color::pixel_fmt::Argb8888;
 use retrofire_core::render::ctx::Context;
 use retrofire_core::render::target::Framebuf;
 use retrofire_core::util::buf::Buf2;
@@ -118,7 +119,7 @@ impl Window {
                 break;
             }
             if let Some(c) = ctx.color_clear {
-                cbuf.fill(c.to_argb_u32());
+                cbuf.fill(c.to_fmt(Argb8888));
             }
             if let Some(c) = ctx.depth_clear {
                 // Depth buffer contains reciprocal depth values
