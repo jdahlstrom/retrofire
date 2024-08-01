@@ -42,14 +42,14 @@ pub trait VertexShader<In, Uni> {
 /// pixel, or fragment, rendered.
 ///
 /// # Type parameters
-/// * `F`: Type of the input fragment.
-pub trait FragmentShader<F> {
+/// * `Var`: The varying of the input fragment.
+pub trait FragmentShader<Var> {
     /// Computes the color of `frag`. Returns either `Some(color)`, or `None`
     /// if the fragment should be discarded.
     ///
     /// # Panics
     /// `shade_fragment` should never panic.
-    fn shade_fragment(&self, frag: F) -> Option<Color4>;
+    fn shade_fragment(&self, frag: Frag<Var>) -> Option<Color4>;
 }
 
 impl<F, In, Out, Uni> VertexShader<In, Uni> for F
@@ -63,12 +63,12 @@ where
     }
 }
 
-impl<F, Frag, Out> FragmentShader<Frag> for F
+impl<F, Var, Out> FragmentShader<Var> for F
 where
-    F: Fn(Frag) -> Out,
+    F: Fn(Frag<Var>) -> Out,
     Out: Into<Option<Color4>>,
 {
-    fn shade_fragment(&self, frag: Frag) -> Option<Color4> {
+    fn shade_fragment(&self, frag: Frag<Var>) -> Option<Color4> {
         self(frag).into()
     }
 }
@@ -91,11 +91,11 @@ where
     }
 }
 
-impl<Vs, Fs, F> FragmentShader<F> for Shader<Vs, Fs>
+impl<Vs, Fs, Var> FragmentShader<Var> for Shader<Vs, Fs>
 where
-    Fs: FragmentShader<F>,
+    Fs: FragmentShader<Var>,
 {
-    fn shade_fragment(&self, frag: F) -> Option<Color4> {
+    fn shade_fragment(&self, frag: Frag<Var>) -> Option<Color4> {
         self.fragment_shader.shade_fragment(frag)
     }
 }
@@ -103,10 +103,10 @@ where
 impl<Vs, Fs> Shader<Vs, Fs> {
     /// Returns a new `Shader` with `vs` as the vertex shader
     /// and `fs` as the fragment shader.
-    pub const fn new<In, Uni, Pos, Attr>(vs: Vs, fs: Fs) -> Self
+    pub const fn new<In, Uni, Pos, Var>(vs: Vs, fs: Fs) -> Self
     where
-        Vs: VertexShader<In, Uni, Output = Vertex<Pos, Attr>>,
-        Fs: FragmentShader<Frag<Attr>>,
+        Vs: VertexShader<In, Uni, Output = Vertex<Pos, Var>>,
+        Fs: FragmentShader<Var>,
     {
         Self {
             vertex_shader: vs,

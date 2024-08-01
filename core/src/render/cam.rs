@@ -20,7 +20,6 @@ use crate::math::{
 use super::{
     clip::ClipVec,
     ctx::Context,
-    raster::Frag,
     shader::{FragmentShader, VertexShader},
     target::Target,
     NdcToScreen, RealToProj, ViewToProj, World, WorldToView,
@@ -135,7 +134,7 @@ impl<M: Mode> Camera<M> {
                 Vtx,
                 (&'a Mat4x4<RealToProj<B>>, Uni),
                 Output = Vertex<ClipVec, Var>,
-            > + FragmentShader<Frag<Var>>,
+            > + FragmentShader<Var>,
     {
         let tf = to_world
             .then(&self.mode.world_to_view())

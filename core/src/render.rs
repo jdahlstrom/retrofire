@@ -10,7 +10,7 @@ use core::fmt::Debug;
 
 use clip::{view_frustum, Clip, ClipVec, ClipVert};
 use ctx::{Context, DepthSort, FaceCull};
-use raster::{tri_fill, Frag};
+use raster::tri_fill;
 use shader::{FragmentShader, VertexShader};
 use stats::Stats;
 use target::Target;
@@ -78,7 +78,7 @@ pub fn render<Vtx: Clone, Var: Vary, Uni: Copy, Shd>(
     ctx: &Context,
 ) where
     Shd: VertexShader<Vtx, Uni, Output = Vertex<ClipVec, Var>>
-        + FragmentShader<Frag<Var>>,
+        + FragmentShader<Var>,
 {
     let mut stats = Stats::start();
 

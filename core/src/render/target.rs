@@ -4,16 +4,14 @@
 //! depth buffer, and possible auxiliary buffers. Special render targets can
 //! be used, for example, for visibility or occlusion computations.
 
-use crate::{
-    math::vary::Vary,
-    util::{buf::AsMutSlice2, pixfmt::Argb8888},
+use crate::math::{color::Color4, vary::Vary};
+use crate::util::{
+    buf::AsMutSlice2,
+    pixfmt::{Argb8888, Fmt, ToFmt},
 };
 
 use super::{
-    ctx::Context,
-    raster::{Frag, Scanline},
-    shader::FragmentShader,
-    stats::Throughput,
+    ctx::Context, raster::Scanline, shader::FragmentShader, stats::Throughput,
 };
 
 /// Trait for types that can be used as render targets.
@@ -29,7 +27,7 @@ pub trait Target {
     ) -> Throughput
     where
         V: Vary,
-        Fs: FragmentShader<Frag<V>>;
+        Fs: FragmentShader<V>;
 }
 
 /// Framebuffer, combining a color (pixel) buffer and a depth buffer.
@@ -53,7 +51,7 @@ where
     ) -> Throughput
     where
         V: Vary,
-        Fs: FragmentShader<Frag<V>>,
+        Fs: FragmentShader<V>,
     {
         let x0 = sl.xs.start;
         let x1 = sl.xs.end.max(x0);
@@ -96,7 +94,7 @@ impl<Buf: AsMutSlice2<u32>> Target for Buf {
     ) -> Throughput
     where
         V: Vary,
-        Fs: FragmentShader<Frag<V>>,
+        Fs: FragmentShader<V>,
     {
         let x0 = sl.xs.start;
         let x1 = sl.xs.end.max(x0);
