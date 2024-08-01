@@ -4,13 +4,15 @@
 //! depth buffer, and possible auxiliary buffers. Special render targets can
 //! be used, for example, for visibility or occlusion computations.
 
-use crate::math::vary::Vary;
-use crate::util::buf::AsMutSlice2;
+use crate::math::{color::Color4, vary::Vary};
+use crate::util::{
+    buf::AsMutSlice2,
+    pixfmt::{Argb8888, Fmt, ToFmt},
+};
 
-use super::ctx::Context;
-use super::raster::{Frag, Scanline};
-use super::shader::FragmentShader;
-use super::stats::Throughput;
+use super::{
+    ctx::Context, raster::Scanline, shader::FragmentShader, stats::Throughput,
+};
 
 /// Trait for types that can be used as render targets.
 pub trait Target {
@@ -25,20 +27,23 @@ pub trait Target {
     ) -> Throughput
     where
         V: Vary,
-        Fs: FragmentShader<Frag<V>>;
+        Fs: FragmentShader<V>;
 }
 
 /// Framebuffer, combining a color (pixel) buffer and a depth buffer.
 #[derive(Clone)]
-pub struct Framebuf<Col, Dep> {
+pub struct Framebuf<Col, Dep, Fmt> {
     pub color_buf: Col,
     pub depth_buf: Dep,
+    pub pixel_fmt: Fmt,
 }
 
-impl<Col, Dep> Target for Framebuf<Col, Dep>
+impl<C, Z, F> Target for Framebuf<C, Z, F>
 where
-    Col: AsMutSlice2<u32>,
-    Dep: AsMutSlice2<f32>,
+    C: AsMutSlice2<u32>,
+    Z: AsMutSlice2<f32>,
+    F: Fmt<u32> + Copy,
+    Color4: ToFmt<u32, F>,
 {
     /// Rasterizes `scanline` into this framebuffer.
     fn rasterize<V, Fs>(
@@ -49,7 +54,7 @@ where
     ) -> Throughput
     where
         V: Vary,
-        Fs: FragmentShader<Frag<V>>,
+        Fs: FragmentShader<V>,
     {
         let x0 = sl.xs.start;
         let x1 = sl.xs.end.max(x0);
@@ -64,17 +69,20 @@ where
             .for_each(|((frag, curr_col), curr_z)| {
                 let new_z = frag.pos.z();
 
-                if ctx.depth_test(new_z, *curr_z) {
-                    if let Some(new_col) = fs.shade_fragment(frag) {
-                        if ctx.color_write {
-                            io.o += 1;
-                            // TODO Blending should happen here
-                            *curr_col = new_col.to_argb_u32();
-                        }
-                        if ctx.depth_write {
-                            *curr_z = new_z;
-                        }
-                    }
+                if !ctx.depth_test(new_z, *curr_z) {
+                    return;
+                };
+                let Some(new_col) = fs.shade_fragment(frag) else {
+                    return;
+                };
+
+                if ctx.color_write {
+                    io.o += 1;
+                    // TODO Blending should happen here
+                    new_col.write(self.pixel_fmt, curr_col);
+                }
+                if ctx.depth_write {
+                    *curr_z = new_z;
                 }
             });
         io
@@ -92,7 +100,7 @@ impl<Buf: AsMutSlice2<u32>> Target for Buf {
     ) -> Throughput
     where
         V: Vary,
-        Fs: FragmentShader<Frag<V>>,
+        Fs: FragmentShader<V>,
     {
         let x0 = sl.xs.start;
         let x1 = sl.xs.end.max(x0);
@@ -101,11 +109,12 @@ impl<Buf: AsMutSlice2<u32>> Target for Buf {
 
         sl.fragments()
             .zip(cbuf_span)
-            .for_each(|(frag, c)| {
-                if let Some(color) = fs.shade_fragment(frag) {
+            .for_each(|(frag, curr)| {
+                if let Some(new) = fs.shade_fragment(frag) {
                     if ctx.color_write {
                         io.o += 1;
-                        *c = color.to_argb_u32();
+                        // TODO Hardcoded pixel format
+                        new.write(Argb8888, curr);
                     }
                 }
             });

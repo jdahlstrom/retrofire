@@ -8,6 +8,7 @@ use core::time::Duration;
 use retrofire_core::render::ctx::Context;
 use retrofire_core::render::target::Framebuf;
 use retrofire_core::util::buf::MutSlice2;
+use retrofire_core::util::pixfmt::Argb8888;
 
 #[cfg(feature = "minifb")]
 pub mod minifb;
@@ -27,7 +28,7 @@ pub struct Frame<'a, Win> {
     /// Elapsed time since the start of the previous frame.
     pub dt: Duration,
     /// Framebuffer in which to draw.
-    pub buf: Framebuf<MutSlice2<'a, u32>, MutSlice2<'a, f32>>,
+    pub buf: Framebuf<MutSlice2<'a, u32>, MutSlice2<'a, f32>, Argb8888>,
     /// Reference to the window object.
     pub win: &'a mut Win,
     /// Rendering context and config.
