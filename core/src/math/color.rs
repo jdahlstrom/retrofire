@@ -63,23 +63,6 @@ pub type Color3f<Space = Rgb> = Color<[f32; 3], Space>;
 /// outside the range can be useful as intermediate results in calculations.
 pub type Color4f<Space = Rgba> = Color<[f32; 4], Space>;
 
-pub mod pixel_fmt {
-    pub trait Fmt<T> {}
-    pub trait ToFmt<T, F: Fmt<T>> {
-        fn write(&self, t: &mut T);
-    }
-    pub struct Rgb888;
-    pub struct Rgba8888;
-    pub struct Argb8888;
-    pub struct Bgra8888;
-
-    impl Fmt<u32> for Rgb888 {}
-    impl Fmt<[u8; 3]> for Rgb888 {}
-    impl Fmt<u32> for Rgba8888 {}
-    impl Fmt<u32> for Argb8888 {}
-    impl Fmt<u32> for Bgra8888 {}
-}
-
 //
 // Consts and free functions
 //
@@ -118,27 +101,6 @@ pub const INV_GAMMA: f32 = 1.0 / GAMMA;
 //
 // Inherent impls
 //
-
-impl<R, Sp> Color<R, Sp> {
-    pub fn write<T, F>(&self, _: F, to: &mut T)
-    where
-        F: Fmt<T>,
-        Self: ToFmt<T, F>,
-    {
-        ToFmt::write(self, to);
-    }
-
-    pub fn to_fmt<T, F>(&self, fmt: F) -> T
-    where
-        Self: ToFmt<T, F>,
-        F: Fmt<T>,
-        T: Sized + Default,
-    {
-        let mut to = Default::default();
-        self.write(fmt, &mut to);
-        to
-    }
-}
 
 impl Color3<Rgb> {
     /// Returns `self` as RGBA, with alpha set to 0xFF (fully opaque).
@@ -554,39 +516,6 @@ impl<Sp, const DIM: usize> Linear for Color<[f32; DIM], Sp> {
 
 impl<Sc, Sp, const N: usize> ZDiv for Color<[Sc; N], Sp> where Sc: ZDiv + Copy {}
 
-// Pixel formats
-
-use pixel_fmt::*;
-
-impl ToFmt<u32, Rgb888> for Color3 {
-    fn write(&self, t: &mut u32) {
-        let [r, g, b] = self.0;
-        *t = u32::from_be_bytes([0, r, g, b]);
-    }
-}
-impl ToFmt<[u8; 3], Rgb888> for Color3 {
-    fn write(&self, t: &mut [u8; 3]) {
-        *t = self.0;
-    }
-}
-impl ToFmt<u32, Rgba8888> for Color4 {
-    fn write(&self, t: &mut u32) {
-        *t = u32::from_be_bytes(self.0);
-    }
-}
-impl ToFmt<u32, Argb8888> for Color4 {
-    fn write(&self, t: &mut u32) {
-        let [r, g, b, a] = self.0;
-        *t = u32::from_be_bytes([a, r, g, b]);
-    }
-}
-impl ToFmt<u32, Bgra8888> for Color4 {
-    fn write(&self, t: &mut u32) {
-        let [r, g, b, a] = self.0;
-        *t = u32::from_be_bytes([b, g, r, a]);
-    }
-}
-
 //
 // Foreign trait impls
 //
@@ -634,15 +563,6 @@ mod tests {
         assert_eq!(RGBA.g(), 0x66);
         assert_eq!(RGBA.b(), 0x99);
         assert_eq!(RGBA.a(), 0xCC);
-    }
-    #[test]
-    fn rgb_to_u32() {
-        assert_eq!(RGB.to_fmt::<u32, _>(Rgb888), 0x00_44_88_CC);
-    }
-    #[test]
-    fn rgba_to_u32() {
-        assert_eq!(RGBA.to_fmt(Rgba8888), 0x33_66_99_CC,);
-        assert_eq!(RGBA.to_fmt(Argb8888), 0xCC_33_66_99);
     }
 
     #[cfg(feature = "std")]

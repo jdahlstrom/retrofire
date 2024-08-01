@@ -7,10 +7,10 @@ use std::{
 
 use minifb::{Key, WindowOptions};
 
-use retrofire_core::{
-    math::color::pixel_fmt::Argb8888,
-    render::{target, Context},
-    util::{buf::Buf2, buf::MutSlice2, Dims},
+use retrofire_core::util::{
+    buf::Buf2,
+    pixfmt::{Argb8888, ToFmt},
+    render::{ctx::Context, target::Framebuf},
 };
 
 use crate::{dims::SVGA_800_600, Frame};

@@ -5,7 +5,8 @@
 //! for example, for visibility or occlusion computations.
 
 use crate::{
-    math::color::pixel_fmt::Argb8888, math::Vary, util::buf::AsMutSlice2,
+    math::Vary,
+    util::{buf::AsMutSlice2, pixfmt::Argb8888},
 };
 
 use super::{raster::Scanline, stats::Throughput, Context, FragmentShader};

@@ -283,7 +283,7 @@ pub fn write_ppm(
     mut out: impl Write,
     data: impl AsSlice2<Color3>,
 ) -> io::Result<()> {
-    use crate::math::color::pixel_fmt::Rgb888;
+    use super::pixfmt::{Rgb888, ToFmt};
 
     let slice = data.as_slice2();
     Header {
