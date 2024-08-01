@@ -7,10 +7,13 @@ use std::{
 
 use minifb::{Key, WindowOptions};
 
+use retrofire_core::render::{
+    target::{self, PixelBuf},
+    Context,
+};
 use retrofire_core::util::{
-    buf::Buf2,
-    pixfmt::{Argb8888, ToFmt},
-    render::{ctx::Context, target::Framebuf},
+    buf::{Buf2, MutSlice2},
+    pixfmt::{Rgb888, ToFmt},
 };
 
 use crate::{dims::SVGA_800_600, Frame};
@@ -32,6 +35,13 @@ pub struct Builder<'title> {
     pub target_fps: Option<u32>,
     pub opts: WindowOptions,
 }
+
+type PixFmt = Rgb888;
+
+type Framebuf<'a> =
+    target::Framebuf<MutSlice2<'a, u32>, MutSlice2<'a, f32>, PixFmt>;
+
+const PIX_FMT: PixFmt = Rgb888;
 
 pub type Framebuf<'a> =
     target::Framebuf<MutSlice2<'a, u32>, MutSlice2<'a, f32>>;
@@ -123,11 +133,19 @@ impl Window {
             if self.should_quit() {
                 break;
             }
+            if let Some(c) = ctx.color_clear {
+                cbuf.fill(c.to_fmt(PIX_FMT));
+            }
+            if let Some(c) = ctx.depth_clear {
+                // Depth buffer contains reciprocal depth values
+                zbuf.fill(c.recip());
+            }
+
             let frame = &mut Frame {
                 t: start.elapsed(),
                 dt: last.elapsed(),
                 buf: Framebuf {
-                    color_buf: cbuf.as_mut_slice2(),
+                    color_buf: PixelBuf(cbuf.as_mut_slice2(), PIX_FMT),
                     depth_buf: zbuf.as_mut_slice2(),
                 },
                 win: self,

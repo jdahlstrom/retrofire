@@ -20,11 +20,13 @@ use web_sys::{
     HtmlCanvasElement as Canvas, ImageData,
 };
 
-use retrofire_core::{
-    math::color::{pixel_fmt::Argb8888, rgba},
-    render::{target, Context, Stats},
-    util::buf::{AsMutSlice2, Buf2, MutSlice2},
-    util::Dims,
+use retrofire_core::math::color::rgba;
+use retrofire_core::render::{
+    ctx::Context, stats::Stats, target, target::PixelBuf,
+};
+use retrofire_core::util::{
+    buf::{AsMutSlice2, Buf2, MutSlice2},
+    pixfmt::{Argb8888, ToFmt},
 };
 
 use crate::{dims::SVGA_800_600, Frame};
@@ -53,8 +55,8 @@ pub struct Builder {
     dims: Dims,
 }
 
-pub type Framebuf<'a> =
-    target::Framebuf<MutSlice2<'a, u32>, MutSlice2<'a, f32>>;
+type Framebuf<'a> =
+    target::Framebuf<MutSlice2<'a, u32>, MutSlice2<'a, f32>, Argb8888>;
 
 impl Builder {
     pub fn dims(self, dims: Dims) -> Self {
@@ -108,7 +110,7 @@ impl Window {
                 let t = Duration::from_secs_f32(ms / 1e3);
                 let dt = t - t_last;
                 let buf = Framebuf {
-                    color_buf: cbuf.as_mut_slice2(),
+                    color_buf: PixelBuf(cbuf.as_mut_slice2(), Argb8888),
                     depth_buf: zbuf.as_mut_slice2(),
                 };
                 let mut frame = Frame {
