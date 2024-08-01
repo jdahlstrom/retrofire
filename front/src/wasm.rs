@@ -18,9 +18,14 @@ use web_sys::{
     HtmlCanvasElement as Canvas, ImageData,
 };
 
-use retrofire_core::math::color::{pixel_fmt::Argb8888, rgba};
-use retrofire_core::render::{ctx::Context, stats::Stats, target::Framebuf};
-use retrofire_core::util::buf::{AsMutSlice2, Buf2, MutSlice2};
+use retrofire_core::math::color::rgba;
+use retrofire_core::render::{
+    ctx::Context, stats::Stats, target, target::PixelBuf,
+};
+use retrofire_core::util::{
+    buf::{AsMutSlice2, Buf2, MutSlice2},
+    pixfmt::{Argb8888, ToFmt},
+};
 
 use crate::Frame;
 
@@ -47,6 +52,9 @@ pub struct Window {
 pub struct Builder {
     size: (u32, u32),
 }
+
+type Framebuf<'a> =
+    target::Framebuf<MutSlice2<'a, u32>, MutSlice2<'a, f32>, Argb8888>;
 
 impl Builder {
     pub fn size(self, w: u32, h: u32) -> Self {
@@ -83,7 +91,7 @@ impl Window {
 
     pub fn run<F>(mut self, mut frame_fn: F)
     where
-        F: FnMut(&mut Frame<Self>) -> ControlFlow<()> + 'static,
+        F: FnMut(&mut Frame<Self, Framebuf>) -> ControlFlow<()> + 'static,
     {
         let (w, h) = self.size;
         let mut ctx = self.ctx.clone();
@@ -110,7 +118,7 @@ impl Window {
                 let t = Duration::from_secs_f32(ms / 1e3);
                 let dt = t - t_last;
                 let buf = Framebuf {
-                    color_buf: cbuf.as_mut_slice2(),
+                    color_buf: PixelBuf(cbuf.as_mut_slice2(), Argb8888),
                     depth_buf: zbuf.as_mut_slice2(),
                 };
                 let mut frame = Frame {

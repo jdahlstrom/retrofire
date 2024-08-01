@@ -14,8 +14,11 @@ pub trait ToFmt<T, F: Fmt<T>> {
     }
 }
 
+#[derive(Copy, Clone, Debug, Default)]
 pub struct Rgb888;
+#[derive(Copy, Clone, Debug, Default)]
 pub struct Rgba8888;
+#[derive(Copy, Clone, Debug, Default)]
 pub struct Argb8888;
 
 /// 0x00_RR_GG_BB

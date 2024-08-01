@@ -5,10 +5,13 @@ use std::time::Instant;
 
 use minifb::{Key, WindowOptions};
 
-use retrofire_core::render::{ctx::Context, target::Framebuf};
+use retrofire_core::render::{
+    ctx::Context,
+    target::{self, PixelBuf},
+};
 use retrofire_core::util::{
-    buf::Buf2,
-    pixfmt::{Argb8888, ToFmt},
+    buf::{Buf2, MutSlice2},
+    pixfmt::{Rgb888, ToFmt},
 };
 
 use crate::Frame;
@@ -30,6 +33,13 @@ pub struct Builder<'title> {
     pub target_fps: Option<u32>,
     pub opts: WindowOptions,
 }
+
+type PixFmt = Rgb888;
+
+type Framebuf<'a> =
+    target::Framebuf<MutSlice2<'a, u32>, MutSlice2<'a, f32>, PixFmt>;
+
+const PIX_FMT: PixFmt = Rgb888;
 
 impl Default for Builder<'_> {
     fn default() -> Self {
@@ -106,7 +116,7 @@ impl Window {
     /// * the callback returns `ControlFlow::Break`.
     pub fn run<F>(&mut self, mut frame_fn: F)
     where
-        F: FnMut(&mut Frame<Self>) -> ControlFlow<()>,
+        F: FnMut(&mut Frame<Self, Framebuf>) -> ControlFlow<()>,
     {
         let (w, h) = self.size;
         let mut cbuf = Buf2::new(w, h);
@@ -120,7 +130,7 @@ impl Window {
                 break;
             }
             if let Some(c) = ctx.color_clear {
-                cbuf.fill(c.to_fmt(Argb8888));
+                cbuf.fill(c.to_fmt(PIX_FMT));
             }
             if let Some(c) = ctx.depth_clear {
                 // Depth buffer contains reciprocal depth values
@@ -131,7 +141,7 @@ impl Window {
                 t: start.elapsed(),
                 dt: last.elapsed(),
                 buf: Framebuf {
-                    color_buf: cbuf.as_mut_slice2(),
+                    color_buf: PixelBuf(cbuf.as_mut_slice2(), PIX_FMT),
                     depth_buf: zbuf.as_mut_slice2(),
                 },
                 win: self,
