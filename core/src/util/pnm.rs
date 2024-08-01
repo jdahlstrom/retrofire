@@ -257,22 +257,23 @@ pub fn write_ppm(
     mut out: impl Write,
     data: impl AsSlice2<Color3>,
 ) -> io::Result<()> {
+    use crate::math::color::pixel_fmt::Rgb888;
+
     let slice = data.as_slice2();
     Header {
-        format: Format::BinaryPixmap,
+        format: BinaryPixmap,
         width: slice.width(),
         height: slice.height(),
         max: 255,
     }
     .write(&mut out)?;
 
-    let res = slice
-        .rows()
-        .flatten()
-        .map(|c| c.0)
-        .try_for_each(|rgb| out.write_all(&rgb[..]));
-
-    res
+    // Appease borrowck with temp variable
+    let mut colors = slice.rows().flatten();
+    colors.try_for_each(|c| {
+        let rgb: [u8; 3] = c.to_fmt(Rgb888);
+        out.write_all(&rgb)
+    })
 }
 
 /// Parses a numeric value from `src`, skipping whitespace and comments.
@@ -412,7 +413,7 @@ mod tests {
     fn write_header_p1() {
         let mut out = Vec::new();
         let hdr = Header {
-            format: Format::TextBitmap,
+            format: TextBitmap,
             width: 16,
             height: 32,
             max: 1,
@@ -426,7 +427,7 @@ mod tests {
     fn write_header_p6() {
         let mut out = Vec::new();
         let hdr = Header {
-            format: Format::BinaryPixmap,
+            format: BinaryPixmap,
             width: 64,
             height: 16,
             max: 4,
