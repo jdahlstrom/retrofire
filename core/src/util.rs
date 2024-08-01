@@ -5,9 +5,11 @@ pub mod pnm;
 pub mod rect;
 
 pub mod dims {
-    use super::rect::Rect;
+    use core::ops::{Add, Sub};
 
-    use crate::math::vec::{splat, Vec2u};
+    use crate::math::vec::{vec2, Vec2u};
+
+    use super::rect::Rect;
 
     #[derive(Copy, Clone, Debug, Default, Eq, PartialEq)]
     pub struct Dims<T = u32>(pub T, pub T);
@@ -33,7 +35,7 @@ pub mod dims {
 
     impl From<Dims> for Rect {
         fn from(dims: Dims) -> Self {
-            (splat(0), dims).into()
+            (vec2(0, 0), dims).into()
         }
     }
 
@@ -41,6 +43,21 @@ pub mod dims {
     impl From<(Vec2u, Dims<u32>)> for Rect<u32> {
         fn from((tl, Dims(w, h)): (Vec2u, Dims<u32>)) -> Self {
             (tl.x()..tl.x() + w, tl.y()..tl.y() + h).into()
+        }
+    }
+
+    impl Add<Vec2u> for Dims<u32> {
+        type Output = Self;
+
+        fn add(self, rhs: Vec2u) -> Self {
+            Dims(self.0 + rhs.x(), self.1 + rhs.y())
+        }
+    }
+    impl Sub<Vec2u> for Dims<u32> {
+        type Output = Self;
+
+        fn sub(self, rhs: Vec2u) -> Self {
+            Dims(self.0 - rhs.x(), self.1 - rhs.y())
         }
     }
 }
