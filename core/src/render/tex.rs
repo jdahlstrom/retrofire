@@ -230,14 +230,14 @@ mod tests {
     use alloc::vec;
 
     use crate::math::color::{rgb, Color3};
-    use crate::util::buf::Buf2;
+    use crate::util::{buf::Buf2, dims::Dims};
 
     use super::*;
 
     #[rustfmt::skip]
     fn tex() -> Texture<Buf2<Color3>> {
         Texture::from(Buf2::new_from(
-            2, 2, vec![
+            Dims(2, 2), vec![
                 rgb(0xFF, 0, 0),
                 rgb(0, 0xFF, 0),
                 rgb(0, 0, 0xFF),

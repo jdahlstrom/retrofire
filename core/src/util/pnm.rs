@@ -23,14 +23,14 @@ use std::{
     path::Path,
 };
 
-use Error::*;
-use Format::*;
-
 use crate::math::color::{rgb, Color3};
-use crate::util::buf::Buf2;
 
 #[cfg(feature = "std")]
-use crate::util::buf::AsSlice2;
+use super::buf::AsSlice2;
+use super::{buf::Buf2, dims::Dims};
+
+use Error::*;
+use Format::*;
 
 /// The header of a PNM image
 #[derive(Copy, Clone, Debug, Eq, PartialEq)]
@@ -226,7 +226,7 @@ pub fn read_pnm(src: impl IntoIterator<Item = u8>) -> Result<Buf2<Color3>> {
     if data.len() < (h.width * h.height) as usize {
         Err(UnexpectedEnd)
     } else {
-        Ok(Buf2::new_from(h.width, h.height, data))
+        Ok(Buf2::new_from(Dims(h.width, h.height), data))
     }
 }
 
@@ -506,7 +506,7 @@ mod tests {
         ];
 
         let mut out = vec![];
-        super::write_ppm(&mut out, Buf2::new_from(2, 2, buf)).unwrap();
+        super::write_ppm(&mut out, Buf2::new_from(Dims(2, 2), buf)).unwrap();
 
         assert_eq!(
             &out,

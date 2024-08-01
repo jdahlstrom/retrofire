@@ -244,9 +244,8 @@ mod tests {
 
     use crate::assert_approx_eq;
     use crate::geom::vertex;
-    use crate::math::vary::Vary;
-    use crate::math::vec3;
-    use crate::util::buf::Buf2;
+    use crate::math::{vary::Vary, vec3};
+    use crate::util::{buf::Buf2, dims::Dims};
 
     use super::{tri_fill, Frag, Scanline};
 
@@ -254,7 +253,7 @@ mod tests {
 
     #[test]
     fn shared_edge_should_not_have_gaps_or_overdraw() {
-        let mut buf = Buf2::new(20, 10);
+        let mut buf = Buf2::new(Dims(20, 10));
 
         let verts = [
             vec3(8.0, 0.0, 0.0),
