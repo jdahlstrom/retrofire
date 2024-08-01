@@ -283,6 +283,8 @@ pub fn write_ppm(
     mut out: impl Write,
     data: impl AsSlice2<Color3>,
 ) -> io::Result<()> {
+    use crate::math::color::pixel_fmt::Rgb888;
+
     let slice = data.as_slice2();
     Header {
         format: BinaryPixmap,
@@ -291,13 +293,12 @@ pub fn write_ppm(
     }
     .write(&mut out)?;
 
-    // Appease the borrow checker
-    let res = slice
-        .rows()
-        .flatten()
-        .map(|c| c.0)
-        .try_for_each(|rgb| out.write_all(&rgb[..]));
-    res
+    // Appease borrowck with temp variable
+    let mut colors = slice.rows().flatten();
+    colors.try_for_each(|c| {
+        let rgb: [u8; 3] = c.to_fmt(Rgb888);
+        out.write_all(&rgb)
+    })
 }
 
 /// Parses a numeric value from `src`, skipping whitespace and comments.
