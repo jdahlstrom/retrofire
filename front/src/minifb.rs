@@ -133,6 +133,7 @@ impl Window {
                 buf: Framebuf {
                     color_buf: cbuf.as_mut_slice2(),
                     depth_buf: zbuf.as_mut_slice2(),
+                    pixel_fmt: Argb8888,
                 },
                 win: self,
                 ctx: &mut ctx,

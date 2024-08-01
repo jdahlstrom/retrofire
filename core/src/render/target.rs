@@ -32,15 +32,18 @@ pub trait Target {
 
 /// Framebuffer, combining a color (pixel) buffer and a depth buffer.
 #[derive(Clone)]
-pub struct Framebuf<Col, Dep> {
+pub struct Framebuf<Col, Dep, Fmt> {
     pub color_buf: Col,
     pub depth_buf: Dep,
+    pub pixel_fmt: Fmt,
 }
 
-impl<Col, Dep> Target for Framebuf<Col, Dep>
+impl<C, Z, F> Target for Framebuf<C, Z, F>
 where
-    Col: AsMutSlice2<u32>,
-    Dep: AsMutSlice2<f32>,
+    C: AsMutSlice2<u32>,
+    Z: AsMutSlice2<f32>,
+    F: Fmt<u32> + Copy,
+    Color4: ToFmt<u32, F>,
 {
     /// Rasterizes `scanline` into this framebuffer.
     fn rasterize<V, Fs>(
@@ -66,17 +69,20 @@ where
             .for_each(|((frag, curr_col), curr_z)| {
                 let new_z = frag.pos.z();
 
-                if ctx.depth_test(new_z, *curr_z) {
-                    if let Some(new_col) = fs.shade_fragment(frag) {
-                        if ctx.color_write {
-                            io.o += 1;
-                            // TODO Blending should happen here
-                            new_col.write(Argb8888, curr_col);
-                        }
-                        if ctx.depth_write {
-                            *curr_z = new_z;
-                        }
-                    }
+                if !ctx.depth_test(new_z, *curr_z) {
+                    return;
+                };
+                let Some(new_col) = fs.shade_fragment(frag) else {
+                    return;
+                };
+
+                if ctx.color_write {
+                    io.o += 1;
+                    // TODO Blending should happen here
+                    new_col.write(self.pixel_fmt, curr_col);
+                }
+                if ctx.depth_write {
+                    *curr_z = new_z;
                 }
             });
         io
@@ -107,6 +113,7 @@ impl<Buf: AsMutSlice2<u32>> Target for Buf {
                 if let Some(new) = fs.shade_fragment(frag) {
                     if ctx.color_write {
                         io.o += 1;
+                        // TODO Hardcoded pixel format
                         new.write(Argb8888, curr);
                     }
                 }
