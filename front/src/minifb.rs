@@ -5,10 +5,11 @@ use std::time::Instant;
 
 use minifb::{Key, WindowOptions};
 
-use retrofire_core::math::color::pixel_fmt::Argb8888;
-use retrofire_core::render::ctx::Context;
-use retrofire_core::render::target::Framebuf;
-use retrofire_core::util::buf::Buf2;
+use retrofire_core::render::{ctx::Context, target::Framebuf};
+use retrofire_core::util::{
+    buf::Buf2,
+    pixfmt::{Argb8888, ToFmt},
+};
 
 use crate::Frame;
 
