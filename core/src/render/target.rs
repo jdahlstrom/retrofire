@@ -7,10 +7,9 @@
 use crate::math::vary::Vary;
 use crate::util::buf::AsMutSlice2;
 
-use super::ctx::Context;
-use super::raster::{Frag, Scanline};
-use super::shader::FragmentShader;
-use super::stats::Throughput;
+use super::{
+    ctx::Context, raster::Scanline, shader::FragmentShader, stats::Throughput,
+};
 
 /// Trait for types that can be used as render targets.
 pub trait Target {
@@ -25,7 +24,7 @@ pub trait Target {
     ) -> Throughput
     where
         V: Vary,
-        Fs: FragmentShader<Frag<V>>;
+        Fs: FragmentShader<V>;
 }
 
 /// Framebuffer, combining a color (pixel) buffer and a depth buffer.
@@ -49,7 +48,7 @@ where
     ) -> Throughput
     where
         V: Vary,
-        Fs: FragmentShader<Frag<V>>,
+        Fs: FragmentShader<V>,
     {
         let x0 = sl.xs.start;
         let x1 = sl.xs.end.max(x0);
@@ -92,7 +91,7 @@ impl<Buf: AsMutSlice2<u32>> Target for Buf {
     ) -> Throughput
     where
         V: Vary,
-        Fs: FragmentShader<Frag<V>>,
+        Fs: FragmentShader<V>,
     {
         let x0 = sl.xs.start;
         let x1 = sl.xs.end.max(x0);
