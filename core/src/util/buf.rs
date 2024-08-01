@@ -912,4 +912,24 @@ mod tests {
         assert_eq!(rows.next(), Some(&mut [23, 33][..]));
         assert_eq!(rows.next(), None);
     }
+
+    #[test]
+    fn buf_ref_as_slice() {
+        fn foo<T: AsSlice2<u32>>(buf: T) -> u32 {
+            buf.as_slice2().width()
+        }
+        let buf = Buf2::new(2, 2);
+        let w = foo(&buf);
+        assert_eq!(w, buf.width());
+    }
+
+    #[test]
+    fn buf_ref_as_slice_mut() {
+        fn foo<T: AsMutSlice2<u32>>(mut buf: T) {
+            buf.as_mut_slice2()[[1, 1]] = 42;
+        }
+        let mut buf = Buf2::new(2, 2);
+        foo(&mut buf);
+        assert_eq!(buf[[1, 1]], 42);
+    }
 }
