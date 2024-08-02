@@ -615,6 +615,10 @@ mod tests {
 
     use super::*;
 
+    fn buf2(w: u32, h: u32) -> Buf2<i32> {
+        Buf2::new(Dims(w, h))
+    }
+
     #[test]
     fn buf_new_from() {
         let buf = Buf2::new_from(Dims(3, 2), 1..);
@@ -635,7 +639,7 @@ mod tests {
 
     #[test]
     fn buf_extents() {
-        let buf: Buf2<()> = Buf2::new(Dims(8, 10));
+        let buf = buf2(8, 10);
         assert_eq!(buf.dims(), Dims(8, 10));
         assert_eq!(buf.width(), 8);
         assert_eq!(buf.height(), 10);
@@ -676,27 +680,27 @@ mod tests {
     #[test]
     #[should_panic = "position (x=4, y=0) out of bounds (0..4, 0..5)"]
     fn buf_index_x_out_of_bounds_should_panic() {
-        let buf = Buf2::new(Dims(4, 5));
+        let buf = buf2(4, 5);
         let _: i32 = buf[[4, 0]];
     }
 
     #[test]
     #[should_panic = "position (x=0, y=4) out of bounds (0..5, 0..4)"]
     fn buf_index_y_out_of_bounds_should_panic() {
-        let buf = Buf2::new(Dims(5, 4));
+        let buf = buf2(5, 4);
         let _: i32 = buf[[0, 4]];
     }
 
     #[test]
     #[should_panic = "position (x=0, y=5) out of bounds (0..4, 0..5)"]
     fn buf_index_row_out_of_bounds_should_panic() {
-        let buf = Buf2::new(Dims(4, 5));
+        let buf = buf2(4, 5);
         let _: &[i32] = &buf[5usize];
     }
 
     #[test]
     fn buf_slice_range_full() {
-        let buf: Buf2<()> = Buf2::new(Dims(4, 5));
+        let buf = buf2(4, 5);
 
         let slice = buf.slice(..);
         assert_eq!(slice.width(), 4);
@@ -711,7 +715,7 @@ mod tests {
 
     #[test]
     fn buf_slice_range_inclusive() {
-        let buf: Buf2<()> = Buf2::new(Dims(4, 5));
+        let buf = buf2(4, 5);
 
         let slice = buf.slice((1..=3, 0..=3));
         assert_eq!(slice.width(), 3);
@@ -721,7 +725,7 @@ mod tests {
 
     #[test]
     fn buf_slice_range_to() {
-        let buf: Buf2<()> = Buf2::new(Dims(4, 5));
+        let buf= buf2(4, 5);
 
         let slice = buf.slice((..2, ..4));
         assert_eq!(slice.width(), 2);
@@ -731,7 +735,7 @@ mod tests {
 
     #[test]
     fn buf_slice_range_from() {
-        let buf: Buf2<()> = Buf2::new(Dims(4, 5));
+        let buf = buf2(4, 5);
 
         let slice = buf.slice((3.., 2..));
         assert_eq!(slice.width(), 1);
@@ -741,7 +745,7 @@ mod tests {
 
     #[test]
     fn buf_slice_empty_range() {
-        let buf: Buf2<()> = Buf2::new(Dims(4, 5));
+        let buf = buf2(4, 5);
 
         let empty = buf.slice(vec2(1, 1)..vec2(1, 3));
         assert_eq!(empty.width(), 0);
@@ -757,14 +761,14 @@ mod tests {
     #[test]
     #[should_panic = "range right (5) > width (4)"]
     fn buf_slice_x_out_of_bounds_should_panic() {
-        let buf: Buf2<()> = Buf2::new(Dims(4, 5));
+        let buf = buf2(4, 5);
         buf.slice((0..5, 1..3));
     }
 
     #[test]
     #[should_panic = "range bottom (6) > height (5)"]
     fn buf_slice_y_out_of_bounds_should_panic() {
-        let buf: Buf2<()> = Buf2::new(Dims(4, 5));
+        let buf = buf2(4, 5);
         buf.slice((1..3, 0..6));
     }
 
@@ -782,7 +786,7 @@ mod tests {
 
     #[test]
     fn slice_extents() {
-        let buf: Buf2<()> = Buf2::new(Dims(10, 10));
+        let buf = buf2(10, 10);
 
         let slice = buf.slice((1..4, 2..8));
         assert_eq!(slice.width(), 3);
@@ -793,7 +797,7 @@ mod tests {
 
     #[test]
     fn slice_contiguity() {
-        let buf: Buf2<()> = Buf2::new(Dims(10, 10));
+        let buf = buf2(10, 10);
         // Buf2 is always contiguous
         assert!(buf.is_contiguous());
 
@@ -815,7 +819,7 @@ mod tests {
     #[test]
     #[rustfmt::skip]
     fn slice_fill() {
-        let mut buf = Buf2::new(Dims(5, 4));
+        let mut buf = buf2(5, 4);
         let mut slice = buf.slice_mut((2.., 1..3));
 
         slice.fill(1);
@@ -832,10 +836,10 @@ mod tests {
     #[test]
     #[rustfmt::skip]
     fn slice_fill_with() {
-        let mut buf = Buf2::new(Dims(5, 4));
+        let mut buf = buf2(5, 4);
         let mut slice = buf.slice_mut((2.., 1..3));
 
-        slice.fill_with(|x, y| x + y);
+        slice.fill_with(|x, y| (x + y) as i32);
 
         assert_eq!(
             buf.data(),
@@ -849,8 +853,8 @@ mod tests {
     #[test]
     #[rustfmt::skip]
     fn slice_copy_from() {
-        let mut dest = Buf2::new(Dims(5, 4));
-        let src = Buf2::new_with(Dims(3, 3), |x, y| x + y);
+        let mut dest = buf2(5, 4);
+        let src = Buf2::new_with(Dims(3, 3), |x, y| (x + y) as i32);
 
         dest.slice_mut((1..4, 1..)).copy_from(src);
 
@@ -918,20 +922,20 @@ mod tests {
 
     #[test]
     fn buf_ref_as_slice() {
-        fn foo<T: AsSlice2<u32>>(buf: T) -> u32 {
+        fn foo<T: AsSlice2<i32>>(buf: T) -> u32 {
             buf.as_slice2().width()
         }
-        let buf = Buf2::new(Dims(2, 2));
+        let buf = buf2(2, 2);
         let w = foo(&buf);
         assert_eq!(w, buf.width());
     }
 
     #[test]
     fn buf_ref_as_slice_mut() {
-        fn foo<T: AsMutSlice2<u32>>(mut buf: T) {
+        fn foo<T: AsMutSlice2<i32>>(mut buf: T) {
             buf.as_mut_slice2()[[1, 1]] = 42;
         }
-        let mut buf = Buf2::new(Dims(2, 2));
+        let mut buf = buf2(2, 2);
         foo(&mut buf);
         assert_eq!(buf[[1, 1]], 42);
     }
