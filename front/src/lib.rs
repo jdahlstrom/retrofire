@@ -5,9 +5,10 @@ extern crate core;
 
 use core::time::Duration;
 
-use retrofire_core::render::ctx::Context;
-use retrofire_core::render::target::Framebuf;
-use retrofire_core::util::buf::MutSlice2;
+use retrofire_core::{
+    render::{ctx::Context, target::Framebuf},
+    util::buf::MutSlice2,
+};
 
 #[cfg(feature = "minifb")]
 pub mod minifb;

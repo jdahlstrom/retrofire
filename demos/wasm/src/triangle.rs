@@ -9,6 +9,7 @@ use re::math::{
     rads, vec2, vec3,
 };
 use re::render::{raster::Frag, render, shader::Shader, ModelToView};
+use re::util::dims::Dims;
 
 use re_front::wasm::Window;
 
@@ -20,7 +21,7 @@ pub fn start() {
 
     console_error_panic_hook::set_once();
 
-    let mut win = Window::new(W, H).expect("could not create window");
+    let mut win = Window::new(Dims(W, H)).expect("could not create window");
     win.ctx.color_clear = Some(rgba(0, 0, 0, 0x80));
 
     let vs = [

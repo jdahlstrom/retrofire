@@ -1,9 +1,11 @@
 use std::mem::swap;
 use std::ops::ControlFlow::Continue;
 
+use re::prelude::*;
+
 use re::math::rand::{Distrib, Uniform, UnitDisk, Xorshift64};
 use re::math::spline::BezierSpline;
-use re::prelude::*;
+use re::util::dims::Dims;
 
 use re_front::minifb::Window;
 use re_front::Frame;
@@ -31,7 +33,7 @@ const H: u32 = 480;
 fn main() {
     let mut win = Window::builder()
         .title("retrofire//bezier")
-        .size(W, H)
+        .dims(Dims(W, H))
         .build();
 
     let gen = Xorshift64::from_time();

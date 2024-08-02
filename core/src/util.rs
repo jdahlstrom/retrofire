@@ -3,3 +3,61 @@
 pub mod buf;
 pub mod pnm;
 pub mod rect;
+
+pub mod dims {
+    use core::ops::{Add, Sub};
+
+    use crate::math::vec::{vec2, Vec2u};
+
+    use super::rect::Rect;
+
+    #[derive(Copy, Clone, Debug, Default, Eq, PartialEq)]
+    pub struct Dims<T = u32>(pub T, pub T);
+
+    impl<T: Copy> Dims<T> {
+        pub fn width(&self) -> T {
+            self.0
+        }
+        pub fn height(&self) -> T {
+            self.1
+        }
+    }
+    impl Dims<f32> {
+        pub fn aspect_ratio(&self) -> f32 {
+            self.0 / self.1
+        }
+    }
+    impl Dims<u32> {
+        pub fn aspect_ratio(&self) -> f32 {
+            self.0 as f32 / self.1 as f32
+        }
+    }
+
+    impl From<Dims> for Rect {
+        fn from(dims: Dims) -> Self {
+            (vec2(0, 0), dims).into()
+        }
+    }
+
+    // TODO Move to util::rect
+    impl From<(Vec2u, Dims<u32>)> for Rect<u32> {
+        fn from((tl, Dims(w, h)): (Vec2u, Dims<u32>)) -> Self {
+            (tl.x()..tl.x() + w, tl.y()..tl.y() + h).into()
+        }
+    }
+
+    impl Add<Vec2u> for Dims<u32> {
+        type Output = Self;
+
+        fn add(self, rhs: Vec2u) -> Self {
+            Dims(self.0 + rhs.x(), self.1 + rhs.y())
+        }
+    }
+    impl Sub<Vec2u> for Dims<u32> {
+        type Output = Self;
+
+        fn sub(self, rhs: Vec2u) -> Self {
+            Dims(self.0 - rhs.x(), self.1 - rhs.y())
+        }
+    }
+}
