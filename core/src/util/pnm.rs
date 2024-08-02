@@ -23,7 +23,7 @@ use std::{
     path::Path,
 };
 
-use crate::math::color::{rgb, Color3};
+use crate::math::color::{gray, Color3};
 
 #[cfg(feature = "std")]
 use super::buf::AsSlice2;
@@ -36,8 +36,7 @@ use Format::*;
 #[derive(Copy, Clone, Debug, Eq, PartialEq)]
 struct Header {
     format: Format,
-    width: u32,
-    height: u32,
+    dims: Dims,
     #[allow(unused)]
     // TODO Currently not used
     max: u16,
@@ -140,24 +139,23 @@ impl Header {
             it.next().ok_or(UnexpectedEnd)?,
         ];
         let format = magic.try_into()?;
-        let width: u32 = parse_num(&mut it)?;
-        let height: u32 = parse_num(&mut it)?;
+        let dims = Dims(parse_num(&mut it)?, parse_num(&mut it)?);
         let max: u16 = match &format {
             TextBitmap | BinaryBitmap => 1,
             _ => parse_num(&mut it)?,
         };
-        Ok(Self { format, width, height, max })
+        Ok(Self { format, dims, max })
     }
     /// Writes `self` to `dest` as a valid PNM header,
     /// including a trailing newline.
     #[cfg(feature = "std")]
     fn write(&self, mut dest: impl Write) -> io::Result<()> {
-        let Self { format, width, height, max } = *self;
+        let Self { format, dims, max } = *self;
         let max: &dyn Display = match format {
             TextBitmap | BinaryBitmap => &"",
             _ => &max,
         };
-        writeln!(dest, "{} {} {} {}", format, width, height, max)
+        writeln!(dest, "{} {} {} {}", format, dims.0, dims.1, max)
     }
 }
 
@@ -183,7 +181,7 @@ pub fn read_pnm(src: impl IntoIterator<Item = u8>) -> Result<Buf2<Color3>> {
     let mut it = src.into_iter();
     let h = Header::parse(&mut it)?;
 
-    let count = h.width * h.height;
+    let count = (h.dims.0 * h.dims.1) as usize;
     let data: Vec<Color3> = match h.format {
         BinaryPixmap => {
             let mut col = [0u8; 3];
@@ -192,18 +190,17 @@ pub fn read_pnm(src: impl IntoIterator<Item = u8>) -> Result<Buf2<Color3>> {
                     col[i] = c;
                     (i == 2).then(|| col.into())
                 })
-                .take(count as usize)
+                .take(count)
                 .collect()
         }
         BinaryGraymap => it //
-            .map(|c| rgb(c, c, c))
+            .map(gray)
             .collect(),
         BinaryBitmap => it
             .flat_map(|byte| (0..8).rev().map(move |i| (byte >> i) & 1))
             .map(|bit| {
                 // Conventionally in PBM 0 is white, 1 is black
-                let ch = (1 - bit) * 0xFF;
-                rgb(ch, ch, ch)
+                gray((1 - bit) * 0xFF)
             })
             .collect(),
         TextPixmap => {
@@ -217,16 +214,16 @@ pub fn read_pnm(src: impl IntoIterator<Item = u8>) -> Result<Buf2<Color3>> {
                     };
                     (i == 2).then(|| Ok(col.into()))
                 })
-                .take(count as usize)
+                .take(count)
                 .collect::<Result<Vec<_>>>()?
         }
         _ => unimplemented!(),
     };
 
-    if data.len() < (h.width * h.height) as usize {
+    if data.len() < count {
         Err(UnexpectedEnd)
     } else {
-        Ok(Buf2::new_from(Dims(h.width, h.height), data))
+        Ok(Buf2::new_from(h.dims, data))
     }
 }
 
@@ -260,8 +257,7 @@ pub fn write_ppm(
     let slice = data.as_slice2();
     Header {
         format: Format::BinaryPixmap,
-        width: slice.width(),
-        height: slice.height(),
+        dims: slice.dims(),
         max: 255,
     }
     .write(&mut out)?;
@@ -336,8 +332,7 @@ mod tests {
             Header::parse(*b"P6 123\t \n\r321      255 "),
             Ok(Header {
                 format: BinaryPixmap,
-                width: 123,
-                height: 321,
+                dims: Dims(123, 321),
                 max: 255,
             })
         );
@@ -349,8 +344,7 @@ mod tests {
             Header::parse(*b"P6 # foo 42\n 123\n#bar\n#baz\n321 255 "),
             Ok(Header {
                 format: BinaryPixmap,
-                width: 123,
-                height: 321,
+                dims: Dims(123, 321),
                 max: 255,
             })
         );
@@ -362,8 +356,7 @@ mod tests {
             Header::parse(*b"P4 123 456 "),
             Ok(Header {
                 format: BinaryBitmap,
-                width: 123,
-                height: 456,
+                dims: Dims(123, 456),
                 max: 1,
             })
         );
@@ -375,8 +368,7 @@ mod tests {
             Header::parse(*b"P5 123 456 64 "),
             Ok(Header {
                 format: BinaryGraymap,
-                width: 123,
-                height: 456,
+                dims: Dims(123, 456),
                 max: 64,
             })
         );
@@ -413,8 +405,7 @@ mod tests {
         let mut out = Vec::new();
         let hdr = Header {
             format: Format::TextBitmap,
-            width: 16,
-            height: 32,
+            dims: Dims(16, 32),
             max: 1,
         };
         hdr.write(&mut out).unwrap();
@@ -427,8 +418,7 @@ mod tests {
         let mut out = Vec::new();
         let hdr = Header {
             format: Format::BinaryPixmap,
-            width: 64,
-            height: 16,
+            dims: Dims(64, 16),
             max: 4,
         };
         hdr.write(&mut out).unwrap();
