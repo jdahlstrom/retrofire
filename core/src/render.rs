@@ -143,13 +143,13 @@ pub fn render<Vtx: Clone, Var: Vary, Uni: Copy, Shd>(
         // Fragment shader and rasterization
         tri_fill(vs, |scanline| {
             // Convert to fragments and shade
-            stats.frags += target.rasterize(scanline, shader, &ctx);
+            stats.frags += target.rasterize(scanline, shader, ctx);
         });
     }
     *ctx.stats.borrow_mut() += stats.finish();
 }
 
-fn depth_sort<A>(tris: &mut Vec<Tri<ClipVert<A>>>, d: DepthSort) {
+fn depth_sort<A>(tris: &mut [Tri<ClipVert<A>>], d: DepthSort) {
     tris.sort_unstable_by(|t, u| {
         let z = t.0[0].pos.z() + t.0[1].pos.z() + t.0[2].pos.z();
         let w = u.0[0].pos.z() + u.0[1].pos.z() + u.0[2].pos.z();

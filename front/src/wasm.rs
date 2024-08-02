@@ -166,11 +166,9 @@ impl Window {
                 data.len() * 4,
             )
         };
-        let img = ImageData::new_with_u8_clamped_array(
-            Clamped(&u8_data),
-            self.size.0,
-        )
-        .map_err(|_| "could not create image data from color buf")?;
+        let img =
+            ImageData::new_with_u8_clamped_array(Clamped(u8_data), self.size.0)
+                .map_err(|_| "could not create image data from color buf")?;
 
         self.ctx2d
             .put_image_data(&img, 0.0, 0.0)
