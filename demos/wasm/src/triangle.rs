@@ -46,13 +46,13 @@ pub fn start() {
         );
 
         render(
-            &[Tri([0, 1, 2])],
+            [Tri([0, 1, 2])], //
             vs,
             &sh,
             (),
             vp,
             &mut frame.buf,
-            &mut frame.ctx,
+            frame.ctx,
         );
         Continue(())
     });
