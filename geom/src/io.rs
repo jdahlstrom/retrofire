@@ -138,7 +138,7 @@ pub fn parse_obj(src: impl IntoIterator<Item = u8>) -> Result<Builder<()>> {
                 .take_while(|&c| c != '\n'),
         );
 
-        let mut tokens = line.split_ascii_whitespace();
+        let tokens = &mut line.split_ascii_whitespace();
 
         let Some(item) = tokens.next() else {
             continue;
@@ -191,7 +191,7 @@ fn next<'a>(i: &mut impl Iterator<Item = &'a str>) -> Result<&'a str> {
 }
 
 fn parse_face<'a>(
-    ref mut i: impl Iterator<Item = &'a str>,
+    i: &mut impl Iterator<Item = &'a str>,
 ) -> Result<Tri<Indices>> {
     let a = parse_indices(next(i)?)?;
     let b = parse_indices(next(i)?)?;
@@ -200,7 +200,7 @@ fn parse_face<'a>(
 }
 
 fn parse_texcoord<'a>(
-    ref mut i: impl Iterator<Item = &'a str>,
+    i: &mut impl Iterator<Item = &'a str>,
 ) -> Result<TexCoord> {
     let u = next(i)?.parse()?;
     let v = next(i)?.parse()?;
@@ -208,7 +208,7 @@ fn parse_texcoord<'a>(
 }
 
 fn parse_vector<'a>(
-    ref mut i: impl Iterator<Item = &'a str>,
+    i: &mut impl Iterator<Item = &'a str>,
 ) -> Result<Vec3<Real<3, Model>>> {
     let x = next(i)?.parse()?;
     let y = next(i)?.parse()?;
@@ -216,7 +216,7 @@ fn parse_vector<'a>(
     Ok(vec3(x, y, z).to())
 }
 
-fn parse_normal<'a>(i: impl Iterator<Item = &'a str>) -> Result<Normal3> {
+fn parse_normal<'a>(i: &mut impl Iterator<Item = &'a str>) -> Result<Normal3> {
     parse_vector(i).map(Vector::to)
 }
 
