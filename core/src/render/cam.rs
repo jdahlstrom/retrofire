@@ -4,7 +4,6 @@ use crate::geom::{Tri, Vertex};
 use crate::math::{
     angle::{spherical, turns, SphericalVec},
     mat::{orthographic, perspective, viewport, Mat4x4, RealToReal},
-    space::Linear,
     vary::Vary,
     vec::{vec2, Vec3},
 };
@@ -13,10 +12,11 @@ use crate::util::rect::Rect;
 #[cfg(feature = "fp")]
 use crate::math::{
     angle::Angle,
-    mat::{orient_z, translate},
+    mat::{orient_z, rotate_x, rotate_y, translate},
     vec::vec3,
 };
 
+use super::View;
 use super::{
     clip::ClipVec,
     ctx::Context,
@@ -28,7 +28,7 @@ use super::{
 
 /// Camera movement mode.
 ///
-/// TODO Rename to something more specific (e.g. `Motion`?)
+/// TODO Rename to something more specific (e.g. `Motion`? `Transform`?)
 pub trait Mode {
     /// Returns the current world-to-view matrix of this camera mode.
     fn world_to_view(&self) -> Mat4x4<WorldToView>;
@@ -49,14 +49,28 @@ pub struct Camera<M> {
 
 /// First-person camera mode.
 ///
-/// This is the familiar "FPS" movement mode, based on camera
+/// This is a familiar "FPS" movement mode, based on camera
 /// position and heading (look-at vector).
 #[derive(Copy, Clone, Debug)]
 pub struct FirstPerson {
     /// Current position of the camera in world space.
-    pub pos: Vec3,
+    pub pos: Vec3<World>,
     /// Current heading of the camera in world space.
     pub heading: SphericalVec,
+}
+
+/// Orbiting camera mode.
+///
+/// This mode can rotate the camera around a target point, keeping the view
+/// centered on the target, and change the camera's distance to the target
+/// (commonly called "zooming" although the focal length does not change).
+#[derive(Copy, Clone, Debug)]
+pub struct Orbit {
+    /// The point the camera orbits around, in world space.
+    pub target: Vec3<World>,
+    /// The camera's distance and angular direction relative to `target`,
+    /// in world space.
+    pub dir: SphericalVec,
 }
 
 //
@@ -121,6 +135,11 @@ impl<M: Mode> Camera<M> {
     }
 
     /// Renders the given geometry from the viewpoint of this camera.
+    ///
+    /// This is a convenience function that sets up the view, projection, and
+    /// viewport transforms, and then calls [`render()`][`super::render`].
+    /// Passes the composed world-view-projection matrix as a uniform to the
+    /// vertex shader, paired with the given `uniform` parameter.
     pub fn render<B, Vtx: Clone, Var: Vary, Uni: Copy, Shd>(
         &self,
         tris: impl AsRef<[Tri<usize>]>,
@@ -166,15 +185,26 @@ impl FirstPerson {
 
 #[cfg(feature = "fp")]
 impl FirstPerson {
-    pub fn look_at(&mut self, pt: Vec3) {
-        self.heading = (pt - self.pos).into();
-        self.heading[0] = 1.0;
+    /// Rotates the camera so that world-space point `pt` is centered in the
+    /// is centered in the view.
+    pub fn look_at(&mut self, pt: Vec3<World>) {
+        let new_h = (pt - self.pos).to_spherical();
+        self.heading = spherical(1.0, new_h.az(), new_h.alt());
     }
 
-    pub fn rotate(&mut self, az: Angle, alt: Angle) {
-        self.rotate_to(self.heading.az() + az, self.heading.alt() + alt);
+    /// Rotates the camera relative to its current heading.
+    ///
+    /// Altitude after rotation is clamped to the range [-180°, 180°].
+    pub fn rotate(&mut self, az_delta: Angle, alt_delta: Angle) {
+        self.rotate_to(
+            self.heading.az() + az_delta,
+            self.heading.alt() + alt_delta,
+        );
     }
 
+    /// Rotates the camera to a new absolute heading in world space.
+    ///
+    /// The altitude is clamped to the range [-180°, 180°].
     pub fn rotate_to(&mut self, az: Angle, alt: Angle) {
         self.heading = spherical(
             1.0,
@@ -183,19 +213,49 @@ impl FirstPerson {
         );
     }
 
-    pub fn translate(&mut self, delta: Vec3) {
-        // Zero azimuth means parallel to the x-axis
-        let fwd = spherical(1.0, self.heading.az(), turns(0.0)).to_cart();
-        let up = vec3(0.0, 1.0, 0.0);
-        let right = up.cross(&fwd);
+    /// Translates the camera in view space (in the camera's frame).
+    ///
+    /// The components of `delta` determine how much the camera moves
+    /// left/right (x), up/down (y), and forward/back (z).
+    // TODO Explain that up/down is actually in world space (dir of gravity)
+    pub fn translate(&mut self, delta: Vec3<View>) {
+        // Map the translation from view to world space
+        let view_to_world: Mat4x4<RealToReal<3, _, _>> =
+            rotate_y(self.heading.az()).to();
 
-        // / rx ux fx \ / dx \     / rx ry rz \ T / dx \
-        // | ry uy fy | | dy |  =  | ux uy uz |   | dy |
-        // \ rz uz fz / \ dz /     \ fx fy fz /   \ dz /
+        self.pos += view_to_world.apply(&delta);
+    }
+}
 
-        self.pos += Mat4x4::<RealToReal<3>>::from_basis(right, up, fwd)
-            .transpose()
-            .apply(&delta);
+#[cfg(feature = "fp")]
+impl Orbit {
+    /// Adds the given azimuth and altitude to the camera's current direction.
+    pub fn rotate(&mut self, az_delta: Angle, alt_delta: Angle) {
+        self.rotate_to(self.dir.az() + az_delta, self.dir.alt() + alt_delta);
+    }
+
+    /// Rotates the camera to the *world-space* azimuth and altitude given.
+    pub fn rotate_to(&mut self, az: Angle, alt: Angle) {
+        self.dir = spherical(
+            self.dir.r(),
+            az.wrap(turns(-0.5), turns(0.5)),
+            alt.clamp(turns(-0.25), turns(0.25)),
+        );
+    }
+
+    /// Moves the camera towards or away from the target.
+    ///
+    /// Note that a *negative* delta means towards the target, because it is
+    /// simply added to the current distance. The distance is clamped to 0.0.
+    pub fn zoom(&mut self, r_delta: f32) {
+        self.zoom_to(self.dir.r() + r_delta);
+    }
+
+    /// Moves the camera to the given distance from the target.
+    ///
+    /// The distance is clamped to 0.0.
+    pub fn zoom_to(&mut self, r: f32) {
+        self.dir[0] = r.max(0.0);
     }
 }
 
@@ -206,15 +266,22 @@ impl FirstPerson {
 #[cfg(feature = "fp")]
 impl Mode for FirstPerson {
     fn world_to_view(&self) -> Mat4x4<WorldToView> {
-        let &Self { pos, heading: dir, .. } = self;
-        let fwd_move = spherical(1.0, dir.az(), turns(0.0));
-        let fwd = self.heading;
-        let right = vec3(0.0, 1.0, 0.0).cross(&fwd_move.to_cart());
+        // Inverse of the view-to-world transform
+        translate(-self.pos.to())
+            .then(&rotate_y(-self.heading.az()))
+            .then(&rotate_x(-self.heading.alt()))
+            .to()
+    }
+}
 
-        let transl = translate(-pos);
-        let orient = orient_z(fwd.into(), right);
-
-        transl.then(&orient).to()
+#[cfg(feature = "fp")]
+impl Mode for Orbit {
+    fn world_to_view(&self) -> Mat4x4<WorldToView> {
+        translate(self.target.to())
+            .then(&rotate_y(self.dir.az()))
+            .then(&rotate_x(self.dir.alt()))
+            .then(&translate(vec3(0.0, 0.0, self.dir.r())))
+            .to()
     }
 }
 
@@ -233,5 +300,15 @@ impl Default for FirstPerson {
     /// Returns [`FirstPerson::new`].
     fn default() -> Self {
         Self::new()
+    }
+}
+
+#[cfg(feature = "fp")]
+impl Default for Orbit {
+    fn default() -> Self {
+        Self {
+            target: Vec3::zero(),
+            dir: spherical(1.0, turns(0.0), turns(0.0)),
+        }
     }
 }

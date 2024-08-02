@@ -80,6 +80,21 @@ pub struct Shader<Vs, Fs> {
     pub fragment_shader: Fs,
 }
 
+impl<Vs, Fs> Shader<Vs, Fs> {
+    /// Returns a new `Shader` with `vs` as the vertex shader
+    /// and `fs` as the fragment shader.
+    pub const fn new<In, Uni, Pos, Attr>(vs: Vs, fs: Fs) -> Self
+    where
+        Vs: VertexShader<In, Uni, Output = Vertex<Pos, Attr>>,
+        Fs: FragmentShader<Frag<Attr>>,
+    {
+        Self {
+            vertex_shader: vs,
+            fragment_shader: fs,
+        }
+    }
+}
+
 impl<In, Vs, Fs, Uni> VertexShader<In, Uni> for Shader<Vs, Fs>
 where
     Vs: VertexShader<In, Uni>,
@@ -97,20 +112,5 @@ where
 {
     fn shade_fragment(&self, frag: F) -> Option<Color4> {
         self.fragment_shader.shade_fragment(frag)
-    }
-}
-
-impl<Vs, Fs> Shader<Vs, Fs> {
-    /// Returns a new `Shader` with `vs` as the vertex shader
-    /// and `fs` as the fragment shader.
-    pub const fn new<In, Uni, Pos, Attr>(vs: Vs, fs: Fs) -> Self
-    where
-        Vs: VertexShader<In, Uni, Output = Vertex<Pos, Attr>>,
-        Fs: FragmentShader<Frag<Attr>>,
-    {
-        Self {
-            vertex_shader: vs,
-            fragment_shader: fs,
-        }
     }
 }

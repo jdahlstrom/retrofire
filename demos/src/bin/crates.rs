@@ -114,7 +114,7 @@ fn floor() -> Mesh<Color3f> {
 
             let pos = vec3(i as f32, -1.0, j as f32);
             let col = if even_odd { gray(0.2) } else { gray(0.9) };
-            bld.push_vert(pos.to(), col);
+            bld.push_vert(pos, col);
 
             if j > -size && i > -size {
                 let w = size * 2 + 1;

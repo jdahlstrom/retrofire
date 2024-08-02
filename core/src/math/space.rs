@@ -1,6 +1,6 @@
 //! Types and traits for representing linear (vector) and affine spaces.
 
-use core::marker::PhantomData;
+use core::{fmt, fmt::Debug, marker::PhantomData};
 
 use crate::math::vary::{Iter, Vary};
 
@@ -86,7 +86,7 @@ pub struct Real<const DIM: usize, Basis = ()>(PhantomData<Basis>);
 /// Tag type for the projective 4-space over reals, 𝗣<sub>4</sub>(ℝ).
 /// The properties of this space make it useful for implementing perspective
 /// projection. Clipping is also done in the projective space.
-#[derive(Copy, Clone, Debug, Default, Eq, PartialEq)]
+#[derive(Copy, Clone, Default, Eq, PartialEq)]
 pub struct Proj4;
 
 impl Linear for f32 {
@@ -127,5 +127,26 @@ where
 
     fn z_div(&self, z: f32) -> Self {
         self.mul(z.recip())
+    }
+}
+
+impl<const DIM: usize, B> Debug for Real<DIM, B>
+where
+    B: Debug + Default,
+{
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        const DIMS: [&str; 5] = ["", "", "²", "³", "⁴"];
+        if let Some(dim) = DIMS.get(DIM) {
+            write!(f, "ℝ{}<{:?}>", dim, B::default())
+        } else {
+            write!(f, "ℝ^{}<{:?}>", DIM, B::default())
+        }
+    }
+}
+
+impl Debug for Proj4 {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.write_str("P⁴")?;
+        Debug::fmt(&self, f)
     }
 }
