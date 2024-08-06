@@ -304,13 +304,7 @@ where
 
 impl<Sc, Sp, const DIM: usize> Affine for Vector<[Sc; DIM], Sp>
 where
-    // TODO bundle into Scalar trait?
-    Sc: Copy
-        + Default
-        + Add<Output = Sc>
-        + Sub<Output = Sc>
-        + Neg<Output = Sc>
-        + Mul<Output = Sc>,
+    Sc: Linear<Scalar = Sc> + Copy,
 {
     type Space = Sp;
     type Diff = Self;
@@ -321,33 +315,33 @@ where
     #[inline]
     fn add(&self, other: &Self) -> Self {
         // TODO Profile performance of array::from_fn
-        array::from_fn(|i| self.0[i] + other.0[i]).into()
+        array::from_fn(|i| self.0[i].add(&other.0[i])).into()
     }
     #[inline]
     fn sub(&self, other: &Self) -> Self {
-        array::from_fn(|i| self.0[i] - other.0[i]).into()
+        array::from_fn(|i| self.0[i].sub(&other.0[i])).into()
     }
 }
 
 impl<Sc, Sp, const DIM: usize> Linear for Vector<[Sc; DIM], Sp>
 where
     Self: Affine<Diff = Self>,
-    Sc: Copy + Default + Neg<Output = Sc> + Mul<Output = Sc>,
+    Sc: Linear<Scalar = Sc> + Copy,
 {
     type Scalar = Sc;
 
     /// Returns a vector with all-zero components, also called a null vector.
     #[inline]
     fn zero() -> Self {
-        array::from_fn(|_| Sc::default()).into()
+        array::from_fn(|_| Sc::zero()).into()
     }
     #[inline]
     fn neg(&self) -> Self {
-        array::from_fn(|i| -self.0[i]).into()
+        array::from_fn(|i| self.0[i].neg()).into()
     }
     #[inline]
     fn mul(&self, scalar: Self::Scalar) -> Self {
-        array::from_fn(|i| self.0[i] * scalar).into()
+        array::from_fn(|i| self.0[i].mul(scalar)).into()
     }
 }
 
