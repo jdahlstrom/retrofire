@@ -2,17 +2,16 @@ use std::ops::ControlFlow::*;
 
 use re::prelude::*;
 
-use re::math::space::Real;
 use re::render::tex::{uv, SamplerClamp, TexCoord, Texture};
 use re::render::{render, Model, ModelToProj};
 use re_front::minifb::Window;
 
 fn main() {
-    let verts: [Vertex<Vec3<Real<3, Model>>, TexCoord>; 4] = [
-        vertex(vec3(-1.0, -1.0, 0.0).to(), uv(0.0, 0.0)),
-        vertex(vec3(-1.0, 1.0, 0.0).to(), uv(0.0, 1.0)),
-        vertex(vec3(1.0, -1.0, 0.0).to(), uv(1.0, 0.0)),
-        vertex(vec3(1.0, 1.0, 0.0).to(), uv(1.0, 1.0)),
+    let verts: [Vertex<Vec3<Model>, TexCoord>; 4] = [
+        vertex(vec3(-1.0, -1.0, 0.0), uv(0.0, 0.0)),
+        vertex(vec3(-1.0, 1.0, 0.0), uv(0.0, 1.0)),
+        vertex(vec3(1.0, -1.0, 0.0), uv(1.0, 0.0)),
+        vertex(vec3(1.0, 1.0, 0.0), uv(1.0, 1.0)),
     ];
 
     let mut win = Window::builder()

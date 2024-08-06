@@ -61,10 +61,7 @@ pub mod prelude {
         rand::Distrib,
         space::{Affine, Linear},
         vary::{lerp, Vary},
-        vec::{
-            splat, vec2, vec3, vec4, Vec2, Vec2i, Vec2u, Vec3, Vec3i, Vec4,
-            Vec4i, Vector,
-        },
+        vec::{splat, vec2, vec3, Vec2, Vec2i, Vec2u, Vec3, Vec3i, Vector},
     };
 
     pub use crate::geom::{vertex, Mesh, Normal2, Normal3, Tri, Vertex};

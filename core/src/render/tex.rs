@@ -1,6 +1,5 @@
 //! Textures and texture samplers.
 
-use crate::math::space::Real;
 use crate::math::vec::{Vec2, Vector};
 use crate::util::buf::{AsSlice2, Buf2, Slice2};
 
@@ -12,7 +11,7 @@ pub struct Tex;
 /// in range (0, 0)..(w, h) for some texture with dimensions w and h, or
 /// relative, in range (0, 0)..(1, 1), in which case they are independent
 /// of the actual dimensions of the texture.
-pub type TexCoord = Vec2<Real<2, Tex>>;
+pub type TexCoord = Vec2<Tex>;
 
 impl TexCoord {
     /// Returns the u (horizontal) component of `self`.
