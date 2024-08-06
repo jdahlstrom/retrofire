@@ -29,19 +29,6 @@ pub trait Affine: Sized {
     fn sub(&self, other: &Self) -> Self::Diff;
 }
 
-impl Affine for f32 {
-    type Space = ();
-    type Diff = Self;
-    const DIM: usize = 1;
-
-    fn add(&self, other: &Self) -> Self {
-        self + other
-    }
-    fn sub(&self, other: &Self) -> Self {
-        self - other
-    }
-}
-
 /// Trait for types representing elements of a linear space (vector space).
 ///
 /// A `Linear` type is a type that is `Affine` and
@@ -89,17 +76,78 @@ pub struct Real<const DIM: usize, Basis = ()>(PhantomData<Basis>);
 #[derive(Copy, Clone, Debug, Default, Eq, PartialEq)]
 pub struct Proj4;
 
-impl Linear for f32 {
-    type Scalar = Self;
+impl Affine for f32 {
+    type Space = ();
+    type Diff = Self;
+    const DIM: usize = 1;
 
-    fn zero() -> Self {
+    fn add(&self, other: &f32) -> f32 {
+        self + other
+    }
+    fn sub(&self, other: &f32) -> f32 {
+        self - other
+    }
+}
+
+impl Linear for f32 {
+    type Scalar = f32;
+
+    fn zero() -> f32 {
         0.0
     }
-    fn neg(&self) -> Self {
+    fn neg(&self) -> f32 {
         -*self
     }
-    fn mul(&self, scalar: Self) -> Self {
-        self * scalar
+    fn mul(&self, rhs: f32) -> f32 {
+        self * rhs
+    }
+}
+
+impl Affine for i32 {
+    type Space = ();
+    type Diff = Self;
+    const DIM: usize = 1;
+
+    fn add(&self, rhs: &i32) -> i32 {
+        self + rhs
+    }
+    fn sub(&self, rhs: &i32) -> i32 {
+        self - rhs
+    }
+}
+
+impl Linear for i32 {
+    type Scalar = Self;
+
+    fn zero() -> i32 {
+        0
+    }
+    fn neg(&self) -> i32 {
+        -self
+    }
+    fn mul(&self, rhs: i32) -> i32 {
+        self * rhs
+    }
+}
+
+impl Affine for u32 {
+    type Space = ();
+    type Diff = i32;
+    const DIM: usize = 1;
+
+    fn add(&self, rhs: &i32) -> u32 {
+        let (res, o) = self.overflowing_add_signed(*rhs);
+        debug_assert!(!o, "overflow adding {rhs}_i32 to {self}_u32");
+        res
+    }
+
+    fn sub(&self, rhs: &u32) -> i32 {
+        let diff = *self as i64 - *rhs as i64;
+        debug_assert!(
+            i32::try_from(diff).is_ok(),
+            "overflow subtracting {rhs}_u32 from {self}_u32"
+        );
+        diff as i32
     }
 }
 
@@ -127,5 +175,102 @@ where
 
     fn z_div(&self, z: f32) -> Self {
         self.mul(z.recip())
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    mod f32 {
+        use super::*;
+
+        #[test]
+        fn affine_ops() {
+            assert_eq!(f32::DIM, 1);
+
+            assert_eq!(1_f32.add(&2_f32), 3_f32);
+            assert_eq!(3_f32.add(&-2_f32), 1_f32);
+
+            assert_eq!(3_f32.sub(&2_f32), 1_f32);
+            assert_eq!(1_f32.sub(&4_f32), -3_f32);
+        }
+
+        #[test]
+        fn linear_ops() {
+            assert_eq!(f32::zero(), 0.0);
+
+            assert_eq!(2_f32.neg(), -2_f32);
+            assert_eq!(-3_f32.neg(), 3_f32);
+
+            assert_eq!(3_f32.mul(2_f32), 6_f32);
+            assert_eq!(3_f32.mul(0.5_f32), 1.5_f32);
+            assert_eq!(3_f32.mul(-2_f32), -6_f32);
+        }
+    }
+
+    mod i32 {
+        use super::*;
+
+        #[test]
+        fn affine_ops() {
+            assert_eq!(i32::DIM, 1);
+
+            assert_eq!(1_i32.add(&2_i32), 3_i32);
+            assert_eq!(2_i32.add(&-3_i32), -1_i32);
+
+            assert_eq!(3_i32.sub(&2_i32), 1_i32);
+            assert_eq!(3_i32.sub(&4_i32), -1_i32);
+        }
+
+        #[test]
+        fn linear_ops() {
+            assert_eq!(i32::zero(), 0);
+
+            assert_eq!(2_i32.neg(), -2_i32);
+            assert_eq!(-3_i32.neg(), 3_i32);
+
+            assert_eq!(3_i32.mul(2_i32), 6_i32);
+            assert_eq!(2_i32.mul(-3_i32), -6_i32);
+        }
+    }
+
+    mod u32 {
+        use super::*;
+
+        #[test]
+        fn affine_ops() {
+            assert_eq!(u32::DIM, 1);
+
+            assert_eq!(1_u32.add(&2_i32), 3_u32);
+            assert_eq!(3_u32.add(&-2_i32), 1_u32);
+
+            assert_eq!(3_u32.sub(&2_u32), 1_i32);
+            assert_eq!(3_u32.sub(&4_u32), -1_i32);
+        }
+
+        #[test]
+        #[should_panic]
+        fn affine_add_underflow_should_panic() {
+            _ = 3_u32.add(&-4_i32);
+        }
+
+        #[test]
+        #[should_panic]
+        fn affine_add_overflow_should_panic() {
+            _ = (u32::MAX / 2 + 2).add(&i32::MAX);
+        }
+
+        #[test]
+        #[should_panic]
+        fn affine_sub_underflow_should_panic() {
+            _ = 3_u32.sub(&u32::MAX);
+        }
+
+        #[test]
+        #[should_panic]
+        fn affine_sub_overflow_should_panic() {
+            _ = u32::MAX.sub(&1_u32);
+        }
     }
 }
