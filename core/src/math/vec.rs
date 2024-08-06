@@ -564,10 +564,31 @@ where
     }
 }
 
-/// The scalar * vector operator.
-impl<R, Sp> Mul<Vector<R, Sp>> for <Vector<R, Sp> as Linear>::Scalar
+impl<R, Sp> Mul<Vector<R, Sp>> for f32
 where
-    Vector<R, Sp>: Linear,
+    Vector<R, Sp>: Linear<Scalar = f32>,
+{
+    type Output = Vector<R, Sp>;
+
+    #[inline]
+    fn mul(self, rhs: Vector<R, Sp>) -> Self::Output {
+        rhs * self
+    }
+}
+impl<R, Sp> Mul<Vector<R, Sp>> for i32
+where
+    Vector<R, Sp>: Linear<Scalar = i32>,
+{
+    type Output = Vector<R, Sp>;
+
+    #[inline]
+    fn mul(self, rhs: Vector<R, Sp>) -> Self::Output {
+        rhs * self
+    }
+}
+impl<R, Sp> Mul<Vector<R, Sp>> for u32
+where
+    Vector<R, Sp>: Linear<Scalar = u32>,
 {
     type Output = Vector<R, Sp>;
 
