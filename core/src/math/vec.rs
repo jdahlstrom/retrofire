@@ -304,21 +304,21 @@ where
 
 impl<Sc, Sp, const DIM: usize> Affine for Vector<[Sc; DIM], Sp>
 where
-    Sc: Linear<Scalar = Sc> + Copy,
+    Sc: Affine<Diff: Linear<Scalar = Sc::Diff> + Copy>,
 {
     type Space = Sp;
-    type Diff = Self;
+    type Diff = Vector<[Sc::Diff; DIM], Sp>;
 
     /// The dimension (number of components) of `Self`.
     const DIM: usize = DIM;
 
     #[inline]
-    fn add(&self, other: &Self) -> Self {
+    fn add(&self, other: &Self::Diff) -> Self {
         // TODO Profile performance of array::from_fn
         array::from_fn(|i| self.0[i].add(&other.0[i])).into()
     }
     #[inline]
-    fn sub(&self, other: &Self) -> Self {
+    fn sub(&self, other: &Self) -> Self::Diff {
         array::from_fn(|i| self.0[i].sub(&other.0[i])).into()
     }
 }
