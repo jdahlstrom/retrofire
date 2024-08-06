@@ -479,18 +479,20 @@ where
 
 impl<Sp, const DIM: usize> Affine for Color<[u8; DIM], Sp> {
     type Space = Sp;
-    type Diff = Vector<[i16; DIM], Sp>;
+    // Color<i32> is currently not Linear, so use Vector for now
+    type Diff = Vector<[i32; DIM], Sp>;
 
     const DIM: usize = DIM;
 
     fn add(&self, other: &Self::Diff) -> Self {
         array::from_fn(|i| {
-            (i16::from(self.0[i]) + other.0[i]).clamp(0, u8::MAX as i16) as u8
+            let sum = i32::from(self.0[i]) + other.0[i];
+            sum.clamp(0, u8::MAX as i32) as u8
         })
         .into()
     }
     fn sub(&self, other: &Self) -> Self::Diff {
-        array::from_fn(|i| i16::from(self.0[i]) - i16::from(other.0[i])).into()
+        array::from_fn(|i| i32::from(self.0[i]) - i32::from(other.0[i])).into()
     }
 }
 
