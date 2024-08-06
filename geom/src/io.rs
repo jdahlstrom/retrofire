@@ -51,10 +51,7 @@ use std::{
 };
 
 use re::geom::{mesh::Builder, vertex, Mesh, Normal3, Tri};
-use re::math::{
-    space::Real,
-    vec::{vec3, Vec3, Vector},
-};
+use re::math::vec::{vec3, Vec3, Vector};
 use re::render::{
     tex::{uv, TexCoord},
     Model,
@@ -209,11 +206,11 @@ fn parse_texcoord<'a>(
 
 fn parse_vector<'a>(
     i: &mut impl Iterator<Item = &'a str>,
-) -> Result<Vec3<Real<3, Model>>> {
+) -> Result<Vec3<Model>> {
     let x = next(i)?.parse()?;
     let y = next(i)?.parse()?;
     let z = next(i)?.parse()?;
-    Ok(vec3(x, y, z).to())
+    Ok(vec3(x, y, z))
 }
 
 fn parse_normal<'a>(i: &mut impl Iterator<Item = &'a str>) -> Result<Normal3> {
@@ -315,7 +312,7 @@ v 1.0 2.0      0.0";
         let mesh = parse_obj(input).unwrap().build();
 
         assert_eq!(mesh.faces, vec![Tri([0, 1, 3]), Tri([3, 0, 2])]);
-        assert_eq!(mesh.verts[3].pos, vec3(1.0, 2.0, 0.0).to());
+        assert_eq!(mesh.verts[3].pos, vec3(1.0, 2.0, 0.0));
     }
 
     #[test]

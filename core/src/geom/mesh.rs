@@ -9,7 +9,7 @@ use alloc::{vec, vec::Vec};
 
 use crate::math::{
     mat::{Mat4x4, RealToReal},
-    space::{Linear, Real},
+    space::Linear,
     vec::Vec3,
 };
 use crate::render::Model;
@@ -17,7 +17,7 @@ use crate::render::Model;
 use super::{vertex, Normal3, Tri};
 
 /// Convenience type alias for a mesh vertex.
-pub type Vertex<A, Sp = Real<3, Model>> = super::Vertex<Vec3<Sp>, A>;
+pub type Vertex<A, B = Model> = super::Vertex<Vec3<B>, A>;
 
 /// A triangle mesh.
 ///
@@ -27,25 +27,25 @@ pub type Vertex<A, Sp = Real<3, Model>> = super::Vertex<Vec3<Sp>, A>;
 /// with 8 vertices and 12 faces. By using many faces, complex curved shapes
 /// can be approximated.
 #[derive(Clone)]
-pub struct Mesh<Attrib, Space = Real<3, Model>> {
+pub struct Mesh<Attrib, Basis = Model> {
     /// The faces of the mesh, with each face a triplet of indices
     /// to the `verts` vector. Several faces can share a vertex.
     pub faces: Vec<Tri<usize>>,
     /// The vertices of the mesh.
-    pub verts: Vec<Vertex<Attrib, Space>>,
+    pub verts: Vec<Vertex<Attrib, Basis>>,
 }
 
 /// A builder type for creating meshes.
 #[derive(Clone)]
-pub struct Builder<Attrib = (), Space = Real<3, Model>> {
-    pub mesh: Mesh<Attrib, Space>,
+pub struct Builder<Attrib = (), Basis = Model> {
+    pub mesh: Mesh<Attrib, Basis>,
 }
 
 //
 // Inherent impls
 //
 
-impl<A, S> Mesh<A, S> {
+impl<A, B> Mesh<A, B> {
     /// Creates a new triangle mesh with the given faces and vertices.
     ///
     /// Each face in `faces` is a triplet of indices, referring to
@@ -71,14 +71,14 @@ impl<A, S> Mesh<A, S> {
     /// ];
     ///
     /// // Create a mesh with a tetrahedral shape
-    /// let tetra = Mesh::new(faces, verts);
+    /// let tetra: Mesh<()> = Mesh::new(faces, verts);
     /// ```
     /// # Panics
     /// If any of the vertex indices in `faces` ≥ `verts.len()`.
     pub fn new<F, V>(faces: F, verts: V) -> Self
     where
         F: IntoIterator<Item = Tri<usize>>,
-        V: IntoIterator<Item = Vertex<A, S>>,
+        V: IntoIterator<Item = Vertex<A, B>>,
     {
         let faces: Vec<_> = faces.into_iter().collect();
         let verts: Vec<_> = verts.into_iter().collect();
@@ -265,7 +265,7 @@ mod tests {
     #[test]
     #[should_panic]
     fn mesh_new_panics_if_vertex_index_oob() {
-        _ = Mesh::new(
+        let _: Mesh<()> = Mesh::new(
             [Tri([0, 1, 2]), Tri([1, 2, 3])],
             [
                 vertex(vec3(0.0, 0.0, 0.0), ()),

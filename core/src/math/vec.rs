@@ -29,23 +29,20 @@ use crate::math::space::{Affine, Linear, Proj4, Real};
 #[repr(transparent)]
 pub struct Vector<Repr, Space = ()>(pub Repr, PhantomData<Space>);
 
-/// A 2D float vector in `Space` (by default ℝ²).
-pub type Vec2<Space = Real<2>> = Vector<[f32; 2], Space>;
-/// A 3D float vector in `Space` (by default ℝ³).
-pub type Vec3<Space = Real<3>> = Vector<[f32; 3], Space>;
-/// A 4D float vector in `Space` (by default ℝ⁴).
-// TODO Are these 4-dim variants really necessary?
-pub type Vec4<Space = Real<4>> = Vector<[f32; 4], Space>;
+/// A 2-vector with `f32` components.
+pub type Vec2<Basis = ()> = Vector<[f32; 2], Real<2, Basis>>;
+/// A 2-vector with `f32` components.
+pub type Vec3<Basis = ()> = Vector<[f32; 3], Real<3, Basis>>;
+/// A `f32` 4-vector in the projective 3-space over ℝ, aka P<sub>3</sub>(ℝ).
+pub type ProjVec4 = Vector<[f32; 4], Proj4>;
 
-/// A 2D integer vector in `Space` (by default ℤ²).
-pub type Vec2i<Space = Real<2>> = Vector<[i32; 2], Space>;
-/// A 3D integer vector in `Space` (by default ℤ³).
-pub type Vec3i<Space = Real<3>> = Vector<[i32; 3], Space>;
-/// A 4D integer vector in `Space` (by default ℤ⁴).
-pub type Vec4i<Space = Real<4>> = Vector<[i32; 4], Space>;
+/// A 2-vector with `i32` components.
+pub type Vec2i<Basis = ()> = Vector<[i32; 2], Real<2, Basis>>;
+/// A 3-vector with `i32` components.
+pub type Vec3i<Basis = ()> = Vector<[i32; 3], Real<3, Basis>>;
 
-/// A 2D unsigned integer vector in `Space` (by default ℕ²).
-pub type Vec2u<Space = Real<2>> = Vector<[u32; 2], Space>;
+/// A 2-vector with `u32` components.
+pub type Vec2u<Basis = ()> = Vector<[u32; 2], Real<2, Basis>>;
 // Will add Vec3u if needed at some point.
 
 //
@@ -53,18 +50,13 @@ pub type Vec2u<Space = Real<2>> = Vector<[u32; 2], Space>;
 //
 
 /// Returns a 2D Euclidean vector with components `x` and `y`.
-pub const fn vec2<Sc>(x: Sc, y: Sc) -> Vector<[Sc; 2], Real<2>> {
+pub const fn vec2<Sc, B>(x: Sc, y: Sc) -> Vector<[Sc; 2], Real<2, B>> {
     Vector([x, y], PhantomData)
 }
 
 /// Returns a 3D Euclidean vector with components `x`, `y`, and `z`.
-pub const fn vec3<Sc>(x: Sc, y: Sc, z: Sc) -> Vector<[Sc; 3], Real<3>> {
+pub const fn vec3<Sc, B>(x: Sc, y: Sc, z: Sc) -> Vector<[Sc; 3], Real<3, B>> {
     Vector([x, y, z], PhantomData)
-}
-/// Returns a 4D Euclidean vector with components `x`, `y`, `z`, and `w`.
-#[inline]
-pub const fn vec4<Sc>(x: Sc, y: Sc, z: Sc, w: Sc) -> Vector<[Sc; 4], Real<4>> {
-    Vector([x, y, z, w], PhantomData)
 }
 
 /// Returns a vector with all components equal to the argument.
@@ -93,7 +85,7 @@ impl<R, Sp> Vector<R, Sp> {
         Self(repr, PhantomData)
     }
 
-    /// Returns a vector with value equal to `self` but in space `Sp`.
+    /// Returns a vector with value equal to `self` but in space `S`.
     ///
     /// This method can be used to coerce a vector from one space
     /// to another in order to make types match. One use case is
@@ -119,9 +111,9 @@ impl<Sp, const N: usize> Vector<[f32; N], Sp> {
     ///
     /// # Examples
     /// ```
-    /// # use retrofire_core::math::vec::vec2;
+    /// # use retrofire_core::math::vec::*;
     /// # use retrofire_core::assert_approx_eq;
-    /// let normalized = vec2(3.0, 4.0).normalize();
+    /// let normalized: Vec2 = vec2(3.0, 4.0).normalize();
     /// assert_approx_eq!(normalized, vec2(0.6, 0.8), eps=1e-2);
     /// assert_approx_eq!(normalized.len_sqr(), 1.0, eps=1e-2);
     /// ```
@@ -194,8 +186,8 @@ impl<Sp, const N: usize> Vector<[f32; N], Sp> {
     ///
     /// # Examples
     /// ```
-    /// # use retrofire_core::math::vec::{vec3,splat};
-    /// let v = vec3(0.5, 1.5, -2.0);
+    /// # use retrofire_core::math::vec::{vec3, Vec3, splat};
+    /// let v: Vec3 = vec3(0.5, 1.5, -2.0);
     /// // Clamp to the unit cube
     /// let v = v.clamp(&splat(-1.0), &splat(1.0));
     /// assert_eq!(v, vec3(0.5, 1.0, -1.0));
@@ -604,11 +596,23 @@ where
 
 #[cfg(test)]
 mod tests {
+    #![allow(non_upper_case_globals)]
+
     use core::f32::consts::*;
 
     use crate::assert_approx_eq;
 
     use super::*;
+
+    pub const fn vec2<S>(x: S, y: S) -> Vector<[S; 2], Real<2>> {
+        super::vec2(x, y)
+    }
+    pub const fn vec3<S>(x: S, y: S, z: S) -> Vector<[S; 3], Real<3>> {
+        super::vec3(x, y, z)
+    }
+    pub const fn vec4<S>(x: S, y: S, z: S, w: S) -> Vector<[S; 4], Real<4>> {
+        Vector::new([x, y, z, w])
+    }
 
     mod f32 {
         use super::*;
@@ -618,19 +622,24 @@ mod tests {
         fn length() {
             assert_approx_eq!(vec2(1.0, 1.0).len(), SQRT_2);
             assert_approx_eq!(vec2(-3.0, 4.0).len(), 5.0);
+            assert_approx_eq!(vec3(1.0, -2.0, 3.0).len(), 14.0f32.sqrt());
         }
 
         #[test]
         fn length_squared() {
             assert_eq!(vec2(1.0, 1.0).len_sqr(), 2.0);
             assert_eq!(vec2(-4.0, 3.0).len_sqr(), 25.0);
+            assert_eq!(vec3(1.0, -2.0, 3.0).len_sqr(), 14.0);
         }
 
         #[test]
         fn normalize() {
-            crate::assert_approx_eq!(
-                vec2(3.0, 4.0).normalize(),
-                vec2(0.6, 0.8)
+            assert_approx_eq!(vec2(3.0, 4.0).normalize(), vec2(0.6, 0.8));
+
+            let sqrt_14 = 14.0f32.sqrt();
+            assert_approx_eq!(
+                vec3(1.0, 2.0, 3.0).normalize(),
+                vec3(1.0 / sqrt_14, 2.0 / sqrt_14, 3.0 / sqrt_14)
             );
         }
 
@@ -673,7 +682,7 @@ mod tests {
             assert_eq!(Vec2::from([1.0, -2.0]), vec2(1.0, -2.0));
             assert_eq!(Vec3::from([1.0, -2.0, 4.0]), vec3(1.0, -2.0, 4.0));
             assert_eq!(
-                Vec4::from([1.0, -2.0, 4.0, -3.0]),
+                Vector::from([1.0, -2.0, 4.0, -3.0]),
                 vec4(1.0, -2.0, 4.0, -3.0)
             );
         }
@@ -704,7 +713,6 @@ mod tests {
         fn from_array() {
             assert_eq!(Vec2i::from([1, -2]), vec2(1, -2));
             assert_eq!(Vec3i::from([1, -2, 3]), vec3(1, -2, 3));
-            assert_eq!(Vec4i::from([1, -2, 3, -4]), vec4(1, -2, 3, -4));
         }
     }
 
@@ -713,6 +721,8 @@ mod tests {
         assert_eq!(vec2(0.5, 0.5).dot(&vec2(-2.0, 2.0)), 0.0);
         assert_eq!(vec2(3.0, 1.0).dot(&vec2(3.0, 1.0)), 10.0);
         assert_eq!(vec2(0.5, 0.5).dot(&vec2(-4.0, -4.0)), -4.0);
+
+        assert_eq!(vec3(1.0, 2.0, 3.0).dot(&vec3(0.5, -1.0, 2.0)), 4.5);
     }
 
     #[test]
@@ -738,7 +748,7 @@ mod tests {
         assert_approx_eq!(vec2(1.0, -10.0), vec2(1.0 + eps, -10.0 - eps));
     }
 
-    // TODO Tests for normalize, projections, Affine/Linear impls...
+    // TODO Tests for projections, Affine/Linear impls...
 
     #[test]
     fn debug() {

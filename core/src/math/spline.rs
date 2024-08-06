@@ -194,11 +194,10 @@ impl<T: Linear<Scalar = f32> + Copy> BezierSpline<T> {
     ///
     /// # Examples
     /// ```
-    /// # use retrofire_core::math::spline::BezierSpline;
-    /// # use retrofire_core::math::vec2;
-    /// let curve = BezierSpline::new(
-    ///     &[vec2(0.0, 0.0), vec2(0.0, 1.0), vec2(1.0, 1.0), vec2(1.0, 0.0)
-    /// ]);
+    /// # use retrofire_core::math::{spline::BezierSpline, vec::{vec2, Vec2}};
+    /// let curve = BezierSpline::<Vec2>::new(
+    ///     &[vec2(0.0, 0.0), vec2(0.0, 1.0), vec2(1.0, 1.0), vec2(1.0, 0.0)]
+    /// );
     /// let approx = curve.approximate(|err| err.len_sqr() < 0.01*0.01);
     /// assert_eq!(approx.len(), 17);
     /// ```
@@ -299,7 +298,8 @@ mod tests {
     #[test]
     fn bezier_spline_eval_2d() {
         let b = CubicBezier(
-            [[0.0, 0.0], [0.0, 2.0], [1.0, -1.0], [1.0, 1.0]].map(Vec2::from),
+            [[0.0, 0.0], [0.0, 2.0], [1.0, -1.0], [1.0, 1.0]]
+                .map(Vec2::<()>::from),
         );
 
         assert_eq!(b.eval(-1.0), vec2(0.0, 0.0));
@@ -327,7 +327,8 @@ mod tests {
     #[test]
     fn bezier_spline_tangent_2d() {
         let b = CubicBezier(
-            [[0.0, 0.0], [0.0, 1.0], [1.0, 0.0], [1.0, 1.0]].map(Vec2::from),
+            [[0.0, 0.0], [0.0, 1.0], [1.0, 0.0], [1.0, 1.0]]
+                .map(Vec2::<()>::from),
         );
 
         assert_eq!(b.tangent(-1.0), vec2(0.0, 3.0),);

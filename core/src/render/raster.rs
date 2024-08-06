@@ -15,7 +15,6 @@ use core::fmt::Debug;
 use core::ops::Range;
 
 use crate::geom::Vertex;
-use crate::math::space::Real;
 use crate::math::{Vary, Vec3};
 
 use super::Screen;
@@ -49,7 +48,7 @@ pub struct ScanlineIter<V: Vary> {
 
 /// Vector in screen space.
 /// `x` and `y` are viewport pixel coordinates, `z` is depth.
-pub type ScreenVec = Vec3<Real<3, Screen>>;
+pub type ScreenVec = Vec3<Screen>;
 
 /// Values to interpolate across a rasterized primitive.
 pub type Varyings<V> = (ScreenVec, V);
@@ -262,7 +261,7 @@ mod tests {
             vec3(14.0, 10.0, 0.0),
             vec3(20.0, 3.0, 0.0),
         ]
-        .map(|pos| vertex(pos.to(), 0.0));
+        .map(|pos| vertex(pos, 0.0));
 
         let expected = r"
 00000001110000000000
@@ -301,11 +300,11 @@ mod tests {
     fn gradient() {
         use core::fmt::Write;
         let verts = [
-            vec3(15.0, 2.0, 0.0),
+            vec3::<_, ()>(15.0, 2.0, 0.0),
             vec3(2.0, 8.0, 1.0),
             vec3(26.0, 14.0, 0.5),
         ]
-        .map(|pos| vertex(vec3(pos.x(), pos.y(), 1.0).to(), pos.z()));
+        .map(|pos| vertex(vec3(pos.x(), pos.y(), 1.0), pos.z()));
 
         let expected = r"
               0
@@ -342,8 +341,8 @@ mod tests {
             y: 42,
             xs: 8..16,
             vs: Vary::vary_to(
-                (vec3(8.0, 42.0, 1.0 / w0).to(), 3.0.z_div(w0)),
-                (vec3(16.0, 42.0, 1.0 / w1).to(), 5.0.z_div(w1)),
+                (vec3(8.0, 42.0, 1.0 / w0), 3.0.z_div(w0)),
+                (vec3(16.0, 42.0, 1.0 / w1), 5.0.z_div(w1)),
                 8,
             ),
         };
@@ -360,7 +359,7 @@ mod tests {
         let mut x = 8.0;
 
         for ((Frag { pos, var }, z), v) in sl.fragments().zip(zs).zip(vars) {
-            assert_approx_eq!(pos, vec3(x, 42.0, z.recip()).to());
+            assert_approx_eq!(pos, vec3(x, 42.0, z.recip()));
             assert_approx_eq!(var, v);
 
             x += 1.0;
