@@ -17,7 +17,6 @@ use target::Target;
 
 use crate::geom::{Tri, Vertex};
 use crate::math::mat::{RealToProj, RealToReal};
-use crate::math::space::Real;
 use crate::math::{vec3, Mat4x4, Vary, Vec3};
 
 pub mod cam;
@@ -123,7 +122,7 @@ pub fn render<Vtx: Clone, Var: Vary, Uni: Copy, Shd>(
             let pos = vec3(x, y, 1.0).z_div(w);
             Vertex {
                 // Viewport transform
-                pos: to_screen.apply(&pos.to()),
+                pos: to_screen.apply(&pos),
                 // Perspective correction
                 attrib: v.attrib.z_div(w),
             }
@@ -161,7 +160,7 @@ fn depth_sort<A>(tris: &mut [Tri<ClipVert<A>>], d: DepthSort) {
     });
 }
 
-fn is_backface<V>(vs: &[Vertex<Vec3<Real<3, Screen>>, V>]) -> bool {
+fn is_backface<V>(vs: &[Vertex<Vec3<Screen>, V>]) -> bool {
     let v = vs[1].pos - vs[0].pos;
     let u = vs[2].pos - vs[0].pos;
     v[0] * u[1] - v[1] * u[0] > 0.0
