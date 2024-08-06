@@ -304,7 +304,8 @@ where
 
 impl<Sc, Sp, const DIM: usize> Affine for Vector<[Sc; DIM], Sp>
 where
-    Sc: Affine<Diff: Linear<Scalar = Sc::Diff> + Copy>,
+    Sc: Affine,
+    Sc::Diff: Linear<Scalar = Sc::Diff> + Copy,
 {
     type Space = Sp;
     type Diff = Vector<[Sc::Diff; DIM], Sp>;
@@ -484,30 +485,31 @@ macro_rules! impl_op {
 }
 
 /// The vector += vector operator.
-impl<R, Sp> AddAssign for Vector<R, Sp>
+impl<R, Sp> AddAssign<<Self as Affine>::Diff> for Vector<R, Sp>
 where
-    Self: Linear,
+    Self: Affine,
 {
     #[inline]
-    fn add_assign(&mut self, rhs: Self) {
+    fn add_assign(&mut self, rhs: <Self as Affine>::Diff) {
         *self = Affine::add(&*self, &rhs);
     }
 }
 // The vector + vector operator.
-impl_op!(Add::add, Self, +=);
+impl_op!(Add::add, <Self as Affine>::Diff, +=, bound=Affine);
 
 /// The vector -= vector operator.
-impl<R, Sp> SubAssign for Vector<R, Sp>
+impl<R, Sp> SubAssign<<Self as Affine>::Diff> for Vector<R, Sp>
 where
-    Self: Linear,
+    Self: Affine,
 {
     #[inline]
-    fn sub_assign(&mut self, rhs: Self) {
-        *self = Affine::sub(&*self, &rhs);
+    fn sub_assign(&mut self, rhs: <Self as Affine>::Diff) {
+        *self = Affine::add(&*self, &rhs.neg());
     }
 }
+
 // The vector - vector operator.
-impl_op!(Sub::sub, Self, -=);
+impl_op!(Sub::sub, <Self as Affine>::Diff, -=, bound=Affine);
 
 // The vector *= scalar operator.
 impl<R, Sp> MulAssign<<Self as Linear>::Scalar> for Vector<R, Sp>
@@ -590,8 +592,6 @@ where
 
 #[cfg(test)]
 mod tests {
-    #![allow(non_upper_case_globals)]
-
     use core::f32::consts::*;
 
     use crate::assert_approx_eq;
@@ -692,6 +692,12 @@ mod tests {
         }
 
         #[test]
+        fn vector_subtraction() {
+            assert_eq!(vec2(1, 2) - vec2(-2, 3), vec2(3, -1));
+            assert_eq!(vec3(1, 2, 0) - vec3(-2, 1, 2), vec3(3, 1, -2));
+        }
+
+        #[test]
         #[allow(clippy::erasing_op)]
         fn scalar_multiplication() {
             assert_eq!(vec2(1, -2) * 0, vec2(0, 0));
@@ -707,6 +713,33 @@ mod tests {
         fn from_array() {
             assert_eq!(Vec2i::from([1, -2]), vec2(1, -2));
             assert_eq!(Vec3i::from([1, -2, 3]), vec3(1, -2, 3));
+        }
+    }
+
+    mod u32 {
+        use super::*;
+
+        #[test]
+        fn vector_addition() {
+            assert_eq!(vec2(1_u32, 2) + vec2(1_i32, -2), vec2(2_u32, 0));
+            assert_eq!(
+                vec3(1_u32, 2, 3) + vec3(-1_i32, 1, 0),
+                vec3(0_u32, 3, 3)
+            );
+        }
+
+        #[test]
+        fn vector_subtraction() {
+            assert_eq!(vec2(3_u32, 2) - vec2(3_i32, -1), vec2(0_u32, 3));
+            assert_eq!(
+                vec3(2_u32, 1, 3) - vec3(1_i32, -1, 0),
+                vec3(1_u32, 2, 3)
+            );
+        }
+
+        #[test]
+        fn from_array() {
+            assert_eq!(Vec2u::from([1, 2]), vec2(1, 2));
         }
     }
 
@@ -742,7 +775,7 @@ mod tests {
         assert_approx_eq!(vec2(1.0, -10.0), vec2(1.0 + eps, -10.0 - eps));
     }
 
-    // TODO Tests for projections, Affine/Linear impls...
+    // TODO Tests for projections
 
     #[test]
     fn debug() {
