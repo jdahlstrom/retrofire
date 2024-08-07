@@ -637,9 +637,11 @@ mod tests {
     #[derive(Debug, Default, Eq, PartialEq)]
     struct Basis2;
 
+    type Map = RealToReal<3, Basis1, Basis2>;
+
     #[test]
     fn matrix_debug() {
-        let actual: Mat4x4<RealToReal<3, Basis1, Basis2>> = [
+        let actual: Mat4x4<Map> = [
             [0.0, 1.0, 2.0, 3.0],
             [10.0, 11.0, 12.0, 13.0],
             [20.0, 21.0, 22.0, 23.0],
@@ -655,6 +657,28 @@ mod tests {
 ]"#;
 
         assert_eq!(alloc::format!("{actual:?}"), expected);
+    }
+
+    #[test]
+    fn row_vec() {
+        let m: Mat3x3<Map> = [
+            [0.0, 1.0, 2.0], //
+            [10.0, 11.0, 12.0],
+            [20.0, 21.0, 22.0],
+        ]
+        .into();
+        assert_eq!(m.row_vec(2), vec3::<_, Basis1>(20.0, 21.0, 22.0));
+    }
+
+    #[test]
+    fn col_vec() {
+        let m: Mat3x3<Map> = [
+            [0.0, 1.0, 2.0], //
+            [10.0, 11.0, 12.0],
+            [20.0, 21.0, 22.0],
+        ]
+        .into();
+        assert_eq!(m.col_vec(2), vec3::<_, Basis2>(2.0, 12.0, 22.0));
     }
 
     #[test]
