@@ -6,9 +6,9 @@ use core::marker::PhantomData;
 use core::ops::{Add, Div, Index, IndexMut, Mul, Neg, Sub};
 use core::ops::{AddAssign, DivAssign, MulAssign, SubAssign};
 
-use crate::math::approx::ApproxEq;
-use crate::math::float::f32;
-use crate::math::space::{Affine, Linear, Proj4, Real};
+use super::approx::ApproxEq;
+use super::float::f32;
+use super::space::{Affine, Linear, Proj4, Real};
 
 //
 // Types
@@ -464,26 +464,6 @@ where
 // Arithmetic traits
 //
 
-/// Implements an operator trait in terms of an op-assign trait.
-macro_rules! impl_op {
-    ($trait:ident :: $method:ident, $rhs:ty, $op:tt) => {
-        impl_op!($trait::$method, $rhs, $op, bound=Linear);
-    };
-    ($trait:ident :: $method:ident, $rhs:ty, $op:tt, bound=$bnd:path) => {
-        impl<R, Sp> $trait<$rhs> for Vector<R, Sp>
-        where
-            Self: $bnd,
-        {
-            type Output = Self;
-            /// TODO
-            #[inline]
-            fn $method(mut self, rhs: $rhs) -> Self {
-                self $op rhs; self
-            }
-        }
-    };
-}
-
 /// The vector += vector operator.
 impl<R, Sp> AddAssign<<Self as Affine>::Diff> for Vector<R, Sp>
 where
@@ -494,8 +474,6 @@ where
         *self = Affine::add(&*self, &rhs);
     }
 }
-// The vector + vector operator.
-impl_op!(Add::add, <Self as Affine>::Diff, +=, bound=Affine);
 
 /// The vector -= vector operator.
 impl<R, Sp> SubAssign<<Self as Affine>::Diff> for Vector<R, Sp>
@@ -508,9 +486,6 @@ where
     }
 }
 
-// The vector - vector operator.
-impl_op!(Sub::sub, <Self as Affine>::Diff, -=, bound=Affine);
-
 // The vector *= scalar operator.
 impl<R, Sp> MulAssign<<Self as Linear>::Scalar> for Vector<R, Sp>
 where
@@ -521,8 +496,6 @@ where
         *self = Linear::mul(&*self, rhs);
     }
 }
-// The vector * scalar operator.
-impl_op!(Mul::mul, <Self as Linear>::Scalar, *=);
 
 // The vector /= scalar operator.
 impl<R, Sp> DivAssign<f32> for Vector<R, Sp>
@@ -535,9 +508,6 @@ where
         *self = Linear::mul(&*self, rhs.recip());
     }
 }
-
-// The vector / scalar operator.
-impl_op!(Div::div, f32, /=, bound=Linear<Scalar = f32>);
 
 /// The vector negation operator.
 impl<R, Sp> Neg for Vector<R, Sp>
@@ -585,6 +555,15 @@ where
         rhs * self
     }
 }
+
+// The vector + vector operator.
+impl_op!(Add::add, Vector, <Self as Affine>::Diff, +=, bound=Affine);
+// The vector - vector operator.
+impl_op!(Sub::sub, Vector, <Self as Affine>::Diff, -=, bound=Affine);
+// The vector * scalar operator.
+impl_op!(Mul::mul, Vector, <Self as Linear>::Scalar, *=);
+// The vector / scalar operator.
+impl_op!(Div::div, Vector, f32, /=, bound=Linear<Scalar = f32>);
 
 //
 // Unit tests
