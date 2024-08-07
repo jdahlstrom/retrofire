@@ -42,12 +42,6 @@ pub struct RealToReal<const DIM: usize, SrcBasis = (), DstBasis = ()>(
 #[derive(Copy, Clone, Debug, Default, Eq, PartialEq)]
 pub struct RealToProj<SrcBasis>(PhantomData<SrcBasis>);
 
-/// Dummy `LinearMap` to help with generic code.
-impl LinearMap for () {
-    type Source = ();
-    type Dest = ();
-}
-
 /// A generic matrix type.
 #[repr(transparent)]
 #[derive(Copy, Eq, PartialEq)]
@@ -79,6 +73,16 @@ impl<Repr, Map> Matrix<Repr, Map> {
         Repr: Clone,
     {
         Matrix::new(self.0.clone())
+    }
+}
+
+impl<Sc: Copy, const N: usize, const DIM: usize, S, D>
+    Matrix<[[Sc; N]; N], RealToReal<DIM, S, D>>
+{
+    /// Returns `self` with its rows and columns swapped.
+    pub fn transpose(self) -> Matrix<[[Sc; N]; N], RealToReal<DIM, D, S>> {
+        const { assert!(N >= DIM, "map dimension >= matrix dimension") }
+        array::from_fn(|j| array::from_fn(|i| self.0[i][j])).into()
     }
 }
 
@@ -118,17 +122,6 @@ impl<const N: usize, Map> Matrix<[[f32; N]; N], Map> {
         Map: LinearMap,
     {
         array::from_fn(|j| self.0[j][i]).into()
-    }
-
-    /// Returns `self` with its rows and columns swapped.
-    pub fn transpose(self) -> Self {
-        let mut res = [[0.0; N]; N];
-        for i in 0..N {
-            for j in 0..N {
-                res[i][j] = self.0[j][i];
-            }
-        }
-        res.into()
     }
 
     /// Returns whether every element of `self` is finite
@@ -399,6 +392,12 @@ impl<S, I> Compose<RealToReal<3, S, I>> for RealToProj<I> {
     type Result = RealToProj<S>;
 }
 
+/// Dummy `LinearMap` to help with generic code.
+impl LinearMap for () {
+    type Source = ();
+    type Dest = ();
+}
+
 //
 // Foreign trait impls
 //
@@ -416,12 +415,12 @@ impl<const N: usize, Map> Default for Matrix<[[f32; N]; N], Map> {
     }
 }
 
-impl<S: Debug, M: Debug + Default, const N: usize> Debug
-    for Matrix<[[S; N]; N], M>
+impl<S: Debug, Map: Debug + Default, const N: usize, const M: usize> Debug
+    for Matrix<[[S; N]; M], Map>
 {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
-        writeln!(f, "Matrix<{:?}>[", M::default())?;
-        for i in 0..N {
+        writeln!(f, "Matrix<{:?}>[", Map::default())?;
+        for i in 0..M {
             writeln!(f, "    {:6.2?}", self.0[i])?;
         }
         write!(f, "]")
@@ -503,7 +502,7 @@ pub fn orient_z(new_z: Vec3, x: Vec3) -> Mat4x4<RealToReal<3>> {
 
 #[cfg(feature = "fp")]
 fn orient(new_y: Vec3, new_z: Vec3) -> Mat4x4<RealToReal<3>> {
-    use crate::{math::ApproxEq, prelude::Linear};
+    use crate::math::{space::Linear, ApproxEq};
 
     assert!(!new_y.approx_eq(&Vec3::zero()));
     assert!(!new_z.approx_eq(&Vec3::zero()));
@@ -638,6 +637,7 @@ mod tests {
     struct Basis2;
 
     type Map = RealToReal<3, Basis1, Basis2>;
+    type InvMap = RealToReal<3, Basis2, Basis1>;
 
     #[test]
     fn matrix_debug() {
@@ -679,6 +679,24 @@ mod tests {
         ]
         .into();
         assert_eq!(m.col_vec(2), vec3::<_, Basis2>(2.0, 12.0, 22.0));
+    }
+
+    #[test]
+    fn transposition() {
+        let m: Matrix<_, Map> = Matrix::new([
+            [0.0, 1.0, 2.0], //
+            [10.0, 11.0, 12.0],
+            [20.0, 21.0, 22.0],
+        ]);
+
+        assert_eq!(
+            m.transpose(),
+            Matrix::<_, InvMap>::new([
+                [0.0, 10.0, 20.0], //
+                [1.0, 11.0, 21.0],
+                [2.0, 12.0, 22.0],
+            ])
+        );
     }
 
     #[test]
