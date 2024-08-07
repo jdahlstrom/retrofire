@@ -132,25 +132,55 @@ impl<Sp, const N: usize> Vector<[f32; N], Sp> {
         *self * f32::recip_sqrt(len_sqr)
     }
 
+    /// Returns `self` clamped component-wise to the given range.
+    ///
+    /// In other words, for each component `self[i]`, the result `r` has
+    /// `r[i]` equal to `self[i].clamp(min[i], max[i])`.
+    ///
+    /// # Examples
+    /// ```
+    /// # use retrofire_core::math::vec::{vec3, Vec3, splat};
+    /// let v: Vec3 = vec3(0.5, 1.5, -2.0);
+    /// // Clamp to the unit cube
+    /// let v = v.clamp(&splat(-1.0), &splat(1.0));
+    /// assert_eq!(v, vec3(0.5, 1.0, -1.0));
+    #[must_use]
+    pub fn clamp(&self, min: &Self, max: &Self) -> Self {
+        array::from_fn(|i| self[i].clamp(min[i], max[i])).into()
+    }
+}
+
+impl<Sc, Sp, const N: usize> Vector<[Sc; N], Sp>
+where
+    Self: Linear<Scalar = Sc>,
+    Sc: Linear<Scalar = Sc> + Copy,
+{
     /// Returns the length of `self`, squared.
     ///
-    /// This avoids taking the square root in cases it's not needed.
+    /// This avoids taking the square root in cases it's not needed and works with scalars for
+    /// which a square root is not defined.
     #[inline]
-    pub fn len_sqr(&self) -> f32 {
+    pub fn len_sqr(&self) -> Sc {
         self.dot(self)
     }
 
     /// Returns the dot product of `self` and `other`.
     #[inline]
-    pub fn dot(&self, other: &Self) -> f32 {
-        let res: [f32; N] = array::from_fn(|i| self.0[i] * other.0[i]);
-        res.iter().sum()
+    pub fn dot(&self, other: &Self) -> Sc {
+        self.0
+            .iter()
+            .zip(&other.0)
+            .map(|(a, b)| a.mul(*b))
+            .fold(Sc::zero(), |acc, x| acc.add(&x))
     }
 
     /// Returns the scalar projection of `self` onto `other`
     /// (the length of the component of `self` parallel to `other`).
     #[must_use]
-    pub fn scalar_project(&self, other: &Self) -> f32 {
+    pub fn scalar_project(&self, other: &Self) -> Sc
+    where
+        Sc: Div<Sc, Output = Sc>,
+    {
         self.dot(other) / other.dot(other)
     }
     /// Returns the vector projection of `self` onto `other`
@@ -167,33 +197,19 @@ impl<Sp, const N: usize> Vector<[f32; N], Sp> {
     ///         result
     /// ```
     #[must_use]
-    pub fn vector_project(&self, other: &Self) -> Self {
-        *other * self.scalar_project(other)
+    pub fn vector_project(&self, other: &Self) -> Self
+    where
+        Sc: Div<Sc, Output = Sc>,
+    {
+        other.mul(self.scalar_project(other))
     }
 
     /// Returns a vector of the same dimension as `self` by applying `f`
     /// component-wise.
     #[inline]
     #[must_use]
-    pub fn map<T>(self, mut f: impl FnMut(f32) -> T) -> Vector<[T; N], Sp> {
+    pub fn map<T>(self, mut f: impl FnMut(Sc) -> T) -> Vector<[T; N], Sp> {
         array::from_fn(|i| f(self[i])).into()
-    }
-
-    /// Returns `self` clamped component-wise to the given range.
-    ///
-    /// In other words, for each component `self[i]`, the result `r` has
-    /// `r[i]` equal to `self[i].clamp(min[i], max[i])`.
-    ///
-    /// # Examples
-    /// ```
-    /// # use retrofire_core::math::vec::{vec3, Vec3, splat};
-    /// let v: Vec3 = vec3(0.5, 1.5, -2.0);
-    /// // Clamp to the unit cube
-    /// let v = v.clamp(&splat(-1.0), &splat(1.0));
-    /// assert_eq!(v, vec3(0.5, 1.0, -1.0));
-    #[must_use]
-    pub fn clamp(&self, min: &Self, max: &Self) -> Self {
-        array::from_fn(|i| self[i].clamp(min[i], max[i])).into()
     }
 }
 
@@ -237,9 +253,8 @@ where
 
     /// Returns the cross product of `self` with `other`.
     ///
-    /// The result is a vector perpendicular to both input
-    /// vectors, with length proportional to the area of
-    /// the parallelogram having the vectors as its sides.
+    /// The result is a vector perpendicular to both input vectors, its length
+    /// proportional to the area of the parallelogram formed by the vectors.
     /// Specifically, the length is given by the identity:
     ///
     /// ```text
@@ -261,13 +276,16 @@ where
     /// ```
     pub fn cross(&self, other: &Self) -> Self
     where
-        Sc: Mul<Output = Sc> + Sub<Output = Sc>,
+        Sc: Linear<Scalar = Sc>,
         [Sc; 3]: Into<Self>,
     {
-        let x = self.0[1] * other.0[2] - self.0[2] * other.0[1];
-        let y = self.0[2] * other.0[0] - self.0[0] * other.0[2];
-        let z = self.0[0] * other.0[1] - self.0[1] * other.0[0];
-        [x, y, z].into()
+        let (s, o) = (self, other);
+        [
+            s.y().mul(o.z()).sub(&s.z().mul(o.y())),
+            s.z().mul(o.x()).sub(&s.x().mul(o.z())),
+            s.x().mul(o.y()).sub(&s.y().mul(o.x())),
+        ]
+        .into()
     }
 }
 
@@ -334,7 +352,7 @@ where
     /// Returns a vector with all-zero components, also called a null vector.
     #[inline]
     fn zero() -> Self {
-        array::from_fn(|_| Sc::zero()).into()
+        [Sc::zero(); DIM].into()
     }
     #[inline]
     fn neg(&self) -> Self {
@@ -391,11 +409,12 @@ where
     B: Debug + Default,
 {
     fn fmt(&self, f: &mut Formatter<'_>) -> core::fmt::Result {
-        const DIMS: [&str; 5] = ["", "", "²", "³", "⁴"];
-        if let Some(dim) = DIMS.get(DIM) {
-            write!(f, "ℝ{}<{:?}>", dim, B::default())
+        const DIMS: [char; 3] = ['²', '³', '⁴'];
+        let b = B::default();
+        if let Some(dim) = DIMS.get(DIM - 2) {
+            write!(f, "ℝ{dim}<{b:?}>")
         } else {
-            write!(f, "ℝ^{}<{:?}>", DIM, B::default())
+            write!(f, "ℝ^{DIM}<{b:?}>")
         }
     }
 }
@@ -672,6 +691,12 @@ mod tests {
         }
 
         #[test]
+        fn dot_product() {
+            assert_eq!(vec2(1.0, -2.0).dot(&vec2(2.0, 3.0)), -4.0);
+            assert_eq!(vec3(1.0, -2.0, 3.0).dot(&vec3(2.0, 3.0, -1.0)), -7.0);
+        }
+
+        #[test]
         fn indexing() {
             let mut v = vec2(1.0, 2.0);
             assert_eq!(v[1], 2.0);
@@ -720,6 +745,12 @@ mod tests {
 
             assert_eq!(vec4(1, -2, 0, -3) * 3, vec4(3, -6, 0, -9));
             assert_eq!(3 * vec4(1, -2, 0, -3), vec4(3, -6, 0, -9));
+        }
+
+        #[test]
+        fn dot_product() {
+            assert_eq!(vec2(1, -2).dot(&vec2(2, 3)), -4);
+            assert_eq!(vec3(1, -2, 3).dot(&vec3(2, 3, -1)), -7);
         }
 
         #[test]
@@ -775,15 +806,6 @@ mod tests {
         fn from_array() {
             assert_eq!(Vec2u::from([1, 2]), vec2(1, 2));
         }
-    }
-
-    #[test]
-    fn dot_product() {
-        assert_eq!(vec2(0.5, 0.5).dot(&vec2(-2.0, 2.0)), 0.0);
-        assert_eq!(vec2(3.0, 1.0).dot(&vec2(3.0, 1.0)), 10.0);
-        assert_eq!(vec2(0.5, 0.5).dot(&vec2(-4.0, -4.0)), -4.0);
-
-        assert_eq!(vec3(1.0, 2.0, 3.0).dot(&vec3(0.5, -1.0, 2.0)), 4.5);
     }
 
     #[test]
