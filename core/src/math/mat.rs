@@ -62,25 +62,36 @@ pub type Mat4x4<Map = ()> = Matrix<[[f32; 4]; 4], Map>;
 // Inherent impls
 //
 
-impl<Repr: Clone, Map> Matrix<Repr, Map> {
+impl<Repr, Map> Matrix<Repr, Map> {
+    /// Returns a matrix with the given elements.
+    #[inline]
+    pub const fn new(els: Repr) -> Self {
+        Self(els, PhantomData)
+    }
+
     /// Returns a matrix equal to `self` but with mapping `M`.
     ///
     /// This method can be used to coerce a matrix to a different
     /// mapping in case it is needed to make types match.
     #[inline]
-    pub fn to<M>(&self) -> Matrix<Repr, M> {
-        Matrix(self.0.clone(), PhantomData)
+    pub fn to<M>(&self) -> Matrix<Repr, M>
+    where
+        Repr: Clone,
+    {
+        Matrix::new(self.0.clone())
     }
 }
 
 impl<const N: usize, Map> Matrix<[[f32; N]; N], Map> {
     /// Returns the `N`×`N` identity matrix.
-    pub fn identity() -> Self {
+    pub const fn identity() -> Self {
         let mut els = [[0.0; N]; N];
-        for i in 0..N {
+        let mut i = 0;
+        while i < N {
             els[i][i] = 1.0;
+            i += 1;
         }
-        els.into()
+        Self::new(els)
     }
 
     /// Returns the row vector of `self` with index `i`.
@@ -129,14 +140,13 @@ impl<const N: usize, Map> Matrix<[[f32; N]; N], Map> {
 
 impl<M: LinearMap> Mat4x4<M> {
     /// Constructs a matrix from a set of basis vectors.
-    pub fn from_basis(i: Vec3, j: Vec3, k: Vec3) -> Self {
-        [
-            [i[0], i[1], i[2], 0.0],
-            [j[0], j[1], j[2], 0.0],
-            [k[0], k[1], k[2], 0.0],
+    pub const fn from_basis(i: Vec3, j: Vec3, k: Vec3) -> Self {
+        Self::new([
+            [i.0[0], i.0[1], i.0[2], 0.0],
+            [j.0[0], j.0[1], j.0[2], 0.0],
+            [k.0[0], k.0[1], k.0[2], 0.0],
             [0.0, 0.0, 0.0, 1.0],
-        ]
-        .into()
+        ])
     }
 
     /// Returns the composite transform of `self` and `other`.
@@ -395,7 +405,7 @@ impl<S, I> Compose<RealToReal<3, S, I>> for RealToProj<I> {
 
 impl<R: Clone, M> Clone for Matrix<R, M> {
     fn clone(&self) -> Self {
-        Self(self.0.clone(), PhantomData)
+        self.to()
     }
 }
 
@@ -449,25 +459,25 @@ impl<Repr, M> From<Repr> for Matrix<Repr, M> {
 /// assert_eq!(m.0[1][1], 2.0);
 /// assert_eq!(m.0[2][2], 2.0);
 /// ```
-pub fn scale(s: Vec3) -> Mat4x4<RealToReal<3>> {
-    [
-        [s[0], 0.0, 0.0, 0.0],
-        [0.0, s[1], 0.0, 0.0],
-        [0.0, 0.0, s[2], 0.0],
+pub const fn scale(s: Vec3) -> Mat4x4<RealToReal<3>> {
+    let [x, y, z] = s.0;
+    Matrix::new([
+        [x, 0.0, 0.0, 0.0],
+        [0.0, y, 0.0, 0.0],
+        [0.0, 0.0, z, 0.0],
         [0.0, 0.0, 0.0, 1.0],
-    ]
-    .into()
+    ])
 }
 
 /// Returns a matrix applying a translation by `t`.
-pub fn translate(t: Vec3) -> Mat4x4<RealToReal<3>> {
-    [
-        [1.0, 0.0, 0.0, t[0]],
-        [0.0, 1.0, 0.0, t[1]],
-        [0.0, 0.0, 1.0, t[2]],
+pub const fn translate(t: Vec3) -> Mat4x4<RealToReal<3>> {
+    let [x, y, z] = t.0;
+    Matrix::new([
+        [1.0, 0.0, 0.0, x],
+        [0.0, 1.0, 0.0, y],
+        [0.0, 0.0, 1.0, z],
         [0.0, 0.0, 0.0, 1.0],
-    ]
-    .into()
+    ])
 }
 
 /// Returns a matrix applying a rotation such that the original y axis
@@ -501,6 +511,8 @@ fn orient(new_y: Vec3, new_z: Vec3) -> Mat4x4<RealToReal<3>> {
     let new_x = new_y.cross(&new_z);
     Mat4x4::from_basis(new_x, new_y, new_z)
 }
+
+// TODO constify rotate_* functions once we have const trig functions
 
 /// Returns a matrix applying a rotation by `a` about the x axis.
 #[cfg(feature = "fp")]
