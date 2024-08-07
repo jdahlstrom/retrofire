@@ -366,10 +366,8 @@ impl<D: Distrib, E: Distrib> Distrib for (D, E) {
 #[cfg(test)]
 #[allow(clippy::manual_range_contains)]
 mod tests {
-    use core::ops::Add;
-
     use crate::assert_approx_eq;
-    use crate::math::vec::{splat, vec3};
+    use crate::math::vec::vec3;
 
     use super::*;
 
@@ -424,7 +422,7 @@ mod tests {
                 assert!(0.0 <= v.y() && v.y() < 2.0);
                 assert!(-1.0 <= v.z() && v.z() < 3.0);
             })
-            .fold(splat(0.0), Add::add)
+            .sum::<Vec3>()
             / COUNT as f32;
 
         assert_eq!(mean, vec3(-0.46046025, 1.0209353, 0.9742225));
