@@ -2,6 +2,7 @@
 
 use core::array;
 use core::fmt::{Debug, Formatter};
+use core::iter::Sum;
 use core::marker::PhantomData;
 use core::ops::{Add, Div, Index, IndexMut, Mul, Neg, Sub};
 use core::ops::{AddAssign, DivAssign, MulAssign, SubAssign};
@@ -479,6 +480,15 @@ where
     }
 }
 
+impl<R, Sp> Sum for Vector<R, Sp>
+where
+    Self: Linear,
+{
+    fn sum<I: Iterator<Item = Self>>(iter: I) -> Self {
+        iter.fold(Self::zero(), |acc, v| Affine::add(&acc, &v))
+    }
+}
+
 //
 // Arithmetic traits
 //
@@ -818,6 +828,12 @@ mod tests {
             vec3(0.0, 0.0, 1.0).cross(&vec3(0.0, 1.0, 0.0)),
             vec3(-1.0, 0.0, 0.0)
         );
+    }
+
+    #[test]
+    fn iterator_sum() {
+        let vs = [vec2(-1.0, 2.0), vec2(0.0, 2.0), vec2(3.0, -1.0)];
+        assert_eq!(vs.into_iter().sum::<Vec2>(), vec2(2.0, 3.0));
     }
 
     #[test]
