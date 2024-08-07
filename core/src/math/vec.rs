@@ -426,10 +426,10 @@ impl<Sp, Sc: Clone, const DIM: usize> From<Sc> for Vector<[Sc; DIM], Sp> {
 
 impl<R, Sp> Index<usize> for Vector<R, Sp>
 where
-    Self: Linear,
-    R: Index<usize, Output = <Self as Linear>::Scalar>,
+    Self: Affine,
+    R: Index<usize>,
 {
-    type Output = <Self as Linear>::Scalar;
+    type Output = R::Output;
 
     /// Returns the component of `self` with index `i`.
     ///
@@ -445,8 +445,8 @@ where
 
 impl<R, Sp> IndexMut<usize> for Vector<R, Sp>
 where
-    Self: Linear,
-    R: IndexMut<usize, Output = <Self as Linear>::Scalar>,
+    Self: Affine,
+    R: IndexMut<usize>,
 {
     /// Returns a mutable reference to the component of `self` with index `i`.
     ///
@@ -672,6 +672,19 @@ mod tests {
         }
 
         #[test]
+        fn indexing() {
+            let mut v = vec2(1.0, 2.0);
+            assert_eq!(v[1], 2.0);
+            v[0] = 3.0;
+            assert_eq!(v.0, [3.0, 2.0]);
+
+            let mut v = vec3(1.0, 2.0, 3.0);
+            assert_eq!(v[1], 2.0);
+            v[2] = 4.0;
+            assert_eq!(v.0, [1.0, 2.0, 4.0]);
+        }
+
+        #[test]
         fn from_array() {
             assert_eq!(Vec2::from([1.0, -2.0]), vec2(1.0, -2.0));
             assert_eq!(Vec3::from([1.0, -2.0, 4.0]), vec3(1.0, -2.0, 4.0));
@@ -710,6 +723,19 @@ mod tests {
         }
 
         #[test]
+        fn indexing() {
+            let mut v = vec2(1, 2);
+            assert_eq!(v[1], 2);
+            v[0] = 3;
+            assert_eq!(v.0, [3, 2]);
+
+            let mut v = vec3(1, 2, 3);
+            assert_eq!(v[1], 2);
+            v[2] = 4;
+            assert_eq!(v.0, [1, 2, 4]);
+        }
+
+        #[test]
         fn from_array() {
             assert_eq!(Vec2i::from([1, -2]), vec2(1, -2));
             assert_eq!(Vec3i::from([1, -2, 3]), vec3(1, -2, 3));
@@ -735,6 +761,14 @@ mod tests {
                 vec3(2_u32, 1, 3) - vec3(1_i32, -1, 0),
                 vec3(1_u32, 2, 3)
             );
+        }
+
+        #[test]
+        fn indexing() {
+            let mut v = vec2(1u32, 2);
+            assert_eq!(v[1], 2);
+            v[0] = 3;
+            assert_eq!(v.0, [3, 2]);
         }
 
         #[test]
