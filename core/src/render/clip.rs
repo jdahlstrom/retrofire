@@ -327,8 +327,6 @@ impl<A: Vary> Clip for [Tri<ClipVert<A>>] {
 #[cfg(test)]
 mod tests {
     use crate::geom::vertex;
-    use alloc::vec;
-
     use crate::math::vary::Vary;
 
     use super::view_frustum::*;
@@ -594,20 +592,21 @@ mod tests {
         // Methodically go through every possible combination of every
         // vertex inside/outside of every plane, including degenerate cases.
 
-        let xs = || (-1.5).vary(1.5, Some(5));
+        let xs = || (-2.0).vary(1.0, Some(5));
 
-        let pts = || {
-            xs().flat_map(move |x| {
+        let pts: Vec<_> = xs()
+            .flat_map(move |x| {
                 xs().flat_map(move |y| xs().map(move |z| vec(x, y, z)))
             })
-        };
+            .collect();
 
-        let tris = pts().flat_map(|a| {
-            pts().flat_map(move |b| pts().map(move |c| tri(a, b, c)))
+        let tris = pts.iter().flat_map(|a| {
+            pts.iter()
+                .flat_map(|b| pts.iter().map(|c| tri(*a, *b, *c)))
         });
 
         let mut in_tris = 0;
-        let mut out_tris = 0;
+        let mut out_tris = [0; 8];
         for tr in tris {
             let res = &mut vec![];
             [tr].clip(&PLANES, res);
@@ -618,10 +617,13 @@ mod tests {
                 &res
             );
             in_tris += 1;
-            out_tris += res.len();
+            out_tris[res.len()] += 1;
         }
         assert_eq!(in_tris, 5i32.pow(9));
-        assert_eq!(out_tris, 1_033_639);
+        assert_eq!(
+            out_tris,
+            [559754, 536199, 537942, 254406, 58368, 6264, 192, 0]
+        );
     }
 
     fn in_bounds(tri: &Tri<ClipVert<f32>>) -> bool {

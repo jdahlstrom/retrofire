@@ -9,8 +9,8 @@ use core::ops::Range;
 
 use crate::render::{NdcToScreen, ViewToProj};
 
-use super::space::{Proj4, Real};
-use super::vec::{ProjVec4, Vec2u, Vec3, Vector};
+use super::space::{Linear, Proj4, Real};
+use super::vec::{ProjVec4, Vec2, Vec2u, Vec3, Vector};
 
 /// A linear transform from one space (or basis) to another.
 ///
@@ -42,12 +42,6 @@ pub struct RealToReal<const DIM: usize, SrcBasis = (), DstBasis = ()>(
 #[derive(Copy, Clone, Debug, Default, Eq, PartialEq)]
 pub struct RealToProj<SrcBasis>(PhantomData<SrcBasis>);
 
-/// Dummy `LinearMap` to help with generic code.
-impl LinearMap for () {
-    type Source = ();
-    type Dest = ();
-}
-
 /// A generic matrix type.
 #[repr(transparent)]
 #[derive(Copy, Eq, PartialEq)]
@@ -62,38 +56,39 @@ pub type Mat4x4<Map = ()> = Matrix<[[f32; 4]; 4], Map>;
 // Inherent impls
 //
 
-impl<Repr: Clone, Map> Matrix<Repr, Map> {
+impl<Repr, Map> Matrix<Repr, Map> {
+    /// Returns a matrix with the given elements.
+    #[inline]
+    pub const fn new(els: Repr) -> Self {
+        Self(els, PhantomData)
+    }
+
     /// Returns a matrix equal to `self` but with mapping `M`.
     ///
     /// This method can be used to coerce a matrix to a different
     /// mapping in case it is needed to make types match.
     #[inline]
-    pub fn to<M>(&self) -> Matrix<Repr, M> {
-        Matrix(self.0.clone(), PhantomData)
+    pub fn to<M>(&self) -> Matrix<Repr, M>
+    where
+        Repr: Clone,
+    {
+        Matrix::new(self.0.clone())
     }
 }
 
-impl<const N: usize, Map> Matrix<[[f32; N]; N], Map> {
-    /// Returns the `N`×`N` identity matrix.
-    pub fn identity() -> Self {
-        let mut els = [[0.0; N]; N];
-        for i in 0..N {
-            els[i][i] = 1.0;
-        }
-        els.into()
-    }
-
+impl<Sc, const N: usize, const M: usize, Map> Matrix<[[Sc; N]; M], Map>
+where
+    Sc: Copy,
+    Map: LinearMap,
+{
     /// Returns the row vector of `self` with index `i`.
     /// The returned vector is in space `Map::Source`.
     ///
     /// # Panics
-    /// If `i >= N`.
+    /// If `i >= M`.
     #[inline]
-    pub fn row_vec(&self, i: usize) -> Vector<[f32; N], Map::Source>
-    where
-        Map: LinearMap,
-    {
-        self.0[i].into()
+    pub fn row_vec(&self, i: usize) -> Vector<[Sc; N], Map::Source> {
+        Vector::new(self.0[i])
     }
     /// Returns the column vector of `self` with index `i`.
     ///
@@ -102,22 +97,30 @@ impl<const N: usize, Map> Matrix<[[f32; N]; N], Map> {
     /// # Panics
     /// If `i >= N`.
     #[inline]
-    pub fn col_vec(&self, i: usize) -> Vector<[f32; N], Map::Dest>
-    where
-        Map: LinearMap,
-    {
-        array::from_fn(|j| self.0[j][i]).into()
+    pub fn col_vec(&self, i: usize) -> Vector<[Sc; M], Map::Dest> {
+        Vector::new(self.0.map(|row| row[i]))
     }
-
+}
+impl<Sc: Copy, const N: usize, const DIM: usize, S, D>
+    Matrix<[[Sc; N]; N], RealToReal<DIM, S, D>>
+{
     /// Returns `self` with its rows and columns swapped.
-    pub fn transpose(self) -> Self {
-        let mut res = [[0.0; N]; N];
-        for i in 0..N {
-            for j in 0..N {
-                res[i][j] = self.0[j][i];
-            }
+    pub fn transpose(self) -> Matrix<[[Sc; N]; N], RealToReal<DIM, D, S>> {
+        const { assert!(N >= DIM, "map dimension >= matrix dimension") }
+        array::from_fn(|j| array::from_fn(|i| self.0[i][j])).into()
+    }
+}
+
+impl<const N: usize, Map> Matrix<[[f32; N]; N], Map> {
+    /// Returns the `N`×`N` identity matrix.
+    pub const fn identity() -> Self {
+        let mut els = [[0.0; N]; N];
+        let mut i = 0;
+        while i < N {
+            els[i][i] = 1.0;
+            i += 1;
         }
-        res.into()
+        Self::new(els)
     }
 
     /// Returns whether every element of `self` is finite
@@ -129,16 +132,21 @@ impl<const N: usize, Map> Matrix<[[f32; N]; N], Map> {
 
 impl<M: LinearMap> Mat4x4<M> {
     /// Constructs a matrix from a set of basis vectors.
-    pub fn from_basis(i: Vec3, j: Vec3, k: Vec3) -> Self {
-        [
-            [i[0], i[1], i[2], 0.0],
-            [j[0], j[1], j[2], 0.0],
-            [k[0], k[1], k[2], 0.0],
+    pub const fn from_basis(i: Vec3, j: Vec3, k: Vec3) -> Self {
+        Self::new([
+            [i.0[0], i.0[1], i.0[2], 0.0],
+            [j.0[0], j.0[1], j.0[2], 0.0],
+            [k.0[0], k.0[1], k.0[2], 0.0],
             [0.0, 0.0, 0.0, 1.0],
-        ]
-        .into()
+        ])
     }
+}
 
+impl<Sc, const N: usize, Map> Matrix<[[Sc; N]; N], Map>
+where
+    Sc: Linear<Scalar = Sc> + Copy,
+    Map: LinearMap,
+{
     /// Returns the composite transform of `self` and `other`.
     ///
     /// Computes the matrix product of `self` and `other` such that applying
@@ -149,24 +157,19 @@ impl<M: LinearMap> Mat4x4<M> {
     /// ```
     /// for some matrices 𝗠 and 𝗡 and a vector 𝘃.
     #[must_use]
-    pub fn compose<Inner>(
+    pub fn compose<Inner: LinearMap>(
         &self,
-        other: &Mat4x4<Inner>,
-    ) -> Mat4x4<<M as Compose<Inner>>::Result>
+        other: &Matrix<[[Sc; N]; N], Inner>,
+    ) -> Matrix<[[Sc; N]; N], <Map as Compose<Inner>>::Result>
     where
-        Inner: LinearMap,
-        M: Compose<Inner>,
+        Map: Compose<Inner>,
     {
-        let other: [_; 4] = array::from_fn(|i| other.col_vec(i));
-        let mut res = [[0.0; 4]; 4];
-
-        for j in 0..4 {
-            let s = self.row_vec(j);
-            for i in 0..4 {
-                res[j][i] = s.dot(&other[i]);
-            }
-        }
-        res.into()
+        let cols: [_; N] = array::from_fn(|i| other.col_vec(i));
+        array::from_fn(|j| {
+            let row = self.row_vec(j);
+            array::from_fn(|i| row.dot(&cols[i]))
+        })
+        .into()
     }
     /// Returns the composite transform of `other` and `self`.
     ///
@@ -175,11 +178,29 @@ impl<M: LinearMap> Mat4x4<M> {
     /// `other`. The call `self.then(other)` is thus equivalent to
     /// `other.compose(self)`.
     #[must_use]
-    pub fn then<Outer>(&self, other: &Mat4x4<Outer>) -> Mat4x4<Outer::Result>
-    where
-        Outer: Compose<M>,
-    {
+    pub fn then<Outer: Compose<Map>>(
+        &self,
+        other: &Matrix<[[Sc; N]; N], Outer>,
+    ) -> Matrix<[[Sc; N]; N], <Outer as Compose<Map>>::Result> {
         other.compose(self)
+    }
+}
+
+impl<Src, Dst> Mat3x3<RealToReal<2, Src, Dst>> {
+    /// Maps the real 2-vector 𝘃 from basis `Src` to basis `Dst`.
+    ///
+    /// Computes the matrix–vector multiplication 𝝡𝘃 where 𝘃 is interpreted as
+    /// a column vector with an implicit 𝘃<sub>2</sub> component with value 1:
+    ///
+    /// ```text
+    ///         / M00 ·  ·  \ / v0 \
+    ///  Mv  =  |  ·  ·  ·  | | v1 |  =  ( v0' v1' 1 )
+    ///         \  ·  · M22 / \  1 /
+    /// ```
+    #[must_use]
+    pub fn apply(&self, v: &Vec2<Src>) -> Vec2<Dst> {
+        let v = [v.x(), v.y(), 1.0].into();
+        array::from_fn(|i| self.row_vec(i).dot(&v)).into()
     }
 }
 
@@ -190,18 +211,15 @@ impl<Src, Dst> Mat4x4<RealToReal<3, Src, Dst>> {
     /// a column vector with an implicit 𝘃<sub>3</sub> component with value 1:
     ///
     /// ```text
-    ///         / M00  ·  · \ / v0 \
-    ///  Mv  =  |    ·      | | v1 |  =  ( v0' v1' v2' 1 )
-    ///         |      ·    | | v2 |
-    ///         \ ·  ·  M33 / \  1 /
+    ///         / M00 ·  ·  ·  \ / v0 \
+    ///  Mv  =  |  ·  ·  ·  ·  | | v1 |  =  ( v0' v1' v2' 1 )
+    ///         |  ·  ·  ·  ·  | | v2 |
+    ///         \  ·  ·  · M33 / \  1 /
     /// ```
     #[must_use]
     pub fn apply(&self, v: &Vec3<Src>) -> Vec3<Dst> {
-        let v = Vector::from([v.x(), v.y(), v.z(), 1.0]);
-        let x = self.row_vec(0).dot(&v);
-        let y = self.row_vec(1).dot(&v);
-        let z = self.row_vec(2).dot(&v);
-        [x, y, z].into()
+        let v = [v.x(), v.y(), v.z(), 1.0].into();
+        array::from_fn(|i| self.row_vec(i).dot(&v)).into()
     }
 
     /// Returns the determinant of `self`.
@@ -222,16 +240,10 @@ impl<Src, Dst> Mat4x4<RealToReal<3, Src, Dst>> {
     ///              | n o p |       | m o p |
     /// ```
     pub fn determinant(&self) -> f32 {
-        let [a, b, c, d] = self.0[0];
-
-        let det3 = |j, k, l| {
-            let [r, s, t] = [&self.0[1], &self.0[2], &self.0[3]];
-            let [a, b, c] = [r[j], r[k], r[l]];
-            let [d, e, f] = [s[j], s[k], s[l]];
-            let [g, h, i] = [t[j], t[k], t[l]];
-
-            a * (e * i - f * h) + b * (f * g - d * i) + c * (d * h - e * g)
-        };
+        let [[a, b, c, d], r, s, t] = self.0;
+        let det2 = |m, n| s[m] * t[n] - s[n] * t[m];
+        let det3 =
+            |j, k, l| r[j] * det2(k, l) - r[k] * det2(j, l) + r[l] * det2(j, k);
 
         a * det3(1, 2, 3) - b * det3(0, 2, 3) + c * det3(0, 1, 3)
             - d * det3(0, 1, 2)
@@ -340,7 +352,7 @@ impl<Src, Dst> Mat4x4<RealToReal<3, Src, Dst>> {
     }
 }
 
-impl<B> Mat4x4<RealToProj<B>> {
+impl<Src> Mat4x4<RealToProj<Src>> {
     /// Maps the real 3-vector 𝘃 from basis 𝖡 to the projective 4-space.
     ///
     /// Computes the matrix–vector multiplication 𝝡𝘃 where 𝘃 is interpreted as
@@ -353,7 +365,7 @@ impl<B> Mat4x4<RealToProj<B>> {
     ///         \ ·  ·  M33 / \  1 /
     /// ```
     #[must_use]
-    pub fn apply(&self, v: &Vec3<B>) -> ProjVec4 {
+    pub fn apply(&self, v: &Vec3<Src>) -> ProjVec4 {
         let v = Vector::from([v.x(), v.y(), v.z(), 1.0]);
         [
             self.row_vec(0).dot(&v),
@@ -389,13 +401,19 @@ impl<S, I> Compose<RealToReal<3, S, I>> for RealToProj<I> {
     type Result = RealToProj<S>;
 }
 
+/// Dummy `LinearMap` to help with generic code.
+impl LinearMap for () {
+    type Source = ();
+    type Dest = ();
+}
+
 //
 // Foreign trait impls
 //
 
 impl<R: Clone, M> Clone for Matrix<R, M> {
     fn clone(&self) -> Self {
-        Self(self.0.clone(), PhantomData)
+        self.to()
     }
 }
 
@@ -406,12 +424,12 @@ impl<const N: usize, Map> Default for Matrix<[[f32; N]; N], Map> {
     }
 }
 
-impl<S: Debug, M: Debug + Default, const N: usize> Debug
-    for Matrix<[[S; N]; N], M>
+impl<S: Debug, Map: Debug + Default, const N: usize, const M: usize> Debug
+    for Matrix<[[S; N]; M], Map>
 {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
-        writeln!(f, "Matrix<{:?}>[", M::default())?;
-        for i in 0..N {
+        writeln!(f, "Matrix<{:?}>[", Map::default())?;
+        for i in 0..M {
             writeln!(f, "    {:6.2?}", self.0[i])?;
         }
         write!(f, "]")
@@ -442,32 +460,31 @@ impl<Repr, M> From<Repr> for Matrix<Repr, M> {
 ///
 /// Tip: use [`splat`][super::vec::splat] to scale uniformly:
 /// ```
-/// # use retrofire_core::math::mat::*;
-/// # use retrofire_core::math::vec::splat;
+/// # use retrofire_core::math::{mat::scale, vec::splat};
 /// let m = scale(splat(2.0));
 /// assert_eq!(m.0[0][0], 2.0);
 /// assert_eq!(m.0[1][1], 2.0);
 /// assert_eq!(m.0[2][2], 2.0);
 /// ```
-pub fn scale(s: Vec3) -> Mat4x4<RealToReal<3>> {
-    [
-        [s[0], 0.0, 0.0, 0.0],
-        [0.0, s[1], 0.0, 0.0],
-        [0.0, 0.0, s[2], 0.0],
+pub const fn scale(s: Vec3) -> Mat4x4<RealToReal<3>> {
+    let [x, y, z] = s.0;
+    Matrix::new([
+        [x, 0.0, 0.0, 0.0],
+        [0.0, y, 0.0, 0.0],
+        [0.0, 0.0, z, 0.0],
         [0.0, 0.0, 0.0, 1.0],
-    ]
-    .into()
+    ])
 }
 
 /// Returns a matrix applying a translation by `t`.
-pub fn translate(t: Vec3) -> Mat4x4<RealToReal<3>> {
-    [
-        [1.0, 0.0, 0.0, t[0]],
-        [0.0, 1.0, 0.0, t[1]],
-        [0.0, 0.0, 1.0, t[2]],
+pub const fn translate(t: Vec3) -> Mat4x4<RealToReal<3>> {
+    let [x, y, z] = t.0;
+    Matrix::new([
+        [1.0, 0.0, 0.0, x],
+        [0.0, 1.0, 0.0, y],
+        [0.0, 0.0, 1.0, z],
         [0.0, 0.0, 0.0, 1.0],
-    ]
-    .into()
+    ])
 }
 
 /// Returns a matrix applying a rotation such that the original y axis
@@ -493,7 +510,7 @@ pub fn orient_z(new_z: Vec3, x: Vec3) -> Mat4x4<RealToReal<3>> {
 
 #[cfg(feature = "fp")]
 fn orient(new_y: Vec3, new_z: Vec3) -> Mat4x4<RealToReal<3>> {
-    use crate::{math::ApproxEq, prelude::Linear};
+    use crate::math::{space::Linear, ApproxEq};
 
     assert!(!new_y.approx_eq(&Vec3::zero()));
     assert!(!new_z.approx_eq(&Vec3::zero()));
@@ -501,6 +518,8 @@ fn orient(new_y: Vec3, new_z: Vec3) -> Mat4x4<RealToReal<3>> {
     let new_x = new_y.cross(&new_z);
     Mat4x4::from_basis(new_x, new_y, new_z)
 }
+
+// TODO constify rotate_* functions once we have const trig functions
 
 /// Returns a matrix applying a rotation by `a` about the x axis.
 #[cfg(feature = "fp")]
@@ -616,7 +635,10 @@ pub fn viewport(bounds: Range<Vec2u>) -> Mat4x4<NdcToScreen> {
 #[cfg(test)]
 mod tests {
     use crate::assert_approx_eq;
-    use crate::math::{vec::splat, vec3};
+    use crate::math::vec::{splat, vec2, vec3};
+
+    #[cfg(feature = "fp")]
+    use crate::math::angle::degs;
 
     use super::*;
 
@@ -625,102 +647,233 @@ mod tests {
     #[derive(Debug, Default, Eq, PartialEq)]
     struct Basis2;
 
-    #[test]
-    fn matrix_debug() {
-        let actual: Mat4x4<RealToReal<3, Basis1, Basis2>> = [
+    type Map<const N: usize = 3> = RealToReal<N, Basis1, Basis2>;
+    type InvMap<const N: usize = 3> = RealToReal<N, Basis2, Basis1>;
+
+    mod mat3x3 {
+        use super::*;
+
+        const MAT: Mat3x3<Map> = Matrix::new([
+            [0.0, 1.0, 2.0], //
+            [10.0, 11.0, 12.0],
+            [20.0, 21.0, 22.0],
+        ]);
+
+        #[test]
+        fn row_col_vecs() {
+            assert_eq!(MAT.row_vec(2), vec3::<_, Basis1>(20.0, 21.0, 22.0));
+            assert_eq!(MAT.col_vec(2), vec3::<_, Basis2>(2.0, 12.0, 22.0));
+        }
+
+        #[test]
+        fn composition() {
+            let t = Mat3x3::<Map<2>>::new([
+                [1.0, 0.0, 2.0], //
+                [0.0, 1.0, -3.0],
+                [0.0, 0.0, 1.0],
+            ]);
+            let s = Mat3x3::<InvMap<2>>::new([
+                [-1.0, 0.0, 0.0], //
+                [0.0, 2.0, 0.0],
+                [0.0, 0.0, 1.0],
+            ]);
+
+            let ts = t.then(&s);
+            let st = s.then(&t);
+
+            assert_eq!(ts, s.compose(&t));
+            assert_eq!(st, t.compose(&s));
+
+            assert_eq!(ts.apply(&splat(0.0)), vec2(-2.0, -6.0));
+            assert_eq!(st.apply(&splat(0.0)), vec2(2.0, -3.0));
+        }
+
+        #[test]
+        fn scaling() {
+            let m = Mat3x3::<Map<2>>::new([
+                [2.0, 0.0, 0.0], //
+                [0.0, -3.0, 0.0],
+                [0.0, 0.0, 1.0],
+            ]);
+            assert_eq!(m.apply(&vec2(1.0, 2.0)), vec2(2.0, -6.0));
+        }
+
+        #[test]
+        fn translation() {
+            let m = Mat3x3::<Map<2>>::new([
+                [1.0, 0.0, 2.0], //
+                [0.0, 1.0, -3.0],
+                [0.0, 0.0, 1.0],
+            ]);
+            assert_eq!(m.apply(&vec2(1.0, 2.0)), vec2(3.0, -1.0));
+        }
+
+        #[test]
+        fn matrix_debug() {
+            assert_eq!(
+                alloc::format!("{MAT:?}"),
+                r#"Matrix<Basis1→Basis2>[
+    [  0.00,   1.00,   2.00]
+    [ 10.00,  11.00,  12.00]
+    [ 20.00,  21.00,  22.00]
+]"#
+            );
+        }
+    }
+
+    mod mat4x4 {
+        use super::*;
+
+        const MAT: Mat4x4<Map> = Matrix::new([
             [0.0, 1.0, 2.0, 3.0],
             [10.0, 11.0, 12.0, 13.0],
             [20.0, 21.0, 22.0, 23.0],
             [30.0, 31.0, 32.0, 33.0],
-        ]
-        .into();
+        ]);
 
-        let expected = r#"Matrix<Basis1→Basis2>[
+        #[test]
+        fn row_col_vecs() {
+            assert_eq!(MAT.row_vec(1), [10.0, 11.0, 12.0, 13.0].into());
+            assert_eq!(MAT.col_vec(3), [3.0, 13.0, 23.0, 33.0].into());
+        }
+
+        #[test]
+        fn composition() {
+            let t = translate(vec3(1.0, 2.0, 3.0)).to::<Map>();
+            let s = scale(vec3(3.0, 2.0, 1.0)).to::<InvMap>();
+
+            let ts = t.then(&s);
+            let st = s.then(&t);
+
+            assert_eq!(ts, s.compose(&t));
+            assert_eq!(st, t.compose(&s));
+
+            assert_eq!(ts.apply(&splat(0.0)), vec3::<_, Basis1>(3.0, 4.0, 3.0));
+            assert_eq!(st.apply(&splat(0.0)), vec3::<_, Basis2>(1.0, 2.0, 3.0));
+        }
+
+        #[test]
+        fn scaling_vec3() {
+            let m = scale(vec3(1.0, -2.0, 3.0));
+            let v = vec3(0.0, 4.0, -3.0);
+            assert_eq!(m.apply(&v), vec3(0.0, -8.0, -9.0));
+        }
+
+        #[test]
+        fn translation_vec3() {
+            let m = translate(vec3(1.0, 2.0, 3.0));
+            let v = vec3(0.0, 5.0, -3.0);
+            assert_eq!(m.apply(&v), vec3(1.0, 7.0, 0.0));
+        }
+
+        #[cfg(feature = "fp")]
+        #[test]
+        fn rotation_x() {
+            let m = rotate_x(degs(90.0));
+            assert_eq!(m.apply(&splat(0.0)), splat(0.0));
+            assert_approx_eq!(
+                m.apply(&vec3(0.0, 0.0, 1.0)),
+                vec3(0.0, 1.0, 0.0)
+            );
+        }
+
+        #[cfg(feature = "fp")]
+        #[test]
+        fn rotation_y() {
+            let m = rotate_y(degs(90.0));
+            assert_eq!(m.apply(&splat(0.0)), splat(0.0));
+            assert_approx_eq!(
+                m.apply(&vec3(1.0, 0.0, 0.0)),
+                vec3(0.0, 0.0, 1.0)
+            );
+        }
+
+        #[cfg(feature = "fp")]
+        #[test]
+        fn rotation_z() {
+            let m = rotate_z(degs(90.0));
+            assert_eq!(m.apply(&splat(0.0)), splat(0.0));
+            assert_approx_eq!(
+                m.apply(&vec3(0.0, 1.0, 0.0)),
+                vec3(1.0, 0.0, 0.0)
+            );
+        }
+
+        #[test]
+        fn matrix_debug() {
+            assert_eq!(
+                alloc::format!("{MAT:?}"),
+                r#"Matrix<Basis1→Basis2>[
     [  0.00,   1.00,   2.00,   3.00]
     [ 10.00,  11.00,  12.00,  13.00]
     [ 20.00,  21.00,  22.00,  23.00]
     [ 30.00,  31.00,  32.00,  33.00]
-]"#;
-
-        assert_eq!(alloc::format!("{actual:?}"), expected);
+]"#
+            );
+        }
     }
 
     #[test]
-    fn scaling() {
-        let m = scale(vec3(1.0, -2.0, 3.0));
-        let v = vec3(0.0, 4.0, -3.0);
-
-        assert_eq!(m.apply(&v), vec3(0.0, -8.0, -9.0));
+    fn transposition() {
+        let m = Matrix::<_, Map>::new([
+            [0.0, 1.0, 2.0], //
+            [10.0, 11.0, 12.0],
+            [20.0, 21.0, 22.0],
+        ]);
+        assert_eq!(
+            m.transpose(),
+            Matrix::<_, InvMap>::new([
+                [0.0, 10.0, 20.0], //
+                [1.0, 11.0, 21.0],
+                [2.0, 12.0, 22.0],
+            ])
+        );
     }
 
     #[test]
-    fn translation() {
-        let m = translate(vec3(1.0, 2.0, 3.0));
-        let v = vec3(0.0, 5.0, -3.0);
-
-        assert_eq!(m.apply(&v), vec3(1.0, 7.0, 0.0));
+    fn determinant_of_identity_is_one() {
+        let id: Mat4x4<Map> = Mat4x4::identity();
+        assert_eq!(id.determinant(), 1.0);
     }
 
-    #[cfg(feature = "fp")]
     #[test]
-    fn rotation_x() {
-        let m = rotate_x(crate::math::degs(90.0));
-        assert_eq!(m.apply(&splat(0.0)), splat(0.0));
-        assert_approx_eq!(m.apply(&vec3(0.0, 0.0, 1.0)), vec3(0.0, 1.0, 0.0));
-    }
-
-    #[cfg(feature = "fp")]
-    #[test]
-    fn rotation_y() {
-        let m = rotate_y(crate::math::degs(90.0));
-        assert_eq!(m.apply(&splat(0.0)), splat(0.0));
-        assert_approx_eq!(m.apply(&vec3(1.0, 0.0, 0.0)), vec3(0.0, 0.0, 1.0));
+    fn determinant_of_scaling_is_product_of_diagonal() {
+        let scale: Mat4x4<_> = scale(vec3(2.0, 3.0, 4.0));
+        assert_eq!(scale.determinant(), 24.0);
     }
 
     #[cfg(feature = "fp")]
     #[test]
-    fn rotation_z() {
-        let m = rotate_z(crate::math::degs(90.0));
-        assert_eq!(m.apply(&splat(0.0)), splat(0.0));
-        assert_approx_eq!(m.apply(&vec3(0.0, 1.0, 0.0)), vec3(1.0, 0.0, 0.0));
-    }
-
-    #[test]
-    fn composition() {
-        let t = translate(vec3(1.0, 2.0, 3.0));
-        let s = scale(vec3(3.0, 2.0, 1.0));
-
-        let ts = t.then(&s);
-        let st = s.then(&t);
-
-        assert_eq!(ts, s.compose(&t));
-        assert_eq!(st, t.compose(&s));
-
-        assert_eq!(ts.apply(&splat(0.0)), vec3(3.0, 4.0, 3.0));
-        assert_eq!(st.apply(&splat(0.0)), vec3(1.0, 2.0, 3.0));
+    fn determinant_of_rotation_is_one() {
+        let rot = rotate_x(degs(73.0)).then(&rotate_y(degs(-106.0)));
+        assert_approx_eq!(rot.determinant(), 1.0);
     }
 
     #[cfg(feature = "fp")]
     #[test]
     fn mat_times_mat_inverse_is_identity() {
         let m = translate(vec3(1.0e3, -2.0e2, 0.0))
-            .to::<RealToReal<3>>()
-            .then(&scale(vec3(0.5, 100.0, 42.0)).to::<RealToReal<3>>());
+            .then(&scale(vec3(0.5, 100.0, 42.0)))
+            .to::<Map>();
 
-        let m_inv = m.inverse();
+        let m_inv: Mat4x4<InvMap> = m.inverse();
 
-        assert_eq!(m.compose(&m_inv), Mat4x4::identity());
-        assert_eq!(m_inv.compose(&m), Mat4x4::identity());
+        assert_eq!(
+            m.compose(&m_inv),
+            Mat4x4::<RealToReal<3, Basis2, Basis2>>::identity()
+        );
+        assert_eq!(
+            m_inv.compose(&m),
+            Mat4x4::<RealToReal<3, Basis1, Basis1>>::identity()
+        );
     }
 
-    #[cfg(feature = "fp")]
     #[test]
     fn inverse_reverts_transform() {
-        let m: Mat4x4<RealToReal<3, Basis1, Basis2>> =
-            scale(vec3(1.0, 2.0, 0.5))
-                .then(&translate(vec3(-2.0, 3.0, 0.0)))
-                .to();
-        let m_inv: Mat4x4<RealToReal<3, Basis2, Basis1>> = m.inverse();
+        let m: Mat4x4<Map> = scale(vec3(1.0, 2.0, 0.5))
+            .then(&translate(vec3(-2.0, 3.0, 0.0)))
+            .to();
+        let m_inv: Mat4x4<InvMap> = m.inverse();
 
         let v1: Vec3<Basis1> = vec3(1.0, -2.0, 3.0);
         let v2: Vec3<Basis2> = vec3(2.0, 0.0, -2.0);
