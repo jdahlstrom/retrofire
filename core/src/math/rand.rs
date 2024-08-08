@@ -144,16 +144,20 @@ impl Xorshift64 {
 // Foreign trait impls
 //
 
+/// An infinite iterator of pseudorandom values sampled from a distribution.
 impl<D: Distrib> Iterator for Iter<D, DefaultRng> {
     type Item = D::Sample;
 
+    /// Returns the next pseudorandom sample from this iterator.
+    ///
+    /// This method never returns `None`.
     fn next(&mut self) -> Option<Self::Item> {
         Some(self.0.sample(&mut self.1))
     }
 }
 
 impl Default for Xorshift64 {
-    /// Returns a default `Xorshift64`.
+    /// Returns a `Xorshift64` seeded with [`DEFAULT_SEED`](Self::DEFAULT_SEED).
     ///
     /// # Examples
     /// # use retrofire_core::math::rand::Xorshift64;
@@ -169,10 +173,11 @@ impl Default for Xorshift64 {
 // Local trait impls
 //
 
+/// Uniformly distributed integers.
 impl Distrib for Uniform<i32> {
     type Sample = i32;
 
-    /// Returns a uniformly distributed `i32` in the given range.
+    /// Returns a uniformly distributed `i32` in the range.
     fn sample(&self, rng: &mut DefaultRng) -> i32 {
         let bits = rng.next_bits() as i32;
         // TODO rem introduces slight bias
@@ -180,33 +185,37 @@ impl Distrib for Uniform<i32> {
     }
 }
 
+/// Uniformly distributed floats.
 impl Distrib for Uniform<f32> {
     type Sample = f32;
 
-    /// Returns a uniformly distributed `f32` in the given range.
+    /// Returns a uniformly distributed `f32` in the range.
     fn sample(&self, rng: &mut DefaultRng) -> f32 {
         let Range { start, end } = self.0;
         // Bit repr of a random f32 in range 1.0..2.0
-        let bits = 127 << 23 | rng.next_bits() >> 41;
-        let unit = f32::from_bits(bits as u32) - 1.0;
+        // Leaves a lot of precision unused near zero, but it's okay.
+        let (exp, mantissa) = (127 << 23, rng.next_bits() >> 41);
+        let unit = f32::from_bits(exp | mantissa as u32) - 1.0;
         unit * (end - start) + start
     }
 }
 
-impl<T, O, const N: usize> Distrib for Uniform<[T; N]>
+impl<T, const N: usize> Distrib for Uniform<[T; N]>
 where
     T: Copy,
-    Uniform<T>: Distrib<Sample = O>,
+    Uniform<T>: Distrib<Sample = T>,
 {
-    type Sample = [O; N];
+    type Sample = [T; N];
 
-    /// Returns an array of values that represents a uniformly distributed point
-    /// within the N-dimensional rectangular volume bounded by `self.1`.
-    fn sample(&self, rng: &mut DefaultRng) -> [O; N] {
-        array::from_fn(|i| Uniform(self.0.start[i]..self.0.end[i]).sample(rng))
+    /// Returns the coordinates of a uniformly distributed point
+    /// within the N-dimensional rectangular volume bounded by `self.0`.
+    fn sample(&self, rng: &mut DefaultRng) -> [T; N] {
+        let Range { start, end } = self.0;
+        array::from_fn(|i| Uniform(start[i]..end[i]).sample(rng))
     }
 }
 
+/// Generation of uniformly distributed vectors.
 impl<Sc, Sp, const DIM: usize> Distrib for Uniform<Vector<[Sc; DIM], Sp>>
 where
     Sc: Copy,
@@ -215,7 +224,7 @@ where
     type Sample = Vector<[Sc; DIM], Sp>;
 
     /// Returns a uniformly distributed vector within the rectangular volume
-    /// bounded by the range `self.1`.
+    /// bounded by the range `self.0`.
     fn sample(&self, rng: &mut DefaultRng) -> Self::Sample {
         Uniform(self.0.start.0..self.0.end.0)
             .sample(rng)
