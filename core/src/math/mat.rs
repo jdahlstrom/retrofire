@@ -140,7 +140,13 @@ impl<M: LinearMap> Mat4x4<M> {
             [0.0, 0.0, 0.0, 1.0],
         ])
     }
+}
 
+impl<Sc, const N: usize, Map> Matrix<[[Sc; N]; N], Map>
+where
+    Sc: Linear<Scalar = Sc> + Copy,
+    Map: LinearMap,
+{
     /// Returns the composite transform of `self` and `other`.
     ///
     /// Computes the matrix product of `self` and `other` such that applying
@@ -153,21 +159,17 @@ impl<M: LinearMap> Mat4x4<M> {
     #[must_use]
     pub fn compose<Inner: LinearMap>(
         &self,
-        other: &Mat4x4<Inner>,
-    ) -> Mat4x4<<M as Compose<Inner>>::Result>
+        other: &Matrix<[[Sc; N]; N], Inner>,
+    ) -> Matrix<[[Sc; N]; N], <Map as Compose<Inner>>::Result>
     where
-        M: Compose<Inner>,
+        Map: Compose<Inner>,
     {
-        let other: [_; 4] = array::from_fn(|i| other.col_vec(i));
-        let mut res = [[0.0; 4]; 4];
-
-        for j in 0..4 {
-            let s = self.row_vec(j);
-            for i in 0..4 {
-                res[j][i] = s.dot(&other[i]);
-            }
-        }
-        res.into()
+        let cols: [_; N] = array::from_fn(|i| other.col_vec(i));
+        array::from_fn(|j| {
+            let row = self.row_vec(j);
+            array::from_fn(|i| row.dot(&cols[i]))
+        })
+        .into()
     }
     /// Returns the composite transform of `other` and `self`.
     ///
@@ -176,10 +178,10 @@ impl<M: LinearMap> Mat4x4<M> {
     /// `other`. The call `self.then(other)` is thus equivalent to
     /// `other.compose(self)`.
     #[must_use]
-    pub fn then<Outer: Compose<M>>(
+    pub fn then<Outer: Compose<Map>>(
         &self,
-        other: &Mat4x4<Outer>,
-    ) -> Mat4x4<<Outer as Compose<M>>::Result> {
+        other: &Matrix<[[Sc; N]; N], Outer>,
+    ) -> Matrix<[[Sc; N]; N], <Outer as Compose<Map>>::Result> {
         other.compose(self)
     }
 }
@@ -335,7 +337,7 @@ impl<Src, Dst> Mat4x4<RealToReal<3, Src, Dst>> {
     }
 }
 
-impl<B> Mat4x4<RealToProj<B>> {
+impl<Src> Mat4x4<RealToProj<Src>> {
     /// Maps the real 3-vector 𝘃 from basis 𝖡 to the projective 4-space.
     ///
     /// Computes the matrix–vector multiplication 𝝡𝘃 where 𝘃 is interpreted as
@@ -348,7 +350,7 @@ impl<B> Mat4x4<RealToProj<B>> {
     ///         \ ·  ·  M33 / \  1 /
     /// ```
     #[must_use]
-    pub fn apply(&self, v: &Vec3<B>) -> ProjVec4 {
+    pub fn apply(&self, v: &Vec3<Src>) -> ProjVec4 {
         let v = Vector::from([v.x(), v.y(), v.z(), 1.0]);
         [
             self.row_vec(0).dot(&v),
@@ -630,8 +632,8 @@ mod tests {
     #[derive(Debug, Default, Eq, PartialEq)]
     struct Basis2;
 
-    type Map = RealToReal<3, Basis1, Basis2>;
-    type InvMap = RealToReal<3, Basis2, Basis1>;
+    type Map<const N: usize = 3> = RealToReal<N, Basis1, Basis2>;
+    type InvMap<const N: usize = 3> = RealToReal<N, Basis2, Basis1>;
 
     #[test]
     fn matrix_debug() {
@@ -677,12 +679,11 @@ mod tests {
 
     #[test]
     fn transposition() {
-        let m: Matrix<_, Map> = Matrix::new([
+        let m = Matrix::<_, Map>::new([
             [0.0, 1.0, 2.0], //
             [10.0, 11.0, 12.0],
             [20.0, 21.0, 22.0],
         ]);
-
         assert_eq!(
             m.transpose(),
             Matrix::<_, InvMap>::new([
@@ -734,9 +735,29 @@ mod tests {
     }
 
     #[test]
-    fn composition() {
-        let t = translate(vec3(1.0, 2.0, 3.0));
-        let s = scale(vec3(3.0, 2.0, 1.0));
+    fn composition_3x3() {
+        let t = Mat3x3::<Map<2>>::new([
+            [1.0, 0.0, 2.0], //
+            [0.0, 1.0, -3.0],
+            [0.0, 0.0, 1.0],
+        ]);
+        let s = Mat3x3::<InvMap<2>>::new([
+            [-1.0, 0.0, 0.0], //
+            [0.0, 2.0, 0.0],
+            [0.0, 0.0, 1.0],
+        ]);
+
+        let ts = t.then(&s);
+        let st = s.then(&t);
+
+        assert_eq!(ts, s.compose(&t));
+        assert_eq!(st, t.compose(&s));
+    }
+
+    #[test]
+    fn composition_4x4() {
+        let t = translate(vec3(1.0, 2.0, 3.0)).to::<Map>();
+        let s = scale(vec3(3.0, 2.0, 1.0)).to::<InvMap>();
 
         let ts = t.then(&s);
         let st = s.then(&t);
@@ -744,8 +765,8 @@ mod tests {
         assert_eq!(ts, s.compose(&t));
         assert_eq!(st, t.compose(&s));
 
-        assert_eq!(ts.apply(&splat(0.0)), vec3(3.0, 4.0, 3.0));
-        assert_eq!(st.apply(&splat(0.0)), vec3(1.0, 2.0, 3.0));
+        assert_eq!(ts.apply(&splat(0.0)), vec3::<_, Basis1>(3.0, 4.0, 3.0));
+        assert_eq!(st.apply(&splat(0.0)), vec3::<_, Basis2>(1.0, 2.0, 3.0));
     }
 
     #[test]
