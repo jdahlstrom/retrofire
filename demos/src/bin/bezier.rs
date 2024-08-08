@@ -35,13 +35,11 @@ fn main() {
         .build();
 
     let gen = Xorshift64::from_time();
+    let pos = Uniform(vec2(0.0, 0.0)..vec2(W as f32, H as f32));
+    let vel = UnitDisk;
 
     let (mut pts, mut deltas): (Vec<Vec2>, Vec<Vec2>) =
-        Uniform(gen, vec2(0.0, 0.0)..vec2(W as f32, H as f32))
-            .iter()
-            .zip(UnitDisk(gen).iter())
-            .take(4)
-            .unzip();
+        (pos, vel).iter(gen).take(4).unzip();
 
     win.run(|Frame { dt, buf, .. }| {
         let b = BezierSpline::new(&pts);
