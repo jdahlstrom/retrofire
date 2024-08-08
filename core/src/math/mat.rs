@@ -2,6 +2,7 @@
 
 //! Matrices and linear transforms.
 
+use crate::math::vec3;
 use core::array;
 use core::fmt::{self, Debug, Formatter};
 use core::marker::PhantomData;
@@ -10,7 +11,7 @@ use core::ops::Range;
 use crate::render::{NdcToScreen, ViewToProj};
 
 use super::space::{Linear, Proj4, Real};
-use super::vec::{ProjVec4, Vec2u, Vec3, Vector};
+use super::vec::{ProjVec4, Vec2, Vec2u, Vec3, Vector};
 
 /// A linear transform from one space (or basis) to another.
 ///
@@ -186,6 +187,24 @@ where
     }
 }
 
+impl<Src, Dst> Mat3x3<RealToReal<2, Src, Dst>> {
+    /// Maps the real 2-vector 𝘃 from basis `Src` to basis `Dst`.
+    ///
+    /// Computes the matrix–vector multiplication 𝝡𝘃 where 𝘃 is interpreted as
+    /// a column vector with an implicit 𝘃<sub>2</sub> component with value 1:
+    ///
+    /// ```text
+    ///         / M00 ·  ·  \ / v0 \
+    ///  Mv  =  |  ·  ·  ·  | | v1 |  =  ( v0' v1' 1 )
+    ///         \  ·  · M22 / \  1 /
+    /// ```
+    #[must_use]
+    pub fn apply(&self, v: &Vec2<Src>) -> Vec2<Dst> {
+        let v = [v.x(), v.y(), 1.0].into();
+        array::from_fn(|i| self.row_vec(i).dot(&v)).into()
+    }
+}
+
 impl<Src, Dst> Mat4x4<RealToReal<3, Src, Dst>> {
     /// Maps the real 3-vector 𝘃 from basis `Src` to basis `Dst`.
     ///
@@ -193,18 +212,15 @@ impl<Src, Dst> Mat4x4<RealToReal<3, Src, Dst>> {
     /// a column vector with an implicit 𝘃<sub>3</sub> component with value 1:
     ///
     /// ```text
-    ///         / M00  ·  · \ / v0 \
-    ///  Mv  =  |    ·      | | v1 |  =  ( v0' v1' v2' 1 )
-    ///         |      ·    | | v2 |
-    ///         \ ·  ·  M33 / \  1 /
+    ///         / M00 ·  ·  ·  \ / v0 \
+    ///  Mv  =  |  ·  ·  ·  ·  | | v1 |  =  ( v0' v1' v2' 1 )
+    ///         |  ·  ·  ·  ·  | | v2 |
+    ///         \  ·  ·  · M33 / \  1 /
     /// ```
     #[must_use]
     pub fn apply(&self, v: &Vec3<Src>) -> Vec3<Dst> {
-        let v = Vector::from([v.x(), v.y(), v.z(), 1.0]);
-        let x = self.row_vec(0).dot(&v);
-        let y = self.row_vec(1).dot(&v);
-        let z = self.row_vec(2).dot(&v);
-        [x, y, z].into()
+        let v = [v.x(), v.y(), v.z(), 1.0].into();
+        array::from_fn(|i| self.row_vec(i).dot(&v)).into()
     }
 
     /// Returns the determinant of `self`.
@@ -620,7 +636,7 @@ pub fn viewport(bounds: Range<Vec2u>) -> Mat4x4<NdcToScreen> {
 #[cfg(test)]
 mod tests {
     use crate::assert_approx_eq;
-    use crate::math::vec::{splat, vec3};
+    use crate::math::vec::{splat, vec2, vec3};
 
     #[cfg(feature = "fp")]
     use crate::math::angle::degs;
@@ -695,7 +711,27 @@ mod tests {
     }
 
     #[test]
-    fn scaling() {
+    fn scaling_vec2() {
+        let m = Mat3x3::<Map<2>>::new([
+            [2.0, 0.0, 0.0], //
+            [0.0, -3.0, 0.0],
+            [0.0, 0.0, 1.0],
+        ]);
+        assert_eq!(m.apply(&vec2(1.0, 2.0)), vec2(2.0, -6.0));
+    }
+
+    #[test]
+    fn translation_vec2() {
+        let m = Mat3x3::<Map<2>>::new([
+            [1.0, 0.0, 2.0], //
+            [0.0, 1.0, -3.0],
+            [0.0, 0.0, 1.0],
+        ]);
+        assert_eq!(m.apply(&vec2(1.0, 2.0)), vec2(3.0, -1.0));
+    }
+
+    #[test]
+    fn scaling_vec3() {
         let m = scale(vec3(1.0, -2.0, 3.0));
         let v = vec3(0.0, 4.0, -3.0);
 
@@ -703,7 +739,7 @@ mod tests {
     }
 
     #[test]
-    fn translation() {
+    fn translation_vec3() {
         let m = translate(vec3(1.0, 2.0, 3.0));
         let v = vec3(0.0, 5.0, -3.0);
 
@@ -752,6 +788,9 @@ mod tests {
 
         assert_eq!(ts, s.compose(&t));
         assert_eq!(st, t.compose(&s));
+
+        assert_eq!(ts.apply(&splat(0.0)), vec2(-2.0, -6.0));
+        assert_eq!(st.apply(&splat(0.0)), vec2(2.0, -3.0));
     }
 
     #[test]
@@ -784,7 +823,7 @@ mod tests {
     #[cfg(feature = "fp")]
     #[test]
     fn determinant_of_rotation_is_one() {
-        let rot: Mat4x4<_> = rotate_x(degs(73.0)).then(&rotate_y(degs(-106.0)));
+        let rot = rotate_x(degs(73.0)).then(&rotate_y(degs(-106.0)));
         assert_approx_eq!(rot.determinant(), 1.0);
     }
 
