@@ -284,6 +284,15 @@ impl Distrib for Bernoulli {
     }
 }
 
+impl<D: Distrib, E: Distrib> Distrib for (D, E) {
+    type Sample = (D::Sample, E::Sample);
+
+    /// Returns a pair of samples, sampled from two separate distributions.
+    fn sample(&self, rng: &mut DefaultRng) -> Self::Sample {
+        (self.0.sample(rng), self.1.sample(rng))
+    }
+}
+
 #[cfg(test)]
 #[allow(clippy::manual_range_contains)]
 mod tests {
@@ -353,12 +362,12 @@ mod tests {
 
     #[test]
     fn bernoulli() {
-        let trues = Bernoulli(0.1)
+        let approx_100 = Bernoulli(0.1)
             .iter(rng())
             .take(COUNT)
             .filter(|&b| b)
             .count();
-        assert_eq!(trues, 82);
+        assert_eq!(approx_100, 82);
     }
 
     #[cfg(feature = "fp")]
@@ -389,5 +398,14 @@ mod tests {
         for v in UnitBall.iter(rng()).take(COUNT) {
             assert!(v.len_sqr() <= 1.0, "vector of len > 1.0: {v:?}");
         }
+    }
+
+    #[test]
+    fn zipped_pair() {
+        let mut rng = rng();
+        let dist = (Bernoulli(0.8), Uniform(0..4));
+        assert_eq!(dist.sample(&mut rng), (true, 1));
+        assert_eq!(dist.sample(&mut rng), (false, 3));
+        assert_eq!(dist.sample(&mut rng), (true, 2));
     }
 }
