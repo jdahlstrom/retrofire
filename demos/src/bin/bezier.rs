@@ -34,12 +34,12 @@ fn main() {
         .size(W, H)
         .build();
 
-    let gen = Xorshift64::from_time();
+    let rng = Xorshift64::from_time();
     let pos = Uniform(vec2(0.0, 0.0)..vec2(W as f32, H as f32));
     let vel = UnitDisk;
 
     let (mut pts, mut deltas): (Vec<Vec2>, Vec<Vec2>) =
-        (pos, vel).iter(gen).take(4).unzip();
+        (pos, vel).samples(rng).take(4).unzip();
 
     win.run(|Frame { dt, buf, .. }| {
         let b = BezierSpline::new(&pts);
@@ -54,9 +54,9 @@ fn main() {
         }
 
         let max = vec2((W - 1) as f32, (H - 1) as f32);
+        let secs = dt.as_secs_f32();
         for (p, d) in pts.iter_mut().zip(deltas.iter_mut()) {
-            *p = (*p + *d * 200.0 * dt.as_secs_f32()) //
-                .clamp(&Vec2::zero(), &max);
+            *p = (*p + *d * 200.0 * secs).clamp(&Vec2::zero(), &max);
 
             if p[0] == 0.0 || p[0] == max.x() {
                 d[0] = -d[0];
@@ -65,7 +65,6 @@ fn main() {
                 d[1] = -d[1];
             }
         }
-
         Continue(())
     });
 }
