@@ -63,25 +63,23 @@ pub struct FirstPerson {
 // Inherent impls
 //
 
-impl<M: Mode> Camera<M> {
+impl Camera<()> {
     /// Creates a camera with the given resolution.
-    pub fn new(res_x: u32, res_y: u32) -> Self
-    where
-        M: Default,
-    {
-        Self::with_mode(res_x, res_y, M::default())
-    }
-
-    /// Creates a camera with the given resolution and mode.
-    pub fn with_mode(res_x: u32, res_y: u32, mode: M) -> Self {
+    pub fn new(res_x: u32, res_y: u32) -> Self {
         Self {
             res: (res_x, res_y),
-            mode,
-            project: Default::default(),
             viewport: viewport(vec2(0, 0)..vec2(res_x, res_y)),
+            ..Default::default()
         }
     }
 
+    pub fn mode<M: Mode>(self, mode: M) -> Camera<M> {
+        let Self { res, project, viewport, .. } = self;
+        Camera { mode, res, project, viewport }
+    }
+}
+
+impl<M> Camera<M> {
     /// Sets the viewport bounds of this camera.
     pub fn viewport(self, bounds: impl Into<Rect<u32>>) -> Self {
         let (w, h) = self.res;
@@ -119,7 +117,9 @@ impl<M: Mode> Camera<M> {
             ..self
         }
     }
+}
 
+impl<M: Mode> Camera<M> {
     /// Renders the given geometry from the viewpoint of this camera.
     pub fn render<B, Vtx: Clone, Var: Vary, Uni: Copy, Shd>(
         &self,

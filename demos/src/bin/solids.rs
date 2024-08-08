@@ -144,7 +144,8 @@ fn main() {
         bunny,
     ];
 
-    let camera = Camera::with_mode(W, H, scale(vec3(1.0, -1.0, -1.0)).to())
+    let cam = Camera::new(W, H)
+        .mode(scale(vec3(1.0, -1.0, -1.0)).to())
         .perspective(1.5, 0.1..1000.0)
         .viewport(vec2(10, 10)..vec2(W - 10, H - 10));
 
@@ -170,7 +171,7 @@ fn main() {
         }
 
         let obj = &objs[carousel.idx % objs.len()];
-        camera.render(
+        cam.render(
             &obj.faces,
             &obj.verts,
             &model_to_world,
@@ -179,7 +180,6 @@ fn main() {
             &mut frame.buf,
             &frame.ctx,
         );
-
         Continue(())
     });
 }

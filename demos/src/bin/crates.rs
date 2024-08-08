@@ -36,7 +36,8 @@ fn main() {
         },
     );
 
-    let mut cam = Camera::<FirstPerson>::new(W, H)
+    let mut cam = Camera::new(W, H)
+        .mode(FirstPerson::default())
         .viewport((10..W - 10, 10..H - 10))
         .perspective(1.0, 0.1..1000.0);
 
