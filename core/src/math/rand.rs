@@ -18,7 +18,7 @@ pub trait Distrib<R = DefaultRng>: Clone {
     fn sample(&self, rng: &mut R) -> Self::Sample;
 
     /// Returns an iterator that yields samples from `self`.
-    fn iter(&self, rng: R) -> Iter<Self, R> {
+    fn samples(&self, rng: R) -> Iter<Self, R> {
         Iter(self.clone(), rng)
     }
 }
@@ -63,11 +63,11 @@ pub struct UnitBall;
 /// * P(true) = p
 /// * P(false) = 1 - p.
 ///
-///  given a parameter p ∈ [0.0, 1.0].
+/// given a parameter p ∈ [0.0, 1.0].
 #[derive(Copy, Clone, Debug)]
 pub struct Bernoulli(pub f32);
 
-/// Iterator returned by the [Distrib::iter()] method.
+/// Iterator returned by the [`Distrib::samples()`] method.
 pub struct Iter<D, R>(D, R);
 
 //
@@ -312,7 +312,7 @@ mod tests {
     #[test]
     fn uniform_i32() {
         let dist = Uniform(-123..456);
-        for r in dist.iter(rng()).take(COUNT) {
+        for r in dist.samples(rng()).take(COUNT) {
             assert!(-123 <= r && r < 456);
         }
     }
@@ -320,7 +320,7 @@ mod tests {
     #[test]
     fn uniform_f32() {
         let dist = Uniform(-1.23..4.56);
-        for r in dist.iter(rng()).take(COUNT) {
+        for r in dist.samples(rng()).take(COUNT) {
             assert!(-1.23 <= r && r < 4.56);
         }
     }
@@ -330,7 +330,7 @@ mod tests {
         let dist = Uniform([0, -10]..[10, 15]);
 
         let sum = dist
-            .iter(rng())
+            .samples(rng())
             .take(COUNT)
             .inspect(|&[x, y]| {
                 assert!(0 <= x && x < 10);
@@ -347,7 +347,7 @@ mod tests {
             Uniform(vec3::<f32, ()>(-2.0, 0.0, -1.0)..vec3(1.0, 2.0, 3.0));
 
         let mean = dist
-            .iter(rng())
+            .samples(rng())
             .take(COUNT)
             .inspect(|v| {
                 assert!(-2.0 <= v.x() && v.x() < 1.0);
@@ -363,7 +363,7 @@ mod tests {
     #[test]
     fn bernoulli() {
         let approx_100 = Bernoulli(0.1)
-            .iter(rng())
+            .samples(rng())
             .take(COUNT)
             .filter(|&b| b)
             .count();
@@ -373,14 +373,14 @@ mod tests {
     #[cfg(feature = "fp")]
     #[test]
     fn unit_circle() {
-        for v in UnitCircle.iter(rng()).take(COUNT) {
+        for v in UnitCircle.samples(rng()).take(COUNT) {
             assert_approx_eq!(v.len_sqr(), 1.0, "non-unit vector: {v:?}");
         }
     }
 
     #[test]
     fn unit_disk() {
-        for v in UnitDisk.iter(rng()).take(COUNT) {
+        for v in UnitDisk.samples(rng()).take(COUNT) {
             assert!(v.len_sqr() <= 1.0, "vector of len > 1.0: {v:?}");
         }
     }
@@ -388,14 +388,14 @@ mod tests {
     #[cfg(feature = "fp")]
     #[test]
     fn unit_sphere() {
-        for v in UnitSphere.iter(rng()).take(COUNT) {
+        for v in UnitSphere.samples(rng()).take(COUNT) {
             assert_approx_eq!(v.len_sqr(), 1.0, "non-unit vector: {v:?}");
         }
     }
 
     #[test]
     fn unit_ball() {
-        for v in UnitBall.iter(rng()).take(COUNT) {
+        for v in UnitBall.samples(rng()).take(COUNT) {
             assert!(v.len_sqr() <= 1.0, "vector of len > 1.0: {v:?}");
         }
     }
