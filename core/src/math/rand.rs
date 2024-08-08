@@ -6,7 +6,7 @@ use crate::math::{Vec2, Vec3, Vector};
 // Traits and types
 //
 
-type DefaultRng = Xorshift64;
+pub type DefaultRng = Xorshift64;
 
 /// Trait for generating values sampled from a probability distribution.
 pub trait Distrib<R = DefaultRng>: Clone {
@@ -15,9 +15,29 @@ pub trait Distrib<R = DefaultRng>: Clone {
     type Sample;
 
     /// Returns a pseudo-random value sampled from `self`.
+    ///
+    /// # Examples
+    /// ```
+    /// use retrofire_core::math::rand::*;
+    /// // Simulate rolling a six-sided die
+    /// let mut rng = DefaultRng::default();
+    /// let d6 = Uniform(1..7).sample(&mut rng);
+    /// assert_eq!(d6, 3);
+    /// ```
     fn sample(&self, rng: &mut R) -> Self::Sample;
 
     /// Returns an iterator that yields samples from `self`.
+    ///
+    /// # Examples
+    /// ```
+    /// use retrofire_core::math::rand::*;
+    /// // Simulate rolling a six-sided die
+    /// let rng = DefaultRng::default();
+    /// let mut iter = Uniform(1..7).samples(rng);
+    /// assert_eq!(iter.next(), Some(3));
+    /// assert_eq!(iter.next(), Some(2));
+    /// assert_eq!(iter.next(), Some(4));
+    /// ```
     fn samples(&self, rng: R) -> Iter<Self, R> {
         Iter(self.clone(), rng)
     }
@@ -37,7 +57,7 @@ pub trait Distrib<R = DefaultRng>: Clone {
 #[repr(transparent)]
 pub struct Xorshift64(pub u64);
 
-/// A uniform distribution of values in the given range.
+/// A uniform distribution of values in a range.
 #[derive(Clone, Debug)]
 pub struct Uniform<T>(pub Range<T>);
 
@@ -68,6 +88,7 @@ pub struct UnitBall;
 pub struct Bernoulli(pub f32);
 
 /// Iterator returned by the [`Distrib::samples()`] method.
+#[derive(Copy, Clone, Debug)]
 pub struct Iter<D, R>(D, R);
 
 //
@@ -144,21 +165,29 @@ impl Xorshift64 {
 // Foreign trait impls
 //
 
+/// An infinite iterator of pseudorandom values sampled from a distribution.
+///
+/// This type is returned by [`Distrib::samples`].
 impl<D: Distrib> Iterator for Iter<D, DefaultRng> {
     type Item = D::Sample;
 
+    /// Returns the next pseudorandom sample from this iterator.
+    ///
+    /// This method never returns `None`.
     fn next(&mut self) -> Option<Self::Item> {
         Some(self.0.sample(&mut self.1))
     }
 }
 
 impl Default for Xorshift64 {
-    /// Returns a default `Xorshift64`.
+    /// Returns a `Xorshift64` seeded with [`DEFAULT_SEED`](Self::DEFAULT_SEED).
     ///
     /// # Examples
-    /// # use retrofire_core::math::rand::Xorshift64;
+    /// ```
+    /// use retrofire_core::math::rand::Xorshift64;
     /// let mut g = Xorshift64::default();
-    /// assert_eq!(g.next_bits(), 133101616827);
+    /// assert_eq!(g.next_bits(), 11039719294064252060);
+    /// ```
     fn default() -> Self {
         // Random 64-bit prime
         Self::from_seed(Self::DEFAULT_SEED)
@@ -169,10 +198,23 @@ impl Default for Xorshift64 {
 // Local trait impls
 //
 
+/// Uniformly distributed integers.
 impl Distrib for Uniform<i32> {
     type Sample = i32;
 
-    /// Returns a uniformly distributed `i32` in the given range.
+    /// Returns a uniformly distributed `i32` in the range.
+    ///
+    /// # Examples
+    /// ```
+    /// use retrofire_core::math::rand::*;
+    /// let rng = DefaultRng::default();
+    ///
+    /// // Simulate rolling a six-sided die
+    /// let mut iter = Uniform(1..7).samples(rng);
+    /// assert_eq!(iter.next(), Some(3));
+    /// assert_eq!(iter.next(), Some(2));
+    /// assert_eq!(iter.next(), Some(4));
+    /// ```
     fn sample(&self, rng: &mut DefaultRng) -> i32 {
         let bits = rng.next_bits() as i32;
         // TODO rem introduces slight bias
@@ -180,33 +222,61 @@ impl Distrib for Uniform<i32> {
     }
 }
 
+/// Uniformly distributed floats.
 impl Distrib for Uniform<f32> {
     type Sample = f32;
 
-    /// Returns a uniformly distributed `f32` in the given range.
+    /// Returns a uniformly distributed `f32` in the range.
+    ///
+    /// # Examples
+    /// ```
+    /// use retrofire_core::math::rand::*;
+    /// let rng = DefaultRng::default();
+    ///
+    /// // Floats in the interval [-1, 1)
+    /// let mut iter = Uniform(-1.0..1.0).samples(rng);
+    /// assert_eq!(iter.next(), Some(0.19692874));
+    /// assert_eq!(iter.next(), Some(-0.7686298));
+    /// assert_eq!(iter.next(), Some(0.91969657));
+    /// ```
     fn sample(&self, rng: &mut DefaultRng) -> f32 {
         let Range { start, end } = self.0;
         // Bit repr of a random f32 in range 1.0..2.0
-        let bits = 127 << 23 | rng.next_bits() >> 41;
-        let unit = f32::from_bits(bits as u32) - 1.0;
+        // Leaves a lot of precision unused near zero, but it's okay.
+        let (exp, mantissa) = (127 << 23, rng.next_bits() >> 41);
+        let unit = f32::from_bits(exp | mantissa as u32) - 1.0;
         unit * (end - start) + start
     }
 }
 
-impl<T, O, const N: usize> Distrib for Uniform<[T; N]>
+impl<T, const N: usize> Distrib for Uniform<[T; N]>
 where
     T: Copy,
-    Uniform<T>: Distrib<Sample = O>,
+    Uniform<T>: Distrib<Sample = T>,
 {
-    type Sample = [O; N];
+    type Sample = [T; N];
 
-    /// Returns an array of values that represents a uniformly distributed point
-    /// within the N-dimensional rectangular volume bounded by `self.1`.
-    fn sample(&self, rng: &mut DefaultRng) -> [O; N] {
-        array::from_fn(|i| Uniform(self.0.start[i]..self.0.end[i]).sample(rng))
+    /// Returns the coordinates of a uniformly distributed point within
+    /// the N-dimensional rectangular volume bounded by the range `self.0`.
+    ///
+    /// # Examples
+    /// ```
+    /// use retrofire_core::math::rand::*;
+    /// let rng = DefaultRng::default();
+    ///
+    /// // Pairs of integers [X, Y] such that 0 <= X < 4 and -2 <= Y <= 3
+    /// let mut iter = Uniform([0, -2]..[4, 3]).samples(rng);
+    /// assert_eq!(iter.next(), Some([0, -1]));
+    /// assert_eq!(iter.next(), Some([1, 0]));
+    /// assert_eq!(iter.next(), Some([3, 1]));
+    /// ```
+    fn sample(&self, rng: &mut DefaultRng) -> [T; N] {
+        let Range { start, end } = self.0;
+        array::from_fn(|i| Uniform(start[i]..end[i]).sample(rng))
     }
 }
 
+/// Uniformly distributed vectors within a rectangular volume.
 impl<Sc, Sp, const DIM: usize> Distrib for Uniform<Vector<[Sc; DIM], Sp>>
 where
     Sc: Copy,
@@ -215,7 +285,7 @@ where
     type Sample = Vector<[Sc; DIM], Sp>;
 
     /// Returns a uniformly distributed vector within the rectangular volume
-    /// bounded by the range `self.1`.
+    /// bounded by the range `self.0`.
     fn sample(&self, rng: &mut DefaultRng) -> Self::Sample {
         Uniform(self.0.start.0..self.0.end.0)
             .sample(rng)
