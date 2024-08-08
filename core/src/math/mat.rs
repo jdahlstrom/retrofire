@@ -76,6 +76,31 @@ impl<Repr, Map> Matrix<Repr, Map> {
     }
 }
 
+impl<Sc, const N: usize, const M: usize, Map> Matrix<[[Sc; N]; M], Map>
+where
+    Sc: Copy,
+    Map: LinearMap,
+{
+    /// Returns the row vector of `self` with index `i`.
+    /// The returned vector is in space `Map::Source`.
+    ///
+    /// # Panics
+    /// If `i >= N`.
+    #[inline]
+    pub fn row_vec(&self, i: usize) -> Vector<[Sc; N], Map::Source> {
+        Vector::new(self.0[i])
+    }
+    /// Returns the column vector of `self` with index `i`.
+    ///
+    /// The returned vector is in space `Map::Dest`.
+    ///
+    /// # Panics
+    /// If `i >= N`.
+    #[inline]
+    pub fn col_vec(&self, i: usize) -> Vector<[Sc; M], Map::Dest> {
+        Vector::new(self.0.map(|row| row[i]))
+    }
+}
 impl<Sc: Copy, const N: usize, const DIM: usize, S, D>
     Matrix<[[Sc; N]; N], RealToReal<DIM, S, D>>
 {
@@ -96,32 +121,6 @@ impl<const N: usize, Map> Matrix<[[f32; N]; N], Map> {
             i += 1;
         }
         Self::new(els)
-    }
-
-    /// Returns the row vector of `self` with index `i`.
-    /// The returned vector is in space `Map::Source`.
-    ///
-    /// # Panics
-    /// If `i >= N`.
-    #[inline]
-    pub fn row_vec(&self, i: usize) -> Vector<[f32; N], Map::Source>
-    where
-        Map: LinearMap,
-    {
-        self.0[i].into()
-    }
-    /// Returns the column vector of `self` with index `i`.
-    ///
-    /// The returned vector is in space `Map::Dest`.
-    ///
-    /// # Panics
-    /// If `i >= N`.
-    #[inline]
-    pub fn col_vec(&self, i: usize) -> Vector<[f32; N], Map::Dest>
-    where
-        Map: LinearMap,
-    {
-        array::from_fn(|j| self.0[j][i]).into()
     }
 
     /// Returns whether every element of `self` is finite
