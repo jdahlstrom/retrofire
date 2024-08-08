@@ -85,7 +85,7 @@ where
     /// The returned vector is in space `Map::Source`.
     ///
     /// # Panics
-    /// If `i >= N`.
+    /// If `i >= M`.
     #[inline]
     pub fn row_vec(&self, i: usize) -> Vector<[Sc; N], Map::Source> {
         Vector::new(self.0[i])
@@ -650,46 +650,167 @@ mod tests {
     type Map<const N: usize = 3> = RealToReal<N, Basis1, Basis2>;
     type InvMap<const N: usize = 3> = RealToReal<N, Basis2, Basis1>;
 
-    #[test]
-    fn matrix_debug() {
-        let actual: Mat4x4<Map> = [
+    mod mat3x3 {
+        use super::*;
+
+        const MAT: Mat3x3<Map> = Matrix::new([
+            [0.0, 1.0, 2.0], //
+            [10.0, 11.0, 12.0],
+            [20.0, 21.0, 22.0],
+        ]);
+
+        #[test]
+        fn row_col_vecs() {
+            assert_eq!(MAT.row_vec(2), vec3::<_, Basis1>(20.0, 21.0, 22.0));
+            assert_eq!(MAT.col_vec(2), vec3::<_, Basis2>(2.0, 12.0, 22.0));
+        }
+
+        #[test]
+        fn composition() {
+            let t = Mat3x3::<Map<2>>::new([
+                [1.0, 0.0, 2.0], //
+                [0.0, 1.0, -3.0],
+                [0.0, 0.0, 1.0],
+            ]);
+            let s = Mat3x3::<InvMap<2>>::new([
+                [-1.0, 0.0, 0.0], //
+                [0.0, 2.0, 0.0],
+                [0.0, 0.0, 1.0],
+            ]);
+
+            let ts = t.then(&s);
+            let st = s.then(&t);
+
+            assert_eq!(ts, s.compose(&t));
+            assert_eq!(st, t.compose(&s));
+
+            assert_eq!(ts.apply(&splat(0.0)), vec2(-2.0, -6.0));
+            assert_eq!(st.apply(&splat(0.0)), vec2(2.0, -3.0));
+        }
+
+        #[test]
+        fn scaling() {
+            let m = Mat3x3::<Map<2>>::new([
+                [2.0, 0.0, 0.0], //
+                [0.0, -3.0, 0.0],
+                [0.0, 0.0, 1.0],
+            ]);
+            assert_eq!(m.apply(&vec2(1.0, 2.0)), vec2(2.0, -6.0));
+        }
+
+        #[test]
+        fn translation() {
+            let m = Mat3x3::<Map<2>>::new([
+                [1.0, 0.0, 2.0], //
+                [0.0, 1.0, -3.0],
+                [0.0, 0.0, 1.0],
+            ]);
+            assert_eq!(m.apply(&vec2(1.0, 2.0)), vec2(3.0, -1.0));
+        }
+
+        #[test]
+        fn matrix_debug() {
+            assert_eq!(
+                alloc::format!("{MAT:?}"),
+                r#"Matrix<Basis1→Basis2>[
+    [  0.00,   1.00,   2.00]
+    [ 10.00,  11.00,  12.00]
+    [ 20.00,  21.00,  22.00]
+]"#
+            );
+        }
+    }
+
+    mod mat4x4 {
+        use super::*;
+
+        const MAT: Mat4x4<Map> = Matrix::new([
             [0.0, 1.0, 2.0, 3.0],
             [10.0, 11.0, 12.0, 13.0],
             [20.0, 21.0, 22.0, 23.0],
             [30.0, 31.0, 32.0, 33.0],
-        ]
-        .into();
+        ]);
 
-        let expected = r#"Matrix<Basis1→Basis2>[
+        #[test]
+        fn row_col_vecs() {
+            assert_eq!(MAT.row_vec(1), [10.0, 11.0, 12.0, 13.0].into());
+            assert_eq!(MAT.col_vec(3), [3.0, 13.0, 23.0, 33.0].into());
+        }
+
+        #[test]
+        fn composition() {
+            let t = translate(vec3(1.0, 2.0, 3.0)).to::<Map>();
+            let s = scale(vec3(3.0, 2.0, 1.0)).to::<InvMap>();
+
+            let ts = t.then(&s);
+            let st = s.then(&t);
+
+            assert_eq!(ts, s.compose(&t));
+            assert_eq!(st, t.compose(&s));
+
+            assert_eq!(ts.apply(&splat(0.0)), vec3::<_, Basis1>(3.0, 4.0, 3.0));
+            assert_eq!(st.apply(&splat(0.0)), vec3::<_, Basis2>(1.0, 2.0, 3.0));
+        }
+
+        #[test]
+        fn scaling_vec3() {
+            let m = scale(vec3(1.0, -2.0, 3.0));
+            let v = vec3(0.0, 4.0, -3.0);
+            assert_eq!(m.apply(&v), vec3(0.0, -8.0, -9.0));
+        }
+
+        #[test]
+        fn translation_vec3() {
+            let m = translate(vec3(1.0, 2.0, 3.0));
+            let v = vec3(0.0, 5.0, -3.0);
+            assert_eq!(m.apply(&v), vec3(1.0, 7.0, 0.0));
+        }
+
+        #[cfg(feature = "fp")]
+        #[test]
+        fn rotation_x() {
+            let m = rotate_x(degs(90.0));
+            assert_eq!(m.apply(&splat(0.0)), splat(0.0));
+            assert_approx_eq!(
+                m.apply(&vec3(0.0, 0.0, 1.0)),
+                vec3(0.0, 1.0, 0.0)
+            );
+        }
+
+        #[cfg(feature = "fp")]
+        #[test]
+        fn rotation_y() {
+            let m = rotate_y(degs(90.0));
+            assert_eq!(m.apply(&splat(0.0)), splat(0.0));
+            assert_approx_eq!(
+                m.apply(&vec3(1.0, 0.0, 0.0)),
+                vec3(0.0, 0.0, 1.0)
+            );
+        }
+
+        #[cfg(feature = "fp")]
+        #[test]
+        fn rotation_z() {
+            let m = rotate_z(degs(90.0));
+            assert_eq!(m.apply(&splat(0.0)), splat(0.0));
+            assert_approx_eq!(
+                m.apply(&vec3(0.0, 1.0, 0.0)),
+                vec3(1.0, 0.0, 0.0)
+            );
+        }
+
+        #[test]
+        fn matrix_debug() {
+            assert_eq!(
+                alloc::format!("{MAT:?}"),
+                r#"Matrix<Basis1→Basis2>[
     [  0.00,   1.00,   2.00,   3.00]
     [ 10.00,  11.00,  12.00,  13.00]
     [ 20.00,  21.00,  22.00,  23.00]
     [ 30.00,  31.00,  32.00,  33.00]
-]"#;
-
-        assert_eq!(alloc::format!("{actual:?}"), expected);
-    }
-
-    #[test]
-    fn row_vec() {
-        let m: Mat3x3<Map> = [
-            [0.0, 1.0, 2.0], //
-            [10.0, 11.0, 12.0],
-            [20.0, 21.0, 22.0],
-        ]
-        .into();
-        assert_eq!(m.row_vec(2), vec3::<_, Basis1>(20.0, 21.0, 22.0));
-    }
-
-    #[test]
-    fn col_vec() {
-        let m: Mat3x3<Map> = [
-            [0.0, 1.0, 2.0], //
-            [10.0, 11.0, 12.0],
-            [20.0, 21.0, 22.0],
-        ]
-        .into();
-        assert_eq!(m.col_vec(2), vec3::<_, Basis2>(2.0, 12.0, 22.0));
+]"#
+            );
+        }
     }
 
     #[test]
@@ -707,104 +828,6 @@ mod tests {
                 [2.0, 12.0, 22.0],
             ])
         );
-    }
-
-    #[test]
-    fn scaling_vec2() {
-        let m = Mat3x3::<Map<2>>::new([
-            [2.0, 0.0, 0.0], //
-            [0.0, -3.0, 0.0],
-            [0.0, 0.0, 1.0],
-        ]);
-        assert_eq!(m.apply(&vec2(1.0, 2.0)), vec2(2.0, -6.0));
-    }
-
-    #[test]
-    fn translation_vec2() {
-        let m = Mat3x3::<Map<2>>::new([
-            [1.0, 0.0, 2.0], //
-            [0.0, 1.0, -3.0],
-            [0.0, 0.0, 1.0],
-        ]);
-        assert_eq!(m.apply(&vec2(1.0, 2.0)), vec2(3.0, -1.0));
-    }
-
-    #[test]
-    fn scaling_vec3() {
-        let m = scale(vec3(1.0, -2.0, 3.0));
-        let v = vec3(0.0, 4.0, -3.0);
-
-        assert_eq!(m.apply(&v), vec3(0.0, -8.0, -9.0));
-    }
-
-    #[test]
-    fn translation_vec3() {
-        let m = translate(vec3(1.0, 2.0, 3.0));
-        let v = vec3(0.0, 5.0, -3.0);
-
-        assert_eq!(m.apply(&v), vec3(1.0, 7.0, 0.0));
-    }
-
-    #[cfg(feature = "fp")]
-    #[test]
-    fn rotation_x() {
-        let m = rotate_x(degs(90.0));
-        assert_eq!(m.apply(&splat(0.0)), splat(0.0));
-        assert_approx_eq!(m.apply(&vec3(0.0, 0.0, 1.0)), vec3(0.0, 1.0, 0.0));
-    }
-
-    #[cfg(feature = "fp")]
-    #[test]
-    fn rotation_y() {
-        let m = rotate_y(degs(90.0));
-        assert_eq!(m.apply(&splat(0.0)), splat(0.0));
-        assert_approx_eq!(m.apply(&vec3(1.0, 0.0, 0.0)), vec3(0.0, 0.0, 1.0));
-    }
-
-    #[cfg(feature = "fp")]
-    #[test]
-    fn rotation_z() {
-        let m = rotate_z(degs(90.0));
-        assert_eq!(m.apply(&splat(0.0)), splat(0.0));
-        assert_approx_eq!(m.apply(&vec3(0.0, 1.0, 0.0)), vec3(1.0, 0.0, 0.0));
-    }
-
-    #[test]
-    fn composition_3x3() {
-        let t = Mat3x3::<Map<2>>::new([
-            [1.0, 0.0, 2.0], //
-            [0.0, 1.0, -3.0],
-            [0.0, 0.0, 1.0],
-        ]);
-        let s = Mat3x3::<InvMap<2>>::new([
-            [-1.0, 0.0, 0.0], //
-            [0.0, 2.0, 0.0],
-            [0.0, 0.0, 1.0],
-        ]);
-
-        let ts = t.then(&s);
-        let st = s.then(&t);
-
-        assert_eq!(ts, s.compose(&t));
-        assert_eq!(st, t.compose(&s));
-
-        assert_eq!(ts.apply(&splat(0.0)), vec2(-2.0, -6.0));
-        assert_eq!(st.apply(&splat(0.0)), vec2(2.0, -3.0));
-    }
-
-    #[test]
-    fn composition_4x4() {
-        let t = translate(vec3(1.0, 2.0, 3.0)).to::<Map>();
-        let s = scale(vec3(3.0, 2.0, 1.0)).to::<InvMap>();
-
-        let ts = t.then(&s);
-        let st = s.then(&t);
-
-        assert_eq!(ts, s.compose(&t));
-        assert_eq!(st, t.compose(&s));
-
-        assert_eq!(ts.apply(&splat(0.0)), vec3::<_, Basis1>(3.0, 4.0, 3.0));
-        assert_eq!(st.apply(&splat(0.0)), vec3::<_, Basis2>(1.0, 2.0, 3.0));
     }
 
     #[test]
