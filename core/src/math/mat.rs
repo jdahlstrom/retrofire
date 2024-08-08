@@ -151,12 +151,11 @@ impl<M: LinearMap> Mat4x4<M> {
     /// ```
     /// for some matrices 𝗠 and 𝗡 and a vector 𝘃.
     #[must_use]
-    pub fn compose<Inner>(
+    pub fn compose<Inner: LinearMap>(
         &self,
         other: &Mat4x4<Inner>,
     ) -> Mat4x4<<M as Compose<Inner>>::Result>
     where
-        Inner: LinearMap,
         M: Compose<Inner>,
     {
         let other: [_; 4] = array::from_fn(|i| other.col_vec(i));
@@ -177,10 +176,10 @@ impl<M: LinearMap> Mat4x4<M> {
     /// `other`. The call `self.then(other)` is thus equivalent to
     /// `other.compose(self)`.
     #[must_use]
-    pub fn then<Outer>(&self, other: &Mat4x4<Outer>) -> Mat4x4<Outer::Result>
-    where
-        Outer: Compose<M>,
-    {
+    pub fn then<Outer: Compose<M>>(
+        &self,
+        other: &Mat4x4<Outer>,
+    ) -> Mat4x4<<Outer as Compose<M>>::Result> {
         other.compose(self)
     }
 }
@@ -224,16 +223,10 @@ impl<Src, Dst> Mat4x4<RealToReal<3, Src, Dst>> {
     ///              | n o p |       | m o p |
     /// ```
     pub fn determinant(&self) -> f32 {
-        let [a, b, c, d] = self.0[0];
-
-        let det3 = |j, k, l| {
-            let [r, s, t] = [&self.0[1], &self.0[2], &self.0[3]];
-            let [a, b, c] = [r[j], r[k], r[l]];
-            let [d, e, f] = [s[j], s[k], s[l]];
-            let [g, h, i] = [t[j], t[k], t[l]];
-
-            a * (e * i - f * h) + b * (f * g - d * i) + c * (d * h - e * g)
-        };
+        let [[a, b, c, d], r, s, t] = self.0;
+        let det2 = |m, n| s[m] * t[n] - s[n] * t[m];
+        let det3 =
+            |j, k, l| r[j] * det2(k, l) - r[k] * det2(j, l) + r[l] * det2(j, k);
 
         a * det3(1, 2, 3) - b * det3(0, 2, 3) + c * det3(0, 1, 3)
             - d * det3(0, 1, 2)
@@ -450,8 +443,7 @@ impl<Repr, M> From<Repr> for Matrix<Repr, M> {
 ///
 /// Tip: use [`splat`][super::vec::splat] to scale uniformly:
 /// ```
-/// # use retrofire_core::math::mat::*;
-/// # use retrofire_core::math::vec::splat;
+/// # use retrofire_core::math::{mat::scale, vec::splat};
 /// let m = scale(splat(2.0));
 /// assert_eq!(m.0[0][0], 2.0);
 /// assert_eq!(m.0[1][1], 2.0);
@@ -626,7 +618,10 @@ pub fn viewport(bounds: Range<Vec2u>) -> Mat4x4<NdcToScreen> {
 #[cfg(test)]
 mod tests {
     use crate::assert_approx_eq;
-    use crate::math::{vec::splat, vec3};
+    use crate::math::vec::{splat, vec3};
+
+    #[cfg(feature = "fp")]
+    use crate::math::angle::degs;
 
     use super::*;
 
@@ -717,7 +712,7 @@ mod tests {
     #[cfg(feature = "fp")]
     #[test]
     fn rotation_x() {
-        let m = rotate_x(crate::math::degs(90.0));
+        let m = rotate_x(degs(90.0));
         assert_eq!(m.apply(&splat(0.0)), splat(0.0));
         assert_approx_eq!(m.apply(&vec3(0.0, 0.0, 1.0)), vec3(0.0, 1.0, 0.0));
     }
@@ -725,7 +720,7 @@ mod tests {
     #[cfg(feature = "fp")]
     #[test]
     fn rotation_y() {
-        let m = rotate_y(crate::math::degs(90.0));
+        let m = rotate_y(degs(90.0));
         assert_eq!(m.apply(&splat(0.0)), splat(0.0));
         assert_approx_eq!(m.apply(&vec3(1.0, 0.0, 0.0)), vec3(0.0, 0.0, 1.0));
     }
@@ -733,7 +728,7 @@ mod tests {
     #[cfg(feature = "fp")]
     #[test]
     fn rotation_z() {
-        let m = rotate_z(crate::math::degs(90.0));
+        let m = rotate_z(degs(90.0));
         assert_eq!(m.apply(&splat(0.0)), splat(0.0));
         assert_approx_eq!(m.apply(&vec3(0.0, 1.0, 0.0)), vec3(1.0, 0.0, 0.0));
     }
@@ -753,27 +748,50 @@ mod tests {
         assert_eq!(st.apply(&splat(0.0)), vec3(1.0, 2.0, 3.0));
     }
 
-    #[cfg(feature = "fp")]
     #[test]
-    fn mat_times_mat_inverse_is_identity() {
-        let m = translate(vec3(1.0e3, -2.0e2, 0.0))
-            .to::<RealToReal<3>>()
-            .then(&scale(vec3(0.5, 100.0, 42.0)).to::<RealToReal<3>>());
+    fn determinant_of_identity_is_one() {
+        let id: Mat4x4<Map> = Mat4x4::identity();
+        assert_eq!(id.determinant(), 1.0);
+    }
 
-        let m_inv = m.inverse();
-
-        assert_eq!(m.compose(&m_inv), Mat4x4::identity());
-        assert_eq!(m_inv.compose(&m), Mat4x4::identity());
+    #[test]
+    fn determinant_of_scaling_is_product_of_diagonal() {
+        let scale: Mat4x4<_> = scale(vec3(2.0, 3.0, 4.0));
+        assert_eq!(scale.determinant(), 24.0);
     }
 
     #[cfg(feature = "fp")]
     #[test]
+    fn determinant_of_rotation_is_one() {
+        let rot: Mat4x4<_> = rotate_x(degs(73.0)).then(&rotate_y(degs(-106.0)));
+        assert_approx_eq!(rot.determinant(), 1.0);
+    }
+
+    #[cfg(feature = "fp")]
+    #[test]
+    fn mat_times_mat_inverse_is_identity() {
+        let m = translate(vec3(1.0e3, -2.0e2, 0.0))
+            .then(&scale(vec3(0.5, 100.0, 42.0)))
+            .to::<Map>();
+
+        let m_inv: Mat4x4<InvMap> = m.inverse();
+
+        assert_eq!(
+            m.compose(&m_inv),
+            Mat4x4::<RealToReal<3, Basis2, Basis2>>::identity()
+        );
+        assert_eq!(
+            m_inv.compose(&m),
+            Mat4x4::<RealToReal<3, Basis1, Basis1>>::identity()
+        );
+    }
+
+    #[test]
     fn inverse_reverts_transform() {
-        let m: Mat4x4<RealToReal<3, Basis1, Basis2>> =
-            scale(vec3(1.0, 2.0, 0.5))
-                .then(&translate(vec3(-2.0, 3.0, 0.0)))
-                .to();
-        let m_inv: Mat4x4<RealToReal<3, Basis2, Basis1>> = m.inverse();
+        let m: Mat4x4<Map> = scale(vec3(1.0, 2.0, 0.5))
+            .then(&translate(vec3(-2.0, 3.0, 0.0)))
+            .to();
+        let m_inv: Mat4x4<InvMap> = m.inverse();
 
         let v1: Vec3<Basis1> = vec3(1.0, -2.0, 3.0);
         let v2: Vec3<Basis2> = vec3(2.0, 0.0, -2.0);
