@@ -8,17 +8,21 @@
 use alloc::{vec, vec::Vec};
 use core::fmt::Debug;
 
-use clip::{view_frustum, Clip, ClipVec, ClipVert};
+use crate::geom::{Tri, Vertex};
+use crate::math::{
+    mat::{Mat4x4, RealToProj, RealToReal},
+    vary::Vary,
+    vec::{vec3, ProjVec4, Vec3},
+};
+
+use clip::{view_frustum, Clip, ClipVert};
 use ctx::{Context, DepthSort, FaceCull};
 use raster::{tri_fill, Frag};
 use shader::{FragmentShader, VertexShader};
 use stats::Stats;
 use target::Target;
 
-use crate::geom::{Tri, Vertex};
-use crate::math::mat::{RealToProj, RealToReal};
-use crate::math::{vec3, Mat4x4, Vary, Vec3};
-
+pub mod batch;
 pub mod cam;
 pub mod clip;
 pub mod ctx;
@@ -66,6 +70,18 @@ pub type ViewToProj = RealToProj<View>;
 /// Mapping from NDC space to screen space.
 pub type NdcToScreen = RealToReal<3, Ndc, Screen>;
 
+/// Alias for combined vertex+fragment shader types
+pub trait Shader<Vtx, Var, Uni>:
+    VertexShader<Vtx, Uni, Output = Vertex<ProjVec4, Var>>
+    + FragmentShader<Frag<Var>>
+{
+}
+impl<S, Vtx, Var, Uni> Shader<Vtx, Var, Uni> for S where
+    S: VertexShader<Vtx, Uni, Output = Vertex<ProjVec4, Var>>
+        + FragmentShader<Frag<Var>>
+{
+}
+
 /// Renders the given triangles into `target`.
 pub fn render<Vtx: Clone, Var: Vary, Uni: Copy, Shd>(
     tris: impl AsRef<[Tri<usize>]>,
@@ -76,8 +92,7 @@ pub fn render<Vtx: Clone, Var: Vary, Uni: Copy, Shd>(
     target: &mut impl Target,
     ctx: &Context,
 ) where
-    Shd: VertexShader<Vtx, Uni, Output = Vertex<ClipVec, Var>>
-        + FragmentShader<Frag<Var>>,
+    Shd: Shader<Vtx, Var, Uni>,
 {
     let mut stats = Stats::start();
 
