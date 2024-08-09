@@ -120,6 +120,7 @@ impl<M> Camera<M> {
 }
 
 impl<M: Mode> Camera<M> {
+    /// Returns the composed camera and projection matrix.
     pub fn world_to_project(&self) -> Mat4x4<RealToProj<World>> {
         self.mode.world_to_view().then(&self.project)
     }
@@ -141,13 +142,11 @@ impl<M: Mode> Camera<M> {
                 Output = Vertex<ClipVec, Var>,
             > + FragmentShader<Frag<Var>>,
     {
-        let tf = to_world
-            .then(&self.mode.world_to_view())
-            .then(&self.project);
+        let tf = to_world.then(&self.world_to_project());
 
         super::render(
-            tris,
-            verts,
+            tris.as_ref(),
+            verts.as_ref(),
             shader,
             (&tf, uniform),
             self.viewport,
