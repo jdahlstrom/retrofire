@@ -11,19 +11,7 @@ use std::time::Instant;
 // Types
 //
 
-#[derive(Copy, Clone, Debug)]
-enum Stat {
-    /// Objects input/output.
-    Objs,
-    /// Primitives input/output.
-    Prims,
-    /// Vertices input/output.
-    Verts,
-    /// Fragments input/output.
-    Frags,
-}
-
-/// Collects and accumulates performance statistics.
+/// Collects and accumulates rendering statistics and performance data.
 #[derive(Clone, Debug, Default)]
 pub struct Stats {
     /// Time spent rendering.
@@ -134,12 +122,8 @@ impl Stats {
     }
 
     fn throughput_mut(&mut self) -> [&mut Throughput; 4] {
-        [
-            &mut self.objs,
-            &mut self.prims,
-            &mut self.verts,
-            &mut self.frags,
-        ]
+        let Self { objs, prims, verts, frags, .. } = self;
+        [objs, prims, verts, frags]
     }
 }
 
@@ -158,20 +142,12 @@ impl Throughput {
     }
 }
 
-impl Display for Stat {
-    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
-        let mut str = format!("{self:?}");
-        str.make_ascii_lowercase();
-        write!(f, "{str:6}")
-    }
-}
-
 impl Display for Stats {
     #[rustfmt::skip]
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         let w = f.width().unwrap_or(16);
-        let ps = self.per_sec();
-        let pf = self.per_frame();
+        let per_s = self.per_sec();
+        let per_f = self.per_frame();
         write!(f,
             " STATS  {:>w$} │ {:>w$} │ {:>w$}\n\
              ────────{empty:─>w$}─┼─{empty:─>w$}─┼─{empty:─>w$}─\n \
@@ -180,21 +156,20 @@ impl Display for Stats {
               frames {:>w$} │ {:>w$.1} │\n\
              ────────{empty:─>w$}─┼─{empty:─>w$}─┼─{empty:─>w$}─\n",
             "TOTAL", "PER SEC", "PER FRAME",
-            human_time(self.time), human_time(pf.time),
-            self.calls, ps.calls, pf.calls,
-            self.frames, ps.frames,
+            human_time(self.time), human_time(per_f.time),
+            self.calls, per_s.calls, per_f.calls,
+            self.frames, per_s.frames,
             empty = ""
         )?;
 
-        use Stat::*;
-        for stat in [Objs, Prims, Verts, Frags] {
-            let i = stat as usize;
-            let [s, ps, pf] = [self, &ps, &pf].map(|s| s.throughput()[i]);
+        let labels = ["objs", "prims", "verts", "frags"];
+        for (i, lbl) in (0..4).zip(labels) {
+            let [tot, per_s, per_f] = [self, &per_s, &per_f].map(|s| s.throughput()[i]);
 
             if f.alternate() {
-                writeln!(f, " {stat} {s:#w$} │ {ps:#w$} │ {pf:#w$}")?;
+                writeln!(f, " {lbl:6} {tot:#w$} │ {per_s:#w$} │ {per_f:#w$}")?;
             } else {
-                writeln!(f, " {stat} {s:w$} │ {ps:w$} │ {pf:w$}")?;
+                writeln!(f, " {lbl:6} {tot:w$} │ {per_s:w$} │ {per_f:w$}")?;
             }
         }
         Ok(())
@@ -209,10 +184,12 @@ impl Display for Throughput {
             if i == 0 {
                 write!(f, "{:>w$}", "--")
             } else {
-                write!(f, "{:>w$.1}%", 100.0 * o as f32 / i as f32, w = w - 1)
+                let pct = 100.0 * o as f32 / i as f32;
+                write!(f, "{pct:>w$.1}%", w = w - 1)
             }
         } else {
-            write!(f, "{:>w$}", format!("{} / {}", human_num(i), human_num(o)),)
+            let io = format!("{} / {}", human_num(i), human_num(o));
+            write!(f, "{io:>w$}")
         }
     }
 }
