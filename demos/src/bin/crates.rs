@@ -5,9 +5,11 @@ use minifb::MouseMode;
 use re::prelude::*;
 
 use re::math::color::gray;
-use re::render::cam::{Camera, FirstPerson};
-use re::render::ModelToProj;
-
+use re::render::{
+    batch::Batch,
+    cam::{Camera, FirstPerson},
+    ModelToProj,
+};
 use re_front::minifb::Window;
 use re_geom::solids::*;
 
@@ -21,13 +23,13 @@ fn main() {
         .build();
 
     let floor_shader = Shader::new(
-        |v: Vertex<_, _>, (mvp, _): (&Mat4x4<ModelToProj>, _)| {
+        |v: Vertex<_, _>, mvp: &Mat4x4<ModelToProj>| {
             vertex(mvp.apply(&v.pos), v.attrib)
         },
         |frag: Frag<Color3f>| frag.var.to_color4(),
     );
     let crate_shader = Shader::new(
-        |v: Vertex<_, _>, (mvp, _): (&Mat4x4<ModelToProj>, _)| {
+        |v: Vertex<_, _>, mvp: &Mat4x4<ModelToProj>| {
             vertex(mvp.apply(&v.pos), v.attrib)
         },
         |frag: Frag<Normal3>| {
@@ -42,6 +44,7 @@ fn main() {
         .perspective(1.0, 0.1..1000.0);
 
     let floor = floor();
+    let crat = Box::cube(2.0).build();
 
     win.run(|frame| {
         // Camera
@@ -49,6 +52,7 @@ fn main() {
         let mut cam_vel = Vec3::zero();
 
         let imp = &frame.win.imp;
+
         for key in imp.get_keys() {
             use minifb::Key::*;
             match key {
@@ -66,41 +70,44 @@ fn main() {
         cam.mode
             .translate(cam_vel.mul(frame.dt.as_secs_f32()));
 
-        let flip = scale(vec3(1.0, -1.0, -1.0));
+        let flip = scale(vec3(1.0, -1.0, -1.0)).to();
 
         // Render
 
-        cam.render(
-            &floor.faces,
-            &floor.verts,
-            &flip.to(),
-            &floor_shader,
-            (),
-            &mut frame.buf,
-            &frame.ctx,
-        );
+        let world_to_project = flip.then(&cam.world_to_project());
 
-        let sz = 30;
-        for i in (-sz..=sz).step_by(5) {
-            for j in (-sz..=sz).step_by(5) {
-                let b = Box::cube(2.0).build();
+        let batch = Batch::new()
+            .viewport(cam.viewport)
+            .context(&frame.ctx);
 
-                let to_world = flip
-                    .then(&translate(vec3(i as f32, 0.0, j as f32)))
-                    .to();
+        batch
+            .clone()
+            .mesh(&floor)
+            .uniform(&world_to_project)
+            .shader(floor_shader)
+            .target(&mut frame.buf)
+            .render();
 
-                cam.render(
-                    &b.faces,
-                    &b.verts,
-                    &to_world,
-                    &crate_shader,
-                    (),
-                    &mut frame.buf,
-                    &frame.ctx,
-                )
+        let craet = batch.clone().mesh(&crat);
+
+        let n = 30;
+        for i in (-n..=n).step_by(5) {
+            for j in (-n..=n).step_by(5) {
+                let pos = translate(vec3(i as f32, 0.0, j as f32)).to();
+                craet
+                    // TODO Try to get rid of clone
+                    .clone()
+                    .uniform(&pos.then(&world_to_project))
+                    // TODO Allow setting shader before uniform
+                    .shader(crate_shader)
+                    // TODO storing &mut target makes Batch not Clone, maybe
+                    //      pass to render() instead. OTOH then a Frame::batch
+                    //      helper wouldn't be as useful. Maybe just wrap the
+                    //      target in a RefCell?
+                    .target(&mut frame.buf)
+                    .render();
             }
         }
-
         Continue(())
     });
 }
