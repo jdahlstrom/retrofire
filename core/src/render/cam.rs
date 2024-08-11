@@ -120,6 +120,10 @@ impl<M> Camera<M> {
 }
 
 impl<M: Mode> Camera<M> {
+    pub fn world_to_project(&self) -> Mat4x4<RealToProj<World>> {
+        self.mode.world_to_view().then(&self.project)
+    }
+
     /// Renders the given geometry from the viewpoint of this camera.
     pub fn render<B, Vtx: Clone, Var: Vary, Uni: Copy, Shd>(
         &self,
