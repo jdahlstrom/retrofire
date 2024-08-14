@@ -53,9 +53,10 @@ Done:
   * Fully customizable rasterization stage
   * Collecting rendering performance data
   * Reading and writing pnm image files
+  * Reading and writing Wavefront .obj files
   * Cubic Bezier curves and splines
   * Simple random number generation and distributions
-  * Frontend for the minifb crate
+  * Frontend for wasm and minifb
 
 In progress:
 
@@ -63,8 +64,8 @@ In progress:
   = Simple bitmap font support
   = Spherical, cube, etc UV mapping
   = Procedural noise generation
-  = Reading and writing Wavefront .obj files
-  = Frontends for sdl2, softbuffer, ncurses, wasm
+
+  = Frontends for sdl2, softbuffer, ncurses
 
 Planned:
 
@@ -82,29 +83,35 @@ Planned:
 
 ================================ Organization ================================
 
-retrofire is split into several crates:
+retrofire is split into several packages:
 
   * core:  math, renderer, utilities; no-std compatible
   * front: frontends for writing simple graphical applications
-  * geom:  geometric shapes and mesh builders
+  * geom:  geometric shapes, mesh builders, model loading
   * demos: binaries showcasing retrofire features
 
 ================================ Dependencies ================================
 
 The minimum supported Rust version is the current stable, at least for now.
 
-The `core` package has no external non-optional dependencies. It requires only
-`alloc`, unless the optional feature `std` is enabled.
+The `core` package only requires `alloc` and has no non-optional external
+dependencies. However, because `no_std` lacks most floating-point functions,
+the package is not fully functional unless either the `std`, `libm`, or `mm`
+feature is enabled. Activating `std` additionally enables APIs that do I/O.
 
-The `front` crate contains a simple window abstraction wrapping the `minifb`
-crate. It can be used to write simple games and demos.
+The `front` package can be used to write simple games and demos. It contains
+simple window abstractions, one using the `minifb` crate and the other running
+in the browser via WebAssembly.
 
-The `demos` crate contains sample applications using `front` and `minifb` to
-exhibit various features of retrofire.
+The `geom` package has no external dependencies. It only requires `alloc`;
+activating the optional feature `std` enables APIs doing I/O.
+
+The `demos` package contains sample applications using `front` to exhibit
+various features of retrofire.
 
 ================================== License ===================================
 
-Copyright 2020-2023 Johannes Dahlström. retrofire is licensed under either of:
+Copyright 2020-2024 Johannes Dahlström. retrofire is licensed under either of:
 
   * Apache License, Version 2.0
     (LICENSE-APACHE or http://www.apache.org/licenses/LICENSE-2.0)
