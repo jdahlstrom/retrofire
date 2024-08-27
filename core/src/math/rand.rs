@@ -1,6 +1,8 @@
+//! Pseudo-random number generation and distributions.
+
 use core::{array, fmt::Debug, ops::Range};
 
-use crate::math::{Vec2, Vec3, Vector};
+use super::vec::{Vec2, Vec3, Vector};
 
 //
 // Traits and types

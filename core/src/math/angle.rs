@@ -1,4 +1,4 @@
-//! Angular quantities, including polar and spherical coordinate vectors.
+//! Angular quantities, including scalar angles and angular vectors.
 
 use core::f32::consts::{PI, TAU};
 use core::fmt::{self, Debug, Display};

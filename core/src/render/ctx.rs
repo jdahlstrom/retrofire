@@ -1,3 +1,5 @@
+//! Rendering context and parameters.
+
 use core::cell::RefCell;
 use core::cmp::Ordering;
 
@@ -5,7 +7,7 @@ use crate::math::color::{rgba, Color4};
 
 use super::stats::Stats;
 
-/// Rendering context.
+/// Context and parameters used by the renderer.
 #[derive(Clone, Debug)]
 pub struct Context {
     /// The color with which to fill the color buffer to clear it, if any.

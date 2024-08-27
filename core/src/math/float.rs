@@ -1,3 +1,11 @@
+//! Floating-point compatibility API.
+//!
+//! Most floating-point functions are currently unavailable in `no_std`.
+//! This module provides the missing functions using either the `libm` or
+//! `micromath` crate, depending on which feature is enabled. As a fallback,
+//! it also implements a critical subset of the functions even if none of
+//! the features is enabled.
+
 #[cfg(feature = "libm")]
 pub mod libm {
     pub use libm::fabsf as abs;

@@ -1,3 +1,5 @@
+//! Frontend using WebAssembly to render to a canvas element.
+
 #![allow(unused)]
 
 use core::cell::RefCell;

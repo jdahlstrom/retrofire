@@ -1,3 +1,5 @@
+//! Real and projective vectors.
+//!
 //! TODO
 
 use core::array;
@@ -50,17 +52,17 @@ pub type Vec2u<Basis = ()> = Vector<[u32; 2], Real<2, Basis>>;
 // Free functions
 //
 
-/// Returns a 2D Euclidean vector with components `x` and `y`.
+/// Returns a real 2-vector with components `x` and `y`.
 pub const fn vec2<Sc, B>(x: Sc, y: Sc) -> Vector<[Sc; 2], Real<2, B>> {
     Vector([x, y], PhantomData)
 }
 
-/// Returns a 3D Euclidean vector with components `x`, `y`, and `z`.
+/// Returns a real 3-vector with components `x`, `y`, and `z`.
 pub const fn vec3<Sc, B>(x: Sc, y: Sc, z: Sc) -> Vector<[Sc; 3], Real<3, B>> {
     Vector([x, y, z], PhantomData)
 }
 
-/// Returns a vector with all components equal to the argument.
+/// Returns a vector with all components equal to a scalar.
 ///
 /// This operation is also called "broadcast".
 ///
