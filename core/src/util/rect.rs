@@ -1,3 +1,5 @@
+//! Rectangular regions.
+
 use core::fmt::Debug;
 use core::ops::{Bound::*, Range, RangeBounds, RangeFull, Sub};
 

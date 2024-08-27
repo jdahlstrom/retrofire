@@ -49,6 +49,7 @@ pub mod math;
 pub mod render;
 pub mod util;
 
+/// Prelude module exporting many frequently used items.
 pub mod prelude {
     #[cfg(feature = "fp")]
     pub use crate::math::mat::{rotate_x, rotate_y, rotate_z};

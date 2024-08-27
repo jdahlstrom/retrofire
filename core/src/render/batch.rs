@@ -1,3 +1,5 @@
+//! Builder for setting up geometry for rendering.
+
 use alloc::vec::Vec;
 use core::borrow::Borrow;
 
@@ -13,7 +15,7 @@ use super::{ctx::Context, target::Target, NdcToScreen, Shader};
 /// * [faces][Batch::faces]: A list of triangles, each a triplet of indices
 ///   into the list of vertices (TODO: handling oob)
 /// * [vertices][Batch::vertices]: A list of vertices
-/// * [shader][Batch::shaders]: The combined vertex and fragment shader used
+/// * [shader][Batch::shader]: The combined vertex and fragment shader used
 /// * [target][Batch::target]: The render target to render into
 /// * [context][Batch::context]: The rendering context and settings used. (TODO: optional?)
 ///

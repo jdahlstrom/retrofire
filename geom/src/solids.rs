@@ -1,5 +1,5 @@
 //! Mesh approximations of various geometric shapes.
-//!
+
 use core::array::from_fn;
 use core::ops::Range;
 

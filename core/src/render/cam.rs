@@ -1,3 +1,5 @@
+//! Cameras and camera transforms.
+
 use core::ops::Range;
 
 use crate::geom::{Tri, Vertex};

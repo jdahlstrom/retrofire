@@ -1,4 +1,6 @@
-//! Types and traits for representing linear (vector) and affine spaces.
+//! Linear (vector) spaces and affine spaces.
+//!
+//! TODO
 
 use core::marker::PhantomData;
 

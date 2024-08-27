@@ -1,6 +1,8 @@
+//! Testing and asserting approximate equality.
+
 use core::iter::zip;
 
-/// Methods for testing the approximate equality of two values.
+/// Trait for testing approximate equality.
 ///
 /// Floating-point types are only an approximation of real numbers due to their
 /// finite precision. The presence of rounding errors means that two floats may
