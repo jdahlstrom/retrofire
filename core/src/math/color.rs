@@ -1,3 +1,5 @@
+//! Colors and color spaces.
+
 use core::array;
 use core::fmt::{self, Debug, Formatter};
 use core::marker::PhantomData;

@@ -1,5 +1,7 @@
-//! Support for varyings: types that can be linearly interpolated across
-//! a face when rendering, such as colors, normals, or texture coordinates.
+//! Types that can be interpolated across a face when rendering.
+//!
+//! Common varying types include colors, texture coordinates,
+//! and vertex normals.
 
 use core::mem;
 
