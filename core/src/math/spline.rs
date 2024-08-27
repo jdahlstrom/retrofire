@@ -94,15 +94,27 @@ pub struct Euclidean<Spl>(Spl, Vec<(f32, f32)>);
 ///
 /// Returns 0 for all `t` <= 0 and 1 for all `t` >= 1. Has a continuous
 /// first derivative.
+#[inline]
 pub fn smoothstep(t: f32) -> f32 {
-    step(t, &0.0, &1.0, |t| t * t * (3.0 - 2.0 * t))
+    step(t, &0.0, &1.0, smoothstep_unit)
 }
 
 /// Even smoother version of [`smoothstep`].
 ///
 /// Has continuous first and second derivatives.
+#[inline]
 pub fn smootherstep(t: f32) -> f32 {
-    step(t, &0.0, &1.0, |t| t * t * t * (10.0 + t * (6.0 * t - 15.0)))
+    step(t, &0.0, &1.0, smootherstep_unit)
+}
+
+#[inline]
+pub(crate) fn smoothstep_unit(t: f32) -> f32 {
+    t * t * (3.0 - 2.0 * t)
+}
+
+#[inline]
+pub(crate) fn smootherstep_unit(t: f32) -> f32 {
+    t * t * t * (10.0 + t * (6.0 * t - 15.0))
 }
 
 /// Helper for defining step functions.

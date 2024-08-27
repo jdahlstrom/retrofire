@@ -77,6 +77,7 @@ pub mod color;
 pub mod float;
 pub mod grad;
 pub mod mat;
+pub mod noise;
 pub mod param;
 pub mod point;
 pub mod rand;
