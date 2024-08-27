@@ -46,16 +46,18 @@ pub type SphericalVec = Vector<[f32; 3], Spherical>;
 //
 
 /// Returns an angle of `a` radians.
-pub fn rads(a: f32) -> Angle {
+pub const fn rads(a: f32) -> Angle {
     Angle(a)
 }
 
 /// Returns an angle of `a` degrees.
+// TODO Constify once #57241 is stable
 pub fn degs(a: f32) -> Angle {
     Angle(a * RADS_PER_DEG)
 }
 
 /// Returns an angle of `a` turns.
+// TODO Constify once #57241 is stable
 pub fn turns(a: f32) -> Angle {
     Angle(a * RADS_PER_TURN)
 }
@@ -134,13 +136,13 @@ const RADS_PER_TURN: f32 = TAU;
 
 impl Angle {
     /// A zero degree angle.
-    pub const ZERO: Self = Self(0.0);
+    pub const ZERO: Self = rads(0.0);
     /// A 90 degree angle.
-    pub const RIGHT: Self = Self(RADS_PER_TURN / 4.0);
+    pub const RIGHT: Self = rads(RADS_PER_TURN / 4.0);
     /// A 180 degree angle.
-    pub const STRAIGHT: Self = Self(RADS_PER_TURN / 2.0);
+    pub const STRAIGHT: Self = rads(RADS_PER_TURN / 2.0);
     /// A 360 degree angle.
-    pub const FULL: Self = Self(RADS_PER_TURN);
+    pub const FULL: Self = rads(RADS_PER_TURN);
 
     /// Returns the value of `self` in radians.
     /// # Examples
@@ -510,6 +512,12 @@ impl Mul<f32> for Angle {
     type Output = Self;
     fn mul(self, rhs: f32) -> Self {
         Self(self.0 * rhs)
+    }
+}
+impl Mul<Angle> for f32 {
+    type Output = Angle;
+    fn mul(self, rhs: Angle) -> Angle {
+        rhs * self
     }
 }
 impl Div<f32> for Angle {

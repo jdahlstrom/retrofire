@@ -14,8 +14,8 @@ use re_front::minifb::Window;
 use re_geom::solids::*;
 
 fn main() {
-    const W: u32 = 640;
-    const H: u32 = 480;
+    const W: u32 = 1280;
+    const H: u32 = 720;
 
     let mut win = Window::builder()
         .title("retrofire//crates")
@@ -52,7 +52,6 @@ fn main() {
         let mut cam_vel = Vec3::zero();
 
         let imp = &frame.win.imp;
-
         for key in imp.get_keys() {
             use minifb::Key::*;
             match key {
@@ -66,7 +65,7 @@ fn main() {
         let (mx, my) = imp.get_mouse_pos(MouseMode::Pass).unwrap();
 
         cam.mode
-            .rotate_to(degs(-0.4 * mx), degs(0.4 * (my - 240.0)));
+            .rotate_to(-0.4 * degs(mx), 0.4 * degs(my - H as f32 / 2.0));
         cam.mode
             .translate(cam_vel.mul(frame.dt.as_secs_f32()));
 
