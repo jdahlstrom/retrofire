@@ -5,25 +5,24 @@ use std::time::Instant;
 
 use minifb::{Key, WindowOptions};
 
-use retrofire_core::render::ctx::Context;
-use retrofire_core::render::target::Framebuf;
-use retrofire_core::util::buf::Buf2;
+use retrofire_core::render::{ctx::Context, target::Framebuf};
+use retrofire_core::util::{buf::Buf2, Dims};
 
-use crate::Frame;
+use crate::{dims::SVGA_800_600, Frame};
 
 /// A lightweight wrapper of a `minibuf` window.
 pub struct Window {
     /// The wrapped minifb window.
     pub imp: minifb::Window,
     /// The width and height of the window.
-    pub size: (u32, u32),
+    pub dims: Dims,
     /// Rendering context defaults.
     pub ctx: Context,
 }
 
 /// Builder for creating `Window`s.
 pub struct Builder<'title> {
-    pub size: (u32, u32),
+    pub dims: Dims,
     pub title: &'title str,
     pub target_fps: Option<u32>,
     pub opts: WindowOptions,
@@ -32,7 +31,7 @@ pub struct Builder<'title> {
 impl Default for Builder<'_> {
     fn default() -> Self {
         Self {
-            size: (800, 600),
+            dims: SVGA_800_600,
             title: "// retrofire application //",
             target_fps: Some(60),
             opts: WindowOptions::default(),
@@ -42,8 +41,8 @@ impl Default for Builder<'_> {
 
 impl<'t> Builder<'t> {
     /// Sets the width and height of the window.
-    pub fn size(mut self, w: u32, h: u32) -> Self {
-        self.size = (w, h);
+    pub fn dims(mut self, dims: Dims) -> Self {
+        self.dims = dims;
         self
     }
     /// Sets the title of the window.
@@ -65,15 +64,15 @@ impl<'t> Builder<'t> {
 
     /// Creates the window.
     pub fn build(self) -> Window {
-        let Self { size, title, target_fps, opts } = self;
+        let Self { dims, title, target_fps, opts } = self;
         let mut imp =
-            minifb::Window::new(title, size.0 as usize, size.1 as usize, opts)
+            minifb::Window::new(title, dims.0 as usize, dims.1 as usize, opts)
                 .unwrap();
         if let Some(fps) = target_fps {
             imp.set_target_fps(fps as usize);
         }
         let ctx = Context::default();
-        Window { imp, size, ctx }
+        Window { imp, dims, ctx }
     }
 }
 
@@ -89,7 +88,7 @@ impl Window {
     /// # Panics
     /// If `fb.len() < self.size.0 * self.size.1`.
     pub fn present(&mut self, fb: &[u32]) {
-        let (w, h) = self.size;
+        let (w, h) = self.dims;
         self.imp
             .update_with_buffer(fb, w as usize, h as usize)
             .unwrap();
@@ -106,7 +105,7 @@ impl Window {
     where
         F: FnMut(&mut Frame<Self>) -> ControlFlow<()>,
     {
-        let (w, h) = self.size;
+        let (w, h) = self.dims;
         let mut cbuf = Buf2::new(w, h);
         let mut zbuf = Buf2::new(w, h);
         let mut ctx = self.ctx.clone();

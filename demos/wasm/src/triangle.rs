@@ -9,18 +9,19 @@ use re::math::{
     rads, vec2, vec3,
 };
 use re::render::{raster::Frag, render, shader::Shader, ModelToView};
+use re::util::Dims;
 
+use re_front::dims::SVGA_800_600;
 use re_front::wasm::Window;
 
 // Entry point from JS
 #[wasm_bindgen(start)]
 pub fn start() {
-    const W: u32 = 640;
-    const H: u32 = 480;
+    const DIMS: Dims = SVGA_800_600;
 
     console_error_panic_hook::set_once();
 
-    let mut win = Window::new(W, H).expect("could not create window");
+    let mut win = Window::new(DIMS).expect("could not create window");
     win.ctx.color_clear = Some(rgba(0, 0, 0, 0x80));
 
     let vs = [
@@ -30,7 +31,7 @@ pub fn start() {
     ];
 
     let proj = perspective(1.0, 4.0 / 3.0, 0.1..1000.0);
-    let vp = viewport(vec2(8, 8)..vec2(W - 8, H - 8));
+    let vp = viewport(vec2(8, 8)..vec2(DIMS.0 - 8, DIMS.1 - 8));
 
     win.run(move |frame| {
         let t = frame.t.as_secs_f32();

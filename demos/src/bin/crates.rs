@@ -14,12 +14,8 @@ use re_front::minifb::Window;
 use re_geom::solids::*;
 
 fn main() {
-    const W: u32 = 640;
-    const H: u32 = 480;
-
     let mut win = Window::builder()
         .title("retrofire//crates")
-        .size(W, H)
         .build();
 
     let floor_shader = Shader::new(
@@ -38,9 +34,10 @@ fn main() {
         },
     );
 
-    let mut cam = Camera::new(W, H)
+    let (w, h) = win.dims;
+    let mut cam = Camera::new(w, h)
         .mode(FirstPerson::default())
-        .viewport((10..W - 10, 10..H - 10))
+        .viewport((10..w - 10, 10..h - 10))
         .perspective(1.0, 0.1..1000.0);
 
     let floor = floor();

@@ -16,7 +16,6 @@ fn main() {
 
     let mut win = Window::builder()
         .title("retrofire//square")
-        .size(640, 480)
         .build();
 
     win.ctx.face_cull = None;
@@ -33,8 +32,9 @@ fn main() {
         |frag: Frag<TexCoord>| SamplerClamp.sample(&checker, frag.var),
     );
 
+    let (w, h) = win.dims;
     let project = perspective(1.0, 4.0 / 3.0, 0.1..1000.0);
-    let viewport = viewport(vec2(10, 10)..vec2(630, 470));
+    let viewport = viewport(vec2(10, 10)..vec2(w - 10, h - 10));
 
     win.run(|frame| {
         let secs = frame.t.as_secs_f32();
