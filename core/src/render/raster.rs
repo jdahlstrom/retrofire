@@ -253,7 +253,7 @@ mod tests {
 
     #[test]
     fn shared_edge_should_not_have_gaps_or_overdraw() {
-        let mut buf = Buf2::new(20, 10);
+        let mut buf = Buf2::new((20, 10));
 
         let verts = [
             vec3(8.0, 0.0, 0.0),
