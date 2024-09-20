@@ -47,22 +47,19 @@ impl Carousel {
 }
 
 fn main() {
-    const W: u32 = 640;
-    const H: u32 = 480;
-
     eprintln!("Press Space to cycle between objects...");
 
     let mut win = Window::builder()
         .title("retrofire//solids")
-        .size(W, H)
         .build();
 
     win.ctx.color_clear = Some(gray(32).to_rgba());
 
-    let cam = Camera::new(W, H)
+    let (w, h) = win.dims;
+    let cam = Camera::new(w, h)
         .mode(scale(vec3(1.0, -1.0, -1.0)).to())
         .perspective(1.5, 0.1..1000.0)
-        .viewport(vec2(10, 10)..vec2(W - 10, H - 10));
+        .viewport(vec2(10, 10)..vec2(w - 10, h - 10));
 
     type VertexIn = Vertex<Vec3<Model>, Normal3>;
     type VertexOut = Vertex<ProjVec4, Color3f>;

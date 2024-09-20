@@ -4,6 +4,7 @@ use std::ops::ControlFlow::Continue;
 use re::math::rand::{Distrib, Uniform, UnitDisk, Xorshift64};
 use re::math::spline::BezierSpline;
 use re::prelude::*;
+use re::util::Dims;
 
 use re_front::minifb::Window;
 use re_front::Frame;
@@ -25,17 +26,16 @@ fn line([mut p0, mut p1]: [Vec2; 2]) -> impl Iterator<Item = Vec2u> {
         .map(|p| vec2(p.x() as u32, p.y() as u32))
 }
 
-const W: u32 = 640;
-const H: u32 = 480;
-
 fn main() {
+    let dims @ (w, h) = (640, 480);
+
     let mut win = Window::builder()
         .title("retrofire//bezier")
-        .size(W, H)
+        .dims(dims)
         .build();
 
     let rng = Xorshift64::from_time();
-    let pos = Uniform(vec2(0.0, 0.0)..vec2(W as f32, H as f32));
+    let pos = Uniform(vec2(0.0, 0.0)..vec2(w as f32, h as f32));
     let vel = UnitDisk;
 
     let (mut pts, mut deltas): (Vec<Vec2>, Vec<Vec2>) =
@@ -53,7 +53,7 @@ fn main() {
             }
         }
 
-        let max = vec2((W - 1) as f32, (H - 1) as f32);
+        let max = vec2((w - 1) as f32, (h - 1) as f32);
         let secs = dt.as_secs_f32();
         for (p, d) in pts.iter_mut().zip(deltas.iter_mut()) {
             *p = (*p + *d * 200.0 * secs).clamp(&Vec2::zero(), &max);

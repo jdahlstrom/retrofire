@@ -32,7 +32,6 @@ fn main() {
 
     let mut win = Window::builder()
         .title("retrofire//sprite")
-        .size(640, 480)
         .build();
 
     let shader = Shader::new(
@@ -52,10 +51,11 @@ fn main() {
         },
     );
 
-    let cam = Camera::new(640, 480)
+    let (w, h) = win.dims;
+    let cam = Camera::new(w, h)
         .mode(translate(vec3(0.0, 0.0, 0.5)).to())
         .perspective(1.0, 1e-2..1e3)
-        .viewport(vec2(10, 10)..vec2(630, 470));
+        .viewport(vec2(10, 10)..vec2(w - 10, h - 10));
 
     win.run(|frame| {
         let theta = rads(frame.t.as_secs_f32());
