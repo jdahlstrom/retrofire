@@ -35,7 +35,7 @@ fn main() {
     );
 
     let (w, h) = win.dims;
-    let mut cam = Camera::new(w, h)
+    let mut cam = Camera::new(win.dims)
         .mode(FirstPerson::default())
         .viewport((10..w - 10, 10..h - 10))
         .perspective(1.0, 0.1..1000.0);

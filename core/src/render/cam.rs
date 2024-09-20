@@ -10,7 +10,7 @@ use crate::math::{
     vary::Vary,
     vec::{vec2, Vec3},
 };
-use crate::util::rect::Rect;
+use crate::util::{rect::Rect, Dims};
 
 #[cfg(feature = "fp")]
 use crate::math::{
@@ -41,7 +41,7 @@ pub struct Camera<M> {
     /// The movement mode of the camera.
     pub mode: M,
     /// Viewport width and height.
-    pub res: (u32, u32),
+    pub dims: Dims,
     /// Projection matrix.
     pub project: Mat4x4<ViewToProj>,
     /// Viewport matrix.
@@ -66,24 +66,24 @@ pub struct FirstPerson {
 
 impl Camera<()> {
     /// Creates a camera with the given resolution.
-    pub fn new(res_x: u32, res_y: u32) -> Self {
+    pub fn new(dims: Dims) -> Self {
         Self {
-            res: (res_x, res_y),
-            viewport: viewport(vec2(0, 0)..vec2(res_x, res_y)),
+            dims,
+            viewport: viewport(vec2(0, 0)..vec2(dims.0, dims.1)),
             ..Default::default()
         }
     }
 
     pub fn mode<M: Mode>(self, mode: M) -> Camera<M> {
-        let Self { res, project, viewport, .. } = self;
-        Camera { mode, res, project, viewport }
+        let Self { dims, project, viewport, .. } = self;
+        Camera { mode, dims, project, viewport }
     }
 }
 
 impl<M> Camera<M> {
     /// Sets the viewport bounds of this camera.
     pub fn viewport(self, bounds: impl Into<Rect<u32>>) -> Self {
-        let (w, h) = self.res;
+        let (w, h) = self.dims;
 
         let Rect {
             left: Some(l),
@@ -96,27 +96,27 @@ impl<M> Camera<M> {
         };
 
         Self {
-            res: (r.abs_diff(l), b.abs_diff(t)),
+            dims: (r.abs_diff(l), b.abs_diff(t)),
             viewport: viewport(vec2(l, t)..vec2(r, b)),
             ..self
         }
     }
 
     /// Sets up perspective projection.
-    pub fn perspective(self, focal_ratio: f32, near_far: Range<f32>) -> Self {
-        let aspect_ratio = self.res.0 as f32 / self.res.1 as f32;
-        Self {
-            project: perspective(focal_ratio, aspect_ratio, near_far),
-            ..self
-        }
+    pub fn perspective(
+        mut self,
+        focal_ratio: f32,
+        near_far: Range<f32>,
+    ) -> Self {
+        let aspect_ratio = self.dims.0 as f32 / self.dims.1 as f32;
+        self.project = perspective(focal_ratio, aspect_ratio, near_far);
+        self
     }
 
     /// Sets up orthographic projection.
-    pub fn orthographic(self, bounds: Range<Vec3>) -> Self {
-        Self {
-            project: orthographic(bounds.start, bounds.end),
-            ..self
-        }
+    pub fn orthographic(mut self, bounds: Range<Vec3>) -> Self {
+        self.project = orthographic(bounds.start, bounds.end);
+        self
     }
 }
 
