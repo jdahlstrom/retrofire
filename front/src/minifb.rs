@@ -106,8 +106,8 @@ impl Window {
         F: FnMut(&mut Frame<Self>) -> ControlFlow<()>,
     {
         let (w, h) = self.dims;
-        let mut cbuf = Buf2::new(w, h);
-        let mut zbuf = Buf2::new(w, h);
+        let mut cbuf = Buf2::new((w, h));
+        let mut zbuf = Buf2::new((w, h));
         let mut ctx = self.ctx.clone();
 
         let start = Instant::now();

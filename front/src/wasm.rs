@@ -88,11 +88,10 @@ impl Window {
     where
         F: FnMut(&mut Frame<Self>) -> ControlFlow<()> + 'static,
     {
-        let (w, h) = self.dims;
         let mut ctx = self.ctx.clone();
 
-        let mut cbuf = Buf2::new(w, h);
-        let mut zbuf = Buf2::new(w, h);
+        let mut cbuf = Buf2::new(self.dims);
+        let mut zbuf = Buf2::new(self.dims);
 
         let mut t_last = Duration::default();
 
