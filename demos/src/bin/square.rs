@@ -20,7 +20,7 @@ fn main() {
 
     win.ctx.face_cull = None;
 
-    let checker = Texture::from(Buf2::new_with(8, 8, |x, y| {
+    let checker = Texture::from(Buf2::new_with((8, 8), |x, y| {
         let xor = (x ^ y) & 1;
         rgba(xor as u8 * 255, 128, 255 - xor as u8 * 128, 0)
     }));
