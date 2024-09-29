@@ -65,7 +65,7 @@ fn main() {
         cam.mode
             .rotate_to(degs(-0.4 * mx), degs(0.4 * (my - 240.0)));
         cam.mode
-            .translate(cam_vel.mul(frame.dt.as_secs_f32()));
+            .translate(cam_vel * frame.dt.as_secs_f32());
 
         let flip = scale(vec3(1.0, -1.0, -1.0)).to();
 
