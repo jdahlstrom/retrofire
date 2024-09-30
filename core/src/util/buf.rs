@@ -3,7 +3,7 @@
 //! Useful for storing pixel data of any kind, among other things.
 
 use alloc::{vec, vec::Vec};
-use core::fmt::{Debug, Formatter};
+use core::fmt::{self, Debug, Formatter};
 use core::ops::{Deref, DerefMut};
 
 use crate::util::Dims;
@@ -89,29 +89,71 @@ impl<T> Buf2<T> {
     /// Returns a buffer with the given dimensions, with elements initialized
     /// in row-major order with values yielded by `init`.
     ///
+    /// # Examples
+    /// ```
+    /// use retrofire_core::util::buf::Buf2;
+    /// let buf = Buf2::new_from((3, 3), 1..);
+    /// assert_eq!(buf.data(), [1, 2, 3,
+    ///                         4, 5, 6,
+    ///                         7, 8, 9]);
+    /// ```
+    ///
     /// # Panics
-    /// If there are fewer than `w * h` elements in `init`.
-    pub fn new_from<I>(dims: Dims, init: I) -> Self
+    /// If `dims.0 * dims.1 > isize::MAX`, or if `init` has fewer than `w * h`
+    /// elements.
+    pub fn new_from<I>(dims @ (w, h): Dims, init: I) -> Self
     where
         I: IntoIterator<Item = T>,
     {
-        let len = (dims.0 * dims.1) as usize;
-        let data: Vec<_> = init.into_iter().take(len).collect();
-        assert_eq!(data.len(), len);
-        Self(Inner::new(dims, dims.0, data))
+        let wh = w as u64 * h as u64; // u32->u64, cannot overflow
+        let Ok(len) = isize::try_from(wh).and_then(usize::try_from) else {
+            panic!("w * h cannot exceed isize::MAX ({w} * {h} = {wh})")
+        };
+        let mut data = Vec::with_capacity(len);
+        data.extend(init.into_iter().take(len));
+        Self(Inner::new(dims, w, data))
     }
-    /// Returns a buffer with size `w` × `h`, with every element
-    /// initialized by calling `T::default()`.
+
+    /// Returns a buffer of the given size, with every element initialized
+    /// to `T::default()`.
+    ///
+    /// # Examples
+    /// ```
+    /// use retrofire_core::util::buf::Buf2;
+    /// let buf: Buf2<i32> = Buf2::new((3, 3));
+    /// assert_eq!(buf.data(), [0, 0, 0,
+    ///                         0, 0, 0,
+    ///                         0, 0, 0]);
+    /// ```
+    ///
+    /// # Panics
+    /// If `w * h > isize::MAX`.
     pub fn new(dims: Dims) -> Self
     where
-        T: Clone + Default,
+        T: Default + Clone,
     {
         let data = vec![T::default(); (dims.0 * dims.1) as usize];
         Self(Inner::new(dims, dims.0, data))
     }
-    /// Returns a buffer with size `w` × `h`, with every element
-    /// initialized by calling `init_fn(x, y)` where x is the column index
-    /// and y the row index of the element being initialized.
+
+    /// Returns a buffer of size `w` × `h`, initialized by repeatedly calling
+    /// the given function.
+    ///
+    /// For each element, `init_fn(x, y)` is invoked, where `x` is the column
+    /// index and `y` the row index of the element being initialized. The
+    /// function invocations occur in row-major order.
+    ///
+    /// # Examples
+    /// ```
+    /// use retrofire_core::util::buf::Buf2;
+    /// let buf = Buf2::new_with((3, 3), |x, y| 10 * y + x);
+    /// assert_eq!(buf.data(), [ 0,  1, 2,
+    ///                         10, 11, 12,
+    ///                         20, 21, 22]);
+    /// ```
+    ///
+    /// # Panics
+    /// If `w * h > isize::MAX`.
     pub fn new_with<F>(dims: Dims, init_fn: F) -> Self
     where
         F: Clone + FnMut(u32, u32) -> T,
@@ -127,6 +169,7 @@ impl<T> Buf2<T> {
     pub fn data(&self) -> &[T] {
         self.0.data()
     }
+
     /// Returns a mutable view of the backing data of `self`.
     pub fn data_mut(&mut self) -> &mut [T] {
         self.0.data_mut()
@@ -231,17 +274,17 @@ impl<T> AsMutSlice2<T> for MutSlice2<'_, T> {
 //
 
 impl<T> Debug for Buf2<T> {
-    fn fmt(&self, f: &mut Formatter<'_>) -> core::fmt::Result {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         self.0.debug_fmt(f, "Buf2")
     }
 }
 impl<T> Debug for Slice2<'_, T> {
-    fn fmt(&self, f: &mut Formatter<'_>) -> core::fmt::Result {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         self.0.debug_fmt(f, "Slice2")
     }
 }
 impl<T> Debug for MutSlice2<'_, T> {
-    fn fmt(&self, f: &mut Formatter<'_>) -> core::fmt::Result {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         self.0.debug_fmt(f, "Slice2Mut")
     }
 }
@@ -330,10 +373,15 @@ mod inner {
             self.dims.0 == 0 || self.dims.1 == 0
         }
 
+        /// Returns the linear index corresponding to the coordinates,
+        /// even if out of bounds.
         #[inline]
         fn to_index(&self, x: u32, y: u32) -> usize {
             (y * self.stride + x) as usize
         }
+
+        /// Returns the linear index corresponding to the coordinates,
+        /// or panics if either x or y is out of bounds.
         #[inline]
         fn to_index_strict(&self, x: u32, y: u32) -> usize {
             self.to_index_checked(x, y).unwrap_or_else(|| {
@@ -343,30 +391,39 @@ mod inner {
                 )
             })
         }
+        /// Returns the linear index corresponding to the coordinates,
+        /// or `None` if x or y is out of bounds.
         #[inline]
         fn to_index_checked(&self, x: u32, y: u32) -> Option<usize> {
             let (w, h) = self.dims;
             (x < w && y < h).then(|| self.to_index(x, y))
         }
 
+        /// Returns the dimensions and linear range corresponding to the rect.
         fn resolve_bounds(&self, rect: &Rect<u32>) -> (Dims, Range<usize>) {
             let (w, h) = self.dims;
+
             let l = rect.left.unwrap_or(0);
             let t = rect.top.unwrap_or(0);
             let r = rect.right.unwrap_or(w);
             let b = rect.bottom.unwrap_or(h);
 
+            // Assert that left <= right <= width and top <= bottom <= height.
+            // Note that this permits left == width or top == height, but only
+            // when left == right or top == bottom, that is, when the range is
+            // empty. This matches the way slice indexing works.
             assert!(l <= r, "range left ({l}) > right ({r})");
             assert!(t <= b, "range top ({l}) > bottom ({r})");
             assert!(r <= w, "range right ({r}) > width ({w})");
             assert!(b <= h, "range bottom ({b}) > height ({h})");
 
+            // (l, t) is now guaranteed to be in bounds
             let start = self.to_index(l, t);
             // Slice end is the end of the last row
             let end = if b == t {
                 self.to_index(r, t)
             } else {
-                // b != 0 because b > t
+                // b != 0 because b >= t && b != t
                 self.to_index(r, b - 1)
             };
             ((r - l, b - t), start..end)
@@ -391,8 +448,10 @@ mod inner {
         #[rustfmt::skip]
         pub(super) fn new(dims: Dims, stride: u32, data: D) -> Self {
             let (w, h) = dims;
+
+            assert!(w <= stride,
+                    "width ({w}) > stride ({stride})");
             let len = data.len() as u32;
-            assert!(w <= stride, "width ({w}) > stride ({stride})");
             assert!(
                 h <= 1 || stride <= len,
                 "stride ({stride}) > data length ({len})"
@@ -435,6 +494,7 @@ mod inner {
         }
 
         /// Returns an iterator over the rows of `self` as `&[T]` slices.
+        ///
         /// The length of each slice equals [`self.width()`](Self::width).
         pub fn rows(&self) -> impl Iterator<Item = &[T]> {
             self.data
@@ -442,9 +502,8 @@ mod inner {
                 .map(|row| &row[..self.dims.0 as usize])
         }
 
-        /// Returns an iterator over all the elements of `self` in row-major
-        /// order: first the elements on row 0 from left to right, followed
-        /// by the elements on row 1, and so on.
+        /// Returns a mutable iterator over all the elements of `self`,
+        /// yielded in row-major order.
         pub fn iter(&self) -> impl Iterator<Item = &'_ T> {
             self.rows().flatten()
         }
@@ -460,6 +519,7 @@ mod inner {
             &mut self.data
         }
         /// Returns an iterator over the rows of this buffer as &mut [T].
+        ///
         /// The length of each slice equals [`self.width()`](Self::width).
         pub fn rows_mut(&mut self) -> impl Iterator<Item = &mut [T]> {
             self.data
@@ -467,14 +527,13 @@ mod inner {
                 .map(|row| &mut row[..self.dims.0 as usize])
         }
 
-        /// Returns an iterator over all the elements of `self` in row-major
-        /// order: first the elements on row 0 from left to right, followed
-        /// by the elements on row 1, and so on.
+        /// Returns a mutable iterator over all the elements of `self`,
+        /// yielded in row-major order.
         pub fn iter_mut(&mut self) -> impl Iterator<Item = &'_ mut T> {
             self.rows_mut().flatten()
         }
 
-        /// Fills `self` with clones of `val`.
+        /// Fills `self` with clones of the value.
         pub fn fill(&mut self, val: T)
         where
             T: Clone,
@@ -486,8 +545,11 @@ mod inner {
                     .for_each(|row| row.fill(val.clone()));
             }
         }
-        /// Fills `self` by invoking `f(x, y)` for every element, where
-        /// `x` and `y` are the column and row of the element, respectively.
+        /// Fills `self` by repeatedly calling the function.
+        ///
+        /// For each element, `init_fn(x, y)` is invoked, where `x` is the column
+        /// index and `y` the row index of the element being initialized. The
+        /// function invocations occur in row-major order.
         pub fn fill_with<F>(&mut self, mut fill_fn: F)
         where
             F: Copy + FnMut(u32, u32) -> T,
@@ -548,6 +610,7 @@ mod inner {
         type Output = [T];
 
         /// Returns a reference to the row of `self` at index `i`.
+        ///
         /// The returned slice has length `self.width()`.
         #[inline]
         fn index(&self, i: usize) -> &[T] {
@@ -563,6 +626,7 @@ mod inner {
         D: DerefMut<Target = [T]>,
     {
         /// Returns a mutable reference to the row of `self` at index `i`.
+        ///
         /// The returned slice has length `self.width()`.
         #[inline]
         fn index_mut(&mut self, row: usize) -> &mut [T] {
@@ -580,6 +644,7 @@ mod inner {
         type Output = T;
 
         /// Returns a reference to the element of `self` at position `pos`.
+        ///
         /// # Panics
         /// If `pos` is out of bounds of `self`.
         #[inline]
@@ -596,6 +661,7 @@ mod inner {
     {
         /// Returns a mutable reference to the element of `self`
         /// at position `pos`.
+        ///
         /// # Panics
         /// If `pos` is out of bounds of `self`.
         #[inline]
