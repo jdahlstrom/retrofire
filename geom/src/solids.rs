@@ -154,27 +154,36 @@ pub struct Capsule {
 // Inherent impls
 //
 
+const SQRT_8_9: f32 = 0.9428090416;
+const SQRT_2_9: f32 = 0.4714045208;
+const SQRT_2_3: f32 = 0.8164965809;
+
 impl Tetrahedron {
     const FACES: [[usize; 3]; 4] = [[0, 2, 1], [0, 3, 2], [0, 1, 3], [1, 2, 3]];
 
+    const COORDS: [Vec3; 4] = [
+        vec3(0.0, 1.0, 0.0),
+        vec3(SQRT_8_9, -1.0 / 3.0, 0.0),
+        vec3(-SQRT_2_9, -1.0 / 3.0, SQRT_2_3),
+        vec3(-SQRT_2_9, -1.0 / 3.0, -SQRT_2_3),
+    ];
+
+    // TODO Should be negated once const float arithmetic is stable
+    const NORMS: [Vec3; 4] = [
+        Self::COORDS[3],
+        Self::COORDS[1],
+        Self::COORDS[2],
+        Self::COORDS[0],
+    ];
+
     /// Builds the tetrahedral mesh.
     pub fn build(self) -> Mesh<Normal3> {
-        use re::math::float::f32;
-        let sqrt = f32::sqrt;
-        let coords = [
-            vec3(0.0, 1.0, 0.0),
-            vec3(sqrt(8.0 / 9.0), -1.0 / 3.0, 0.0),
-            vec3(-sqrt(2.0 / 9.0), -1.0 / 3.0, sqrt(2.0 / 3.0)),
-            vec3(-sqrt(2.0 / 9.0), -1.0 / 3.0, -sqrt(2.0 / 3.0)),
-        ];
-        let norms = [-coords[3], -coords[1], -coords[2], -coords[0]];
-
         let mut b = Mesh::builder();
 
         for (i, vs) in Self::FACES.into_iter().enumerate() {
             b.push_face(3 * i, 3 * i + 1, 3 * i + 2);
             for v in vs {
-                b.push_vert(coords[v], norms[i]);
+                b.push_vert(Self::COORDS[v], -Self::NORMS[i]);
             }
         }
         b.build()

@@ -54,13 +54,8 @@ where
     }
 }
 
-impl<T> CubicBezier<T>
-where
-    // T: Affine + Clone,
-    // T::Diff: Linear<Scalar = f32> + Clone,
-    T: Linear<Scalar = f32> + Clone,
-{
-    /// Evaluates the value of `self` at `t`
+impl<T: Vary> CubicBezier<T> {
+    /// Evaluates the value of `self` at `t`.
     ///
     /// Uses De Casteljau's algorithm.
     pub fn eval(&self, t: f32) -> T {

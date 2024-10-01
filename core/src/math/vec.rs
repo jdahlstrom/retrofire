@@ -153,6 +153,16 @@ impl<Sp, const N: usize> Vector<[f32; N], Sp> {
     }
 }
 
+impl<Sc, Sp, const N: usize> Vector<[Sc; N], Sp> {
+    /// Returns a vector of the same dimension as `self` by applying `f`
+    /// component-wise.
+    #[inline]
+    #[must_use]
+    pub fn map<T>(self, f: impl FnMut(Sc) -> T) -> Vector<[T; N], Sp> {
+        self.0.map(f).into()
+    }
+}
+
 impl<Sc, Sp, const N: usize> Vector<[Sc; N], Sp>
 where
     Self: Linear<Scalar = Sc>,
@@ -205,14 +215,6 @@ where
         Sc: Div<Sc, Output = Sc>,
     {
         other.mul(self.scalar_project(other))
-    }
-
-    /// Returns a vector of the same dimension as `self` by applying `f`
-    /// component-wise.
-    #[inline]
-    #[must_use]
-    pub fn map<T>(self, mut f: impl FnMut(Sc) -> T) -> Vector<[T; N], Sp> {
-        array::from_fn(|i| f(self[i])).into()
     }
 }
 
