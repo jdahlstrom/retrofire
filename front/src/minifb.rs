@@ -1,12 +1,13 @@
 //! Frontend using the `minifb` crate for window creation and event handling.
 
-use core::ops::ControlFlow::{self, Break};
+use std::ops::ControlFlow::{self, Break};
 use std::time::Instant;
 
 use minifb::{Key, WindowOptions};
 
-use retrofire_core::render::{ctx::Context, target::Framebuf};
-use retrofire_core::util::{buf::Buf2, Dims};
+use retrofire_core::render::ctx::Context;
+use retrofire_core::render::target;
+use retrofire_core::util::{buf::Buf2, buf::MutSlice2, Dims};
 
 use crate::{dims::SVGA_800_600, Frame};
 
@@ -27,6 +28,9 @@ pub struct Builder<'title> {
     pub target_fps: Option<u32>,
     pub opts: WindowOptions,
 }
+
+pub type Framebuf<'a> =
+    target::Framebuf<MutSlice2<'a, u32>, MutSlice2<'a, f32>>;
 
 impl Default for Builder<'_> {
     fn default() -> Self {
@@ -63,16 +67,15 @@ impl<'t> Builder<'t> {
     }
 
     /// Creates the window.
-    pub fn build(self) -> Window {
+    pub fn build(self) -> minifb::Result<Window> {
         let Self { dims, title, target_fps, opts } = self;
         let mut imp =
-            minifb::Window::new(title, dims.0 as usize, dims.1 as usize, opts)
-                .unwrap();
+            minifb::Window::new(title, dims.0 as usize, dims.1 as usize, opts)?;
         if let Some(fps) = target_fps {
             imp.set_target_fps(fps as usize);
         }
         let ctx = Context::default();
-        Window { imp, dims, ctx }
+        Ok(Window { imp, dims, ctx })
     }
 }
 
@@ -103,7 +106,7 @@ impl Window {
     /// * the callback returns `ControlFlow::Break`.
     pub fn run<F>(&mut self, mut frame_fn: F)
     where
-        F: FnMut(&mut Frame<Self>) -> ControlFlow<()>,
+        F: FnMut(&mut Frame<Self, Framebuf>) -> ControlFlow<()>,
     {
         let (w, h) = self.dims;
         let mut cbuf = Buf2::new((w, h));
@@ -116,14 +119,6 @@ impl Window {
             if self.should_quit() {
                 break;
             }
-            if let Some(c) = ctx.color_clear {
-                cbuf.fill(c.to_argb_u32());
-            }
-            if let Some(c) = ctx.depth_clear {
-                // Depth buffer contains reciprocal depth values
-                zbuf.fill(c.recip());
-            }
-
             let frame = &mut Frame {
                 t: start.elapsed(),
                 dt: last.elapsed(),
@@ -134,6 +129,8 @@ impl Window {
                 win: self,
                 ctx: &mut ctx,
             };
+            frame.clear();
+
             last = Instant::now();
             if let Break(_) = frame_fn(frame) {
                 break;

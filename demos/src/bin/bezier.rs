@@ -32,7 +32,8 @@ fn main() {
     let mut win = Window::builder()
         .title("retrofire//bezier")
         .dims(dims)
-        .build();
+        .build()
+        .expect("should create window");
 
     let rng = Xorshift64::from_time();
     let pos = Uniform(vec2(0.0, 0.0)..vec2(w as f32, h as f32));

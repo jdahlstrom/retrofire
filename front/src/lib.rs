@@ -4,9 +4,10 @@ extern crate alloc;
 extern crate core;
 
 use core::time::Duration;
+use retrofire_core::prelude::AsMutSlice2;
 
-use retrofire_core::render::{ctx::Context, target::Framebuf};
-use retrofire_core::util::buf::MutSlice2;
+use retrofire_core::render::ctx::Context;
+use retrofire_core::render::target::Framebuf;
 
 #[cfg(feature = "minifb")]
 pub mod minifb;
@@ -20,13 +21,13 @@ pub mod wasm;
 
 /// Per-frame state. The window run method passes an instance of `Frame`
 /// to the callback function on every iteration of the main loop.
-pub struct Frame<'a, Win> {
+pub struct Frame<'a, Win, Buf> {
     /// Elapsed time since the start of the first frame.
     pub t: Duration,
     /// Elapsed time since the start of the previous frame.
     pub dt: Duration,
     /// Framebuffer in which to draw.
-    pub buf: Framebuf<MutSlice2<'a, u32>, MutSlice2<'a, f32>>,
+    pub buf: Buf,
     /// Reference to the window object.
     pub win: &'a mut Win,
     /// Rendering context and config.
@@ -67,4 +68,21 @@ pub mod dims {
     // DCI ~17:9
     pub const DCI_2K_2048_1080: Dims = (2048, 1080);
     pub const DCI_4K_4096_2160: Dims = (4096, 2160);
+}
+
+impl<W, C: AsMutSlice2<u32>, Z: AsMutSlice2<f32>> Frame<'_, W, Framebuf<C, Z>> {
+    pub fn clear(&mut self) {
+        if let Some(c) = self.ctx.color_clear {
+            // TODO Assumes pixel format
+            self.buf
+                .color_buf
+                .as_mut_slice2()
+                .fill(c.to_argb_u32());
+        }
+        if let Some(z) = self.ctx.depth_clear {
+            // Depth buffer contains reciprocal depth values
+            // TODO Assumes depth format
+            self.buf.depth_buf.as_mut_slice2().fill(z.recip());
+        }
+    }
 }

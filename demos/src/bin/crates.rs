@@ -1,7 +1,5 @@
 use core::ops::ControlFlow::*;
 
-use minifb::MouseMode;
-
 use re::prelude::*;
 
 use re::math::color::gray;
@@ -10,13 +8,14 @@ use re::render::{
     cam::{Camera, FirstPerson},
     ModelToProj,
 };
-use re_front::minifb::Window;
+use re_front::sdl2::Window;
 use re_geom::solids::*;
 
 fn main() {
     let mut win = Window::builder()
         .title("retrofire//crates")
-        .build();
+        .build()
+        .expect("should create window");
 
     let floor_shader = Shader::new(
         |v: Vertex<_, _>, mvp: &Mat4x4<ModelToProj>| {
@@ -43,27 +42,31 @@ fn main() {
     let floor = floor();
     let crat = Box::cube(2.0).build();
 
+    let (mut cam_az, mut cam_alt) = (0.0, 0.0);
+
     win.run(|frame| {
         // Camera
 
         let mut cam_vel = Vec3::zero();
 
-        let imp = &frame.win.imp;
+        let ep = &frame.win.ev_pump;
 
-        for key in imp.get_keys() {
-            use minifb::Key::*;
+        for key in ep.keyboard_state().pressed_scancodes() {
+            use sdl2::keyboard::Scancode as Sc;
             match key {
-                W => cam_vel[2] += 4.0,
-                S => cam_vel[2] -= 2.0,
-                D => cam_vel[0] += 3.0,
-                A => cam_vel[0] -= 3.0,
+                Sc::W => cam_vel[2] += 4.0,
+                Sc::S => cam_vel[2] -= 2.0,
+                Sc::D => cam_vel[0] += 3.0,
+                Sc::A => cam_vel[0] -= 3.0,
                 _ => {}
             }
         }
-        let (mx, my) = imp.get_mouse_pos(MouseMode::Pass).unwrap();
 
-        cam.mode
-            .rotate_to(degs(-0.4 * mx), degs(0.4 * (my - 240.0)));
+        let ms = ep.relative_mouse_state();
+        cam_az -= 0.001 * ms.x() as f32;
+        cam_alt += 0.001 * ms.y() as f32;
+
+        cam.mode.rotate_to(turns(cam_az), turns(cam_alt));
         cam.mode
             .translate(cam_vel.mul(frame.dt.as_secs_f32()));
 
@@ -106,7 +109,8 @@ fn main() {
             }
         }
         Continue(())
-    });
+    })
+    .expect("should run")
 }
 
 fn floor() -> Mesh<Color3f> {
