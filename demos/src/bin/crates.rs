@@ -42,6 +42,8 @@ fn main() {
     let floor = floor();
     let crat = Box::cube(2.0).build();
 
+    let (mut cam_az, mut cam_alt) = (0.0, 0.0);
+
     win.run(|frame| {
         // Camera
 
@@ -60,11 +62,11 @@ fn main() {
             }
         }
 
-        let mx = ep.mouse_state().x() as f32;
-        let my = ep.mouse_state().y() as f32;
+        let ms = ep.relative_mouse_state();
+        cam_az -= 0.001 * ms.x() as f32;
+        cam_alt += 0.001 * ms.y() as f32;
 
-        cam.mode
-            .rotate_to(degs(-0.4 * mx), degs(0.4 * (my - 240.0)));
+        cam.mode.rotate_to(turns(cam_az), turns(cam_alt));
         cam.mode
             .translate(cam_vel.mul(frame.dt.as_secs_f32()));
 
