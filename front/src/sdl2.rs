@@ -2,6 +2,7 @@
 
 use std::{fmt, mem::replace, ops::ControlFlow, time::Instant};
 
+use sdl2::video::FullscreenType;
 use sdl2::{
     event::Event,
     keyboard::Keycode,
@@ -39,6 +40,7 @@ pub struct Builder<'title> {
     pub dims: (u32, u32),
     pub title: &'title str,
     pub vsync: bool,
+    pub fs: FullscreenType,
 }
 
 pub struct Framebuf<'a> {
@@ -68,28 +70,42 @@ impl<'t> Builder<'t> {
         self.vsync = enabled;
         self
     }
+    /// Sets the fullscreen state of the window.
+    pub fn fullscreen(mut self, fs: FullscreenType) -> Self {
+        self.fs = fs;
+        self
+    }
 
     /// Creates the window.
     pub fn build(self) -> Result<Window, Error> {
-        let Self { dims, title, vsync } = self;
+        let Self { dims, title, vsync, fs } = self;
 
         let sdl = sdl2::init()?;
 
-        let mut canvas = sdl
+        let mut win = sdl
             .video()?
             .window(title, dims.0, dims.1)
-            .build()?
-            .into_canvas();
+            .build()?;
+
+        win.set_fullscreen(fs)?;
+
+        let mut canvas = win.into_canvas();
 
         if vsync {
             canvas = canvas.present_vsync();
         }
 
-        let canvas = canvas.accelerated().build()?;
+        let mut canvas = canvas.accelerated().build()?;
 
         let ev_pump = sdl.event_pump()?;
 
         let ctx = Context::default();
+
+        let mut m = sdl.mouse();
+
+        m.set_relative_mouse_mode(true);
+        m.capture(true);
+        m.show_cursor(true);
 
         Ok(Window { canvas, ev_pump, dims, ctx })
     }
@@ -231,6 +247,7 @@ impl Default for Builder<'_> {
             dims: dims::SVGA_800_600,
             title: "// retrofire application //",
             vsync: true,
+            fs: FullscreenType::Off,
         }
     }
 }
