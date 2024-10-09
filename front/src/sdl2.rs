@@ -88,13 +88,12 @@ impl<'t> Builder<'t> {
             .build()?;
 
         win.set_fullscreen(fs)?;
+        sdl.mouse().set_relative_mouse_mode(true);
 
         let mut canvas = win.into_canvas();
-
         if vsync {
             canvas = canvas.present_vsync();
         }
-
         let canvas = canvas.accelerated().build()?;
 
         let ev_pump = sdl.event_pump()?;
