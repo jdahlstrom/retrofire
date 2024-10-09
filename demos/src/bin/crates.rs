@@ -1,7 +1,5 @@
 use core::ops::ControlFlow::*;
 
-use minifb::MouseMode;
-
 use re::prelude::*;
 
 use re::math::color::gray;
@@ -10,7 +8,7 @@ use re::render::{
     cam::{Camera, FirstPerson},
     ModelToProj,
 };
-use re_front::minifb::Window;
+use re_front::sdl2::Window;
 use re_geom::solids::*;
 
 fn main() {
@@ -49,22 +47,24 @@ fn main() {
 
         let mut cam_vel = Vec3::zero();
 
-        let imp = &frame.win.imp;
+        let ep = &frame.win.ev_pump;
 
-        for key in imp.get_keys() {
-            use minifb::Key::*;
+        for key in ep.keyboard_state().pressed_scancodes() {
+            use sdl2::keyboard::Scancode as Sc;
             match key {
-                W => cam_vel[2] += 4.0,
-                S => cam_vel[2] -= 2.0,
-                D => cam_vel[0] += 3.0,
-                A => cam_vel[0] -= 3.0,
+                Sc::W => cam_vel[2] += 4.0,
+                Sc::S => cam_vel[2] -= 2.0,
+                Sc::D => cam_vel[0] += 3.0,
+                Sc::A => cam_vel[0] -= 3.0,
                 _ => {}
             }
         }
-        let (mx, my) = imp.get_mouse_pos(MouseMode::Pass).unwrap();
 
-        cam.mode
-            .rotate_to(degs(-0.4 * mx), degs(0.4 * (my - 240.0)));
+        let ms = ep.relative_mouse_state();
+        let d_az = turns(ms.x() as f32) * -0.001;
+        let d_alt = turns(ms.y() as f32) * 0.001;
+
+        cam.mode.rotate(d_az, d_alt);
         cam.mode
             .translate(cam_vel.mul(frame.dt.as_secs_f32()));
 
@@ -107,7 +107,8 @@ fn main() {
             }
         }
         Continue(())
-    });
+    })
+    .expect("should run")
 }
 
 fn floor() -> Mesh<Color3f> {
