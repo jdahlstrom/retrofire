@@ -119,14 +119,6 @@ impl Window {
             if self.should_quit() {
                 break;
             }
-            if let Some(c) = ctx.color_clear {
-                cbuf.fill(c.to_argb_u32());
-            }
-            if let Some(c) = ctx.depth_clear {
-                // Depth buffer contains reciprocal depth values
-                zbuf.fill(c.recip());
-            }
-
             let frame = &mut Frame {
                 t: start.elapsed(),
                 dt: last.elapsed(),
@@ -137,6 +129,8 @@ impl Window {
                 win: self,
                 ctx: &mut ctx,
             };
+            frame.clear();
+
             last = Instant::now();
             if let Break(_) = frame_fn(frame) {
                 break;

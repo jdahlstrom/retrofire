@@ -103,15 +103,6 @@ impl Window {
         outer
             .borrow_mut()
             .replace(Closure::new(move |ms| {
-                // TODO add clear method to Framebuf?
-                if let Some(c) = ctx.color_clear {
-                    cbuf.fill(c.to_argb_u32());
-                }
-                if let Some(z) = ctx.depth_clear {
-                    // Depth buffer contains reciprocal depth values
-                    zbuf.fill(z.recip());
-                }
-
                 let t = Duration::from_secs_f32(ms / 1e3);
                 let dt = t - t_last;
                 let buf = Framebuf {
@@ -125,6 +116,7 @@ impl Window {
                     ctx: &mut ctx,
                     win: &mut self,
                 };
+                frame.clear();
 
                 if let Continue(_) = frame_fn(&mut frame) {
                     requestAnimationFrame(inner.borrow().as_ref().unwrap());
