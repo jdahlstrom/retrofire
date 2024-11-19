@@ -25,6 +25,26 @@ pub use vary::{lerp, Vary};
 pub use vec::{vec2, vec3};
 pub use vec::{Vec2, Vec2i, Vec3, Vec3i, Vector};
 
+/// Implements an operator trait in terms of an op-assign trait.
+macro_rules! impl_op {
+    ($trait:ident :: $method:ident, $self:ident, $rhs:ty, $op:tt) => {
+        impl_op!($trait::$method, $self, $rhs, $op, bound=Linear);
+    };
+    ($trait:ident :: $method:ident, $self:ident, $rhs:ty, $op:tt, bound=$bnd:path) => {
+        impl<R, Sp> $trait<$rhs> for $self<R, Sp>
+        where
+            Self: $bnd,
+        {
+            type Output = Self;
+            /// TODO
+            #[inline]
+            fn $method(mut self, rhs: $rhs) -> Self {
+                self $op rhs; self
+            }
+        }
+    };
+}
+
 pub mod angle;
 pub mod approx;
 pub mod color;
