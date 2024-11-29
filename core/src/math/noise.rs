@@ -1,17 +1,21 @@
 //! Procedural noise generation.
+//!
+//! This module implements two- and three-dimensional Perlin Noise.
 
 use super::{
     spline::smoothstep,
     vary::lerp,
-    vec::{splat, vec2, vec3, Vec2, Vec3, Vector},
+    vec::{splat, vec2, vec3, Vec2, Vec3},
+    Vary,
 };
+use crate::math::vary::bilerp;
+use std::array;
 
 /// Returns the Perlin noise value corresponding to the 2D point.
 pub fn perlin2(pt: Vec2) -> f32 {
     use super::float::f32;
-    let f = pt - pt.map(f32::floor);
-    let [fx, fy] = f.0;
-
+    let fract = pt - pt.map(f32::floor);
+    let [fx, fy] = fract.0;
     let [g00, g01, g10, g11] = grads2(pt);
 
     let d00 = g00.dot(&vec2(fx, fy));
@@ -19,9 +23,8 @@ pub fn perlin2(pt: Vec2) -> f32 {
     let d10 = g10.dot(&vec2(fx - 1.0, fy));
     let d11 = g11.dot(&vec2(fx - 1.0, fy - 1.0));
 
-    let t = f.map(smoothstep);
-    let (a, b) = lerp(t.x(), (d00, d01), (d10, d11));
-    lerp(t.y(), a, b)
+    let t = fract.map(smoothstep);
+    bilerp(t.x(), t.y(), d00, d10, d01, d11)
 }
 
 /// Returns the Perlin gradient vector corresponding to the 2D point.
@@ -31,58 +34,63 @@ pub fn perlin2(pt: Vec2) -> f32 {
 pub fn perlin2v(pt: Vec2) -> Vec2 {
     use super::float::f32;
     let fract = pt - pt.map(f32::floor);
-
     let [g00, g01, g10, g11] = grads2(pt);
-
     let t = fract.map(smoothstep);
-    let (a, b) = lerp(t.x(), (g00, g01), (g10, g11));
-    lerp(t.y(), a, b)
+    bilerp(t.x(), t.y(), g00, g10, g01, g11)
+}
+
+trait ArrayExt<T> {
+    /// Splits `self` to arrays of length `I` and `J`.
+    fn split_to<const I: usize, const J: usize>(&self) -> (&[T; I], &[T; J]);
+}
+
+impl<T, const N: usize> ArrayExt<T> for [T; N] {
+    fn split_to<const I: usize, const J: usize>(&self) -> (&[T; I], &[T; J]) {
+        const {
+            assert!(I + J <= N);
+        }
+        let (a, b) = self[..I + J].split_at(I);
+        (a.try_into().unwrap(), b.try_into().unwrap())
+    }
 }
 
 /// Returns the Perlin noise value corresponding to the 3D point.
 pub fn perlin3(pt: Vec3) -> f32 {
     use super::float::f32;
     let pt0 = pt.map(f32::floor);
-    let f = pt - pt0;
-    let i_f: Vec3 = f - splat(1.0);
+    let fract = pt - pt0;
+    let grads = grads3(pt0);
 
-    let [fx, fy, fz] = f.0;
-    let [ifx, ify, ifz] = i_f.0;
+    let [fx, fy, fz] = array::from_fn(|i| [fract[i], fract[i] - 1.0]);
 
-    let [g000, g001, g010, g011, g100, g101, g110, g111] = grads3(pt0);
+    let yzs: [_; 4] = array::from_fn(|i| [fy[(i >> 1) & 1], fz[i & 1]]);
 
-    let d000 = g000.dot(&vec3(fx, fy, fz));
-    let d001 = g001.dot(&vec3(fx, fy, ifz));
-    let d010 = g010.dot(&vec3(fx, ify, fz));
-    let d011 = g011.dot(&vec3(fx, ify, ifz));
-    let d100 = g100.dot(&vec3(ifx, fy, fz));
-    let d101 = g101.dot(&vec3(ifx, fy, ifz));
-    let d110 = g110.dot(&vec3(ifx, ify, fz));
-    let d111 = g111.dot(&vec3(ifx, ify, ifz));
+    let (left, right) = grads.split_to::<4, 4>();
 
-    let t: Vec3 = f.map(smoothstep);
+    let left: [f32; 4] = array::from_fn(|i| {
+        let [y, z] = yzs[i];
+        left[i].dot(&vec3(fx[0], y, z))
+    });
+    let right: [f32; 4] = array::from_fn(|i| {
+        let [y, z] = yzs[i];
+        right[i].dot(&vec3(fx[1], y, z))
+    });
 
-    let x0 = Vector::<_>::new([d000, d010, d001, d011]);
-    let x1 = Vector::<_>::new([d100, d110, d101, d111]);
-    let [y0, y1, y2, y3] = lerp(t.x(), x0, x1).0;
-    let (z0, z1) = lerp(t.y(), (y0, y2), (y1, y3));
-    lerp(t.z(), z0, z1)
+    trilerp(fract, left, right)
 }
 
 /// Returns the Perlin gradient vector corresponding to the 3D point.
 pub fn perlin3v(pt: Vec3) -> Vec3 {
     use super::float::f32;
     let fract = pt - pt.map(f32::floor);
+    let [lbn, lbf, ltn, ltf, rbn, rbf, rtn, rtf] = grads3(pt);
+    trilerp(fract, [lbn, lbf, ltn, ltf], [rbn, rbf, rtn, rtf])
+}
 
-    let [g000, g001, g010, g011, g100, g101, g110, g111] = grads3(pt);
-
-    let t: Vec3 = fract.map(smoothstep);
-
-    let x0 = ((g000, g010), (g001, g011));
-    let x1 = ((g100, g110), (g101, g111));
-    let ((y0, y1), (y2, y3)) = lerp(t.x(), x0, x1);
-    let (z0, z1) = lerp(t.y(), (y0, y2), (y1, y3));
-    lerp(t.z(), z0, z1)
+fn trilerp<V: Vary>(pt: Vec3, left: [V; 4], right: [V; 4]) -> V {
+    let [x, y, z] = pt.0.map(smoothstep);
+    let [bot_near, bot_far, top_near, top_far] = lerp(x, left, right);
+    bilerp(y, z, bot_near, top_near, bot_far, top_far)
 }
 
 fn perm(x: i32) -> i32 {
@@ -112,10 +120,6 @@ fn grad3(x: f32, y: f32, z: f32) -> Vec3 {
 }
 
 fn grads3(pt0: Vec3) -> [Vec3; 8] {
-    let pt1 = pt0 + splat(1.0);
-    let [x0, y0, z0] = pt0.0;
-    let [x1, y1, z1] = pt1.0;
-
     //
     //       011 +--------------+ 111
     //         / |            / |
@@ -128,16 +132,13 @@ fn grads3(pt0: Vec3) -> [Vec3; 8] {
     // 000 +--------------+ 100
     //
 
-    let g000 = grad3(x0, y0, z0);
-    let g001 = grad3(x0, y0, z1);
-    let g010 = grad3(x0, y1, z0);
-    let g011 = grad3(x0, y1, z1);
-    let g100 = grad3(x1, y0, z0);
-    let g101 = grad3(x1, y0, z1);
-    let g110 = grad3(x1, y1, z0);
-    let g111 = grad3(x1, y1, z1);
-
-    [g000, g001, g010, g011, g100, g101, g110, g111]
+    let pts = [pt0, pt0 + splat(1.0)];
+    array::from_fn(|i| {
+        let x = pts[(i >> 2) & 1].x();
+        let y = pts[(i >> 1) & 1].y();
+        let z = pts[i & 1].z();
+        grad3(x, y, z)
+    })
 }
 
 const A: f32 = 1.237;
