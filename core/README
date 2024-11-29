@@ -1,0 +1,49 @@
+                                                    _______
+                       ____                       /´  ____/\
+      __ ______ _____ /   /\_ _ ______ _____ ____/   /_/___/\ __ _____ ______
+   ==/  ´ ____/ __   \   ____/ ´ ____/  __  ` __    ___,  /==/  ´  ___/ __   \
+  ==/   /´=/   ______/  /==/   /´=/   /==/   /=/   /=/   /==/   /´=/   ______/\
+ ==/   /==/   /____/   /__/   /==/   /__/   /=/   /=/   /__/   /==/   /______\/
+==/___/ ==\_______/\______/__/ ==\________,´_/   /==\______/__/ ==\________/\
+==\___\/ ==\______\/\_____\__\/ ==\______/_____,´ /==\_____\___\/==\_______\/
+                                         \_____\,´
+
+Core functionality of the `retrofire` project.
+
+Includes a math library with strongly typed vectors, matrices, colors, and
+angles; basic geometry primitives; a software 3D renderer with customizable
+shaders; with more to come.
+
+
+============================== Crate features ================================
+
+  * std:
+    Makes available items requiring I/O, timekeeping, or any floating-point
+    functions not included in `core`. In particular this means trigonometric
+    and transcendental functions. If this feature is disabled, the crate only
+    depends on `alloc`.
+
+  * libm:
+    Provides software implementations of floating-point functions via the
+    `libm` crate (https://crates.io/crates/libm).
+
+  * `mm`
+    Provides fast approximate implementations of floating-point functions
+    via the `micromath` crate (https://crates.io/crates/micromath).
+
+All features are disabled by default.
+
+
+================================== License ===================================
+
+Copyright 2020-2024 Johannes Dahlström. retrofire is licensed under either of:
+
+  * Apache License, Version 2.0 (http://www.apache.org/licenses/LICENSE-2.0)
+
+  * MIT license (http://opensource.org/licenses/MIT)
+
+at your option.
+
+Unless you explicitly state otherwise, any contribution intentionally submit-
+ted for inclusion in the work by you, as defined in the Apache-2.0 license,
+shall be dual licensed as above, without any additional terms or conditions.

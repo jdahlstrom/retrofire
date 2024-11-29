@@ -29,7 +29,7 @@
 //!   Provides software implementations of floating-point functions via the
 //!   [libm](https://crates.io/crates/libm) crate.
 //!
-//! * `micromath`:
+//! * `mm`:
 //!   Provides fast approximate implementations of floating-point functions
 //!   via the [micromath](https://crates.io/crates/micromath) crate.
 //!
