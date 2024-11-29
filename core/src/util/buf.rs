@@ -278,7 +278,7 @@ impl<'a, T> DerefMut for MutSlice2<'a, T> {
     }
 }
 
-mod inner {
+pub mod inner {
     use core::fmt::Formatter;
     use core::marker::PhantomData;
     use core::ops::{Deref, DerefMut, Index, IndexMut, Range};
@@ -290,6 +290,7 @@ mod inner {
     use super::{AsSlice2, MutSlice2, Slice2};
 
     /// A helper type that abstracts over owned and borrowed buffers.
+    ///
     /// The types `Buf2`, `Slice2`, and `MutSlice2` deref to `Inner`.
     #[derive(Copy, Clone)]
     pub struct Inner<T, D> {
@@ -435,6 +436,7 @@ mod inner {
         }
 
         /// Returns an iterator over the rows of `self` as `&[T]` slices.
+        ///
         /// The length of each slice equals [`self.width()`](Self::width).
         pub fn rows(&self) -> impl Iterator<Item = &[T]> {
             self.data
@@ -442,9 +444,10 @@ mod inner {
                 .map(|row| &row[..self.dims.0 as usize])
         }
 
-        /// Returns an iterator over all the elements of `self` in row-major
-        /// order: first the elements on row 0 from left to right, followed
-        /// by the elements on row 1, and so on.
+        /// Returns an iterator over all the elements of `self` in row-major order.
+        ///
+        /// First returns the elements on row 0 from left to right, followed by the elements
+        /// on row 1, and so on.
         pub fn iter(&self) -> impl Iterator<Item = &'_ T> {
             self.rows().flatten()
         }
@@ -455,11 +458,14 @@ mod inner {
         pub fn as_mut_slice2(&mut self) -> MutSlice2<T> {
             MutSlice2::new(self.dims, self.stride, &mut self.data)
         }
+
         /// Returns the data of `self` as a single mutable slice.
         pub(super) fn data_mut(&mut self) -> &mut [T] {
             &mut self.data
         }
-        /// Returns an iterator over the rows of this buffer as &mut [T].
+
+        /// Returns an iterator over the rows of this buffer as `&mut [T]`.
+        ///
         /// The length of each slice equals [`self.width()`](Self::width).
         pub fn rows_mut(&mut self) -> impl Iterator<Item = &mut [T]> {
             self.data
