@@ -278,7 +278,8 @@ impl<'a, T> DerefMut for MutSlice2<'a, T> {
     }
 }
 
-mod inner {
+#[doc(hidden)]
+pub mod inner {
     use core::fmt::Formatter;
     use core::marker::PhantomData;
     use core::ops::{Deref, DerefMut, Index, IndexMut, Range};
