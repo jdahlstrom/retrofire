@@ -147,9 +147,9 @@ impl<M: Mode> Camera<M> {
                 Vtx,
                 (&'a Mat4x4<RealToProj<B>>, Uni),
                 Output = Vertex<ClipVec, Var>,
-            > + FragmentShader<Var>,
+            > + FragmentShader<Var, Uni>,
     {
-        let tf = to_world.then(&self.world_to_project());
+        /*let tf = to_world.then(&self.world_to_project());
 
         super::render(
             tris.as_ref(),
@@ -159,7 +159,7 @@ impl<M: Mode> Camera<M> {
             self.viewport,
             target,
             ctx,
-        );
+        );*/
     }
 }
 
