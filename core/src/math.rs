@@ -150,6 +150,7 @@ pub fn lerp<T: Lerp>(t: f32, from: T, to: T) -> T {
 /// ```
 #[inline]
 pub fn inv_lerp(t: f32, min: f32, max: f32) -> f32 {
+    debug_assert!(!min.approx_eq(&max));
     (t - min) / (max - min)
 }
 
