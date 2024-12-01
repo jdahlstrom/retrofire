@@ -45,13 +45,13 @@ pub trait VertexShader<In, Uni> {
 ///
 /// # Type parameters
 /// * `Var`: The varying of the input fragment.
-pub trait FragmentShader<Var> {
+pub trait FragmentShader<Var, Uni> {
     /// Computes the color of `frag`. Returns either `Some(color)`, or `None`
     /// if the fragment should be discarded.
     ///
     /// # Panics
     /// `shade_fragment` should never panic.
-    fn shade_fragment(&self, frag: Frag<Var>) -> Option<Color4>;
+    fn shade_fragment(&self, frag: Frag<Var>, uniform: Uni) -> Option<Color4>;
 }
 
 impl<F, In, Out, Uni> VertexShader<In, Uni> for F
@@ -65,20 +65,20 @@ where
     }
 }
 
-impl<F, Var, Out> FragmentShader<Var> for F
+impl<F, Var, Out, Uni> FragmentShader<Var, Uni> for F
 where
-    F: Fn(Frag<Var>) -> Out,
+    F: Fn(Frag<Var>, Uni) -> Out,
     Out: Into<Option<Color4>>,
 {
-    fn shade_fragment(&self, frag: Frag<Var>) -> Option<Color4> {
-        self(frag).into()
+    fn shade_fragment(&self, frag: Frag<Var>, uniform: Uni) -> Option<Color4> {
+        self(frag, uniform).into()
     }
 }
 
 pub fn new<Vs, Fs, Vtx, Var, Uni>(vs: Vs, fs: Fs) -> Shader<Vs, Fs>
 where
     Vs: VertexShader<Vtx, Uni, Output = Vertex<ProjVec3, Var>>,
-    Fs: FragmentShader<Var>,
+    Fs: FragmentShader<Var, Uni>,
 {
     Shader::new(vs, fs)
 }
@@ -96,7 +96,7 @@ impl<Vs, Fs> Shader<Vs, Fs> {
     pub const fn new<In, Uni, Pos, Attr>(vs: Vs, fs: Fs) -> Self
     where
         Vs: VertexShader<In, Uni, Output = Vertex<Pos, Attr>>,
-        Fs: FragmentShader<Attr>,
+        Fs: FragmentShader<Attr, Uni>,
     {
         Self {
             vertex_shader: vs,
@@ -116,11 +116,11 @@ where
     }
 }
 
-impl<Vs, Fs, Var> FragmentShader<Var> for Shader<Vs, Fs>
+impl<Vs, Fs, Var, Uni> FragmentShader<Var, Uni> for Shader<Vs, Fs>
 where
-    Fs: FragmentShader<Var>,
+    Fs: FragmentShader<Var, Uni>,
 {
-    fn shade_fragment(&self, frag: Frag<Var>) -> Option<Color4> {
-        self.fragment_shader.shade_fragment(frag)
+    fn shade_fragment(&self, frag: Frag<Var>, uni: Uni) -> Option<Color4> {
+        self.fragment_shader.shade_fragment(frag, uni)
     }
 }

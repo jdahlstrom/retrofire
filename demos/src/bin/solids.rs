@@ -78,7 +78,7 @@ fn main() {
         vertex(mvp.apply(&v.pos), col)
     }
 
-    fn frag_shader(f: Frag<Color3f>) -> Color4 {
+    fn frag_shader(f: Frag<Color3f>, _: Uniform) -> Color4 {
         f.var.to_color4()
     }
 

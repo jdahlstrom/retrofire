@@ -36,7 +36,7 @@ fn main() {
 
     let shader = shader::new(
         |v: Vertex3<_>, mvp: &ProjMat3<_>| vertex(mvp.apply(&v.pos), v.attrib),
-        |frag: Frag<_>| SamplerClamp.sample(&checker, frag.var),
+        |frag: Frag<_>, _: &_| SamplerClamp.sample(&checker, frag.var),
     );
 
     let (w, h) = win.dims;
