@@ -6,6 +6,7 @@ use re::core::math::color::gray;
 use re::core::render::{
     cam::{FirstPerson, Fov},
     clip::Status::*,
+    light::Kind,
     scene::Obj,
     tex::SamplerClamp,
 };
@@ -14,6 +15,14 @@ use re::core::util::{pixfmt::Rgba8888, pnm::read_pnm};
 
 use re::front::sdl2::Window;
 use re::geom::solids::{Build, Cube};
+
+struct Uniform {
+    pub mv: Mat4<Model, View>,
+    pub proj: ProjMat3<View>,
+    pub light: Light<View>,
+}
+
+type Varying = (Normal3, TexCoord);
 
 fn main() {
     let mut win = Window::builder()
@@ -28,29 +37,81 @@ fn main() {
     let light_dir = vec3(-2.0, 1.0, -4.0).normalize();
 
     let floor_shader = shader::new(
-        |v: Vertex3<_>, mvp: &ProjMat3<_>| vertex(mvp.apply(&v.pos), v.attrib),
+        |v: Vertex3<_>, u: &Uniform| {
+            vertex(u.mv.then(&u.proj).apply(&v.pos), v.attrib)
+        },
         |frag: Frag<Vec2>| {
             let even_odd = (frag.var.x() > 0.5) ^ (frag.var.y() > 0.5);
             gray(if even_odd { 0.8 } else { 0.1 }).to_color4()
         },
     );
     let crate_shader = shader::new(
-        |v: Vertex3<(Normal3, TexCoord)>, mvp: &ProjMat3<_>| {
-            vertex(mvp.apply(&v.pos), v.attrib)
+        |v: Vertex3<Varying>, u: &Uniform| {
+            vertex(u.mv.then(&u.proj).apply(&v.pos), v.attrib)
         },
-        |frag: Frag<(Normal3, TexCoord)>| {
+        |frag: Frag<Varying>| {
             let (n, uv) = frag.var;
             let kd = lerp(n.dot(&light_dir).max(0.0), 0.4, 1.0);
             let col = SamplerClamp.sample(&tex, uv);
             (col.to_color3f() * kd).to_color4()
         },
     );
+    let shader3 = shader::new(
+        |v: Vertex3<Color3f>, u: &Uniform| {
+            let pos = u.mv.apply(&v.pos);
+            let (light_col, light_dir) = u.light.eval(pos);
+            let light_col = light_col.add(&gray(0.05));
+            let lam = -light_dir.y();
+            // TODO light_col * surface_col should be compwise multiplication
+            vertex(u.proj.apply(&pos), light_col.mul(lam).mul(v.attrib.r()))
+        },
+        |f: Frag<Color3f>| f.var.to_color4(),
+    );
+
+    let crate_shader2 = shader::new(
+        |v: Vertex3<Normal3>, u: &Uniform| {
+            let n_modl = v.attrib.to();
+            let n_view = u.mv.apply(&n_modl);
+            let pos_view = u.mv.apply(&v.pos);
+            let (light_col, light_dir) = u.light.eval(pos_view);
+
+            let refl = light_dir.reflect(n_view);
+
+            let specular = (-pos_view.to_vec())
+                .normalize()
+                .dot(&refl)
+                .max(0.0)
+                .powi(20);
+
+            let lam = n_view.dot(&light_dir).max(0.0);
+
+            let pos_proj = u.proj.apply(&pos_view);
+            let color = light_col.mul(lam + specular);
+
+            vertex(pos_proj, color)
+        },
+        |frag: Frag<Color3f>| {
+            //let [x, y, z] = ((f.var + splat(1.0)) / 2.0).0;
+            //rgb(x, y, z).to_color4()
+            frag.var.to_color4()
+        },
+    );
 
     let (w, h) = win.dims;
     let mut cam = Camera::new(win.dims)
         .transform(FirstPerson::default())
-        .viewport((10..w - 10, h - 10..10))
+        .viewport((0..w, h..0))
         .perspective(Fov::Diagonal(degs(90.0)), 0.1..1000.0);
+
+    let light = Light::<Model> {
+        color: rgb(1.0, 0.5, 0.1) * 1.1,
+        kind: Kind::Spot {
+            pos: pt3(0.0, -8.0, 0.0),
+            dir: vec3(0.0, 1.0, 0.0),
+            radii: (0.1, 0.3),
+        },
+        falloff: 0,
+    };
 
     let floor = floor();
     let crates = crates();
@@ -83,6 +144,13 @@ fn main() {
         cam.transform
             .translate(cam_vel.mul(frame.dt.as_secs_f32()));
 
+        let light_to_view = translate(4.0 * Vec3::X)
+            .then(&rotate_y(turns(frame.t.as_secs_f32() * 0.1)))
+            .to()
+            .then(&cam.world_to_view());
+
+        let light = light.transform(&light_to_view);
+
         //
         // Render
         //
@@ -96,15 +164,19 @@ fn main() {
 
         // Floor
         {
-            let Obj { bbox, tf, geom } = &floor;
-            let model_to_project = tf.then(&world_to_project);
-            if bbox.visibility(&model_to_project) != Hidden {
-                let mut b = batch
+            let Obj { geom, bbox, tf } = &floor;
+            let mv = tf.then(&cam.world_to_view());
+            let proj = cam.project;
+            let mvp = mv.then(&proj);
+            let light = Default::default();
+
+            if bbox.visibility(&mvp) != Hidden {
+                batch
                     .clone()
                     .mesh(geom)
+                    .uniform(&Uniform { mv, proj, light })
                     .shader(floor_shader)
-                    .uniform(&model_to_project);
-                b.render();
+                    .render();
             }
         }
 
@@ -113,10 +185,12 @@ fn main() {
         for Obj { geom, bbox, tf } in &crates {
             frame.ctx.stats.borrow_mut().objs.i += 1;
 
-            let model_to_project = tf.then(&world_to_project);
+            let mv = tf.then(&cam.world_to_view());
+            let proj = cam.project;
+            let mvp = mv.then(&proj);
 
             // TODO Also if `Visible`, no further clipping or culling needed
-            if bbox.visibility(&model_to_project) == Hidden {
+            if bbox.visibility(&mvp) == Hidden {
                 continue;
             }
 
@@ -124,8 +198,8 @@ fn main() {
                 // TODO Try to get rid of clone
                 .clone()
                 .mesh(geom)
+                .uniform(&Uniform { mv, proj, light })
                 .shader(crate_shader)
-                .uniform(&model_to_project)
                 .render();
 
             frame.ctx.stats.borrow_mut().objs.o += 1;
@@ -138,6 +212,23 @@ fn main() {
 
 fn crates() -> Vec<Obj<(Normal3, TexCoord)>> {
     let obj = Obj::new(Cube { side_len: 2.0 }.build());
+
+    // let obj = Sphere {
+    //     sectors: 80,
+    //     segments: 50,
+    //     radius: 1.0,
+    // }
+    // .build();
+
+    // let obj = parse_obj(*include_bytes!("../../assets/teapot.obj"))
+    //     .unwrap()
+    //     .transform(
+    //         &scale(splat(0.4))
+    //             .then(&translate(-0.5 * Vec3::Y))
+    //             .to(),
+    //     )
+    //     .with_vertex_normals()
+    //     .build();
 
     let mut res = vec![];
     let n = 30;
