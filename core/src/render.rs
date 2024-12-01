@@ -25,6 +25,7 @@ pub use self::{
     cam::Camera,
     clip::Clip,
     ctx::Context,
+    light::Light,
     raster::Frag,
     shader::{FragmentShader, VertexShader},
     stats::Stats,
@@ -38,6 +39,7 @@ pub mod cam;
 pub mod clip;
 pub mod ctx;
 pub mod debug;
+pub mod light;
 pub mod prim;
 pub mod raster;
 pub mod scene;
