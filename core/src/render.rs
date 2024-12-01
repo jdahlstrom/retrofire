@@ -123,12 +123,13 @@ pub type NdcToScreen = RealToReal<3, Ndc, Screen>;
 
 /// Alias for combined vertex+fragment shader types
 pub trait Shader<Vtx, Var, Uni>:
-    VertexShader<Vtx, Uni, Output = Vertex<ProjVec3, Var>> + FragmentShader<Var>
+    VertexShader<Vtx, Uni, Output = Vertex<ProjVec3, Var>>
+    + FragmentShader<Var, Uni>
 {
 }
 impl<S, Vtx, Var, Uni> Shader<Vtx, Var, Uni> for S where
     S: VertexShader<Vtx, Uni, Output = Vertex<ProjVec3, Var>>
-        + FragmentShader<Var>
+        + FragmentShader<Var, Uni>
 {
 }
 
@@ -172,18 +173,27 @@ pub fn render<Prim, Vtx: Clone, Var, Uni: Copy, Shd>(
     }
 
     // 4. Rasterize: Turn visible primitives to fragments
-    stats += rasterize::<Prim, _, _>(clipped, shader, to_screen, target, ctx);
+    stats += rasterize::<Prim, _, _, _>(
+        clipped, shader, uniform, to_screen, target, ctx,
+    );
 
     *ctx.stats.borrow_mut() += stats.finish();
 }
 
-fn rasterize<Prim: Render<Var>, Shd: FragmentShader<Var>, Var: Vary>(
+fn rasterize<Prim, Shd, Var, Uni>(
     clipped: Vec<Prim::Clip>,
     shader: &Shd,
+    uniform: Uni,
     to_screen: Mat4<Ndc, Screen>,
     mut target: &mut impl Target,
     ctx: &Context,
-) -> Stats {
+) -> Stats
+where
+    Prim: Render<Var>,
+    Shd: FragmentShader<Var, Uni>,
+    Var: Vary,
+    Uni: Copy,
+{
     let mut stats = Stats::new();
     for prim in clipped {
         // Transform to screen space
@@ -204,7 +214,7 @@ fn rasterize<Prim: Render<Var>, Shd: FragmentShader<Var>, Var: Vary>(
             // Convert to fragments, shade, and draw to target
             stats.frags += target
                 .deref_mut()
-                .rasterize(scanline, shader, ctx);
+                .rasterize(scanline, shader, uniform, ctx);
         });
     }
     stats

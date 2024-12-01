@@ -19,15 +19,17 @@ pub trait Target {
     /// Writes a single scanline into `self`.
     ///
     /// Returns count of fragments input and output.
-    fn rasterize<V, Fs>(
+    fn rasterize<V, U, Fs>(
         &mut self,
         scanline: Scanline<V>,
         frag_shader: &Fs,
+        uniform: U,
         ctx: &Context,
     ) -> Throughput
     where
         V: Vary,
-        Fs: FragmentShader<V>;
+        U: Copy,
+        Fs: FragmentShader<V, U>;
 }
 
 /// Framebuffer, combining a color (pixel) buffer and a depth buffer.
@@ -59,24 +61,26 @@ impl<B: AsMutSlice2, F> AsMutSlice2 for Colorbuf<B, F> {
 
 impl<T: Target> Target for &mut T {
     #[inline]
-    fn rasterize<V: Vary, Fs: FragmentShader<V>>(
+    fn rasterize<V: Vary, U: Copy, Fs: FragmentShader<V, U>>(
         &mut self,
         sl: Scanline<V>,
         fs: &Fs,
+        uni: U,
         ctx: &Context,
     ) -> Throughput {
-        (*self).rasterize(sl, fs, ctx)
+        (*self).rasterize(sl, fs, uni, ctx)
     }
 }
 impl<T: Target> Target for &RefCell<T> {
     #[inline]
-    fn rasterize<V: Vary, Fs: FragmentShader<V>>(
+    fn rasterize<V: Vary, U: Copy, Fs: FragmentShader<V, U>>(
         &mut self,
         sl: Scanline<V>,
         fs: &Fs,
+        uni: U,
         ctx: &Context,
     ) -> Throughput {
-        RefCell::borrow_mut(self).rasterize(sl, fs, ctx)
+        RefCell::borrow_mut(self).rasterize(sl, fs, uni, ctx)
     }
 }
 
@@ -88,14 +92,15 @@ where
 {
     /// Rasterizes `scanline` into this framebuffer.
     #[inline]
-    fn rasterize<V: Vary, Fs: FragmentShader<V>>(
+    fn rasterize<V: Vary, U: Copy, Fs: FragmentShader<V, U>>(
         &mut self,
         sl: Scanline<V>,
         fs: &Fs,
+        uni: U,
         ctx: &Context,
     ) -> Throughput {
         let Self { color_buf, depth_buf } = self;
-        rasterize_fb(color_buf, depth_buf, sl, fs, Color4::into_pixel, ctx)
+        rasterize_fb(color_buf, depth_buf, sl, fs, uni, Color4::into_pixel, ctx)
     }
 }
 
@@ -107,44 +112,48 @@ where
     /// Rasterizes `scanline` into this `u32` color buffer.
     /// Does no z-buffering.
     #[inline]
-    fn rasterize<V: Vary, Fs: FragmentShader<V>>(
+    fn rasterize<V: Vary, U: Copy, Fs: FragmentShader<V, U>>(
         &mut self,
         sl: Scanline<V>,
         fs: &Fs,
+        uni: U,
         ctx: &Context,
     ) -> Throughput {
-        rasterize(&mut self.buf, sl, fs, Color4::into_pixel, ctx)
+        rasterize(&mut self.buf, sl, fs, uni, Color4::into_pixel, ctx)
     }
 }
 
 impl Target for Buf2<Color4> {
     #[inline]
-    fn rasterize<V: Vary, Fs: FragmentShader<V>>(
+    fn rasterize<V: Vary, U: Copy, Fs: FragmentShader<V, U>>(
         &mut self,
         sl: Scanline<V>,
         fs: &Fs,
+        uni: U,
         ctx: &Context,
     ) -> Throughput {
-        rasterize(self, sl, fs, |c| c, ctx)
+        rasterize(self, sl, fs, uni, |c| c, ctx)
     }
 }
 
 impl Target for Buf2<Color3> {
     #[inline]
-    fn rasterize<V: Vary, Fs: FragmentShader<V>>(
+    fn rasterize<V: Vary, U: Copy, Fs: FragmentShader<V, U>>(
         &mut self,
         sl: Scanline<V>,
         fs: &Fs,
+        uni: U,
         ctx: &Context,
     ) -> Throughput {
-        rasterize(self, sl, fs, |c| c.to_rgb(), ctx)
+        rasterize(self, sl, fs, uni, |c| c.to_rgb(), ctx)
     }
 }
 
-pub fn rasterize<B: AsMutSlice2, V: Vary>(
+pub fn rasterize<B: AsMutSlice2, V: Vary, U: Copy>(
     buf: &mut B,
     mut sl: Scanline<V>,
-    fs: &impl FragmentShader<V>,
+    fs: &impl FragmentShader<V, U>,
+    uni: U,
     mut conv: impl FnMut(Color4) -> B::Elem,
     ctx: &Context,
 ) -> Throughput {
@@ -157,7 +166,7 @@ pub fn rasterize<B: AsMutSlice2, V: Vary>(
     sl.fragments()
         .zip(cbuf_span)
         .for_each(|(frag, curr_col)| {
-            if let Some(new_col) = fs.shade_fragment(frag)
+            if let Some(new_col) = fs.shade_fragment(frag, uni)
                 && ctx.color_write
             {
                 io.o += 1;
@@ -167,11 +176,12 @@ pub fn rasterize<B: AsMutSlice2, V: Vary>(
     io
 }
 
-pub fn rasterize_fb<B: AsMutSlice2, V: Vary>(
+pub fn rasterize_fb<B: AsMutSlice2, V: Vary, U: Copy>(
     cbuf: &mut B,
     zbuf: &mut impl AsMutSlice2<Elem = f32>,
     mut sl: Scanline<V>,
-    fs: &impl FragmentShader<V>,
+    fs: &impl FragmentShader<V, U>,
+    uni: U,
     mut conv: impl FnMut(Color4) -> B::Elem,
     ctx: &Context,
 ) -> Throughput {
@@ -189,7 +199,7 @@ pub fn rasterize_fb<B: AsMutSlice2, V: Vary>(
             let new_z = frag.pos.z();
 
             if ctx.depth_test(new_z, *curr_z)
-                && let Some(new_col) = fs.shade_fragment(frag)
+                && let Some(new_col) = fs.shade_fragment(frag, uni)
             {
                 if ctx.color_write {
                     io.o += 1;
