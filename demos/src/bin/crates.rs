@@ -7,11 +7,18 @@ use re::math::{color::gray, point::pt3};
 use re::render::{
     batch::Batch,
     cam::{Camera, FirstPerson},
-    ModelToProj,
+    light::{Kind, Light},
+    ModelToView, View, ViewToProj,
 };
 
 use re_front::sdl2::Window;
 use re_geom::solids::*;
+
+struct Uniform {
+    pub mv: Mat4x4<ModelToView>,
+    pub proj: Mat4x4<ViewToProj>,
+    pub light: Light<View>,
+}
 
 fn main() {
     let mut win = Window::builder()
@@ -20,18 +27,28 @@ fn main() {
         .expect("should create window");
 
     let floor_shader = Shader::new(
-        |v: Vertex3<_>, mvp: &Mat4x4<ModelToProj>| {
-            vertex(mvp.apply(&v.pos), v.attrib)
+        |v: Vertex3<Color3f>, u: &Uniform| {
+            let pos = u.mv.apply_pt(&v.pos);
+            let light_col = u.light.eval(pos).add(&gray(0.2));
+            vertex(u.proj.apply(&pos), light_col.mul(v.attrib.r()))
         },
-        |frag: Frag<Color3f>| frag.var.to_color4(),
+        |f: Frag<Color3f>| f.var.to_color4(),
     );
     let crate_shader = Shader::new(
-        |v: Vertex3<_>, mvp: &Mat4x4<ModelToProj>| {
-            vertex(mvp.apply(&v.pos), v.attrib)
+        |v: Vertex3<Normal3>, u: &Uniform| {
+            let n = u.mv.apply3(&v.attrib.to());
+            let pos = u.mv.apply_pt(&v.pos);
+            let light_col = u.light.eval(pos).add(&gray(0.2));
+            let light_dir = (u.light.pos - pos).normalize();
+
+            let lam = n.dot(&light_dir);
+
+            vertex(u.proj.apply(&pos), light_col.mul(lam))
         },
-        |frag: Frag<Normal3>| {
-            let [x, y, z] = ((frag.var + splat(1.0)) / 2.0).0;
-            rgb(x, y, z).to_color4()
+        |f: Frag<Color3f>| {
+            //let [x, y, z] = ((f.var + splat(1.0)) / 2.0).0;
+            //rgb(x, y, z).to_color4()
+            f.var.to_color4()
         },
     );
 
@@ -41,8 +58,18 @@ fn main() {
         .viewport((10..w - 10, 10..h - 10))
         .perspective(1.0, 0.1..1000.0);
 
+    let light = Light {
+        pos: pt3(4.0, 8.0, -6.0),
+        color: rgb(1.0, 0.5, 0.1).mul(1.5),
+        kind: Kind::Spot {
+            dir: vec3(-0.3, -1.0, 0.5),
+            radius: degs(15.0),
+        },
+        falloff: 0,
+    };
+
     let floor = floor();
-    let crat = Box::cube(2.0).build();
+    let krate = Box::cube(2.0).build();
 
     win.run(|frame| {
         // Camera
@@ -68,13 +95,15 @@ fn main() {
 
         cam.mode.rotate(d_az, d_alt);
         cam.mode
-            .translate(cam_vel.mul(frame.dt.as_secs_f32()));
+            .translate(cam_vel * frame.dt.as_secs_f32());
 
         let flip = scale(vec3(1.0, -1.0, -1.0)).to();
 
+        let light = light.transform(&cam.world_to_view());
+
         // Render
 
-        let world_to_project = flip.then(&cam.world_to_project());
+        //let world_to_project = flip.then(&cam.world_to_project());
 
         let batch = Batch::new()
             .viewport(cam.viewport)
@@ -83,21 +112,29 @@ fn main() {
         batch
             .clone()
             .mesh(&floor)
-            .uniform(&world_to_project)
+            .uniform(&Uniform {
+                mv: flip.then(&cam.world_to_view()),
+                proj: cam.project,
+                light,
+            })
             .shader(floor_shader)
             .target(&mut frame.buf)
             .render();
 
-        let craet = batch.clone().mesh(&crat);
+        let krate = batch.clone().mesh(&krate);
 
         let n = 30;
         for i in (-n..=n).step_by(5) {
             for j in (-n..=n).step_by(5) {
                 let pos = translate(vec3(i as f32, 0.0, j as f32)).to();
-                craet
+                krate
                     // TODO Try to get rid of clone
                     .clone()
-                    .uniform(&pos.then(&world_to_project))
+                    .uniform(&Uniform {
+                        mv: pos.then(&cam.world_to_view()),
+                        proj: cam.project,
+                        light,
+                    })
                     // TODO Allow setting shader before uniform
                     .shader(crate_shader)
                     // TODO storing &mut target makes Batch not Clone, maybe

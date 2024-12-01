@@ -236,6 +236,11 @@ impl<Src, Dst> Mat4x4<RealToReal<3, Src, Dst>> {
         array::from_fn(|i| self.row_vec(i).dot(&v)).into()
     }
 
+    pub fn apply3(&self, v: &Vec3<Src>) -> Vec3<Dst> {
+        let v = [v.x(), v.y(), v.z(), 0.0].into();
+        array::from_fn(|i| self.row_vec(i).dot(&v)).into()
+    }
+
     // TODO Add trait to overload apply or similar
     #[must_use]
     pub fn apply_pt(&self, p: &Point3<Src>) -> Point3<Dst> {
