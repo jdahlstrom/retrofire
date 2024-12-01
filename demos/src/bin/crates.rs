@@ -32,7 +32,7 @@ fn main() {
             let light_col = u.light.eval(pos).add(&gray(0.2));
             vertex(u.proj.apply(&pos), light_col.mul(v.attrib.r()))
         },
-        |f: Frag<Color3f>| f.var.to_color4(),
+        |f: Frag<Color3f>, _: &_| f.var.to_color4(),
     );
     let crate_shader = Shader::new(
         |v: Vertex3<Normal3>, u: &Uniform| {
@@ -49,7 +49,7 @@ fn main() {
 
             vertex(u.proj.apply(&pos), color)
         },
-        |f: Frag<Color3f>| {
+        |f: Frag<Color3f>, _: &_| {
             //let [x, y, z] = ((f.var + splat(1.0)) / 2.0).0;
             //rgb(x, y, z).to_color4()
             f.var.to_color4()

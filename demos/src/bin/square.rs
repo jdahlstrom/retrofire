@@ -40,7 +40,7 @@ fn main() {
         |v: Vertex3<_>, mvp: &Mat4x4<ModelToProj>| {
             vertex(mvp.apply(&v.pos), v.attrib)
         },
-        |frag: Frag<_>| SamplerClamp.sample(&checker, frag.var),
+        |frag: Frag<_>, _: &_| SamplerClamp.sample(&checker, frag.var),
     );
 
     let (w, h) = win.dims;

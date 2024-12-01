@@ -43,7 +43,7 @@ fn main() {
             let view_pos = mv.apply_pt(&v.pos) + vertex_pos;
             vertex(proj.apply(&view_pos), v.attrib)
         },
-        |frag: Frag<Vec2<_>>| {
+        |frag: Frag<Vec2<_>>, _: (&_, &_)| {
             let d2 = frag.var.len_sqr();
             (d2 < 1.0).then(|| {
                 // TODO ops trait for colors

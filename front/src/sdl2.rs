@@ -193,15 +193,17 @@ impl Window {
 }
 
 impl<'a> Target for Framebuf<'a> {
-    fn rasterize<V, Fs>(
+    fn rasterize<V, U, Fs>(
         &mut self,
         mut sl: Scanline<V>,
+        uni: U,
         fs: &Fs,
         ctx: &Context,
     ) -> Throughput
     where
         V: Vary,
-        Fs: FragmentShader<V>,
+        U: Copy,
+        Fs: FragmentShader<V, U>,
     {
         // TODO Lots of duplicate code
 
@@ -218,7 +220,7 @@ impl<'a> Target for Framebuf<'a> {
             .for_each(|((frag, c), z)| {
                 let new_z = frag.pos.z();
                 if ctx.depth_test(new_z, *z) {
-                    if let Some(new_c) = fs.shade_fragment(frag) {
+                    if let Some(new_c) = fs.shade_fragment(frag, uni) {
                         if ctx.color_write {
                             // TODO Blending should happen here
                             io.o += 1;
