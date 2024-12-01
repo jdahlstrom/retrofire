@@ -27,6 +27,7 @@ pub mod batch;
 pub mod cam;
 pub mod clip;
 pub mod ctx;
+pub mod light;
 pub mod raster;
 pub mod shader;
 pub mod stats;

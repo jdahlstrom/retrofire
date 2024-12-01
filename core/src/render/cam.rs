@@ -123,9 +123,14 @@ impl<M> Camera<M> {
 }
 
 impl<M: Mode> Camera<M> {
+    /// Returns the camera (view) matrix.
+    pub fn world_to_view(&self) -> Mat4x4<WorldToView> {
+        self.mode.world_to_view()
+    }
+
     /// Returns the composed camera and projection matrix.
     pub fn world_to_project(&self) -> Mat4x4<RealToProj<World>> {
-        self.mode.world_to_view().then(&self.project)
+        self.world_to_view().then(&self.project)
     }
 
     /// Renders the given geometry from the viewpoint of this camera.
