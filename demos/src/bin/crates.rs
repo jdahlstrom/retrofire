@@ -40,7 +40,7 @@ fn main() {
         |v: Vertex3<_>, u: &Uniform| {
             vertex(u.mv.then(&u.proj).apply(&v.pos), v.attrib)
         },
-        |frag: Frag<Vec2>| {
+        |frag: Frag<Vec2>, _: &Uniform| {
             let even_odd = (frag.var.x() > 0.5) ^ (frag.var.y() > 0.5);
             gray(if even_odd { 0.8 } else { 0.1 }).to_color4()
         },
@@ -49,13 +49,14 @@ fn main() {
         |v: Vertex3<Varying>, u: &Uniform| {
             vertex(u.mv.then(&u.proj).apply(&v.pos), v.attrib)
         },
-        |frag: Frag<Varying>| {
+        |frag: Frag<Varying>, _: &Uniform| {
             let (n, uv) = frag.var;
             let kd = lerp(n.dot(&light_dir).max(0.0), 0.4, 1.0);
             let col = SamplerClamp.sample(&tex, uv);
             (col.to_color3f() * kd).to_color4()
         },
     );
+
     let shader3 = shader::new(
         |v: Vertex3<Color3f>, u: &Uniform| {
             let pos = u.mv.apply(&v.pos);
@@ -65,10 +66,11 @@ fn main() {
             // TODO light_col * surface_col should be compwise multiplication
             vertex(u.proj.apply(&pos), light_col.mul(lam).mul(v.attrib.r()))
         },
-        |f: Frag<Color3f>| f.var.to_color4(),
+        |f: Frag<Color3f>, _: &_| f.var.to_color4(),
     );
 
-    let crate_shader2 = shader::new(
+    let crate_shader_light = shader::new(
+        // TODO
         |v: Vertex3<Normal3>, u: &Uniform| {
             let n_modl = v.attrib.to();
             let n_view = u.mv.apply(&n_modl);
@@ -90,7 +92,7 @@ fn main() {
 
             vertex(pos_proj, color)
         },
-        |frag: Frag<Color3f>| {
+        |frag: Frag<Color3f>, _: &_| {
             //let [x, y, z] = ((f.var + splat(1.0)) / 2.0).0;
             //rgb(x, y, z).to_color4()
             frag.var.to_color4()
@@ -155,8 +157,6 @@ fn main() {
         // Render
         //
 
-        let world_to_project = &cam.world_to_project();
-
         let batch = Batch::new()
             .viewport(cam.viewport)
             .target(frame.buf)
@@ -169,12 +169,13 @@ fn main() {
             let proj = cam.project;
             let mvp = mv.then(&proj);
             let light = Default::default();
+            let uni = Uniform { mv, proj, light };
 
             if bbox.visibility(&mvp) != Hidden {
                 batch
                     .clone()
                     .mesh(geom)
-                    .uniform(&Uniform { mv, proj, light })
+                    .uniform(&uni)
                     .shader(floor_shader)
                     .render();
             }
