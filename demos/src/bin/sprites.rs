@@ -11,7 +11,7 @@ use re::core::render::{Model, cam::*, render};
 use re_front::minifb::Window;
 
 fn main() {
-    let verts: [Vec2<Model>; 4] = [
+    let verts: [Vec2<View>; 4] = [
         vec2(-1.0, -1.0),
         vec2(-1.0, 1.0),
         vec2(1.0, -1.0),
@@ -38,12 +38,12 @@ fn main() {
 
     let shader = shader::new(
         |v: Vertex3<Vec2<_>>,
-         (mv, proj): (&Mat4<Model, View>, &ProjMat3<View>)| {
+         (mv, proj): &(Mat4<Model, View>, ProjMat3<View>)| {
             let vertex_pos = 0.008 * v.attrib.to_vec3().to();
             let view_pos = mv.apply(&v.pos) + vertex_pos;
             vertex(proj.apply(&view_pos), v.attrib)
         },
-        |frag: Frag<Vec2<_>>| {
+        |frag: Frag<Vec2<_>>, _: &_| {
             let d2 = frag.var.len_sqr();
             (d2 < 1.0).then(|| {
                 let col = gray(1.0) - d2 * rgb(0.25, 0.5, 1.0);
@@ -66,11 +66,12 @@ fn main() {
             .to()
             .then(&cam.transform.world_to_view());
 
+        let uniform = (modelview, cam.project);
         render(
             &tris,
             &verts,
             &shader,
-            (&modelview, &cam.project),
+            &uniform,
             cam.viewport,
             &mut frame.buf,
             frame.ctx,
