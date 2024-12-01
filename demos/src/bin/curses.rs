@@ -50,8 +50,8 @@ fn main() {
         |v: Vertex3<_>, mvp: &ProjMat3<Model>| {
             vertex(mvp.apply(&v.pos), v.attrib)
         },
-        |frag: Frag<Normal3>| {
-            let [x, y, z] = (frag.var / 2.0 + splat(0.5)).0;
+        |frag: Frag<Normal3>, _: &_| {
+            let [x, y, z] = (frag.var * 0.5 + splat(0.5)).0;
             rgb(x, y, z).to_color4()
         },
     );
@@ -104,23 +104,20 @@ fn main() {
 }
 
 impl Target for Win {
-    fn rasterize<V, Fs>(
+    fn rasterize<V: Vary, U: Copy, Fs: FragmentShader<V, U>>(
         &mut self,
         mut sc: Scanline<V>,
+        uni: U,
         fs: &Fs,
         _ctx: &Context,
-    ) -> Throughput
-    where
-        V: Vary,
-        Fs: FragmentShader<V>,
-    {
+    ) -> Throughput {
         let w = sc.xs.len();
         let y = sc.y;
 
         self.0.mv(y as i32, sc.xs.start as i32);
 
         for frag in sc.fragments() {
-            let Some(col) = fs.shade_fragment(frag) else {
+            let Some(col) = fs.shade_fragment(frag, uni) else {
                 continue;
             };
             let [r, g, b, _] = col.0.map(|c| c as u32);
