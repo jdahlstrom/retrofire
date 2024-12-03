@@ -5,7 +5,7 @@
 use core::array;
 use core::fmt::{Debug, Formatter};
 use core::iter::Sum;
-use core::marker::PhantomData;
+use core::marker::PhantomData as Pd;
 use core::ops::{Add, Div, Index, IndexMut, Mul, Neg, Sub};
 use core::ops::{AddAssign, DivAssign, MulAssign, SubAssign};
 
@@ -30,11 +30,11 @@ use crate::math::space::{Affine, Linear, Proj4, Real};
 /// # Examples
 /// TODO
 #[repr(transparent)]
-pub struct Vector<Repr, Space = ()>(pub Repr, PhantomData<Space>);
+pub struct Vector<Repr, Space = ()>(pub Repr, Pd<Space>);
 
 /// A 2-vector with `f32` components.
 pub type Vec2<Basis = ()> = Vector<[f32; 2], Real<2, Basis>>;
-/// A 2-vector with `f32` components.
+/// A 3-vector with `f32` components.
 pub type Vec3<Basis = ()> = Vector<[f32; 3], Real<3, Basis>>;
 /// A `f32` 4-vector in the projective 3-space over ℝ, aka P<sub>3</sub>(ℝ).
 pub type ProjVec4 = Vector<[f32; 4], Proj4>;
@@ -54,12 +54,12 @@ pub type Vec2u<Basis = ()> = Vector<[u32; 2], Real<2, Basis>>;
 
 /// Returns a real 2-vector with components `x` and `y`.
 pub const fn vec2<Sc, B>(x: Sc, y: Sc) -> Vector<[Sc; 2], Real<2, B>> {
-    Vector([x, y], PhantomData)
+    Vector([x, y], Pd)
 }
 
 /// Returns a real 3-vector with components `x`, `y`, and `z`.
 pub const fn vec3<Sc, B>(x: Sc, y: Sc, z: Sc) -> Vector<[Sc; 3], Real<3, B>> {
-    Vector([x, y, z], PhantomData)
+    Vector([x, y, z], Pd)
 }
 
 /// Returns a vector with all components equal to a scalar.
@@ -74,7 +74,7 @@ pub const fn vec3<Sc, B>(x: Sc, y: Sc, z: Sc) -> Vector<[Sc; 3], Real<3, B>> {
 /// assert_eq!(v, vec3(1.23, 1.23, 1.23));
 #[inline]
 pub fn splat<Sp, Sc: Clone, const DIM: usize>(s: Sc) -> Vector<[Sc; DIM], Sp> {
-    s.into()
+    array::from_fn(|_| s.clone()).into()
 }
 
 //
@@ -85,7 +85,7 @@ impl<R, Sp> Vector<R, Sp> {
     /// Returns a new vector with representation `repr`.
     #[inline]
     pub const fn new(repr: R) -> Self {
-        Self(repr, PhantomData)
+        Self(repr, Pd)
     }
 
     /// Returns a vector with value equal to `self` but in space `S`.
@@ -337,11 +337,11 @@ where
     #[inline]
     fn add(&self, other: &Self::Diff) -> Self {
         // TODO Profile performance of array::from_fn
-        array::from_fn(|i| self.0[i].add(&other.0[i])).into()
+        Self(array::from_fn(|i| self.0[i].add(&other.0[i])), Pd)
     }
     #[inline]
     fn sub(&self, other: &Self) -> Self::Diff {
-        array::from_fn(|i| self.0[i].sub(&other.0[i])).into()
+        Vector(array::from_fn(|i| self.0[i].sub(&other.0[i])), Pd)
     }
 }
 
@@ -359,11 +359,11 @@ where
     }
     #[inline]
     fn neg(&self) -> Self {
-        array::from_fn(|i| self.0[i].neg()).into()
+        Self(array::from_fn(|i| self.0[i].neg()), Pd)
     }
     #[inline]
     fn mul(&self, scalar: Self::Scalar) -> Self {
-        array::from_fn(|i| self.0[i].mul(scalar)).into()
+        Self(array::from_fn(|i| self.0[i].mul(scalar)), Pd)
     }
 }
 
@@ -389,13 +389,13 @@ impl<R: Copy, S> Copy for Vector<R, S> {}
 
 impl<R: Clone, S> Clone for Vector<R, S> {
     fn clone(&self) -> Self {
-        Self(self.0.clone(), PhantomData)
+        Self(self.0.clone(), Pd)
     }
 }
 
 impl<R: Default, S> Default for Vector<R, S> {
     fn default() -> Self {
-        Self(R::default(), PhantomData)
+        Self(R::default(), Pd)
     }
 }
 
@@ -416,8 +416,8 @@ impl<R: Debug, Sp: Debug + Default> Debug for Vector<R, Sp> {
 
 impl<R, Sp> From<R> for Vector<R, Sp> {
     #[inline]
-    fn from(els: R) -> Self {
-        Self(els, PhantomData)
+    fn from(repr: R) -> Self {
+        Self(repr, Pd)
     }
 }
 
@@ -427,7 +427,7 @@ impl<Sp, Sc: Clone, const DIM: usize> From<Sc> for Vector<[Sc; DIM], Sp> {
     /// This operation is also called "splat" or "broadcast".
     #[inline]
     fn from(scalar: Sc) -> Self {
-        array::from_fn(|_| scalar.clone()).into()
+        splat(scalar)
     }
 }
 
