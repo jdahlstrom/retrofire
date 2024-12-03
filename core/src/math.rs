@@ -30,6 +30,7 @@ pub mod approx;
 pub mod color;
 pub mod float;
 pub mod mat;
+pub mod point;
 pub mod rand;
 pub mod space;
 pub mod spline;
