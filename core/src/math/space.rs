@@ -68,12 +68,14 @@ pub trait Linear: Affine<Diff = Self> {
     fn mul(&self, scalar: Self::Scalar) -> Self;
 }
 
-/// Tag type for real vector spaces (Euclidean spaces) of dimension `DIM`.
+/// Tag type for real vector spaces and Euclidean spaces.
+///
 /// For example, the type `Real<3>` corresponds to ℝ³.
 #[derive(Copy, Clone, Default, Eq, PartialEq)]
 pub struct Real<const DIM: usize, Basis = ()>(PhantomData<Basis>);
 
 /// Tag type for the projective 4-space over reals, 𝗣<sub>4</sub>(ℝ).
+///
 /// The properties of this space make it useful for implementing perspective
 /// projection. Clipping is also done in the projective space.
 #[derive(Copy, Clone, Debug, Default, Eq, PartialEq)]
