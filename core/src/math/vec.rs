@@ -407,21 +407,6 @@ impl<R: PartialEq, S> PartialEq for Vector<R, S> {
     }
 }
 
-impl<const DIM: usize, B> Debug for Real<DIM, B>
-where
-    B: Debug + Default,
-{
-    fn fmt(&self, f: &mut Formatter<'_>) -> core::fmt::Result {
-        const DIMS: [char; 3] = ['²', '³', '⁴'];
-        let b = B::default();
-        if let Some(dim) = DIMS.get(DIM - 2) {
-            write!(f, "ℝ{dim}<{b:?}>")
-        } else {
-            write!(f, "ℝ^{DIM}<{b:?}>")
-        }
-    }
-}
-
 impl<R: Debug, Sp: Debug + Default> Debug for Vector<R, Sp> {
     fn fmt(&self, f: &mut Formatter<'_>) -> core::fmt::Result {
         write!(f, "Vec<{:?}>", Sp::default())?;
