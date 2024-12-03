@@ -2,6 +2,7 @@
 //!
 //! TODO
 
+use core::fmt::{Debug, Formatter};
 use core::marker::PhantomData;
 
 use crate::math::vary::{Iter, Vary};
@@ -177,6 +178,21 @@ where
 
     fn z_div(&self, z: f32) -> Self {
         self.mul(z.recip())
+    }
+}
+
+impl<const DIM: usize, B> Debug for Real<DIM, B>
+where
+    B: Debug + Default,
+{
+    fn fmt(&self, f: &mut Formatter<'_>) -> core::fmt::Result {
+        const DIMS: [&str; 4] = ["", "²", "³", "⁴"];
+        let b = B::default();
+        if let Some(dim) = DIMS.get(DIM - 1) {
+            write!(f, "ℝ{dim}<{b:?}>")
+        } else {
+            write!(f, "ℝ^{DIM}<{b:?}>")
+        }
     }
 }
 
