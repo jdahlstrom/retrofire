@@ -2,7 +2,7 @@ use core::ops::ControlFlow::*;
 
 use wasm_bindgen::prelude::*;
 
-use re::geom::{vertex, Tri, Vertex};
+use re::geom::{vertex, Tri, Vertex3};
 use re::math::{
     color::{rgba, Color4f},
     mat::{perspective, rotate_z, translate, viewport},
@@ -42,7 +42,7 @@ pub fn start() {
         let mvp = mv.then(&proj);
 
         let sh = Shader::new(
-            |v: Vertex<_, Color4f>, _| vertex(mvp.apply(&v.pos), v.attrib),
+            |v: Vertex3<Color4f>, _| vertex(mvp.apply(&v.pos), v.attrib),
             |f: Frag<Color4f>| f.var.to_color4(),
         );
 

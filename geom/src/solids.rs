@@ -5,12 +5,14 @@ use core::ops::Range;
 
 use alloc::{vec, vec::Vec};
 
-use re::geom::{mesh::Builder, vertex, Mesh, Normal2, Normal3, Vertex};
+use re::geom::{
+    mesh::Builder, vertex, Mesh, Normal2, Normal3, Vertex, Vertex2,
+};
 use re::math::{
     angle::{degs, polar, turns, Angle},
     mat::rotate_y,
     vary::Vary,
-    vec::{splat, vec2, vec3, Vec2, Vec3},
+    vec::{splat, vec2, vec3, Vec3},
 };
 use re::render::tex::{uv, TexCoord};
 
@@ -100,7 +102,7 @@ pub struct Icosahedron;
 #[derive(Clone, Debug, Default)]
 pub struct Lathe {
     /// The polyline defining the shape.
-    pub pts: Vec<Vertex<Vec2, Normal2>>,
+    pub pts: Vec<Vertex2<Normal2, ()>>,
     /// The number of facets used to approximate the surface of revolution.
     pub sectors: u32,
     /// Whether to add flat caps to both ends of the object. Has no effect
@@ -430,7 +432,7 @@ impl Icosahedron {
 }
 
 impl Lathe {
-    pub fn new(pts: Vec<Vertex<Vec2, Normal2>>, sectors: u32) -> Self {
+    pub fn new(pts: Vec<Vertex2<Normal2, ()>>, sectors: u32) -> Self {
         assert!(sectors >= 3, "sectors must be at least 3, was {sectors}");
         Self {
             pts,

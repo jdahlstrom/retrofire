@@ -14,10 +14,7 @@ use crate::math::{
 };
 use crate::render::Model;
 
-use super::{vertex, Normal3, Tri};
-
-/// Convenience type alias for a mesh vertex.
-pub type Vertex<A, B = Model> = super::Vertex<Vec3<B>, A>;
+use super::{vertex, Normal3, Tri, Vertex3};
 
 /// A triangle mesh.
 ///
@@ -32,7 +29,7 @@ pub struct Mesh<Attrib, Basis = Model> {
     /// to the `verts` vector. Several faces can share a vertex.
     pub faces: Vec<Tri<usize>>,
     /// The vertices of the mesh.
-    pub verts: Vec<Vertex<Attrib, Basis>>,
+    pub verts: Vec<Vertex3<Attrib, Basis>>,
 }
 
 /// A builder type for creating meshes.
@@ -78,7 +75,7 @@ impl<A, B> Mesh<A, B> {
     pub fn new<F, V>(faces: F, verts: V) -> Self
     where
         F: IntoIterator<Item = Tri<usize>>,
-        V: IntoIterator<Item = Vertex<A, B>>,
+        V: IntoIterator<Item = Vertex3<A, B>>,
     {
         let faces: Vec<_> = faces.into_iter().collect();
         let verts: Vec<_> = verts.into_iter().collect();

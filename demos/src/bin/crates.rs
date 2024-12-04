@@ -2,12 +2,14 @@ use core::ops::ControlFlow::*;
 
 use re::prelude::*;
 
+use re::geom::Vertex3;
 use re::math::color::gray;
 use re::render::{
     batch::Batch,
     cam::{Camera, FirstPerson},
     ModelToProj,
 };
+
 use re_front::sdl2::Window;
 use re_geom::solids::*;
 
@@ -18,13 +20,13 @@ fn main() {
         .expect("should create window");
 
     let floor_shader = Shader::new(
-        |v: Vertex<_, _>, mvp: &Mat4x4<ModelToProj>| {
+        |v: Vertex3<_>, mvp: &Mat4x4<ModelToProj>| {
             vertex(mvp.apply(&v.pos), v.attrib)
         },
         |frag: Frag<Color3f>| frag.var.to_color4(),
     );
     let crate_shader = Shader::new(
-        |v: Vertex<_, _>, mvp: &Mat4x4<ModelToProj>| {
+        |v: Vertex3<_>, mvp: &Mat4x4<ModelToProj>| {
             vertex(mvp.apply(&v.pos), v.attrib)
         },
         |frag: Frag<Normal3>| {
