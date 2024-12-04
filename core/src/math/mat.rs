@@ -14,9 +14,10 @@ use core::{
 use crate::render::{NdcToScreen, ViewToProj};
 
 use super::{
-    point::{Point2, Point3},
+    float::f32,
+    point::{Point2, Point2u, Point3},
     space::{Linear, Proj4, Real},
-    vec::{ProjVec4, Vec2, Vec2u, Vec3, Vector},
+    vec::{ProjVec4, Vec2, Vec3, Vector},
 };
 
 /// A linear transform from one space (or basis) to another.
@@ -386,8 +387,8 @@ impl<Src> Mat4x4<RealToProj<Src>> {
     ///         \ ·  ·  M33 / \  1 /
     /// ```
     #[must_use]
-    pub fn apply(&self, v: &Point3<Src>) -> ProjVec4 {
-        let v = Vector::from([v.x(), v.y(), v.z(), 1.0]);
+    pub fn apply(&self, p: &Point3<Src>) -> ProjVec4 {
+        let v = Vector::from([p.x(), p.y(), p.z(), 1.0]);
         [
             self.row_vec(0).dot(&v),
             self.row_vec(1).dot(&v),
@@ -623,31 +624,33 @@ pub fn perspective(
 /// # Parameters
 /// * `lbn`: The left-bottom-near corner of the projection box.
 /// * `rtf`: The right-bottom-far corner of the projection box.
-// TODO Change to take points
-pub fn orthographic(lbn: Vec3, rtf: Vec3) -> Mat4x4<ViewToProj> {
-    let [dx, dy, dz] = (rtf - lbn).0;
-    let [sx, sy, sz] = (rtf + lbn).0;
+pub fn orthographic(lbn: Point3, rtf: Point3) -> Mat4x4<ViewToProj> {
+    let half_d = (rtf - lbn) / 2.0;
+    let [cx, cy, cz] = (lbn + half_d).0;
+    let [idx, idy, idz] = half_d.map(f32::recip).0;
     [
-        [2.0 / dx, 0.0, 0.0, -sx / dx],
-        [0.0, 2.0 / dy, 0.0, -sy / dy],
-        [0.0, 0.0, 2.0 / dz, -sz / dz],
+        [idx, 0.0, 0.0, -cx * idx],
+        [0.0, idy, 0.0, -cy * idy],
+        [0.0, 0.0, idz, -cz * idz],
         [0.0, 0.0, 0.0, 1.0],
     ]
     .into()
 }
 
-/// Creates a viewport transform matrix. A viewport matrix is used to
-/// transform points from the NDC space to screen space for rasterization.
+/// Creates a viewport transform matrix with the given pixel space bounds.
 ///
-/// # Parameters
-/// * `bounds`: the left-top and right-bottom coordinates of the viewport.
-pub fn viewport(bounds: Range<Vec2u>) -> Mat4x4<NdcToScreen> {
-    let Range { start, end } = bounds;
-    let h = (end.x() - start.x()) as f32 / 2.0;
-    let v = (end.y() - start.y()) as f32 / 2.0;
+/// A viewport matrix is used to transform points from the NDC space to screen
+/// space for rasterization. NDC coordinates (-1, -1, z) are mapped to
+/// `bounds.start` and NDC coordinates (1, 1, z) to `bounds.end`.
+pub fn viewport(bounds: Range<Point2u>) -> Mat4x4<NdcToScreen> {
+    let s = bounds.start.map(|c| c as f32);
+    let e = bounds.end.map(|c| c as f32);
+    let half_d = (e - s) / 2.0;
+    let [dx, dy] = half_d.0;
+    let [cx, cy] = (s + half_d).0;
     [
-        [h, 0.0, 0.0, h + start.x() as f32],
-        [0.0, v, 0.0, v + start.y() as f32],
+        [dx, 0.0, 0.0, cx],
+        [0.0, dy, 0.0, cy],
         [0.0, 0.0, 1.0, 0.0],
         [0.0, 0.0, 0.0, 1.0],
     ]
@@ -661,7 +664,7 @@ mod tests {
 
     #[cfg(feature = "fp")]
     use crate::math::angle::degs;
-    use crate::math::point::pt3;
+    use crate::math::point::{pt2, pt3};
 
     use super::*;
 
@@ -934,7 +937,7 @@ mod tests {
         let lbn = pt3(-20.0, 0.0, 0.01);
         let rtf = pt3(100.0, 50.0, 100.0);
 
-        let m = orthographic(lbn.to_vec(), rtf.to_vec());
+        let m = orthographic(lbn, rtf);
 
         assert_approx_eq!(m.apply(&lbn.to()), [-1.0, -1.0, -1.0, 1.0].into());
         assert_approx_eq!(m.apply(&rtf.to()), [1.0, 1.0, 1.0, 1.0].into());
@@ -952,5 +955,13 @@ mod tests {
 
         let rtf = m.apply(&right_top_far);
         assert_approx_eq!(rtf / rtf.w(), [1.0, 1.0, 1.0, 1.0].into());
+    }
+
+    #[test]
+    fn viewport_maps_ndc_to_screen() {
+        let m = viewport(pt2(20, 10)..pt2(620, 470));
+
+        assert_eq!(m.apply_pt(&pt3(-1.0, -1.0, 0.2)), pt3(20.0, 10.0, 0.2));
+        assert_eq!(m.apply_pt(&pt3(1.0, 1.0, 0.6)), pt3(620.0, 470.0, 0.6));
     }
 }
