@@ -4,14 +4,14 @@ use std::ops::ControlFlow::Continue;
 use re::prelude::*;
 
 use re::math::{
-    point::Point2u,
+    point::{pt2, Point2, Point2u},
     rand::{Distrib, Uniform, UnitDisk, Xorshift64},
     spline::BezierSpline,
 };
 
-use re_front::{minifb::Window, Frame};
+use re_front::{dims::SVGA_800_600, minifb::Window, Frame};
 
-fn line([mut p0, mut p1]: [Vec2; 2]) -> impl Iterator<Item = Point2u> {
+fn line([mut p0, mut p1]: [Point2; 2]) -> impl Iterator<Item = Point2u> {
     if p0.y() > p1.y() {
         swap(&mut p0, &mut p1);
     }
@@ -24,12 +24,14 @@ fn line([mut p0, mut p1]: [Vec2; 2]) -> impl Iterator<Item = Point2u> {
         (vec2(dx / dy, 1.0), dy)
     };
 
-    p0.vary(step, Some(n as u32))
+    // TODO Fix once points are Vary
+    p0.to_vec()
+        .vary(step, Some(n as u32))
         .map(|p| p.map(|c| c as u32).to_pt())
 }
 
 fn main() {
-    let dims @ (w, h) = (640, 480);
+    let dims @ (w, h) = SVGA_800_600;
 
     let mut win = Window::builder()
         .title("retrofire//bezier")
@@ -41,8 +43,11 @@ fn main() {
     let pos = Uniform(vec2(0.0, 0.0)..vec2(w as f32, h as f32));
     let vel = UnitDisk;
 
-    let (mut pts, mut deltas): (Vec<Vec2>, Vec<Vec2>) =
-        (pos, vel).samples(rng).take(4).unzip();
+    let (mut pts, mut deltas): (Vec<Point2>, Vec<Vec2>) = (pos, vel)
+        .samples(rng)
+        .take(4)
+        .map(|(p, v)| (p.to_pt(), v))
+        .unzip();
 
     win.run(|Frame { dt, buf, .. }| {
         let b = BezierSpline::new(&pts);
@@ -56,16 +61,16 @@ fn main() {
             }
         }
 
-        let max = vec2((w - 1) as f32, (h - 1) as f32);
+        let max = pt2((w - 1) as f32, (h - 1) as f32);
         let secs = dt.as_secs_f32();
         for (p, d) in pts.iter_mut().zip(deltas.iter_mut()) {
-            *p = (*p + *d * 200.0 * secs).clamp(&Vec2::zero(), &max);
-
-            if p[0] == 0.0 || p[0] == max.x() {
-                d[0] = -d[0];
+            *p = (*p + *d * 200.0 * secs).clamp(&pt2(0.0, 0.0), &max);
+            let [dx, dy] = &mut d.0;
+            if p.x() == 0.0 || p.x() == max.x() {
+                *dx = -*dx;
             }
-            if p[1] == 0.0 || p[1] == max.y() {
-                d[1] = -d[1];
+            if p.y() == 0.0 || p.y() == max.y() {
+                *dy = -*dy;
             }
         }
         Continue(())
