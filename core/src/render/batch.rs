@@ -3,7 +3,7 @@
 use alloc::vec::Vec;
 use core::borrow::Borrow;
 
-use crate::geom::{mesh, Mesh, Tri};
+use crate::geom::{Mesh, Tri, Vertex3};
 use crate::math::{mat::Mat4x4, vary::Vary};
 
 use super::{ctx::Context, target::Target, NdcToScreen, Shader};
@@ -77,7 +77,7 @@ impl<Vtx, Uni, Shd, Tgt, Ctx> Batch<Vtx, Uni, Shd, Tgt, Ctx> {
     pub fn mesh<A: Clone>(
         self,
         mesh: &Mesh<A>,
-    ) -> Batch<mesh::Vertex<A>, Uni, Shd, Tgt, Ctx> {
+    ) -> Batch<Vertex3<A>, Uni, Shd, Tgt, Ctx> {
         let faces = mesh.faces.clone();
         let verts = mesh.verts.clone();
         update!(verts faces; self uniform shader viewport target ctx)

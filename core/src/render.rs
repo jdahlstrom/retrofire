@@ -12,9 +12,10 @@ use crate::geom::{Tri, Vertex};
 use crate::math::{
     mat::{Mat4x4, RealToProj, RealToReal},
     vary::Vary,
-    vec::{vec3, ProjVec4, Vec3},
+    vec::{vec3, ProjVec4},
 };
 
+use crate::render::raster::ScreenVec;
 use clip::{view_frustum, Clip, ClipVert};
 use ctx::{Context, DepthSort, FaceCull};
 use raster::tri_fill;
@@ -174,7 +175,7 @@ fn depth_sort<A>(tris: &mut [Tri<ClipVert<A>>], d: DepthSort) {
     });
 }
 
-fn is_backface<V>(vs: &[Vertex<Vec3<Screen>, V>]) -> bool {
+fn is_backface<V>(vs: &[Vertex<ScreenVec, V>]) -> bool {
     let v = vs[1].pos - vs[0].pos;
     let u = vs[2].pos - vs[0].pos;
     v[0] * u[1] - v[1] * u[0] > 0.0
