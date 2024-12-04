@@ -6,8 +6,8 @@ use re::geom::{vertex, Tri, Vertex3};
 use re::math::{
     color::{rgba, Color4f},
     mat::{perspective, rotate_z, translate, viewport},
-    point::pt3,
-    rads, vec2, vec3,
+    point::{pt2, pt3},
+    rads, vec3,
 };
 use re::render::{raster::Frag, render, shader::Shader, ModelToView};
 use re::util::Dims;
@@ -31,7 +31,7 @@ pub fn start() {
     ];
 
     let proj = perspective(1.0, 4.0 / 3.0, 0.1..1000.0);
-    let vp = viewport(vec2(8, 8)..vec2(DIMS.0 - 8, DIMS.1 - 8));
+    let vp = viewport(pt2(8, 8)..pt2(DIMS.0 - 8, DIMS.1 - 8));
 
     win.run(move |frame| {
         let t = frame.t.as_secs_f32();

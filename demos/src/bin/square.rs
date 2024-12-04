@@ -4,7 +4,7 @@ use re::prelude::*;
 
 use re::{
     geom::Vertex3,
-    math::point::pt3,
+    math::point::{pt2, pt3},
     render::{ctx::Context, render, tex::SamplerClamp, ModelToProj},
 };
 
@@ -45,7 +45,7 @@ fn main() {
 
     let (w, h) = win.dims;
     let project = perspective(1.0, 4.0 / 3.0, 0.1..1000.0);
-    let viewport = viewport(vec2(10, 10)..vec2(w - 10, h - 10));
+    let viewport = viewport(pt2(10, 10)..pt2(w - 10, h - 10));
 
     win.run(|frame| {
         let secs = frame.t.as_secs_f32();
