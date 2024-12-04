@@ -1,5 +1,6 @@
 use core::array::from_fn;
 use core::ops::ControlFlow::Continue;
+use re::geom::Vertex3;
 
 use re::prelude::*;
 
@@ -19,7 +20,7 @@ fn main() {
     ];
     let count = 10000;
     let rng = Xorshift64::default();
-    let verts: Vec<Vertex<Vec3<_>, Vec2<_>>> = UnitBall
+    let verts: Vec<Vertex3<Vec2<_>>> = UnitBall
         .samples(rng)
         .take(count)
         .flat_map(|pos| verts.map(|v| vertex(pos.to(), v)))
@@ -36,7 +37,7 @@ fn main() {
         .expect("should create window");
 
     let shader = Shader::new(
-        |v: Vertex<Vec3<_>, Vec2<_>>,
+        |v: Vertex3<Vec2<_>>,
          (mv, proj): (&Mat4x4<ModelToView>, &Mat4x4<ViewToProj>)| {
             let vertex_pos = 0.008 * vec3(v.attrib.x(), v.attrib.y(), 0.0);
             let view_pos = mv.apply(&v.pos) + vertex_pos;
