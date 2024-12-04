@@ -1,15 +1,17 @@
 use std::mem::swap;
 use std::ops::ControlFlow::Continue;
 
-use re::math::rand::{Distrib, Uniform, UnitDisk, Xorshift64};
-use re::math::spline::BezierSpline;
 use re::prelude::*;
-use re::util::Dims;
 
-use re_front::minifb::Window;
-use re_front::Frame;
+use re::math::{
+    point::Point2u,
+    rand::{Distrib, Uniform, UnitDisk, Xorshift64},
+    spline::BezierSpline,
+};
 
-fn line([mut p0, mut p1]: [Vec2; 2]) -> impl Iterator<Item = Vec2u> {
+use re_front::{minifb::Window, Frame};
+
+fn line([mut p0, mut p1]: [Vec2; 2]) -> impl Iterator<Item = Point2u> {
     if p0.y() > p1.y() {
         swap(&mut p0, &mut p1);
     }
@@ -23,7 +25,7 @@ fn line([mut p0, mut p1]: [Vec2; 2]) -> impl Iterator<Item = Vec2u> {
     };
 
     p0.vary(step, Some(n as u32))
-        .map(|p| vec2(p.x() as u32, p.y() as u32))
+        .map(|p| p.map(|c| c as u32).to_pt())
 }
 
 fn main() {
