@@ -15,7 +15,7 @@ use core::{fmt::Debug, ops::Range};
 
 use crate::{
     geom::Vertex,
-    math::{Lerp, Vary, Vec3},
+    math::{point::Point3, Lerp, Vary},
 };
 
 use super::Screen;
@@ -23,7 +23,7 @@ use super::Screen;
 /// A fragment, or a single "pixel" in a rasterized primitive.
 #[derive(Clone, Debug)]
 pub struct Frag<V> {
-    pub pos: ScreenVec,
+    pub pos: ScreenPt,
     pub var: V,
 }
 
@@ -47,12 +47,12 @@ pub struct ScanlineIter<V: Vary> {
     n: u32,
 }
 
-/// Vector in screen space.
+/// Point in screen space.
 /// `x` and `y` are viewport pixel coordinates, `z` is depth.
-pub type ScreenVec = Vec3<Screen>;
+pub type ScreenPt = Point3<Screen>;
 
 /// Values to interpolate across a rasterized primitive.
-pub type Varyings<V> = (ScreenVec, V);
+pub type Varyings<V> = (ScreenPt, V);
 
 impl<V: Vary> Scanline<V> {
     pub fn fragments(&mut self) -> impl Iterator<Item = Frag<V>> + '_ {
@@ -107,7 +107,7 @@ impl<V: Vary> Iterator for ScanlineIter<V> {
 /// `scanline_fn` for each scanline. The scanlines are guaranteed to cover
 /// exactly those pixels whose center point lies inside the triangle. For more
 /// information on the scanline conversion, see [`scan`].
-pub fn tri_fill<V, F>(mut verts: [Vertex<ScreenVec, V>; 3], mut scanline_fn: F)
+pub fn tri_fill<V, F>(mut verts: [Vertex<ScreenPt, V>; 3], mut scanline_fn: F)
 where
     V: Vary,
     F: FnMut(Scanline<V>),
@@ -245,7 +245,7 @@ mod tests {
     use crate::{
         assert_approx_eq,
         geom::vertex,
-        math::{vary::Vary, vary::ZDiv, vec3},
+        math::{point::pt3, vary::Vary, vary::ZDiv},
         util::buf::Buf2,
     };
 
@@ -258,10 +258,10 @@ mod tests {
         let mut buf = Buf2::new((20, 10));
 
         let verts = [
-            vec3(8.0, 0.0, 0.0),
-            vec3(0.0, 6.0, 0.0),
-            vec3(14.0, 10.0, 0.0),
-            vec3(20.0, 3.0, 0.0),
+            pt3(8.0, 0.0, 0.0),
+            pt3(0.0, 6.0, 0.0),
+            pt3(14.0, 10.0, 0.0),
+            pt3(20.0, 3.0, 0.0),
         ]
         .map(|pos| vertex(pos, 0.0));
 
@@ -301,12 +301,8 @@ mod tests {
     #[test]
     fn gradient() {
         use core::fmt::Write;
-        let verts = [
-            vec3::<_, ()>(15.0, 2.0, 0.0),
-            vec3(2.0, 8.0, 1.0),
-            vec3(26.0, 14.0, 0.5),
-        ]
-        .map(|pos| vertex(vec3(pos.x(), pos.y(), 1.0), pos.z()));
+        let verts = [(15.0, 2.0, 0.0), (2.0, 8.0, 1.0), (26.0, 14.0, 0.5)]
+            .map(|(x, y, val)| vertex(pt3(x, y, 1.0), val));
 
         let expected = r"
               0
@@ -343,8 +339,8 @@ mod tests {
             y: 42,
             xs: 8..16,
             vs: Vary::vary_to(
-                (vec3(8.0, 42.0, 1.0 / w0), 3.0f32.z_div(w0)),
-                (vec3(16.0, 42.0, 1.0 / w1), 5.0f32.z_div(w1)),
+                (pt3(8.0, 42.0, 1.0 / w0), 3.0f32.z_div(w0)),
+                (pt3(16.0, 42.0, 1.0 / w1), 5.0f32.z_div(w1)),
                 8,
             ),
         };
@@ -361,7 +357,7 @@ mod tests {
         let mut x = 8.0;
 
         for ((Frag { pos, var }, z), v) in sl.fragments().zip(zs).zip(vars) {
-            assert_approx_eq!(pos, vec3(x, 42.0, z.recip()));
+            assert_approx_eq!(pos, pt3(x, 42.0, z.recip()));
             assert_approx_eq!(var, v);
 
             x += 1.0;
