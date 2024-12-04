@@ -1,16 +1,23 @@
 #![allow(clippy::needless_range_loop)]
 
 //! Matrices and linear transforms.
+//!
+//! TODO Docs
 
-use core::array;
-use core::fmt::{self, Debug, Formatter};
-use core::marker::PhantomData;
-use core::ops::Range;
+use core::{
+    array,
+    fmt::{self, Debug, Formatter},
+    marker::PhantomData,
+    ops::Range,
+};
 
 use crate::render::{NdcToScreen, ViewToProj};
 
-use super::space::{Linear, Proj4, Real};
-use super::vec::{ProjVec4, Vec2, Vec2u, Vec3, Vector};
+use super::{
+    point::{Point2, Point3},
+    space::{Linear, Proj4, Real},
+    vec::{ProjVec4, Vec2, Vec2u, Vec3, Vector},
+};
 
 /// A linear transform from one space (or basis) to another.
 ///
@@ -199,8 +206,15 @@ impl<Src, Dst> Mat3x3<RealToReal<2, Src, Dst>> {
     /// ```
     #[must_use]
     pub fn apply(&self, v: &Vec2<Src>) -> Vec2<Dst> {
-        let v = [v.x(), v.y(), 1.0].into();
+        let v = [v.x(), v.y(), 1.0].into(); // TODO w=0.0
         array::from_fn(|i| self.row_vec(i).dot(&v)).into()
+    }
+
+    // TODO Add trait to overload apply or similar
+    #[must_use]
+    pub fn apply_pt(&self, p: &Point2<Src>) -> Point2<Dst> {
+        let p = [p.x(), p.y(), 1.0].into();
+        array::from_fn(|i| self.row_vec(i).dot(&p)).into()
     }
 }
 
@@ -218,8 +232,15 @@ impl<Src, Dst> Mat4x4<RealToReal<3, Src, Dst>> {
     /// ```
     #[must_use]
     pub fn apply(&self, v: &Vec3<Src>) -> Vec3<Dst> {
-        let v = [v.x(), v.y(), v.z(), 1.0].into();
+        let v = [v.x(), v.y(), v.z(), 1.0].into(); // TODO w=0.0
         array::from_fn(|i| self.row_vec(i).dot(&v)).into()
+    }
+
+    // TODO Add trait to overload apply or similar
+    #[must_use]
+    pub fn apply_pt(&self, p: &Point3<Src>) -> Point3<Dst> {
+        let p = [p.x(), p.y(), p.z(), 1.0].into();
+        array::from_fn(|i| self.row_vec(i).dot(&p)).into()
     }
 
     /// Returns the determinant of `self`.
@@ -652,6 +673,7 @@ mod tests {
 
     mod mat3x3 {
         use super::*;
+        use crate::math::point::pt2;
 
         const MAT: Mat3x3<Map> = Matrix::new([
             [0.0, 1.0, 2.0], //
@@ -696,6 +718,7 @@ mod tests {
                 [0.0, 0.0, 1.0],
             ]);
             assert_eq!(m.apply(&vec2(1.0, 2.0)), vec2(2.0, -6.0));
+            assert_eq!(m.apply_pt(&pt2(2.0, -1.0)), pt2(4.0, 3.0));
         }
 
         #[test]
@@ -706,6 +729,7 @@ mod tests {
                 [0.0, 0.0, 1.0],
             ]);
             assert_eq!(m.apply(&vec2(1.0, 2.0)), vec2(3.0, -1.0));
+            assert_eq!(m.apply_pt(&pt2(2.0, -1.0)), pt2(4.0, -4.0));
         }
 
         #[test]
@@ -723,6 +747,7 @@ mod tests {
 
     mod mat4x4 {
         use super::*;
+        use crate::math::point::pt3;
 
         const MAT: Mat4x4<Map> = Matrix::new([
             [0.0, 1.0, 2.0, 3.0],
@@ -753,17 +778,25 @@ mod tests {
         }
 
         #[test]
-        fn scaling_vec3() {
+        fn scaling() {
             let m = scale(vec3(1.0, -2.0, 3.0));
+
             let v = vec3(0.0, 4.0, -3.0);
             assert_eq!(m.apply(&v), vec3(0.0, -8.0, -9.0));
+
+            let p = pt3(4.0, 0.0, -3.0);
+            assert_eq!(m.apply_pt(&p), pt3(4.0, 0.0, -9.0));
         }
 
         #[test]
-        fn translation_vec3() {
+        fn translation() {
             let m = translate(vec3(1.0, 2.0, 3.0));
+
             let v = vec3(0.0, 5.0, -3.0);
             assert_eq!(m.apply(&v), vec3(1.0, 7.0, 0.0));
+
+            let p = pt3(3.0, 5.0, 0.0);
+            assert_eq!(m.apply_pt(&p), pt3(4.0, 7.0, 3.0));
         }
 
         #[cfg(feature = "fp")]
@@ -774,6 +807,10 @@ mod tests {
             assert_approx_eq!(
                 m.apply(&vec3(0.0, 0.0, 1.0)),
                 vec3(0.0, 1.0, 0.0)
+            );
+            assert_approx_eq!(
+                m.apply_pt(&pt3(0.0, -2.0, 0.0)),
+                pt3(0.0, 0.0, 2.0)
             );
         }
 
@@ -786,6 +823,10 @@ mod tests {
                 m.apply(&vec3(1.0, 0.0, 0.0)),
                 vec3(0.0, 0.0, 1.0)
             );
+            assert_approx_eq!(
+                m.apply_pt(&pt3(0.0, 0.0, -2.0)),
+                pt3(2.0, 0.0, 0.0)
+            );
         }
 
         #[cfg(feature = "fp")]
@@ -796,6 +837,10 @@ mod tests {
             assert_approx_eq!(
                 m.apply(&vec3(0.0, 1.0, 0.0)),
                 vec3(1.0, 0.0, 0.0)
+            );
+            assert_approx_eq!(
+                m.apply_pt(&pt3(-2.0, 0.0, 0.0)),
+                pt3(0.0, 2.0, 0.0)
             );
         }
 
