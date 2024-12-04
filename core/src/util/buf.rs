@@ -3,9 +3,11 @@
 //! Useful for storing pixel data of any kind, among other things.
 
 use alloc::{vec, vec::Vec};
-use core::fmt::{self, Debug, Formatter};
-use core::iter;
-use core::ops::{Deref, DerefMut};
+use core::{
+    fmt::{self, Debug, Formatter},
+    iter,
+    ops::{Deref, DerefMut},
+};
 
 use crate::util::Dims;
 
@@ -43,16 +45,16 @@ pub trait AsMutSlice2<T> {
 ///
 /// # Examples
 /// ```
-/// # use retrofire_core::util::buf::*;
-/// # use retrofire_core::math::vec::*;
+/// # use retrofire_core::util::buf::Buf2;
+/// # use retrofire_core::math::point::pt2;
 /// // Elements initialized with `Default::default()`
 /// let mut buf = Buf2::new((4, 4));
-/// // Indexing with a 2D vector (x, y) yields element at row y, column x:
-/// buf[vec2(2, 1)] = 123;
+/// // Indexing with a 2D point (x, y) yields element at row y, column x:
+/// buf[pt2(2, 1)] = 123;
 /// // Indexing with an usize i yields row with index i as a slice:
-/// assert_eq!(buf[1usize], [0, 0, 123, 0]);
+/// assert_eq!(buf[1], [0, 0, 123, 0]);
 /// // Thus you can also do this, row first, column second:
-/// assert_eq!(buf[1usize][2], 123)
+/// assert_eq!(buf[1][2], 123)
 /// ```
 #[derive(Clone)]
 #[repr(transparent)]
@@ -203,8 +205,8 @@ impl<'a, T> Slice2<'a, T> {
     /// # use retrofire_core::util::buf::Slice2;
     /// let data = &[0, 1, 2, 3, 4, 5, 6];
     /// let slice = Slice2::new((2, 2), 3, data);
-    /// assert_eq!(&slice[0usize], &[0, 1]);
-    /// assert_eq!(&slice[1usize], &[3, 4]);
+    /// assert_eq!(&slice[0], &[0, 1]);
+    /// assert_eq!(&slice[1], &[3, 4]);
     /// ```
     /// Above, `slice` represents a 2×2 rectangle with stride 3, such that
     /// the first row maps to `data[0..2]` and the second to `data[3..5]`:
@@ -347,7 +349,10 @@ pub mod inner {
         ops::{Deref, DerefMut, Index, IndexMut, Range},
     };
 
-    use crate::{math::vec::Vec2u, util::rect::Rect, util::Dims};
+    use crate::{
+        math::point::Point2u,
+        util::{rect::Rect, Dims},
+    };
 
     use super::{AsSlice2, MutSlice2, Slice2};
 
@@ -506,7 +511,7 @@ pub mod inner {
 
         /// Returns a reference to the element at `pos`,
         /// or `None` if `pos` is out of bounds.
-        pub fn get(&self, pos: impl Into<Vec2u>) -> Option<&T> {
+        pub fn get(&self, pos: impl Into<Point2u>) -> Option<&T> {
             let [x, y] = pos.into().0;
             self.to_index_checked(x, y).map(|i| &self.data[i])
         }
@@ -607,7 +612,7 @@ pub mod inner {
 
         /// Returns a mutable reference to the element at `pos`,
         /// or `None` if `pos` is out of bounds.
-        pub fn get_mut(&mut self, pos: impl Into<Vec2u>) -> Option<&mut T> {
+        pub fn get_mut(&mut self, pos: impl Into<Point2u>) -> Option<&mut T> {
             let [x, y] = pos.into().0;
             self.to_index_checked(x, y)
                 .map(|i| &mut self.data[i])
@@ -662,7 +667,7 @@ pub mod inner {
     impl<T, D, Pos> Index<Pos> for Inner<T, D>
     where
         D: Deref<Target = [T]>,
-        Pos: Into<Vec2u>,
+        Pos: Into<Point2u>,
     {
         type Output = T;
 
@@ -680,7 +685,7 @@ pub mod inner {
     impl<T, D, Pos> IndexMut<Pos> for Inner<T, D>
     where
         D: DerefMut<Target = [T]>,
-        Pos: Into<Vec2u>,
+        Pos: Into<Point2u>,
     {
         /// Returns a mutable reference to the element at position `pos`.
         ///
@@ -734,8 +739,8 @@ mod tests {
         assert_eq!(buf[2usize], [2, 12, 22, 32]);
 
         assert_eq!(buf[[0, 0]], 0);
-        assert_eq!(buf[vec2(1, 0)], 10);
-        assert_eq!(buf[vec2(3, 4)], 34);
+        assert_eq!(buf[[1, 0]], 10);
+        assert_eq!(buf[[3, 4]], 34);
 
         assert_eq!(buf.get([2, 3]), Some(&23));
         assert_eq!(buf.get([4, 4]), None);
@@ -749,7 +754,7 @@ mod tests {
         buf[2usize][1] = 123;
         assert_eq!(buf[2usize], [2, 123, 22, 32]);
 
-        buf[vec2(2, 3)] = 234;
+        buf[[2, 3]] = 234;
         assert_eq!(buf[[2, 3]], 234);
 
         *buf.get_mut([3, 4]).unwrap() = 345;
@@ -952,12 +957,12 @@ mod tests {
         let buf = Buf2::new_with((5, 4), |x, y| x * 10 + y);
         let slice = buf.slice((2.., 1..3));
 
-        assert_eq!(slice[vec2(0, 0)], 21);
-        assert_eq!(slice[vec2(1, 0)], 31);
-        assert_eq!(slice[vec2(2, 1)], 42);
+        assert_eq!(slice[[0, 0]], 21);
+        assert_eq!(slice[[1, 0]], 31);
+        assert_eq!(slice[[2, 1]], 42);
 
-        assert_eq!(slice.get(vec2(2, 1)), Some(&42));
-        assert_eq!(slice.get(vec2(2, 2)), None);
+        assert_eq!(slice.get([2, 1]), Some(&42));
+        assert_eq!(slice.get([2, 2]), None);
     }
 
     #[test]
@@ -966,10 +971,10 @@ mod tests {
         let mut slice = buf.slice_mut((2.., 1..3));
 
         slice[[2, 1]] = 123;
-        assert_eq!(slice[vec2(2, 1)], 123);
+        assert_eq!(slice[[2, 1]], 123);
 
-        assert_eq!(slice.get_mut(vec2(2, 1)), Some(&mut 123));
-        assert_eq!(slice.get(vec2(2, 2)), None);
+        assert_eq!(slice.get_mut([2, 1]), Some(&mut 123));
+        assert_eq!(slice.get([2, 2]), None);
 
         buf[[2, 2]] = 321;
         let slice = buf.slice((1.., 2..));

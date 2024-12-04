@@ -337,6 +337,7 @@ where
     Sc::Diff: Linear<Scalar = Sc::Diff> + Copy,
 {
     type Space = Sp;
+    // TODO Vectors always Linear once Point used for affine stuff
     type Diff = Vector<[Sc::Diff; DIM], Sp>;
 
     /// The dimension (number of components) of `Self`.
