@@ -17,7 +17,7 @@ use crate::math::{
 
 use clip::{view_frustum, Clip, ClipVert};
 use ctx::{Context, DepthSort, FaceCull};
-use raster::{tri_fill, ScreenVec};
+use raster::{tri_fill, ScreenPt};
 use shader::{FragmentShader, VertexShader};
 use stats::Stats;
 use target::Target;
@@ -133,10 +133,10 @@ pub fn render<Vtx: Clone, Var: Vary, Uni: Copy, Shd>(
             // of the original view-space depth. The interpolated reciprocal
             // is used in fragment processing for depth testing (larger values
             // are closer) and for perspective correction of the varyings.
-            let pos = vec3(x, y, 1.0).z_div(w);
+            let pos = vec3(x, y, 1.0) / w; // TODO
             Vertex {
                 // Viewport transform
-                pos: to_screen.apply(&pos),
+                pos: to_screen.apply(&pos).to_pt(),
                 // Perspective correction
                 attrib: v.attrib.z_div(w),
             }
@@ -174,7 +174,7 @@ fn depth_sort<A>(tris: &mut [Tri<ClipVert<A>>], d: DepthSort) {
     });
 }
 
-fn is_backface<V>(vs: &[Vertex<ScreenVec, V>]) -> bool {
+fn is_backface<V>(vs: &[Vertex<ScreenPt, V>]) -> bool {
     let v = vs[1].pos - vs[0].pos;
     let u = vs[2].pos - vs[0].pos;
     v[0] * u[1] - v[1] * u[0] > 0.0
