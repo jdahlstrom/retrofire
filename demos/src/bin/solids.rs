@@ -4,11 +4,12 @@ use minifb::{Key, KeyRepeat};
 
 use re::prelude::*;
 
+use re::geom::Vertex3;
 use re::math::{
     color::gray, mat::RealToReal, spline::smootherstep, vec::ProjVec4,
 };
-use re::render::batch::Batch;
-use re::render::{cam::Camera, Model, ModelToProj, ModelToWorld};
+use re::render::{batch::Batch, cam::Camera, ModelToProj, ModelToWorld};
+
 use re_front::{minifb::Window, Frame};
 use re_geom::{io::parse_obj, solids::*};
 
@@ -62,7 +63,7 @@ fn main() {
         .perspective(1.5, 0.1..1000.0)
         .viewport(vec2(10, 10)..vec2(w - 10, h - 10));
 
-    type VertexIn = Vertex<Vec3<Model>, Normal3>;
+    type VertexIn = Vertex3<Normal3>;
     type VertexOut = Vertex<ProjVec4, Color3f>;
     type Uniform<'a> = (&'a Mat4x4<ModelToProj>, &'a Mat4x4<RealToReal<3>>);
 

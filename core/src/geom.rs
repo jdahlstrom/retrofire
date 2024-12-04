@@ -1,6 +1,7 @@
 //! Basic geometric primitives.
 
 use crate::math::vec::{Vec2, Vec3};
+use crate::render::Model;
 
 pub use mesh::Mesh;
 
@@ -12,6 +13,12 @@ pub struct Vertex<P, A> {
     pub pos: P,
     pub attrib: A,
 }
+
+/// Two-dimensional vertex type.
+pub type Vertex2<A, B = Model> = Vertex<Vec2<B>, A>;
+
+/// Three-dimensional vertex type.
+pub type Vertex3<A, B = Model> = Vertex<Vec3<B>, A>;
 
 /// Triangle, defined by three vertices.
 #[derive(Copy, Clone, Debug, Eq, PartialEq)]
