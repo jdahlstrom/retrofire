@@ -11,6 +11,7 @@ use core::ops::{AddAssign, DivAssign, MulAssign, SubAssign};
 
 use crate::math::approx::ApproxEq;
 use crate::math::float::f32;
+use crate::math::point::Point;
 use crate::math::space::{Affine, Linear, Proj4, Real};
 
 //
@@ -98,6 +99,13 @@ impl<R, Sp> Vector<R, Sp> {
     #[inline]
     pub fn to<S>(self) -> Vector<R, S> {
         Vector::new(self.0)
+    }
+
+    /// Returns the affine point equivalent to `self`.
+    // TODO Cannot be const (yet?) due to E0493 :(
+    #[inline]
+    pub fn to_pt(self) -> Point<R, Sp> {
+        Point::new(self.0)
     }
 }
 

@@ -37,9 +37,18 @@ impl<R, Sp> Point<R, Sp> {
         Self(repr, Pd)
     }
 
+    /// Returns a point with value equal to `self` but in space `S`.
+    // TODO Cannot be const (yet?) due to E0493 :(
     #[inline]
-    pub fn to<T>(self) -> Point<R, T> {
+    pub fn to<S>(self) -> Point<R, S> {
         Point(self.0, Pd)
+    }
+
+    /// Returns the vector equivalent to `self`.
+    // TODO Cannot be const (yet?) due to E0493 :(
+    #[inline]
+    pub fn to_vec(self) -> Vector<R, Sp> {
+        Vector::new(self.0)
     }
 }
 
