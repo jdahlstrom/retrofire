@@ -1,9 +1,7 @@
 //! Mesh approximations of various geometric shapes.
 
-use core::array::from_fn;
-use core::ops::Range;
-
 use alloc::{vec, vec::Vec};
+use core::{array::from_fn, ops::Range};
 
 use re::geom::{
     mesh::Builder, vertex, Mesh, Normal2, Normal3, Vertex, Vertex2,
@@ -11,8 +9,9 @@ use re::geom::{
 use re::math::{
     angle::{degs, polar, turns, Angle},
     mat::rotate_y,
+    point::{pt2, pt3, Point3},
     vary::Vary,
-    vec::{splat, vec2, vec3, Vec3},
+    vec::{vec2, vec3, Vec3},
 };
 use re::render::tex::{uv, TexCoord};
 
@@ -49,9 +48,9 @@ pub struct Tetrahedron;
 #[derive(Copy, Clone, Debug)]
 pub struct Box {
     /// The left bottom near corner of the box.
-    pub left_bot_near: Vec3,
+    pub left_bot_near: Point3,
     /// The right top far corner of the box.
-    pub right_top_far: Vec3,
+    pub right_top_far: Point3,
 }
 
 /// Regular octahedron.
@@ -164,12 +163,12 @@ impl Tetrahedron {
         use re::math::float::f32;
         let sqrt = f32::sqrt;
         let coords = [
-            vec3(0.0, 1.0, 0.0),
-            vec3(sqrt(8.0 / 9.0), -1.0 / 3.0, 0.0),
-            vec3(-sqrt(2.0 / 9.0), -1.0 / 3.0, sqrt(2.0 / 3.0)),
-            vec3(-sqrt(2.0 / 9.0), -1.0 / 3.0, -sqrt(2.0 / 3.0)),
+            pt3(0.0, 1.0, 0.0),
+            pt3(sqrt(8.0 / 9.0), -1.0 / 3.0, 0.0),
+            pt3(-sqrt(2.0 / 9.0), -1.0 / 3.0, sqrt(2.0 / 3.0)),
+            pt3(-sqrt(2.0 / 9.0), -1.0 / 3.0, -sqrt(2.0 / 3.0)),
         ];
-        let norms = [-coords[3], -coords[1], -coords[2], -coords[0]];
+        let norms = [3, 1, 2, 0].map(|i| -coords[i].to_vec());
 
         let mut b = Mesh::builder();
 
@@ -240,9 +239,10 @@ impl Box {
 
     /// Returns a cube centered on the origin, with the given side length.
     pub fn cube(side_len: f32) -> Self {
+        let l = 0.5 * side_len;
         Self {
-            left_bot_near: splat(-0.5 * side_len),
-            right_top_far: splat(0.5 * side_len),
+            left_bot_near: pt3(-l, -l, -l),
+            right_top_far: pt3(l, l, l),
         }
     }
 
@@ -252,8 +252,8 @@ impl Box {
         b.push_faces(Self::FACES);
         for (pos_i, [norm_i, _uv_i]) in Self::VERTS {
             let pos = from_fn(|i| {
-                self.left_bot_near[i]
-                    .lerp(&self.right_top_far[i], Self::COORDS[pos_i][i])
+                self.left_bot_near.0[i]
+                    .lerp(&self.right_top_far.0[i], Self::COORDS[pos_i][i])
             });
             b.push_vert(pos.into(), Self::NORMS[norm_i]);
         }
@@ -262,13 +262,13 @@ impl Box {
 }
 
 impl Octahedron {
-    const COORDS: [Vec3; 6] = [
-        vec3(-1.0, 0.0, 0.0),
-        vec3(0.0, -1.0, 0.0),
-        vec3(0.0, 0.0, -1.0),
-        vec3(0.0, 1.0, 0.0),
-        vec3(0.0, 0.0, 1.0),
-        vec3(1.0, 0.0, 0.0),
+    const COORDS: [Point3; 6] = [
+        pt3(-1.0, 0.0, 0.0),
+        pt3(0.0, -1.0, 0.0),
+        pt3(0.0, 0.0, -1.0),
+        pt3(0.0, 1.0, 0.0),
+        pt3(0.0, 0.0, 1.0),
+        pt3(1.0, 0.0, 0.0),
     ];
     const NORMS: [Normal3; 8] = [
         vec3(-1.0, -1.0, -1.0),
@@ -379,7 +379,7 @@ impl Dodecahedron {
             b.push_face(i5, i5 + 2, i5 + 3);
             b.push_face(i5, i5 + 3, i5 + 4);
             for &j in face {
-                b.push_vert(Self::COORDS[j].normalize(), n);
+                b.push_vert(Self::COORDS[j].normalize().to_pt(), n);
             }
         }
         b.build()
@@ -424,7 +424,7 @@ impl Icosahedron {
             let n = Self::NORMALS[i].normalize();
             b.push_face(3 * i, 3 * i + 1, 3 * i + 2);
             for vi in *vs {
-                b.push_vert(Self::COORDS[vi].normalize(), n);
+                b.push_vert(Self::COORDS[vi].normalize().to_pt(), n);
             }
         }
         b.build()
@@ -463,12 +463,12 @@ impl Lathe {
 
         // Create vertices
         for Vertex { pos, attrib: n } in &pts {
-            let mut pos = start.apply(&vec3(pos.x(), pos.y(), 0.0));
+            let mut pos = start.apply_pt(&pt3(pos.x(), pos.y(), 0.0));
             let mut norm = start.apply(&vec3(n.x(), n.y(), 0.0)).normalize();
 
             for _ in 0..=secs {
                 b.push_vert(pos, norm);
-                pos = rot.apply(&pos);
+                pos = rot.apply_pt(&pos);
                 norm = rot.apply(&norm);
             }
         }
@@ -523,7 +523,7 @@ impl Sphere {
         let pts = degs(-90.0)
             .vary_to(degs(90.0), segments)
             .map(|alt| polar(radius, alt).to_cart())
-            .map(|pos| vertex(pos, pos))
+            .map(|pos| vertex(pos.to_pt(), pos))
             .collect();
 
         Lathe::new(pts, sectors).build()
@@ -536,7 +536,7 @@ impl Torus {
         let pts = turns(0.0)
             .vary_to(turns(1.0), self.minor_sectors)
             .map(|alt| polar(self.minor_radius, alt).to_cart())
-            .map(|v| vertex(vec2(self.major_radius, 0.0) + v, v))
+            .map(|v| vertex(pt2(self.major_radius, 0.0) + v, v))
             .collect();
 
         Lathe::new(pts, self.major_sectors).build()
@@ -560,8 +560,8 @@ impl Cylinder {
 impl Cone {
     /// Builds the conical mesh.
     pub fn build(self) -> Mesh<Normal3> {
-        let base_pt = vec2(self.base_radius, -1.0);
-        let apex_pt = vec2(self.apex_radius, 1.0);
+        let base_pt = pt2(self.base_radius, -1.0);
+        let apex_pt = pt2(self.apex_radius, 1.0);
         let n = apex_pt - base_pt;
         let n = vec2(n.y(), -n.x());
         let pts = vec![vertex(base_pt, n), vertex(apex_pt, n)];
@@ -580,14 +580,14 @@ impl Capsule {
         let bottom_pts: Vec<_> = degs(-90.0)
             .vary_to(degs(0.0), cap_segments)
             .map(|alt| polar(radius, alt).to_cart())
-            .map(|v| vertex(vec2(0.0, -1.0) + v, v))
+            .map(|v| vertex(pt2(0.0, -1.0) + v, v))
             .collect();
 
         // Top hemisphere
         let top_pts = bottom_pts
             .iter()
             .map(|Vertex { pos, attrib: n }| {
-                vertex(vec2(pos.x(), -pos.y()), vec2(n.x(), -n.y()))
+                vertex(pt2(pos.x(), -pos.y()), vec2(n.x(), -n.y()))
             })
             .rev();
 

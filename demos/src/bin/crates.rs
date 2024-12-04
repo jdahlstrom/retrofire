@@ -3,7 +3,7 @@ use core::ops::ControlFlow::*;
 use re::prelude::*;
 
 use re::geom::Vertex3;
-use re::math::color::gray;
+use re::math::{color::gray, point::pt3};
 use re::render::{
     batch::Batch,
     cam::{Camera, FirstPerson},
@@ -121,7 +121,7 @@ fn floor() -> Mesh<Color3f> {
         for i in -size..=size {
             let even_odd = ((i & 1) ^ (j & 1)) == 1;
 
-            let pos = vec3(i as f32, -1.0, j as f32);
+            let pos = pt3(i as f32, -1.0, j as f32);
             let col = if even_odd { gray(0.2) } else { gray(0.9) };
             bld.push_vert(pos, col);
 
