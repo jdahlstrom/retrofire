@@ -2,16 +2,20 @@ use std::ops::ControlFlow::*;
 
 use re::prelude::*;
 
-use re::geom::Vertex3;
-use re::render::{ctx::Context, render, tex::SamplerClamp, ModelToProj};
+use re::{
+    geom::Vertex3,
+    math::point::pt3,
+    render::{ctx::Context, render, tex::SamplerClamp, ModelToProj},
+};
+
 use re_front::minifb::Window;
 
 fn main() {
     let verts: [Vertex3<TexCoord>; 4] = [
-        vertex(vec3(-1.0, -1.0, 0.0), uv(0.0, 0.0)),
-        vertex(vec3(-1.0, 1.0, 0.0), uv(0.0, 1.0)),
-        vertex(vec3(1.0, -1.0, 0.0), uv(1.0, 0.0)),
-        vertex(vec3(1.0, 1.0, 0.0), uv(1.0, 1.0)),
+        vertex(pt3(-1.0, -1.0, 0.0), uv(0.0, 0.0)),
+        vertex(pt3(-1.0, 1.0, 0.0), uv(0.0, 1.0)),
+        vertex(pt3(1.0, -1.0, 0.0), uv(1.0, 0.0)),
+        vertex(pt3(1.0, 1.0, 0.0), uv(1.0, 1.0)),
     ];
 
     let mut win = Window::builder()

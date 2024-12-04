@@ -6,7 +6,8 @@ use re::prelude::*;
 
 use re::geom::Vertex3;
 use re::math::{
-    color::gray, mat::RealToReal, spline::smootherstep, vec::ProjVec4,
+    color::gray, mat::RealToReal, point::pt2, spline::smootherstep,
+    vec::ProjVec4,
 };
 use re::render::{batch::Batch, cam::Camera, ModelToProj, ModelToWorld};
 
@@ -157,11 +158,11 @@ fn objects(res: u32) -> [Mesh<Normal3>; 13] {
 fn lathe(secs: u32) -> Mesh<Normal3> {
     Lathe::new(
         vec![
-            vertex(vec2(0.75, -0.5), vec2(1.0, 1.0)),
-            vertex(vec2(0.55, -0.25), vec2(1.0, 0.5)),
-            vertex(vec2(0.5, 0.0), vec2(1.0, 0.0)),
-            vertex(vec2(0.55, 0.25), vec2(1.0, -0.5)),
-            vertex(vec2(0.75, 0.5), vec2(1.0, 1.0)),
+            vertex(pt2(0.75, -0.5), vec2(1.0, 1.0)),
+            vertex(pt2(0.55, -0.25), vec2(1.0, 0.5)),
+            vertex(pt2(0.5, 0.0), vec2(1.0, 0.0)),
+            vertex(pt2(0.55, 0.25), vec2(1.0, -0.5)),
+            vertex(pt2(0.75, 0.5), vec2(1.0, 1.0)),
         ],
         secs,
     )

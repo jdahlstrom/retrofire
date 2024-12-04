@@ -9,8 +9,8 @@ use alloc::{vec, vec::Vec};
 
 use crate::math::{
     mat::{Mat4x4, RealToReal},
+    point::Point3,
     space::Linear,
-    vec::Vec3,
 };
 use crate::render::Model;
 
@@ -51,16 +51,17 @@ impl<A, B> Mesh<A, B> {
     /// # Examples
     /// ```
     /// # use retrofire_core::geom::{Tri, Mesh, vertex};
-    /// # use retrofire_core::math::vec3;
+    /// # use retrofire_core::math::point::pt3;
     /// let verts = [
-    ///     vec3(0.0, 0.0, 0.0),
-    ///     vec3(1.0, 0.0, 0.0),
-    ///     vec3(0.0, 1.0, 0.0),
-    ///     vec3(0.0, 0.0, 1.0)
+    ///     pt3(0.0, 0.0, 0.0),
+    ///     pt3(1.0, 0.0, 0.0),
+    ///     pt3(0.0, 1.0, 0.0),
+    ///     pt3(0.0, 0.0, 1.0)
     /// ]
     /// .map(|v| vertex(v, ()));
     ///
     /// let faces = [
+    ///     // Indices point to the verts array
     ///     Tri([0, 1, 2]),
     ///     Tri([0, 1, 3]),
     ///     Tri([0, 2, 3]),
@@ -126,16 +127,16 @@ impl<A> Builder<A> {
     }
 
     /// Appends a vertex with the given position and attribute.
-    pub fn push_vert(&mut self, pos: Vec3, attrib: A) {
+    pub fn push_vert(&mut self, pos: Point3, attrib: A) {
         self.mesh.verts.push(vertex(pos.to(), attrib));
     }
 
     /// Appends all the vertices yielded by the given iterator.
     pub fn push_verts<Vs>(&mut self, verts: Vs)
     where
-        Vs: IntoIterator<Item = (Vec3, A)>,
+        Vs: IntoIterator<Item = (Point3, A)>,
     {
-        let vs = verts.into_iter().map(|(v, a)| vertex(v.to(), a));
+        let vs = verts.into_iter().map(|(p, a)| vertex(p.to(), a));
         self.mesh.verts.extend(vs);
     }
 
@@ -164,7 +165,7 @@ impl Builder<()> {
                 .mesh
                 .verts
                 .into_iter()
-                .map(|v| vertex(tf.apply(&v.pos), v.attrib))
+                .map(|v| vertex(tf.apply_pt(&v.pos), v.attrib))
                 .collect(),
         };
         mesh.into_builder()
@@ -254,6 +255,7 @@ mod tests {
     use core::f32::consts::FRAC_1_SQRT_2;
 
     use crate::geom::vertex;
+    use crate::math::point::pt3;
     use crate::math::vec3;
     use crate::prelude::splat;
 
@@ -265,9 +267,9 @@ mod tests {
         let _: Mesh<()> = Mesh::new(
             [Tri([0, 1, 2]), Tri([1, 2, 3])],
             [
-                vertex(vec3(0.0, 0.0, 0.0), ()),
-                vertex(vec3(1.0, 1.0, 1.0), ()),
-                vertex(vec3(2.0, 2.0, 2.0), ()),
+                vertex(pt3(0.0, 0.0, 0.0), ()),
+                vertex(pt3(1.0, 1.0, 1.0), ()),
+                vertex(pt3(2.0, 2.0, 2.0), ()),
             ],
         );
     }
@@ -278,9 +280,9 @@ mod tests {
         let mut b = Mesh::builder();
         b.push_faces([[0, 1, 2], [1, 2, 3]]);
         b.push_verts([
-            (vec3(0.0, 0.0, 0.0), ()),
-            (vec3(1.0, 1.0, 1.0), ()),
-            (vec3(2.0, 2.0, 2.0), ()),
+            (pt3(0.0, 0.0, 0.0), ()),
+            (pt3(1.0, 1.0, 1.0), ()),
+            (pt3(2.0, 2.0, 2.0), ()),
         ]);
         _ = b.build();
     }
@@ -292,10 +294,10 @@ mod tests {
         let mut b = Mesh::builder();
         b.push_faces([[0, 2, 1], [0, 1, 3], [0, 3, 2]]);
         b.push_verts([
-            (vec3(0.0, 0.0, 0.0), ()),
-            (vec3(1.0, 0.0, 0.0), ()),
-            (vec3(0.0, 1.0, 0.0), ()),
-            (vec3(0.0, 0.0, 1.0), ()),
+            (pt3(0.0, 0.0, 0.0), ()),
+            (pt3(1.0, 0.0, 0.0), ()),
+            (pt3(0.0, 1.0, 0.0), ()),
+            (pt3(0.0, 0.0, 1.0), ()),
         ]);
         let b = b.with_vertex_normals();
 

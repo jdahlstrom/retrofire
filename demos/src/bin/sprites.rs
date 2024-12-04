@@ -20,10 +20,11 @@ fn main() {
     ];
     let count = 10000;
     let rng = Xorshift64::default();
+    // TODO Points in unit ball and other distribs
     let verts: Vec<Vertex3<Vec2<_>>> = UnitBall
         .samples(rng)
         .take(count)
-        .flat_map(|pos| verts.map(|v| vertex(pos.to(), v)))
+        .flat_map(|pos| verts.map(|v| vertex(pos.to().to_pt(), v)))
         .collect();
 
     let tris: Vec<_> = (0..count)
@@ -40,7 +41,7 @@ fn main() {
         |v: Vertex3<Vec2<_>>,
          (mv, proj): (&Mat4x4<ModelToView>, &Mat4x4<ViewToProj>)| {
             let vertex_pos = 0.008 * vec3(v.attrib.x(), v.attrib.y(), 0.0);
-            let view_pos = mv.apply(&v.pos) + vertex_pos;
+            let view_pos = mv.apply_pt(&v.pos) + vertex_pos;
             vertex(proj.apply(&view_pos), v.attrib)
         },
         |frag: Frag<Vec2<_>>| {

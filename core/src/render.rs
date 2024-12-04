@@ -16,10 +16,9 @@ use crate::math::{
     Lerp,
 };
 
-use crate::render::raster::ScreenVec;
 use clip::{view_frustum, Clip, ClipVert};
 use ctx::{Context, DepthSort, FaceCull};
-use raster::tri_fill;
+use raster::{tri_fill, ScreenVec};
 use shader::{FragmentShader, VertexShader};
 use stats::Stats;
 use target::Target;
