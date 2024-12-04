@@ -386,8 +386,8 @@ impl<Src> Mat4x4<RealToProj<Src>> {
     ///         \ ·  ·  M33 / \  1 /
     /// ```
     #[must_use]
-    pub fn apply(&self, v: &Point3<Src>) -> ProjVec4 {
-        let v = Vector::from([v.x(), v.y(), v.z(), 1.0]);
+    pub fn apply(&self, p: &Point3<Src>) -> ProjVec4 {
+        let v = Vector::from([p.x(), p.y(), p.z(), 1.0]);
         [
             self.row_vec(0).dot(&v),
             self.row_vec(1).dot(&v),
@@ -624,13 +624,16 @@ pub fn perspective(
 /// * `lbn`: The left-bottom-near corner of the projection box.
 /// * `rtf`: The right-bottom-far corner of the projection box.
 // TODO Change to take points
-pub fn orthographic(lbn: Vec3, rtf: Vec3) -> Mat4x4<ViewToProj> {
-    let [dx, dy, dz] = (rtf - lbn).0;
-    let [sx, sy, sz] = (rtf + lbn).0;
+pub fn orthographic(lbn: Point3, rtf: Point3) -> Mat4x4<ViewToProj> {
+    let half_d = 0.5 * (rtf - lbn);
+    let center_pt = lbn + half_d;
+
+    let [dx, dy, dz] = half_d.0;
+    let [cx, cy, cz] = center_pt.0;
     [
-        [2.0 / dx, 0.0, 0.0, -sx / dx],
-        [0.0, 2.0 / dy, 0.0, -sy / dy],
-        [0.0, 0.0, 2.0 / dz, -sz / dz],
+        [1.0 / dx, 0.0, 0.0, -cx / dx],
+        [0.0, 1.0 / dy, 0.0, -cy / dy],
+        [0.0, 0.0, 1.0 / dz, -cz / dz],
         [0.0, 0.0, 0.0, 1.0],
     ]
     .into()
@@ -934,7 +937,7 @@ mod tests {
         let lbn = pt3(-20.0, 0.0, 0.01);
         let rtf = pt3(100.0, 50.0, 100.0);
 
-        let m = orthographic(lbn.to_vec(), rtf.to_vec());
+        let m = orthographic(lbn, rtf);
 
         assert_approx_eq!(m.apply(&lbn.to()), [-1.0, -1.0, -1.0, 1.0].into());
         assert_approx_eq!(m.apply(&rtf.to()), [1.0, 1.0, 1.0, 1.0].into());

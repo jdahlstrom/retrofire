@@ -13,6 +13,7 @@ use crate::math::{
 };
 use crate::util::{rect::Rect, Dims};
 
+use crate::math::point::Point3;
 #[cfg(feature = "fp")]
 use crate::math::{
     angle::Angle,
@@ -115,7 +116,7 @@ impl<M> Camera<M> {
     }
 
     /// Sets up orthographic projection.
-    pub fn orthographic(mut self, bounds: Range<Vec3>) -> Self {
+    pub fn orthographic(mut self, bounds: Range<Point3>) -> Self {
         self.project = orthographic(bounds.start, bounds.end);
         self
     }
