@@ -6,9 +6,10 @@ use crate::geom::{Tri, Vertex};
 use crate::math::{
     angle::{spherical, turns, SphericalVec},
     mat::{orthographic, perspective, viewport, Mat4x4, RealToReal},
+    point::{pt2, Point3},
     space::Linear,
     vary::Vary,
-    vec::{vec2, Vec3},
+    vec::Vec3,
     Lerp,
 };
 use crate::util::{rect::Rect, Dims};
@@ -70,7 +71,7 @@ impl Camera<()> {
     pub fn new(dims: Dims) -> Self {
         Self {
             dims,
-            viewport: viewport(vec2(0, 0)..vec2(dims.0, dims.1)),
+            viewport: viewport(pt2(0, 0)..pt2(dims.0, dims.1)),
             ..Default::default()
         }
     }
@@ -98,7 +99,7 @@ impl<M> Camera<M> {
 
         Self {
             dims: (r.abs_diff(l), b.abs_diff(t)),
-            viewport: viewport(vec2(l, t)..vec2(r, b)),
+            viewport: viewport(pt2(l, t)..pt2(r, b)),
             ..self
         }
     }
@@ -115,7 +116,7 @@ impl<M> Camera<M> {
     }
 
     /// Sets up orthographic projection.
-    pub fn orthographic(mut self, bounds: Range<Vec3>) -> Self {
+    pub fn orthographic(mut self, bounds: Range<Point3>) -> Self {
         self.project = orthographic(bounds.start, bounds.end);
         self
     }
