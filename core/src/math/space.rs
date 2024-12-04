@@ -30,6 +30,25 @@ pub trait Affine: Sized {
     ///
     /// `sub` is anti-commutative: `v.sub(w) == w.sub(v).neg()`.
     fn sub(&self, other: &Self) -> Self::Diff;
+
+    /// Linearly interpolates between `self` and `other`.
+    ///
+    /// This method does not panic if `t < 0.0` or `t > 1.0`, or if `t`
+    /// is a `NaN`, but the return value in those cases is unspecified.
+    /// Individual implementations may offer stronger guarantees.
+    ///
+    /// # Examples
+    /// ```
+    /// # use retrofire_core::math::space::Affine;
+    /// assert_eq!(2.0.lerp(&5.0, 0.0), 2.0);
+    /// assert_eq!(2.0.lerp(&5.0, 0.5), 3.5);
+    /// assert_eq!(2.0.lerp(&5.0, 1.0), 5.0);
+    /// ```
+    // TODO Now duplicated in Vary
+    #[inline]
+    fn lerp(&self, other: &Self, t: <Self::Diff as Linear>::Scalar) -> Self {
+        self.add(&other.sub(self).mul(t))
+    }
 }
 
 /// Trait for types representing elements of a linear space (vector space).

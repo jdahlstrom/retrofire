@@ -2,8 +2,7 @@
 
 use alloc::vec::Vec;
 
-use crate::math::space::Linear;
-use crate::math::Vary;
+use crate::math::{Affine, Linear};
 
 /// A cubic Bezier curve, defined by four control points.
 ///
@@ -56,9 +55,7 @@ where
 
 impl<T> CubicBezier<T>
 where
-    // T: Affine + Clone,
-    // T::Diff: Linear<Scalar = f32> + Clone,
-    T: Linear<Scalar = f32> + Clone,
+    T: Affine<Diff: Linear<Scalar = f32>> + Clone,
 {
     /// Evaluates the value of `self` at `t`
     ///

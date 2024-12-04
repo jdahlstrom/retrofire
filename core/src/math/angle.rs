@@ -571,7 +571,6 @@ mod tests {
     use core::f32::consts::{PI, TAU};
 
     use crate::assert_approx_eq;
-    use crate::math::vary::Vary;
 
     use super::*;
 
@@ -678,6 +677,7 @@ mod tests {
 
     #[test]
     fn varying() {
+        use crate::math::vary::Vary;
         let mut i = degs(45.0).vary(degs(15.0), Some(4));
 
         assert_approx_eq!(i.next(), Some(degs(45.0)));

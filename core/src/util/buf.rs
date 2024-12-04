@@ -9,9 +9,9 @@ use core::{
     ops::{Deref, DerefMut},
 };
 
-use crate::util::Dims;
-
 use inner::Inner;
+
+use crate::util::Dims;
 
 //
 // Traits
@@ -702,7 +702,7 @@ pub mod inner {
 
 #[cfg(test)]
 mod tests {
-    use crate::math::{point::pt2, vec::vec2};
+    use crate::math::vec::vec2;
 
     use super::*;
 
