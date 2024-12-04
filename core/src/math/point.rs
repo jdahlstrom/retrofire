@@ -1,6 +1,15 @@
-use core::{array, marker::PhantomData as Pd, ops::Index};
+use core::{
+    array,
+    fmt::{Debug, Formatter},
+    marker::PhantomData as Pd,
+    ops::{Add, Index, Sub},
+};
 
-use crate::math::{space::Affine, space::Real, vec::Vector, Linear};
+use crate::math::{
+    space::{Affine, Linear, Real},
+    vec::Vector,
+    ApproxEq,
+};
 
 #[repr(transparent)]
 pub struct Point<Repr, Space = ()>(pub Repr, Pd<Space>);
@@ -96,6 +105,17 @@ where
     }
 }
 
+impl<Sc: ApproxEq, Sp, const N: usize> ApproxEq<Self, Sc>
+    for Point<[Sc; N], Sp>
+{
+    fn approx_eq_eps(&self, other: &Self, eps: &Sc) -> bool {
+        self.0.approx_eq_eps(&other.0, eps)
+    }
+    fn relative_epsilon() -> Sc {
+        Sc::relative_epsilon()
+    }
+}
+
 //
 // Foreign trait impls
 //
@@ -117,6 +137,13 @@ impl<R: Default, S> Default for Point<R, S> {
     }
 }
 
+impl<R: Debug, Sp: Debug + Default> Debug for Point<R, Sp> {
+    fn fmt(&self, f: &mut Formatter<'_>) -> core::fmt::Result {
+        write!(f, "Point<{:?}>", Sp::default())?;
+        Debug::fmt(&self.0, f)
+    }
+}
+
 impl<R: Eq, S> Eq for Point<R, S> {}
 
 impl<R: PartialEq, S> PartialEq for Point<R, S> {
@@ -129,5 +156,27 @@ impl<R, Sp> From<R> for Point<R, Sp> {
     #[inline]
     fn from(repr: R) -> Self {
         Self(repr, Pd)
+    }
+}
+
+impl<R, Sp> Add<<Self as Affine>::Diff> for Point<R, Sp>
+where
+    Self: Affine,
+{
+    type Output = Self;
+
+    fn add(self, other: <Self as Affine>::Diff) -> Self {
+        Affine::add(&self, &other)
+    }
+}
+
+impl<R, Sp> Sub for Point<R, Sp>
+where
+    Self: Affine,
+{
+    type Output = <Self as Affine>::Diff;
+
+    fn sub(self, other: Self) -> Self::Output {
+        Affine::sub(&self, &other)
     }
 }
