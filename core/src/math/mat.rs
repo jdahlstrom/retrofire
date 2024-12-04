@@ -386,7 +386,7 @@ impl<Src> Mat4x4<RealToProj<Src>> {
     ///         \ ·  ·  M33 / \  1 /
     /// ```
     #[must_use]
-    pub fn apply(&self, v: &Vec3<Src>) -> ProjVec4 {
+    pub fn apply(&self, v: &Point3<Src>) -> ProjVec4 {
         let v = Vector::from([v.x(), v.y(), v.z(), 1.0]);
         [
             self.row_vec(0).dot(&v),
@@ -623,6 +623,7 @@ pub fn perspective(
 /// # Parameters
 /// * `lbn`: The left-bottom-near corner of the projection box.
 /// * `rtf`: The right-bottom-far corner of the projection box.
+// TODO Change to take points
 pub fn orthographic(lbn: Vec3, rtf: Vec3) -> Mat4x4<ViewToProj> {
     let [dx, dy, dz] = (rtf - lbn).0;
     let [sx, sy, sz] = (rtf + lbn).0;
@@ -660,6 +661,7 @@ mod tests {
 
     #[cfg(feature = "fp")]
     use crate::math::angle::degs;
+    use crate::math::point::pt3;
 
     use super::*;
 
@@ -929,19 +931,19 @@ mod tests {
 
     #[test]
     fn orthographic_box_maps_to_unit_cube() {
-        let lbn = vec3(-20.0, 0.0, 0.01);
-        let rtf = vec3(100.0, 50.0, 100.0);
+        let lbn = pt3(-20.0, 0.0, 0.01);
+        let rtf = pt3(100.0, 50.0, 100.0);
 
-        let m = orthographic(lbn, rtf);
+        let m = orthographic(lbn.to_vec(), rtf.to_vec());
 
         assert_approx_eq!(m.apply(&lbn.to()), [-1.0, -1.0, -1.0, 1.0].into());
-        assert_approx_eq!(m.apply(&rtf.to()), splat(1.0));
+        assert_approx_eq!(m.apply(&rtf.to()), [1.0, 1.0, 1.0, 1.0].into());
     }
 
     #[test]
     fn perspective_frustum_maps_to_unit_cube() {
-        let left_bot_near = vec3(-0.125, -0.0625, 0.1);
-        let right_top_far = vec3(125.0, 62.5, 100.0);
+        let left_bot_near = pt3(-0.125, -0.0625, 0.1);
+        let right_top_far = pt3(125.0, 62.5, 100.0);
 
         let m = perspective(0.8, 2.0, 0.1..100.0);
 
@@ -949,6 +951,6 @@ mod tests {
         assert_approx_eq!(lbn / lbn.w(), [-1.0, -1.0, -1.0, 1.0].into());
 
         let rtf = m.apply(&right_top_far);
-        assert_approx_eq!(rtf / rtf.w(), splat(1.0));
+        assert_approx_eq!(rtf / rtf.w(), [1.0, 1.0, 1.0, 1.0].into());
     }
 }

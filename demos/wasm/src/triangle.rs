@@ -6,13 +6,13 @@ use re::geom::{vertex, Tri, Vertex3};
 use re::math::{
     color::{rgba, Color4f},
     mat::{perspective, rotate_z, translate, viewport},
+    point::pt3,
     rads, vec2, vec3,
 };
 use re::render::{raster::Frag, render, shader::Shader, ModelToView};
 use re::util::Dims;
 
-use re_front::dims::SVGA_800_600;
-use re_front::wasm::Window;
+use re_front::{dims::SVGA_800_600, wasm::Window};
 
 // Entry point from JS
 #[wasm_bindgen(start)]
@@ -25,9 +25,9 @@ pub fn start() {
     win.ctx.color_clear = Some(rgba(0, 0, 0, 0x80));
 
     let vs = [
-        vertex(vec3(-2.0, 1.0, 0.0), rgba(1.0, 0.2, 0.1, 0.9)),
-        vertex(vec3(2.0, 2.0, 0.0), rgba(0.2, 0.9, 0.1, 0.8)),
-        vertex(vec3(0.0, -2.0, 0.0), rgba(0.3, 0.4, 1.0, 1.0)),
+        vertex(pt3(-2.0, 1.0, 0.0), rgba(1.0, 0.2, 0.1, 0.9)),
+        vertex(pt3(2.0, 2.0, 0.0), rgba(0.2, 0.9, 0.1, 0.8)),
+        vertex(pt3(0.0, -2.0, 0.0), rgba(0.3, 0.4, 1.0, 1.0)),
     ];
 
     let proj = perspective(1.0, 4.0 / 3.0, 0.1..1000.0);

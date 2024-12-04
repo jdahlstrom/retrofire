@@ -37,11 +37,11 @@
 //! f 1 2 3 4 5
 //! ```
 
-use alloc::string::String;
-use alloc::vec;
-use core::fmt;
-use core::num::{ParseFloatError, ParseIntError};
-
+use alloc::{string::String, vec};
+use core::{
+    fmt,
+    num::{ParseFloatError, ParseIntError},
+};
 #[cfg(feature = "std")]
 use std::{
     error,
@@ -51,7 +51,10 @@ use std::{
 };
 
 use re::geom::{mesh::Builder, vertex, Mesh, Normal3, Tri};
-use re::math::vec::{vec3, Vec3, Vector};
+use re::math::{
+    point::Point3,
+    vec::{vec3, Vec3, Vector},
+};
 use re::render::{
     tex::{uv, TexCoord},
     Model,
@@ -143,7 +146,7 @@ pub fn parse_obj(src: impl IntoIterator<Item = u8>) -> Result<Builder<()>> {
         match item.as_bytes() {
             [b'#', ..] => continue, // Skip comment
 
-            b"v" => verts.push(parse_vector(tokens)?),
+            b"v" => verts.push(parse_point(tokens)?),
             b"vt" => tcrds.push(parse_texcoord(tokens)?),
             b"vn" => norms.push(parse_normal(tokens)?),
 
@@ -204,9 +207,8 @@ fn parse_texcoord<'a>(
     Ok(uv(u, v))
 }
 
-fn parse_vector<'a>(
-    i: &mut impl Iterator<Item = &'a str>,
-) -> Result<Vec3<Model>> {
+fn parse_vector<'a>(i: &mut impl Iterator<Item = &'a str>) -> Result<Vec3<Model>>
+{
     let x = next(i)?.parse()?;
     let y = next(i)?.parse()?;
     let z = next(i)?.parse()?;
@@ -215,6 +217,12 @@ fn parse_vector<'a>(
 
 fn parse_normal<'a>(i: &mut impl Iterator<Item = &'a str>) -> Result<Normal3> {
     parse_vector(i).map(Vector::to)
+}
+
+fn parse_point<'a>(
+    i: &mut impl Iterator<Item = &'a str>,
+) -> Result<Point3<Model>> {
+    parse_vector(i).map(Vector::to_pt)
 }
 
 fn parse_index(s: &str) -> Result<usize> {
@@ -291,8 +299,7 @@ impl From<ParseIntError> for Error {
 
 #[cfg(test)]
 mod tests {
-    use re::geom::Tri;
-    use re::math::vec3;
+    use re::{geom::Tri, math::point::pt3};
 
     use super::*;
 
@@ -312,7 +319,7 @@ v 1.0 2.0      0.0";
         let mesh = parse_obj(input).unwrap().build();
 
         assert_eq!(mesh.faces, vec![Tri([0, 1, 3]), Tri([3, 0, 2])]);
-        assert_eq!(mesh.verts[3].pos, vec3(1.0, 2.0, 0.0));
+        assert_eq!(mesh.verts[3].pos, pt3(1.0, 2.0, 0.0));
     }
 
     #[test]
