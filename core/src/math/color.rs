@@ -1,13 +1,18 @@
 //! Colors and color spaces.
 
-use core::array;
-use core::fmt::{self, Debug, Formatter};
-use core::marker::PhantomData;
-use core::ops::Index;
+use core::{
+    array,
+    fmt::{self, Debug, Formatter},
+    marker::PhantomData,
+    ops::Index,
+};
 
-use crate::math::float::f32;
-use crate::math::space::{Affine, Linear};
-use crate::math::vec::Vector;
+use crate::math::{
+    float::f32,
+    space::{Affine, Linear},
+    vary::ZDiv,
+    vec::Vector,
+};
 
 //
 // Types
@@ -530,6 +535,8 @@ impl<Sp, const DIM: usize> Linear for Color<[f32; DIM], Sp> {
         array::from_fn(|i| self.0[i] * scalar).into()
     }
 }
+
+impl<Sc, Sp, const N: usize> ZDiv for Color<[Sc; N], Sp> where Sc: ZDiv + Copy {}
 
 //
 // Foreign trait impls
