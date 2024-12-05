@@ -245,7 +245,7 @@ mod tests {
     use crate::assert_approx_eq;
     use crate::geom::vertex;
     use crate::math::point::pt3;
-    use crate::math::vary::Vary;
+    use crate::math::vary::{Vary, ZDiv};
     use crate::util::buf::Buf2;
 
     use super::{tri_fill, Frag, Scanline};
@@ -338,8 +338,8 @@ mod tests {
             y: 42,
             xs: 8..16,
             vs: Vary::vary_to(
-                (pt3(8.0, 42.0, 1.0 / w0), 3.0.z_div(w0)),
-                (pt3(16.0, 42.0, 1.0 / w1), 5.0.z_div(w1)),
+                (pt3(8.0, 42.0, 1.0 / w0), 3.0f32.z_div(w0)),
+                (pt3(16.0, 42.0, 1.0 / w1), 5.0f32.z_div(w1)),
                 8,
             ),
         };

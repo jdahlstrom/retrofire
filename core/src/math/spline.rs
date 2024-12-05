@@ -2,7 +2,10 @@
 
 use alloc::vec::Vec;
 
-use crate::math::space::{Affine, Linear};
+use crate::math::{
+    space::{Affine, Linear},
+    vary::ZDiv,
+};
 
 /// A cubic Bézier curve, defined by four control points.
 ///
@@ -134,7 +137,7 @@ pub struct BezierSpline<T>(Vec<T>);
 
 impl<T> BezierSpline<T>
 where
-    T: Affine<Diff: Linear<Scalar = f32> + Copy> + Copy,
+    T: Affine<Diff: Linear<Scalar = f32> + Copy> + ZDiv + Copy,
 {
     /// Creates a Bézier curve from the given control points. The number of
     /// elements in `pts` must be 3n + 1 for some positive integer n.

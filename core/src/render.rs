@@ -93,15 +93,16 @@ pub fn render<Vtx: Clone, Var: Vary, Uni: Copy, Shd>(
 ) where
     Shd: Shader<Vtx, Var, Uni>,
 {
+    let verts = verts.as_ref();
+    let tris = tris.as_ref();
     let mut stats = Stats::start();
 
     stats.calls = 1.0;
-    stats.prims.i += tris.as_ref().len();
-    stats.verts.i += verts.as_ref().len();
+    stats.prims.i += tris.len();
+    stats.verts.i += verts.len();
 
     // Vertex shader: transform vertices to clip space
     let verts: Vec<_> = verts
-        .as_ref()
         .iter()
         // TODO Pass vertex as ref to shader
         .cloned()
@@ -110,7 +111,6 @@ pub fn render<Vtx: Clone, Var: Vary, Uni: Copy, Shd>(
 
     // Map triangle vertex indices to actual vertices
     let tris: Vec<_> = tris
-        .as_ref()
         .iter()
         .map(|Tri(vs)| Tri(vs.map(|i| verts[i].clone())))
         .collect();
@@ -119,6 +119,7 @@ pub fn render<Vtx: Clone, Var: Vary, Uni: Copy, Shd>(
     let mut clipped = vec![];
     tris.clip(&view_frustum::PLANES, &mut clipped);
 
+    // Optional depth sorting for use case such as transparency
     if let Some(d) = ctx.depth_sort {
         depth_sort(&mut clipped, d);
     }
@@ -143,6 +144,8 @@ pub fn render<Vtx: Clone, Var: Vary, Uni: Copy, Shd>(
         });
 
         // Back/frontface culling
+        //
+        // TODO This could also be done earlier, before or as part of clipping
         match ctx.face_cull {
             Some(FaceCull::Back) if is_backface(&vs) => continue,
             Some(FaceCull::Front) if !is_backface(&vs) => continue,

@@ -10,6 +10,7 @@ use crate::math::vec::Vector;
 
 #[cfg(feature = "fp")]
 use crate::math::float::f32;
+use crate::math::vary::ZDiv;
 #[cfg(feature = "fp")]
 use crate::math::vec::{vec2, vec3, Vec2, Vec3};
 
@@ -462,6 +463,8 @@ impl Linear for Angle {
         *self * scalar
     }
 }
+
+impl ZDiv for Angle {}
 
 //
 // Foreign trait impls

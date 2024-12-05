@@ -5,6 +5,7 @@ use core::{
     ops::{Add, Index, Sub},
 };
 
+use crate::math::vary::ZDiv;
 use crate::math::{
     space::{Affine, Linear, Real},
     vec::Vector,
@@ -81,10 +82,10 @@ impl<const N: usize, B> Point<[f32; N], Real<N, B>> {
     /// # Examples
     /// ```
     /// # use retrofire_core::math::point::{pt3, Point3};
-    /// let pt = pt3(0.5, 1.5, -2.0);
+    /// let pt = pt3::<f32, ()>(0.5, 1.5, -2.0);
     /// // Clamp to the unit cube
-    /// let pt = pt.clamp(&pt3(0.0, 0.0, 0.0), &pt3(1.0, 1.0, 1.0));
-    /// assert_eq!(v, pt3(0.5, 1.0, -1.0));
+    /// let clamped = pt.clamp(&pt3(0.0, 0.0, 0.0), &pt3(1.0, 1.0, 1.0));
+    /// assert_eq!(clamped, pt3(0.5, 1.0, -0.0));
     #[must_use]
     pub fn clamp(&self, min: &Self, max: &Self) -> Self {
         array::from_fn(|i| self.0[i].clamp(min.0[i], max.0[i])).into()
@@ -146,6 +147,15 @@ where
     #[inline]
     fn sub(&self, other: &Self) -> Self::Diff {
         Vector::new(array::from_fn(|i| self.0[i].sub(&other.0[i])))
+    }
+}
+
+impl<Sc, Sp, const N: usize> ZDiv for Point<[Sc; N], Sp>
+where
+    Sc: ZDiv + Copy,
+{
+    fn z_div(self, z: f32) -> Self {
+        Self(self.0.map(|c| c.z_div(z)), Pd)
     }
 }
 
