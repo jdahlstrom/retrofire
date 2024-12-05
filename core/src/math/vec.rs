@@ -13,6 +13,7 @@ use crate::math::approx::ApproxEq;
 use crate::math::float::f32;
 use crate::math::point::Point;
 use crate::math::space::{Affine, Linear, Proj4, Real};
+use crate::math::vary::ZDiv;
 
 //
 // Types
@@ -155,6 +156,9 @@ impl<Sp, const N: usize> Vector<[f32; N], Sp> {
     /// // Clamp to the unit cube
     /// let v = v.clamp(&splat(-1.0), &splat(1.0));
     /// assert_eq!(v, vec3(0.5, 1.0, -1.0));
+    // TODO f32 and f64 have inherent clamp methods because they're not Ord.
+    //      A generic clamp for Sc: Ord would conflict with this one. There is
+    //      currently no clean way to support both floats and impl Ord types.
     #[must_use]
     pub fn clamp(&self, min: &Self, max: &Self) -> Self {
         array::from_fn(|i| self[i].clamp(min[i], max[i])).into()
@@ -214,13 +218,15 @@ where
     {
         other.mul(self.scalar_project(other))
     }
+}
 
+impl<Sc: Copy, Sp, const N: usize> Vector<[Sc; N], Sp> {
     /// Returns a vector of the same dimension as `self` by applying `f`
     /// component-wise.
     #[inline]
     #[must_use]
     pub fn map<T>(self, mut f: impl FnMut(Sc) -> T) -> Vector<[T; N], Sp> {
-        array::from_fn(|i| f(self[i])).into()
+        array::from_fn(|i| f(self.0[i])).into()
     }
 }
 
@@ -333,8 +339,7 @@ where
 
 impl<Sc, Sp, const DIM: usize> Affine for Vector<[Sc; DIM], Sp>
 where
-    Sc: Affine,
-    Sc::Diff: Linear<Scalar = Sc::Diff> + Copy,
+    Sc: Affine<Diff: Linear<Scalar = Sc::Diff> + Copy>,
 {
     type Space = Sp;
     // TODO Vectors always Linear once Point used for affine stuff
@@ -356,7 +361,6 @@ where
 
 impl<Sc, Sp, const DIM: usize> Linear for Vector<[Sc; DIM], Sp>
 where
-    Self: Affine<Diff = Self>,
     Sc: Linear<Scalar = Sc> + Copy,
 {
     type Scalar = Sc;
@@ -368,11 +372,20 @@ where
     }
     #[inline]
     fn neg(&self) -> Self {
-        Self(array::from_fn(|i| self.0[i].neg()), Pd)
+        self.map(|c| c.neg())
     }
     #[inline]
     fn mul(&self, scalar: Self::Scalar) -> Self {
-        Self(array::from_fn(|i| self.0[i].mul(scalar)), Pd)
+        self.map(|c| c.mul(scalar))
+    }
+}
+
+impl<Sc, Sp, const N: usize> ZDiv for Vector<[Sc; N], Sp>
+where
+    Sc: ZDiv + Copy,
+{
+    fn z_div(self, z: f32) -> Self {
+        self.map(|c| c.z_div(z))
     }
 }
 

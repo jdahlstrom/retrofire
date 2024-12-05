@@ -241,11 +241,12 @@ mod tests {
     use alloc::string::{String, ToString};
     use core::iter::once;
 
-    use crate::assert_approx_eq;
-    use crate::geom::vertex;
-    use crate::math::vary::Vary;
-    use crate::math::vec3;
-    use crate::util::buf::Buf2;
+    use crate::{
+        assert_approx_eq,
+        geom::vertex,
+        math::{vary::Vary, vary::ZDiv, vec3},
+        util::buf::Buf2,
+    };
 
     use super::{tri_fill, Frag, Scanline};
 
@@ -341,8 +342,8 @@ mod tests {
             y: 42,
             xs: 8..16,
             vs: Vary::vary_to(
-                (vec3(8.0, 42.0, 1.0 / w0), 3.0.z_div(w0)),
-                (vec3(16.0, 42.0, 1.0 / w1), 5.0.z_div(w1)),
+                (vec3(8.0, 42.0, 1.0 / w0), 3.0f32.z_div(w0)),
+                (vec3(16.0, 42.0, 1.0 / w1), 5.0f32.z_div(w1)),
                 8,
             ),
         };

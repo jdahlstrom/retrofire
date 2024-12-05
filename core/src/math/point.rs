@@ -5,6 +5,7 @@ use core::{
     ops::{Add, Index, Sub},
 };
 
+use crate::math::vary::ZDiv;
 use crate::math::{
     space::{Affine, Linear, Real},
     vec::Vector,
@@ -146,6 +147,15 @@ where
     #[inline]
     fn sub(&self, other: &Self) -> Self::Diff {
         Vector::new(array::from_fn(|i| self.0[i].sub(&other.0[i])))
+    }
+}
+
+impl<Sc, Sp, const N: usize> ZDiv for Point<[Sc; N], Sp>
+where
+    Sc: ZDiv + Copy,
+{
+    fn z_div(self, z: f32) -> Self {
+        Self(self.0.map(|c| c.z_div(z)), Pd)
     }
 }
 

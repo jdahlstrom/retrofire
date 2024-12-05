@@ -5,13 +5,20 @@
 
 use core::mem;
 
+pub trait ZDiv: Sized {
+    #[must_use]
+    fn z_div(self, _z: f32) -> Self {
+        self
+    }
+}
+
 /// A trait for types that can be linearly interpolated and distributed
 /// between two endpoints.
 ///
 /// This trait is designed particularly for *varyings:* types that are
 /// meant to be interpolated across the face of a polygon when rendering,
 /// but the methods are useful for various purposes.
-pub trait Vary: Sized + Clone {
+pub trait Vary: ZDiv + Sized + Clone {
     /// The iterator returned by the [vary][Self::vary] method.
     type Iter: Iterator<Item = Self>;
     /// The difference type of `Self`.
@@ -49,10 +56,6 @@ pub trait Vary: Sized + Clone {
     /// `self + delta`.
     #[must_use]
     fn step(&self, delta: &Self::Diff) -> Self;
-
-    /// Performs perspective division.
-    #[must_use]
-    fn z_div(&self, z: f32) -> Self;
 
     /// Linearly interpolates between `self` and `other`.
     ///
@@ -94,9 +97,8 @@ impl Vary for () {
     }
     fn dv_dt(&self, _: &Self, _: f32) {}
     fn step(&self, _: &Self::Diff) {}
-
-    fn z_div(&self, _: f32) {}
 }
+impl ZDiv for () {}
 
 impl<T: Vary, U: Vary> Vary for (T, U) {
     type Iter = Iter<Self>;
@@ -114,9 +116,16 @@ impl<T: Vary, U: Vary> Vary for (T, U) {
     fn step(&self, (d0, d1): &Self::Diff) -> Self {
         (self.0.step(d0), self.1.step(d1))
     }
-
-    fn z_div(&self, z: f32) -> Self {
+}
+impl<T: ZDiv, U: ZDiv> ZDiv for (T, U) {
+    fn z_div(self, z: f32) -> Self {
         (self.0.z_div(z), self.1.z_div(z))
+    }
+}
+
+impl ZDiv for f32 {
+    fn z_div(self, z: f32) -> Self {
+        self / z
     }
 }
 
