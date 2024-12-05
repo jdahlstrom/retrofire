@@ -5,7 +5,7 @@
 use core::fmt::{Debug, Formatter};
 use core::marker::PhantomData;
 
-use crate::math::vary::{Iter, Vary};
+use crate::math::vary::{Iter, Vary, ZDiv};
 
 /// Trait for types representing elements of an affine space.
 ///
@@ -158,7 +158,7 @@ impl Affine for u32 {
 
 impl<V: Clone> Vary for V
 where
-    Self: Affine<Diff: Linear<Scalar = f32> + Clone>,
+    Self: Affine<Diff: Linear<Scalar = f32> + Clone> + ZDiv,
 {
     type Iter = Iter<Self>;
     type Diff = <Self as Affine>::Diff;
@@ -176,11 +176,6 @@ where
     #[inline]
     fn step(&self, delta: &Self::Diff) -> Self {
         self.add(delta)
-    }
-
-    fn z_div(&self, _z: f32) -> Self {
-        //todo!()
-        self.clone()
     }
 }
 
