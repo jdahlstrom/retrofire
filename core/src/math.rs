@@ -36,3 +36,16 @@ pub mod space;
 pub mod spline;
 pub mod vary;
 pub mod vec;
+
+pub trait Lerp {
+    fn lerp(&self, other: &Self, t: f32) -> Self;
+}
+
+impl<T> Lerp for T
+where
+    T: Affine<Diff: Linear<Scalar = f32>>,
+{
+    fn lerp(&self, other: &Self, t: f32) -> Self {
+        self.add(&other.sub(self).mul(t))
+    }
+}

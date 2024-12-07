@@ -13,14 +13,12 @@
 //! doing it for every scanline individually.
 //!
 
-use alloc::vec;
-use alloc::vec::Vec;
-
-use crate::geom::{Plane, Tri, Vertex};
-use crate::math::vary::Vary;
-use crate::math::vec::{ProjVec4, Vec3};
+use alloc::{vec, vec::Vec};
 
 use view_frustum::{outcode, status};
+
+use crate::geom::{Plane, Tri, Vertex};
+use crate::math::{vec::ProjVec4, Lerp, Vec3};
 
 /// Trait for types that can be [clipped][self] against planes.
 ///
@@ -129,7 +127,7 @@ impl ClipPlane {
     ///         `--__  \
     ///              `--c
     /// ```
-    pub fn clip_simple_polygon<A: Vary>(
+    pub fn clip_simple_polygon<A: Lerp + Clone>(
         &self,
         verts_in: &[ClipVert<A>],
         verts_out: &mut Vec<ClipVert<A>>,
@@ -246,7 +244,7 @@ pub mod view_frustum {
 ///
 /// [^1]: Ivan Sutherland, Gary W. Hodgman: Reentrant Polygon Clipping.
 ///        Communications of the ACM, vol. 17, pp. 32–42, 1974
-pub fn clip_simple_polygon<'a, A: Vary>(
+pub fn clip_simple_polygon<'a, A: Lerp + Clone>(
     planes: &[Plane<ClipVec>],
     verts_in: &'a mut Vec<ClipVert<A>>,
     verts_out: &'a mut Vec<ClipVert<A>>,
@@ -267,16 +265,13 @@ pub fn clip_simple_polygon<'a, A: Vary>(
 }
 
 impl<V> ClipVert<V> {
-    pub fn new(v: Vertex<ClipVec, V>) -> Self {
-        ClipVert {
-            pos: v.pos,
-            attrib: v.attrib,
-            outcode: outcode(&v.pos),
-        }
+    pub fn new(Vertex { pos, attrib }: Vertex<ClipVec, V>) -> Self {
+        let outcode = outcode(&pos);
+        ClipVert { pos, attrib, outcode }
     }
 }
 
-impl<A: Vary> Clip for [Tri<ClipVert<A>>] {
+impl<A: Lerp + Clone> Clip for [Tri<ClipVert<A>>] {
     type Item = Tri<ClipVert<A>>;
 
     fn clip(&self, planes: &[ClipPlane], out: &mut Vec<Self::Item>) {
