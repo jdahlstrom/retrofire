@@ -4,7 +4,7 @@ use alloc::vec::Vec;
 use core::borrow::Borrow;
 
 use crate::geom::{Mesh, Tri, Vertex3};
-use crate::math::{mat::Mat4x4, vary::Vary};
+use crate::math::{mat::Mat4x4, vary::Vary, Lerp};
 
 use super::{ctx::Context, target::Target, NdcToScreen, Shader};
 
@@ -118,7 +118,7 @@ where
     Ctx: Borrow<Context>,
 {
     /// Renders this batch of geometry.
-    pub fn render<V: Vary>(&mut self)
+    pub fn render<V: Lerp + Vary>(&mut self)
     where
         Shd: Shader<Vtx, V, Uni>,
     {

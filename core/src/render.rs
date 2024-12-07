@@ -13,6 +13,7 @@ use crate::math::{
     mat::{Mat4x4, RealToProj, RealToReal},
     vary::Vary,
     vec::{vec3, ProjVec4},
+    Lerp,
 };
 
 use clip::{view_frustum, Clip, ClipVert};
@@ -82,7 +83,7 @@ impl<S, Vtx, Var, Uni> Shader<Vtx, Var, Uni> for S where
 }
 
 /// Renders the given triangles into `target`.
-pub fn render<Vtx: Clone, Var: Vary, Uni: Copy, Shd>(
+pub fn render<Vtx: Clone, Var: Lerp + Vary, Uni: Copy, Shd>(
     tris: impl AsRef<[Tri<usize>]>,
     verts: impl AsRef<[Vtx]>,
     shader: &Shd,

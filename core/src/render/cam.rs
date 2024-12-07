@@ -9,6 +9,7 @@ use crate::math::{
     space::Linear,
     vary::Vary,
     vec::{vec2, Vec3},
+    Lerp,
 };
 use crate::util::{rect::Rect, Dims};
 
@@ -128,7 +129,7 @@ impl<M: Mode> Camera<M> {
     }
 
     /// Renders the given geometry from the viewpoint of this camera.
-    pub fn render<B, Vtx: Clone, Var: Vary, Uni: Copy, Shd>(
+    pub fn render<B, Vtx: Clone, Var: Lerp + Vary, Uni: Copy, Shd>(
         &self,
         tris: impl AsRef<[Tri<usize>]>,
         verts: impl AsRef<[Vtx]>,
