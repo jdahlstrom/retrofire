@@ -16,7 +16,7 @@ use crate::math::{
     Lerp,
 };
 
-use clip::{view_frustum, Clip, ClipVert};
+use clip::{view_frustum, ClipVert};
 use ctx::{Context, DepthSort, FaceCull};
 use raster::{tri_fill, ScreenPt};
 use shader::{FragmentShader, VertexShader};
@@ -107,7 +107,8 @@ pub fn render<Vtx: Clone, Var: Lerp + Vary, Uni: Copy, Shd>(
         .iter()
         // TODO Pass vertex as ref to shader
         .cloned()
-        .map(|v| ClipVert::new(shader.shade_vertex(v, uniform)))
+        .map(|v| shader.shade_vertex(v, uniform))
+        .map(ClipVert::new)
         .collect();
 
     // Map triangle vertex indices to actual vertices
@@ -118,7 +119,7 @@ pub fn render<Vtx: Clone, Var: Lerp + Vary, Uni: Copy, Shd>(
 
     // Clip against the view frustum
     let mut clipped = vec![];
-    tris.clip(&view_frustum::PLANES, &mut clipped);
+    view_frustum::clip(&tris[..], &mut clipped);
 
     // Optional depth sorting for use case such as transparency
     if let Some(d) = ctx.depth_sort {
