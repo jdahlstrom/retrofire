@@ -1,25 +1,28 @@
-//! Bezier curves and splines.
+//! Bézier curves and splines.
 
 use alloc::vec::Vec;
+use core::array;
 
 use crate::math::{
     space::{Affine, Linear},
     Lerp,
 };
 
-/// A cubic Bezier curve, defined by four control points.
+/// A cubic Bézier curve, defined by four control points.
 ///
-/// TODO More info about Beziers
+/// TODO More info about Béziers
 ///
 /// ```text
-///                                          p3
-///   p1        ____                           \
-///    \     _-´    `--_                        \
-///     \   /           `-_                     |\
-///      \ |               `-_                  | \
-///       \|                  `-_               |  \
-///        \                     `-__          /    \
-///        p0                        `---____-´      p2
+///
+///  p1
+///   \         ____
+///    \     _-´    `--_                      p3
+///     \   /           `-_                    \
+///      \ |               `-_                 |\
+///       \|                  `-__            /  \
+///        \                      `---_____--´    \
+///        p0                                      \
+///                                                 p2
 /// ```
 #[derive(Debug, Clone, Eq, PartialEq)]
 pub struct CubicBezier<T>(pub [T; 4]);
@@ -58,11 +61,14 @@ where
 
 impl<T> CubicBezier<T>
 where
-    T: Affine<Diff: Linear<Scalar = f32> + Clone> + Clone,
+    T: Affine<Diff: Linear<Scalar = f32>> + Clone,
 {
-    /// Evaluates the value of `self` at `t`
+    /// Evaluates the value of `self` at `t`.
     ///
-    /// Uses De Casteljau's algorithm.
+    /// For t < 0, returns the first control point. For t > 1, returns the last
+    /// control point. Uses [De Casteljau's algorithm][1].
+    ///
+    /// [1]: https://en.wikipedia.org/wiki/De_Casteljau%27s_algorithm
     pub fn eval(&self, t: f32) -> T {
         let [p0, p1, p2, p3] = &self.0;
         step(t, p0, p3, |t| {
@@ -72,57 +78,99 @@ where
             p01.lerp(&p12, t).lerp(&p12.lerp(&p23, t), t)
         })
     }
-}
-impl<T> CubicBezier<T>
-where
-    T: Linear<Scalar = f32> + Clone,
-{
+
+    /// Evaluates the value of `self` at `t`.
+    ///
+    /// For t < 0, returns the first control point. For t > 1, returns the last
+    /// control point.
+    ///
+    /// Directly evaluates the cubic. Faster but possibly less numerically
+    /// stable than [`Self::eval`].
     pub fn fast_eval(&self, t: f32) -> T {
-        let [p0, p1, p2, p3] = &self.0;
+        let [p0, .., p3] = &self.0;
         step(t, p0, p3, |t| {
-            //   (p3 - p0) * t^3 + (p1 - p2) * 3t^3
-            // + (p0 + p2) * 3t^2 - p1 * 6t^2
-            // + (p1 - p0) * 3t
-            // + p0
-
-            let term3 = &p1.sub(p2).mul(3.0).add(&p3.sub(p0)).mul(t);
-            let term2 = &p1.mul(-2.0).add(p0).add(p2).mul(3.0);
-            let term1 = &p1.sub(p0).mul(3.0 * t);
-            let term0 = p0;
-
-            term3.add(term2).mul(t * t).add(term1).add(term0)
+            // Add a linear combination of the three coefficients
+            // to `p0` to get the result
+            let [co3, co2, co1] = self.coefficients();
+            p0.add(&co3.mul(t).add(&co2).mul(t).add(&co1).mul(t))
         })
     }
 
     /// Returns the tangent, or direction vector, of `self` at `t`.
     ///
     /// Clamps `t` to the range [0, 1].
-    pub fn tangent(&self, t: f32) -> T {
+    pub fn tangent(&self, t: f32) -> T::Diff {
         let [p0, p1, p2, p3] = &self.0;
         let t = t.clamp(0.0, 1.0);
 
-        //   (p1 - p2) * 9t^2 + (p3 - p0) * 3t^2
-        // + (p0 + p2) * 6t - p1 * 12t
-        // + (p1 - p0) * 3
+        //   3 (3 (p1 - p2) + (p3 - p0)) * t^2
+        // + 6 ((p0 - p1 + p2 - p1) * t
+        // + 3 (p1 - p0)
 
-        let term2 = p1.sub(p2).mul(3.0).add(&p3.sub(p0)).mul(t * t);
-        let term1 = p1.mul(-2.0).add(p0).add(p2).mul(2.0 * t);
-        let term0 = p1.sub(p0);
+        let co2: T::Diff = p1.sub(p2).mul(3.0).add(&p3.sub(p0));
+        let co1: T::Diff = p0.sub(p1).add(&p2.sub(p1)).mul(2.0);
+        let co0: T::Diff = p1.sub(p0);
 
-        term2.add(&term1).add(&term0).mul(3.0)
+        co2.mul(t).add(&co1).mul(t).add(&co0).mul(3.0)
+    }
+
+    /// Returns the coefficients used to evaluate the spline.
+    ///
+    /// These are constant as long as the control points do not change,
+    /// so they can be precomputed when the spline is evaluated several times,
+    /// for example by an iterator.
+    ///
+    /// The coefficient values are, from the first to the last:
+    /// ```text
+    /// co3 = (p3 - p0) + 3 * (p1 - p2)
+    /// co2 = 3 * (p0 - p1) + 3 * (p2 - p1)
+    /// co1 = 3 * (p1 - p0)
+    /// ```
+    /// The value of the spline at *t* is then computed as:
+    /// ```text
+    /// co3 * t^3 + co2 * t^2 + co1 * t + p0
+    ///
+    /// = (((co3 * t) + co2 * t) + co1 * t) + p0.
+    /// ```
+    fn coefficients(&self) -> [T::Diff; 3] {
+        let [p0, p1, p2, p3] = &self.0;
+
+        // Rewrite the parametric equation into a form where three of the
+        // coefficients are vectors, their linear combination added to `p0`
+        // so the equation can be expressed for affine types:
+        //
+        //   (p3 - p0) * t^3 + (p1 - p2) * 3t^3
+        // + (p0 + p2) * 3t^2 - p1 * 6t^2
+        // + (p1 - p0) * 3t
+        // + p0
+        // = ((p3 - p0 + 3(p1 - p2)) * t^3
+        // + 3(p0 - p1 + p2 - p1) * t^2
+        // + 3(p1 - p0) * t
+        // + p0
+        // = ((((p3 - p0 + 3(p1 - p2))) * t
+        //      + 3(p0 - p1 + p2 - p1)) * t)
+        //          + 3(p1 - p0)) * t)
+        //              + p0
+        let p3_p0 = p3.sub(p0);
+        let p1_p0_3 = p1.sub(p0).mul(3.0);
+        let p1_p2_3 = p1.sub(p2).mul(3.0);
+        [p3_p0.add(&p1_p2_3), p1_p0_3.add(&p1_p2_3).neg(), p1_p0_3]
     }
 }
 
 /// A curve composed of one or more concatenated
-/// [cubic Bezier curves][CubicBezier].
+/// [cubic Bézier curves][CubicBezier].
 #[derive(Debug, Clone, Eq, PartialEq)]
 pub struct BezierSpline<T>(Vec<T>);
 
-impl<T: Linear<Scalar = f32> + Copy> BezierSpline<T> {
-    /// Creates a bezier curve from the given control points. The number of
+impl<T> BezierSpline<T>
+where
+    T: Affine<Diff: Linear<Scalar = f32> + Clone> + Clone,
+{
+    /// Creates a Bézier curve from the given control points. The number of
     /// elements in `pts` must be 3n + 1 for some positive integer n.
     ///
-    /// Consecutive points in `pts` make up Bezier curves such that:
+    /// Consecutive points in `pts` make up Bézier curves such that:
     /// * `pts[0..=3]` define the first curve,
     /// * `pts[3..=6]` define the second curve,
     ///
@@ -153,7 +201,7 @@ impl<T: Linear<Scalar = f32> + Copy> BezierSpline<T> {
     /// Returns the tangent of `self` at `t`.
     ///
     /// Clamps `t` to the range [0, 1].
-    pub fn tangent(&self, t: f32) -> T {
+    pub fn tangent(&self, t: f32) -> T::Diff {
         let (t, seg) = self.segment(t);
         CubicBezier(seg).tangent(t)
     }
@@ -164,7 +212,7 @@ impl<T: Linear<Scalar = f32> + Copy> BezierSpline<T> {
         let seg = ((t * segs) as u32 as f32).min(segs - 1.0);
         let t2 = t * segs - seg;
         let idx = 3 * (seg as usize);
-        (t2, (self.0[idx..idx + 4]).try_into().unwrap())
+        (t2, array::from_fn(|k| self.0[idx + k].clone()))
     }
 
     /// Approximates `self` as a sequence of line segments.
@@ -201,11 +249,11 @@ impl<T: Linear<Scalar = f32> + Copy> BezierSpline<T> {
     /// let approx = curve.approximate(|err| err.len_sqr() < 0.01*0.01);
     /// assert_eq!(approx.len(), 17);
     /// ```
-    pub fn approximate(&self, halt: impl Fn(&T) -> bool) -> Vec<T> {
+    pub fn approximate(&self, halt: impl Fn(&T::Diff) -> bool) -> Vec<T> {
         let len = self.0.len();
         let mut res = Vec::with_capacity(3 * len);
         self.do_approx(0.0, 1.0, 10 + len.ilog2(), &halt, &mut res);
-        res.push(self.0[len - 1]);
+        res.push(self.0[len - 1].clone());
         res
     }
 
@@ -214,7 +262,7 @@ impl<T: Linear<Scalar = f32> + Copy> BezierSpline<T> {
         a: f32,
         b: f32,
         max_dep: u32,
-        halt: &impl Fn(&T) -> bool,
+        halt: &impl Fn(&T::Diff) -> bool,
         accum: &mut Vec<T>,
     ) {
         let mid = a.lerp(&b, 0.5);
@@ -239,6 +287,7 @@ mod tests {
     use alloc::vec;
 
     use crate::assert_approx_eq;
+    use crate::math::point::{pt2, Point2};
     use crate::math::{vec2, Vec2};
 
     use super::*;
@@ -270,7 +319,7 @@ mod tests {
     }
 
     #[test]
-    fn bezier_spline_eval_eq_fasteval() {
+    fn bezier_spline_eval_eq_fast_eval() {
         let b: CubicBezier<Vec2> = CubicBezier(
             [[0.0, 0.0], [0.0, 2.0], [1.0, -1.0], [1.0, 1.0]].map(Vec2::from),
         );
@@ -296,7 +345,7 @@ mod tests {
     }
 
     #[test]
-    fn bezier_spline_eval_2d() {
+    fn bezier_spline_eval_2d_vec() {
         let b = CubicBezier(
             [[0.0, 0.0], [0.0, 2.0], [1.0, -1.0], [1.0, 1.0]]
                 .map(Vec2::<()>::from),
@@ -309,6 +358,22 @@ mod tests {
         assert_eq!(b.eval(0.75), vec2(0.84375, 0.281250));
         assert_eq!(b.eval(1.00), vec2(1.0, 1.0));
         assert_eq!(b.eval(2.00), vec2(1.0, 1.0));
+    }
+
+    #[test]
+    fn bezier_spline_eval_2d_point() {
+        let b = CubicBezier(
+            [[0.0, 0.0], [0.0, 2.0], [1.0, -1.0], [1.0, 1.0]]
+                .map(Point2::<()>::from),
+        );
+
+        assert_eq!(b.eval(-1.0), pt2(0.0, 0.0));
+        assert_eq!(b.eval(0.00), pt2(0.0, 0.0));
+        assert_eq!(b.eval(0.25), pt2(0.15625, 0.71875));
+        assert_eq!(b.eval(0.50), pt2(0.5, 0.5));
+        assert_eq!(b.eval(0.75), pt2(0.84375, 0.281250));
+        assert_eq!(b.eval(1.00), pt2(1.0, 1.0));
+        assert_eq!(b.eval(2.00), pt2(1.0, 1.0));
     }
 
     #[test]
@@ -328,7 +393,7 @@ mod tests {
     fn bezier_spline_tangent_2d() {
         let b = CubicBezier(
             [[0.0, 0.0], [0.0, 1.0], [1.0, 0.0], [1.0, 1.0]]
-                .map(Vec2::<()>::from),
+                .map(Point2::<()>::from),
         );
 
         assert_eq!(b.tangent(-1.0), vec2(0.0, 3.0),);
