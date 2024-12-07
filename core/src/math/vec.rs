@@ -569,7 +569,7 @@ where
 {
     #[inline]
     fn div_assign(&mut self, rhs: f32) {
-        debug_assert!(f32::abs(rhs) > 1e-7);
+        debug_assert!(f32::abs(rhs) > 1e-7, "divisor {rhs} < epsilon");
         *self = Linear::mul(&*self, rhs.recip());
     }
 }
