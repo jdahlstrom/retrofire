@@ -14,11 +14,12 @@
 //!
 
 use alloc::{vec, vec::Vec};
+use std::iter::zip;
 
 use view_frustum::{outcode, status};
 
-use crate::geom::{Plane, Tri, Vertex};
-use crate::math::{vec::ProjVec4, Lerp, Vec3};
+use crate::geom::{vertex, Tri, Vertex};
+use crate::math::{vec::ProjVec4, Lerp};
 
 /// Trait for types that can be [clipped][self] against planes.
 ///
@@ -51,9 +52,6 @@ pub trait Clip {
 /// A vector in clip space.
 pub type ClipVec = ProjVec4;
 
-/// A plane in clip space.
-pub type ClipPlane = Plane<ClipVec>;
-
 /// A vertex in clip space.
 #[derive(Copy, Clone, Debug, PartialEq)]
 pub struct ClipVert<A> {
@@ -78,14 +76,17 @@ enum Status {
     Hidden,
 }
 
+impl Outcode {
+    const INSIDE: u8 = 0b00_11_11_11;
+}
+
+#[derive(Debug, Copy, Clone)]
+pub struct ClipPlane(ClipVec, u8);
+
 impl ClipPlane {
     /// Creates a clip plane given a normal and offset from origin.
-    ///
-    /// TODO Floating-point arithmetic is not permitted in const functions
-    ///      so the offset must be negated for now.
-    pub const fn new(normal: Vec3, neg_offset: f32) -> Self {
-        let [x, y, z] = normal.0;
-        Self(ClipVec::new([x, y, z, neg_offset]))
+    pub const fn new(x: f32, y: f32, z: f32, off: f32, bit: u8) -> Self {
+        Self(ClipVec::new([x, y, z, -off]), bit)
     }
 
     /// Returns the signed distance between `pt` and `self`.
@@ -110,6 +111,22 @@ impl ClipPlane {
         self.0.dot(pt)
     }
 
+    /// Computes the outcode bit for `pt`.
+    ///
+    /// The result is nonzero if `pt` is inside this plane, zero otherwise.
+    #[inline]
+    pub fn outcode(&self, pt: &ClipVec) -> u8 {
+        (self.signed_dist(pt) <= 0.0) as u8 * self.1
+    }
+
+    /// Checks the outcode of `v` against `self`.
+    ///
+    /// Returns `true` if this plane's outcode bit is set, `false` otherwise.
+    #[inline]
+    pub fn is_inside<A>(&self, v: &ClipVert<A>) -> bool {
+        self.1 & v.outcode.0 != 0
+    }
+
     /// Clips the convex polygon given by `verts_in` against `self` and
     /// returns the resulting vertices in `verts_out`.
     ///
@@ -132,16 +149,14 @@ impl ClipPlane {
         verts_in: &[ClipVert<A>],
         verts_out: &mut Vec<ClipVert<A>>,
     ) {
-        let mut verts = verts_in
-            .iter()
-            .chain(&verts_in[..1])
-            .map(|v| (v, self.signed_dist(&v.pos)));
+        let mut verts = verts_in.iter().chain(&verts_in[..1]);
 
-        let Some((mut v0, mut d0)) = &verts.next() else {
+        let Some(mut v0) = verts.next() else {
             return;
         };
-        for (v1, d1) in verts {
-            if d0 <= 0.0 {
+
+        for v1 in verts {
+            if self.is_inside(v0) {
                 // v0 is inside; emit it as-is. If v1 is also inside, we don't
                 // have to do anything; it is emitted on the next iteration.
                 verts_out.push((*v0).clone());
@@ -149,23 +164,29 @@ impl ClipPlane {
                 // v0 is outside, discard it. If v1 is also outside, we don't
                 // have to do anything; it is discarded on the next iteration.
             }
+            // TODO Doesn't use is_inside because it can't distinguish the case
+            //   where a vertex lies exactly on the plane. Though that's mostly
+            //   a theoretical edge case (heh).
+            let d0 = self.signed_dist(&v0.pos);
+            let d1 = self.signed_dist(&v1.pos);
             if d0 * d1 < 0.0 {
-                // Edge crosses the plane surface. Split the edge in two by
-                // interpolating and emitting a new vertex at intersection.
+                // The edge crosses the plane surface. Split the edge in two
+                // by interpolating and emitting a new vertex at intersection.
                 // The new vertex becomes one of the endpoints of a new "clip"
                 // edge coincident with the plane.
+                let d0 = self.signed_dist(&v0.pos);
+                let d1 = self.signed_dist(&v1.pos);
 
                 // `t` is the fractional distance from `v0` to the intersection
                 // point. If condition guarantees that `d1 - d0` is nonzero.
                 let t = -d0 / (d1 - d0);
 
-                verts_out.push(ClipVert {
-                    pos: v0.pos.lerp(&v1.pos, t),
-                    attrib: v0.attrib.lerp(&v1.attrib, t),
-                    outcode: Outcode(0b111111), // inside!
-                });
+                verts_out.push(ClipVert::new(vertex(
+                    v0.pos.lerp(&v1.pos, t),
+                    v0.attrib.lerp(&v1.attrib, t),
+                )));
             }
-            (v0, d0) = (v1, d1);
+            v0 = v1;
         }
     }
 }
@@ -184,30 +205,27 @@ impl ClipPlane {
 ///
 /// TODO Describe clip space
 pub mod view_frustum {
-    use crate::geom::Plane;
-    use crate::math::vec3;
-
     use super::*;
 
     /// The near, far, left, right, bottom, and top clipping planes,
     /// in that order.
     pub const PLANES: [ClipPlane; 6] = [
-        Plane::new(vec3(0.0, 0.0, -1.0), -1.0), // Near
-        Plane::new(vec3(0.0, 0.0, 1.0), -1.0),  // Far
-        Plane::new(vec3(-1.0, 0.0, 0.0), -1.0), // Left
-        Plane::new(vec3(1.0, 0.0, 0.0), -1.0),  // Right
-        Plane::new(vec3(0.0, -1.0, 0.0), -1.0), // Bottom
-        Plane::new(vec3(0.0, 1.0, 0.0), -1.0),  // Top
+        ClipPlane::new(0.0, 0.0, -1.0, 1.0, 1), // Near
+        ClipPlane::new(0.0, 0.0, 1.0, 1.0, 2),  // Far
+        ClipPlane::new(-1.0, 0.0, 0.0, 1.0, 4), // Left
+        ClipPlane::new(1.0, 0.0, 0.0, 1.0, 8),  // Right
+        ClipPlane::new(0.0, -1.0, 0.0, 1.0, 16), // Bottom
+        ClipPlane::new(0.0, 1.0, 0.0, 1.0, 32), // Top
     ];
+
+    /// Clips geometry against the standard view frustum.
+    pub fn clip<G: Clip + ?Sized>(geom: &G, out: &mut Vec<G::Item>) {
+        geom.clip(&PLANES, out);
+    }
 
     /// Returns the outcode of the given point.
     pub(super) fn outcode(pt: &ClipVec) -> Outcode {
-        // Top Btm Rgt Lft Far Near
-        //  1   2   4   8   16  32
-        let code = PLANES
-            .iter()
-            .fold(0, |code, p| code << 1 | (p.signed_dist(pt) <= 0.0) as u8);
-
+        let code = PLANES.iter().map(|p| p.outcode(pt)).sum();
         Outcode(code)
     }
 
@@ -216,11 +234,11 @@ pub mod view_frustum {
         let (all, any) = vs.iter().fold((!0, 0), |(all, any), v| {
             (all & v.outcode.0, any | v.outcode.0)
         });
-        if any != 0b111111 {
-            // If there's at least one plane that all vertices are outside of,
+        if any != Outcode::INSIDE {
+            // If there's at least one plane outside which all vertices are,
             // then the whole polygon is hidden
             Status::Hidden
-        } else if all == 0b111111 {
+        } else if all == Outcode::INSIDE {
             // If each vertex is inside all planes, the polygon is fully visible
             Status::Visible
         } else {
@@ -245,13 +263,13 @@ pub mod view_frustum {
 /// [^1]: Ivan Sutherland, Gary W. Hodgman: Reentrant Polygon Clipping.
 ///        Communications of the ACM, vol. 17, pp. 32–42, 1974
 pub fn clip_simple_polygon<'a, A: Lerp + Clone>(
-    planes: &[Plane<ClipVec>],
+    planes: &[ClipPlane],
     verts_in: &'a mut Vec<ClipVert<A>>,
     verts_out: &'a mut Vec<ClipVert<A>>,
 ) {
     debug_assert!(verts_out.is_empty());
 
-    for (i, p) in planes.iter().enumerate() {
+    for (p, i) in zip(planes, 0..) {
         p.clip_simple_polygon(verts_in, verts_out);
         if verts_out.is_empty() {
             // Nothing left to clip; the polygon was fully outside
@@ -294,7 +312,7 @@ impl<A: Lerp + Clone> Clip for [Tri<ClipVert<A>>] {
             verts_in.extend(vs.clone());
             clip_simple_polygon(planes, &mut verts_in, &mut verts_out);
 
-            if let Some((a, rest)) = verts_out.split_first() {
+            if let [a, rest @ ..] = &verts_out[..] {
                 // Clipping a triangle results in an n-gon, where n depends on
                 // how many planes the triangle intersects. Turn the resulting
                 // n-gon into a fan of triangles with common vertex `a`, for
@@ -323,6 +341,7 @@ impl<A: Lerp + Clone> Clip for [Tri<ClipVert<A>>] {
 mod tests {
     use crate::geom::vertex;
     use crate::math::vary::Vary;
+    use std::dbg;
 
     use super::view_frustum::*;
     use super::*;
@@ -351,25 +370,26 @@ mod tests {
 
     #[test]
     fn outcode_inside() {
-        assert_eq!(outcode(&vec(0.0, 0.0, 0.0)).0, 0b111111);
-        assert_eq!(outcode(&vec(1.0, 0.0, 0.0)).0, 0b111111);
-        assert_eq!(outcode(&vec(0.0, -1.0, 0.0)).0, 0b111111);
-        assert_eq!(outcode(&vec(0.0, 1.0, 1.0)).0, 0b111111);
+        let inside = Outcode::INSIDE;
+        assert_eq!(outcode(&vec(0.0, 0.0, 0.0)).0, inside);
+        assert_eq!(outcode(&vec(1.0, 0.0, 0.0)).0, inside);
+        assert_eq!(outcode(&vec(0.0, -1.0, 0.0)).0, inside);
+        assert_eq!(outcode(&vec(0.0, 1.0, 1.0)).0, inside);
     }
 
     #[test]
     fn outcode_outside() {
         // Top Btm Rgt Lft Far Near
-        //  1   2   4   8   16  32
+        //  32  16  8   4   2   1
 
-        // Outside near == 32
-        assert_eq!(outcode(&vec(0.0, 0.0, -1.5)).0, 0b011111);
-        // Outside right == 4
-        assert_eq!(outcode(&vec(2.0, 0.0, 0.0)).0, 0b111011);
-        // Outside bottom == 2
-        assert_eq!(outcode(&vec(0.0, -1.01, 0.0)).0, 0b111101);
-        // Outside far left == 16|8
-        assert_eq!(outcode(&vec(-2.0, 0.0, 2.0)).0, 0b100111);
+        // Outside near == 1
+        assert_eq!(outcode(&vec(0.0, 0.0, -1.5)).0, 0b11_11_10);
+        // Outside right == 8
+        assert_eq!(outcode(&vec(2.0, 0.0, 0.0)).0, 0b11_01_11);
+        // Outside bottom == 16
+        assert_eq!(outcode(&vec(0.0, -1.01, 0.0)).0, 0b10_11_11);
+        // Outside far left == 2|4
+        assert_eq!(outcode(&vec(-2.0, 0.0, 2.0)).0, 0b11_10_01);
     }
 
     #[test]
@@ -504,7 +524,7 @@ mod tests {
     }
 
     #[test]
-    fn tri_clip_all_planes_fully_inside() {
+    fn tri_clip_against_frustum_fully_inside() {
         let tr = tri(
             vec(-1.0, -1.0, -1.0),
             vec(1.0, 1.0, 0.0),
@@ -515,7 +535,7 @@ mod tests {
         assert_eq!(res, &[tr]);
     }
     #[test]
-    fn tri_clip_all_planes_fully_outside() {
+    fn tri_clip_against_frustum_fully_outside() {
         //    z
         //    ^
         //    2-------0
@@ -534,7 +554,7 @@ mod tests {
         assert_eq!(res, &[]);
     }
     #[test]
-    fn tri_clip_all_planes_result_is_quad() {
+    fn tri_clip_against_frustum_result_is_quad() {
         //    z
         //    ^
         //    2
@@ -560,7 +580,7 @@ mod tests {
     }
 
     #[test]
-    fn tri_clip_all_planes_result_is_heptagon() {
+    fn tri_clip_against_frustum_result_is_heptagon() {
         //        z
         //        ^       2
         //        ·   /  /
@@ -583,9 +603,9 @@ mod tests {
     }
 
     #[test]
-    fn tri_clip_all_cases() {
+    fn tri_clip_against_frustum_all_cases() {
         // Methodically go through every possible combination of every
-        // vertex inside/outside of every plane, including degenerate cases.
+        // vertex inside/outside every plane, including degenerate cases.
 
         let xs = || (-2.0).vary(1.0, Some(5));
 
@@ -601,19 +621,32 @@ mod tests {
         });
 
         let mut in_tris = 0;
+        let mut in_degen = 0;
         let mut out_tris = [0; 8];
+        let mut out_degen = 0;
+        let mut out_total = 0;
         for tr in tris {
             let res = &mut vec![];
             [tr].clip(&PLANES, res);
             assert!(
                 res.iter().all(in_bounds),
-                "clip returned oob vertex:\n  from: {:#?}\n  to: {:#?}",
+                "clip returned oob or degenerate vertex:\n\
+                    input: {:#?}\n\
+                    output: {:#?}",
                 tr,
                 &res
             );
             in_tris += 1;
+            in_degen += is_degenerate(&tr) as u32;
             out_tris[res.len()] += 1;
+            out_total += res.len();
+            out_degen += res.iter().filter(|t| is_degenerate(t)).count()
         }
+        dbg!(in_tris);
+        dbg!(in_degen);
+        dbg!(out_degen);
+        dbg!(out_total);
+
         assert_eq!(in_tris, 5i32.pow(9));
         assert_eq!(
             out_tris,
@@ -621,9 +654,12 @@ mod tests {
         );
     }
 
-    fn in_bounds(tri: &Tri<ClipVert<f32>>) -> bool {
-        tri.0
-            .iter()
+    fn is_degenerate(Tri([a, b, c]): &Tri<ClipVert<f32>>) -> bool {
+        a.pos == b.pos || a.pos == c.pos || b.pos == c.pos
+    }
+
+    fn in_bounds(Tri(vs): &Tri<ClipVert<f32>>) -> bool {
+        vs.iter()
             .flat_map(|v| (v.pos / v.pos.w()).0)
             .all(|a| a.abs() <= 1.00001)
     }
