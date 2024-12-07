@@ -378,6 +378,11 @@ pub mod inner {
         pub fn height(&self) -> u32 {
             self.dims.1
         }
+        /// Returns the width and height of `self`.
+        #[inline]
+        pub fn dims(&self) -> Dims {
+            self.dims
+        }
         /// Returns the stride of `self`.
         #[inline]
         pub fn stride(&self) -> u32 {
