@@ -5,7 +5,7 @@ use re::prelude::*;
 
 use re::math::{
     point::{pt2, Point2, Point2u},
-    rand::{Distrib, Uniform, UnitDisk, Xorshift64},
+    rand::{Uniform, VectorsOnUnitDisk, Xorshift64},
     spline::BezierSpline,
 };
 
@@ -24,10 +24,8 @@ fn line([mut p0, mut p1]: [Point2; 2]) -> impl Iterator<Item = Point2u> {
         (vec2(dx / dy, 1.0), dy)
     };
 
-    // TODO Fix once points are Vary
-    p0.to_vec()
-        .vary(step, Some(n as u32))
-        .map(|p| p.map(|c| c as u32).to_pt())
+    p0.vary(step, Some(n as u32))
+        .map(|p| p.map(|c| c as u32))
 }
 
 fn main() {
@@ -40,14 +38,11 @@ fn main() {
         .expect("should create window");
 
     let rng = Xorshift64::from_time();
-    let pos = Uniform(vec2(0.0, 0.0)..vec2(w as f32, h as f32));
-    let vel = UnitDisk;
+    let pos = Uniform(pt2(0.0, 0.0)..pt2(w as f32, h as f32));
+    let vel = VectorsOnUnitDisk;
 
-    let (mut pts, mut deltas): (Vec<Point2>, Vec<Vec2>) = (pos, vel)
-        .samples(rng)
-        .take(4)
-        .map(|(p, v)| (p.to_pt(), v))
-        .unzip();
+    let (mut pts, mut deltas): (Vec<Point2>, Vec<Vec2>) =
+        (pos, vel).samples(rng).take(4).unzip();
 
     win.run(|Frame { dt, buf, .. }| {
         let b = BezierSpline::new(&pts);
