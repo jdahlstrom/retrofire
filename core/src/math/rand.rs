@@ -12,7 +12,7 @@ use super::vec::{Vec2, Vec3, Vector};
 pub type DefaultRng = Xorshift64;
 
 /// Trait for generating values sampled from a probability distribution.
-pub trait Distrib<R = DefaultRng>: Clone {
+pub trait Distrib: Clone {
     /// The type of the elements of the sample space of `Self`, also called
     /// "outcomes".
     type Sample;
@@ -27,9 +27,9 @@ pub trait Distrib<R = DefaultRng>: Clone {
     /// let d6 = Uniform(1..7).sample(&mut rng);
     /// assert_eq!(d6, 3);
     /// ```
-    fn sample(&self, rng: &mut R) -> Self::Sample;
+    fn sample(&self, rng: &mut DefaultRng) -> Self::Sample;
 
-    /// Returns an iterator that yields samples from `self`.
+    /// Returns an iterator that yields samples from `self` indefinitely.
     ///
     /// # Examples
     /// ```
@@ -41,7 +41,7 @@ pub trait Distrib<R = DefaultRng>: Clone {
     /// assert_eq!(iter.next(), Some(2));
     /// assert_eq!(iter.next(), Some(4));
     /// ```
-    fn samples(&self, rng: R) -> Iter<Self, R> {
+    fn samples(&self, rng: DefaultRng) -> impl Iterator<Item = Self::Sample> {
         Iter(self.clone(), rng)
     }
 }
@@ -100,7 +100,7 @@ pub struct Bernoulli(pub f32);
 
 /// Iterator returned by the [`Distrib::samples()`] method.
 #[derive(Copy, Clone, Debug)]
-pub struct Iter<D, R>(D, R);
+struct Iter<D, R>(D, R);
 
 //
 // Inherent impls
@@ -521,7 +521,7 @@ mod tests {
     }
 
     #[test]
-    fn unit_ball() {
+    fn vectors_in_unit_ball() {
         for v in VectorsInUnitBall.samples(rng()).take(COUNT) {
             assert!(v.len_sqr() <= 1.0, "vector of len > 1.0: {v:?}");
         }
