@@ -11,11 +11,12 @@
 //! passes the depth test, a color is computed by the fragment shader and
 //! written into the framebuffer. Fragments that fail the test are discarded.
 
-use core::fmt::Debug;
-use core::ops::Range;
+use core::{fmt::Debug, ops::Range};
 
-use crate::geom::Vertex;
-use crate::math::{Vary, Vec3};
+use crate::{
+    geom::Vertex,
+    math::{Lerp, Vary, Vec3},
+};
 
 use super::Screen;
 

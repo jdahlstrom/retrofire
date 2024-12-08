@@ -37,6 +37,7 @@ pub mod spline;
 pub mod vary;
 pub mod vec;
 
+/// Trait for linear interpolation between two values.
 pub trait Lerp {
     fn lerp(&self, other: &Self, t: f32) -> Self;
 }
@@ -45,7 +46,51 @@ impl<T> Lerp for T
 where
     T: Affine<Diff: Linear<Scalar = f32>>,
 {
+    /// Linearly interpolates between `self` and `other`.
+    ///
+    /// if `t` = 0, returns `self`; if `t` = 1, returns `other`.
+    /// For 0 < `t` < 1, returns the affine combination
+    /// ```text
+    /// self * (1 - t) + other * t
+    /// ```
+    /// or rearranged:
+    /// ```text
+    /// self + t * (other - self)
+    /// ```
+    ///
+    /// This method does not panic if `t < 0.0` or `t > 1.0`, or if `t`
+    /// is a `NaN`, but the return value in those cases is unspecified.
+    /// Individual implementations may offer stronger guarantees.
+    ///
+    /// # Examples
+    /// ```
+    /// use retrofire_core::math::{Lerp, vec::vec2, point::pt2};
+    ///
+    /// assert_eq!(2.0.lerp(&5.0, 0.0), 2.0);
+    /// assert_eq!(2.0.lerp(&5.0, 0.25), 2.75);
+    /// assert_eq!(2.0.lerp(&5.0, 0.75), 4.25);
+    /// assert_eq!(2.0.lerp(&5.0, 1.0), 5.0);
+    ///
+    /// assert_eq!(
+    ///     vec2::<f32, ()>(-2.0, 1.0).lerp(&vec2(3.0, -1.0), 0.8),
+    ///     vec2(2.0, -0.6)
+    /// );
+    /// assert_eq!(
+    ///     pt2::<f32, ()>(-10.0, 5.0).lerp(&pt2(-5.0, 0.0), 0.4),
+    ///     pt2(-8.0, 3.0)
+    /// );
+    /// ```
     fn lerp(&self, other: &Self, t: f32) -> Self {
         self.add(&other.sub(self).mul(t))
+    }
+}
+
+impl Lerp for () {
+    fn lerp(&self, _: &Self, _: f32) {}
+}
+
+impl<U: Lerp, V: Lerp> Lerp for (U, V) {
+    fn lerp(&self, (u, v): &Self, t: f32) -> Self {
+        (self.0.lerp(&u, t), self.1.lerp(&v, t))
     }
 }
