@@ -38,3 +38,5 @@ pub type Normal2 = Vec2;
 pub const fn vertex<P, A>(pos: P, attrib: A) -> Vertex<P, A> {
     Vertex { pos, attrib }
 }
+
+pub struct Ray<Orig, Dir>(pub Orig, pub Dir);

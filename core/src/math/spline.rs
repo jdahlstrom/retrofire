@@ -1,8 +1,9 @@
 //! Bézier curves and splines.
 
-use alloc::vec::Vec;
-use core::array;
+use alloc::{vec, vec::Vec};
+use core::{array, fmt::Debug};
 
+use crate::geom::Ray;
 use crate::math::{Affine, Lerp, Linear};
 
 /// A cubic Bézier curve, defined by four control points.
@@ -182,6 +183,26 @@ where
             pts.len()
         );
         Self(pts.to_vec())
+    }
+
+    pub fn from_rays<I>(rays: I) -> Self
+    where
+        I: IntoIterator<Item = Ray<T, T::Diff>>,
+    {
+        let mut rays = rays.into_iter().peekable();
+        let mut first = true;
+        let mut pts = vec![];
+        while let Some(Ray(p, v)) = rays.next() {
+            if !first {
+                pts.push(p.add(&v.neg()));
+            }
+            first = false;
+            pts.push(p.clone());
+            if rays.peek().is_some() {
+                pts.push(p.add(&v));
+            }
+        }
+        Self::new(&pts)
     }
 
     /// Evaluates `self` at position `t`.
