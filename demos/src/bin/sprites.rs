@@ -1,10 +1,9 @@
-use core::array::from_fn;
-use core::ops::ControlFlow::Continue;
-use re::geom::Vertex3;
+use core::{array::from_fn, ops::ControlFlow::Continue};
 
 use re::prelude::*;
 
-use re::math::rand::{UnitBall, Xorshift64};
+use re::geom::Vertex3;
+use re::math::rand::{Distrib, PointsInUnitBall, Xorshift64};
 use re::render::{
     cam::{Camera, Mode},
     render, Model, ModelToView, ViewToProj,
@@ -20,11 +19,11 @@ fn main() {
     ];
     let count = 10000;
     let rng = Xorshift64::default();
-    // TODO Points in unit ball and other distribs
-    let verts: Vec<Vertex3<Vec2<_>>> = UnitBall
+
+    let verts: Vec<Vertex3<Vec2<_>>> = PointsInUnitBall
         .samples(rng)
         .take(count)
-        .flat_map(|pos| verts.map(|v| vertex(pos.to().to_pt(), v)))
+        .flat_map(|pos| verts.map(|v| vertex(pos.to(), v)))
         .collect();
 
     let tris: Vec<_> = (0..count)
@@ -46,7 +45,7 @@ fn main() {
         },
         |frag: Frag<Vec2<_>>| {
             let d2 = frag.var.len_sqr();
-            (d2 < 1.0).then_some({
+            (d2 < 1.0).then(|| {
                 // TODO ops trait for colors
                 let col: Vec3 = splat(1.0) - d2 * vec3(0.25, 0.5, 1.0);
                 rgba(col.x(), col.y(), col.z(), 1.0).to_color4()

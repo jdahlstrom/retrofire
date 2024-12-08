@@ -1,5 +1,6 @@
 //! Pseudo-random number generation and distributions.
 
+use crate::math::point::{Point, Point2, Point3};
 use core::{array, fmt::Debug, ops::Range};
 
 use super::vec::{Vec2, Vec3, Vector};
@@ -63,21 +64,29 @@ pub struct Xorshift64(pub u64);
 #[derive(Clone, Debug)]
 pub struct Uniform<T>(pub Range<T>);
 
-/// A uniform distribution of 2-vectors on the (perimeter of) the unit circle.
+/// A uniform distribution of unit 2-vectors.
 #[derive(Copy, Clone, Debug)]
 pub struct UnitCircle;
 
-/// A uniform distribution of 2-vectors inside the (closed) unit disk.
-#[derive(Copy, Clone, Debug, Default)]
-pub struct UnitDisk;
-
-/// A uniform distribution of 3-vectors on the (surface of) the unit sphere.
+/// A uniform distribution of unit 3-vectors.
 #[derive(Copy, Clone, Debug, Default)]
 pub struct UnitSphere;
 
+/// A uniform distribution of 2-vectors inside the (closed) unit disk.
+#[derive(Copy, Clone, Debug, Default)]
+pub struct VectorsOnUnitDisk;
+
 /// A uniform distribution of 3-vectors inside the (closed) unit ball.
 #[derive(Copy, Clone, Debug, Default)]
-pub struct UnitBall;
+pub struct VectorsInUnitBall;
+
+/// A uniform distribution of 2-points inside the (closed) unit disk.
+#[derive(Copy, Clone, Debug, Default)]
+pub struct PointsOnUnitDisk;
+
+/// A uniform distribution of 3-points inside the (closed) unit ball.
+#[derive(Copy, Clone, Debug, Default)]
+pub struct PointsInUnitBall;
 
 /// A Bernoulli distribution.
 ///
@@ -286,8 +295,25 @@ where
 {
     type Sample = Vector<[Sc; DIM], Sp>;
 
-    /// Returns a uniformly distributed vector within the rectangular volume
-    /// bounded by the range `self.0`.
+    /// Returns a vector uniformly sampled from the rectangular volume
+    /// bounded by `self.0`.
+    fn sample(&self, rng: &mut DefaultRng) -> Self::Sample {
+        Uniform(self.0.start.0..self.0.end.0)
+            .sample(rng)
+            .into()
+    }
+}
+
+/// Uniformly distributed points within a rectangular volume.
+impl<Sc, Sp, const DIM: usize> Distrib for Uniform<Point<[Sc; DIM], Sp>>
+where
+    Sc: Copy,
+    Uniform<[Sc; DIM]>: Distrib<Sample = [Sc; DIM]>,
+{
+    type Sample = Point<[Sc; DIM], Sp>;
+
+    /// Returns a point uniformly sampled from the rectangular volume
+    /// bounded by `self.0`.
     fn sample(&self, rng: &mut DefaultRng) -> Self::Sample {
         Uniform(self.0.start.0..self.0.end.0)
             .sample(rng)
@@ -306,10 +332,19 @@ impl Distrib for UnitCircle {
     }
 }
 
-impl Distrib for UnitDisk {
+impl Distrib for VectorsOnUnitDisk {
     type Sample = Vec2;
 
-    /// Returns a 2-vector uniformly distributed within the unit disk.
+    /// Returns a 2-vector uniformly sampled from the unit disk.
+    ///
+    /// # Example
+    /// ```
+    /// use retrofire_core::math::rand::*;
+    /// let rng = &mut DefaultRng::default();
+    ///
+    /// let vec = VectorsOnUnitDisk.sample(rng);
+    /// assert!(vec.len() <= 1.0);
+    /// ```
     fn sample(&self, rng: &mut DefaultRng) -> Vec2 {
         let d = Uniform([-1.0f32; 2]..[1.0; 2]);
         loop {
@@ -332,7 +367,7 @@ impl Distrib for UnitSphere {
     }
 }
 
-impl Distrib for UnitBall {
+impl Distrib for VectorsInUnitBall {
     type Sample = Vec3;
 
     /// Returns a vector uniformly distributed within the unit ball.
@@ -344,6 +379,28 @@ impl Distrib for UnitBall {
                 return v;
             }
         }
+    }
+}
+
+impl Distrib for PointsOnUnitDisk {
+    type Sample = Point2;
+
+    /// Returns a 2-point uniformly sampled from the unit disk.
+    ///
+    /// See [`VectorsOnUnitDisk::sample`].
+    fn sample(&self, rng: &mut DefaultRng) -> Point2 {
+        VectorsOnUnitDisk.sample(rng).to_pt()
+    }
+}
+
+impl Distrib for PointsInUnitBall {
+    type Sample = Point3;
+
+    /// Returns a 3-point uniformly sampled from the unit ball.
+    ///
+    /// See [`VectorsInUnitBall::sample`].
+    fn sample(&self, rng: &mut DefaultRng) -> Point3 {
+        VectorsInUnitBall.sample(rng).to_pt()
     }
 }
 
@@ -449,8 +506,8 @@ mod tests {
     }
 
     #[test]
-    fn unit_disk() {
-        for v in UnitDisk.samples(rng()).take(COUNT) {
+    fn vectors_on_unit_disk() {
+        for v in VectorsOnUnitDisk.samples(rng()).take(COUNT) {
             assert!(v.len_sqr() <= 1.0, "vector of len > 1.0: {v:?}");
         }
     }
@@ -465,7 +522,7 @@ mod tests {
 
     #[test]
     fn unit_ball() {
-        for v in UnitBall.samples(rng()).take(COUNT) {
+        for v in VectorsInUnitBall.samples(rng()).take(COUNT) {
             assert!(v.len_sqr() <= 1.0, "vector of len > 1.0: {v:?}");
         }
     }
