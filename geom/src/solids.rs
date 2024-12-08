@@ -12,6 +12,7 @@ use re::math::{
     point::{pt2, pt3, Point3},
     vary::Vary,
     vec::{vec2, vec3, Vec3},
+    Lerp,
 };
 use re::render::tex::{uv, TexCoord};
 
