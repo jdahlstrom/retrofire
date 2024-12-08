@@ -267,8 +267,8 @@ where
 {
     type Sample = [T; N];
 
-    /// Returns the coordinates of a uniformly distributed point within
-    /// the N-dimensional rectangular volume bounded by the range `self.0`.
+    /// Returns the coordinates of a point sampled from a uniform distribution
+    /// within the N-dimensional rectangular volume bounded by `self.0`.
     ///
     /// # Examples
     /// ```
@@ -276,10 +276,11 @@ where
     /// let rng = DefaultRng::default();
     ///
     /// // Pairs of integers [X, Y] such that 0 <= X < 4 and -2 <= Y <= 3
-    /// let mut iter = Uniform([0, -2]..[4, 3]).samples(rng);
-    /// assert_eq!(iter.next(), Some([0, -1]));
-    /// assert_eq!(iter.next(), Some([1, 0]));
-    /// assert_eq!(iter.next(), Some([3, 1]));
+    /// let mut int_pairs = Uniform([0, -2]..[4, 3]).samples(rng);
+    ///
+    /// assert_eq!(int_pairs.next(), Some([0, -1]));
+    /// assert_eq!(int_pairs.next(), Some([1, 0]));
+    /// assert_eq!(int_pairs.next(), Some([3, 1]));
     /// ```
     fn sample(&self, rng: &mut DefaultRng) -> [T; N] {
         let Range { start, end } = self.0;
@@ -325,9 +326,19 @@ where
 impl Distrib for UnitCircle {
     type Sample = Vec2;
 
-    /// Returns a 2-vector uniformly distributed on the unit circle.
+    /// Returns a unit 2-vector uniformly sampled from the unit circle.
+    ///
+    /// # Example
+    /// ```
+    /// use retrofire_core::math::rand::*;
+    /// let rng = &mut DefaultRng::default();
+    ///
+    /// let vec = UnitCircle.sample(rng);
+    /// assert_eq!(vec.len(), 1.0);
+    /// ```
     fn sample(&self, rng: &mut DefaultRng) -> Vec2 {
         let d = Uniform([-1.0; 2]..[1.0; 2]);
+        // Normalization preserves uniformity
         Vec2::from(d.sample(rng)).normalize()
     }
 }
@@ -348,6 +359,7 @@ impl Distrib for VectorsOnUnitDisk {
     fn sample(&self, rng: &mut DefaultRng) -> Vec2 {
         let d = Uniform([-1.0f32; 2]..[1.0; 2]);
         loop {
+            // Rejection sampling
             let v = Vec2::from(d.sample(rng));
             if v.len_sqr() <= 1.0 {
                 return v;
@@ -360,9 +372,19 @@ impl Distrib for VectorsOnUnitDisk {
 impl Distrib for UnitSphere {
     type Sample = Vec3;
 
-    /// Returns a vector uniformly distributed on the unit sphere.
+    /// Returns a unit 3-vector uniformly sampled from the unit sphere.
+    ///
+    /// # Example
+    /// ```
+    /// use retrofire_core::assert_approx_eq;
+    /// use retrofire_core::math::rand::*;
+    /// let rng = &mut DefaultRng::default();
+    ///
+    /// let vec = UnitSphere.sample(rng);
+    /// assert_approx_eq!(vec.len(), 1.0);
+    /// ```
     fn sample(&self, rng: &mut DefaultRng) -> Vec3 {
-        let d = Uniform([-1.0f32; 3]..[1.0; 3]);
+        let d = Uniform([-1.0; 3]..[1.0; 3]);
         Vec3::from(d.sample(rng)).normalize()
     }
 }
@@ -370,10 +392,20 @@ impl Distrib for UnitSphere {
 impl Distrib for VectorsInUnitBall {
     type Sample = Vec3;
 
-    /// Returns a vector uniformly distributed within the unit ball.
+    /// Returns a 3-vector uniformly sampled from the unit ball.
+    ///
+    /// # Example
+    /// ```
+    /// use retrofire_core::math::rand::*;
+    /// let rng = &mut DefaultRng::default();
+    ///
+    /// let vec = VectorsInUnitBall.sample(rng);
+    /// assert!(vec.len() <= 1.0);
+    /// ```
     fn sample(&self, rng: &mut DefaultRng) -> Vec3 {
         let d = Uniform([-1.0; 3]..[1.0; 3]);
         loop {
+            // Rejection sampling
             let v = Vec3::from(d.sample(rng));
             if v.len_sqr() <= 1.0 {
                 return v;
@@ -407,7 +439,21 @@ impl Distrib for PointsInUnitBall {
 impl Distrib for Bernoulli {
     type Sample = bool;
 
-    /// Returns boolean values sampled from a Bernoulli distribution.
+    /// Returns booleans sampled from a Bernoulli distribution.
+    ///
+    /// The result is `true` with probability `self.0` and false
+    /// with probability 1 - `self.0`.
+    ///
+    /// # Example
+    /// ```
+    /// use core::array;
+    /// use retrofire_core::math::rand::*;
+    /// let rng = &mut DefaultRng::default();
+    ///
+    /// let bern = Bernoulli(0.6); // P(true) = 0.6
+    /// let bools = array::from_fn(|_| bern.sample(rng));
+    /// assert_eq!(bools, [true, true, false, true, false, true]);
+    /// ```
     fn sample(&self, rng: &mut DefaultRng) -> bool {
         Uniform(0.0f32..1.0).sample(rng) < self.0
     }
@@ -489,11 +535,8 @@ mod tests {
 
     #[test]
     fn bernoulli() {
-        let approx_100 = Bernoulli(0.1)
-            .samples(rng())
-            .take(COUNT)
-            .filter(|&b| b)
-            .count();
+        let bools = Bernoulli(0.1).samples(rng()).take(COUNT);
+        let approx_100 = bools.filter(|&b| b).count();
         assert_eq!(approx_100, 82);
     }
 
@@ -529,10 +572,10 @@ mod tests {
 
     #[test]
     fn zipped_pair() {
-        let mut rng = rng();
+        let rng = &mut rng();
         let dist = (Bernoulli(0.8), Uniform(0..4));
-        assert_eq!(dist.sample(&mut rng), (true, 1));
-        assert_eq!(dist.sample(&mut rng), (false, 3));
-        assert_eq!(dist.sample(&mut rng), (true, 2));
+        assert_eq!(dist.sample(rng), (true, 1));
+        assert_eq!(dist.sample(rng), (false, 3));
+        assert_eq!(dist.sample(rng), (true, 2));
     }
 }
