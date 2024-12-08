@@ -573,8 +573,10 @@ impl From<Vec3> for SphericalVec {
 mod tests {
     use core::f32::consts::{PI, TAU};
 
-    use crate::assert_approx_eq;
-    use crate::math::vary::Vary;
+    use crate::{
+        assert_approx_eq,
+        math::{Lerp, Vary},
+    };
 
     use super::*;
 
