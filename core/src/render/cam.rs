@@ -123,9 +123,14 @@ impl<M> Camera<M> {
 }
 
 impl<M: Mode> Camera<M> {
+    /// Returns the camera (view) matrix.
+    pub fn world_to_view(&self) -> Mat4x4<WorldToView> {
+        self.mode.world_to_view()
+    }
+
     /// Returns the composed camera and projection matrix.
     pub fn world_to_project(&self) -> Mat4x4<RealToProj<World>> {
-        self.mode.world_to_view().then(&self.project)
+        self.world_to_view().then(&self.project)
     }
 
     /// Renders the given geometry from the viewpoint of this camera.
@@ -143,9 +148,9 @@ impl<M: Mode> Camera<M> {
                 Vtx,
                 (&'a Mat4x4<RealToProj<B>>, Uni),
                 Output = Vertex<ClipVec, Var>,
-            > + FragmentShader<Var>,
+            > + FragmentShader<Var, Uni>,
     {
-        let tf = to_world.then(&self.world_to_project());
+        /*let tf = to_world.then(&self.world_to_project());
 
         super::render(
             tris.as_ref(),
@@ -155,7 +160,7 @@ impl<M: Mode> Camera<M> {
             self.viewport,
             target,
             ctx,
-        );
+        );*/
     }
 }
 

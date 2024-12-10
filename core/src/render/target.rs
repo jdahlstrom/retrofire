@@ -16,15 +16,17 @@ pub trait Target {
     /// Writes a single scanline into `self`.
     ///
     /// Returns count of fragments input and output.
-    fn rasterize<V, Fs>(
+    fn rasterize<V, U, Fs>(
         &mut self,
         scanline: Scanline<V>,
+        uniform: U,
         frag_shader: &Fs,
         ctx: &Context,
     ) -> Throughput
     where
         V: Vary,
-        Fs: FragmentShader<V>;
+        U: Copy,
+        Fs: FragmentShader<V, U>;
 }
 
 /// Framebuffer, combining a color (pixel) buffer and a depth buffer.
@@ -40,15 +42,17 @@ where
     Dep: AsMutSlice2<f32>,
 {
     /// Rasterizes `scanline` into this framebuffer.
-    fn rasterize<V, Fs>(
+    fn rasterize<V, U, Fs>(
         &mut self,
         mut sl: Scanline<V>,
+        uni: U,
         fs: &Fs,
         ctx: &Context,
     ) -> Throughput
     where
         V: Vary,
-        Fs: FragmentShader<V>,
+        U: Copy,
+        Fs: FragmentShader<V, U>,
     {
         let x0 = sl.xs.start;
         let x1 = sl.xs.end.max(x0);
@@ -64,7 +68,7 @@ where
                 let new_z = frag.pos.z();
 
                 if ctx.depth_test(new_z, *curr_z) {
-                    if let Some(new_col) = fs.shade_fragment(frag) {
+                    if let Some(new_col) = fs.shade_fragment(frag, uni) {
                         if ctx.color_write {
                             io.o += 1;
                             // TODO Blending should happen here
@@ -83,15 +87,17 @@ where
 impl<Buf: AsMutSlice2<u32>> Target for Buf {
     /// Rasterizes `scanline` into this `u32` color buffer.
     /// Does no z-buffering.
-    fn rasterize<V, Fs>(
+    fn rasterize<V, U, Fs>(
         &mut self,
         mut sl: Scanline<V>,
+        uni: U,
         fs: &Fs,
         ctx: &Context,
     ) -> Throughput
     where
         V: Vary,
-        Fs: FragmentShader<V>,
+        U: Copy,
+        Fs: FragmentShader<V, U>,
     {
         let x0 = sl.xs.start;
         let x1 = sl.xs.end.max(x0);
@@ -101,7 +107,7 @@ impl<Buf: AsMutSlice2<u32>> Target for Buf {
         sl.fragments()
             .zip(cbuf_span)
             .for_each(|(frag, c)| {
-                if let Some(color) = fs.shade_fragment(frag) {
+                if let Some(color) = fs.shade_fragment(frag, uni) {
                     if ctx.color_write {
                         io.o += 1;
                         *c = color.to_argb_u32();

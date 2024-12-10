@@ -27,6 +27,7 @@ pub mod batch;
 pub mod cam;
 pub mod clip;
 pub mod ctx;
+pub mod light;
 pub mod raster;
 pub mod shader;
 pub mod stats;
@@ -73,12 +74,13 @@ pub type NdcToScreen = RealToReal<3, Ndc, Screen>;
 
 /// Alias for combined vertex+fragment shader types
 pub trait Shader<Vtx, Var, Uni>:
-    VertexShader<Vtx, Uni, Output = Vertex<ProjVec4, Var>> + FragmentShader<Var>
+    VertexShader<Vtx, Uni, Output = Vertex<ProjVec4, Var>>
+    + FragmentShader<Var, Uni>
 {
 }
 impl<S, Vtx, Var, Uni> Shader<Vtx, Var, Uni> for S where
     S: VertexShader<Vtx, Uni, Output = Vertex<ProjVec4, Var>>
-        + FragmentShader<Var>
+        + FragmentShader<Var, Uni>
 {
 }
 
@@ -161,7 +163,7 @@ pub fn render<Vtx: Clone, Var: Lerp + Vary, Uni: Copy, Shd>(
         // Fragment shader and rasterization
         tri_fill(vs, |scanline| {
             // Convert to fragments and shade
-            stats.frags += target.rasterize(scanline, shader, ctx);
+            stats.frags += target.rasterize(scanline, uniform, shader, ctx);
         });
     }
     *ctx.stats.borrow_mut() += stats.finish();
