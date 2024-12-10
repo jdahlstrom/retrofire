@@ -11,7 +11,11 @@
 //! passes the depth test, a color is computed by the fragment shader and
 //! written into the framebuffer. Fragments that fail the test are discarded.
 
-use core::{fmt::Debug, ops::Range};
+use core::{
+    fmt::{Debug, Formatter},
+    mem::swap,
+    ops::Range,
+};
 
 use crate::{
     geom::Vertex,
@@ -28,6 +32,7 @@ pub struct Frag<V> {
 }
 
 /// A horizontal, 1-pixel-thick "slice" of a primitive being rasterized.
+
 pub struct Scanline<V: Vary> {
     /// The y coordinate of the line.
     pub y: usize,
@@ -62,6 +67,15 @@ impl<V: Vary> Scanline<V> {
             let var = var.z_div(pos.z());
             Frag { pos, var }
         })
+    }
+}
+
+impl<V: Vary> Debug for Scanline<V> {
+    fn fmt(&self, f: &mut Formatter<'_>) -> core::fmt::Result {
+        f.debug_struct("Scanline")
+            .field("y", &self.y)
+            .field("xs", &self.xs)
+            .finish_non_exhaustive()
     }
 }
 
@@ -103,6 +117,35 @@ impl<V: Vary> Iterator for ScanlineIter<V> {
     }
 }
 
+pub fn line<V, F>([mut v0, mut v1]: [Vertex<ScreenPt, V>; 2], mut scan_fn: F)
+where
+    V: Vary<Diff: Default> + Default,
+    F: FnMut(Scanline<V>),
+{
+    if v0.pos.y() > v1.pos.y() {
+        swap(&mut v0, &mut v1);
+    }
+    let [dx, dy, _dz] = (v1.pos - v0.pos).0;
+    let abs_dx = dx.abs();
+
+    // let (step, n) = if abs_dx > dy {
+    //     (vec3(dx.signum(), dy / abs_dx, dz / abs_dx), abs_dx)
+    // } else {
+    //     (vec3(dx / dy, 1.0, dz / dy), dy)
+    // };
+
+    let n = abs_dx.max(dy);
+
+    (v0.pos, v0.attrib)
+        .vary_to((v1.pos, v1.attrib), n as u32)
+        .for_each(|(pos, var)| {
+            let [x, y, _] = pos.map(|x| x as usize).0;
+            let vs = (pos, V::default()).vary_to((pos, V::default()), 1);
+
+            scan_fn(Scanline { y, xs: x..x + 1, vs });
+        })
+}
+
 /// Converts a triangle defined by vertices `verts` into scanlines and calls
 /// `scanline_fn` for each scanline. The scanlines are guaranteed to cover
 /// exactly those pixels whose center point lies inside the triangle. For more
@@ -113,7 +156,7 @@ where
     F: FnMut(Scanline<V>),
 {
     // Sort by y coordinate, start from the top
-    verts.sort_by(|a, b| a.pos.y().partial_cmp(&b.pos.y()).unwrap());
+    verts.sort_by(|a, b| f32::total_cmp(&a.pos.y(), &b.pos.y()));
     let [top, mid0, bot] = verts.map(|v| (v.pos, v.attrib));
 
     let [top_y, mid_y, bot_y] = [top.0.y(), mid0.0.y(), bot.0.y()];

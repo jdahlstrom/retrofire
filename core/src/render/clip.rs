@@ -290,6 +290,24 @@ impl<V> ClipVert<V> {
     }
 }
 
+impl<A: Lerp + Clone> Clip for [[ClipVert<A>; 2]] {
+    type Item = [ClipVert<A>; 2];
+
+    fn clip(&self, planes: &[ClipPlane], out: &mut Vec<Self::Item>) {
+        for [v0, v1] in self {
+            let all = v0.outcode & v1.outcode;
+            let any = v0.outcode | v1.outcode;
+
+            if all != 0 {
+                continue;
+            }
+            if any == 0 {
+                out.push([v0.clone(), v1.clone()]);
+            }
+        }
+    }
+}
+
 impl<A: Lerp + Clone> Clip for [Tri<ClipVert<A>>] {
     type Item = Tri<ClipVert<A>>;
 
