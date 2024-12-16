@@ -16,10 +16,9 @@ use crate::math::{
     Lerp,
 };
 
-use crate::render::raster::line;
 use clip::{view_frustum, ClipVert};
 use ctx::{Context, DepthSort, FaceCull};
-use raster::{tri_fill, ScreenPt};
+use raster::{line, tri_fill, ScreenPt};
 use shader::{FragmentShader, VertexShader};
 use stats::Stats;
 use target::Target;
@@ -134,7 +133,6 @@ pub fn render<Vtx: Clone, Var: Lerp + Vary, Uni: Copy, Shd>(
         let vs = project(vs, to_screen);
 
         // Back/frontface culling
-        //
         // TODO This could also be done earlier, before or as part of clipping
         match ctx.face_cull {
             Some(FaceCull::Back) if is_backface(&vs) => continue,
@@ -147,10 +145,26 @@ pub fn render<Vtx: Clone, Var: Lerp + Vary, Uni: Copy, Shd>(
         stats.verts.o += 3;
 
         // Fragment shader and rasterization
-        tri_fill(vs, |scanline| {
+        tri_fill(vs.clone(), |scanline| {
             // Convert to fragments and shade
-            stats.frags += target.rasterize(scanline, uniform, shader, ctx);
+            // stats.frags += target.rasterize(scanline, uniform, shader, ctx);
         });
+
+        /*let [a, b, c] = vs;
+        //let mut ctx = ctx.clone();
+        //ctx.depth_test = None;
+        for [mut a, mut b] in [[a.clone(), b.clone()], [a, c.clone()], [b, c]] {
+            a.pos.0[2] += 2e-3;
+            b.pos.0[2] += 2e-3;
+            line([a, b], |scanline| {
+                target.rasterize(
+                    scanline,
+                    uniform,
+                    &|_, _| rgba(0x0, 0, 0, 0xff),
+                    &ctx,
+                );
+            });
+        }*/
     }
     *ctx.stats.borrow_mut() += stats.finish();
 }
@@ -190,7 +204,7 @@ pub fn render_lines<Vtx: Clone, Var: Lerp + Vary, Uni: Copy, Shd>(
 
         // Log output stats after culling
         stats.prims.o += 1;
-        stats.verts.o += 3;
+        stats.verts.o += 2;
 
         // Fragment shader and rasterization
         line(vs, |scanline| {
@@ -201,12 +215,12 @@ pub fn render_lines<Vtx: Clone, Var: Lerp + Vary, Uni: Copy, Shd>(
     *ctx.stats.borrow_mut() += stats.finish();
 }
 
-fn transform<'a, I, S, U, V, A>(verts: I, shd: &S, uni: U) -> Vec<ClipVert<A>>
+fn transform<'a, I, V, S, U, A>(verts: I, shd: &S, uni: U) -> Vec<ClipVert<A>>
 where
     I: IntoIterator<Item = &'a V>,
+    V: Clone + 'a,
     S: VertexShader<V, U, Output = Vertex<ProjVec4, A>>,
     U: Copy,
-    V: Clone + 'a,
 {
     verts
         .into_iter()
