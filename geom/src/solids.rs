@@ -14,7 +14,7 @@ use re::math::{
     vec::{vec2, vec3, Vec3},
     Lerp,
 };
-use re::render::tex::{uv, TexCoord};
+use re::render::{uv, TexCoord};
 
 /// A regular tetrahedron.
 ///

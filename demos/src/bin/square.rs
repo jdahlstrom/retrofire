@@ -2,10 +2,10 @@ use std::ops::ControlFlow::*;
 
 use re::prelude::*;
 
-use re::{
-    geom::Vertex3,
-    math::point::{pt2, pt3},
-    render::{ctx::Context, render, tex::SamplerClamp, ModelToProj},
+use re::math::point::{pt2, pt3};
+use re::render::{
+    raster::Frag, render, shader::Shader, tex::SamplerClamp, Context,
+    ModelToProj,
 };
 
 use re_front::minifb::Window;

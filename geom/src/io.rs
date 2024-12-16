@@ -55,10 +55,7 @@ use re::math::{
     point::Point3,
     vec::{vec3, Vec3, Vector},
 };
-use re::render::{
-    tex::{uv, TexCoord},
-    Model,
-};
+use re::render::{uv, Model, TexCoord};
 
 use Error::*;
 
@@ -207,8 +204,9 @@ fn parse_texcoord<'a>(
     Ok(uv(u, v))
 }
 
-fn parse_vector<'a>(i: &mut impl Iterator<Item = &'a str>) -> Result<Vec3<Model>>
-{
+fn parse_vector<'a>(
+    i: &mut impl Iterator<Item = &'a str>,
+) -> Result<Vec3<Model>> {
     let x = next(i)?.parse()?;
     let y = next(i)?.parse()?;
     let z = next(i)?.parse()?;
