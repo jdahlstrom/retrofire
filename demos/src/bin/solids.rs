@@ -4,12 +4,13 @@ use minifb::{Key, KeyRepeat};
 
 use re::prelude::*;
 
-use re::geom::Vertex3;
 use re::math::{
     color::gray, mat::RealToReal, point::pt2, spline::smootherstep,
     vec::ProjVec4,
 };
-use re::render::{batch::Batch, cam::Camera, ModelToProj, ModelToWorld};
+use re::render::{
+    raster::Frag, shader::Shader, Batch, Camera, ModelToProj, ModelToWorld,
+};
 
 use re_front::{minifb::Window, Frame};
 use re_geom::{io::parse_obj, solids::*};

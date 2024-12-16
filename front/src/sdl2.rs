@@ -2,21 +2,21 @@
 
 use std::{fmt, mem::replace, ops::ControlFlow, time::Instant};
 
-use sdl2::video::FullscreenType;
 use sdl2::{
     event::Event,
     keyboard::Keycode,
     render::{Texture, TextureValueError, WindowCanvas},
-    video::WindowBuildError,
+    video::{FullscreenType, WindowBuildError},
     EventPump, IntegerOrSdlError,
 };
 
-use retrofire_core::math::Vary;
-use retrofire_core::render::{
-    ctx::Context, raster::Scanline, shader::FragmentShader, stats::Throughput,
-    target::Target,
+use retrofire_core::{
+    math::Vary,
+    render::{
+        raster::Scanline, stats::Throughput, Context, FragmentShader, Target,
+    },
+    util::buf::{Buf2, MutSlice2},
 };
-use retrofire_core::util::buf::{Buf2, MutSlice2};
 
 use crate::{dims, Frame};
 

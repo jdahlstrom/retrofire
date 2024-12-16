@@ -5,9 +5,7 @@ use re::prelude::*;
 use re::geom::Vertex3;
 use re::math::{color::gray, point::pt3};
 use re::render::{
-    batch::Batch,
-    cam::{Camera, FirstPerson},
-    ModelToProj,
+    cam::FirstPerson, raster::Frag, shader::Shader, Batch, Camera, ModelToProj,
 };
 
 use re_front::sdl2::Window;
