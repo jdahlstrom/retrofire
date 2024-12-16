@@ -4,7 +4,7 @@ use wasm_bindgen::prelude::*;
 
 use re::prelude::*;
 
-use re::render::{render, ModelToView};
+use re::render::{render, shader::Shader, ModelToView};
 use re::util::Dims;
 
 use re_front::{dims::SVGA_800_600, wasm::Window};
