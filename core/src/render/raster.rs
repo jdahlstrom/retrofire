@@ -11,14 +11,17 @@
 //! passes the depth test, a color is computed by the fragment shader and
 //! written into the framebuffer. Fragments that fail the test are discarded.
 
-use core::{fmt::Debug, ops::Range};
+use core::{
+    fmt::{Debug, Formatter},
+    mem::swap,
+    ops::Range,
+};
 
 use crate::{
     geom::Vertex,
     math::{point::Point3, Lerp, Vary},
+    render::Screen,
 };
-
-use super::Screen;
 
 /// A fragment, or a single "pixel" in a rasterized primitive.
 #[derive(Clone, Debug)]
@@ -65,6 +68,15 @@ impl<V: Vary> Scanline<V> {
     }
 }
 
+impl<V: Vary> Debug for Scanline<V> {
+    fn fmt(&self, f: &mut Formatter<'_>) -> core::fmt::Result {
+        f.debug_struct("Scanline")
+            .field("y", &self.y)
+            .field("xs", &self.xs)
+            .finish_non_exhaustive()
+    }
+}
+
 impl<V: Vary> Iterator for ScanlineIter<V> {
     type Item = Scanline<V>;
 
@@ -103,17 +115,55 @@ impl<V: Vary> Iterator for ScanlineIter<V> {
     }
 }
 
-/// Converts a triangle defined by vertices `verts` into scanlines and calls
-/// `scanline_fn` for each scanline. The scanlines are guaranteed to cover
-/// exactly those pixels whose center point lies inside the triangle. For more
-/// information on the scanline conversion, see [`scan`].
+/// Rasterizes a one-pixel-thick line between two vertices.
+///
+/// Invokes `scan_fn` for each pixel drawn.
+///
+// TODO Optimize for cases where >1 pixels are drawn for each line
+// TODO Guarantee subpixel precision
+pub fn line<V, F>([mut v0, mut v1]: [Vertex<ScreenPt, V>; 2], mut scan_fn: F)
+where
+    V: Vary + Clone,
+    F: FnMut(Scanline<V>),
+{
+    use crate::math::float::f32;
+
+    if v0.pos.y() > v1.pos.y() {
+        swap(&mut v0, &mut v1);
+    }
+    let d = v1.pos - v0.pos;
+    let max_d = if f32::abs(d.x()) > d.y() { 0 } else { 1 };
+
+    let (p0, p1) = (&mut v0.pos[max_d], &mut v1.pos[max_d]);
+    *p0 = f32::floor(*p0);
+    *p1 = f32::floor(*p1);
+    let n = f32::abs(*p1 - *p0);
+
+    let y_vary = (v0.pos, v0.attrib)
+        // TODO Should vary to exclusive
+        .vary_to((v1.pos, v1.attrib), n as u32);
+
+    y_vary.for_each(|(pos, var)| {
+        let [x, y, _] = pos.map(|x| x as usize).0;
+        let vs = (pos, var.clone()).vary_to((pos, var), 1);
+
+        scan_fn(Scanline { y, xs: x..x + 1, vs });
+    })
+}
+
+/// Rasterizes a filled triangle defined by three vertices.
+///
+/// Converts the triangle into [scanlines][Scanline] and invokes `scanline_fn`
+/// for each scanline. The scanlines are guaranteed to cover exactly those
+/// pixels whose center point lies inside the triangle. For more information
+/// on the scanline conversion, see [`scan`].
 pub fn tri_fill<V, F>(mut verts: [Vertex<ScreenPt, V>; 3], mut scanline_fn: F)
 where
     V: Vary,
     F: FnMut(Scanline<V>),
 {
     // Sort by y coordinate, start from the top
-    verts.sort_by(|a, b| a.pos.y().partial_cmp(&b.pos.y()).unwrap());
+    verts.sort_by(|a, b| a.pos.y().total_cmp(&b.pos.y()));
     let [top, mid0, bot] = verts.map(|v| (v.pos, v.attrib));
 
     let [top_y, mid_y, bot_y] = [top.0.y(), mid0.0.y(), bot.0.y()];

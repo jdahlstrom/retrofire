@@ -54,7 +54,7 @@ pub mod prelude {
     pub use crate::{
         geom::{vertex, Mesh, Normal2, Normal3, Tri, Vertex, Vertex2, Vertex3},
         math::*,
-        render::{raster::Frag, shader::Shader, *},
+        render::{raster::Frag, *},
         util::buf::{AsMutSlice2, AsSlice2, Buf2, MutSlice2, Slice2},
     };
 }

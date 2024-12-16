@@ -117,6 +117,32 @@ impl ClipPlane {
         self.1 & v.outcode == 0
     }
 
+    pub fn intersect<A: Lerp>(
+        &self,
+        [v0, v1]: [&ClipVert<A>; 2],
+    ) -> Option<ClipVert<A>> {
+        // TODO Doesn't use is_inside because it can't distinguish the case
+        //   where a vertex lies exactly on the plane. Though that's mostly
+        //   a theoretical edge case (heh).
+        let d0 = self.signed_dist(&v0.pos);
+        let d1 = self.signed_dist(&v1.pos);
+        (d0 * d1 < 0.0).then(|| {
+            // The edge crosses the plane surface. Split the edge in two
+            // by interpolating and emitting a new vertex at intersection.
+            // The new vertex becomes one of the endpoints of a new "clip"
+            // edge coincident with the plane.
+
+            // `t` is the fractional distance from `v0` to the intersection
+            // point. If condition guarantees that `d1 - d0` is nonzero.
+            let t = -d0 / (d1 - d0);
+
+            ClipVert::new(vertex(
+                v0.pos.lerp(&v1.pos, t),
+                v0.attrib.lerp(&v1.attrib, t),
+            ))
+        })
+    }
+
     /// Clips the convex polygon given by `verts_in` against `self` and
     /// returns the resulting vertices in `verts_out`.
     ///
@@ -154,25 +180,9 @@ impl ClipPlane {
                 // v0 is outside, discard it. If v1 is also outside, we don't
                 // have to do anything; it is discarded on the next iteration.
             }
-            // TODO Doesn't use is_inside because it can't distinguish the case
-            //   where a vertex lies exactly on the plane. Though that's mostly
-            //   a theoretical edge case (heh).
-            let d0 = self.signed_dist(&v0.pos);
-            let d1 = self.signed_dist(&v1.pos);
-            if d0 * d1 < 0.0 {
-                // The edge crosses the plane surface. Split the edge in two
-                // by interpolating and emitting a new vertex at intersection.
-                // The new vertex becomes one of the endpoints of a new "clip"
-                // edge coincident with the plane.
 
-                // `t` is the fractional distance from `v0` to the intersection
-                // point. If condition guarantees that `d1 - d0` is nonzero.
-                let t = -d0 / (d1 - d0);
-
-                verts_out.push(ClipVert::new(vertex(
-                    v0.pos.lerp(&v1.pos, t),
-                    v0.attrib.lerp(&v1.attrib, t),
-                )));
+            if let Some(v) = self.intersect([v0, v1]) {
+                verts_out.push(v);
             }
             v0 = v1;
         }
@@ -287,6 +297,45 @@ impl<V> ClipVert<V> {
     pub fn new(Vertex { pos, attrib }: Vertex<ClipVec, V>) -> Self {
         let outcode = outcode(&pos);
         Self { pos, attrib, outcode }
+    }
+}
+
+impl<A: Lerp + Clone> Clip for [[ClipVert<A>; 2]] {
+    type Item = [ClipVert<A>; 2];
+
+    fn clip(&self, planes: &[ClipPlane], out: &mut Vec<Self::Item>) {
+        'lines: for [v0, v1] in self {
+            let both_outside = v0.outcode & v1.outcode != 0;
+            let neither_outside = v0.outcode | v1.outcode == 0;
+
+            let mut v0 = v0.clone();
+            let mut v1 = v1.clone();
+
+            if both_outside {
+                continue;
+            }
+            if neither_outside {
+                out.push([v0, v1]);
+                continue;
+            }
+
+            for p in planes {
+                let v0_in = p.is_inside(&v0);
+                let v1_in = p.is_inside(&v1);
+                // TODO Why not handled by both_outside check?
+                if !v0_in && !v1_in {
+                    continue 'lines;
+                }
+                if let Some(v) = p.intersect([&v0, &v1]) {
+                    if v0_in {
+                        v1 = v;
+                    } else if v1_in {
+                        v0 = v;
+                    }
+                }
+            }
+            out.push([v0, v1]);
+        }
     }
 }
 
