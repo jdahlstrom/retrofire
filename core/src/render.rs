@@ -8,18 +8,18 @@
 use alloc::{vec, vec::Vec};
 use core::fmt::Debug;
 
-use crate::geom::{Tri, Vertex};
+use crate::geom::Vertex;
 use crate::math::{
-    mat::{Mat4x4, RealToProj, RealToReal},
-    vary::{Vary, ZDiv},
-    vec::{vec3, ProjVec4},
-    Lerp,
+    mat::{RealToProj, RealToReal},
+    vary::ZDiv,
+    vec::ProjVec4,
+    vec3, Lerp, Mat4x4, Vary,
 };
 
 use {
     clip::{view_frustum, ClipVert},
     ctx::{DepthSort, FaceCull},
-    raster::{tri_fill, ScreenPt},
+    raster::{Scanline, ScreenPt},
 };
 
 pub use {
@@ -38,12 +38,44 @@ pub mod batch;
 pub mod cam;
 pub mod clip;
 pub mod ctx;
+pub mod prim;
 pub mod raster;
 pub mod shader;
 pub mod stats;
 pub mod target;
 pub mod tex;
 pub mod text;
+
+/// Renderable geometric primitive.
+pub trait Render<V: Vary> {
+    /// The type of this primitive in clip space
+    type Clip;
+
+    /// The type for which `Clip` is implemented.
+    type Clips: Clip<Item = Self::Clip> + ?Sized;
+
+    /// The type of this primitive in screen space.
+    type Screen;
+
+    /// Maps the indexes of the argument to vertices.
+    fn inline(ixd: Self, vs: &[ClipVert<V>]) -> Self::Clip;
+
+    /// Returns the (average) depth of the argument.
+    fn depth(_clip: &Self::Clip) -> f32 {
+        f32::INFINITY
+    }
+
+    /// Returns whether the argument is facing away from the camera.
+    fn is_backface(_: &Self::Screen) -> bool {
+        false
+    }
+
+    /// Transforms the argument from NDC to screen space.
+    fn to_screen(clip: Self::Clip, tf: &Mat4x4<NdcToScreen>) -> Self::Screen;
+
+    /// Rasterizes the argument by calling the function for each scanline.
+    fn rasterize<F: FnMut(Scanline<V>)>(scr: Self::Screen, scanline_fn: F);
+}
 
 /// Model space coordinate basis.
 #[derive(Copy, Clone, Debug, Default, Eq, PartialEq)]
@@ -94,9 +126,9 @@ impl<S, Vtx, Var, Uni> Shader<Vtx, Var, Uni> for S where
 {
 }
 
-/// Renders the given triangles into `target`.
-pub fn render<Vtx: Clone, Var: Lerp + Vary, Uni: Copy, Shd>(
-    tris: impl AsRef<[Tri<usize>]>,
+/// Renders the given primitives into `target`.
+pub fn render<Prim, Vtx: Clone, Var, Uni: Copy, Shd>(
+    prims: impl AsRef<[Prim]>,
     verts: impl AsRef<[Vtx]>,
     shader: &Shd,
     uniform: Uni,
@@ -104,18 +136,23 @@ pub fn render<Vtx: Clone, Var: Lerp + Vary, Uni: Copy, Shd>(
     target: &mut impl Target,
     ctx: &Context,
 ) where
+    Prim: Clone + Render<Var>,
+    [<Prim>::Clip]: Clip<Item = Prim::Clip>,
+    Var: Lerp + Vary,
     Shd: Shader<Vtx, Var, Uni>,
 {
+    // 0. Preparations
     let verts = verts.as_ref();
-    let tris = tris.as_ref();
+    let prims = prims.as_ref();
+
     let mut stats = Stats::start();
-
     stats.calls = 1.0;
-    stats.prims.i += tris.len();
-    stats.verts.i += verts.len();
+    stats.prims.i = prims.len();
+    stats.verts.i = verts.len();
 
-    // Vertex shader: transform vertices to clip space
+    // 1. Vertex shader: transform vertices to clip space
     let verts: Vec<_> = verts
+        // verts is borrowed, can't consume
         .iter()
         // TODO Pass vertex as ref to shader
         .cloned()
@@ -123,76 +160,78 @@ pub fn render<Vtx: Clone, Var: Lerp + Vary, Uni: Copy, Shd>(
         .map(ClipVert::new)
         .collect();
 
-    // Map triangle vertex indices to actual vertices
-    let tris: Vec<_> = tris
+    // 2. Primitive assembly: map vertex indices to actual vertices
+    let prims: Vec<_> = prims
         .iter()
-        .map(|Tri(vs)| Tri(vs.map(|i| verts[i].clone())))
+        .map(|tri| Prim::inline(tri.clone(), &verts))
+        // Collect needed because clip takes a slice...
         .collect();
 
-    // Clip against the view frustum
+    // 3. Clipping: clip against the view frustum
     let mut clipped = vec![];
-    view_frustum::clip(&tris[..], &mut clipped);
+    view_frustum::clip(&prims[..], &mut clipped);
 
     // Optional depth sorting for use case such as transparency
     if let Some(d) = ctx.depth_sort {
-        depth_sort(&mut clipped, d);
+        depth_sort::<Prim, _>(&mut clipped, d);
     }
 
-    for Tri(vs) in clipped {
+    for prim in clipped {
         // Transform to screen space
-        let vs = vs.map(|v| {
-            let [x, y, _, w] = v.pos.0;
-            // Perspective division (projection to the real plane)
-            //
-            // We use the screen-space z coordinate to store the reciprocal
-            // of the original view-space depth. The interpolated reciprocal
-            // is used in fragment processing for depth testing (larger values
-            // are closer) and for perspective correction of the varyings.
-            let pos = vec3(x, y, 1.0).z_div(w);
-            Vertex {
-                // Viewport transform
-                pos: to_screen.apply(&pos).to_pt(),
-                // Perspective correction
-                attrib: v.attrib.z_div(w),
-            }
-        });
-
+        let prim = Prim::to_screen(prim, &to_screen);
         // Back/frontface culling
-        //
         // TODO This could also be done earlier, before or as part of clipping
+        let bf = Prim::is_backface(&prim);
         match ctx.face_cull {
-            Some(FaceCull::Back) if is_backface(&vs) => continue,
-            Some(FaceCull::Front) if !is_backface(&vs) => continue,
+            Some(FaceCull::Back) if bf => continue,
+            Some(FaceCull::Front) if !bf => continue,
             _ => {}
         }
 
         // Log output stats after culling
         stats.prims.o += 1;
-        stats.verts.o += 3;
+        stats.verts.o += 3; // TODO Get number of verts in prim somehow
 
-        // Fragment shader and rasterization
-        tri_fill(vs, |scanline| {
-            // Convert to fragments and shade
+        // 4. Fragment shader and rasterization
+        Prim::rasterize(prim, |scanline| {
+            // Convert to fragments, shade, and draw to target
             stats.frags += target.rasterize(scanline, shader, ctx);
         });
     }
     *ctx.stats.borrow_mut() += stats.finish();
 }
 
-fn depth_sort<A>(tris: &mut [Tri<ClipVert<A>>], d: DepthSort) {
-    tris.sort_unstable_by(|t, u| {
-        let z = t.0[0].pos.z() + t.0[1].pos.z() + t.0[2].pos.z();
-        let w = u.0[0].pos.z() + u.0[1].pos.z() + u.0[2].pos.z();
+pub fn to_screen<V: ZDiv, const N: usize>(
+    vs: [ClipVert<V>; N],
+    tf: &Mat4x4<NdcToScreen>,
+) -> [Vertex<ScreenPt, V>; N] {
+    vs.map(|v| {
+        let [x, y, _, w] = v.pos.0;
+        // Perspective division (projection to the real plane)
+        //
+        // We use the screen-space z coordinate to store the reciprocal
+        // of the original view-space depth. The interpolated reciprocal
+        // is used in fragment processing for depth testing (larger values
+        // are closer) and for perspective correction of the varyings.
+        // TODO z_div could be space-aware
+        let pos = vec3(x, y, 1.0).z_div(w);
+        Vertex {
+            // Viewport transform
+            pos: tf.apply(&pos).to_pt(),
+            // Perspective correction
+            attrib: v.attrib.z_div(w),
+        }
+    })
+}
+
+fn depth_sort<P: Render<V>, V: Vary>(prims: &mut [P::Clip], d: DepthSort) {
+    prims.sort_unstable_by(|t, u| {
+        let z = P::depth(t);
+        let w = P::depth(u);
         if d == DepthSort::FrontToBack {
             z.total_cmp(&w)
         } else {
             w.total_cmp(&z)
         }
     });
-}
-
-fn is_backface<V>(vs: &[Vertex<ScreenPt, V>]) -> bool {
-    let v = vs[1].pos - vs[0].pos;
-    let u = vs[2].pos - vs[0].pos;
-    v[0] * u[1] - v[1] * u[0] > 0.0
 }
