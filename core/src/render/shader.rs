@@ -14,7 +14,7 @@
 //! input any vertex attributes interpolated across the primitive being
 //! rasterized, such as color, texture coordinate, or normal vector.
 
-use crate::{geom::Vertex, math::color::Color4};
+use crate::{geom::Vertex, math::Color4};
 
 use super::raster::Frag;
 

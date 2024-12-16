@@ -120,21 +120,17 @@ where
     Ctx: Borrow<Context>,
 {
     /// Renders this batch of geometry.
+    #[rustfmt::skip]
     pub fn render<V: Lerp + Vary>(&mut self)
     where
         Shd: Shader<Vtx, V, Uni>,
     {
-        #[rustfmt::skip]
+
         let Self {
             faces, verts, shader, uniform, viewport, target, ctx,
         } = self;
         super::render(
-            faces,
-            verts,
-            shader,
-            *uniform,
-            *viewport,
-            *target,
+            faces, verts, shader, *uniform, *viewport, *target,
             (*ctx).borrow(),
         );
     }
