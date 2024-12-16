@@ -85,75 +85,14 @@ impl<S, Vtx, Var, Uni> Shader<Vtx, Var, Uni> for S where
 {
 }
 
-pub fn render_lines<Vtx: Clone, Var: Lerp + Vary, Uni: Copy, Shd>(
-    lines: impl AsRef<[[usize; 2]]>,
-    verts: impl AsRef<[Vtx]>,
-    shader: &Shd,
-    uniform: Uni,
-    to_screen: Mat4x4<NdcToScreen>,
-    target: &mut impl Target,
-    ctx: &Context,
-) where
-    Shd: Shader<Vtx, Var, Uni>,
-{
-    let verts = verts.as_ref();
-    let lines = lines.as_ref();
-    let mut stats = Stats::start();
-
-    stats.calls = 1.0;
-    stats.prims.i += lines.len();
-    stats.verts.i += verts.len();
-
-    // Vertex shader: transform vertices to clip space
-    let verts: Vec<_> = verts
-        .iter()
-        // TODO Pass vertex as ref to shader
-        .cloned()
-        .map(|v| shader.shade_vertex(v, uniform))
-        .map(ClipVert::new)
-        .collect();
-
-    // Map triangle vertex indices to actual vertices
-    let lines: Vec<_> = lines
-        .iter()
-        .map(|vs| vs.map(|i| verts[i].clone()))
-        .collect();
-
-    // Clip against the view frustum
-    let mut clipped = vec![];
-    view_frustum::clip(&lines[..], &mut clipped);
-
-    for vs in clipped {
-        // Transform to screen space
-        let vs = vs.map(|v| {
-            let [x, y, _, w] = v.pos.0;
-            // Perspective division (projection to the real plane)
-            //
-            // We use the screen-space z coordinate to store the reciprocal
-            // of the original view-space depth. The interpolated reciprocal
-            // is used in fragment processing for depth testing (larger values
-            // are closer) and for perspective correction of the varyings.
-            let pos = vec3(x, y, 1.0).z_div(w);
-            Vertex {
-                // Viewport transform
-                pos: to_screen.apply(&pos).to_pt(),
-                // Perspective correction
-                attrib: v.attrib.z_div(w),
-            }
-        });
-
-        // Log output stats after culling
-        stats.prims.o += 1;
-        stats.verts.o += 3;
-
-        // Fragment shader and rasterization
-        line(vs, |scanline| {
-            // Convert to fragments and shade
-            stats.frags += target.rasterize(scanline, uniform, shader, ctx);
-        });
-    }
-    *ctx.stats.borrow_mut() += stats.finish();
+fn start_stats(prims: usize, verts: usize) -> Stats {
+    let mut s = Stats::start();
+    s.calls = 1.0;
+    s.prims.i = prims;
+    s.verts.i = verts;
+    s
 }
+
 /// Renders the given triangles into `target`.
 pub fn render<Vtx: Clone, Var: Lerp + Vary, Uni: Copy, Shd>(
     tris: impl AsRef<[Tri<usize>]>,
@@ -166,24 +105,16 @@ pub fn render<Vtx: Clone, Var: Lerp + Vary, Uni: Copy, Shd>(
 ) where
     Shd: Shader<Vtx, Var, Uni>,
 {
-    let verts = verts.as_ref();
     let tris = tris.as_ref();
-    let mut stats = Stats::start();
+    let verts = verts.as_ref();
 
-    stats.calls = 1.0;
-    stats.prims.i += tris.len();
-    stats.verts.i += verts.len();
+    let mut stats = start_stats(tris.len(), verts.len());
 
     // Vertex shader: transform vertices to clip space
-    let verts: Vec<_> = verts
-        .iter()
-        // TODO Pass vertex as ref to shader
-        .cloned()
-        .map(|v| shader.shade_vertex(v, uniform))
-        .map(ClipVert::new)
-        .collect();
+    let verts = transform(verts, shader, uniform);
 
     // Map triangle vertex indices to actual vertices
+    // TODO This needlessly collects soon-to-be-culled triangles
     let tris: Vec<_> = tris
         .iter()
         .map(|Tri(vs)| Tri(vs.map(|i| verts[i].clone())))
@@ -200,22 +131,7 @@ pub fn render<Vtx: Clone, Var: Lerp + Vary, Uni: Copy, Shd>(
 
     for Tri(vs) in clipped {
         // Transform to screen space
-        let vs = vs.map(|v| {
-            let [x, y, _, w] = v.pos.0;
-            // Perspective division (projection to the real plane)
-            //
-            // We use the screen-space z coordinate to store the reciprocal
-            // of the original view-space depth. The interpolated reciprocal
-            // is used in fragment processing for depth testing (larger values
-            // are closer) and for perspective correction of the varyings.
-            let pos = vec3(x, y, 1.0).z_div(w);
-            Vertex {
-                // Viewport transform
-                pos: to_screen.apply(&pos).to_pt(),
-                // Perspective correction
-                attrib: v.attrib.z_div(w),
-            }
-        });
+        let vs = project(vs, to_screen);
 
         // Back/frontface culling
         //
@@ -239,10 +155,95 @@ pub fn render<Vtx: Clone, Var: Lerp + Vary, Uni: Copy, Shd>(
     *ctx.stats.borrow_mut() += stats.finish();
 }
 
+pub fn render_lines<Vtx: Clone, Var: Lerp + Vary, Uni: Copy, Shd>(
+    lines: impl AsRef<[[usize; 2]]>,
+    verts: impl AsRef<[Vtx]>,
+    shader: &Shd,
+    uniform: Uni,
+    to_screen: Mat4x4<NdcToScreen>,
+    target: &mut impl Target,
+    ctx: &Context,
+) where
+    Shd: Shader<Vtx, Var, Uni>,
+{
+    let lines = lines.as_ref();
+    let verts = verts.as_ref();
+
+    let mut stats = start_stats(lines.len(), verts.len());
+
+    // Vertex shader: transform vertices to clip space
+    let verts = transform(verts, shader, uniform);
+
+    // Map vertex indices to actual vertices
+    let lines: Vec<_> = lines
+        .iter()
+        .map(|vs| vs.map(|i| verts[i].clone()))
+        .collect();
+
+    // Clip against the view frustum
+    let mut clipped = vec![];
+    view_frustum::clip(&lines[..], &mut clipped);
+
+    for vs in clipped {
+        // Transform to screen space
+        let vs = project(vs, to_screen);
+
+        // Log output stats after culling
+        stats.prims.o += 1;
+        stats.verts.o += 3;
+
+        // Fragment shader and rasterization
+        line(vs, |scanline| {
+            // Convert to fragments and shade
+            stats.frags += target.rasterize(scanline, uniform, shader, ctx);
+        });
+    }
+    *ctx.stats.borrow_mut() += stats.finish();
+}
+
+fn transform<'a, I, S, U, V, A>(verts: I, shd: &S, uni: U) -> Vec<ClipVert<A>>
+where
+    I: IntoIterator<Item = &'a V>,
+    S: VertexShader<V, U, Output = Vertex<ProjVec4, A>>,
+    U: Copy,
+    V: Clone + 'a,
+{
+    verts
+        .into_iter()
+        .cloned()
+        // TODO Pass vertex as ref to shader
+        .map(|v| shd.shade_vertex(v, uni))
+        .map(ClipVert::new)
+        .collect()
+}
+
+fn project<A: ZDiv, const N: usize>(
+    vs: [ClipVert<A>; N],
+    to_screen: Mat4x4<NdcToScreen>,
+) -> [Vertex<ScreenPt, A>; N] {
+    vs.map(|v| {
+        let [x, y, _, w] = v.pos.0;
+        // Perspective division (projection to the real plane)
+        //
+        // We use the screen-space z coordinate to store the reciprocal
+        // of the original view-space depth. The interpolated reciprocal
+        // is used in fragment processing for depth testing (larger values
+        // are closer) and for perspective correction of the varyings.
+        let pos = vec3(x, y, 1.0).z_div(w);
+        Vertex {
+            // Viewport transform
+            pos: to_screen.apply(&pos).to_pt(),
+            // Perspective correction
+            attrib: v.attrib.z_div(w),
+        }
+    })
+}
+
+/// Sorts triangles by depth.
 fn depth_sort<A>(tris: &mut [Tri<ClipVert<A>>], d: DepthSort) {
-    tris.sort_unstable_by(|t, u| {
-        let z = t.0[0].pos.z() + t.0[1].pos.z() + t.0[2].pos.z();
-        let w = u.0[0].pos.z() + u.0[1].pos.z() + u.0[2].pos.z();
+    tris.sort_unstable_by(|Tri(vs), Tri(us)| {
+        let z = vs[0].pos.z() + vs[1].pos.z() + vs[2].pos.z();
+        let w = us[0].pos.z() + us[1].pos.z() + us[2].pos.z();
         if d == DepthSort::FrontToBack {
             z.total_cmp(&w)
         } else {
