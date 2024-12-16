@@ -6,7 +6,7 @@ use re::math::color::gray;
 use re::render::{cam::FirstPerson, Batch, Camera, ModelToProj};
 
 use re_front::sdl2::Window;
-use re_geom::solids::*;
+use re_geom::solids::Box;
 
 fn main() {
     let mut win = Window::builder()
