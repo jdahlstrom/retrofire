@@ -16,12 +16,22 @@ use crate::math::{
     Lerp,
 };
 
-use clip::{view_frustum, ClipVert};
-use ctx::{Context, DepthSort, FaceCull};
-use raster::{tri_fill, ScreenPt};
-use shader::{FragmentShader, VertexShader};
-use stats::Stats;
-use target::Target;
+use {
+    clip::{view_frustum, ClipVert},
+    ctx::{DepthSort, FaceCull},
+    raster::{tri_fill, ScreenPt},
+};
+
+pub use {
+    batch::Batch,
+    cam::Camera,
+    clip::Clip,
+    ctx::Context,
+    shader::{FragmentShader, VertexShader},
+    stats::Stats,
+    target::{Framebuf, Target},
+    tex::{uv, TexCoord, Texture},
+};
 
 pub mod batch;
 pub mod cam;

@@ -2,28 +2,30 @@
 
 #![allow(unused)]
 
-use core::cell::RefCell;
-use core::mem::transmute;
-use core::ops::{ControlFlow, ControlFlow::*, Deref};
-use core::ptr::slice_from_raw_parts_mut;
-use core::slice;
-use core::time::Duration;
-
 use alloc::rc::Rc;
+use core::{
+    cell::RefCell,
+    mem::transmute,
+    ops::{ControlFlow, ControlFlow::*, Deref},
+    ptr::slice_from_raw_parts_mut,
+    slice,
+    time::Duration,
+};
 
-use wasm_bindgen::prelude::*;
-use wasm_bindgen::Clamped;
+use wasm_bindgen::{prelude::*, Clamped};
 
-use web_sys::js_sys::{Uint32Array, Uint8ClampedArray};
 use web_sys::{
+    js_sys::{Uint32Array, Uint8ClampedArray},
     CanvasRenderingContext2d as Context2d, Document,
     HtmlCanvasElement as Canvas, ImageData,
 };
 
-use retrofire_core::math::color::rgba;
-use retrofire_core::render::{ctx::Context, stats::Stats, target};
-use retrofire_core::util::buf::{AsMutSlice2, Buf2, MutSlice2};
-use retrofire_core::util::Dims;
+use retrofire_core::{
+    math::color::rgba,
+    render::{target, Context, Stats},
+    util::buf::{AsMutSlice2, Buf2, MutSlice2},
+    util::Dims,
+};
 
 use crate::{dims::SVGA_800_600, Frame};
 

@@ -1,13 +1,16 @@
 //! Frontend using the `minifb` crate for window creation and event handling.
 
-use std::ops::ControlFlow::{self, Break};
-use std::time::Instant;
+use std::{
+    ops::ControlFlow::{self, Break},
+    time::Instant,
+};
 
 use minifb::{Key, WindowOptions};
 
-use retrofire_core::render::ctx::Context;
-use retrofire_core::render::target;
-use retrofire_core::util::{buf::Buf2, buf::MutSlice2, Dims};
+use retrofire_core::{
+    render::{target, Context},
+    util::{buf::Buf2, buf::MutSlice2, Dims},
+};
 
 use crate::{dims::SVGA_800_600, Frame};
 

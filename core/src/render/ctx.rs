@@ -1,11 +1,10 @@
 //! Rendering context and parameters.
 
-use core::cell::RefCell;
-use core::cmp::Ordering;
+use core::{cell::RefCell, cmp::Ordering};
 
 use crate::math::color::{rgba, Color4};
 
-use super::stats::Stats;
+use super::Stats;
 
 /// Context and parameters used by the renderer.
 #[derive(Clone, Debug)]

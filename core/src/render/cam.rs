@@ -22,11 +22,8 @@ use crate::math::{
 };
 
 use super::{
-    clip::ClipVec,
-    ctx::Context,
-    shader::{FragmentShader, VertexShader},
-    target::Target,
-    NdcToScreen, RealToProj, ViewToProj, World, WorldToView,
+    clip::ClipVec, Context, FragmentShader, NdcToScreen, RealToProj, Target,
+    VertexShader, ViewToProj, World, WorldToView,
 };
 
 /// Camera movement mode.
