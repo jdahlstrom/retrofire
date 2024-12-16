@@ -16,6 +16,7 @@ use crate::math::{
     Lerp,
 };
 
+use crate::render::raster::line;
 use clip::{view_frustum, ClipVert};
 use ctx::{Context, DepthSort, FaceCull};
 use raster::{tri_fill, ScreenPt};
@@ -84,6 +85,75 @@ impl<S, Vtx, Var, Uni> Shader<Vtx, Var, Uni> for S where
 {
 }
 
+pub fn render_lines<Vtx: Clone, Var: Lerp + Vary, Uni: Copy, Shd>(
+    lines: impl AsRef<[[usize; 2]]>,
+    verts: impl AsRef<[Vtx]>,
+    shader: &Shd,
+    uniform: Uni,
+    to_screen: Mat4x4<NdcToScreen>,
+    target: &mut impl Target,
+    ctx: &Context,
+) where
+    Shd: Shader<Vtx, Var, Uni>,
+{
+    let verts = verts.as_ref();
+    let lines = lines.as_ref();
+    let mut stats = Stats::start();
+
+    stats.calls = 1.0;
+    stats.prims.i += lines.len();
+    stats.verts.i += verts.len();
+
+    // Vertex shader: transform vertices to clip space
+    let verts: Vec<_> = verts
+        .iter()
+        // TODO Pass vertex as ref to shader
+        .cloned()
+        .map(|v| shader.shade_vertex(v, uniform))
+        .map(ClipVert::new)
+        .collect();
+
+    // Map triangle vertex indices to actual vertices
+    let lines: Vec<_> = lines
+        .iter()
+        .map(|vs| vs.map(|i| verts[i].clone()))
+        .collect();
+
+    // Clip against the view frustum
+    let mut clipped = vec![];
+    view_frustum::clip(&lines[..], &mut clipped);
+
+    for vs in clipped {
+        // Transform to screen space
+        let vs = vs.map(|v| {
+            let [x, y, _, w] = v.pos.0;
+            // Perspective division (projection to the real plane)
+            //
+            // We use the screen-space z coordinate to store the reciprocal
+            // of the original view-space depth. The interpolated reciprocal
+            // is used in fragment processing for depth testing (larger values
+            // are closer) and for perspective correction of the varyings.
+            let pos = vec3(x, y, 1.0).z_div(w);
+            Vertex {
+                // Viewport transform
+                pos: to_screen.apply(&pos).to_pt(),
+                // Perspective correction
+                attrib: v.attrib.z_div(w),
+            }
+        });
+
+        // Log output stats after culling
+        stats.prims.o += 1;
+        stats.verts.o += 3;
+
+        // Fragment shader and rasterization
+        line(vs, |scanline| {
+            // Convert to fragments and shade
+            stats.frags += target.rasterize(scanline, uniform, shader, ctx);
+        });
+    }
+    *ctx.stats.borrow_mut() += stats.finish();
+}
 /// Renders the given triangles into `target`.
 pub fn render<Vtx: Clone, Var: Lerp + Vary, Uni: Copy, Shd>(
     tris: impl AsRef<[Tri<usize>]>,

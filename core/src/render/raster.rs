@@ -119,28 +119,21 @@ impl<V: Vary> Iterator for ScanlineIter<V> {
 
 pub fn line<V, F>([mut v0, mut v1]: [Vertex<ScreenPt, V>; 2], mut scan_fn: F)
 where
-    V: Vary<Diff: Default> + Default,
+    V: Vary + Clone,
     F: FnMut(Scanline<V>),
 {
     if v0.pos.y() > v1.pos.y() {
         swap(&mut v0, &mut v1);
     }
-    let [dx, dy, _dz] = (v1.pos - v0.pos).0;
-    let abs_dx = dx.abs();
-
-    // let (step, n) = if abs_dx > dy {
-    //     (vec3(dx.signum(), dy / abs_dx, dz / abs_dx), abs_dx)
-    // } else {
-    //     (vec3(dx / dy, 1.0, dz / dy), dy)
-    // };
-
-    let n = abs_dx.max(dy);
+    let [dx, dy, _] = (v1.pos - v0.pos).0;
+    let n = dx.abs().max(dy);
 
     (v0.pos, v0.attrib)
+        // TODO Should vary to exclusive
         .vary_to((v1.pos, v1.attrib), n as u32)
         .for_each(|(pos, var)| {
             let [x, y, _] = pos.map(|x| x as usize).0;
-            let vs = (pos, V::default()).vary_to((pos, V::default()), 1);
+            let vs = (pos, var.clone()).vary_to((pos, var), 1);
 
             scan_fn(Scanline { y, xs: x..x + 1, vs });
         })
