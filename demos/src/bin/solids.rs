@@ -110,8 +110,10 @@ fn main() {
             .to::<ModelToWorld>()
             .then(&cam.world_to_project());
 
+        let object = &objects[carousel.idx % objects.len()];
+
         Batch::new()
-            .mesh(&objects[carousel.idx % objects.len()])
+            .mesh(object)
             .uniform((&model_view_project, &spin))
             .shader(shader)
             .viewport(cam.viewport)
@@ -130,6 +132,7 @@ fn objects(res: u32) -> [Mesh<Normal3>; 13] {
     let sectors = 2 * res;
 
     let cap_segments = res;
+    let body_segments = res;
 
     let major_sectors = 3 * res;
     let minor_sectors = 2 * res;
@@ -143,11 +146,11 @@ fn objects(res: u32) -> [Mesh<Normal3>; 13] {
 
         // Surfaces of revolution
         lathe(sectors),
-        Sphere { sectors, segments, radius: 1.0, }.build(),
-        Cylinder { sectors, radius: 0.8, capped: true }.build(),
-        Cone { sectors, base_radius: 1.1, apex_radius: 0.3, capped: true, }.build(),
-        Capsule { sectors, cap_segments, radius: 0.5, }.build(),
-        Torus { major_radius: 0.9, minor_radius: 0.3, major_sectors, minor_sectors, }.build(),
+        Sphere { radius: 1.0, sectors, segments, }.build(),
+        Cylinder { radius: 0.8, sectors, segments, capped: true }.build(),
+        Cone { base_radius: 1.1, apex_radius: 0.3, sectors, segments, capped: true }.build(),
+        Capsule { radius: 0.5, sectors, body_segments, cap_segments }.build(),
+        Torus { major_radius: 0.9, minor_radius: 0.3, major_sectors, minor_sectors }.build(),
 
         // Traditional demo models
         teapot(),
@@ -158,7 +161,7 @@ fn objects(res: u32) -> [Mesh<Normal3>; 13] {
 // Creates a Lathe mesh.
 fn lathe(secs: u32) -> Mesh<Normal3> {
     Lathe::new(
-        vec![
+        [
             vertex(pt2(0.75, -0.5), vec2(1.0, 1.0)),
             vertex(pt2(0.55, -0.25), vec2(1.0, 0.5)),
             vertex(pt2(0.5, 0.0), vec2(1.0, 0.0)),
