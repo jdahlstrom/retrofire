@@ -48,6 +48,7 @@ pub struct Torus {
 /// Right cylinder with regular *n*-gonal cross-section.
 pub struct Cylinder {
     pub sectors: u32,
+    pub segments: u32,
     pub capped: bool,
     pub radius: f32,
 }
@@ -55,6 +56,7 @@ pub struct Cylinder {
 /// TODO
 pub struct Cone {
     pub sectors: u32,
+    pub segments: u32,
     pub capped: bool,
     pub base_radius: f32,
     pub apex_radius: f32,
@@ -63,6 +65,7 @@ pub struct Cone {
 /// Cylinder with hemispherical caps.
 pub struct Capsule {
     pub sectors: u32,
+    pub body_segments: u32,
     pub cap_segments: u32,
     pub radius: f32,
 }
@@ -187,9 +190,11 @@ impl Torus {
 impl Cylinder {
     /// Builds the cylindrical mesh.
     pub fn build(self) -> Mesh<Normal3> {
-        let Self { sectors, capped, radius } = self;
+        #[rustfmt::skip]
+        let Self { sectors, segments, capped, radius } = self;
         Cone {
             sectors,
+            segments,
             capped,
             base_radius: radius,
             apex_radius: radius,
@@ -201,11 +206,18 @@ impl Cylinder {
 impl Cone {
     /// Builds the conical mesh.
     pub fn build(self) -> Mesh<Normal3> {
+        assert!(self.segments > 0, "segments cannot be zero");
+
         let base_pt = pt2(self.base_radius, -1.0);
         let apex_pt = pt2(self.apex_radius, 1.0);
+
         let n = apex_pt - base_pt;
         let n = vec2(n.y(), -n.x());
-        let pts = vec![vertex(base_pt, n), vertex(apex_pt, n)];
+
+        let pts = base_pt
+            .vary_to(apex_pt, self.segments)
+            .map(|pt| vertex(pt, n));
+
         Lathe::new(pts, self.sectors)
             .capped(self.capped)
             .build()
@@ -215,16 +227,18 @@ impl Cone {
 impl Capsule {
     /// Builds the capsule mesh.
     pub fn build(self) -> Mesh<Normal3> {
-        let Self { sectors, cap_segments, radius } = self;
+        #[rustfmt::skip]
+        let Self { sectors, body_segments, cap_segments, radius } = self;
+        assert!(body_segments > 0, "body segments cannot be zero");
+        assert!(cap_segments > 0, "cap segments cannot be zero");
 
-        // Bottom hemisphere
+        // Must be collected to allow rev()
         let bottom_pts: Vec<_> = degs(-90.0)
             .vary_to(degs(0.0), cap_segments)
             .map(|alt| polar(radius, alt).to_cart())
             .map(|v| vertex(pt2(0.0, -1.0) + v, v))
             .collect();
 
-        // Top hemisphere
         let top_pts = bottom_pts
             .iter()
             .map(|Vertex { pos, attrib: n }| {
@@ -232,12 +246,18 @@ impl Capsule {
             })
             .rev();
 
+        let body_pts = pt2(radius, -1.0)
+            .vary_to(pt2(radius, 1.0), body_segments)
+            .map(|pt| vertex(pt, vec2(1.0, 0.0)))
+            .skip(1)
+            .take(body_segments as usize - 1);
+
         Lathe::new(
             bottom_pts
                 .iter()
                 .copied()
-                .chain(top_pts)
-                .collect(),
+                .chain(body_pts)
+                .chain(top_pts),
             sectors,
         )
         .build()
