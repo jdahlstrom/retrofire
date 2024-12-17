@@ -1,4 +1,4 @@
-use alloc::{vec, vec::Vec};
+use alloc::vec::Vec;
 use core::ops::Range;
 
 use re::geom::{
@@ -72,10 +72,13 @@ pub struct Capsule {
 //
 
 impl Lathe {
-    pub fn new(pts: Vec<Vertex2<Normal2, ()>>, sectors: u32) -> Self {
+    pub fn new<Pts>(pts: Pts, sectors: u32) -> Self
+    where
+        Pts: IntoIterator<Item = Vertex2<Normal2, ()>>,
+    {
         assert!(sectors >= 3, "sectors must be at least 3, was {sectors}");
         Self {
-            pts,
+            pts: pts.into_iter().collect(),
             sectors,
             capped: false,
             az_range: turns(0.0)..turns(1.0),
@@ -163,8 +166,7 @@ impl Sphere {
         let pts = degs(-90.0)
             .vary_to(degs(90.0), segments)
             .map(|alt| polar(radius, alt).to_cart())
-            .map(|pos| vertex(pos.to_pt(), pos))
-            .collect();
+            .map(|pos| vertex(pos.to_pt(), pos));
 
         Lathe::new(pts, sectors).build()
     }
@@ -176,8 +178,7 @@ impl Torus {
         let pts = turns(0.0)
             .vary_to(turns(1.0), self.minor_sectors)
             .map(|alt| polar(self.minor_radius, alt).to_cart())
-            .map(|v| vertex(pt2(self.major_radius, 0.0) + v, v))
-            .collect();
+            .map(|v| vertex(pt2(self.major_radius, 0.0) + v, v));
 
         Lathe::new(pts, self.major_sectors).build()
     }
