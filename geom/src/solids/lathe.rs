@@ -1,9 +1,7 @@
-use alloc::{vec, vec::Vec};
+use alloc::vec::Vec;
 use core::ops::Range;
 
-use re::geom::{
-    mesh::Builder, vertex, Mesh, Normal2, Normal3, Vertex, Vertex2,
-};
+use re::geom::{vertex, Mesh, Normal2, Normal3, Vertex, Vertex2};
 use re::math::{
     degs, polar, pt2, pt3, rotate_y, turns, vec2, vec3, Angle, Vary,
 };
@@ -13,7 +11,7 @@ use re::math::{
 #[derive(Clone, Debug, Default)]
 pub struct Lathe {
     /// The polyline defining the shape.
-    pub pts: Vec<Vertex2<Normal2, ()>>,
+    pub points: Vec<Vertex2<Normal2, ()>>,
     /// The number of facets used to approximate the surface of revolution.
     pub sectors: u32,
     /// Whether to add flat caps to both ends of the object. Has no effect
@@ -68,10 +66,13 @@ pub struct Capsule {
 //
 
 impl Lathe {
-    pub fn new(pts: Vec<Vertex2<Normal2, ()>>, sectors: u32) -> Self {
+    pub fn new<Pts>(points: Pts, sectors: u32) -> Self
+    where
+        Pts: IntoIterator<Item = Vertex2<Normal2, ()>>,
+    {
         assert!(sectors >= 3, "sectors must be at least 3, was {sectors}");
         Self {
-            pts,
+            points: points.into_iter().collect(),
             sectors,
             capped: false,
             az_range: turns(0.0)..turns(1.0),
@@ -84,21 +85,21 @@ impl Lathe {
 
     /// Builds the lathe mesh.
     pub fn build(self) -> Mesh<Normal3> {
-        let Self { pts, sectors, capped, az_range } = self;
+        let Self { points, sectors, az_range, .. } = self;
         let secs = sectors as usize;
 
-        let mut b = Builder {
-            mesh: Mesh {
-                verts: Vec::with_capacity(pts.len() * (secs + 1) + 2),
-                faces: Vec::with_capacity(pts.len() * secs * 2),
-            },
-        };
+        let n_points = points.len();
+        let mut b = Mesh {
+            verts: Vec::with_capacity(n_points * (secs + 1) + 2),
+            faces: Vec::with_capacity(n_points * secs * 2),
+        }
+        .into_builder();
 
         let start = rotate_y(az_range.start);
         let rot = rotate_y((az_range.end - az_range.start) / secs as f32);
 
         // Create vertices
-        for Vertex { pos, attrib: n } in &pts {
+        for Vertex { pos, attrib: n } in &points {
             let mut pos = start.apply_pt(&pt3(pos.x(), pos.y(), 0.0));
             let mut norm = start.apply(&vec3(n.x(), n.y(), 0.0)).normalize();
 
@@ -109,7 +110,7 @@ impl Lathe {
             }
         }
         // Create faces
-        for j in 1..pts.len() {
+        for j in 1..n_points {
             let n = secs + 1;
             for i in 1..n {
                 let p = (j - 1) * n + i - 1;
@@ -121,7 +122,7 @@ impl Lathe {
             }
         }
         // Create optional caps
-        if capped && !pts.is_empty() {
+        if self.capped && n_points > 0 {
             let l = b.mesh.verts.len();
             let bottom_rng = 0..=secs;
             let top_rng = (l - secs - 1)..l;
@@ -159,8 +160,7 @@ impl Sphere {
         let pts = degs(-90.0)
             .vary_to(degs(90.0), segments)
             .map(|alt| polar(radius, alt).to_cart())
-            .map(|pos| vertex(pos.to_pt(), pos))
-            .collect();
+            .map(|pos| vertex(pos.to_pt(), pos));
 
         Lathe::new(pts, sectors).build()
     }
@@ -172,8 +172,7 @@ impl Torus {
         let pts = turns(0.0)
             .vary_to(turns(1.0), self.minor_sectors)
             .map(|alt| polar(self.minor_radius, alt).to_cart())
-            .map(|v| vertex(pt2(self.major_radius, 0.0) + v, v))
-            .collect();
+            .map(|v| vertex(pt2(self.major_radius, 0.0) + v, v));
 
         Lathe::new(pts, self.major_sectors).build()
     }
@@ -200,7 +199,7 @@ impl Cone {
         let apex_pt = pt2(self.apex_radius, 1.0);
         let n = apex_pt - base_pt;
         let n = vec2(n.y(), -n.x());
-        let pts = vec![vertex(base_pt, n), vertex(apex_pt, n)];
+        let pts = [vertex(base_pt, n), vertex(apex_pt, n)];
         Lathe::new(pts, self.sectors)
             .capped(self.capped)
             .build()
@@ -227,14 +226,6 @@ impl Capsule {
             })
             .rev();
 
-        Lathe::new(
-            bottom_pts
-                .iter()
-                .copied()
-                .chain(top_pts)
-                .collect(),
-            sectors,
-        )
-        .build()
+        Lathe::new(bottom_pts.iter().copied().chain(top_pts), sectors).build()
     }
 }
