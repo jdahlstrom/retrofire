@@ -23,6 +23,9 @@
 //! ## In the simplest case vertices only have positions:
 //! f 1 2 3
 //!
+//! ## Faces can have more than three indices:
+//! f 1 2 3 4 5
+//!
 //! ## If vertices have extra attributes, indices are separated with a slash,
 //! ## in the order position/texcoord/normal:
 //! f 1/5/7 2/4/5 3/5/8
@@ -32,14 +35,11 @@
 //!
 //! ## Normals can be specified without texture coordinates:
 //! f 1//7 2//4 3//8
-//!
-//! ## Faces can have more than three indices:
-//! f 1 2 3 4 5
 //! ```
 
 use alloc::{string::String, vec};
 use core::{
-    fmt,
+    fmt::{self, Display, Formatter},
     num::{ParseFloatError, ParseIntError},
 };
 #[cfg(feature = "std")]
@@ -52,12 +52,13 @@ use std::{
 use re::geom::{mesh::Builder, vertex, Mesh, Normal3, Tri};
 use re::math::{
     point::Point3,
-    vec::{vec3, Vec3, Vector},
+    vec::{vec3, Vec3},
 };
 use re::render::{uv, Model, TexCoord};
 
 use Error::*;
 
+/// Represents errors that may occur during reading OBJ data.
 #[derive(Debug)]
 pub enum Error {
     #[cfg(feature = "std")]
@@ -89,7 +90,7 @@ pub type Result<T> = core::result::Result<T, Error>;
 #[cfg(feature = "std")]
 pub fn load_obj(path: impl AsRef<Path>) -> Result<Builder<()>> {
     let r = &mut BufReader::new(File::open(path)?);
-    read_from(r)
+    read_obj(r)
 }
 
 /// Reads an OBJ format mesh from input.
@@ -97,23 +98,21 @@ pub fn load_obj(path: impl AsRef<Path>) -> Result<Builder<()>> {
 /// # Errors
 ///
 #[cfg(feature = "std")]
-pub fn read_from(input: impl Read) -> Result<Builder<()>> {
-    let mut io_err = None;
+pub fn read_obj(input: impl Read) -> Result<Builder<()>> {
+    let mut io_res: Result<()> = Ok(());
     let res = parse_obj(input.bytes().map_while(|r| match r {
         Err(e) => {
-            io_err = Some(e.into());
+            io_res = Err(e.into());
             None
         }
         Ok(b) => Some(b),
     }));
-    if let Some(e) = io_err {
-        Err(e)
-    } else {
-        res
-    }
+    io_res.and(res)
 }
 
 /// Parses an OBJ format mesh from an iterator.
+///
+/// TODO Parses normals and coords but does not return them
 pub fn parse_obj(src: impl IntoIterator<Item = u8>) -> Result<Builder<()>> {
     let mut faces = vec![];
     let mut verts = vec![];
@@ -121,7 +120,6 @@ pub fn parse_obj(src: impl IntoIterator<Item = u8>) -> Result<Builder<()>> {
     let mut tcrds = vec![];
 
     let mut max = Indices { pos: 0, uv: None, n: None };
-
     let mut line = String::new();
 
     let mut it = src.into_iter().peekable();
@@ -135,28 +133,30 @@ pub fn parse_obj(src: impl IntoIterator<Item = u8>) -> Result<Builder<()>> {
         );
 
         let tokens = &mut line.split_ascii_whitespace();
-
         let Some(item) = tokens.next() else {
             continue;
         };
         match item.as_bytes() {
-            [b'#', ..] => continue, // Skip comment
-
+            // Comment; skip it
+            [b'#', ..] => continue,
+            // Vertex position
             b"v" => verts.push(parse_point(tokens)?),
+            // Texture coordinate
             b"vt" => tcrds.push(parse_texcoord(tokens)?),
+            // Normal vector
             b"vn" => norms.push(parse_normal(tokens)?),
-
+            // Face
             b"f" => {
-                let tri @ Tri([a, b, c]) = parse_face(tokens)?;
-
-                // TODO Ugly :(
-                max.pos = max.pos.max(a.pos).max(b.pos).max(c.pos);
-                max.uv = max.uv.max(a.uv).max(b.uv).max(c.uv);
-                max.n = max.n.max(a.n).max(b.n).max(c.n);
-
+                let tri = parse_face(tokens)?;
+                // Keep track of max indices to report error at the end of
+                // parsing if there turned out to be out-of-bounds indices
+                for i in tri.0 {
+                    max.pos = max.pos.max(i.pos);
+                    max.uv = max.uv.max(i.uv);
+                    max.n = max.n.max(i.n);
+                }
                 faces.push(tri)
             }
-
             // TODO Ignore unsupported lines instead?
             [c, ..] => return Err(UnsupportedItem(*c as char)),
             b"" => unreachable!("empty slices are filtered out"),
@@ -166,17 +166,17 @@ pub fn parse_obj(src: impl IntoIterator<Item = u8>) -> Result<Builder<()>> {
     if !verts.is_empty() && max.pos >= verts.len() {
         return Err(IndexOutOfBounds("vertex", max.pos));
     }
-    if max.uv.is_some_and(|i| i >= tcrds.len()) {
-        return Err(IndexOutOfBounds("texcoord", max.uv.unwrap()));
+    if let Some(uv) = max.uv.filter(|&i| i >= tcrds.len()) {
+        return Err(IndexOutOfBounds("texcoord", uv));
     }
-    if max.n.is_some_and(|i| i >= norms.len()) {
-        return Err(IndexOutOfBounds("normal", max.n.unwrap()));
+    if let Some(n) = max.n.filter(|&i| i >= norms.len()) {
+        return Err(IndexOutOfBounds("normal", n));
     }
 
+    // TODO Support returning texcoords and normals
     let faces = faces
         .into_iter()
-        .map(|Tri(vs)| Tri(vs.map(|i| i.pos)));
-
+        .map(|Tri(vs)| Tri(vs.map(|ics| ics.pos)));
     let verts = verts.into_iter().map(|pos| vertex(pos, ()));
 
     Ok(Mesh::new(faces, verts).into_builder())
@@ -213,13 +213,13 @@ fn parse_vector<'a>(
 }
 
 fn parse_normal<'a>(i: &mut impl Iterator<Item = &'a str>) -> Result<Normal3> {
-    parse_vector(i).map(Vector::to)
+    Ok(parse_vector(i)?.to())
 }
 
 fn parse_point<'a>(
     i: &mut impl Iterator<Item = &'a str>,
 ) -> Result<Point3<Model>> {
-    parse_vector(i).map(Vector::to_pt)
+    Ok(parse_vector(i)?.to_pt())
 }
 
 fn parse_index(s: &str) -> Result<usize> {
@@ -229,9 +229,8 @@ fn parse_index(s: &str) -> Result<usize> {
 
 fn parse_indices(param: &str) -> Result<Indices> {
     let indices = &mut param.split('/');
-
-    let pos = parse_index(next(indices)?)?;
-
+    let pos = next(indices).and_then(parse_index)?;
+    // Texcoord and normal are optional
     let uv = if let Some(uv) = indices.next() {
         Some(parse_index(uv)?)
     } else {
@@ -249,8 +248,8 @@ fn parse_indices(param: &str) -> Result<Indices> {
 // Foreign trait impls
 //
 
-impl fmt::Display for Error {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+impl Display for Error {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         match self {
             #[cfg(feature = "std")]
             Io(e) => write!(f, "I/O error: {e}"),
@@ -300,7 +299,7 @@ mod tests {
     use super::*;
 
     #[test]
-    fn valid_input() {
+    fn valid_input_only_positions() {
         let input = *br"
 # comment
 f 1 2 4
@@ -309,13 +308,50 @@ f 1 2 4
     v 0.0 0.0 0.0
 v       1.0 0.0 0.0
   # comment with leading whitespace
-v 0.0 2.0 0.0
-v 1.0 2.0      0.0";
+v 0.0 -2.0 0.0
+v -1.0e0 0.2e1      3.0e-2";
 
         let mesh = parse_obj(input).unwrap().build();
 
         assert_eq!(mesh.faces, vec![Tri([0, 1, 3]), Tri([3, 0, 2])]);
-        assert_eq!(mesh.verts[3].pos, pt3(1.0, 2.0, 0.0));
+        assert_eq!(mesh.verts[3].pos, pt3(-1.0, 2.0, 0.03));
+    }
+
+    #[test]
+    fn valid_input_positions_and_texcoords() {
+        let input = *br"
+f 1/1 2/3 4/2
+ f 4/3 1/2 3/1
+
+vt 0.0 0.0 0.0
+    v 0.0 0.0 0.0
+v       1.0 0.0 0.0
+v 0.0 2.0 0.0
+vt 1.0 1.0 1.0
+v 1.0 2.0 3.0
+vt 0.0 -1.0 2.0";
+
+        let mesh = parse_obj(input).unwrap().build();
+        assert_eq!(mesh.faces, vec![Tri([0, 1, 3]), Tri([3, 0, 2])]);
+        assert_eq!(mesh.verts[3].pos, pt3(1.0, 2.0, 3.0));
+    }
+    #[test]
+    fn valid_input_positions_and_normals() {
+        let input = *br"
+f 1//1 2//3 4//2
+ f 4//3 1//2 3//1
+
+vt 0.0 0.0 0.0
+    v 0.0 0.0 0.0
+v       1.0 0.0 0.0
+v 0.0 2.0 0.0
+vt 1.0 1.0 1.0
+v 1.0 2.0 3.0
+vt 0.0 -1.0 2.0";
+
+        let mesh = parse_obj(input).unwrap().build();
+        assert_eq!(mesh.faces, vec![Tri([0, 1, 3]), Tri([3, 0, 2])]);
+        assert_eq!(mesh.verts[3].pos, pt3(1.0, 2.0, 3.0));
     }
 
     #[test]
@@ -398,7 +434,7 @@ v 1.0 2.0      0.0";
             }
         }
 
-        let result = read_from(R(true));
+        let result = read_obj(R(true));
 
         if let Err(Io(e)) = result {
             assert_eq!(e.kind(), ErrorKind::BrokenPipe);
