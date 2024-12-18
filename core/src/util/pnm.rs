@@ -128,11 +128,9 @@ impl From<io::Error> for Error {
 }
 
 impl Header {
-    /// Attempts to parse a PNM header from `src`.
-    ///
-    /// Currently supported formats are P3, P4, P5, and P6.
-    fn parse(src: impl IntoIterator<Item = u8>) -> Result<Self> {
-        let mut it = src.into_iter();
+    /// Attempts to parse a PNM header from an iterator.
+    fn parse(input: impl IntoIterator<Item = u8>) -> Result<Self> {
+        let mut it = input.into_iter();
         let magic = [
             it.next().ok_or(UnexpectedEnd)?,
             it.next().ok_or(UnexpectedEnd)?,
@@ -154,30 +152,44 @@ impl Header {
             TextBitmap | BinaryBitmap => &"",
             _ => &max,
         };
-        writeln!(dest, "{} {} {} {}", format, w, h, max)
+        writeln!(dest, "{format} {w} {h} {max}")
     }
 }
 
 /// Loads a PNM image from a path into a buffer.
 ///
 /// Currently supported formats are P3, P4, P5, and P6.
+/// Read more about the formats in the [module docs][self].
 ///
 /// # Errors
 /// Returns [`pnm::Error`][Error] in case of an I/O error or invalid PNM image.
 #[cfg(feature = "std")]
 pub fn load_pnm(path: impl AsRef<Path>) -> Result<Buf2<Color3>> {
     let r = &mut BufReader::new(File::open(path)?);
-    read_pnm(r.bytes().map_while(io::Result::ok))
+    read_pnm(r)
+}
+
+/// Reads a PNM image into a buffer.
+///
+/// Currently supported PNM formats are P3, P4, P5, and P6.
+/// Read more about the formats in the [module docs][self].
+///
+/// # Errors
+/// Returns [`pnm::Error`][Error] in case of an I/O error or invalid PNM image.
+#[cfg(feature = "std")]
+pub fn read_pnm(input: impl Read) -> Result<Buf2<Color3>> {
+    parse_pnm(input.bytes().map_while(io::Result::ok))
 }
 
 /// Attempts to decode a PNM image from an iterator of bytes.
 ///
-/// Currently supported formats are P3, P4, P5, and P6.
+/// Currently supported PNM formats are P3, P4, P5, and P6.
+/// Read more about the formats in the [module docs][self].
 ///
 /// # Errors
-/// Returns [`pnm::Error`][Error] in case of an invalid PNM image.
-pub fn read_pnm(src: impl IntoIterator<Item = u8>) -> Result<Buf2<Color3>> {
-    let mut it = src.into_iter();
+/// Returns [`Error`] in case of an invalid or unrecognized PNM image.
+pub fn parse_pnm(input: impl IntoIterator<Item = u8>) -> Result<Buf2<Color3>> {
+    let mut it = input.into_iter();
     let h = Header::parse(&mut it)?;
 
     let count = h.dims.0 * h.dims.1;
@@ -262,12 +274,12 @@ pub fn write_ppm(
     }
     .write(&mut out)?;
 
+    // Appease the borrow checker
     let res = slice
         .rows()
         .flatten()
         .map(|c| c.0)
         .try_for_each(|rgb| out.write_all(&rgb[..]));
-
     res
 }
 
@@ -290,14 +302,12 @@ where
         }
         _ => in_comment || b.is_ascii_whitespace(),
     };
-
     let str = src
         .into_iter()
         .skip_while(|&b| whitespace_or_comment(b))
         .take_while(|&b| !b.is_ascii_whitespace())
         .map(char::from)
         .collect::<String>();
-
     Ok(str.parse()?)
 }
 
@@ -396,7 +406,7 @@ mod tests {
     #[test]
     fn parse_pnm_truncated() {
         let data = *b"P3 2 2 256 \n 0 0 0   123 0 42   0 64 128";
-        assert_eq!(read_pnm(data).err(), Some(UnexpectedEnd));
+        assert_eq!(parse_pnm(data).err(), Some(UnexpectedEnd));
     }
 
     #[cfg(feature = "std")]
@@ -429,7 +439,7 @@ mod tests {
     fn read_pnm_p3() {
         let data = *b"P3 2 2 256 \n 0 0 0   123 0 42   0 64 128   255 255 255";
 
-        let buf = read_pnm(data).unwrap();
+        let buf = parse_pnm(data).unwrap();
 
         assert_eq!(buf.dims(), (2, 2));
 
@@ -442,7 +452,7 @@ mod tests {
     #[test]
     fn read_pnm_p4() {
         // 0x69 == 0b0110_1001
-        let buf = read_pnm(*b"P4 4 2\n\x69").unwrap();
+        let buf = parse_pnm(*b"P4 4 2\n\x69").unwrap();
 
         assert_eq!(buf.dims(), (4, 2));
 
@@ -455,7 +465,7 @@ mod tests {
 
     #[test]
     fn read_pnm_p5() {
-        let buf = read_pnm(*b"P5 2 2 255\n\x01\x23\x45\x67").unwrap();
+        let buf = parse_pnm(*b"P5 2 2 255\n\x01\x23\x45\x67").unwrap();
 
         assert_eq!(buf.dims(), (2, 2));
 
@@ -465,7 +475,7 @@ mod tests {
 
     #[test]
     fn read_pnm_p6() {
-        let buf = read_pnm(
+        let buf = parse_pnm(
             *b"P6 2 2 255\n\
             \x01\x12\x23\
             \x34\x45\x56\
