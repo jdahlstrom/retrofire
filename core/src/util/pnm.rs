@@ -102,9 +102,7 @@ pub enum Error {
 /// Result of loading or decoding a PNM file.
 pub type Result<T> = core::result::Result<T, Error>;
 
-// TODO use core::error::Error once stabilized
-#[cfg(feature = "std")]
-impl std::error::Error for Error {}
+impl core::error::Error for Error {}
 
 impl Display for Error {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
