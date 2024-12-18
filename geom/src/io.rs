@@ -44,7 +44,6 @@ use core::{
 };
 #[cfg(feature = "std")]
 use std::{
-    error,
     fs::File,
     io::{BufReader, Read},
     path::Path,
@@ -267,8 +266,7 @@ impl fmt::Display for Error {
     }
 }
 
-#[cfg(feature = "std")]
-impl error::Error for Error {
+impl core::error::Error for Error {
     fn source(&self) -> Option<&(dyn std::error::Error + 'static)> {
         if let Io(e) = self {
             Some(e)
