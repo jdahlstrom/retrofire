@@ -38,8 +38,14 @@ pub mod vary;
 pub mod vec;
 
 /// Trait for linear interpolation between two values.
-pub trait Lerp {
+pub trait Lerp: Sized {
+    /// TODO
     fn lerp(&self, other: &Self, t: f32) -> Self;
+
+    /// TODO Adapt from the impl below
+    fn midpoint(&self, other: &Self) -> Self {
+        self.lerp(other, 0.5)
+    }
 }
 
 impl<T> Lerp for T
