@@ -62,15 +62,15 @@ use Error::*;
 #[derive(Debug)]
 pub enum Error {
     #[cfg(feature = "std")]
-    /// Input/output error during reading from a `Read`.
+    /// An input/output error during reading from a `Read`.
     Io(std::io::Error),
-    /// Unsupported line item identifier
+    /// An item that is not a face, vertex, texture coordinate, or normal.
     UnsupportedItem(char),
     /// Unexpected end of line or input.
     UnexpectedEnd,
-    /// Invalid integer or floating-point value.
+    /// An invalid integer or floating-point value.
     InvalidValue,
-    /// Vertex attribute index referring to nonexistent attribute.
+    /// A vertex attribute index that refers to a nonexistent attribute.
     IndexOutOfBounds(&'static str, usize),
 }
 
@@ -86,7 +86,7 @@ pub type Result<T> = core::result::Result<T, Error>;
 /// Loads an OBJ model from a path.
 ///
 /// # Errors
-/// TODO
+/// Returns [`Error`] if I/O or OBJ parsing fails.
 #[cfg(feature = "std")]
 pub fn load_obj(path: impl AsRef<Path>) -> Result<Builder<()>> {
     let r = &mut BufReader::new(File::open(path)?);
@@ -96,7 +96,7 @@ pub fn load_obj(path: impl AsRef<Path>) -> Result<Builder<()>> {
 /// Reads an OBJ format mesh from input.
 ///
 /// # Errors
-///
+/// Returns [`Error`] if I/O or OBJ parsing fails.
 #[cfg(feature = "std")]
 pub fn read_obj(input: impl Read) -> Result<Builder<()>> {
     let mut io_res: Result<()> = Ok(());
@@ -113,13 +113,16 @@ pub fn read_obj(input: impl Read) -> Result<Builder<()>> {
 /// Parses an OBJ format mesh from an iterator.
 ///
 /// TODO Parses normals and coords but does not return them
+///
+/// # Errors
+/// Returns [`Error`] if OBJ parsing fails.
 pub fn parse_obj(src: impl IntoIterator<Item = u8>) -> Result<Builder<()>> {
     let mut faces = vec![];
     let mut verts = vec![];
     let mut norms = vec![];
-    let mut tcrds = vec![];
+    let mut texcs = vec![];
 
-    let mut max = Indices { pos: 0, uv: None, n: None };
+    let mut max_i = Indices { pos: 0, uv: None, n: None };
     let mut line = String::new();
 
     let mut it = src.into_iter().peekable();
@@ -142,7 +145,7 @@ pub fn parse_obj(src: impl IntoIterator<Item = u8>) -> Result<Builder<()>> {
             // Vertex position
             b"v" => verts.push(parse_point(tokens)?),
             // Texture coordinate
-            b"vt" => tcrds.push(parse_texcoord(tokens)?),
+            b"vt" => texcs.push(parse_texcoord(tokens)?),
             // Normal vector
             b"vn" => norms.push(parse_normal(tokens)?),
             // Face
@@ -151,9 +154,9 @@ pub fn parse_obj(src: impl IntoIterator<Item = u8>) -> Result<Builder<()>> {
                 // Keep track of max indices to report error at the end of
                 // parsing if there turned out to be out-of-bounds indices
                 for i in tri.0 {
-                    max.pos = max.pos.max(i.pos);
-                    max.uv = max.uv.max(i.uv);
-                    max.n = max.n.max(i.n);
+                    max_i.pos = max_i.pos.max(i.pos);
+                    max_i.uv = max_i.uv.max(i.uv);
+                    max_i.n = max_i.n.max(i.n);
                 }
                 faces.push(tri)
             }
@@ -163,13 +166,13 @@ pub fn parse_obj(src: impl IntoIterator<Item = u8>) -> Result<Builder<()>> {
         }
     }
 
-    if !verts.is_empty() && max.pos >= verts.len() {
-        return Err(IndexOutOfBounds("vertex", max.pos));
+    if !verts.is_empty() && max_i.pos >= verts.len() {
+        return Err(IndexOutOfBounds("vertex", max_i.pos));
     }
-    if let Some(uv) = max.uv.filter(|&i| i >= tcrds.len()) {
+    if let Some(uv) = max_i.uv.filter(|&i| i >= texcs.len()) {
         return Err(IndexOutOfBounds("texcoord", uv));
     }
-    if let Some(n) = max.n.filter(|&i| i >= norms.len()) {
+    if let Some(n) = max_i.n.filter(|&i| i >= norms.len()) {
         return Err(IndexOutOfBounds("normal", n));
     }
 
@@ -232,7 +235,12 @@ fn parse_indices(param: &str) -> Result<Indices> {
     let pos = next(indices).and_then(parse_index)?;
     // Texcoord and normal are optional
     let uv = if let Some(uv) = indices.next() {
-        Some(parse_index(uv)?)
+        if !uv.is_empty() {
+            Some(parse_index(uv)?)
+        } else {
+            // `1//2`: only position and normal
+            None
+        }
     } else {
         None
     };
@@ -299,55 +307,87 @@ mod tests {
     use super::*;
 
     #[test]
-    fn valid_input_only_positions() {
+    fn input_with_whitespace_and_comments() {
         let input = *br"
 # comment
 f 1 2 4
  f 4 1 3
 #anothercomment
-    v 0.0 0.0 0.0
+    v 0.0 0.0       0.0
 v       1.0 0.0 0.0
   # comment with leading whitespace
 v 0.0 -2.0 0.0
-v -1.0e0 0.2e1      3.0e-2";
+        v 1 2 3";
 
         let mesh = parse_obj(input).unwrap().build();
 
         assert_eq!(mesh.faces, vec![Tri([0, 1, 3]), Tri([3, 0, 2])]);
-        assert_eq!(mesh.verts[3].pos, pt3(-1.0, 2.0, 0.03));
+        assert_eq!(mesh.verts[3].pos, pt3(1.0, 2.0, 3.0));
     }
 
     #[test]
-    fn valid_input_positions_and_texcoords() {
-        let input = *br"
-f 1/1 2/3 4/2
- f 4/3 1/2 3/1
+    fn exp_notation() {
+        let input = *b"v -1.0e0 0.2e1  3.0e-2";
+        let mesh = parse_obj(input).unwrap().build();
+        assert_eq!(mesh.verts[0].pos, pt3(-1.0, 2.0, 0.03));
+    }
 
-vt 0.0 0.0 0.0
-    v 0.0 0.0 0.0
-v       1.0 0.0 0.0
-v 0.0 2.0 0.0
-vt 1.0 1.0 1.0
-v 1.0 2.0 3.0
-vt 0.0 -1.0 2.0";
+    #[test]
+    fn positions_and_texcoords() {
+        let input = *br"
+            f 1/1/1 2/3/2 3/2/2
+            f 4/3/2 1/2/3 3/1/3
+
+            vn 1.0 0.0 0.0
+            vt 0.0 0.0 0.0
+            v 0.0 0.0 0.0
+            v 1.0 0.0 0.0
+            vn 1.0 0.0 0.0
+            v 0.0 2.0 0.0
+            vt 1.0 1.0 1.0
+            v 1.0 2.0 3.0
+            vt 0.0 -1.0 2.0
+            vn 1.0 0.0 0.0";
+
+        let mesh = parse_obj(input).unwrap().build();
+        assert_eq!(mesh.faces, vec![Tri([0, 1, 2]), Tri([3, 0, 2])]);
+
+        let v = mesh.verts[3];
+        assert_eq!(v.pos, pt3(1.0, 2.0, 3.0));
+    }
+
+    #[test]
+    fn positions_and_normals() {
+        let input = *br"
+            f 1//1 2//3 4//2
+            f 4//3 1//2 3//1
+
+            vn 1.0 0.0 0.0
+            v 0.0 0.0 0.0
+            v 1.0 0.0 0.0
+            v 0.0 2.0 0.0
+            vn 0.0 1.0 0.0
+            v 1.0 2.0 3.0
+            vn 0.0 0.0 -1.0";
 
         let mesh = parse_obj(input).unwrap().build();
         assert_eq!(mesh.faces, vec![Tri([0, 1, 3]), Tri([3, 0, 2])]);
         assert_eq!(mesh.verts[3].pos, pt3(1.0, 2.0, 3.0));
     }
-    #[test]
-    fn valid_input_positions_and_normals() {
-        let input = *br"
-f 1//1 2//3 4//2
- f 4//3 1//2 3//1
 
-vt 0.0 0.0 0.0
-    v 0.0 0.0 0.0
-v       1.0 0.0 0.0
-v 0.0 2.0 0.0
-vt 1.0 1.0 1.0
-v 1.0 2.0 3.0
-vt 0.0 -1.0 2.0";
+    #[test]
+    fn positions_texcoords_and_normals() {
+        let input = *br"
+            f 1//1 2//3 4//2
+            f 4//3 1//2 3//1
+
+            vn 1.0 0.0 0.0
+            v 0.0 0.0 0.0
+            v 1.0 0.0 0.0
+            v 0.0 2.0 0.0
+            vn 0.0 1.0 0.0
+            v 1.0 2.0 3.0
+            vn 0.0 0.0 -1.0";
 
         let mesh = parse_obj(input).unwrap().build();
         assert_eq!(mesh.faces, vec![Tri([0, 1, 3]), Tri([3, 0, 2])]);
