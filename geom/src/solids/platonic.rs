@@ -1,7 +1,7 @@
 //! The five Platonic solids: tetrahedron, cube, octahedron, dodecahedron,
 //! and icosahedron.
 
-use core::array::from_fn;
+use core::{array::from_fn, iter::zip};
 
 use re::geom::{Mesh, Normal3};
 use re::math::{
@@ -305,18 +305,16 @@ impl Dodecahedron {
 
     /// Builds the dodecahedral mesh.
     pub fn build(self) -> Mesh<Normal3> {
-        let mut b = Mesh::builder();
+        let coords = Self::COORDS.map(|c| c.normalize().to_pt());
+        let norms = Self::NORMALS.map(|c| c.normalize());
 
-        for (i, face) in Self::FACES.iter().enumerate() {
-            let n = Self::NORMALS[i].normalize();
+        let mut b = Mesh::builder();
+        for (vs, n) in zip(Self::FACES, norms) {
             // Make a pentagon from three triangles
-            let i5 = 5 * i;
-            b.push_face(i5, i5 + 1, i5 + 2);
-            b.push_face(i5, i5 + 2, i5 + 3);
-            b.push_face(i5, i5 + 3, i5 + 4);
-            for &j in face {
-                b.push_vert(Self::COORDS[j].normalize().to_pt(), n);
-            }
+            let i = b.push_verts(vs.map(|i| (coords[i], n))).start;
+            b.push_face(i, i + 1, i + 2);
+            b.push_face(i, i + 2, i + 3);
+            b.push_face(i, i + 3, i + 4);
         }
         b.build()
     }
@@ -355,13 +353,13 @@ impl Icosahedron {
 
     /// Builds the icosahedral mesh.
     pub fn build(self) -> Mesh<Normal3> {
+        let coords = Self::COORDS.map(|c| c.normalize().to_pt());
+        let norms = Self::NORMALS.map(|c| c.normalize());
+
         let mut b = Mesh::builder();
-        for (i, vs) in Self::FACES.iter().enumerate() {
-            let n = Self::NORMALS[i].normalize();
-            b.push_face(3 * i, 3 * i + 1, 3 * i + 2);
-            for vi in *vs {
-                b.push_vert(Self::COORDS[vi].normalize().to_pt(), n);
-            }
+        for (vs, n) in zip(Self::FACES, norms) {
+            let n = b.push_verts(vs.map(|i| (coords[i], n))).start;
+            b.push_face(n, n + 1, n + 2);
         }
         b.build()
     }
