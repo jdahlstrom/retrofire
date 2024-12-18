@@ -1,9 +1,8 @@
 //! Pseudo-random number generation and distributions.
 
-use crate::math::point::{Point, Point2, Point3};
 use core::{array, fmt::Debug, ops::Range};
 
-use super::vec::{Vec2, Vec3, Vector};
+use super::{Point, Point2, Point3, Vec2, Vec3, Vector};
 
 //
 // Traits and types
@@ -22,6 +21,7 @@ pub trait Distrib: Clone {
     /// # Examples
     /// ```
     /// use retrofire_core::math::rand::*;
+    ///
     /// // Simulate rolling a six-sided die
     /// let mut rng = DefaultRng::default();
     /// let d6 = Uniform(1..7).sample(&mut rng);
@@ -34,9 +34,11 @@ pub trait Distrib: Clone {
     /// # Examples
     /// ```
     /// use retrofire_core::math::rand::*;
+    ///
     /// // Simulate rolling a six-sided die
     /// let rng = DefaultRng::default();
     /// let mut iter = Uniform(1..7).samples(rng);
+    ///
     /// assert_eq!(iter.next(), Some(3));
     /// assert_eq!(iter.next(), Some(2));
     /// assert_eq!(iter.next(), Some(4));
@@ -120,7 +122,8 @@ impl Xorshift64 {
     ///
     /// # Examples
     /// ```
-    /// # use retrofire_core::math::rand::Xorshift64;
+    /// use retrofire_core::math::rand::Xorshift64;
+    ///
     /// let mut g = Xorshift64::from_seed(123);
     /// assert_eq!(g.next_bits(), 133101616827);
     /// assert_eq!(g.next_bits(), 12690785413091508870);
@@ -143,8 +146,9 @@ impl Xorshift64 {
     ///
     /// #  Examples
     /// ```
-    /// # use std::thread;
-    /// # use retrofire_core::math::rand::Xorshift64;
+    /// use std::thread;
+    /// use retrofire_core::math::rand::Xorshift64;
+    ///
     /// let mut g = Xorshift64::from_time();
     /// thread::sleep_ms(1); // Just to be sure
     /// let mut h = Xorshift64::from_time();
@@ -196,6 +200,7 @@ impl Default for Xorshift64 {
     /// # Examples
     /// ```
     /// use retrofire_core::math::rand::Xorshift64;
+    ///
     /// let mut g = Xorshift64::default();
     /// assert_eq!(g.next_bits(), 11039719294064252060);
     /// ```
@@ -471,8 +476,7 @@ impl<D: Distrib, E: Distrib> Distrib for (D, E) {
 #[cfg(test)]
 #[allow(clippy::manual_range_contains)]
 mod tests {
-    use crate::assert_approx_eq;
-    use crate::math::vec::vec3;
+    use crate::{assert_approx_eq, math::vec3};
 
     use super::*;
 

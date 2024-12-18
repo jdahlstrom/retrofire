@@ -707,7 +707,7 @@ pub mod inner {
 
 #[cfg(test)]
 mod tests {
-    use crate::math::vec::vec2;
+    use crate::math::vec2;
 
     use super::*;
 

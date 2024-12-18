@@ -17,13 +17,24 @@
 //! to matching vectors. Angles are strongly typed as well, to allow working
 //! with different angular units without confusion.
 
-pub use angle::{degs, polar, rads, spherical, turns, Angle};
-pub use approx::ApproxEq;
-pub use mat::{Mat3x3, Mat4x4, Matrix};
-pub use space::{Affine, Linear};
-pub use vary::{lerp, Vary};
-pub use vec::{vec2, vec3};
-pub use vec::{Vec2, Vec2i, Vec3, Vec3i, Vector};
+#[cfg(feature = "fp")]
+pub use mat::{orient_y, orient_z, rotate_x, rotate_y, rotate_z};
+pub use {
+    angle::{
+        acos, asin, atan2, degs, polar, rads, spherical, turns, Angle,
+        PolarVec, SphericalVec,
+    },
+    approx::ApproxEq,
+    color::{rgb, rgba, Color, Color3, Color3f, Color4, Color4f},
+    mat::{
+        orthographic, perspective, scale, translate, viewport, Mat3x3, Mat4x4,
+        Matrix,
+    },
+    point::{pt2, pt3, Point, Point2, Point2u, Point3},
+    space::{Affine, Linear},
+    vary::Vary,
+    vec::{splat, vec2, vec3, Vec2, Vec2i, Vec2u, Vec3, Vec3i, Vector},
+};
 
 pub mod angle;
 pub mod approx;
@@ -39,13 +50,31 @@ pub mod vec;
 
 /// Trait for linear interpolation between two values.
 pub trait Lerp: Sized {
-    /// TODO
+    /// Linearly interpolates between `self` and `other`.
+    ///
+    /// if `t` = 0, returns `self`; if `t` = 1, returns `other`.
+    /// For 0 < `t` < 1, returns the weighted average of `self` and `other`
+    /// ```text
+    /// (1 - t) * self + t * other
+    /// ```
+    ///
+    /// This method does not panic if `t < 0.0` or `t > 1.0`, or if `t`
+    /// is a `NaN`, but the return value in those cases is unspecified.
+    /// Individual implementations may offer stronger guarantees.
     fn lerp(&self, other: &Self, t: f32) -> Self;
 
-    /// TODO Adapt from the impl below
+    /// Returns the (unweighted) average of `self` and `other`.
     fn midpoint(&self, other: &Self) -> Self {
         self.lerp(other, 0.5)
     }
+}
+
+/// Linearly interpolates between two values.
+///
+/// For more information, see [`Lerp::lerp`].
+#[inline]
+pub fn lerp<T: Lerp>(t: f32, from: T, to: T) -> T {
+    from.lerp(&to, t)
 }
 
 impl<T> Lerp for T
@@ -57,34 +86,32 @@ where
     /// if `t` = 0, returns `self`; if `t` = 1, returns `other`.
     /// For 0 < `t` < 1, returns the affine combination
     /// ```text
-    /// self * (1 - t) + other * t
+    /// (1 - t) * self + t * other
     /// ```
     /// or rearranged:
     /// ```text
     /// self + t * (other - self)
     /// ```
     ///
-    /// This method does not panic if `t < 0.0` or `t > 1.0`, or if `t`
-    /// is a `NaN`, but the return value in those cases is unspecified.
-    /// Individual implementations may offer stronger guarantees.
+    /// If `t < 0.0` or `t > 1.0`, returns the appropriate extrapolated value.
+    /// If `t` is a NaN, the result is unspecified.
     ///
     /// # Examples
     /// ```
-    /// use retrofire_core::math::{Lerp, vec::vec2, point::pt2};
+    /// use retrofire_core::math::*;
     ///
     /// assert_eq!(2.0.lerp(&5.0, 0.0), 2.0);
     /// assert_eq!(2.0.lerp(&5.0, 0.25), 2.75);
     /// assert_eq!(2.0.lerp(&5.0, 0.75), 4.25);
     /// assert_eq!(2.0.lerp(&5.0, 1.0), 5.0);
     ///
-    /// assert_eq!(
-    ///     vec2::<f32, ()>(-2.0, 1.0).lerp(&vec2(3.0, -1.0), 0.8),
-    ///     vec2(2.0, -0.6)
-    /// );
-    /// assert_eq!(
-    ///     pt2::<f32, ()>(-10.0, 5.0).lerp(&pt2(-5.0, 0.0), 0.4),
-    ///     pt2(-8.0, 3.0)
-    /// );
+    /// let v0: Vec2 = vec2(-2.0, 1.0);
+    /// let v1 = vec2(3.0, -1.0);
+    /// assert_eq!(v0.lerp(&v1, 0.8), vec2(2.0, -0.6));
+    ///
+    /// let p0: Point2 = pt2(-10.0, 5.0);
+    /// let p1 = pt2(-5.0, 0.0);
+    /// assert_eq!(p0.lerp(&p1, 0.4),pt2(-8.0, 3.0));
     /// ```
     fn lerp(&self, other: &Self, t: f32) -> Self {
         self.add(&other.sub(self).mul(t))

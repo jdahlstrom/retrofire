@@ -1,11 +1,9 @@
-use std::mem::swap;
-use std::ops::ControlFlow::Continue;
+use std::{mem::swap, ops::ControlFlow::Continue};
 
 use re::prelude::*;
 
 use re::math::{
-    point::{pt2, Point2, Point2u},
-    rand::{Uniform, VectorsOnUnitDisk, Xorshift64},
+    rand::{Distrib, Uniform, VectorsOnUnitDisk, Xorshift64},
     spline::BezierSpline,
 };
 

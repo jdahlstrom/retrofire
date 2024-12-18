@@ -1,18 +1,15 @@
 //! Angular quantities, including scalar angles and angular vectors.
 
-use core::f32::consts::{PI, TAU};
-use core::fmt::{self, Debug, Display};
-use core::ops::{Add, Div, Mul, Neg, Rem, Sub};
+use core::{
+    f32::consts::{PI, TAU},
+    fmt::{self, Debug, Display},
+    ops::{Add, Div, Mul, Neg, Rem, Sub},
+};
 
-use crate::math::approx::ApproxEq;
-use crate::math::space::{Affine, Linear};
-use crate::math::vec::Vector;
+use crate::math::{vary::ZDiv, Affine, ApproxEq, Linear, Vector};
 
 #[cfg(feature = "fp")]
-use crate::math::float::f32;
-use crate::math::vary::ZDiv;
-#[cfg(feature = "fp")]
-use crate::math::vec::{vec2, vec3, Vec2, Vec3};
+use crate::math::{float::f32, vec2, vec3, Vec2, Vec3};
 
 //
 // Types
@@ -68,7 +65,7 @@ pub fn turns(a: f32) -> Angle {
 /// # Examples
 /// ```
 /// # use retrofire_core::assert_approx_eq;
-/// # use retrofire_core::math::angle::*;
+/// # use retrofire_core::math::{degs, asin};
 /// assert_approx_eq!(asin(1.0), degs(90.0));
 /// assert_approx_eq!(asin(-1.0), degs(-90.0));
 /// ```
@@ -86,8 +83,9 @@ pub fn asin(x: f32) -> Angle {
 ///
 /// # Examples
 /// ```
-/// # use retrofire_core::assert_approx_eq;
-/// # use retrofire_core::math::angle::*;
+/// use retrofire_core::assert_approx_eq;
+/// use retrofire_core::math::{acos, degs};
+///
 /// assert_approx_eq!(acos(1.0), degs(0.0));
 /// ```
 /// # Panics
@@ -103,7 +101,8 @@ pub fn acos(x: f32) -> Angle {
 ///
 /// # Examples
 /// ```
-/// # use retrofire_core::math::angle::*;
+/// use retrofire_core::math::angle::{atan2, degs};
+///
 /// assert_eq!(atan2(0.0, 1.0), degs(0.0));
 /// assert_eq!(atan2(2.0, 2.0), degs(45.0));
 /// assert_eq!(atan2(3.0, 0.0), degs(90.0));
@@ -146,8 +145,9 @@ impl Angle {
     /// Returns the value of `self` in radians.
     /// # Examples
     /// ```
-    /// # use std::f32;
-    /// # use retrofire_core::math::degs;
+    /// use std::f32;
+    /// use retrofire_core::math::degs;
+    ///
     /// assert_eq!(degs(90.0).to_rads(), f32::consts::FRAC_PI_2);
     /// ```
     pub const fn to_rads(self) -> f32 {
@@ -156,7 +156,8 @@ impl Angle {
     /// Returns the value of `self` in degrees.
     /// # Examples
     /// ```
-    /// # use retrofire_core::math::turns;
+    /// use retrofire_core::math::turns;
+    ///
     /// assert_eq!(turns(2.0).to_degs(), 720.0);
     pub fn to_degs(self) -> f32 {
         self.0 / RADS_PER_DEG
@@ -164,7 +165,8 @@ impl Angle {
     /// Returns the value of `self` in turns.
     /// # Examples
     /// ```
-    /// # use retrofire_core::math::degs;
+    /// use retrofire_core::math::degs;
+    ///
     /// assert_eq!(degs(180.0).to_turns(), 0.5);
     /// ```
     pub fn to_turns(self) -> f32 {
@@ -183,13 +185,12 @@ impl Angle {
     ///
     /// # Examples
     /// ```
-    /// # use retrofire_core::math::angle::degs;
+    /// use retrofire_core::math::angle::degs;
+    ///
     /// let (min, max) = (degs(0.0), degs(45.0));
     ///
     /// assert_eq!(degs(100.0).clamp(min, max), max);
-    ///
     /// assert_eq!(degs(30.0).clamp(min, max), degs(30.0));
-    ///
     /// assert_eq!(degs(-10.0).clamp(min, max), min);
     /// ```
     #[must_use]
@@ -203,8 +204,9 @@ impl Angle {
     /// Returns the sine of `self`.
     /// # Examples
     /// ```
-    /// # use retrofire_core::assert_approx_eq;
-    /// # use retrofire_core::math::angle::*;
+    /// use retrofire_core::assert_approx_eq;
+    /// use retrofire_core::math::degs;
+    ///
     /// assert_approx_eq!(degs(30.0).sin(), 0.5)
     /// ```
     pub fn sin(self) -> f32 {
@@ -213,8 +215,9 @@ impl Angle {
     /// Returns the cosine of `self`.
     /// # Examples
     /// ```
-    /// # use retrofire_core::assert_approx_eq;
-    /// # use retrofire_core::math::angle::*;
+    /// use retrofire_core::assert_approx_eq;
+    /// use retrofire_core::math::degs;
+    ///
     /// assert_approx_eq!(degs(60.0).cos(), 0.5)
     /// ```
     pub fn cos(self) -> f32 {
@@ -223,8 +226,9 @@ impl Angle {
     /// Simultaneously computes the sine and cosine of `self`.
     /// # Examples
     /// ```
-    /// # use retrofire_core::assert_approx_eq;
-    /// # use retrofire_core::math::angle::*;
+    /// use retrofire_core::assert_approx_eq;
+    /// use retrofire_core::math::degs;
+    ///
     /// let (sin, cos) = degs(90.0).sin_cos();
     /// assert_approx_eq!(sin, 1.0);
     /// assert_approx_eq!(cos, 0.0);
@@ -235,7 +239,7 @@ impl Angle {
     /// Returns the tangent of `self`.
     /// # Examples
     /// ```
-    /// # use retrofire_core::math::angle::*;
+    /// use retrofire_core::math::degs;
     /// assert_eq!(degs(45.0).tan(), 1.0)
     /// ```
     pub fn tan(self) -> f32 {
@@ -246,8 +250,10 @@ impl Angle {
     ///
     /// # Examples
     /// ```
-    /// # use retrofire_core::assert_approx_eq;
-    /// # use retrofire_core::math::angle::*;
+    /// use retrofire_core::assert_approx_eq;
+    /// use retrofire_core::math::{degs, turns};
+    ///
+    /// // 400 (mod 360) = 40
     /// assert_approx_eq!(degs(400.0).wrap(turns(0.0), turns(1.0)), degs(40.0))
     /// ```
     #[must_use]
@@ -285,14 +291,12 @@ impl PolarVec {
     ///
     /// # Examples
     /// ```
-    /// # use retrofire_core::assert_approx_eq;
-    /// # use retrofire_core::math::angle::{polar, degs};
-    /// # use retrofire_core::math::vec::vec2;
+    /// use retrofire_core::assert_approx_eq;
+    /// use retrofire_core::math::{vec2, polar, degs};
+    ///
     /// assert_approx_eq!(polar(2.0, degs(0.0)).to_cart(), vec2(2.0, 0.0));
-    ///
-    /// assert_approx_eq!(polar(2.0, degs(90.0)).to_cart(), vec2(0.0, 2.0));
-    ///
-    /// assert_approx_eq!(polar(2.0, degs(-180.0)).to_cart(), vec2(-2.0, 0.0));
+    /// assert_approx_eq!(polar(3.0, degs(90.0)).to_cart(), vec2(0.0, 3.0));
+    /// assert_approx_eq!(polar(4.0, degs(-180.0)).to_cart(), vec2(-4.0, 0.0));
     ///
     /// ```
     #[cfg(feature = "fp")]
@@ -322,7 +326,6 @@ impl SphericalVec {
     /// Returns `self` converted to the equivalent Cartesian 3-vector.
     ///
     /// # Examples
-    ///
     /// TODO examples
     #[cfg(feature = "fp")]
     pub fn to_cart(&self) -> Vec3 {
@@ -356,8 +359,9 @@ impl Vec2 {
     ///
     /// # Examples
     /// ```
-    /// # use retrofire_core::assert_approx_eq;
-    /// # use retrofire_core::math::{*, angle::*};
+    /// use retrofire_core::assert_approx_eq;
+    /// use retrofire_core::math::{vec2, degs};
+    ///
     /// // A non-negative x and zero y maps to zero azimuth
     /// assert_eq!(vec2(0.0, 0.0).to_polar().az(), degs(0.0));
     /// assert_eq!(vec2(1.0, 0.0).to_polar().az(), degs(0.0));
@@ -392,7 +396,8 @@ impl Vec3 {
     ///
     /// # Examples
     /// ```
-    /// # use retrofire_core::math::{*, angle::*};
+    /// use retrofire_core::math::{vec3, spherical, degs};
+    ///
     /// // The positive x-axis lies at zero azimuth and altitude
     /// assert_eq!(
     ///     vec3(2.0, 0.0, 0.0).to_spherical(),

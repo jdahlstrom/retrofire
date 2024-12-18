@@ -138,13 +138,13 @@ macro_rules! assert_approx_eq {
         }
     };
     ($a:expr, $b:expr, $fmt:literal $(, $args:expr)*) => {{
-        use $crate::math::approx::ApproxEq;
+        use $crate::math::ApproxEq;
         match (&$a, &$b) {
             (a, b) => assert!(ApproxEq::approx_eq(a, b), $fmt $(, $args)*)
         }
     }};
     ($a:expr, $b:expr, eps = $eps:literal, $fmt:literal $(, $args:expr)*) => {{
-        use $crate::math::approx::ApproxEq;
+        use $crate::math::ApproxEq;
         match (&$a, &$b) {
             (a, b) => assert!(
                 ApproxEq::approx_eq_eps(a, b, &$eps),

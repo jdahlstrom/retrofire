@@ -4,8 +4,7 @@
 //! and possible auxiliary buffers. Special render targets can be used,
 //! for example, for visibility or occlusion computations.
 
-use crate::math::vary::Vary;
-use crate::util::buf::AsMutSlice2;
+use crate::{math::Vary, util::buf::AsMutSlice2};
 
 use super::{raster::Scanline, stats::Throughput, Context, FragmentShader};
 

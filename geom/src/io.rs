@@ -50,10 +50,7 @@ use std::{
 };
 
 use re::geom::{mesh::Builder, vertex, Mesh, Normal3, Tri};
-use re::math::{
-    point::Point3,
-    vec::{vec3, Vec3},
-};
+use re::math::{vec3, Point3, Vec3};
 use re::render::{uv, Model, TexCoord};
 
 use Error::*;

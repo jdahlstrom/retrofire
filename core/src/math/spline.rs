@@ -3,10 +3,7 @@
 use alloc::vec::Vec;
 use core::array;
 
-use crate::math::{
-    space::{Affine, Linear},
-    Lerp,
-};
+use crate::math::{Affine, Lerp, Linear};
 
 /// A cubic Bézier curve, defined by four control points.
 ///
@@ -242,7 +239,8 @@ where
     ///
     /// # Examples
     /// ```
-    /// # use retrofire_core::math::{spline::BezierSpline, vec::{vec2, Vec2}};
+    /// use retrofire_core::math::{spline::BezierSpline, vec2, Vec2};
+    ///
     /// let curve = BezierSpline::<Vec2>::new(
     ///     &[vec2(0.0, 0.0), vec2(0.0, 1.0), vec2(1.0, 1.0), vec2(1.0, 0.0)]
     /// );
@@ -287,8 +285,7 @@ mod tests {
     use alloc::vec;
 
     use crate::assert_approx_eq;
-    use crate::math::point::{pt2, Point2};
-    use crate::math::{vec2, Vec2};
+    use crate::math::{pt2, vec2, Point2, Vec2};
 
     use super::*;
 

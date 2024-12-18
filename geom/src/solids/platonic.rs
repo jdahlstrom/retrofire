@@ -4,10 +4,7 @@
 use core::{array::from_fn, iter::zip};
 
 use re::geom::{Mesh, Normal3};
-use re::math::{
-    point::{pt3, Point3},
-    vec3, Lerp, Vec3,
-};
+use re::math::{pt3, vec3, Lerp, Point3, Vec3};
 use re::render::{uv, TexCoord};
 
 /// A regular tetrahedron.
