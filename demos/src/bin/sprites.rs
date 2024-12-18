@@ -2,12 +2,8 @@ use core::{array::from_fn, ops::ControlFlow::Continue};
 
 use re::prelude::*;
 
-use re::geom::Vertex3;
 use re::math::rand::{Distrib, PointsInUnitBall, Xorshift64};
-use re::render::{
-    cam::Mode, raster::Frag, render, shader::Shader, Camera, Model,
-    ModelToView, ViewToProj,
-};
+use re::render::{cam::Mode, render, Model, ModelToView, ViewToProj};
 use re_front::minifb::Window;
 
 fn main() {

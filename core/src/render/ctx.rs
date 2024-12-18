@@ -2,7 +2,7 @@
 
 use core::{cell::RefCell, cmp::Ordering};
 
-use crate::math::color::{rgba, Color4};
+use crate::math::{rgba, Color4};
 
 use super::Stats;
 

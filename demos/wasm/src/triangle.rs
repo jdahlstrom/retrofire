@@ -2,14 +2,9 @@ use core::ops::ControlFlow::*;
 
 use wasm_bindgen::prelude::*;
 
-use re::geom::{vertex, Tri, Vertex3};
-use re::math::{
-    color::{rgba, Color4f},
-    mat::{perspective, rotate_z, translate, viewport},
-    point::{pt2, pt3},
-    rads, vec3,
-};
-use re::render::{raster::Frag, render, shader::Shader, ModelToView};
+use re::prelude::*;
+
+use re::render::{render, ModelToView};
 use re::util::Dims;
 
 use re_front::{dims::SVGA_800_600, wasm::Window};

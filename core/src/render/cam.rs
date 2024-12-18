@@ -6,20 +6,12 @@ use crate::geom::{Tri, Vertex};
 use crate::math::{
     angle::{spherical, turns, SphericalVec},
     mat::{orthographic, perspective, viewport, Mat4x4, RealToReal},
-    point::{pt2, Point3},
-    space::Linear,
-    vary::Vary,
-    vec::Vec3,
-    Lerp,
+    pt2, Lerp, Linear, Point3, Vary, Vec3,
 };
 use crate::util::{rect::Rect, Dims};
 
 #[cfg(feature = "fp")]
-use crate::math::{
-    angle::Angle,
-    mat::{orient_z, translate},
-    vec::vec3,
-};
+use crate::math::{orient_z, translate, vec3, Angle};
 
 use super::{
     clip::ClipVec, Context, FragmentShader, NdcToScreen, RealToProj, Target,

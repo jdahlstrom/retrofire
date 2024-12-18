@@ -1,10 +1,7 @@
 //! Basic geometric primitives.
 
-use crate::{
-    math::point::{Point2, Point3},
-    math::vec::{Vec2, Vec3},
-    render::Model,
-};
+use crate::math::{Lerp, Point2, Point3, Vec2, Vec3};
+use crate::render::Model;
 
 pub use mesh::Mesh;
 

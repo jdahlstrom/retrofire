@@ -3,7 +3,7 @@
 use core::fmt::Debug;
 use core::ops::{Bound::*, Range, RangeBounds, RangeFull, Sub};
 
-use crate::math::vec::Vec2u;
+use crate::math::Vec2u;
 
 /// An axis-aligned rectangular region.
 ///
@@ -155,7 +155,7 @@ impl<T> From<RangeFull> for Rect<T> {
 
 #[cfg(test)]
 mod tests {
-    use crate::math::vec::vec2;
+    use crate::math::vec2;
 
     use super::*;
 
