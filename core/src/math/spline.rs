@@ -3,7 +3,7 @@
 use alloc::vec::Vec;
 use core::array;
 
-use crate::math::{Affine, Lerp, Linear};
+use crate::math::{Affine, Lerp, Linear, Parametric};
 
 /// A cubic Bézier curve, defined by four control points.
 ///
@@ -277,6 +277,24 @@ where
             self.do_approx(a, mid, max_dep - 1, halt, accum);
             self.do_approx(mid, b, max_dep - 1, halt, accum);
         }
+    }
+}
+
+impl<T> Parametric<T> for CubicBezier<T>
+where
+    T: Affine<Diff: Linear<Scalar = f32> + Clone> + Clone,
+{
+    fn eval(&self, t: f32) -> T {
+        self.fast_eval(t)
+    }
+}
+
+impl<T> Parametric<T> for BezierSpline<T>
+where
+    T: Affine<Diff: Linear<Scalar = f32> + Clone> + Clone,
+{
+    fn eval(&self, t: f32) -> T {
+        self.eval(t)
     }
 }
 

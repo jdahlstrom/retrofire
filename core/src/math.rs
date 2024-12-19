@@ -30,6 +30,7 @@ pub use {
         orthographic, perspective, scale, translate, viewport, Mat3x3, Mat4x4,
         Matrix,
     },
+    param::Parametric,
     point::{pt2, pt3, Point, Point2, Point2u, Point3},
     space::{Affine, Linear},
     spline::{smootherstep, smoothstep, BezierSpline, CubicBezier},
@@ -42,6 +43,7 @@ pub mod approx;
 pub mod color;
 pub mod float;
 pub mod mat;
+mod param;
 pub mod point;
 pub mod rand;
 pub mod space;
