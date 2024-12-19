@@ -1,18 +1,15 @@
 //! Triangle meshes.
 
+use alloc::{vec, vec::Vec};
 use core::{
     fmt::{Debug, Formatter},
     iter::zip,
 };
 
-use alloc::{vec, vec::Vec};
-
-use crate::math::{
-    mat::{Mat4x4, RealToReal},
-    point::Point3,
-    space::Linear,
+use crate::{
+    math::{mat::RealToReal, Linear, Mat4x4, Point3},
+    render::Model,
 };
-use crate::render::Model;
 
 use super::{vertex, Normal3, Tri, Vertex3};
 
@@ -50,8 +47,9 @@ impl<A, B> Mesh<A, B> {
     ///
     /// # Examples
     /// ```
-    /// # use retrofire_core::geom::{Tri, Mesh, vertex};
-    /// # use retrofire_core::math::point::pt3;
+    /// use retrofire_core::geom::{Tri, Mesh, vertex};
+    /// use retrofire_core::math::pt3;
+    ///
     /// let verts = [
     ///     pt3(0.0, 0.0, 0.0),
     ///     pt3(1.0, 0.0, 0.0),
@@ -189,8 +187,8 @@ impl Builder<()> {
 
         // Compute weighted face normals...
         let face_normals = faces.iter().map(|Tri(vs)| {
-            // TODO If n-gonal faces are supported some day,
-            // the cross product is not proportional to area anymore
+            // TODO If n-gonal faces are supported some day, the cross
+            //      product is not proportional to area anymore
             let [a, b, c] = vs.map(|i| verts[i].pos);
             (b - a).cross(&(c - a)).to()
         });
@@ -254,10 +252,10 @@ impl<A> Default for Builder<A> {
 mod tests {
     use core::f32::consts::FRAC_1_SQRT_2;
 
-    use crate::geom::vertex;
-    use crate::math::point::pt3;
-    use crate::math::vec3;
-    use crate::prelude::splat;
+    use crate::{
+        geom::vertex,
+        math::{pt3, splat, vec3},
+    };
 
     use super::*;
 

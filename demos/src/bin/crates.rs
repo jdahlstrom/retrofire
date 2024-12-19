@@ -2,11 +2,8 @@ use core::ops::ControlFlow::*;
 
 use re::prelude::*;
 
-use re::geom::Vertex3;
-use re::math::{color::gray, point::pt3};
-use re::render::{
-    cam::FirstPerson, raster::Frag, shader::Shader, Batch, Camera, ModelToProj,
-};
+use re::math::color::gray;
+use re::render::{cam::FirstPerson, Batch, Camera, ModelToProj};
 
 use re_front::sdl2::Window;
 use re_geom::solids::*;

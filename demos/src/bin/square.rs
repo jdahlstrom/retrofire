@@ -2,11 +2,8 @@ use std::ops::ControlFlow::*;
 
 use re::prelude::*;
 
-use re::math::point::{pt2, pt3};
-use re::render::{
-    raster::Frag, render, shader::Shader, tex::SamplerClamp, Context,
-    ModelToProj,
-};
+use re::math::{pt2, pt3};
+use re::render::{render, tex::SamplerClamp, Context, ModelToProj};
 
 use re_front::minifb::Window;
 
