@@ -1,3 +1,5 @@
+//! Surfaces of revolution.
+
 use alloc::vec::Vec;
 use core::ops::Range;
 

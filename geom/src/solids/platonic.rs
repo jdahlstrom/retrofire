@@ -199,7 +199,7 @@ impl Box {
 }
 
 impl Octahedron {
-    const COORDS: [Point3; 6] = [
+    pub(super) const COORDS: [Point3; 6] = [
         pt3(-1.0, 0.0, 0.0),
         pt3(0.0, -1.0, 0.0),
         pt3(0.0, 0.0, -1.0),

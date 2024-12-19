@@ -5,8 +5,7 @@ use minifb::{Key, KeyRepeat};
 use re::prelude::*;
 
 use re::math::{
-    color::gray, mat::RealToReal, point::pt2, spline::smootherstep,
-    vec::ProjVec4,
+    color::gray, mat::RealToReal, point::pt2, smootherstep, vec::ProjVec4,
 };
 use re::render::{
     raster::Frag, shader::Shader, Batch, Camera, ModelToProj, ModelToWorld,
@@ -131,18 +130,21 @@ fn objects(res: u32) -> [Mesh<Normal3>; 13] {
     let segments = res;
     let sectors = 2 * res;
 
-    let cap_segments = res;
+    let cap_segments = res/2;
     let body_segments = res;
 
     let major_sectors = 3 * res;
     let minor_sectors = 2 * res;
     [
+        Octosphere { radius: 1.0, depth: res.ilog(4)+1 }.build(),
+
         // The five Platonic solids
-        Tetrahedron.build(),
+        //Tetrahedron.build(),
         Box::cube(1.25).build(),
         Octahedron.build(),
         Dodecahedron.build(),
         Icosahedron.build(),
+
 
         // Surfaces of revolution
         lathe(sectors),

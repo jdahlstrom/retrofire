@@ -178,9 +178,9 @@ pub fn render<Vtx: Clone, Var: Lerp + Vary, Uni: Copy, Shd>(
 }
 
 fn depth_sort<A>(tris: &mut [Tri<ClipVert<A>>], d: DepthSort) {
-    tris.sort_unstable_by(|t, u| {
-        let z = t.0[0].pos.z() + t.0[1].pos.z() + t.0[2].pos.z();
-        let w = u.0[0].pos.z() + u.0[1].pos.z() + u.0[2].pos.z();
+    tris.sort_unstable_by(|Tri([a, b, c]), Tri([p, q, r])| {
+        let z = a.pos.z() + b.pos.z() + c.pos.z();
+        let w = p.pos.z() + q.pos.z() + r.pos.z();
         if d == DepthSort::FrontToBack {
             z.total_cmp(&w)
         } else {
