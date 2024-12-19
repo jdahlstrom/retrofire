@@ -1,6 +1,6 @@
 //! Basic geometric primitives.
 
-use crate::math::{Point2, Point3, Vec2, Vec3};
+use crate::math::{Lerp, Point2, Point3, Vec2, Vec3};
 use crate::render::Model;
 
 pub use mesh::Mesh;
@@ -37,4 +37,13 @@ pub type Normal2 = Vec2;
 
 pub const fn vertex<P, A>(pos: P, attrib: A) -> Vertex<P, A> {
     Vertex { pos, attrib }
+}
+
+impl<P: Lerp, A: Lerp> Lerp for Vertex<P, A> {
+    fn lerp(&self, other: &Self, t: f32) -> Self {
+        vertex(
+            self.pos.lerp(&other.pos, t),
+            self.attrib.lerp(&other.attrib, t),
+        )
+    }
 }
