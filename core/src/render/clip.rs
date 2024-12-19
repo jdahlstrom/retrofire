@@ -340,11 +340,9 @@ impl<A: Lerp + Clone> Clip for [Tri<ClipVert<A>>] {
 
 #[cfg(test)]
 mod tests {
-    use crate::geom::vertex;
-    use crate::math::vary::Vary;
+    use crate::{geom::vertex, math::Vary};
 
-    use super::view_frustum::*;
-    use super::*;
+    use super::{view_frustum::*, *};
 
     const FAR_PLANE: ClipPlane = PLANES[1];
 

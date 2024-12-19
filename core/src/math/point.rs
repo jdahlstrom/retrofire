@@ -5,12 +5,7 @@ use core::{
     ops::{Add, Index, Sub},
 };
 
-use crate::math::vary::ZDiv;
-use crate::math::{
-    space::{Affine, Linear, Real},
-    vec::Vector,
-    ApproxEq,
-};
+use crate::math::{space::Real, vary::ZDiv, Affine, ApproxEq, Linear, Vector};
 
 #[repr(transparent)]
 pub struct Point<Repr, Space = ()>(pub Repr, Pd<Space>);
@@ -81,8 +76,9 @@ impl<const N: usize, B> Point<[f32; N], Real<N, B>> {
     ///
     /// # Examples
     /// ```
-    /// # use retrofire_core::math::point::{pt3, Point3};
-    /// let pt = pt3::<f32, ()>(0.5, 1.5, -2.0);
+    /// use retrofire_core::math::{pt3, Point3};
+    ///
+    /// let pt: Point3 = pt3(0.5, 1.5, -2.0);
     /// // Clamp to the unit cube
     /// let clamped = pt.clamp(&pt3(0.0, 0.0, 0.0), &pt3(1.0, 1.0, 1.0));
     /// assert_eq!(clamped, pt3(0.5, 1.0, 0.0));

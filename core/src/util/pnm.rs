@@ -26,7 +26,7 @@ use std::{
 use Error::*;
 use Format::*;
 
-use crate::math::color::{rgb, Color3};
+use crate::math::{rgb, Color3};
 
 #[cfg(feature = "std")]
 use super::buf::AsSlice2;

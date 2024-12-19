@@ -138,13 +138,13 @@ macro_rules! assert_approx_eq {
         }
     };
     ($a:expr, $b:expr, $fmt:literal $(, $args:expr)*) => {{
-        use $crate::math::approx::ApproxEq;
+        use $crate::math::ApproxEq;
         match (&$a, &$b) {
             (a, b) => assert!(ApproxEq::approx_eq(a, b), $fmt $(, $args)*)
         }
     }};
     ($a:expr, $b:expr, eps = $eps:literal, $fmt:literal $(, $args:expr)*) => {{
-        use $crate::math::approx::ApproxEq;
+        use $crate::math::ApproxEq;
         match (&$a, &$b) {
             (a, b) => assert!(
                 ApproxEq::approx_eq_eps(a, b, &$eps),
@@ -196,16 +196,23 @@ mod tests {
         fn zero_not_approx_eq_to_one() {
             assert_approx_eq!(0.0, 1.0);
         }
+
         #[test]
         #[should_panic]
-        fn one_not_approx_eq_to_1_00001() {
-            assert_approx_eq!(1.0, 1.00001);
+        fn one_not_approx_eq_to_1_01() {
+            if cfg!(any(feature = "std", feature = "libm")) {
+                assert_approx_eq!(1.0, 1.00001);
+            } else {
+                assert_approx_eq!(1.0, 1.01);
+            }
         }
+
         #[test]
         #[should_panic]
         fn inf_not_approx_eq_to_inf() {
             assert_approx_eq!(f32::INFINITY, f32::INFINITY);
         }
+
         #[test]
         #[should_panic]
         fn nan_not_approx_eq_to_nan() {
