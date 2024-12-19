@@ -271,12 +271,12 @@ impl Display for Error {
 }
 
 impl core::error::Error for Error {
-    fn source(&self) -> Option<&(dyn std::error::Error + 'static)> {
+    fn source(&self) -> Option<&(dyn core::error::Error + 'static)> {
+        #[cfg(feature = "std")]
         if let Io(e) = self {
-            Some(e)
-        } else {
-            None
+            return Some(e);
         }
+        None
     }
 }
 
