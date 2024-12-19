@@ -32,6 +32,7 @@ pub use {
         orthographic, perspective, scale, translate, viewport, Mat3x3, Mat4x4,
         Matrix,
     },
+    param::Parametric,
     point::{pt2, pt3, Point, Point2, Point2u, Point3},
     space::{Affine, Linear},
     spline::{smootherstep, smoothstep, BezierSpline, CubicBezier},
@@ -44,6 +45,7 @@ pub mod approx;
 pub mod color;
 pub mod float;
 pub mod mat;
+pub mod param;
 pub mod point;
 pub mod rand;
 pub mod space;
@@ -53,13 +55,31 @@ pub mod vec;
 
 /// Trait for linear interpolation between two values.
 pub trait Lerp: Sized {
-    /// TODO
+    /// Linearly interpolates between `self` and `other`.
+    ///
+    /// if `t` = 0, returns `self`; if `t` = 1, returns `other`.
+    /// For 0 < `t` < 1, returns the weighted average of `self` and `other`
+    /// ```text
+    /// (1 - t) * self + t * other
+    /// ```
+    ///
+    /// This method does not panic if `t < 0.0` or `t > 1.0`, or if `t`
+    /// is a `NaN`, but the return value in those cases is unspecified.
+    /// Individual implementations may offer stronger guarantees.
     fn lerp(&self, other: &Self, t: f32) -> Self;
 
-    /// TODO Adapt from the impl below
+    /// Returns the (unweighted) average of `self` and `other`.
     fn midpoint(&self, other: &Self) -> Self {
         self.lerp(other, 0.5)
     }
+}
+
+/// Linearly interpolates between two values.
+///
+/// For more information, see [`Lerp::lerp`].
+#[inline]
+pub fn lerp<T: Lerp>(t: f32, from: T, to: T) -> T {
+    from.lerp(&to, t)
 }
 
 impl<T> Lerp for T
@@ -71,16 +91,15 @@ where
     /// if `t` = 0, returns `self`; if `t` = 1, returns `other`.
     /// For 0 < `t` < 1, returns the affine combination
     /// ```text
-    /// self * (1 - t) + other * t
+    /// (1 - t) * self + t * other
     /// ```
     /// or rearranged:
     /// ```text
     /// self + t * (other - self)
     /// ```
     ///
-    /// This method does not panic if `t < 0.0` or `t > 1.0`, or if `t`
-    /// is a `NaN`, but the return value in those cases is unspecified.
-    /// Individual implementations may offer stronger guarantees.
+    /// If `t < 0.0` or `t > 1.0`, returns the appropriate extrapolated value.
+    /// If `t` is a NaN, the result is unspecified.
     ///
     /// # Examples
     /// ```
