@@ -1,9 +1,8 @@
 //! Pseudo-random number generation and distributions.
 
-use crate::math::point::{Point, Point2, Point3};
 use core::{array, fmt::Debug, ops::Range};
 
-use super::vec::{Vec2, Vec3, Vector};
+use super::{Point, Point2, Point3, Vec2, Vec3, Vector};
 
 //
 // Traits and types
@@ -22,6 +21,7 @@ pub trait Distrib: Clone {
     /// # Examples
     /// ```
     /// use retrofire_core::math::rand::*;
+    ///
     /// // Simulate rolling a six-sided die
     /// let mut rng = DefaultRng::default();
     /// let d6 = Uniform(1..7).sample(&mut rng);
@@ -34,9 +34,11 @@ pub trait Distrib: Clone {
     /// # Examples
     /// ```
     /// use retrofire_core::math::rand::*;
+    ///
     /// // Simulate rolling a six-sided die
     /// let rng = DefaultRng::default();
     /// let mut iter = Uniform(1..7).samples(rng);
+    ///
     /// assert_eq!(iter.next(), Some(3));
     /// assert_eq!(iter.next(), Some(2));
     /// assert_eq!(iter.next(), Some(4));
@@ -120,7 +122,8 @@ impl Xorshift64 {
     ///
     /// # Examples
     /// ```
-    /// # use retrofire_core::math::rand::Xorshift64;
+    /// use retrofire_core::math::rand::Xorshift64;
+    ///
     /// let mut g = Xorshift64::from_seed(123);
     /// assert_eq!(g.next_bits(), 133101616827);
     /// assert_eq!(g.next_bits(), 12690785413091508870);
@@ -143,8 +146,9 @@ impl Xorshift64 {
     ///
     /// #  Examples
     /// ```
-    /// # use std::thread;
-    /// # use retrofire_core::math::rand::Xorshift64;
+    /// use std::thread;
+    /// use retrofire_core::math::rand::Xorshift64;
+    ///
     /// let mut g = Xorshift64::from_time();
     /// thread::sleep_ms(1); // Just to be sure
     /// let mut h = Xorshift64::from_time();
@@ -196,6 +200,7 @@ impl Default for Xorshift64 {
     /// # Examples
     /// ```
     /// use retrofire_core::math::rand::Xorshift64;
+    ///
     /// let mut g = Xorshift64::default();
     /// assert_eq!(g.next_bits(), 11039719294064252060);
     /// ```
@@ -330,11 +335,11 @@ impl Distrib for UnitCircle {
     ///
     /// # Example
     /// ```
-    /// use retrofire_core::math::rand::*;
+    /// use retrofire_core::math::{ApproxEq, rand::*};
     /// let rng = &mut DefaultRng::default();
     ///
     /// let vec = UnitCircle.sample(rng);
-    /// assert_eq!(vec.len(), 1.0);
+    /// assert!(vec.len_sqr().approx_eq(&1.0));
     /// ```
     fn sample(&self, rng: &mut DefaultRng) -> Vec2 {
         let d = Uniform([-1.0; 2]..[1.0; 2]);
@@ -354,7 +359,7 @@ impl Distrib for VectorsOnUnitDisk {
     /// let rng = &mut DefaultRng::default();
     ///
     /// let vec = VectorsOnUnitDisk.sample(rng);
-    /// assert!(vec.len() <= 1.0);
+    /// assert!(vec.len_sqr() <= 1.0);
     /// ```
     fn sample(&self, rng: &mut DefaultRng) -> Vec2 {
         let d = Uniform([-1.0f32; 2]..[1.0; 2]);
@@ -381,7 +386,7 @@ impl Distrib for UnitSphere {
     /// let rng = &mut DefaultRng::default();
     ///
     /// let vec = UnitSphere.sample(rng);
-    /// assert_approx_eq!(vec.len(), 1.0);
+    /// assert_approx_eq!(vec.len_sqr(), 1.0);
     /// ```
     fn sample(&self, rng: &mut DefaultRng) -> Vec3 {
         let d = Uniform([-1.0; 3]..[1.0; 3]);
@@ -400,7 +405,7 @@ impl Distrib for VectorsInUnitBall {
     /// let rng = &mut DefaultRng::default();
     ///
     /// let vec = VectorsInUnitBall.sample(rng);
-    /// assert!(vec.len() <= 1.0);
+    /// assert!(vec.len_sqr() <= 1.0);
     /// ```
     fn sample(&self, rng: &mut DefaultRng) -> Vec3 {
         let d = Uniform([-1.0; 3]..[1.0; 3]);
@@ -471,8 +476,7 @@ impl<D: Distrib, E: Distrib> Distrib for (D, E) {
 #[cfg(test)]
 #[allow(clippy::manual_range_contains)]
 mod tests {
-    use crate::assert_approx_eq;
-    use crate::math::vec::vec3;
+    use crate::math::vec3;
 
     use super::*;
 
@@ -543,6 +547,7 @@ mod tests {
     #[cfg(feature = "fp")]
     #[test]
     fn unit_circle() {
+        use crate::assert_approx_eq;
         for v in UnitCircle.samples(rng()).take(COUNT) {
             assert_approx_eq!(v.len_sqr(), 1.0, "non-unit vector: {v:?}");
         }
@@ -558,6 +563,7 @@ mod tests {
     #[cfg(feature = "fp")]
     #[test]
     fn unit_sphere() {
+        use crate::assert_approx_eq;
         for v in UnitSphere.samples(rng()).take(COUNT) {
             assert_approx_eq!(v.len_sqr(), 1.0, "non-unit vector: {v:?}");
         }

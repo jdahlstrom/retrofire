@@ -2,18 +2,21 @@
 //!
 //! TODO
 
-use core::array;
-use core::fmt::{Debug, Formatter};
-use core::iter::Sum;
-use core::marker::PhantomData as Pd;
-use core::ops::{Add, Div, Index, IndexMut, Mul, Neg, Sub};
-use core::ops::{AddAssign, DivAssign, MulAssign, SubAssign};
+use core::{
+    array,
+    fmt::{Debug, Formatter},
+    iter::Sum,
+    marker::PhantomData as Pd,
+    ops::{Add, Div, Index, IndexMut, Mul, Neg, Sub},
+    ops::{AddAssign, DivAssign, MulAssign, SubAssign},
+};
 
-use crate::math::approx::ApproxEq;
-use crate::math::float::f32;
-use crate::math::point::Point;
-use crate::math::space::{Affine, Linear, Proj4, Real};
-use crate::math::vary::ZDiv;
+use crate::math::{
+    float::f32,
+    space::{Proj4, Real},
+    vary::ZDiv,
+    Affine, ApproxEq, Linear, Point,
+};
 
 //
 // Types
@@ -30,7 +33,7 @@ use crate::math::vary::ZDiv;
 /// prevent mixing up vectors of different spaces and bases.
 ///
 /// # Examples
-/// TODO
+/// TODO examples
 #[repr(transparent)]
 pub struct Vector<Repr, Space = ()>(pub Repr, Pd<Space>);
 
@@ -70,8 +73,7 @@ pub const fn vec3<Sc, B>(x: Sc, y: Sc, z: Sc) -> Vector<[Sc; 3], Real<3, B>> {
 ///
 /// # Examples
 /// ```
-/// # use retrofire_core::math::{vec3, Vec3};
-/// # use retrofire_core::math::vec::splat;
+/// use retrofire_core::math::{vec3, Vec3, splat};
 /// let v: Vec3 = splat(1.23);
 /// assert_eq!(v, vec3(1.23, 1.23, 1.23));
 #[inline]
@@ -123,8 +125,9 @@ impl<Sp, const N: usize> Vector<[f32; N], Sp> {
     ///
     /// # Examples
     /// ```
-    /// # use retrofire_core::math::vec::*;
-    /// # use retrofire_core::assert_approx_eq;
+    /// use retrofire_core::assert_approx_eq;
+    /// use retrofire_core::math::{vec2, Vec2};
+    ///
     /// let normalized: Vec2 = vec2(3.0, 4.0).normalize();
     /// assert_approx_eq!(normalized, vec2(0.6, 0.8), eps=1e-2);
     /// assert_approx_eq!(normalized.len_sqr(), 1.0, eps=1e-2);
@@ -151,11 +154,12 @@ impl<Sp, const N: usize> Vector<[f32; N], Sp> {
     ///
     /// # Examples
     /// ```
-    /// # use retrofire_core::math::vec::{vec3, Vec3, splat};
+    /// use retrofire_core::math::vec::{vec3, Vec3, splat};
     /// let v: Vec3 = vec3(0.5, 1.5, -2.0);
+    ///
     /// // Clamp to the unit cube
-    /// let v = v.clamp(&splat(-1.0), &splat(1.0));
-    /// assert_eq!(v, vec3(0.5, 1.0, -1.0));
+    /// let clamped = v.clamp(&splat(-1.0), &splat(1.0));
+    /// assert_eq!(clamped, vec3(0.5, 1.0, -1.0));
     // TODO f32 and f64 have inherent clamp methods because they're not Ord.
     //      A generic clamp for Sc: Ord would conflict with this one. There is
     //      currently no clean way to support both floats and impl Ord types.
@@ -513,7 +517,7 @@ macro_rules! impl_op {
             Self: $bnd,
         {
             type Output = Self;
-            /// TODO
+            /// TODO docs for macro-generated operators
             #[inline]
             fn $method(mut self, rhs: $rhs) -> Self {
                 self $op rhs; self

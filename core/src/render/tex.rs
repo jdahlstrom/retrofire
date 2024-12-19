@@ -230,7 +230,7 @@ impl SamplerOnce {
 mod tests {
     use alloc::vec;
 
-    use crate::math::color::{rgb, Color3};
+    use crate::math::{rgb, Color3};
     use crate::util::buf::Buf2;
 
     use super::*;

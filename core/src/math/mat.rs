@@ -482,7 +482,7 @@ impl<Repr, M> From<Repr> for Matrix<Repr, M> {
 ///
 /// Tip: use [`splat`][super::vec::splat] to scale uniformly:
 /// ```
-/// # use retrofire_core::math::{mat::scale, vec::splat};
+/// use retrofire_core::math::{scale, splat};
 /// let m = scale(splat(2.0));
 /// assert_eq!(m.0[0][0], 2.0);
 /// assert_eq!(m.0[1][1], 2.0);
@@ -532,7 +532,7 @@ pub fn orient_z(new_z: Vec3, x: Vec3) -> Mat4x4<RealToReal<3>> {
 
 #[cfg(feature = "fp")]
 fn orient(new_y: Vec3, new_z: Vec3) -> Mat4x4<RealToReal<3>> {
-    use crate::math::{space::Linear, ApproxEq};
+    use crate::math::{ApproxEq, Linear};
 
     assert!(!new_y.approx_eq(&Vec3::zero()));
     assert!(!new_z.approx_eq(&Vec3::zero()));
@@ -660,11 +660,10 @@ pub fn viewport(bounds: Range<Point2u>) -> Mat4x4<NdcToScreen> {
 #[cfg(test)]
 mod tests {
     use crate::assert_approx_eq;
-    use crate::math::vec::{splat, vec2, vec3};
+    use crate::math::{pt2, pt3, splat, vec2, vec3};
 
     #[cfg(feature = "fp")]
-    use crate::math::angle::degs;
-    use crate::math::point::{pt2, pt3};
+    use crate::math::degs;
 
     use super::*;
 
@@ -678,7 +677,7 @@ mod tests {
 
     mod mat3x3 {
         use super::*;
-        use crate::math::point::pt2;
+        use crate::math::pt2;
 
         const MAT: Mat3x3<Map> = Matrix::new([
             [0.0, 1.0, 2.0], //
@@ -752,7 +751,7 @@ mod tests {
 
     mod mat4x4 {
         use super::*;
-        use crate::math::point::pt3;
+        use crate::math::pt3;
 
         const MAT: Mat4x4<Map> = Matrix::new([
             [0.0, 1.0, 2.0, 3.0],

@@ -9,8 +9,7 @@ use crate::math::vary::{Iter, Vary, ZDiv};
 
 /// Trait for types representing elements of an affine space.
 ///
-/// # TODO
-/// * More documentation, definition of affine space
+/// TODO More documentation, definition of affine space
 pub trait Affine: Sized {
     /// The space that `Self` is the element type of.
     type Space;
@@ -41,8 +40,7 @@ pub trait Affine: Sized {
 /// * The type has an additive identity, returned by the [`zero`][Self::zero] method
 /// * Every value has an additive inverse, returned by the [`neg`][Self::neg] method
 ///
-/// # TODO
-/// * More documentation
+/// TODO More documentation
 pub trait Linear: Affine<Diff = Self> {
     /// The scalar type associated with `Self`.
     type Scalar: Sized;

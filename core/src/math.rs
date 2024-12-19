@@ -17,13 +17,27 @@
 //! to matching vectors. Angles are strongly typed as well, to allow working
 //! with different angular units without confusion.
 
-pub use angle::{degs, polar, rads, spherical, turns, Angle};
-pub use approx::ApproxEq;
-pub use mat::{Mat3x3, Mat4x4, Matrix};
-pub use space::{Affine, Linear};
-pub use vary::{lerp, Vary};
-pub use vec::{vec2, vec3};
-pub use vec::{Vec2, Vec2i, Vec3, Vec3i, Vector};
+#[cfg(feature = "fp")]
+pub use {
+    angle::{acos, asin, atan2},
+    mat::{orient_y, orient_z, rotate_x, rotate_y, rotate_z},
+};
+pub use {
+    angle::{
+        degs, polar, rads, spherical, turns, Angle, PolarVec, SphericalVec,
+    },
+    approx::ApproxEq,
+    color::{rgb, rgba, Color, Color3, Color3f, Color4, Color4f},
+    mat::{
+        orthographic, perspective, scale, translate, viewport, Mat3x3, Mat4x4,
+        Matrix,
+    },
+    point::{pt2, pt3, Point, Point2, Point2u, Point3},
+    space::{Affine, Linear},
+    spline::{smootherstep, smoothstep, BezierSpline, CubicBezier},
+    vary::Vary,
+    vec::{splat, vec2, vec3, Vec2, Vec2i, Vec2u, Vec3, Vec3i, Vector},
+};
 
 pub mod angle;
 pub mod approx;
@@ -64,21 +78,20 @@ where
     ///
     /// # Examples
     /// ```
-    /// use retrofire_core::math::{Lerp, vec::vec2, point::pt2};
+    /// use retrofire_core::math::*;
     ///
     /// assert_eq!(2.0.lerp(&5.0, 0.0), 2.0);
     /// assert_eq!(2.0.lerp(&5.0, 0.25), 2.75);
     /// assert_eq!(2.0.lerp(&5.0, 0.75), 4.25);
     /// assert_eq!(2.0.lerp(&5.0, 1.0), 5.0);
     ///
-    /// assert_eq!(
-    ///     vec2::<f32, ()>(-2.0, 1.0).lerp(&vec2(3.0, -1.0), 0.8),
-    ///     vec2(2.0, -0.6)
-    /// );
-    /// assert_eq!(
-    ///     pt2::<f32, ()>(-10.0, 5.0).lerp(&pt2(-5.0, 0.0), 0.4),
-    ///     pt2(-8.0, 3.0)
-    /// );
+    /// let v0: Vec2 = vec2(-2.0, 1.0);
+    /// let v1 = vec2(3.0, -1.0);
+    /// assert_eq!(v0.lerp(&v1, 0.8), vec2(2.0, -0.6));
+    ///
+    /// let p0: Point2 = pt2(-10.0, 5.0);
+    /// let p1 = pt2(-5.0, 0.0);
+    /// assert_eq!(p0.lerp(&p1, 0.4),pt2(-8.0, 3.0));
     /// ```
     fn lerp(&self, other: &Self, t: f32) -> Self {
         self.add(&other.sub(self).mul(t))

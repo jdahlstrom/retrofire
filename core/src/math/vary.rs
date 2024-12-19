@@ -3,8 +3,9 @@
 //! Common varying types include colors, texture coordinates,
 //! and vertex normals.
 
-use crate::math::Lerp;
 use core::mem;
+
+use crate::math::Lerp;
 
 pub trait ZDiv: Sized {
     #[must_use]
@@ -32,8 +33,10 @@ pub trait Vary: Lerp + ZDiv + Sized + Clone {
     ///
     /// # Examples
     /// ```
-    /// # use retrofire_core::math::vary::Vary;
+    /// use retrofire_core::math::Vary;
+    ///
     /// let mut iter = 0.0f32.vary(0.2, Some(5));
+    ///
     /// assert_eq!(iter.next(), Some(0.0));
     /// assert_eq!(iter.next(), Some(0.2));
     /// assert_eq!(iter.next(), Some(0.4));
@@ -64,11 +67,6 @@ pub struct Iter<T: Vary> {
     pub val: T,
     pub step: T::Diff,
     pub n: Option<u32>,
-}
-
-#[inline]
-pub fn lerp<V: Vary>(t: f32, from: V, to: V) -> V {
-    from.lerp(&to, t)
 }
 
 impl Vary for () {
