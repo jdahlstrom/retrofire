@@ -38,3 +38,12 @@ pub type Normal2 = Vec2;
 pub const fn vertex<P, A>(pos: P, attrib: A) -> Vertex<P, A> {
     Vertex { pos, attrib }
 }
+
+impl<P: Lerp, A: Lerp> Lerp for Vertex<P, A> {
+    fn lerp(&self, other: &Self, t: f32) -> Self {
+        vertex(
+            self.pos.lerp(&other.pos, t),
+            self.attrib.lerp(&other.attrib, t),
+        )
+    }
+}

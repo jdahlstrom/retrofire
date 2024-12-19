@@ -16,8 +16,6 @@
 use alloc::{vec, vec::Vec};
 use core::iter::zip;
 
-use view_frustum::{outcode, status};
-
 use crate::geom::{vertex, Tri, Vertex};
 use crate::math::{vec::ProjVec4, Lerp};
 
@@ -155,8 +153,8 @@ impl ClipPlane {
                 // have to do anything; it is discarded on the next iteration.
             }
             // TODO Doesn't use is_inside because it can't distinguish the case
-            //   where a vertex lies exactly on the plane. Though that's mostly
-            //   a theoretical edge case (heh).
+            //      where a vertex lies exactly on the plane. Though that's
+            //      mostly a theoretical edge case (heh).
             let d0 = self.signed_dist(&v0.pos);
             let d1 = self.signed_dist(&v1.pos);
             if d0 * d1 < 0.0 {
@@ -168,11 +166,7 @@ impl ClipPlane {
                 // `t` is the fractional distance from `v0` to the intersection
                 // point. If condition guarantees that `d1 - d0` is nonzero.
                 let t = -d0 / (d1 - d0);
-
-                verts_out.push(ClipVert::new(vertex(
-                    v0.pos.lerp(&v1.pos, t),
-                    v0.attrib.lerp(&v1.attrib, t),
-                )));
+                verts_out.push(v0.lerp(&v1, t));
             }
             v0 = v1;
         }
@@ -285,7 +279,7 @@ pub fn clip_simple_polygon<'a, A: Lerp + Clone>(
 
 impl<V> ClipVert<V> {
     pub fn new(Vertex { pos, attrib }: Vertex<ClipVec, V>) -> Self {
-        let outcode = outcode(&pos);
+        let outcode = view_frustum::outcode(&pos);
         Self { pos, attrib, outcode }
     }
 }
@@ -301,7 +295,7 @@ impl<A: Lerp + Clone> Clip for [Tri<ClipVert<A>>] {
         let mut verts_out = vec![];
 
         for tri @ Tri(vs) in self {
-            match status(vs) {
+            match view_frustum::status(vs) {
                 Status::Visible => {
                     out.push(tri.clone());
                     continue;
@@ -335,6 +329,15 @@ impl<A: Lerp + Clone> Clip for [Tri<ClipVert<A>>] {
             verts_in.clear();
             verts_out.clear();
         }
+    }
+}
+
+impl<A: Lerp> Lerp for ClipVert<A> {
+    fn lerp(&self, other: &Self, t: f32) -> Self {
+        Self::new(vertex(
+            self.pos.lerp(&other.pos, t),
+            self.attrib.lerp(&other.attrib, t),
+        ))
     }
 }
 
