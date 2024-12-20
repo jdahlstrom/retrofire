@@ -1,2 +1,3 @@
 [alias]
-run-demo = "run --release -p retrofire-demos -F minifb,re-geom --bin"
+run-demo = "run --release -p retrofire-demos -F minifb,sdl2,re-geom --bin"
+rd = "run --release -q -p retrofire-demos -F minifb,sdl2,re-geom --bin"
