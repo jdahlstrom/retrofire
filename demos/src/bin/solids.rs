@@ -5,7 +5,7 @@ use minifb::{Key, KeyRepeat};
 use re::prelude::*;
 
 use re::math::{
-    color::gray, mat::RealToReal, point::pt2, smootherstep, vec::ProjVec4,
+    color::gray, mat::RealToReal, pt2, smootherstep, vec::ProjVec4,
 };
 use re::render::{
     raster::Frag, shader::Shader, Batch, Camera, ModelToProj, ModelToWorld,
@@ -85,7 +85,20 @@ fn main() {
 
     let shader = Shader::new(vtx_shader, frag_shader);
 
-    let objects = objects(8);
+    let mut objects = objects(40);
+
+    for o in &mut objects {
+        o.transform(|pos| {
+            let xz = (pos.x() * pos.x() + pos.z() * pos.z()).sqrt();
+            let sph = pos.to_vec().to_spherical();
+            pos + vec3(0.0, (sph.az() * 5.0).sin() * 0.1 * xz, 0.0)
+        });
+        *o = o
+            .clone()
+            .into_builder()
+            .with_vertex_normals()
+            .build();
+    }
 
     let translate = translate(vec3(0.0, 0.0, -4.0));
     let mut carousel = Carousel::default();
@@ -126,24 +139,24 @@ fn main() {
 
 // Creates the 13 objects exhibited.
 #[rustfmt::skip]
-fn objects(res: u32) -> [Mesh<Normal3>; 13] {
+fn objects(res: u32) -> [Mesh<Normal3>; 6] {
     let segments = res;
     let sectors = 2 * res;
 
     let cap_segments = res/2;
     let body_segments = res;
 
-    let major_sectors = 3 * res;
+    let major_sectors = 4 * res;
     let minor_sectors = 2 * res;
     [
-        Octosphere { radius: 1.0, depth: res.ilog(4)+1 }.build(),
+        //Octosphere { radius: 1.0, depth: res.ilog(4)+1 }.build(),
 
         // The five Platonic solids
-        //Tetrahedron.build(),
-        Box::cube(1.25).build(),
-        Octahedron.build(),
-        Dodecahedron.build(),
-        Icosahedron.build(),
+        // Tetrahedron.build(),
+        // Box::cube(1.25).build(),
+        // Octahedron.build(),
+        // Dodecahedron.build(),
+        // Icosahedron.build(),
 
 
         // Surfaces of revolution
@@ -155,8 +168,8 @@ fn objects(res: u32) -> [Mesh<Normal3>; 13] {
         Torus { major_radius: 0.9, minor_radius: 0.3, major_sectors, minor_sectors }.build(),
 
         // Traditional demo models
-        teapot(),
-        bunny(),
+        //teapot(),
+        //bunny(),
     ]
 }
 

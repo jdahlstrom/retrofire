@@ -88,17 +88,24 @@ impl<A, B> Mesh<A, B> {
         }
         Self { faces, verts }
     }
-}
 
-impl<A> Mesh<A> {
+    pub fn transform(
+        &mut self,
+        mut f: impl FnMut(&Vertex3<A, B>) -> Vertex3<A, B>,
+    ) {
+        for v in &mut self.verts {
+            *v = f(v)
+        }
+    }
+
     /// Returns a new mesh builder.
-    pub fn builder() -> Builder<A> {
+    pub fn builder() -> Builder<A, B> {
         Builder::default()
     }
 
     /// Consumes `self` and returns a mesh builder with the faces and vertices
     ///  of `self`.
-    pub fn into_builder(self) -> Builder<A> {
+    pub fn into_builder(self) -> Builder<A, B> {
         Builder { mesh: self }
     }
 }
@@ -155,15 +162,15 @@ impl<A> Builder<A> {
     }
 }
 
-impl Builder<()> {
+impl<A, B> Builder<A, B> {
     /// Applies the given transform to the position of each vertex.
     ///
     /// This is an eager operation, that is, only vertices *currently*
     /// added to the builder are transformed.
-    pub fn transform(
+    pub fn transform<C>(
         self,
-        tf: &Mat4x4<RealToReal<3, Model, Model>>,
-    ) -> Builder<()> {
+        tf: &Mat4x4<RealToReal<3, B, C>>,
+    ) -> Builder<A, C> {
         let mesh = Mesh {
             faces: self.mesh.faces,
             verts: self
@@ -189,7 +196,7 @@ impl Builder<()> {
     /// This is an eager operation, that is, only vertices *currently* added
     /// to the builder are transformed. The attribute type of the result is
     /// `Normal3`; the vertex type it accepts is changed accordingly.
-    pub fn with_vertex_normals(self) -> Builder<Normal3> {
+    pub fn with_vertex_normals(self) -> Builder<Normal3, B> {
         let Mesh { verts, faces } = self.mesh;
 
         // Compute weighted face normals...
@@ -248,7 +255,7 @@ impl<A, S> Default for Mesh<A, S> {
     }
 }
 
-impl<A> Default for Builder<A> {
+impl<A, B> Default for Builder<A, B> {
     /// Returns an empty builder.
     fn default() -> Self {
         Self { mesh: Mesh::default() }
