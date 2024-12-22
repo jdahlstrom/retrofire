@@ -774,39 +774,46 @@ mod tests {
 
     #[cfg(feature = "fp")]
     #[test]
-    fn cartesian_to_spherical_zero_alt() {
+    fn cartesian_to_spherical_zero_az() {
+        let zero = vec3(0.0, 0.0, 0.0);
         assert_approx_eq!(
-            vec3(0.0, 0.0, 0.0).to_spherical(),
+            zero.to_spherical(),
             spherical(0.0, degs(0.0), degs(0.0))
         );
-        assert_eq!(
-            vec3(1.0, 0.0, 0.0).to_spherical(),
-            spherical(1.0, degs(0.0), degs(0.0))
-        );
+
+        let x = vec3(1.0, 0.0, 0.0);
+        assert_eq!(x.to_spherical(), spherical(1.0, degs(0.0), degs(0.0)));
+
+        let alt60 = vec3(1.0, SQRT_3, 0.0);
         assert_approx_eq!(
-            vec3(1.0, SQRT_3, 0.0).to_spherical(),
+            alt60.to_spherical(),
             spherical(2.0, degs(0.0), degs(60.0))
         );
-        assert_eq!(
-            vec3(0.0, 2.0, 0.0).to_spherical(),
-            spherical(2.0, degs(0.0), degs(90.0))
-        );
+
+        let y2 = vec3(0.0, 2.0, 0.0);
+        assert_eq!(y2.to_spherical(), spherical(2.0, degs(0.0), degs(90.0)));
     }
 
     #[cfg(feature = "fp")]
     #[test]
     fn cartesian_to_spherical() {
         use core::f32::consts::SQRT_2;
+
+        let az30 = vec3(SQRT_3, 0.0, 1.0);
         assert_approx_eq!(
-            vec3(SQRT_3, 0.0, 1.0).to_spherical(),
+            az30.to_spherical(),
             spherical(2.0, degs(30.0), degs(0.0))
         );
+
+        let az45 = vec3(1.0, SQRT_2, 1.0);
         assert_approx_eq!(
-            vec3(1.0, SQRT_2, 1.0).to_spherical(),
+            az45.to_spherical(),
             spherical(2.0, degs(45.0), degs(45.0))
         );
+
+        let z3 = vec3(0.0, 0.0, 3.0);
         assert_approx_eq!(
-            vec3(0.0, 0.0, 3.0).to_spherical(),
+            z3.to_spherical(),
             spherical(3.0, degs(90.0), degs(0.0))
         );
     }
