@@ -4,6 +4,7 @@ use minifb::{Key, KeyRepeat};
 
 use re::prelude::*;
 
+use re::math::mat::orient;
 use re::math::{
     color::gray, mat::RealToReal, pt2, smootherstep, vec::ProjVec4,
 };
@@ -85,22 +86,35 @@ fn main() {
 
     let shader = Shader::new(vtx_shader, frag_shader);
 
-    let mut objects = objects(40);
+    let mut objects = objects(9);
+
+    let spline = CubicBezier([
+        vec3(-4.0, -2.0, 0.0),
+        vec3(-6.0, 3.0, 0.0),
+        vec3(4.0, -3.0, 0.0),
+        vec3(3.0, 4.0, 0.0),
+    ]);
 
     for o in &mut objects {
-        o.transform(|pos| {
-            let xz = (pos.x() * pos.x() + pos.z() * pos.z()).sqrt();
-            let sph = pos.to_vec().to_spherical();
-            pos + vec3(0.0, (sph.az() * 5.0).sin() * 0.1 * xz, 0.0)
+        o.transform(|v| {
+            let t = v.pos.y();
+
+            let p: Point3 = pt3(v.pos.x(), 0.0, v.pos.z());
+
+            let off: Vec3 = spline.eval(t);
+
+            let or =
+                orient(spline.tangent(t).normalize(), vec3(0.0, 0.0, -1.0));
+            let tf = or.then(&translate(off));
+
+            return vertex(tf.apply_pt(&p.to()).to(), or.apply(&v.attrib));
+
+            let tf = rotate_z(turns(v.pos.y() * 0.3));
+            vertex(tf.apply_pt(&p).to(), tf.apply(&v.attrib))
         });
-        *o = o
-            .clone()
-            .into_builder()
-            .with_vertex_normals()
-            .build();
     }
 
-    let translate = translate(vec3(0.0, 0.0, -4.0));
+    let translate = translate(vec3(0.0, 0.0, -12.0));
     let mut carousel = Carousel::default();
 
     win.run(|frame| {
@@ -112,7 +126,7 @@ fn main() {
         }
 
         let theta = rads(t.as_secs_f32());
-        let spin = rotate_x(theta * 0.47).then(&rotate_y(theta * 0.61));
+        let spin = rotate_x(theta * 0.0).then(&rotate_y(theta * 0.61));
         let carouse = carousel.update(dt.as_secs_f32());
 
         // Compose transform stack
@@ -140,11 +154,11 @@ fn main() {
 // Creates the 13 objects exhibited.
 #[rustfmt::skip]
 fn objects(res: u32) -> [Mesh<Normal3>; 6] {
-    let segments = res;
+    let segments = 3 * res;
     let sectors = 2 * res;
 
     let cap_segments = res/2;
-    let body_segments = res;
+    let body_segments = 2 * res;
 
     let major_sectors = 4 * res;
     let minor_sectors = 2 * res;
@@ -157,7 +171,6 @@ fn objects(res: u32) -> [Mesh<Normal3>; 6] {
         // Octahedron.build(),
         // Dodecahedron.build(),
         // Icosahedron.build(),
-
 
         // Surfaces of revolution
         lathe(sectors),
