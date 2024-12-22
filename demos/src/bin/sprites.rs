@@ -14,7 +14,7 @@ fn main() {
         vec2(1.0, 1.0),
     ];
     let count = 10000;
-    let rng = Xorshift64::default();
+    let rng = &mut Xorshift64::default();
 
     let verts: Vec<Vertex3<Vec2<_>>> = PointsInUnitBall
         .samples(rng)

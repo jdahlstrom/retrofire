@@ -32,7 +32,7 @@ fn main() {
         .build()
         .expect("should create window");
 
-    let rng = Xorshift64::from_time();
+    let rng = &mut Xorshift64::from_time();
     let pos = Uniform(pt2(0.0, 0.0)..pt2(w as f32, h as f32));
     let vel = VectorsOnUnitDisk;
 
