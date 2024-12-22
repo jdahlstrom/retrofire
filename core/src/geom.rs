@@ -1,6 +1,6 @@
 //! Basic geometric primitives.
 
-use crate::math::{Point2, Point3, Vec2, Vec3};
+use crate::math::{Affine, Linear, Parametric, Point2, Point3, Vec2, Vec3};
 use crate::render::Model;
 
 pub use mesh::Mesh;
@@ -30,6 +30,8 @@ pub struct Tri<V>(pub [V; 3]);
 #[repr(transparent)]
 pub struct Plane<V>(pub(crate) V);
 
+pub struct Ray<Orig, Dir>(pub Orig, pub Dir);
+
 /// A surface normal.
 // TODO Use distinct type rather than alias
 pub type Normal3 = Vec3;
@@ -39,4 +41,11 @@ pub const fn vertex<P, A>(pos: P, attrib: A) -> Vertex<P, A> {
     Vertex { pos, attrib }
 }
 
-pub struct Ray<Orig, Dir>(pub Orig, pub Dir);
+impl<T> Parametric<T> for Ray<T, T::Diff>
+where
+    T: Affine<Diff: Linear<Scalar = f32>>,
+{
+    fn eval(&self, t: f32) -> T {
+        self.0.add(&self.1.mul(t))
+    }
+}

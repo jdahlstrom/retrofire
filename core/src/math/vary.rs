@@ -5,7 +5,7 @@
 
 use core::mem;
 
-use crate::math::Lerp;
+use super::Lerp;
 
 pub trait ZDiv: Sized {
     #[must_use]
