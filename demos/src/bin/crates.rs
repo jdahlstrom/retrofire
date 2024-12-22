@@ -18,7 +18,9 @@ fn main() {
         |v: Vertex3<_>, mvp: &Mat4x4<ModelToProj>| {
             vertex(mvp.apply(&v.pos), v.attrib)
         },
-        |frag: Frag<Color3f>| frag.var.to_color4(),
+        |frag: Frag<Color3f>| {
+            lerp(0.05 / frag.pos.z(), frag.var, gray(1.0)).to_color4()
+        },
     );
     let crate_shader = Shader::new(
         |v: Vertex3<_>, mvp: &Mat4x4<ModelToProj>| {
@@ -29,17 +31,32 @@ fn main() {
             rgb(x, y, z).to_color4()
         },
     );
+    let sky_shader = Shader::new(
+        |v: Vertex3<_>, mvp: &Mat4x4<ModelToProj>| {
+            vertex(mvp.apply(&v.pos), v.pos)
+        },
+        |frag: Frag<Point3<_>>| {
+            let v = frag.var.to_vec();
+            let y = v.normalize().y();
+            let c = lerp(y, rgb(0.6, 0.7, 1.0), rgb(0.0, 0.0, 0.4));
+            c.to_color4()
+        },
+    );
 
     let (w, h) = win.dims;
     let mut cam = Camera::new(win.dims)
         .mode(FirstPerson::default())
         .viewport((10..w - 10, 10..h - 10))
-        .perspective(1.0, 0.1..1000.0);
+        .perspective(1.0, 0.1..2000.0);
 
     let floor = floor();
     let crat = Box::cube(2.0).build();
 
+    let sky = &Box::cube(2.0).build();
+
     win.run(|frame| {
+        frame.ctx.face_cull = None;
+
         // Camera
 
         let mut cam_vel = Vec3::zero();
@@ -103,6 +120,15 @@ fn main() {
                     .render();
             }
         }
+
+        batch
+            .clone()
+            .mesh(&sky)
+            .uniform(&scale(splat(1000.0)).to().then(&world_to_project))
+            .shader(sky_shader)
+            .target(&mut frame.buf)
+            .render();
+
         Continue(())
     })
     .expect("should run")
