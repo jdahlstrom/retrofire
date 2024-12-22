@@ -4,7 +4,6 @@ use re::prelude::*;
 
 use re::geom::Ray;
 use re::math::rand::{Distrib, Uniform, VectorsOnUnitDisk, Xorshift64};
-
 use re_front::{dims::SVGA_800_600, minifb::Window, Frame};
 
 fn line([mut p0, mut p1]: [Point2; 2]) -> impl Iterator<Item = Point2u> {

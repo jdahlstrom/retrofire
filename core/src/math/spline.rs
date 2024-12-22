@@ -1,10 +1,10 @@
 //! Bézier curves and splines.
 
-use alloc::{vec, vec::Vec};
+use alloc::vec::Vec;
 use core::{array, fmt::Debug};
 
 use crate::geom::Ray;
-use crate::math::{Affine, Lerp, Linear};
+use crate::math::{Affine, Lerp, Linear, Parametric};
 
 /// A cubic Bézier curve, defined by four control points.
 ///
@@ -165,7 +165,7 @@ impl<T> BezierSpline<T>
 where
     T: Affine<Diff: Linear<Scalar = f32> + Clone> + Clone,
 {
-    /// Creates a Bézier curve from the given control points. The number of
+    /// Creates a Bézier spline from the given control points. The number of
     /// elements in `pts` must be 3n + 1 for some positive integer n.
     ///
     /// Consecutive points in `pts` make up Bézier curves such that:
@@ -175,7 +175,7 @@ where
     /// and so on.
     ///
     /// # Panics
-    /// If `pts.len()` < 4 or if `pts.len()` mod 3 ≠ 1.
+    /// If `pts.len() < 4` or if `pts.len() % 3 != 1`.
     pub fn new(pts: &[T]) -> Self {
         assert!(
             pts.len() >= 4 && pts.len() % 3 == 1,
@@ -185,21 +185,22 @@ where
         Self(pts.to_vec())
     }
 
+    /// Constructs a Bézier spline
     pub fn from_rays<I>(rays: I) -> Self
     where
         I: IntoIterator<Item = Ray<T, T::Diff>>,
     {
         let mut rays = rays.into_iter().peekable();
         let mut first = true;
-        let mut pts = vec![];
-        while let Some(Ray(p, v)) = rays.next() {
+        let mut pts = Vec::with_capacity(rays.size_hint().0);
+        while let Some(ray) = rays.next() {
             if !first {
-                pts.push(p.add(&v.neg()));
+                pts.push(ray.eval(-1.0));
             }
             first = false;
-            pts.push(p.clone());
+            pts.push(ray.0.clone());
             if rays.peek().is_some() {
-                pts.push(p.add(&v));
+                pts.push(ray.eval(1.0));
             }
         }
         Self::new(&pts)
@@ -207,7 +208,7 @@ where
 
     /// Evaluates `self` at position `t`.
     ///
-    /// Returns the first point if `t` < 0 and the last point if `t` > 1.
+    /// Returns the first point if `t < 0` and the last point if `t > 1`.
     pub fn eval(&self, t: f32) -> T {
         // invariant self.0.len() != 0 -> last always exists
         step(t, &self.0[0], self.0.last().unwrap(), |t| {
@@ -301,12 +302,30 @@ where
     }
 }
 
+impl<T> Parametric<T> for CubicBezier<T>
+where
+    T: Affine<Diff: Linear<Scalar = f32> + Clone> + Clone,
+{
+    fn eval(&self, t: f32) -> T {
+        self.fast_eval(t)
+    }
+}
+
+impl<T> Parametric<T> for BezierSpline<T>
+where
+    T: Affine<Diff: Linear<Scalar = f32> + Clone> + Clone,
+{
+    fn eval(&self, t: f32) -> T {
+        self.eval(t)
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use alloc::vec;
 
     use crate::assert_approx_eq;
-    use crate::math::{pt2, vec2, Point2, Vec2};
+    use crate::math::{pt2, vec2, Parametric, Point2, Vec2};
 
     use super::*;
 
@@ -321,6 +340,8 @@ mod tests {
 
         assert_eq!(1.0, smoothstep(1.0));
         assert_eq!(1.0, smoothstep(10.0));
+
+        assert_eq!(0.15625, smoothstep.eval(0.25));
     }
 
     #[test]
@@ -334,6 +355,8 @@ mod tests {
 
         assert_eq!(1.0, smootherstep(1.0));
         assert_eq!(1.0, smootherstep(10.0));
+
+        assert_eq!(0.103515625, smootherstep.eval(0.25));
     }
 
     #[test]
