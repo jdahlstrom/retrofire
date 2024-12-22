@@ -509,7 +509,7 @@ pub const fn translate(t: Vec3) -> Mat4x4<RealToReal<3>> {
     ])
 }
 
-/// Returns a matrix applying a rotation such that the original y axis
+/// Returns a matrix applying a rotation such that the original y-axis
 /// is now parallel with `new_y` and the new z axis is orthogonal to
 /// both `x` and `new_y`.
 ///
@@ -520,7 +520,7 @@ pub fn orient_y(new_y: Vec3, x: Vec3) -> Mat4x4<RealToReal<3>> {
     orient(new_y, x.cross(&new_y).normalize())
 }
 /// Returns a matrix applying a rotation such that the original z axis
-/// is now parallel with `new_z` and the new y axis is orthogonal to
+/// is now parallel with `new_z` and the new y-axis is orthogonal to
 /// both `new_z` and `x`.
 ///
 /// Returns an orthogonal basis. If `new_z` and `x` are unit vectors,
@@ -530,22 +530,32 @@ pub fn orient_z(new_z: Vec3, x: Vec3) -> Mat4x4<RealToReal<3>> {
     orient(new_z.cross(&x).normalize(), new_z)
 }
 
+/// Returns a matrix applying a change of basis such that the original y-axis
+/// becomes `new_y` and the original z-axis becomes `new_z`.
+///
+/// The new basis is orthogonal if `new_y` and `new_z` are, and orthonormal if
+/// they additionally have unit length.
+///
+/// # Panics
+/// If the length of either `new_y` or `new_z` is approximately zero, or if
+/// the vectors are approximately parallel.
 #[cfg(feature = "fp")]
-fn orient(new_y: Vec3, new_z: Vec3) -> Mat4x4<RealToReal<3>> {
-    use crate::math::{ApproxEq, Linear};
-
-    assert!(!new_y.approx_eq(&Vec3::zero()));
-    assert!(!new_z.approx_eq(&Vec3::zero()));
+pub fn orient(new_y: Vec3, new_z: Vec3) -> Mat4x4<RealToReal<3>> {
+    use super::{splat, ApproxEq};
+    assert!(!new_y.approx_eq(&splat(0.0)));
+    assert!(!new_z.approx_eq(&splat(0.0)));
 
     let new_x = new_y.cross(&new_z);
+    assert!(!new_x.approx_eq(&splat(0.0)));
+
     Mat4x4::from_basis(new_x, new_y, new_z)
 }
 
 // TODO constify rotate_* functions once we have const trig functions
 
-/// Returns a matrix applying a rotation by `a` about the x axis.
+/// Returns a matrix applying a rotation by `a` about the x-axis.
 #[cfg(feature = "fp")]
-pub fn rotate_x(a: super::angle::Angle) -> Mat4x4<RealToReal<3>> {
+pub fn rotate_x(a: super::Angle) -> Mat4x4<RealToReal<3>> {
     let (sin, cos) = a.sin_cos();
     [
         [1.0, 0.0, 0.0, 0.0],
@@ -557,7 +567,7 @@ pub fn rotate_x(a: super::angle::Angle) -> Mat4x4<RealToReal<3>> {
 }
 /// Returns a matrix applying a rotation by `a` about the y axis.
 #[cfg(feature = "fp")]
-pub fn rotate_y(a: super::angle::Angle) -> Mat4x4<RealToReal<3>> {
+pub fn rotate_y(a: super::Angle) -> Mat4x4<RealToReal<3>> {
     let (sin, cos) = a.sin_cos();
     [
         [cos, 0.0, -sin, 0.0],
@@ -569,7 +579,7 @@ pub fn rotate_y(a: super::angle::Angle) -> Mat4x4<RealToReal<3>> {
 }
 /// Returns a matrix applying a rotation of angle `a` about the z axis.
 #[cfg(feature = "fp")]
-pub fn rotate_z(a: super::angle::Angle) -> Mat4x4<RealToReal<3>> {
+pub fn rotate_z(a: super::Angle) -> Mat4x4<RealToReal<3>> {
     let (sin, cos) = a.sin_cos();
     [
         [cos, sin, 0.0, 0.0],
