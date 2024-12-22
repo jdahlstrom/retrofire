@@ -2,7 +2,7 @@ use core::{
     array,
     fmt::{Debug, Formatter},
     marker::PhantomData as Pd,
-    ops::{Add, Index, Sub},
+    ops::{Add, AddAssign, Index, Sub, SubAssign},
 };
 
 use crate::math::{space::Real, vary::ZDiv, Affine, ApproxEq, Linear, Vector};
@@ -49,7 +49,7 @@ impl<R, Sp> Point<R, Sp> {
 }
 
 impl<Sc, Sp, const N: usize> Point<[Sc; N], Sp> {
-    /// Returns a vector of the same dimension as `self` by applying `f`
+    /// Returns a point of the same dimension as `self` by applying `f`
     /// component-wise.
     #[inline]
     #[must_use]
@@ -59,14 +59,37 @@ impl<Sc, Sp, const N: usize> Point<[Sc; N], Sp> {
 }
 
 impl<const N: usize, B> Point<[f32; N], Real<N, B>> {
+    /// Returns the Euclidean distance between `self` and another point.
+    ///
+    /// # Example
+    /// ```
+    /// use retrofire_core::math::{Point2, pt2};
+    ///
+    /// let x3: Point2 = pt2(3.0, 0.0);
+    /// let y4 = pt2(0.0, 4.0);
+    /// assert_eq!(x3.distance(&y4), 5.0);
+    /// ```
     #[cfg(feature = "fp")]
     #[inline]
     pub fn distance(&self, other: &Self) -> f32 {
-        Affine::sub(self, other).len()
+        self.sub(other).len()
     }
+    /// Returns the square of the Euclidean distance between `self` and another
+    /// point.
+    ///
+    /// Faster to compute than [distance][Self::distance].
+    ///
+    /// # Example
+    /// ```
+    /// use retrofire_core::math::{Point2, pt2};
+    ///
+    /// let x3: Point2 = pt2(3.0, 0.0);
+    /// let y4 = pt2(0.0, 4.0);
+    /// assert_eq!(x3.distance_sqr(&y4), 5.0 * 5.0);
+    /// ```
     #[inline]
     pub fn distance_sqr(&self, other: &Self) -> f32 {
-        Affine::sub(self, other).len_sqr()
+        self.sub(other).len_sqr()
     }
 
     /// Returns `self` clamped component-wise to the given range.
@@ -151,7 +174,7 @@ where
     Sc: ZDiv + Copy,
 {
     fn z_div(self, z: f32) -> Self {
-        Self(self.0.map(|c| c.z_div(z)), Pd)
+        self.map(|c| c.z_div(z))
     }
 }
 
@@ -209,6 +232,14 @@ impl<R, Sp> From<R> for Point<R, Sp> {
     }
 }
 
+impl<R: Index<usize>, Sp> Index<usize> for Point<R, Sp> {
+    type Output = R::Output;
+
+    fn index(&self, i: usize) -> &Self::Output {
+        self.0.index(i)
+    }
+}
+
 impl<R, Sp> Add<<Self as Affine>::Diff> for Point<R, Sp>
 where
     Self: Affine,
@@ -217,6 +248,35 @@ where
 
     fn add(self, other: <Self as Affine>::Diff) -> Self {
         Affine::add(&self, &other)
+    }
+}
+
+impl<R, Sp> AddAssign<<Self as Affine>::Diff> for Point<R, Sp>
+where
+    Self: Affine,
+{
+    fn add_assign(&mut self, other: <Self as Affine>::Diff) {
+        *self = Affine::add(self, &other);
+    }
+}
+
+impl<R, Sp> Sub<<Self as Affine>::Diff> for Point<R, Sp>
+where
+    Self: Affine,
+{
+    type Output = Self;
+
+    fn sub(self, other: <Self as Affine>::Diff) -> Self {
+        Affine::add(&self, &other.neg())
+    }
+}
+
+impl<R, Sp> SubAssign<<Self as Affine>::Diff> for Point<R, Sp>
+where
+    Self: Affine,
+{
+    fn sub_assign(&mut self, other: <Self as Affine>::Diff) {
+        *self = Affine::add(self, &other.neg());
     }
 }
 
