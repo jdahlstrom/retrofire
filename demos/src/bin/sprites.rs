@@ -55,7 +55,7 @@ fn main() {
     let cam = Camera::new(win.dims)
         .transform(translate(0.5 * Vec3::Z).to())
         .perspective(1.0, 1e-2..1e3)
-        .viewport(vec2(10, 10)..vec2(w - 10, h - 10));
+        .viewport(pt2(10, 10)..pt2(w - 10, h - 10));
 
     win.run(|frame| {
         let theta = rads(frame.t.as_secs_f32());
