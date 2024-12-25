@@ -154,12 +154,13 @@ where
 // Local trait impls
 //
 
-impl<Sc, Sp, const N: usize> Affine for Point<[Sc; N], Sp>
+impl<Sc, DSc, Sp, const N: usize> Affine for Point<[Sc; N], Sp>
 where
-    Sc: Linear<Scalar = Sc> + Copy,
+    Sc: Affine<Diff = DSc> + Copy,
+    DSc: Linear<Scalar = DSc> + Copy,
 {
     type Space = Sp;
-    type Diff = Vector<[Sc; N], Sp>;
+    type Diff = Vector<[DSc; N], Sp>;
     const DIM: usize = N;
 
     #[inline]
