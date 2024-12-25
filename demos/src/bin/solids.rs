@@ -62,7 +62,7 @@ fn main() {
     let cam = Camera::new(win.dims)
         .transform(scale3(1.0, -1.0, -1.0).to())
         .perspective(1.5, 0.1..1000.0)
-        .viewport(vec2(10, 10)..vec2(w - 10, h - 10));
+        .viewport(pt2(10, 10)..pt2(w - 10, h - 10));
 
     type VertexIn = Vertex3<Normal3>;
     type VertexOut = Vertex<ProjVec4, Color3f>;

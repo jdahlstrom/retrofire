@@ -3,7 +3,7 @@
 use core::fmt::Debug;
 use core::ops::{Bound::*, Range, RangeBounds, RangeFull, Sub};
 
-use crate::math::Vec2u;
+use crate::math::Point2u;
 
 /// An axis-aligned rectangular region.
 ///
@@ -128,10 +128,10 @@ impl<H: RangeBounds<u32>, V: RangeBounds<u32>> From<(H, V)> for Rect<u32> {
     }
 }
 
-impl From<Range<Vec2u>> for Rect<u32> {
-    /// Creates a `Rect` from two vectors designating the left-top
+impl From<Range<Point2u>> for Rect<u32> {
+    /// Creates a `Rect` from two points designating the left-top
     /// and right-bottom corners of the `Rect`.
-    fn from(r: Range<Vec2u>) -> Self {
+    fn from(r: Range<Point2u>) -> Self {
         Self {
             left: Some(r.start.x()),
             top: Some(r.start.y()),
@@ -155,7 +155,7 @@ impl<T> From<RangeFull> for Rect<T> {
 
 #[cfg(test)]
 mod tests {
-    use crate::math::vec2;
+    use crate::math::pt2;
 
     use super::*;
 
@@ -315,9 +315,6 @@ mod tests {
 
     #[test]
     fn from_range_of_vecs() {
-        assert_eq!(
-            Rect::from(vec2(10, 20)..vec2(40, 80)),
-            rect(10, 20, 40, 80)
-        );
+        assert_eq!(Rect::from(pt2(10, 20)..pt2(40, 80)), rect(10, 20, 40, 80));
     }
 }
