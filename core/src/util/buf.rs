@@ -707,7 +707,7 @@ pub mod inner {
 
 #[cfg(test)]
 mod tests {
-    use crate::math::vec2;
+    use crate::math::pt2;
 
     use super::*;
 
@@ -837,12 +837,12 @@ mod tests {
     fn buf_slice_empty_range() {
         let buf: Buf2<()> = Buf2::new((4, 5));
 
-        let empty = buf.slice(vec2(1, 1)..vec2(1, 3));
+        let empty = buf.slice(pt2(1, 1)..pt2(1, 3));
         assert_eq!(empty.width(), 0);
         assert_eq!(empty.height(), 2);
         assert_eq!(empty.stride(), 4);
 
-        let empty = buf.slice(vec2(1, 1)..vec2(3, 1));
+        let empty = buf.slice(pt2(1, 1)..pt2(3, 1));
         assert_eq!(empty.width(), 2);
         assert_eq!(empty.height(), 0);
         assert_eq!(empty.stride(), 4);
