@@ -184,13 +184,8 @@ impl FirstPerson {
         let up = vec3(0.0, 1.0, 0.0);
         let right = up.cross(&fwd);
 
-        // / rx ux fx \ / dx \     / rx ry rz \ T / dx \
-        // | ry uy fy | | dy |  =  | ux uy uz |   | dy |
-        // \ rz uz fz / \ dz /     \ fx fy fz /   \ dz /
-
-        self.pos += Mat4x4::<RealToReal<3>>::from_basis(right, up, fwd)
-            .transpose()
-            .apply(&delta);
+        self.pos +=
+            Mat4x4::<RealToReal<3>>::from_basis(right, up, fwd).apply(&delta);
     }
 }
 
@@ -206,8 +201,9 @@ impl Mode for FirstPerson {
         let fwd = self.heading;
         let right = vec3(0.0, 1.0, 0.0).cross(&fwd_move.to_cart());
 
+        // World to view is the inverse of the camera's world transform
         let transl = translate(-pos);
-        let orient = orient_z(fwd.into(), right);
+        let orient = orient_z(fwd.into(), right).transpose();
 
         transl.then(&orient).to()
     }
