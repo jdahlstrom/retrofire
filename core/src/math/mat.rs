@@ -90,6 +90,7 @@ where
     Map: LinearMap,
 {
     /// Returns the row vector of `self` with index `i`.
+    ///
     /// The returned vector is in space `Map::Source`.
     ///
     /// # Panics
@@ -141,10 +142,11 @@ impl<const N: usize, Map> Matrix<[[f32; N]; N], Map> {
 impl<M: LinearMap> Mat4x4<M> {
     /// Constructs a matrix from a set of basis vectors.
     pub const fn from_basis(i: Vec3, j: Vec3, k: Vec3) -> Self {
+        let (i, j, k) = (i.0, j.0, k.0);
         Self::new([
-            [i.0[0], i.0[1], i.0[2], 0.0],
-            [j.0[0], j.0[1], j.0[2], 0.0],
-            [k.0[0], k.0[1], k.0[2], 0.0],
+            [i[0], j[0], k[0], 0.0],
+            [i[1], j[1], k[1], 0.0],
+            [i[2], j[2], k[2], 0.0],
             [0.0, 0.0, 0.0, 1.0],
         ])
     }
@@ -675,6 +677,10 @@ mod tests {
     type Map<const N: usize = 3> = RealToReal<N, Basis1, Basis2>;
     type InvMap<const N: usize = 3> = RealToReal<N, Basis2, Basis1>;
 
+    const X: Vec3 = vec3(1.0, 0.0, 0.0);
+    const Y: Vec3 = vec3(0.0, 1.0, 0.0);
+    const Z: Vec3 = vec3(0.0, 0.0, 1.0);
+
     mod mat3x3 {
         use super::*;
         use crate::math::pt2;
@@ -846,6 +852,59 @@ mod tests {
                 m.apply_pt(&pt3(-2.0, 0.0, 0.0)),
                 pt3(0.0, 2.0, 0.0)
             );
+        }
+
+        #[test]
+        fn from_basis() {
+            let m = Mat4x4::<RealToReal<3>>::from_basis(Y, 2.0 * Z, -3.0 * X);
+            assert_eq!(m.apply(&X), Y);
+            assert_eq!(m.apply(&Y), 2.0 * Z);
+            assert_eq!(m.apply(&Z), -3.0 * X);
+        }
+
+        #[cfg(feature = "fp")]
+        #[test]
+        fn orientation_no_op() {
+            let m = orient_y(Y, X);
+
+            assert_eq!(m.apply(&X), X);
+            assert_eq!(m.apply_pt(&X.to_pt()), X.to_pt());
+
+            assert_eq!(m.apply(&Y), Y);
+            assert_eq!(m.apply_pt(&Y.to_pt()), Y.to_pt());
+
+            assert_eq!(m.apply(&Z), Z);
+            assert_eq!(m.apply_pt(&Z.to_pt()), Z.to_pt());
+        }
+
+        #[cfg(feature = "fp")]
+        #[test]
+        fn orientation_y_to_z() {
+            let m = orient_y(Z, X);
+
+            assert_eq!(m.apply(&X), X);
+            assert_eq!(m.apply_pt(&X.to_pt()), X.to_pt());
+
+            assert_eq!(m.apply(&Y), Z);
+            assert_eq!(m.apply_pt(&Y.to_pt()), Z.to_pt());
+
+            assert_eq!(m.apply(&Z), -Y);
+            assert_eq!(m.apply_pt(&Z.to_pt()), (-Y).to_pt());
+        }
+
+        #[cfg(feature = "fp")]
+        #[test]
+        fn orientation_z_to_y() {
+            let m = orient_z(Y, X);
+
+            assert_eq!(m.apply(&X), X);
+            assert_eq!(m.apply_pt(&X.to_pt()), X.to_pt());
+
+            assert_eq!(m.apply(&Y), -Z);
+            assert_eq!(m.apply_pt(&Y.to_pt()), (-Z).to_pt());
+
+            assert_eq!(m.apply(&Z), Y);
+            assert_eq!(m.apply_pt(&Z.to_pt()), Y.to_pt());
         }
 
         #[test]
