@@ -280,7 +280,7 @@ where
 
     /// Returns the cross product of `self` with `other`.
     ///
-    /// The result is a vector perpendicular to both input vectors, its length
+    /// The result is a vector orthogonal with both input vectors, its length
     /// proportional to the area of the parallelogram formed by the vectors.
     /// Specifically, the length is given by the identity:
     ///
@@ -288,18 +288,21 @@ where
     ///     |𝗮 × 𝗯| = |𝗮| |𝗯| sin 𝜽
     /// ```
     ///
-    /// where |·| denotes the length of a vector and
-    /// 𝜽 equals the angle between 𝗮 and 𝗯.
+    /// where |·| denotes the length of a vector and 𝜽 equals the angle
+    /// between 𝗮 and 𝗯. Specifically, the result has unit length if 𝗮 and 𝗯
+    /// are orthogonal and |𝗮| = |𝗯| = 1. The cross product can be used to
+    /// produce an *orthonormal basis* from any two non-parallel non-zero
+    /// 3-vectors.
     ///
     /// ```text
     ///        ^
     ///     r  |
     ///     e  |
     ///     s  |    other
-    ///     u  |     ^ - - - - - +
-    ///     l  |   /           /
-    ///     t  | /           /
-    ///        +-----------> self
+    ///     u  |     ^ - - - - - - - +
+    ///     l  |   /               /
+    ///     t  | /               /
+    ///        +--------------- > self
     /// ```
     pub fn cross(&self, other: &Self) -> Self
     where
@@ -382,7 +385,7 @@ where
 {
     type Scalar = Sc;
 
-    /// Returns a vector with all-zero components, also called a null vector.
+    /// Returns a vector with all-zero components, also called a zero vector.
     #[inline]
     fn zero() -> Self {
         [Sc::zero(); DIM].into()
@@ -392,7 +395,7 @@ where
         self.map(|c| c.neg())
     }
     #[inline]
-    fn mul(&self, scalar: Self::Scalar) -> Self {
+    fn mul(&self, scalar: Sc) -> Self {
         self.map(|c| c.mul(scalar))
     }
 }
@@ -849,15 +852,22 @@ mod tests {
     const Z: Vec3 = Vec3::Z;
 
     #[test]
-    fn cross_product() {
-        assert_eq!(
-            vec3(1.0, 0.0, 0.0).cross(&vec3(0.0, 1.0, 0.0)),
-            vec3(0.0, 0.0, 1.0)
-        );
-        assert_eq!(
-            vec3(0.0, 0.0, 1.0).cross(&vec3(0.0, 1.0, 0.0)),
-            vec3(-1.0, 0.0, 0.0)
-        );
+    fn cross_product_basis_vectors() {
+        assert_eq!(X.cross(&Y), Z);
+        assert_eq!(Y.cross(&X), -Z);
+
+        assert_eq!(Y.cross(&Z), X);
+        assert_eq!(Z.cross(&Y), -X);
+
+        assert_eq!(Z.cross(&X), Y);
+        assert_eq!(X.cross(&Z), -Y);
+    }
+
+    #[test]
+    fn cross_product_parallelogram_area() {
+        let a = 3.0 * Y;
+        let b = 2.0 * X - Y;
+        assert_eq!(a.cross(&b).len_sqr(), 6.0 * 6.0);
     }
 
     #[test]
