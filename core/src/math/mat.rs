@@ -139,11 +139,17 @@ impl<const N: usize, Map> Matrix<[[f32; N]; N], Map> {
     }
 }
 
-impl<M: LinearMap> Mat4x4<M> {
+impl Mat4x4 {
     /// Constructs a matrix from a set of basis vectors.
-    pub const fn from_basis(i: Vec3, j: Vec3, k: Vec3) -> Self {
+    ///
+    /// The vector do not need to be linearly independent.
+    pub const fn from_basis<S, D>(
+        i: Vec3<D>,
+        j: Vec3<D>,
+        k: Vec3<D>,
+    ) -> Mat4x4<RealToReal<3, S, D>> {
         let (i, j, k) = (i.0, j.0, k.0);
-        Self::new([
+        Mat4x4::new([
             [i[0], j[0], k[0], 0.0],
             [i[1], j[1], k[1], 0.0],
             [i[2], j[2], k[2], 0.0],
@@ -936,7 +942,7 @@ mod tests {
 
         #[test]
         fn from_basis() {
-            let m = Mat4x4::<RealToReal<3>>::from_basis(Y, 2.0 * Z, -3.0 * X);
+            let m = Mat4x4::from_basis(Y, 2.0 * Z, -3.0 * X);
             assert_eq!(m.apply(&X), Y);
             assert_eq!(m.apply(&Y), 2.0 * Z);
             assert_eq!(m.apply(&Z), -3.0 * X);
