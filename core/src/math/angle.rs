@@ -329,7 +329,7 @@ impl SphericalVec {
     /// # Examples
     /// TODO examples
     #[cfg(feature = "fp")]
-    pub fn to_cart(&self) -> Vec3 {
+    pub fn to_cart<B>(&self) -> Vec3<B> {
         let (sin_alt, cos_alt) = self.alt().sin_cos();
         let (sin_az, cos_az) = self.az().sin_cos();
 
@@ -751,20 +751,23 @@ mod tests {
     #[test]
     fn spherical_to_cartesian() {
         assert_eq!(
-            spherical(0.0, degs(0.0), degs(0.0)).to_cart(),
-            Vec3::zero()
+            spherical(0.0, degs(0.0), degs(0.0)).to_cart::<()>(),
+            vec3(0.0, 0.0, 0.0)
         );
-        assert_eq!(spherical(1.0, degs(0.0), degs(0.0)).to_cart(), Vec3::X);
+        assert_eq!(
+            spherical(1.0, degs(0.0), degs(0.0)).to_cart::<()>(),
+            vec3(1.0, 0.0, 0.0)
+        );
         assert_approx_eq!(
-            spherical(2.0, degs(60.0), degs(0.0)).to_cart(),
+            spherical(2.0, degs(60.0), degs(0.0)).to_cart::<()>(),
             vec3(1.0, 0.0, SQRT_3)
         );
         assert_approx_eq!(
-            spherical(2.0, degs(90.0), degs(0.0)).to_cart(),
+            spherical(2.0, degs(90.0), degs(0.0)).to_cart::<()>(),
             vec3(0.0, 0.0, 2.0)
         );
         assert_approx_eq!(
-            spherical(3.0, degs(123.0), degs(90.0)).to_cart(),
+            spherical(3.0, degs(123.0), degs(90.0)).to_cart::<()>(),
             vec3(0.0, 3.0, 0.0)
         );
     }
