@@ -168,15 +168,11 @@ impl FirstPerson {
 
     /// Rotates the camera to center the view on a *world-space* point.
     pub fn look_at(&mut self, pt: Point3<World>) {
-        self.heading = (pt - self.pos).to().to_spherical();
-        self.heading[0] = 1.0;
+        let head = (pt - self.pos).to().to_spherical();
+        self.rotate_to(head.az(), head.alt());
     }
 
     /// Rotates the camera by relative azimuth and altitude.
-    ///
-    /// This is equivalent to rotating to an absolute orientation in
-    /// *view* space, because in view space the orientation is always
-    /// centered on the z-axis.
     pub fn rotate(&mut self, delta_az: Angle, delta_alt: Angle) {
         let head = self.heading;
         self.rotate_to(head.az() + delta_az, head.alt() + delta_alt);
@@ -195,10 +191,10 @@ impl FirstPerson {
     pub fn translate(&mut self, delta: Vec3<View>) {
         // Zero azimuth means parallel to the x-axis
         let fwd = az_alt(self.heading.az(), turns(0.0)).to_cart();
-        let up = Vec3::Y;
+        let up = Vec3::Y.to();
         let right = up.cross(&fwd);
 
-        let to_world = Mat4x4::<ViewToWorld>::from_basis(right, up, fwd);
+        let to_world = Mat4x4::from_basis(right, up, fwd);
         self.pos += to_world.apply(&delta);
     }
 }
@@ -238,5 +234,15 @@ impl Default for FirstPerson {
     /// Returns [`FirstPerson::new`].
     fn default() -> Self {
         Self::new()
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    // use super::*;
+
+    #[test]
+    fn camera_tests_here() {
+        // TODO
     }
 }
