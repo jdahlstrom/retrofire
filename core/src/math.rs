@@ -20,7 +20,7 @@
 #[cfg(feature = "fp")]
 pub use {
     angle::{acos, asin, atan2},
-    mat::{orient_y, orient_z, rotate_x, rotate_y, rotate_z},
+    mat::{orient_y, orient_z, rotate, rotate2, rotate_x, rotate_y, rotate_z},
 };
 pub use {
     angle::{

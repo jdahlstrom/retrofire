@@ -582,6 +582,37 @@ pub fn rotate_z(a: super::angle::Angle) -> Mat4x4<RealToReal<3>> {
     .into()
 }
 
+/// Returns a matrix applying a 2D rotation by an angle.
+#[cfg(feature = "fp")]
+pub fn rotate2(a: super::angle::Angle) -> Mat3x3<RealToReal<2>> {
+    let (sin, cos) = a.sin_cos();
+    [
+        [cos, sin, 0.0],  //
+        [-sin, cos, 0.0], //
+        [0.0, 0.0, 1.0],
+    ]
+    .into()
+}
+
+/// Returns a matrix applying a 3D rotation about an arbitrary axis.
+#[cfg(feature = "fp")]
+pub fn rotate(axis: Vec3, a: super::angle::Angle) -> Mat4x4<RealToReal<3>> {
+    use crate::math::approx::ApproxEq;
+
+    // 1. Change of basis such that `axis` is mapped to the z-axis,
+    // 2. Rotation about the z-axis
+    // 3. Change of basis back to the original
+    let mut other = Vec3::X;
+    if axis.cross(&other).len_sqr().approx_eq(&0.0) {
+        // Avoid degeneracy
+        other = Vec3::Y;
+    }
+
+    let z_to_axis = orient_z(axis.normalize(), other);
+    let axis_to_z = z_to_axis.transpose();
+    axis_to_z.then(&rotate_z(a)).then(&z_to_axis)
+}
+
 /// Creates a perspective projection matrix.
 ///
 /// # Parameters
@@ -849,6 +880,38 @@ mod tests {
                 m.apply_pt(&(pt3(-2.0, 0.0, 0.0))),
                 pt3(0.0, 2.0, 0.0)
             );
+        }
+
+        #[cfg(feature = "fp")]
+        #[test]
+        fn rotation_arbitrary() {
+            let m = rotate(vec3(1.0, 1.0, 0.0).normalize(), degs(180.0));
+
+            assert_approx_eq!(m.apply(&X), Y);
+            assert_approx_eq!(m.apply(&Y), X);
+            assert_approx_eq!(m.apply(&Z), -Z);
+        }
+
+        #[cfg(feature = "fp")]
+        #[test]
+        fn rotation_arbitrary_x() {
+            let a = rotate(X, degs(128.0));
+            let b = rotate_x(degs(128.0));
+            assert_eq!(a, b);
+        }
+        #[cfg(feature = "fp")]
+        #[test]
+        fn rotation_arbitrary_y() {
+            let a = rotate(Y, degs(128.0));
+            let b = rotate_y(degs(128.0));
+            assert_eq!(a, b);
+        }
+        #[cfg(feature = "fp")]
+        #[test]
+        fn rotation_arbitrary_z() {
+            let a = rotate(Z, degs(128.0));
+            let b = rotate_z(degs(128.0));
+            assert_eq!(a, b);
         }
 
         #[test]
