@@ -88,7 +88,7 @@ fn main() {
 
     let objects = objects(8);
 
-    let translate = translate(vec3(0.0, 0.0, -4.0));
+    let translate = translate(-4.0 * Vec3::Z);
     let mut carousel = Carousel::default();
 
     win.run(|frame| {
@@ -180,7 +180,7 @@ fn teapot() -> Mesh<Normal3> {
         .unwrap()
         .transform(
             &scale(splat(0.4))
-                .then(&translate(vec3(0.0, -0.5, 0.0)))
+                .then(&translate(-0.5 * Vec3::Y)
                 .to(),
         )
         .with_vertex_normals()
@@ -193,7 +193,7 @@ fn bunny() -> Mesh<Normal3> {
         .unwrap()
         .transform(
             &scale(splat(0.15))
-                .then(&translate(vec3(0.0, -1.0, 0.0)))
+                .then(&translate(-Vec3::Y))
                 .to(),
         )
         .with_vertex_normals()

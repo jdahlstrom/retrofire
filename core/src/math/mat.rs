@@ -699,9 +699,9 @@ mod tests {
     type Map<const N: usize = 3> = RealToReal<N, Basis1, Basis2>;
     type InvMap<const N: usize = 3> = RealToReal<N, Basis2, Basis1>;
 
-    const X: Vec3 = vec3(1.0, 0.0, 0.0);
-    const Y: Vec3 = vec3(0.0, 1.0, 0.0);
-    const Z: Vec3 = vec3(0.0, 0.0, 1.0);
+    const X: Vec3 = Vec3::X;
+    const Y: Vec3 = Vec3::Y;
+    const Z: Vec3 = Vec3::Z;
 
     mod mat3x3 {
         use super::*;
@@ -835,11 +835,10 @@ mod tests {
         #[test]
         fn rotation_x() {
             let m = rotate_x(degs(90.0));
+
             assert_eq!(m.apply(&splat(0.0)), splat(0.0));
-            assert_approx_eq!(
-                m.apply(&vec3(0.0, 0.0, 1.0)),
-                vec3(0.0, 1.0, 0.0)
-            );
+
+            assert_approx_eq!(m.apply(&Z), Y);
             assert_approx_eq!(
                 m.apply_pt(&pt3(0.0, -2.0, 0.0)),
                 pt3(0.0, 0.0, 2.0)
@@ -850,11 +849,10 @@ mod tests {
         #[test]
         fn rotation_y() {
             let m = rotate_y(degs(90.0));
+
             assert_eq!(m.apply(&splat(0.0)), splat(0.0));
-            assert_approx_eq!(
-                m.apply(&vec3(1.0, 0.0, 0.0)),
-                vec3(0.0, 0.0, 1.0)
-            );
+
+            assert_approx_eq!(m.apply(&X), Z);
             assert_approx_eq!(
                 m.apply_pt(&pt3(0.0, 0.0, -2.0)),
                 pt3(2.0, 0.0, 0.0)
@@ -865,13 +863,12 @@ mod tests {
         #[test]
         fn rotation_z() {
             let m = rotate_z(degs(90.0));
+
             assert_eq!(m.apply(&splat(0.0)), splat(0.0));
+
+            assert_approx_eq!(m.apply(&Y), X);
             assert_approx_eq!(
-                m.apply(&vec3(0.0, 1.0, 0.0)),
-                vec3(1.0, 0.0, 0.0)
-            );
-            assert_approx_eq!(
-                m.apply_pt(&pt3(-2.0, 0.0, 0.0)),
+                m.apply_pt(&(pt3(-2.0, 0.0, 0.0))),
                 pt3(0.0, 2.0, 0.0)
             );
         }
@@ -879,7 +876,7 @@ mod tests {
         #[cfg(feature = "fp")]
         #[test]
         fn rotation_arbitrary() {
-            let m = rotate(vec3(1.0, 1.0, 0.0).normalize(), degs(180.0));
+            let m = rotate((X + Y).normalize(), degs(180.0));
 
             assert_approx_eq!(m.apply(&X), Y);
             assert_approx_eq!(m.apply(&Y), X);
