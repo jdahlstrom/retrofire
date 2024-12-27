@@ -65,7 +65,7 @@ fn main() {
         cam.mode
             .translate(cam_vel.mul(frame.dt.as_secs_f32()));
 
-        let flip = scale(vec3(1.0, -1.0, -1.0)).to();
+        let flip = scale3(1.0, -1.0, -1.0).to();
 
         // Render
 
@@ -88,7 +88,7 @@ fn main() {
         let n = 30;
         for i in (-n..=n).step_by(5) {
             for j in (-n..=n).step_by(5) {
-                let pos = translate(vec3(i as f32, 0.0, j as f32)).to();
+                let pos = translate3(i as f32, 0.0, j as f32).to();
                 craet
                     // TODO Try to get rid of clone
                     .clone()
