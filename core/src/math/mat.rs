@@ -5,7 +5,7 @@
 //! TODO Docs
 
 use core::{
-    array,
+    array::{self, from_fn},
     fmt::{self, Debug, Formatter},
     marker::PhantomData,
     ops::Range,
@@ -203,9 +203,9 @@ impl<Src, Dst> Mat3x3<RealToReal<2, Src, Dst>> {
     /// a column vector with an implicit 𝘃<sub>2</sub> component with value 1:
     ///
     /// ```text
-    ///         / M00 ·  ·  \ / v0 \
-    ///  Mv  =  |  ·  ·  ·  | | v1 |  =  ( v0' v1' 1 )
-    ///         \  ·  · M22 / \  1 /
+    ///         / M00 ·  ·  \ / v0 \     / v0' \
+    ///  Mv  =  |  ·  ·  ·  | | v1 |  =  | v1' |
+    ///         \  ·  · M22 / \  1 /     \  1  /
     /// ```
     #[must_use]
     pub fn apply(&self, v: &Vec2<Src>) -> Vec2<Dst> {
@@ -228,10 +228,10 @@ impl<Src, Dst> Mat4x4<RealToReal<3, Src, Dst>> {
     /// a column vector with an implicit 𝘃<sub>3</sub> component with value 1:
     ///
     /// ```text
-    ///         / M00 ·  ·  ·  \ / v0 \
-    ///  Mv  =  |  ·  ·  ·  ·  | | v1 |  =  ( v0' v1' v2' 1 )
-    ///         |  ·  ·  ·  ·  | | v2 |
-    ///         \  ·  ·  · M33 / \  1 /
+    ///         / M00 ·  ·  ·  \ / v0 \     / v0' \
+    ///  Mv  =  |  ·  ·  ·  ·  | | v1 |  =  | v1' |
+    ///         |  ·  ·  ·  ·  | | v2 |     | v2' |
+    ///         \  ·  ·  · M33 / \  1 /     \  1  /
     /// ```
     #[must_use]
     pub fn apply(&self, v: &Vec3<Src>) -> Vec3<Dst> {
@@ -383,21 +383,15 @@ impl<Src> Mat4x4<RealToProj<Src>> {
     /// a column vector with an implicit 𝘃<sub>3</sub> component with value 1:
     ///
     /// ```text
-    ///         / M00  ·  · \ / v0 \
-    ///  Mv  =  |    ·      | | v1 |  =  ( v0' v1' v2' v3' )
-    ///         |      ·    | | v2 |
-    ///         \ ·  ·  M33 / \  1 /
+    ///         / M00  ·  · \ / v0 \     / v0' \
+    ///  Mv  =  |    ·      | | v1 |  =  | v1' |
+    ///         |      ·    | | v2 |     | v2' |
+    ///         \ ·  ·  M33 / \  1 /     \ v3' /
     /// ```
     #[must_use]
     pub fn apply(&self, p: &Point3<Src>) -> ProjVec4 {
-        let v = Vector::from([p.x(), p.y(), p.z(), 1.0]);
-        [
-            self.row_vec(0).dot(&v),
-            self.row_vec(1).dot(&v),
-            self.row_vec(2).dot(&v),
-            self.row_vec(3).dot(&v),
-        ]
-        .into()
+        let v = Vector::new([p.x(), p.y(), p.z(), 1.0]);
+        from_fn(|i| self.row_vec(i).dot(&v)).into()
     }
 }
 
@@ -511,12 +505,19 @@ pub const fn translate(t: Vec3) -> Mat4x4<RealToReal<3>> {
     ])
 }
 
+#[cfg(feature = "fp")]
+use super::{Angle, ApproxEq};
+
 /// Returns a matrix applying a rotation such that the original y axis
 /// is now parallel with `new_y` and the new z axis is orthogonal to
 /// both `x` and `new_y`.
 ///
 /// Returns an orthogonal basis. If `new_y` and `x` are unit vectors,
-/// the result is orthonormal.
+/// the basis is orthonormal.
+///
+/// # Panics
+/// If `x` is approximately parallel to `new_y` and the basis would be
+/// degenerate.
 #[cfg(feature = "fp")]
 pub fn orient_y(new_y: Vec3, x: Vec3) -> Mat4x4<RealToReal<3>> {
     orient(new_y, x.cross(&new_y).normalize())
@@ -526,28 +527,40 @@ pub fn orient_y(new_y: Vec3, x: Vec3) -> Mat4x4<RealToReal<3>> {
 /// both `new_z` and `x`.
 ///
 /// Returns an orthogonal basis. If `new_z` and `x` are unit vectors,
-/// the result is orthonormal.
+/// the basis is orthonormal.
+///
+/// # Panics
+/// If `x` is approximately parallel to `new_z` and the basis would be
+/// degenerate.
 #[cfg(feature = "fp")]
 pub fn orient_z(new_z: Vec3, x: Vec3) -> Mat4x4<RealToReal<3>> {
     orient(new_z.cross(&x).normalize(), new_z)
 }
 
+/// Constructs a change-of-basis matrix given y and z basis vectors.
+///
+/// The third basis vector is the cross product of `new_y` and `new_z`.
+/// If the inputs are orthogonal, the resulting basis is orthogonal.
+/// If the inputs are also unit vectors, the basis is orthonormal.
+///
+/// # Panics
+/// If `new_y` is approximately parallel to `new_z` and the basis would
+/// be degenerate.
 #[cfg(feature = "fp")]
 fn orient(new_y: Vec3, new_z: Vec3) -> Mat4x4<RealToReal<3>> {
-    use crate::math::{ApproxEq, Linear};
-
-    assert!(!new_y.approx_eq(&Vec3::zero()));
-    assert!(!new_z.approx_eq(&Vec3::zero()));
-
     let new_x = new_y.cross(&new_z);
+    assert!(
+        !new_x.len_sqr().approx_eq(&0.0),
+        "{new_y:?} × {new_z:?} too close to zero vector"
+    );
     Mat4x4::from_basis(new_x, new_y, new_z)
 }
 
 // TODO constify rotate_* functions once we have const trig functions
 
-/// Returns a matrix applying a rotation by `a` about the x axis.
+/// Returns a matrix applying a 3D rotation about the x axis.
 #[cfg(feature = "fp")]
-pub fn rotate_x(a: super::angle::Angle) -> Mat4x4<RealToReal<3>> {
+pub fn rotate_x(a: Angle) -> Mat4x4<RealToReal<3>> {
     let (sin, cos) = a.sin_cos();
     [
         [1.0, 0.0, 0.0, 0.0],
@@ -557,9 +570,9 @@ pub fn rotate_x(a: super::angle::Angle) -> Mat4x4<RealToReal<3>> {
     ]
     .into()
 }
-/// Returns a matrix applying a rotation by `a` about the y axis.
+/// Returns a matrix applying a 3D rotation about the y axis.
 #[cfg(feature = "fp")]
-pub fn rotate_y(a: super::angle::Angle) -> Mat4x4<RealToReal<3>> {
+pub fn rotate_y(a: Angle) -> Mat4x4<RealToReal<3>> {
     let (sin, cos) = a.sin_cos();
     [
         [cos, 0.0, -sin, 0.0],
@@ -569,9 +582,9 @@ pub fn rotate_y(a: super::angle::Angle) -> Mat4x4<RealToReal<3>> {
     ]
     .into()
 }
-/// Returns a matrix applying a rotation of angle `a` about the z axis.
+/// Returns a matrix applying a 3D rotation about the z axis.
 #[cfg(feature = "fp")]
-pub fn rotate_z(a: super::angle::Angle) -> Mat4x4<RealToReal<3>> {
+pub fn rotate_z(a: Angle) -> Mat4x4<RealToReal<3>> {
     let (sin, cos) = a.sin_cos();
     [
         [cos, sin, 0.0, 0.0],
@@ -693,7 +706,7 @@ pub fn viewport(bounds: Range<Point2u>) -> Mat4x4<NdcToScreen> {
 #[cfg(test)]
 mod tests {
     use crate::assert_approx_eq;
-    use crate::math::{pt2, pt3, splat, vec2, vec3};
+    use crate::math::{pt2, pt3, vec2, vec3};
 
     #[cfg(feature = "fp")]
     use crate::math::degs;
@@ -711,6 +724,7 @@ mod tests {
     const X: Vec3 = Vec3::X;
     const Y: Vec3 = Vec3::Y;
     const Z: Vec3 = Vec3::Z;
+    const O: Vec3 = Vec3::new([0.0; 3]);
 
     mod mat3x3 {
         use super::*;
@@ -747,8 +761,8 @@ mod tests {
             assert_eq!(ts, s.compose(&t));
             assert_eq!(st, t.compose(&s));
 
-            assert_eq!(ts.apply(&splat(0.0)), vec2(-2.0, -6.0));
-            assert_eq!(st.apply(&splat(0.0)), vec2(2.0, -3.0));
+            assert_eq!(ts.apply(&vec2(0.0, 0.0)), vec2(-2.0, -6.0));
+            assert_eq!(st.apply(&vec2(0.0, 0.0)), vec2(2.0, -3.0));
         }
 
         #[test]
@@ -814,8 +828,8 @@ mod tests {
             assert_eq!(ts, s.compose(&t));
             assert_eq!(st, t.compose(&s));
 
-            assert_eq!(ts.apply(&splat(0.0)), vec3::<_, Basis1>(3.0, 4.0, 3.0));
-            assert_eq!(st.apply(&splat(0.0)), vec3::<_, Basis2>(1.0, 2.0, 3.0));
+            assert_eq!(ts.apply(&O.to()), vec3::<_, Basis1>(3.0, 4.0, 3.0));
+            assert_eq!(st.apply(&O.to()), vec3::<_, Basis2>(1.0, 2.0, 3.0));
         }
 
         #[test]
@@ -845,7 +859,7 @@ mod tests {
         fn rotation_x() {
             let m = rotate_x(degs(90.0));
 
-            assert_eq!(m.apply(&splat(0.0)), splat(0.0));
+            assert_eq!(m.apply(&O), O);
 
             assert_approx_eq!(m.apply(&Z), Y);
             assert_approx_eq!(
@@ -859,7 +873,7 @@ mod tests {
         fn rotation_y() {
             let m = rotate_y(degs(90.0));
 
-            assert_eq!(m.apply(&splat(0.0)), splat(0.0));
+            assert_eq!(m.apply(&O), O);
 
             assert_approx_eq!(m.apply(&X), Z);
             assert_approx_eq!(
@@ -873,7 +887,7 @@ mod tests {
         fn rotation_z() {
             let m = rotate_z(degs(90.0));
 
-            assert_eq!(m.apply(&splat(0.0)), splat(0.0));
+            assert_eq!(m.apply(&O), O);
 
             assert_approx_eq!(m.apply(&Y), X);
             assert_approx_eq!(
