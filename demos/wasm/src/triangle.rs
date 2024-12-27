@@ -32,7 +32,7 @@ pub fn start() {
         let t = frame.t.as_secs_f32();
 
         let mv = rotate_z(rads(t))
-            .then(&translate(vec3(0.0, 0.0, 3.0 + 2.0 * t.sin())))
+            .then(&translate((3.0 + 2.0 * t.sin()) * Vec3::Z))
             .to::<ModelToView>();
         let mvp = mv.then(&proj);
 

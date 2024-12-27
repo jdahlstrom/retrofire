@@ -251,6 +251,12 @@ where
     }
 }
 
+// TODO Make more general - requires a "Scalar::one()" method
+impl Vec2 {
+    pub const X: Self = vec2(1.0, 0.0);
+    pub const Y: Self = vec2(0.0, 1.0);
+}
+
 impl<R, Sc, B> Vector<R, Real<3, B>>
 where
     R: Index<usize, Output = Sc>,
@@ -308,6 +314,13 @@ where
         ]
         .into()
     }
+}
+
+// TODO Make more general
+impl Vec3 {
+    pub const X: Self = vec3(1.0, 0.0, 0.0);
+    pub const Y: Self = vec3(0.0, 1.0, 0.0);
+    pub const Z: Self = vec3(0.0, 0.0, 1.0);
 }
 
 impl<R, Sc> Vector<R, Proj4>
@@ -830,6 +843,10 @@ mod tests {
             assert_eq!(Vec2u::from([1, 2]), vec2(1, 2));
         }
     }
+
+    const X: Vec3 = Vec3::X;
+    const Y: Vec3 = Vec3::Y;
+    const Z: Vec3 = Vec3::Z;
 
     #[test]
     fn cross_product() {

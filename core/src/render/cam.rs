@@ -11,7 +11,7 @@ use crate::math::{
 use crate::util::{rect::Rect, Dims};
 
 #[cfg(feature = "fp")]
-use crate::math::{orient_z, translate, vec3, Angle};
+use crate::math::{orient_z, translate, Angle};
 
 use super::{
     clip::ClipVec, Context, FragmentShader, NdcToScreen, RealToProj, Target,
@@ -181,7 +181,7 @@ impl FirstPerson {
     pub fn translate(&mut self, delta: Vec3) {
         // Zero azimuth means parallel to the x-axis
         let fwd = spherical(1.0, self.heading.az(), turns(0.0)).to_cart();
-        let up = vec3(0.0, 1.0, 0.0);
+        let up = Vec3::Y;
         let right = up.cross(&fwd);
 
         self.pos +=
@@ -199,7 +199,7 @@ impl Mode for FirstPerson {
         let &Self { pos, heading: dir, .. } = self;
         let fwd_move = spherical(1.0, dir.az(), turns(0.0));
         let fwd = self.heading;
-        let right = vec3(0.0, 1.0, 0.0).cross(&fwd_move.to_cart());
+        let right = Vec3::Y.cross(&fwd_move.to_cart());
 
         // World to view is the inverse of the camera's world transform
         let transl = translate(-pos);
