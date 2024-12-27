@@ -545,7 +545,7 @@ fn orient(new_y: Vec3, new_z: Vec3) -> Mat4x4<RealToReal<3>> {
 
 // TODO constify rotate_* functions once we have const trig functions
 
-/// Returns a matrix applying a rotation by `a` about the x axis.
+/// Returns a matrix applying a 3D rotation about the x axis.
 #[cfg(feature = "fp")]
 pub fn rotate_x(a: super::angle::Angle) -> Mat4x4<RealToReal<3>> {
     let (sin, cos) = a.sin_cos();
@@ -557,7 +557,7 @@ pub fn rotate_x(a: super::angle::Angle) -> Mat4x4<RealToReal<3>> {
     ]
     .into()
 }
-/// Returns a matrix applying a rotation by `a` about the y axis.
+/// Returns a matrix applying a 3D rotation about the y axis.
 #[cfg(feature = "fp")]
 pub fn rotate_y(a: super::angle::Angle) -> Mat4x4<RealToReal<3>> {
     let (sin, cos) = a.sin_cos();
@@ -569,7 +569,7 @@ pub fn rotate_y(a: super::angle::Angle) -> Mat4x4<RealToReal<3>> {
     ]
     .into()
 }
-/// Returns a matrix applying a rotation of angle `a` about the z axis.
+/// Returns a matrix applying a 3D rotation about the z axis.
 #[cfg(feature = "fp")]
 pub fn rotate_z(a: super::angle::Angle) -> Mat4x4<RealToReal<3>> {
     let (sin, cos) = a.sin_cos();
@@ -580,6 +580,28 @@ pub fn rotate_z(a: super::angle::Angle) -> Mat4x4<RealToReal<3>> {
         [0.0, 0.0, 0.0, 1.0],
     ]
     .into()
+}
+
+#[cfg(feature = "fp")]
+pub fn rotate2(a: super::angle::Angle) -> Mat3x3<RealToReal<2>> {
+    let (sin, cos) = a.sin_cos();
+    [
+        [cos, sin, 0.0],  //
+        [-sin, cos, 0.0], //
+        [0.0, 0.0, 1.0],
+    ]
+    .into()
+}
+
+/// Returns a matrix applying a 3D rotation about an arbitrary axis.
+#[cfg(feature = "fp")]
+pub fn rotate(axis: Vec3, a: super::angle::Angle) -> Mat4x4<RealToReal<3>> {
+    // 1. Change of basis such that `axis` is mapped to the z-axis,
+    // 2. Rotation about the z-axis
+    // 3. Change of basis back to the original
+    let z_to_axis = orient_z(axis.normalize(), super::vec3(1.0, 0.0, 0.0));
+    let axis_to_z = z_to_axis.transpose();
+    axis_to_z.then(&rotate_z(a)).then(&z_to_axis)
 }
 
 /// Creates a perspective projection matrix.
@@ -852,6 +874,16 @@ mod tests {
                 m.apply_pt(&pt3(-2.0, 0.0, 0.0)),
                 pt3(0.0, 2.0, 0.0)
             );
+        }
+
+        #[cfg(feature = "fp")]
+        #[test]
+        fn rotation_arbitrary() {
+            let m = rotate(vec3(1.0, 1.0, 0.0).normalize(), degs(180.0));
+
+            assert_approx_eq!(m.apply(&X), Y);
+            assert_approx_eq!(m.apply(&Y), X);
+            assert_approx_eq!(m.apply(&Z), -Z);
         }
 
         #[test]
