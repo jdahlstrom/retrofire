@@ -4,18 +4,17 @@ use core::ops::Range;
 
 use crate::geom::{Tri, Vertex};
 use crate::math::{
-    angle::{spherical, turns, SphericalVec},
-    mat::{orthographic, perspective, viewport, Mat4x4, RealToReal},
-    pt2, Lerp, Linear, Point3, Vary, Vec3,
+    mat::RealToReal, orthographic, perspective, pt2, viewport, Lerp, Mat4x4,
+    Point3, SphericalVec, Vary,
 };
 use crate::util::{rect::Rect, Dims};
 
 #[cfg(feature = "fp")]
-use crate::math::{orient_z, translate, Angle};
+use crate::math::{orient_z, pt3, spherical, translate, turns, Angle, Vec3};
 
 use super::{
     clip::ClipVec, Context, FragmentShader, NdcToScreen, RealToProj, Target,
-    VertexShader, ViewToProj, World, WorldToView,
+    VertexShader, View, ViewToProj, World, WorldToView,
 };
 
 /// Camera movement mode.
@@ -46,9 +45,17 @@ pub struct Camera<M> {
 #[derive(Copy, Clone, Debug)]
 pub struct FirstPerson {
     /// Current position of the camera in world space.
-    pub pos: Vec3,
+    pub pos: Point3<World>,
     /// Current heading of the camera in world space.
+    // TODO Add basis type param to SphericalVec
     pub heading: SphericalVec,
+}
+
+pub type ViewToWorld = RealToReal<3, View, World>;
+
+#[cfg(feature = "fp")]
+fn az_alt(az: Angle, alt: Angle) -> SphericalVec {
+    spherical(1.0, az, alt)
 }
 
 //
@@ -148,44 +155,51 @@ impl<M: Mode> Camera<M> {
     }
 }
 
+#[cfg(feature = "fp")]
 impl FirstPerson {
     /// Creates a first-person mode with position in the origin and heading
     /// in the direction of the positive x-axis.
     pub fn new() -> Self {
         Self {
-            pos: Vec3::zero(),
-            heading: spherical(1.0, turns(0.0), turns(0.0)),
+            pos: pt3(0.0, 0.0, 0.0),
+            heading: az_alt(turns(0.0), turns(0.0)),
         }
     }
-}
 
-#[cfg(feature = "fp")]
-impl FirstPerson {
-    pub fn look_at(&mut self, pt: Vec3) {
-        self.heading = (pt - self.pos).into();
+    /// Rotates the camera to center the view on a *world-space* point.
+    pub fn look_at(&mut self, pt: Point3<World>) {
+        self.heading = (pt - self.pos).to().to_spherical();
         self.heading[0] = 1.0;
     }
 
-    pub fn rotate(&mut self, az: Angle, alt: Angle) {
-        self.rotate_to(self.heading.az() + az, self.heading.alt() + alt);
+    /// Rotates the camera by relative azimuth and altitude.
+    ///
+    /// This is equivalent to rotating to an absolute orientation in
+    /// *view* space, because in view space the orientation is always
+    /// centered on the z-axis.
+    pub fn rotate(&mut self, delta_az: Angle, delta_alt: Angle) {
+        let head = self.heading;
+        self.rotate_to(head.az() + delta_az, head.alt() + delta_alt);
     }
 
+    /// Rotates the camera to an absolute orientation in *world* space.
+    // TODO may confuse camera and world space
     pub fn rotate_to(&mut self, az: Angle, alt: Angle) {
-        self.heading = spherical(
-            1.0,
+        self.heading = az_alt(
             az.wrap(turns(-0.5), turns(0.5)),
             alt.clamp(turns(-0.25), turns(0.25)),
         );
     }
 
-    pub fn translate(&mut self, delta: Vec3) {
+    /// Translates the camera by a relative offset in *view* space.
+    pub fn translate(&mut self, delta: Vec3<View>) {
         // Zero azimuth means parallel to the x-axis
-        let fwd = spherical(1.0, self.heading.az(), turns(0.0)).to_cart();
+        let fwd = az_alt(self.heading.az(), turns(0.0)).to_cart();
         let up = Vec3::Y;
         let right = up.cross(&fwd);
 
-        self.pos +=
-            Mat4x4::<RealToReal<3>>::from_basis(right, up, fwd).apply(&delta);
+        let to_world = Mat4x4::<ViewToWorld>::from_basis(right, up, fwd);
+        self.pos += to_world.apply(&delta);
     }
 }
 
@@ -196,14 +210,14 @@ impl FirstPerson {
 #[cfg(feature = "fp")]
 impl Mode for FirstPerson {
     fn world_to_view(&self) -> Mat4x4<WorldToView> {
-        let &Self { pos, heading: dir, .. } = self;
-        let fwd_move = spherical(1.0, dir.az(), turns(0.0));
-        let fwd = self.heading;
-        let right = Vec3::Y.cross(&fwd_move.to_cart());
+        let &Self { pos, heading, .. } = self;
+        let fwd_move = az_alt(heading.az(), turns(0.0)).to_cart();
+        let fwd = heading.to_cart();
+        let right = Vec3::Y.cross(&fwd_move);
 
-        // World to view is the inverse of the camera's world transform
-        let transl = translate(-pos);
-        let orient = orient_z(fwd.into(), right).transpose();
+        // World-to-view is inverse of camera's world transform
+        let transl = translate(-pos.to_vec().to());
+        let orient = orient_z(fwd, right).transpose();
 
         transl.then(&orient).to()
     }
