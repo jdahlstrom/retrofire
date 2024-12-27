@@ -485,7 +485,10 @@ impl<Repr, M> From<Repr> for Matrix<Repr, M> {
 /// assert_eq!(m.0[2][2], 2.0);
 /// ```
 pub const fn scale(s: Vec3) -> Mat4x4<RealToReal<3>> {
-    let [x, y, z] = s.0;
+    scale3(s.0[0], s.0[1], s.0[2])
+}
+
+pub const fn scale3(x: f32, y: f32, z: f32) -> Mat4x4<RealToReal<3>> {
     Matrix::new([
         [x, 0.0, 0.0, 0.0],
         [0.0, y, 0.0, 0.0],
@@ -496,7 +499,10 @@ pub const fn scale(s: Vec3) -> Mat4x4<RealToReal<3>> {
 
 /// Returns a matrix applying a translation by `t`.
 pub const fn translate(t: Vec3) -> Mat4x4<RealToReal<3>> {
-    let [x, y, z] = t.0;
+    translate3(t.0[0], t.0[1], t.0[2])
+}
+
+pub const fn translate3(x: f32, y: f32, z: f32) -> Mat4x4<RealToReal<3>> {
     Matrix::new([
         [1.0, 0.0, 0.0, x],
         [0.0, 1.0, 0.0, y],
@@ -819,8 +825,8 @@ mod tests {
 
         #[test]
         fn composition() {
-            let t = translate(vec3(1.0, 2.0, 3.0)).to::<Map>();
-            let s = scale(vec3(3.0, 2.0, 1.0)).to::<InvMap>();
+            let t = translate3(1.0, 2.0, 3.0).to::<Map>();
+            let s = scale3(3.0, 2.0, 1.0).to::<InvMap>();
 
             let ts = t.then(&s);
             let st = s.then(&t);
@@ -834,7 +840,7 @@ mod tests {
 
         #[test]
         fn scaling() {
-            let m = scale(vec3(1.0, -2.0, 3.0));
+            let m = scale3(1.0, -2.0, 3.0);
 
             let v = vec3(0.0, 4.0, -3.0);
             assert_eq!(m.apply(&v), vec3(0.0, -8.0, -9.0));
@@ -845,7 +851,7 @@ mod tests {
 
         #[test]
         fn translation() {
-            let m = translate(vec3(1.0, 2.0, 3.0));
+            let m = translate3(1.0, 2.0, 3.0);
 
             let v = vec3(0.0, 5.0, -3.0);
             assert_eq!(m.apply(&v), vec3(1.0, 7.0, 0.0));
@@ -1020,7 +1026,7 @@ mod tests {
 
     #[test]
     fn determinant_of_scaling_is_product_of_diagonal() {
-        let scale: Mat4x4<_> = scale(vec3(2.0, 3.0, 4.0));
+        let scale: Mat4x4<_> = scale3(2.0, 3.0, 4.0);
         assert_eq!(scale.determinant(), 24.0);
     }
 
@@ -1034,8 +1040,8 @@ mod tests {
     #[cfg(feature = "fp")]
     #[test]
     fn mat_times_mat_inverse_is_identity() {
-        let m = translate(vec3(1.0e3, -2.0e2, 0.0))
-            .then(&scale(vec3(0.5, 100.0, 42.0)))
+        let m = translate3(1.0e3, -2.0e2, 0.0)
+            .then(&scale3(0.5, 100.0, 42.0))
             .to::<Map>();
 
         let m_inv: Mat4x4<InvMap> = m.inverse();
@@ -1052,8 +1058,8 @@ mod tests {
 
     #[test]
     fn inverse_reverts_transform() {
-        let m: Mat4x4<Map> = scale(vec3(1.0, 2.0, 0.5))
-            .then(&translate(vec3(-2.0, 3.0, 0.0)))
+        let m: Mat4x4<Map> = scale3(1.0, 2.0, 0.5)
+            .then(&translate3(-2.0, 3.0, 0.0))
             .to();
         let m_inv: Mat4x4<InvMap> = m.inverse();
 
