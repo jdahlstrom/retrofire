@@ -752,12 +752,9 @@ mod tests {
     fn spherical_to_cartesian() {
         assert_eq!(
             spherical(0.0, degs(0.0), degs(0.0)).to_cart(),
-            vec3(0.0, 0.0, 0.0)
+            Vec3::zero()
         );
-        assert_eq!(
-            spherical(1.0, degs(0.0), degs(0.0)).to_cart(),
-            vec3(1.0, 0.0, 0.0)
-        );
+        assert_eq!(spherical(1.0, degs(0.0), degs(0.0)).to_cart(), Vec3::X);
         assert_approx_eq!(
             spherical(2.0, degs(60.0), degs(0.0)).to_cart(),
             vec3(1.0, 0.0, SQRT_3)

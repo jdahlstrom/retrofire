@@ -48,7 +48,7 @@ fn main() {
         let secs = frame.t.as_secs_f32();
 
         let mvp = rotate_y(rads(secs))
-            .then(&translate(vec3(0.0, 0.0, 3.0 + secs.sin())))
+            .then(&translate((3.0 + secs.sin()) * Vec3::Z))
             .to()
             .then(&project);
 

@@ -5,8 +5,7 @@ use minifb::{Key, KeyRepeat};
 use re::prelude::*;
 
 use re::math::{
-    color::gray, mat::RealToReal, point::pt2, spline::smootherstep,
-    vec::ProjVec4,
+    color::gray, mat::RealToReal, pt2, smootherstep, vec::ProjVec4,
 };
 use re::render::{
     raster::Frag, shader::Shader, Batch, Camera, ModelToProj, ModelToWorld,
@@ -88,7 +87,7 @@ fn main() {
 
     let objects = objects(8);
 
-    let translate = translate(vec3(0.0, 0.0, -4.0));
+    let translate = translate(-4.0 * Vec3::Z);
     let mut carousel = Carousel::default();
 
     win.run(|frame| {
@@ -180,7 +179,7 @@ fn teapot() -> Mesh<Normal3> {
         .unwrap()
         .transform(
             &scale(splat(0.4))
-                .then(&translate(vec3(0.0, -0.5, 0.0)))
+                .then(&translate(-0.5 * Vec3::Y))
                 .to(),
         )
         .with_vertex_normals()
@@ -191,11 +190,7 @@ fn teapot() -> Mesh<Normal3> {
 fn bunny() -> Mesh<Normal3> {
     parse_obj(*include_bytes!("../../assets/bunny.obj"))
         .unwrap()
-        .transform(
-            &scale(splat(0.15))
-                .then(&translate(vec3(0.0, -1.0, 0.0)))
-                .to(),
-        )
+        .transform(&scale(splat(0.15)).then(&translate(-Vec3::Y)).to())
         .with_vertex_normals()
         .build()
 }
