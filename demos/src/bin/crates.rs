@@ -3,7 +3,9 @@ use core::ops::ControlFlow::*;
 use re::prelude::*;
 
 use re::math::color::gray;
-use re::render::{cam::FirstPerson, Batch, Camera, ModelToProj};
+use re::render::{
+    cam::FirstPerson, shader::Shader, Batch, Camera, ModelToProj,
+};
 
 use re_front::sdl2::Window;
 use re_geom::solids::Box;
@@ -32,7 +34,7 @@ fn main() {
 
     let (w, h) = win.dims;
     let mut cam = Camera::new(win.dims)
-        .mode(FirstPerson::default())
+        .transform(FirstPerson::default())
         .viewport((10..w - 10, 10..h - 10))
         .perspective(1.0, 0.1..1000.0);
 
@@ -61,8 +63,8 @@ fn main() {
         let d_az = turns(ms.x() as f32) * -0.001;
         let d_alt = turns(ms.y() as f32) * 0.001;
 
-        cam.mode.rotate(d_az, d_alt);
-        cam.mode
+        cam.transform.rotate(d_az, d_alt);
+        cam.transform
             .translate(cam_vel.mul(frame.dt.as_secs_f32()));
 
         let flip = scale3(1.0, -1.0, -1.0).to();
