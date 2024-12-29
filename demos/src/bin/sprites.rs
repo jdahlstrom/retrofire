@@ -34,7 +34,7 @@ fn main() {
         .build()
         .expect("should create window");
 
-    let shader = Shader::new(
+    let shader = shader::new(
         |v: Vertex3<Vec2<_>>,
          (mv, proj): (&Mat4x4<ModelToView>, &Mat4x4<ViewToProj>)| {
             let vertex_pos = 0.008 * vec3(v.attrib.x(), v.attrib.y(), 0.0);

@@ -35,7 +35,7 @@ fn main() {
         rgba(xor as u8 * 255, 128, 255 - xor as u8 * 128, 0)
     }));
 
-    let shader = Shader::new(
+    let shader = shader::new(
         |v: Vertex3<_>, mvp: &Mat4x4<ModelToProj>| {
             vertex(mvp.apply(&v.pos), v.attrib)
         },
@@ -63,6 +63,16 @@ fn main() {
             &mut frame.buf,
             &frame.ctx,
         );
+        /*render(
+            [[0, 1], [1, 2], [2, 3], [1, 3]],
+            verts,
+            &shader2,
+            &mvp,
+            viewport,
+            &mut frame.buf,
+            &frame.ctx,
+        );*/
+
         Continue(())
     });
 }
