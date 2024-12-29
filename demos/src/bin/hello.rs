@@ -30,7 +30,7 @@ fn main() {
 
     win.ctx.face_cull = None;
 
-    let shader = Shader::new(
+    let shader = shader::new(
         |v: Vertex<_, _>, mvp: &Mat4x4<ModelToProj>| {
             vertex(mvp.apply(&v.pos), v.attrib)
         },
