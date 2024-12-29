@@ -3,7 +3,9 @@ use core::{array::from_fn, ops::ControlFlow::Continue};
 use re::prelude::*;
 
 use re::math::rand::{Distrib, PointsInUnitBall, Xorshift64};
-use re::render::{cam::Mode, render, Model, ModelToView, ViewToProj};
+use re::render::{
+    cam::Transform, render, shader::Shader, Model, ModelToView, ViewToProj,
+};
 use re_front::minifb::Window;
 
 fn main() {
@@ -51,7 +53,7 @@ fn main() {
 
     let (w, h) = win.dims;
     let cam = Camera::new(win.dims)
-        .mode(translate(0.5 * Vec3::Z).to())
+        .transform(translate(0.5 * Vec3::Z).to())
         .perspective(1.0, 1e-2..1e3)
         .viewport(vec2(10, 10)..vec2(w - 10, h - 10));
 
@@ -61,7 +63,7 @@ fn main() {
         let modelview = rotate_x(theta * 0.2)
             .then(&rotate_z(theta * 0.14))
             .to()
-            .then(&cam.mode.world_to_view());
+            .then(&cam.transform.world_to_view());
 
         render(
             &tris,

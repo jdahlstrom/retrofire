@@ -60,7 +60,7 @@ fn main() {
 
     let (w, h) = win.dims;
     let cam = Camera::new(win.dims)
-        .mode(scale3(1.0, -1.0, -1.0).to())
+        .transform(scale3(1.0, -1.0, -1.0).to())
         .perspective(1.5, 0.1..1000.0)
         .viewport(vec2(10, 10)..vec2(w - 10, h - 10));
 
