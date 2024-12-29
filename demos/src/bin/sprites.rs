@@ -3,7 +3,9 @@ use core::{array::from_fn, ops::ControlFlow::Continue};
 use re::prelude::*;
 
 use re::math::rand::{Distrib, PointsInUnitBall, Xorshift64};
-use re::render::{cam::Mode, render, Model, ModelToView, ViewToProj};
+use re::render::{
+    cam::Transform, render, shader::Shader, Model, ModelToView, ViewToProj,
+};
 use re_front::minifb::Window;
 
 fn main() {

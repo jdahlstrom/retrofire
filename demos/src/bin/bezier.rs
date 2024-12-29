@@ -1,8 +1,8 @@
-use re::geom::Ray;
 use std::{mem::swap, ops::ControlFlow::Continue};
 
 use re::prelude::*;
 
+use re::geom::Ray;
 use re::math::rand::{Distrib, Uniform, VectorsOnUnitDisk, Xorshift64};
 
 use re_front::{dims::SVGA_800_600, minifb::Window, Frame};
