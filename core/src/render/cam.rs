@@ -19,10 +19,8 @@ use super::{
     VertexShader, View, ViewToProj, World, WorldToView,
 };
 
-/// Camera movement mode.
-///
-/// TODO Rename to something more specific (e.g. `Motion`?)
-pub trait Mode {
+/// Trait for different camera motion transforms.
+pub trait Transform {
     /// Returns the current world-to-view matrix of this camera mode.
     fn world_to_view(&self) -> Mat4x4<WorldToView>;
 }
@@ -85,7 +83,7 @@ impl Camera<()> {
         }
     }
 
-    pub fn mode<M: Mode>(self, mode: M) -> Camera<M> {
+    pub fn mode<M: Transform>(self, mode: M) -> Camera<M> {
         let Self { dims, project, viewport, .. } = self;
         Camera { mode, dims, project, viewport }
     }
@@ -131,7 +129,7 @@ impl<M> Camera<M> {
     }
 }
 
-impl<M: Mode> Camera<M> {
+impl<M: Transform> Camera<M> {
     /// Returns the composed camera and projection matrix.
     pub fn world_to_project(&self) -> Mat4x4<RealToProj<World>> {
         self.mode.world_to_view().then(&self.project)
@@ -262,7 +260,7 @@ impl Orbit {
 //
 
 #[cfg(feature = "fp")]
-impl Mode for FirstPerson {
+impl Transform for FirstPerson {
     fn world_to_view(&self) -> Mat4x4<WorldToView> {
         let &Self { pos, heading, .. } = self;
         let fwd_move = az_alt(heading.az(), turns(0.0)).to_cart();
@@ -278,7 +276,7 @@ impl Mode for FirstPerson {
 }
 
 #[cfg(feature = "fp")]
-impl Mode for Orbit {
+impl Transform for Orbit {
     fn world_to_view(&self) -> Mat4x4<WorldToView> {
         // TODO Figure out how to do this with orient
         //let fwd = self.dir.to_cart().normalize();
@@ -294,7 +292,7 @@ impl Mode for Orbit {
     }
 }
 
-impl Mode for Mat4x4<WorldToView> {
+impl Transform for Mat4x4<WorldToView> {
     fn world_to_view(&self) -> Mat4x4<WorldToView> {
         *self
     }

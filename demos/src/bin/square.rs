@@ -3,7 +3,9 @@ use std::ops::ControlFlow::*;
 use re::prelude::*;
 
 use re::math::{pt2, pt3};
-use re::render::{render, tex::SamplerClamp, Context, ModelToProj};
+use re::render::{
+    render, shader::Shader, tex::SamplerClamp, Context, ModelToProj,
+};
 
 use re_front::minifb::Window;
 
