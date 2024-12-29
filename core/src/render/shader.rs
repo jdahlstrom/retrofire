@@ -14,7 +14,10 @@
 //! input any vertex attributes interpolated across the primitive being
 //! rasterized, such as color, texture coordinate, or normal vector.
 
-use crate::{geom::Vertex, math::Color4};
+use crate::{
+    geom::Vertex,
+    math::{vec::ProjVec4, Color4},
+};
 
 use super::raster::Frag;
 
@@ -70,6 +73,14 @@ where
     fn shade_fragment(&self, frag: Frag<Var>) -> Option<Color4> {
         self(frag).into()
     }
+}
+
+pub fn new<Vs, Fs, Vtx, Var, Uni>(vs: Vs, fs: Fs) -> Shader<Vs, Fs>
+where
+    Vs: VertexShader<Vtx, Uni, Output = Vertex<ProjVec4, Var>>,
+    Fs: FragmentShader<Var>,
+{
+    Shader::new(vs, fs)
 }
 
 /// A type that composes a vertex and a fragment shader.

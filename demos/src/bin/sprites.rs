@@ -3,9 +3,7 @@ use core::{array::from_fn, ops::ControlFlow::Continue};
 use re::prelude::*;
 
 use re::math::rand::{Distrib, PointsInUnitBall, Xorshift64};
-use re::render::{
-    cam::Transform, render, shader::Shader, Model, ModelToView, ViewToProj,
-};
+use re::render::{cam::Transform, render, Model, ModelToView, ViewToProj};
 use re_front::minifb::Window;
 
 fn main() {
@@ -34,7 +32,7 @@ fn main() {
         .build()
         .expect("should create window");
 
-    let shader = Shader::new(
+    let shader = shader::new(
         |v: Vertex3<Vec2<_>>,
          (mv, proj): (&Mat4x4<ModelToView>, &Mat4x4<ViewToProj>)| {
             let vertex_pos = 0.008 * vec3(v.attrib.x(), v.attrib.y(), 0.0);

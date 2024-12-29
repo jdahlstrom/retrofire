@@ -14,13 +14,13 @@ fn main() {
         .build()
         .expect("should create window");
 
-    let floor_shader = Shader::new(
+    let floor_shader = shader::new(
         |v: Vertex3<_>, mvp: &Mat4x4<ModelToProj>| {
             vertex(mvp.apply(&v.pos), v.attrib)
         },
         |frag: Frag<Color3f>| frag.var.to_color4(),
     );
-    let crate_shader = Shader::new(
+    let crate_shader = shader::new(
         |v: Vertex3<_>, mvp: &Mat4x4<ModelToProj>| {
             vertex(mvp.apply(&v.pos), v.attrib)
         },
