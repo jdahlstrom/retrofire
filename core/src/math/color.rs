@@ -2,7 +2,7 @@
 
 use core::{
     array,
-    fmt::{self, Debug, Formatter},
+    fmt::{self, Debug, Formatter, UpperHex},
     marker::PhantomData,
     ops::Index,
 };
@@ -63,6 +63,10 @@ pub type Color3f<Space = Rgb> = Color<[f32; 3], Space>;
 /// outside the range can be useful as intermediate results in calculations.
 pub type Color4f<Space = Rgba> = Color<[f32; 4], Space>;
 
+//
+// Consts and free functions
+//
+
 /// Returns a new RGB color with the given color channels.
 pub const fn rgb<Ch>(r: Ch, g: Ch, b: Ch) -> Color<[Ch; 3], Rgb> {
     Color([r, g, b], PhantomData)
@@ -99,14 +103,6 @@ pub const INV_GAMMA: f32 = 1.0 / GAMMA;
 //
 
 impl Color3<Rgb> {
-    #[inline]
-    /// Returns a `u32` containing the component bytes of `self`
-    /// in format `0x00_RR_GG_BB`.
-    pub const fn to_rgb_u32(self) -> u32 {
-        let [r, g, b] = self.0;
-        u32::from_be_bytes([0x00, r, g, b])
-    }
-
     /// Returns `self` as RGBA, with alpha set to 0xFF (fully opaque).
     #[inline]
     pub const fn to_rgba(self) -> Color4 {
@@ -152,19 +148,6 @@ impl Color4<Rgba> {
     pub fn to_rgb(self) -> Color3<Rgb> {
         let [r, g, b, _] = self.0;
         rgb(r, g, b)
-    }
-
-    /// Returns a `u32` containing the component bytes of `self`
-    /// in format `0xRR_GG_BB_AA`.
-    pub const fn to_rgba_u32(self) -> u32 {
-        u32::from_be_bytes(self.0)
-    }
-
-    /// Returns a `u32` containing the component bytes of `self`
-    /// in format `0xAA_RR_GG_BB`.
-    #[inline]
-    pub const fn to_argb_u32(self) -> u32 {
-        self.to_rgba_u32().rotate_right(8)
     }
 
     /// Returns the HSLA color equivalent to `self`.
@@ -539,7 +522,20 @@ impl<Sc, Sp, const N: usize> ZDiv for Color<[Sc; N], Sp> where Sc: ZDiv + Copy {
 
 impl<R: Debug, Space: Debug + Default> Debug for Color<R, Space> {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
-        write!(f, "Color<{:?}>{:?}", Space::default(), self.0)
+        Debug::fmt(&Space::default(), f)?;
+        Debug::fmt(&self.0, f)
+    }
+}
+
+impl UpperHex for Color3<Rgb> {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        let [r, g, b] = self.0;
+        write!(f, "#{:X}", u32::from_be_bytes([0, r, g, b]))
+    }
+}
+impl UpperHex for Color4<Rgba> {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        write!(f, "#{:X}", u32::from_be_bytes(self.0))
     }
 }
 
@@ -554,25 +550,32 @@ impl<R, Sp> From<R> for Color<R, Sp> {
 mod tests {
     use super::*;
 
+    const RGB: Color3 = rgb(0x44, 0x88, 0xCC);
+    const RGBA: Color4 = rgba(0x33, 0x66, 0x99, 0xCC);
+
     #[test]
     fn color_components() {
-        assert_eq!(rgb(0xFF, 0, 0).r(), 0xFF);
-        assert_eq!(rgb(0, 0xFF, 0).g(), 0xFF);
-        assert_eq!(rgb(0, 0, 0xFF).b(), 0xFF);
+        assert_eq!(RGB.r(), 0x44);
+        assert_eq!(RGB.g(), 0x88);
+        assert_eq!(RGB.b(), 0xCC);
 
-        assert_eq!(rgba(0xFF, 0, 0, 0).r(), 0xFF);
-        assert_eq!(rgba(0, 0xFF, 0, 0).g(), 0xFF);
-        assert_eq!(rgba(0, 0, 0xFF, 0).b(), 0xFF);
-        assert_eq!(rgba(0, 0, 0, 0xFF).a(), 0xFF);
+        assert_eq!(RGBA.r(), 0x33);
+        assert_eq!(RGBA.g(), 0x66);
+        assert_eq!(RGBA.b(), 0x99);
+        assert_eq!(RGBA.a(), 0xCC);
     }
+
+    #[cfg(feature = "std")]
     #[test]
-    fn rgb_to_u32() {
-        assert_eq!(rgb(0x11, 0x22, 0x33).to_rgb_u32(), 0x00_11_22_33);
+    fn rgb_hex_formatting() {
+        assert_eq!(std::format!("{RGB:X?}"), "Rgb[44, 88, CC]");
+        assert_eq!(std::format!("{RGB:X}"), "#4488CC");
     }
+    #[cfg(feature = "std")]
     #[test]
-    fn rgba_to_u32() {
-        assert_eq!(rgba(0x11, 0x22, 0x33, 0x44).to_rgba_u32(), 0x11_22_33_44);
-        assert_eq!(rgba(0x11, 0x22, 0x33, 0x44).to_argb_u32(), 0x44_11_22_33);
+    fn rgba_hex_formatting() {
+        assert_eq!(std::format!("{RGBA:X?}"), "Rgba[33, 66, 99, CC]");
+        assert_eq!(std::format!("{RGBA:X}"), "#336699CC");
     }
 
     #[test]

@@ -6,6 +6,7 @@ extern crate core;
 use core::time::Duration;
 
 use retrofire_core::{
+    math::color::pixel_fmt,
     render::{Context, Framebuf},
     util::buf::AsMutSlice2,
 };
@@ -78,7 +79,7 @@ impl<W, C: AsMutSlice2<u32>, Z: AsMutSlice2<f32>> Frame<'_, W, Framebuf<C, Z>> {
             self.buf
                 .color_buf
                 .as_mut_slice2()
-                .fill(c.to_argb_u32());
+                .fill(c.to_fmt(pixel_fmt::Argb8888));
         }
         if let Some(z) = self.ctx.depth_clear {
             // Depth buffer contains reciprocal depth values

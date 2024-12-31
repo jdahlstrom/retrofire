@@ -56,7 +56,7 @@ fn main() {
         for seg in apx.windows(2) {
             for pt in line([seg[0], seg[1]]) {
                 // The curve can't go out of bounds if the control points don't
-                buf.color_buf[pt] = 0xFF_FF_FF;
+                buf.color_buf.0[pt] = 0xFF_FF_FF;
             }
         }
 
