@@ -112,6 +112,20 @@ where
         co2.mul(t).add(&co1).mul(t).add(&co0).mul(3.0)
     }
 
+    /// Returns the acceleration vector of `self`
+    pub fn acceleration(&self, t: f32) -> T::Diff {
+        let [p0, p1, p2, p3] = &self.0;
+        let t = t.clamp(0.0, 1.0);
+
+        //   6 (3 (p1 - p2) + (p3 - p0)) * t
+        // + 6 ((p0 - p1 + p2 - p1)
+
+        let co1: T::Diff = p1.sub(p2).mul(3.0).add(&p3.sub(p0)).mul(3.0);
+        let co0: T::Diff = p0.sub(p1).add(&p2.sub(p1));
+
+        co1.mul(t).add(&co0).mul(6.0)
+    }
+
     /// Returns the coefficients used to evaluate the spline.
     ///
     /// These are constant as long as the control points do not change,
@@ -222,6 +236,11 @@ where
     pub fn tangent(&self, t: f32) -> T::Diff {
         let (t, seg) = self.segment(t);
         CubicBezier(seg).tangent(t)
+    }
+
+    pub fn acceleration(&self, t: f32) -> T::Diff {
+        let (t, seg) = self.segment(t);
+        CubicBezier(seg).acceleration(t)
     }
 
     fn segment(&self, t: f32) -> (f32, [T; 4]) {
