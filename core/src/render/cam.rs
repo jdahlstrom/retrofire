@@ -47,14 +47,13 @@ pub struct FirstPerson {
     /// Current position of the camera in **world** space.
     pub pos: Point3<World>,
     /// Current heading of the camera in **world** space.
-    // TODO Add basis type param to SphericalVec
-    pub heading: SphericalVec,
+    pub heading: SphericalVec<World>,
 }
 
 pub type ViewToWorld = RealToReal<3, View, World>;
 
 #[cfg(feature = "fp")]
-fn az_alt(az: Angle, alt: Angle) -> SphericalVec {
+fn az_alt<B>(az: Angle, alt: Angle) -> SphericalVec<B> {
     spherical(1.0, az, alt)
 }
 /// Orbiting camera transform.
@@ -67,7 +66,7 @@ pub struct Orbit {
     /// The camera's target point in **world** space.
     pub target: Point3<World>,
     /// The camera's direction in **world** space.
-    pub dir: SphericalVec,
+    pub dir: SphericalVec<World>,
 }
 
 //
@@ -185,7 +184,7 @@ impl FirstPerson {
 
     /// Rotates the camera to center the view on a **world-space** point.
     pub fn look_at(&mut self, pt: Point3<World>) {
-        let head = (pt - self.pos).to().to_spherical();
+        let head = (pt - self.pos).to_spherical();
         self.rotate_to(head.az(), head.alt());
     }
 
@@ -280,7 +279,7 @@ impl Transform for FirstPerson {
 
         // World-to-view is inverse of camera's world transform
         let transl = translate(-pos.to_vec().to());
-        let orient = orient_z(fwd, right).transpose();
+        let orient = orient_z(fwd.to(), right).transpose();
 
         transl.then(&orient).to()
     }
