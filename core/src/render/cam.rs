@@ -19,16 +19,16 @@ use super::{
     VertexShader, View, ViewToProj, World, WorldToView,
 };
 
-/// Trait for different camera motion transforms.
+/// Trait for different modes of camera motion.
 pub trait Transform {
-    /// Returns the current world-to-view matrix of this camera mode.
+    /// Returns the current world-to-view matrix.
     fn world_to_view(&self) -> Mat4x4<WorldToView>;
 }
 
 /// Type to manage the world-to-viewport transformation.
 #[derive(Copy, Clone, Debug, Default)]
 pub struct Camera<Tf> {
-    /// The movement mode of the camera.
+    /// World-to-view transform.
     pub transform: Tf,
     /// Viewport width and height.
     pub dims: Dims,
@@ -38,15 +38,15 @@ pub struct Camera<Tf> {
     pub viewport: Mat4x4<NdcToScreen>,
 }
 
-/// First-person camera mode.
+/// First-person camera transform.
 ///
 /// This is the familiar "FPS" movement mode, based on camera
 /// position and heading (look-at vector).
 #[derive(Copy, Clone, Debug)]
 pub struct FirstPerson {
-    /// Current position of the camera in world space.
+    /// Current position of the camera in **world** space.
     pub pos: Point3<World>,
-    /// Current heading of the camera in world space.
+    /// Current heading of the camera in **world** space.
     // TODO Add basis type param to SphericalVec
     pub heading: SphericalVec,
 }
@@ -57,10 +57,11 @@ pub type ViewToWorld = RealToReal<3, View, World>;
 fn az_alt(az: Angle, alt: Angle) -> SphericalVec {
     spherical(1.0, az, alt)
 }
-/// Orbiting camera mode.
+/// Orbiting camera transform.
 ///
-/// This mode can rotate the camera around a fixed point, centered on the
-/// point, and change the camera's distance to the target point.
+/// Keeps the camera centered on a **world-space** point, and allows free
+/// 360°/180° azimuth/altitude rotation around that point as well as setting
+/// the distance from the point.
 #[derive(Copy, Clone, Debug)]
 pub struct Orbit {
     /// The camera's target point in **world** space.
@@ -83,10 +84,10 @@ impl Camera<()> {
         }
     }
 
-    pub fn transform<M: Transform>(self, mode: M) -> Camera<M> {
+    pub fn transform<T: Transform>(self, tf: T) -> Camera<T> {
         let Self { dims, project, viewport, .. } = self;
         Camera {
-            transform: mode,
+            transform: tf,
             dims,
             project,
             viewport,
@@ -94,7 +95,7 @@ impl Camera<()> {
     }
 }
 
-impl<M> Camera<M> {
+impl<T> Camera<T> {
     /// Sets the viewport bounds of this camera.
     pub fn viewport(self, bounds: impl Into<Rect<u32>>) -> Self {
         let (w, h) = self.dims;
@@ -134,7 +135,7 @@ impl<M> Camera<M> {
     }
 }
 
-impl<M: Transform> Camera<M> {
+impl<T: Transform> Camera<T> {
     /// Returns the composed camera and projection matrix.
     pub fn world_to_project(&self) -> Mat4x4<RealToProj<World>> {
         self.transform.world_to_view().then(&self.project)
@@ -173,8 +174,8 @@ impl<M: Transform> Camera<M> {
 
 #[cfg(feature = "fp")]
 impl FirstPerson {
-    /// Creates a first-person mode with position in the origin and heading
-    /// in the direction of the positive x-axis.
+    /// Creates a first-person transform with position in the origin
+    /// and heading in the direction of the positive x-axis.
     pub fn new() -> Self {
         Self {
             pos: pt3(0.0, 0.0, 0.0),
@@ -182,7 +183,7 @@ impl FirstPerson {
         }
     }
 
-    /// Rotates the camera to center the view on a *world-space* point.
+    /// Rotates the camera to center the view on a **world-space** point.
     pub fn look_at(&mut self, pt: Point3<World>) {
         let head = (pt - self.pos).to().to_spherical();
         self.rotate_to(head.az(), head.alt());
@@ -194,7 +195,7 @@ impl FirstPerson {
         self.rotate_to(head.az() + delta_az, head.alt() + delta_alt);
     }
 
-    /// Rotates the camera to an absolute orientation in *world* space.
+    /// Rotates the camera to an absolute orientation in **world** space.
     // TODO may confuse camera and world space
     pub fn rotate_to(&mut self, az: Angle, alt: Angle) {
         self.heading = az_alt(
@@ -203,7 +204,7 @@ impl FirstPerson {
         );
     }
 
-    /// Translates the camera by a relative offset in *view* space.
+    /// Translates the camera by a relative offset in **view** space.
     // TODO Explain that up/down is actually in world space (dir of gravity)
     pub fn translate(&mut self, delta: Vec3<View>) {
         // Zero azimuth means parallel to the x-axis
@@ -218,12 +219,16 @@ impl FirstPerson {
 
 #[cfg(feature = "fp")]
 impl Orbit {
-    /// Adds the azimuth and altitude given to the camera's current direction.
+    /// Adds the azimuth and altitude to the camera's current direction.
+    ///
+    /// Wraps the resulting azimuth to [-180°, 180°) and clamps the altitude to [-90°, 90°].
     pub fn rotate(&mut self, az_delta: Angle, alt_delta: Angle) {
         self.rotate_to(self.dir.az() + az_delta, self.dir.alt() + alt_delta);
     }
 
     /// Rotates the camera to the **world**-space azimuth and altitude given.
+    ///
+    /// Wraps the azimuth to [-180°, 180°) and clamps the altitude to [-90°, 90°].
     pub fn rotate_to(&mut self, az: Angle, alt: Angle) {
         self.dir = spherical(
             self.dir.r(),
@@ -246,16 +251,17 @@ impl Orbit {
     /// To set an absolute zoom distance, use [`zoom_to`][Self::zoom_to].
     ///
     /// # Panics
-    /// If debug assertions are enabled, panics if `factor < 0`.
+    /// If `factor < 0`.
     pub fn zoom(&mut self, factor: f32) {
-        debug_assert!(factor >= 0.0, "zoom factor cannot be negative");
+        assert!(factor >= 0.0, "zoom factor cannot be negative");
         self.zoom_to(self.dir.r() * factor);
     }
     /// Moves the camera to the given distance from the target.
     ///
-    /// The distance is clamped to 0.0.
+    /// # Panics
+    /// If `r < 0`.
     pub fn zoom_to(&mut self, r: f32) {
-        debug_assert!(r >= 0.0, "camera distance cannot be negative");
+        assert!(r >= 0.0, "camera distance cannot be negative");
         self.dir[0] = r.max(0.0);
     }
 }
