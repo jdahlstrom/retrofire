@@ -5,13 +5,13 @@
 use core::{
     array,
     fmt::{Debug, Formatter},
-    iter::Sum,
+    iter::{zip, Sum},
     marker::PhantomData as Pd,
     ops::{Add, Div, Index, IndexMut, Mul, Neg, Sub},
     ops::{AddAssign, DivAssign, MulAssign, SubAssign},
 };
 
-use crate::math::{
+use super::{
     float::f32,
     space::{Proj4, Real},
     vary::ZDiv,
@@ -200,10 +200,8 @@ where
     /// Returns the dot product of `self` and `other`.
     #[inline]
     pub fn dot(&self, other: &Self) -> Sc {
-        self.0
-            .iter()
-            .zip(&other.0)
-            .map(|(a, b)| a.mul(*b))
+        zip(self.0, other.0)
+            .map(|(a, b)| a.mul(b))
             .fold(Sc::zero(), |acc, x| acc.add(&x))
     }
 
@@ -411,6 +409,10 @@ where
     #[inline]
     fn mul(&self, scalar: Sc) -> Self {
         self.map(|c| c.mul(scalar))
+    }
+
+    fn dot(&self, other: &Self) -> Self::Scalar {
+        self.dot(&other)
     }
 }
 

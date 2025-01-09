@@ -7,10 +7,10 @@ use core::{
     ops::{Add, Div, Mul, Neg, Rem, Sub},
 };
 
-use crate::math::{vary::ZDiv, Affine, ApproxEq, Linear, Vector};
+use super::{vary::ZDiv, Affine, ApproxEq, Linear, Vector};
 
 #[cfg(feature = "fp")]
-use crate::math::{float::f32, vec2, vec3, Vec2, Vec3};
+use super::{float::f32, vec2, vec3, Vec2, Vec3};
 
 //
 // Types
@@ -468,6 +468,10 @@ impl Linear for Angle {
     #[inline]
     fn mul(&self, scalar: f32) -> Self {
         *self * scalar
+    }
+
+    fn dot(&self, other: &Self) -> f32 {
+        self.0 * other.0
     }
 }
 
