@@ -185,6 +185,15 @@ where
         Self(pts.to_vec())
     }
 
+    /// Creates a Bézier spline from a sequence of [`Ray`]s.
+    ///
+    /// Every pair of consecutive rays (p₀, d₀), (p₁, d₁) makes up one cubic
+    /// Bézier component with control points (p₀, p₀ + d₀, p₁ - d₁, p₁).
+    /// It follows that the returned composite curve is *C*² continuous:
+    /// it has continuous first and second derivatives.
+    ///
+    /// # Panics
+    /// If the number of items in `rays` is less than 2.
     pub fn from_rays<I>(rays: I) -> Self
     where
         I: IntoIterator<Item = Ray<T, T::Diff>>,
@@ -202,7 +211,8 @@ where
                 pts.push(p.add(&v));
             }
         }
-        Self::new(&pts)
+        assert!(pts.len() >= 4);
+        Self(pts)
     }
 
     /// Evaluates `self` at position `t`.
@@ -433,5 +443,21 @@ mod tests {
         assert_eq!(c.eval(0.75), 0.6);
         assert_eq!(c.eval(1.0), 0.5);
         assert_eq!(c.eval(2.0), 0.5);
+    }
+
+    #[test]
+    fn bezier_from_rays() {
+        let rays = [
+            Ray(pt2::<_, ()>(0.0, 0.0), vec2::<_, ()>(0.0, 1.0)),
+            Ray(pt2(1.0, 1.0), vec2(1.0, 0.0)),
+            Ray(pt2(2.0, 0.0), vec2(0.0, -1.0)),
+        ];
+        let b = BezierSpline::from_rays(rays);
+
+        assert_eq!(b.eval(0.0), pt2(0.0, 0.0));
+        assert_eq!(b.eval(0.25), pt2(0.125, 0.875));
+        assert_eq!(b.eval(0.5), pt2(1.0, 1.0));
+        assert_eq!(b.eval(0.75), pt2(1.875, 0.875));
+        assert_eq!(b.eval(1.0), pt2(2.0, 0.0));
     }
 }
