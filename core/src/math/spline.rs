@@ -1,7 +1,7 @@
 //! Bézier curves and splines.
 
 use alloc::{vec, vec::Vec};
-use core::{array, fmt::Debug};
+use core::{array, fmt::Debug, iter::from_fn};
 
 use crate::geom::Ray;
 
@@ -312,43 +312,46 @@ where
     }
 }
 
-impl BezierSpline<Point3> {
-    pub fn frames<'a>(
+impl<B: Debug + Default> BezierSpline<Point3<B>> {
+    /// Returns a sequence of coordinate frames at the given `t` values.
+    ///
+    ///
+    pub fn frames<'a, C>(
         &'a self,
         ts: impl IntoIterator<Item = f32> + 'a,
-    ) -> impl Iterator<Item = Mat4x4<RealToReal<3>>> + 'a {
+    ) -> impl Iterator<Item = Mat4x4<RealToReal<3, C, B>>> + 'a {
         let mut ts = ts.into_iter();
 
         let mut fwd = Vec3::zero();
         let mut right = Vec3::zero();
         let mut up = Vec3::zero();
 
-        let mut t = 0.0;
+        let mut t = ts.next();
 
-        if let Some(t_) = ts.next() {
-            t = t_;
+        if let Some(t) = t {
             fwd = self.tangent(t).normalize();
             let [x, y, z] = fwd.0.map(f32::abs);
-            let up_ = if x < y && x < z {
-                Vec3::X
-            } else if y < x && y < z {
+            let up0 = if y <= x && y <= z {
                 Vec3::Y
-            } else {
+            } else if z <= x && z <= y {
                 Vec3::Z
+            } else {
+                Vec3::X
             };
-            right = up_.cross(&fwd).normalize();
+            right = up0.to().cross(&fwd).normalize();
             up = fwd.cross(&right);
         }
 
-        ts.map(move |new_t| {
-            let res = Mat4x4::from_affine_basis(self.eval(t), right, up, fwd);
-
-            t = new_t;
-            fwd = self.tangent(t).normalize();
-            right = up.cross(&fwd).normalize();
-            up = fwd.cross(&right);
-
-            res
+        from_fn(move || {
+            let pos = self.eval(t?);
+            let res = Mat4x4::from_affine_basis(pos, right, up, fwd);
+            t = ts.next();
+            if let Some(t) = t {
+                fwd = self.tangent(t).normalize();
+                right = up.cross(&fwd).normalize();
+                up = fwd.cross(&right);
+            }
+            Some(res)
         })
     }
 }
