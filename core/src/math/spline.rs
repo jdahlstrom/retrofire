@@ -4,7 +4,8 @@ use alloc::{vec, vec::Vec};
 use core::{array, fmt::Debug};
 
 use crate::geom::Ray;
-use crate::math::{Affine, Lerp, Linear};
+
+use super::{mat::RealToReal, Affine, Lerp, Linear, Mat4x4, Point3, Vec3};
 
 /// A cubic Bézier curve, defined by four control points.
 ///
@@ -308,6 +309,47 @@ where
             self.do_approx(a, mid, max_dep - 1, halt, accum);
             self.do_approx(mid, b, max_dep - 1, halt, accum);
         }
+    }
+}
+
+impl BezierSpline<Point3> {
+    pub fn frames<'a>(
+        &'a self,
+        ts: impl IntoIterator<Item = f32> + 'a,
+    ) -> impl Iterator<Item = Mat4x4<RealToReal<3>>> + 'a {
+        let mut ts = ts.into_iter();
+
+        let mut fwd = Vec3::zero();
+        let mut right = Vec3::zero();
+        let mut up = Vec3::zero();
+
+        let mut t = 0.0;
+
+        if let Some(t_) = ts.next() {
+            t = t_;
+            fwd = self.tangent(t).normalize();
+            let [x, y, z] = fwd.0.map(f32::abs);
+            let up_ = if x < y && x < z {
+                Vec3::X
+            } else if y < x && y < z {
+                Vec3::Y
+            } else {
+                Vec3::Z
+            };
+            right = up_.cross(&fwd).normalize();
+            up = fwd.cross(&right);
+        }
+
+        ts.map(move |new_t| {
+            let res = Mat4x4::from_affine_basis(self.eval(t), right, up, fwd);
+
+            t = new_t;
+            fwd = self.tangent(t).normalize();
+            right = up.cross(&fwd).normalize();
+            up = fwd.cross(&right);
+
+            res
+        })
     }
 }
 

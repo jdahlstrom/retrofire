@@ -148,7 +148,7 @@ impl<const N: usize, Map> Matrix<[[f32; N]; N], Map> {
 impl Mat4x4 {
     /// Constructs a matrix from a set of basis vectors.
     ///
-    /// The vector do not need to be linearly independent.
+    /// The vectors do not have to be orthogonal or linearly independent.
     pub const fn from_basis<S, D>(
         i: Vec3<D>,
         j: Vec3<D>,
@@ -159,7 +159,24 @@ impl Mat4x4 {
             i[0], j[0], k[0], 0.0;
             i[1], j[1], k[1], 0.0;
             i[2], j[2], k[2], 0.0;
-            0.0, 0.0, 0.0, 1.0
+            0.0,  0.0,  0.0,  1.0
+        ]
+    }
+    /// Constructs a matrix from an origin point and a set of basis vectors.
+    ///
+    /// The vectors do not have to be orthogonal or linearly independent.
+    pub const fn from_affine_basis<S, D>(
+        o: Point3<D>,
+        i: Vec3<D>,
+        j: Vec3<D>,
+        k: Vec3<D>,
+    ) -> Mat4x4<RealToReal<3, S, D>> {
+        let (o, i, j, k) = (o.0, i.0, j.0, k.0);
+        mat![
+            i[0], j[0], k[0], o[0];
+            i[1], j[1], k[1], o[1];
+            i[2], j[2], k[2], o[2];
+            0.0,  0.0,  0.0,  1.0
         ]
     }
 }
