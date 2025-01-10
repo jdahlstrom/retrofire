@@ -3,11 +3,12 @@
 use core::{
     array,
     fmt::{self, Debug, Formatter},
+    iter::zip,
     marker::PhantomData,
     ops::Index,
 };
 
-use crate::math::{float::f32, vary::ZDiv, Affine, Linear, Vector};
+use super::{float::f32, vary::ZDiv, Affine, Linear, Vector};
 
 //
 // Types
@@ -528,6 +529,10 @@ impl<Sp, const DIM: usize> Linear for Color<[f32; DIM], Sp> {
     #[inline]
     fn mul(&self, scalar: Self::Scalar) -> Self {
         array::from_fn(|i| self.0[i] * scalar).into()
+    }
+
+    fn dot(&self, other: &Self) -> Self::Scalar {
+        zip(self.0, other.0).map(|(a, b)| a * b).sum()
     }
 }
 

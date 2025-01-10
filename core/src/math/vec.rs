@@ -5,13 +5,13 @@
 use core::{
     array,
     fmt::{Debug, Formatter},
-    iter::Sum,
+    iter::{zip, Sum},
     marker::PhantomData as Pd,
     ops::{Add, Div, Index, IndexMut, Mul, Neg, Sub},
     ops::{AddAssign, DivAssign, MulAssign, SubAssign},
 };
 
-use crate::math::{
+use super::{
     float::f32,
     space::{Proj4, Real},
     vary::ZDiv,
@@ -146,7 +146,7 @@ impl<Sp, const N: usize> Vector<[f32; N], Sp> {
         use super::float::RecipSqrt;
         let len_sqr = self.len_sqr();
         assert!(
-            len_sqr.is_finite() && !len_sqr.approx_eq(&0.0),
+            len_sqr.is_finite() && !len_sqr.approx_eq_eps(&0.0, &1e-12),
             "cannot normalize a near-zero or non-finite vector: {self:?}"
         );
         *self * f32::recip_sqrt(len_sqr)
@@ -200,10 +200,8 @@ where
     /// Returns the dot product of `self` and `other`.
     #[inline]
     pub fn dot(&self, other: &Self) -> Sc {
-        self.0
-            .iter()
-            .zip(&other.0)
-            .map(|(a, b)| a.mul(*b))
+        zip(self.0, other.0)
+            .map(|(a, b)| a.mul(b))
             .fold(Sc::zero(), |acc, x| acc.add(&x))
     }
 
@@ -411,6 +409,10 @@ where
     #[inline]
     fn mul(&self, scalar: Sc) -> Self {
         self.map(|c| c.mul(scalar))
+    }
+
+    fn dot(&self, other: &Self) -> Self::Scalar {
+        self.dot(&other)
     }
 }
 

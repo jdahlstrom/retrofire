@@ -1,10 +1,11 @@
 //! Bézier curves and splines.
 
 use alloc::{vec, vec::Vec};
-use core::{array, fmt::Debug};
+use core::{array, fmt::Debug, iter::from_fn};
 
 use crate::geom::Ray;
-use crate::math::{Affine, Lerp, Linear};
+
+use super::{mat::RealToReal, Affine, Lerp, Linear, Mat4x4, Point3, Vec3};
 
 /// A cubic Bézier curve, defined by four control points.
 ///
@@ -185,6 +186,15 @@ where
         Self(pts.to_vec())
     }
 
+    /// Creates a Bézier spline from a sequence of [`Ray`]s.
+    ///
+    /// Every pair of consecutive rays (p₀, d₀), (p₁, d₁) makes up one cubic
+    /// Bézier component with control points (p₀, p₀ + d₀, p₁ - d₁, p₁).
+    /// It follows that the returned composite curve is *C*² continuous:
+    /// it has continuous first and second derivatives.
+    ///
+    /// # Panics
+    /// If the number of items in `rays` is less than 2.
     pub fn from_rays<I>(rays: I) -> Self
     where
         I: IntoIterator<Item = Ray<T, T::Diff>>,
@@ -202,7 +212,8 @@ where
                 pts.push(p.add(&v));
             }
         }
-        Self::new(&pts)
+        assert!(pts.len() >= 4);
+        Self(pts)
     }
 
     /// Evaluates `self` at position `t`.
@@ -298,6 +309,50 @@ where
             self.do_approx(a, mid, max_dep - 1, halt, accum);
             self.do_approx(mid, b, max_dep - 1, halt, accum);
         }
+    }
+}
+
+impl<B: Debug + Default> BezierSpline<Point3<B>> {
+    /// Returns a sequence of coordinate frames at the given `t` values.
+    ///
+    ///
+    pub fn frames<'a, C>(
+        &'a self,
+        ts: impl IntoIterator<Item = f32> + 'a,
+    ) -> impl Iterator<Item = Mat4x4<RealToReal<3, C, B>>> + 'a {
+        let mut ts = ts.into_iter();
+
+        let mut fwd = Vec3::zero();
+        let mut right = Vec3::zero();
+        let mut up = Vec3::zero();
+
+        let mut t = ts.next();
+
+        if let Some(t) = t {
+            fwd = self.tangent(t).normalize();
+            let [x, y, z] = fwd.0.map(f32::abs);
+            let up0 = if y <= x && y <= z {
+                Vec3::Y
+            } else if z <= x && z <= y {
+                Vec3::Z
+            } else {
+                Vec3::X
+            };
+            right = up0.to().cross(&fwd).normalize();
+            up = fwd.cross(&right);
+        }
+
+        from_fn(move || {
+            let pos = self.eval(t?);
+            let res = Mat4x4::from_affine_basis(pos, right, up, fwd);
+            t = ts.next();
+            if let Some(t) = t {
+                fwd = self.tangent(t).normalize();
+                right = up.cross(&fwd).normalize();
+                up = fwd.cross(&right);
+            }
+            Some(res)
+        })
     }
 }
 
@@ -433,5 +488,21 @@ mod tests {
         assert_eq!(c.eval(0.75), 0.6);
         assert_eq!(c.eval(1.0), 0.5);
         assert_eq!(c.eval(2.0), 0.5);
+    }
+
+    #[test]
+    fn bezier_from_rays() {
+        let rays = [
+            Ray(pt2::<_, ()>(0.0, 0.0), vec2::<_, ()>(0.0, 1.0)),
+            Ray(pt2(1.0, 1.0), vec2(1.0, 0.0)),
+            Ray(pt2(2.0, 0.0), vec2(0.0, -1.0)),
+        ];
+        let b = BezierSpline::from_rays(rays);
+
+        assert_eq!(b.eval(0.0), pt2(0.0, 0.0));
+        assert_eq!(b.eval(0.25), pt2(0.125, 0.875));
+        assert_eq!(b.eval(0.5), pt2(1.0, 1.0));
+        assert_eq!(b.eval(0.75), pt2(1.875, 0.875));
+        assert_eq!(b.eval(1.0), pt2(2.0, 0.0));
     }
 }

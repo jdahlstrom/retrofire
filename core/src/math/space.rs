@@ -5,7 +5,7 @@
 use core::fmt::{Debug, Formatter};
 use core::marker::PhantomData;
 
-use crate::math::vary::{Iter, Vary, ZDiv};
+use super::vary::{Iter, Vary, ZDiv};
 
 /// Trait for types representing elements of an affine space.
 ///
@@ -29,6 +29,11 @@ pub trait Affine: Sized {
     ///
     /// `sub` is anti-commutative: `v.sub(w) == w.sub(v).neg()`.
     fn sub(&self, other: &Self) -> Self::Diff;
+
+    /// Returns the squared distance between `self` and `other`.
+    fn dist_sqr(&self, other: &Self) -> <Self::Diff as Linear>::Scalar {
+        self.sub(other).len_sqr()
+    }
 }
 
 /// Trait for types representing elements of a linear space (vector space).
@@ -64,6 +69,14 @@ pub trait Linear: Affine<Diff = Self> {
     /// v.mul(a).sub(&w.mul(a)) == v.add(&w).sub(&a);
     /// ```
     fn mul(&self, scalar: Self::Scalar) -> Self;
+
+    /// Returns the dot product, or inner product, of `self` and `other`.
+    fn dot(&self, other: &Self) -> Self::Scalar;
+
+    /// Returns the squared length (magnitude) of `self`.
+    fn len_sqr(&self) -> Self::Scalar {
+        self.dot(self)
+    }
 }
 
 /// Tag type for real vector spaces and Euclidean spaces.
@@ -104,6 +117,10 @@ impl Linear for f32 {
     fn mul(&self, rhs: f32) -> f32 {
         self * rhs
     }
+
+    fn dot(&self, other: &Self) -> f32 {
+        self * other
+    }
 }
 
 impl Affine for i32 {
@@ -130,6 +147,10 @@ impl Linear for i32 {
     }
     fn mul(&self, rhs: i32) -> i32 {
         self * rhs
+    }
+
+    fn dot(&self, other: &Self) -> i32 {
+        self * other
     }
 }
 

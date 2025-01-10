@@ -5,7 +5,7 @@ use core::{
     ops::{Add, AddAssign, Index, Sub, SubAssign},
 };
 
-use crate::math::{space::Real, vary::ZDiv, Affine, ApproxEq, Linear, Vector};
+use super::{space::Real, vary::ZDiv, Affine, ApproxEq, Linear, Vector};
 
 #[repr(transparent)]
 pub struct Point<Repr, Space = ()>(pub Repr, Pd<Space>);
