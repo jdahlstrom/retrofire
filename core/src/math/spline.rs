@@ -4,7 +4,10 @@ use alloc::vec::Vec;
 use core::{array, fmt::Debug};
 
 use crate::geom::{Polyline, Ray};
-use crate::math::{Affine, Lerp, Linear, Parametric};
+
+use super::{
+    mat::RealToReal, Affine, Lerp, Linear, Mat4x4, Parametric, Point3, Vec3,
+};
 
 /// A cubic Bézier curve, defined by four control points.
 ///
@@ -24,6 +27,11 @@ use crate::math::{Affine, Lerp, Linear, Parametric};
 /// ```
 #[derive(Debug, Clone, Eq, PartialEq)]
 pub struct CubicBezier<T>(pub [T; 4]);
+
+/// A curve composed of one or more concatenated
+/// [cubic Bézier curves][CubicBezier].
+#[derive(Debug, Clone, Eq, PartialEq)]
+pub struct BezierSpline<T>(Vec<T>);
 
 /// Interpolates smoothly from 0.0 to 1.0 as `t` goes from 0.0 to 1.0.
 ///
@@ -56,6 +64,10 @@ where
         f(t)
     }
 }
+
+//
+// Inherent impls
+//
 
 impl<T> CubicBezier<T>
 where
@@ -155,11 +167,6 @@ where
         [p3_p0.add(&p1_p2_3), p1_p0_3.add(&p1_p2_3).neg(), p1_p0_3]
     }
 }
-
-/// A curve composed of one or more concatenated
-/// [cubic Bézier curves][CubicBezier].
-#[derive(Debug, Clone, Eq, PartialEq)]
-pub struct BezierSpline<T>(Vec<T>);
 
 impl<T> BezierSpline<T>
 where
@@ -310,6 +317,51 @@ where
         }
     }
 }
+
+impl BezierSpline<Point3> {
+    pub fn frames<'a>(
+        &'a self,
+        ts: impl IntoIterator<Item = f32> + 'a,
+    ) -> impl Iterator<Item = Mat4x4<RealToReal<3>>> + 'a {
+        let mut ts = ts.into_iter();
+
+        let mut fwd = Vec3::zero();
+        let mut right = Vec3::zero();
+        let mut up = Vec3::zero();
+
+        let mut t = 0.0;
+
+        if let Some(t_) = ts.next() {
+            t = t_;
+            fwd = self.tangent(t).normalize();
+            let [x, y, z] = fwd.0.map(f32::abs);
+            let up_ = if x < y && x < z {
+                Vec3::X
+            } else if y < x && y < z {
+                Vec3::Y
+            } else {
+                Vec3::Z
+            };
+            right = up_.cross(&fwd).normalize();
+            up = fwd.cross(&right);
+        }
+
+        ts.map(move |new_t| {
+            let res = Mat4x4::from_affine_basis(self.eval(t), right, up, fwd);
+
+            t = new_t;
+            fwd = self.tangent(t).normalize();
+            right = up.cross(&fwd).normalize();
+            up = fwd.cross(&right);
+
+            res
+        })
+    }
+}
+
+//
+// Trait impls
+//
 
 impl<T> Parametric<T> for CubicBezier<T>
 where
