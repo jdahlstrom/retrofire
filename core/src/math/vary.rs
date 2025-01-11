@@ -46,11 +46,33 @@ pub trait Vary: Lerp + ZDiv + Sized + Clone {
     /// ```
     fn vary(self, step: Self::Diff, max: Option<u32>) -> Self::Iter;
 
-    /// Linearly distributes values between `self` and `other` *inclusive*.
+    /// Linearly distributes `n` values between `self` and `other` *inclusive*.
+    ///
+    /// The first and last items emitted are `self` and `other` respectively.
+    ///
+    /// If `n` = 1, the only item emitted is `self`. If `n` = 0, emits nothing.
+    ///
+    /// # Examples
+    /// ```
+    /// use retrofire_core::math::Vary;
+    ///
+    /// let mut  v = 2.0.vary_to(8.0, 3);
+    ///
+    /// assert_eq!(v.next(), Some(2.0));
+    /// assert_eq!(v.next(), Some(5.0));
+    /// assert_eq!(v.next(), Some(8.0));
+    /// assert_eq!(v.next(), None);
     #[inline]
     fn vary_to(self, other: Self, n: u32) -> Self::Iter {
-        let step = self.dv_dt(&other, 1.0 / n as f32);
-        self.vary(step, Some(n + 1))
+        let recip_dt = if n <= 1 {
+            // Dummy value, no actual steps taken if n is 0 or 1
+            1.0
+        } else {
+            // Fencepost problem: n - 1 steps to yield n values
+            1.0 / (n - 1) as f32
+        };
+        let step = self.dv_dt(&other, recip_dt); // Borrowck...
+        self.vary(step, Some(n))
     }
 
     /// Returns, conceptually, `(other - self) / dt`.
@@ -139,5 +161,25 @@ mod tests {
             varying.collect::<Vec<_>>()[..],
             [-6.0, -4.8, -3.6, -2.4, -1.2, 0.0, 1.2, 2.4, 3.6, 4.8]
         );
+    }
+
+    #[test]
+    fn vary_to_zero() {
+        assert_eq!(1.0.vary_to(2.0, 0).next(), None);
+    }
+
+    #[test]
+    fn vary_to_one() {
+        let mut v = 1.0.vary_to(2.0, 1);
+        assert_eq!(v.next(), Some(1.0));
+        assert_eq!(v.next(), None);
+    }
+
+    #[test]
+    fn vary_to_two() {
+        let mut v = 1.0.vary_to(2.0, 2);
+        assert_eq!(v.next(), Some(1.0));
+        assert_eq!(v.next(), Some(2.0));
+        assert_eq!(v.next(), None);
     }
 }

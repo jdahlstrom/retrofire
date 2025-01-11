@@ -299,7 +299,7 @@ mod tests {
         util::buf::Buf2,
     };
 
-    use super::{tri_fill, Frag, Scanline};
+    use super::{tri_fill, Scanline};
 
     // TODO Test different orientations and various edge cases
 
@@ -391,7 +391,7 @@ mod tests {
             vs: Vary::vary_to(
                 (pt3(8.0, 42.0, 1.0 / w0), 3.0f32.z_div(w0)),
                 (pt3(16.0, 42.0, 1.0 / w1), 5.0f32.z_div(w1)),
-                8,
+                9,
             ),
         };
 
@@ -406,9 +406,9 @@ mod tests {
         ];
         let mut x = 8.0;
 
-        for ((Frag { pos, var }, z), v) in sl.fragments().zip(zs).zip(vars) {
-            assert_approx_eq!(pos, pt3(x, 42.0, z.recip()));
-            assert_approx_eq!(var, v);
+        for ((frag, z), v) in sl.fragments().zip(zs).zip(vars) {
+            assert_approx_eq!(frag.pos, pt3(x, 42.0, z.recip()));
+            assert_approx_eq!(frag.var, v);
 
             x += 1.0;
         }
