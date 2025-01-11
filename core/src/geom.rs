@@ -147,6 +147,16 @@ impl<T: Lerp + Clone> Parametric<T> for Polyline<T> {
     }
 }
 
+impl<P: Lerp, A: Lerp> Lerp for Vertex<P, A> {
+    fn lerp(&self, other: &Self, t: f32) -> Self {
+        vertex(
+            self.pos.lerp(&other.pos, t),
+            // TODO Normals shouldn't be lerped
+            self.attrib.lerp(&other.attrib, t),
+        )
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use alloc::vec;
