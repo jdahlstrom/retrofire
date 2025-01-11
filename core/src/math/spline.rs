@@ -3,7 +3,7 @@
 use alloc::vec::Vec;
 use core::{array, fmt::Debug};
 
-use crate::geom::Ray;
+use crate::geom::{Polyline, Ray};
 use crate::math::{Affine, Lerp, Linear, Parametric};
 
 /// A cubic Bézier curve, defined by four control points.
@@ -188,11 +188,11 @@ where
     /// Constructs a Bézier spline
     pub fn from_rays<I>(rays: I) -> Self
     where
-        I: IntoIterator<Item = Ray<T, T::Diff>>,
+        I: IntoIterator<Item = Ray<T>>,
     {
         let mut rays = rays.into_iter().peekable();
         let mut first = true;
-        let mut pts = Vec::with_capacity(rays.size_hint().0);
+        let mut pts = Vec::with_capacity(2 * rays.size_hint().0);
         while let Some(ray) = rays.next() {
             if !first {
                 pts.push(ray.eval(-1.0));
@@ -267,14 +267,14 @@ where
     ///     &[vec2(0.0, 0.0), vec2(0.0, 1.0), vec2(1.0, 1.0), vec2(1.0, 0.0)]
     /// );
     /// let approx = curve.approximate(|err| err.len_sqr() < 0.01*0.01);
-    /// assert_eq!(approx.len(), 17);
+    /// assert_eq!(approx.0.len(), 17);
     /// ```
-    pub fn approximate(&self, halt: impl Fn(&T::Diff) -> bool) -> Vec<T> {
+    pub fn approximate(&self, halt: impl Fn(&T::Diff) -> bool) -> Polyline<T> {
         let len = self.0.len();
         let mut res = Vec::with_capacity(3 * len);
         self.do_approx(0.0, 1.0, 10 + len.ilog2(), &halt, &mut res);
         res.push(self.0[len - 1].clone());
-        res
+        Polyline(res)
     }
 
     fn do_approx(
