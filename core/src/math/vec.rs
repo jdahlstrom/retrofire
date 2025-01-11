@@ -146,7 +146,7 @@ impl<Sp, const N: usize> Vector<[f32; N], Sp> {
         use super::float::RecipSqrt;
         let len_sqr = self.len_sqr();
         assert!(
-            len_sqr.is_finite() && !len_sqr.approx_eq(&0.0),
+            len_sqr.is_finite() && !len_sqr.approx_eq_eps(&0.0, &1e-12),
             "cannot normalize a near-zero or non-finite vector: {self:?}"
         );
         *self * f32::recip_sqrt(len_sqr)
