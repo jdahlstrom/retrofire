@@ -24,9 +24,6 @@ pub struct Tetrahedron;
 ///
 /// Defined by the left-bottom-near and right-top-far vertices of the box.
 ///
-/// An equilateral box is a cube, a platonic solid with six square faces.
-/// The dual of the cube is the octahedron.
-///
 /// Assuming the two defining vertices are (l, b, n) and (r, t, f),
 /// the vertices of a `Box` are at
 /// * (l, b, n)
@@ -45,10 +42,18 @@ pub struct Box {
     pub right_top_far: Point3,
 }
 
+/// A Platonic solid with eight vertices and six square faces.
+///
+/// The dual of the cube is the [octahedron][Octahedron].
+#[derive(Copy, Clone, Debug)]
+pub struct Cube {
+    pub side_len: f32,
+}
+
 /// Regular octahedron.
 ///
 /// A Platonic solid with six vertices and eight equilateral triangle faces.
-/// The octahedron is the dual of the cube.
+/// The dual of the octahedron is the [cube][Cube].
 ///
 /// `Octahedron`'s vertices are at (±1, 0, 0), (0, ±1, 0), and (0, 0, ±1).
 #[derive(Copy, Clone, Debug, Default)]
@@ -58,7 +63,7 @@ pub struct Octahedron;
 ///
 /// A Platonic solid with twenty vertices and twelve regular pentagonal faces.
 /// Three edges meet at every vertex. The dual of the dodecahedron is the
-/// icosahedron.
+/// [icosahedron][Icosahedron].
 ///
 /// `Dodecahedron`'s vertices are at:
 /// * (±1, ±1, ±1)
@@ -77,7 +82,7 @@ pub struct Dodecahedron;
 ///
 /// A Platonic solid with twelve vertices and twenty equilateral triangle
 /// faces. Five edges meet at every vertex. The dual of the icosahedron is
-/// the dodecahedron.
+/// the [dodecahedron][Dodecahedron].
 ///
 /// `Icosahedron`'s vertices are at:
 /// * (±1, 0, ±φ)
@@ -170,15 +175,6 @@ impl Box {
         [20, 21, 23], [20, 23, 22],
     ];
 
-    /// Returns a cube centered on the origin, with the given side length.
-    pub fn cube(side_len: f32) -> Self {
-        let l = 0.5 * side_len;
-        Self {
-            left_bot_near: pt3(-l, -l, -l),
-            right_top_far: pt3(l, l, l),
-        }
-    }
-
     /// Builds the cuboid mesh.
     pub fn build(self) -> Mesh<Normal3> {
         let mut b = Mesh::builder();
@@ -191,6 +187,18 @@ impl Box {
             b.push_vert(pos.into(), Self::NORMS[norm_i]);
         }
         b.build()
+    }
+}
+
+impl Cube {
+    /// Builds the cube mesh.
+    pub fn build(self) -> Mesh<Normal3> {
+        let l = self.side_len / 2.0;
+        Box {
+            left_bot_near: pt3(-l, -l, -l),
+            right_top_far: pt3(l, l, l),
+        }
+        .build()
     }
 }
 
@@ -361,16 +369,5 @@ impl Icosahedron {
             }
         }
         b.build()
-    }
-}
-
-//
-// Trait impls
-//
-
-impl Default for Box {
-    /// Creates a cube with unit-length edges, centered at the origin.
-    fn default() -> Self {
-        Self::cube(1.0)
     }
 }
