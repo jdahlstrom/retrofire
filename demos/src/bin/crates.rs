@@ -6,7 +6,7 @@ use re::math::color::gray;
 use re::render::{cam::FirstPerson, Batch, Camera, ModelToProj};
 
 use re_front::sdl2::Window;
-use re_geom::solids::Box;
+use re_geom::solids::Cube;
 
 fn main() {
     let mut win = Window::builder()
@@ -37,7 +37,7 @@ fn main() {
         .perspective(1.0, 0.1..1000.0);
 
     let floor = floor();
-    let crat = Box::cube(2.0).build();
+    let krate = Cube { side_len: 2.0 }.build();
 
     win.run(|frame| {
         // Camera
@@ -83,13 +83,13 @@ fn main() {
             .target(&mut frame.buf)
             .render();
 
-        let craet = batch.clone().mesh(&crat);
+        let krate = batch.clone().mesh(&krate);
 
         let n = 30;
         for i in (-n..=n).step_by(5) {
             for j in (-n..=n).step_by(5) {
                 let pos = translate3(i as f32, 0.0, j as f32).to();
-                craet
+                krate
                     // TODO Try to get rid of clone
                     .clone()
                     .uniform(&pos.then(&world_to_project))
