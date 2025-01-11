@@ -265,3 +265,108 @@ impl Capsule {
         Lathe::new(Polyline::new(pts), sectors, segments).build()
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn sphere_verts_faces() {
+        let sectors = 4;
+        let segments = 3;
+        let s = Sphere { sectors, segments, radius: 1.0 }.build();
+
+        assert_eq!(s.faces.len() as u32, 2 * sectors * segments);
+        assert_eq!(s.faces.len(), s.faces.capacity());
+
+        assert_eq!(s.verts.len() as u32, (sectors + 1) * (segments + 1));
+        assert_eq!(s.verts.len(), s.verts.capacity());
+    }
+
+    #[test]
+    fn cylinder_verts_faces_capped() {
+        let sectors = 4;
+        let segments = 3;
+        let c = Cylinder {
+            sectors,
+            segments,
+            capped: true,
+            radius: 1.0,
+        }
+        .build();
+
+        let faces_expected = 2 * sectors * segments + 2 * (sectors - 2);
+        assert_eq!(c.faces.len(), c.faces.capacity());
+        assert_eq!(c.faces.len() as u32, faces_expected);
+
+        let verts_expected = (sectors + 1) * (segments + 1) + 2 * sectors;
+        assert_eq!(c.verts.len() as u32, verts_expected);
+        assert_eq!(c.verts.len(), c.verts.capacity());
+    }
+
+    #[test]
+    fn cylinder_verts_faces_uncapped() {
+        let sectors = 4;
+        let segments = 3;
+        let c = Cylinder {
+            sectors,
+            segments,
+            capped: false,
+            radius: 1.0,
+        }
+        .build();
+
+        let faces_expected = 2 * sectors * segments;
+        assert_eq!(c.faces.len(), c.faces.capacity());
+        assert_eq!(c.faces.len() as u32, faces_expected);
+
+        let verts_expected = (sectors + 1) * (segments + 1);
+        assert_eq!(c.verts.len() as u32, verts_expected);
+        assert_eq!(c.verts.len(), c.verts.capacity());
+    }
+
+    #[test]
+    fn capsule_verts_faces() {
+        let sectors = 4;
+        let body_segments = 2;
+        let cap_segments = 2;
+        let c = Capsule {
+            sectors,
+            body_segments,
+            cap_segments,
+            radius: 1.0,
+        }
+        .build();
+
+        let faces_expected =
+            2 * sectors * body_segments + 2 * 2 * sectors * cap_segments;
+        assert_eq!(c.faces.len(), c.faces.capacity());
+        assert_eq!(c.faces.len() as u32, faces_expected);
+
+        let verts_expected = (sectors + 1) * (body_segments + 1)
+            + 2 * (sectors + 1) * (cap_segments);
+        assert_eq!(c.verts.len() as u32, verts_expected);
+        assert_eq!(c.verts.len(), c.verts.capacity());
+    }
+
+    #[test]
+    fn torus_verts_faces_capped() {
+        let major_sectors = 6;
+        let minor_sectors = 4;
+        let t = Torus {
+            major_radius: 1.0,
+            minor_radius: 0.2,
+            major_sectors,
+            minor_sectors,
+        }
+        .build();
+
+        let faces_expected = 2 * major_sectors * minor_sectors;
+        assert_eq!(t.faces.len(), t.faces.capacity());
+        assert_eq!(t.faces.len() as u32, faces_expected);
+
+        let verts_expected = (major_sectors + 1) * (minor_sectors + 1);
+        assert_eq!(t.verts.len() as u32, verts_expected);
+        assert_eq!(t.verts.len(), t.verts.capacity());
+    }
+}
