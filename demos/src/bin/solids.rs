@@ -138,7 +138,7 @@ fn objects(res: u32) -> [Mesh<Normal3>; 13] {
     [
         // The five Platonic solids
         Tetrahedron.build(),
-        Box::cube(1.25).build(),
+        Cube { side_len: 1.25 }.build(),
         Octahedron.build(),
         Dodecahedron.build(),
         Icosahedron.build(),
