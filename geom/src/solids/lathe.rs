@@ -95,11 +95,14 @@ impl<P: Parametric<Vertex2<Normal2, ()>>> Lathe<P> {
         // Fencepost problem: n + 1 vertices for n segments
         let verts_per_sec = segs + 1;
 
-        let mut b = Mesh {
-            verts: Vec::with_capacity(verts_per_sec * (secs + 1) + 2),
-            faces: Vec::with_capacity(verts_per_sec * secs * 2),
-        }
-        .into_builder();
+        // Precompute capacity
+        let caps = 2 * self.capped as usize;
+        let n_faces = segs * secs * 2 + (secs - 2) * caps;
+        let n_verts = verts_per_sec * (secs + 1) + secs * caps;
+
+        let mut b =
+            Mesh::new(Vec::with_capacity(n_faces), Vec::with_capacity(n_verts))
+                .into_builder();
 
         let Range { start, end } = self.az_range;
         let rot = rotate_y((end - start) / secs as f32);
@@ -134,8 +137,8 @@ impl<P: Parametric<Vertex2<Normal2, ()>>> Lathe<P> {
         // Create optional caps
         if self.capped && verts_per_sec > 0 {
             let l = b.mesh.verts.len();
-            let bottom_rng = 0..=secs;
-            let top_rng = (l - secs - 1)..l;
+            let bottom_rng = 0..secs;
+            let top_rng = (l - secs)..l;
 
             // Duplicate the bottom ring of vertices to make the bottom cap...
             let bottom_vs: Vec<_> = b.mesh.verts[bottom_rng]
@@ -154,7 +157,7 @@ impl<P: Parametric<Vertex2<Normal2, ()>>> Lathe<P> {
                 .map(|v| vertex(v.pos, Vec3::Y))
                 .collect();
             b.mesh.verts.append(&mut top_vs);
-            for i in 1..secs {
+            for i in 1..secs - 1 {
                 b.push_face(l, l + i + 1, l + i);
             }
         }
