@@ -4,15 +4,14 @@ use core::ops::Range;
 
 use crate::geom::{Tri, Vertex};
 use crate::math::{
-    mat::RealToReal, orthographic, perspective, pt2, viewport, Lerp, Mat4x4,
-    Point3, SphericalVec, Vary,
+    mat::RealToReal, orient_z, orthographic, perspective, pt2, translate, vec3,
+    viewport, BezierSpline, Lerp, Mat4x4, Point3, SphericalVec, Vary, Vec3,
 };
 use crate::util::{rect::Rect, Dims};
 
+use crate::math::mat::orient_z_y;
 #[cfg(feature = "fp")]
-use crate::math::{
-    orient_z, pt3, rotate_x, rotate_y, spherical, translate, turns, Angle, Vec3,
-};
+use crate::math::{pt3, rotate_x, rotate_y, spherical, turns, Angle};
 
 use super::{
     clip::ClipVec, Context, FragmentShader, NdcToScreen, RealToProj, Target,
@@ -69,16 +68,21 @@ pub struct Orbit {
     pub dir: SphericalVec<World>,
 }
 
+pub struct Spline {
+    pub spline: BezierSpline<Point3<World>>,
+    pub t: f32,
+}
+
 //
 // Inherent impls
 //
 
 impl Camera<()> {
     /// Creates a camera with the given resolution.
-    pub fn new(dims: Dims) -> Self {
+    pub fn new(dims @ (w, h): Dims) -> Self {
         Self {
             dims,
-            viewport: viewport(pt2(0, 0)..pt2(dims.0, dims.1)),
+            viewport: viewport(pt2(0, 0)..pt2(w, h)),
             ..Default::default()
         }
     }
@@ -207,11 +211,11 @@ impl FirstPerson {
     // TODO Explain that up/down is actually in world space (dir of gravity)
     pub fn translate(&mut self, delta: Vec3<View>) {
         // Zero azimuth means parallel to the x-axis
+        // TODO This does basically the same as world_to_view
         let fwd = az_alt(self.heading.az(), turns(0.0)).to_cart();
-        let up = Vec3::Y.to();
-        let right = up.cross(&fwd);
+        let right = vec3(fwd.z(), 0.0, -fwd.x());
 
-        let to_world = Mat4x4::from_basis(right, up, fwd);
+        let to_world = orient_z(fwd, right).to::<RealToReal<3, _, _>>();
         self.pos += to_world.apply(&delta);
     }
 }
@@ -273,9 +277,9 @@ impl Orbit {
 impl Transform for FirstPerson {
     fn world_to_view(&self) -> Mat4x4<WorldToView> {
         let &Self { pos, heading, .. } = self;
-        let fwd_move = az_alt(heading.az(), turns(0.0)).to_cart();
+
         let fwd = heading.to_cart();
-        let right = Vec3::Y.cross(&fwd_move);
+        let right = az_alt(heading.az() - turns(0.25), turns(0.0)).to_cart();
 
         // World-to-view is inverse of camera's world transform
         let transl = translate(-pos.to_vec().to());
@@ -298,6 +302,18 @@ impl Transform for Orbit {
             .then(&rotate_y(self.dir.az())) // to world-space az
             .then(&rotate_x(self.dir.alt())) // to world-space alt
             .then(&translate(self.dir.r() * Vec3::Z)) // view space
+            .to()
+    }
+}
+
+impl Transform for Spline {
+    fn world_to_view(&self) -> Mat4x4<WorldToView> {
+        let pos = self.spline.eval(self.t);
+        let fwd = self.spline.tangent(self.t).normalize();
+
+        // Inverse of the view-to-world: (OT)^-1 = T^-1 O^-1
+        translate(-pos.to_vec().to())
+            .then(&orient_z_y(fwd.to(), Vec3::Y).transpose())
             .to()
     }
 }
