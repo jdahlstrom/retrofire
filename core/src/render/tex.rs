@@ -202,7 +202,6 @@ impl SamplerRepeatPot {
 #[derive(Copy, Clone, Debug)]
 pub struct SamplerClamp;
 
-#[cfg(feature = "fp")]
 impl SamplerClamp {
     /// Returns the color in `tex` at `tc` such that coordinates outside
     /// the range `0.0..1.0` are clamped to the range endpoints.
@@ -306,7 +305,6 @@ mod tests {
     }
 
     #[test]
-    #[cfg(feature = "fp")]
     fn sampler_repeat_pot() {
         let tex = tex();
         let s = SamplerRepeatPot::new(&tex);
@@ -322,7 +320,6 @@ mod tests {
     }
 
     #[test]
-    #[cfg(feature = "fp")]
     fn sampler_clamp() {
         let tex = tex();
         let s = SamplerClamp;
