@@ -137,29 +137,24 @@ impl<P: Parametric<Vertex2<Normal2, ()>>> Lathe<P> {
         // Create optional caps
         if self.capped && verts_per_sec > 0 {
             let l = b.mesh.verts.len();
-            let bottom_rng = 0..secs;
-            let top_rng = (l - secs)..l;
 
+            let mut make_cap = |rg: Range<_>, n| {
+                let l = b.mesh.verts.len();
+                let vs: Vec<_> = b.mesh.verts[rg]
+                    .iter()
+                    .map(|v| vertex(v.pos, n))
+                    .collect();
+                b.mesh.verts.extend(vs);
+                let j = (n.y() < 0.0) as usize;
+                for i in 1..secs - 1 {
+                    // Adjust winding depending on whether top or bottom
+                    b.push_face(l, l + i + (1 - j), l + i + j);
+                }
+            };
             // Duplicate the bottom ring of vertices to make the bottom cap...
-            let bottom_vs: Vec<_> = b.mesh.verts[bottom_rng]
-                .iter()
-                .map(|v| vertex(v.pos, -Vec3::Y))
-                .collect();
-            b.mesh.verts.extend(bottom_vs);
-            for i in 1..secs - 1 {
-                b.push_face(l, l + i, l + i + 1);
-            }
-
+            make_cap(0..secs, -Vec3::Y);
             // ...and the top vertices to make the top cap
-            let l = b.mesh.verts.len();
-            let mut top_vs: Vec<_> = b.mesh.verts[top_rng]
-                .iter()
-                .map(|v| vertex(v.pos, Vec3::Y))
-                .collect();
-            b.mesh.verts.append(&mut top_vs);
-            for i in 1..secs - 1 {
-                b.push_face(l, l + i + 1, l + i);
-            }
+            make_cap(l - secs..l, Vec3::Y);
         }
         b.build()
     }
