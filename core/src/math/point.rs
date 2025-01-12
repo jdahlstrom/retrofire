@@ -2,10 +2,10 @@ use core::{
     array,
     fmt::{Debug, Formatter},
     marker::PhantomData as Pd,
-    ops::{Add, AddAssign, Index, Sub, SubAssign},
+    ops::{Add, AddAssign, Index, IndexMut, Sub, SubAssign},
 };
 
-use crate::math::{space::Real, vary::ZDiv, Affine, ApproxEq, Linear, Vector};
+use super::{space::Real, vary::ZDiv, Affine, ApproxEq, Linear, Vector};
 
 #[repr(transparent)]
 pub struct Point<Repr, Space = ()>(pub Repr, Pd<Space>);
@@ -251,6 +251,12 @@ impl<R: Index<usize>, Sp> Index<usize> for Point<R, Sp> {
     }
 }
 
+impl<R: IndexMut<usize>, Sp> IndexMut<usize> for Point<R, Sp> {
+    fn index_mut(&mut self, i: usize) -> &mut R::Output {
+        self.0.index_mut(i)
+    }
+}
+
 impl<R, Sp> Add<<Self as Affine>::Diff> for Point<R, Sp>
 where
     Self: Affine,
@@ -365,16 +371,22 @@ mod tests {
     }
     #[test]
     fn point2_index() {
-        let p = pt2(2.0, -1.0);
+        let mut p = pt2(2.0, -1.0);
         assert_eq!(p[0], p.x());
         assert_eq!(p[1], p.y());
+
+        p[1] -= 1.0;
+        assert_eq!(p[1], -2.0);
     }
     #[test]
     fn point3_index() {
-        let p = pt3(2.0, -1.0, 3.0);
+        let mut p = pt3(2.0, -1.0, 3.0);
         assert_eq!(p[0], p.x());
         assert_eq!(p[1], p.y());
         assert_eq!(p[2], p.z());
+
+        p[2] += 1.0;
+        assert_eq!(p[2], 4.0);
     }
     #[test]
     #[should_panic]
