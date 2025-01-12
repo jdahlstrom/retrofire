@@ -87,21 +87,27 @@ pub struct MutSlice2<'a, T>(Inner<T, &'a mut [T]>);
 //
 
 impl<T> Buf2<T> {
-    /// Returns a buffer with the given dimensions, with elements initialized
-    /// in row-major order with values yielded by `init`.
+    /// Returns a buffer of size `w` × `h`, with elements initialized
+    /// with values yielded by `init`.
+    ///
+    /// The elements are initialized in row-major order. Does not allocate
+    /// or consume items from `init` if `w` = 0 or `h` = 0.
     ///
     /// # Examples
     /// ```
     /// use retrofire_core::util::buf::Buf2;
     ///
     /// let buf = Buf2::new_from((3, 3), 1..);
+    ///
+    /// assert_eq!(buf.dims(), (3, 3));
     /// assert_eq!(buf.data(), [1, 2, 3,
     ///                         4, 5, 6,
     ///                         7, 8, 9]);
     /// ```
     ///
     /// # Panics
-    /// If `w * h > isize::MAX`, or if `init` has fewer than `w * h` elements.
+    /// * If `w * h > isize::MAX`, or
+    /// * if `init` has fewer than `w * h` elements.
     pub fn new_from<I>((w, h): Dims, init: I) -> Self
     where
         I: IntoIterator<Item = T>,
@@ -128,11 +134,15 @@ impl<T> Buf2<T> {
     /// Returns a buffer of size `w` × `h`, with every element initialized to
     /// `T::default()`.
     ///
+    /// Does not allocate if `w` = 0 or `h` = 0.
+    ///
     /// # Examples
     /// ```
     /// use retrofire_core::util::buf::Buf2;
     ///
     /// let buf: Buf2<i32> = Buf2::new((3, 3));
+    ///
+    /// assert_eq!(buf.dims(), (3, 3));
     /// assert_eq!(buf.data(), [0, 0, 0,
     ///                         0, 0, 0,
     ///                         0, 0, 0]);
@@ -153,7 +163,9 @@ impl<T> Buf2<T> {
     ///
     /// For each element, `init_fn(x, y)` is invoked, where `x` is the column
     /// index and `y` the row index of the element being initialized. The
-    /// function invocations occur in row-major order.
+    /// elements are initialized in row-major order.
+    ///
+    /// Does not allocate or call `init_fn` if `w` = 0 or `h` = 0.
     ///
     /// # Examples
     /// ```

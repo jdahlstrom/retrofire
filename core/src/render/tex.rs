@@ -65,6 +65,10 @@ pub enum Layout {
     Grid { sub_dims: Dims },
 }
 
+//
+// Inherent impls
+//
+
 impl<D> Texture<D> {
     /// Returns the width of `self` as `f32`.
     #[inline]
@@ -102,12 +106,23 @@ impl<C> Atlas<C> {
     }
 
     /// Returns the sub-texture with index `i`.
+    ///
+    /// # Panics
+    /// If `i` is out of bounds.
+    // TODO Improve error reporting
     pub fn get(&self, i: u32) -> Texture<Slice2<C>> {
         let [p0, p1] = self.rect(i);
         self.texture.data.slice(p0..p1).into()
     }
 
     /// Returns the texture coordinates of the sub-texture with index `i`.
+    ///
+    /// The coordinates are the top-left, top-right, bottom-left, and
+    /// bottom-right corners of the texture, in that order.
+    ///
+    /// Note that currently this method does not check `i` is actually a valid
+    /// index and may return coordinates with values greater than one.
+    // TODO Error handling, more readable result type
     pub fn coords(&self, i: u32) -> [TexCoord; 4] {
         let tex_w = self.texture.width();
         let tex_h = self.texture.height();
@@ -237,7 +252,7 @@ impl SamplerClamp {
 /// Out-of-bounds coordinates may cause graphical glitches or runtime panics
 /// but not undefined behavior. In particular, if the texture data is a slice
 /// of a larger buffer, `SamplerOnce` may read out of bounds of the slice but
-/// not the backing buffer.
+/// not of the backing buffer.
 #[derive(Copy, Clone, Debug)]
 pub struct SamplerOnce;
 
