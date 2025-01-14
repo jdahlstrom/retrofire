@@ -2,7 +2,7 @@
 
 use core::ops::Range;
 
-use crate::geom::{Tri, Vertex};
+use crate::geom::Vertex;
 use crate::math::{
     mat::RealToReal, orthographic, perspective, pt2, viewport, Lerp, Mat4x4,
     Point3, SphericalVec, Vary,
@@ -15,8 +15,8 @@ use crate::math::{
 };
 
 use super::{
-    clip::ClipVec, Context, FragmentShader, NdcToScreen, RealToProj, Target,
-    VertexShader, View, ViewToProj, World, WorldToView,
+    clip::ClipVec, Clip, Context, FragmentShader, NdcToScreen, RealToProj,
+    Render, Target, VertexShader, View, ViewToProj, World, WorldToView,
 };
 
 /// Trait for different modes of camera motion.
@@ -141,9 +141,9 @@ impl<T: Transform> Camera<T> {
     }
 
     /// Renders the given geometry from the viewpoint of this camera.
-    pub fn render<B, Vtx: Clone, Var: Lerp + Vary, Uni: Copy, Shd>(
+    pub fn render<B, Prim, Vtx: Clone, Var: Lerp + Vary, Uni: Copy, Shd>(
         &self,
-        tris: impl AsRef<[Tri<usize>]>,
+        prims: impl AsRef<[Prim]>,
         verts: impl AsRef<[Vtx]>,
         to_world: &Mat4x4<RealToReal<3, B, World>>,
         shader: &Shd,
@@ -151,6 +151,8 @@ impl<T: Transform> Camera<T> {
         target: &mut impl Target,
         ctx: &Context,
     ) where
+        Prim: Render<Var> + Clone,
+        [<Prim>::Clip]: Clip<Item = Prim::Clip>,
         Shd: for<'a> VertexShader<
                 Vtx,
                 (&'a Mat4x4<RealToProj<B>>, Uni),
@@ -160,7 +162,7 @@ impl<T: Transform> Camera<T> {
         let tf = to_world.then(&self.world_to_project());
 
         super::render(
-            tris.as_ref(),
+            prims.as_ref(),
             verts.as_ref(),
             shader,
             (&tf, uniform),
