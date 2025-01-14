@@ -136,7 +136,7 @@ pub fn render<Prim, Vtx: Clone, Var, Uni: Copy, Shd>(
     target: &mut impl Target,
     ctx: &Context,
 ) where
-    Prim: Clone + Render<Var>,
+    Prim: Render<Var> + Clone,
     [<Prim>::Clip]: Clip<Item = Prim::Clip>,
     Var: Lerp + Vary,
     Shd: Shader<Vtx, Var, Uni>,
