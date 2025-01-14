@@ -1,11 +1,11 @@
 //! Render impls for primitives and related items.
 
 use crate::geom::{Tri, Vertex};
-use crate::math::{Mat4x4, Vary};
+use crate::math::{vary::ZDiv, vec3, Mat4x4, Vary};
 
 use super::clip::ClipVert;
 use super::raster::{line, tri_fill, Scanline, ScreenPt};
-use super::{to_screen, NdcToScreen, Render};
+use super::{NdcToScreen, Render};
 
 impl<V: Vary> Render<V> for Tri<usize> {
     type Clip = Tri<ClipVert<V>>;
@@ -56,4 +56,27 @@ impl<V: Vary> Render<V> for [usize; 2] {
     fn rasterize<F: FnMut(Scanline<V>)>(scr: Self::Screen, scanline_fn: F) {
         line(scr, scanline_fn);
     }
+}
+
+pub fn to_screen<V: ZDiv, const N: usize>(
+    vs: [ClipVert<V>; N],
+    tf: &Mat4x4<NdcToScreen>,
+) -> [Vertex<ScreenPt, V>; N] {
+    vs.map(|v| {
+        let [x, y, _, w] = v.pos.0;
+        // Perspective division (projection to the real plane)
+        //
+        // We use the screen-space z coordinate to store the reciprocal
+        // of the original view-space depth. The interpolated reciprocal
+        // is used in fragment processing for depth testing (larger values
+        // are closer) and for perspective correction of the varyings.
+        // TODO z_div could be space-aware
+        let pos = vec3(x, y, 1.0).z_div(w);
+        Vertex {
+            // Viewport transform
+            pos: tf.apply(&pos).to_pt(),
+            // Perspective correction
+            attrib: v.attrib.z_div(w),
+        }
+    })
 }
