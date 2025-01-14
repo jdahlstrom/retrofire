@@ -3,11 +3,11 @@ use core::{array::from_fn, ops::ControlFlow::Continue};
 use re::prelude::*;
 
 use re::math::rand::{Distrib, PointsInUnitBall, Xorshift64};
-use re::render::{cam::Transform, render, Model, ModelToView, ViewToProj};
+use re::render::{cam::Transform, render, ModelToView, ViewToProj};
 use re_front::minifb::Window;
 
 fn main() {
-    let verts: [Vec2<Model>; 4] = [
+    let offsets: [Vec2<View>; 4] = [
         vec2(-1.0, -1.0),
         vec2(-1.0, 1.0),
         vec2(1.0, -1.0),
@@ -19,7 +19,7 @@ fn main() {
     let verts: Vec<Vertex3<Vec2<_>>> = PointsInUnitBall
         .samples(rng)
         .take(count)
-        .flat_map(|pos| verts.map(|v| vertex(pos.to(), v)))
+        .flat_map(|pos| offsets.map(|off| vertex(pos.to(), off)))
         .collect();
 
     let tris: Vec<_> = (0..count)
@@ -35,7 +35,7 @@ fn main() {
     let shader = shader::new(
         |v: Vertex3<Vec2<_>>,
          (mv, proj): (&Mat4x4<ModelToView>, &Mat4x4<ViewToProj>)| {
-            let vertex_pos = 0.008 * vec3(v.attrib.x(), v.attrib.y(), 0.0);
+            let vertex_pos = 0.008 * v.attrib.to_vec3();
             let view_pos = mv.apply_pt(&v.pos) + vertex_pos;
             vertex(proj.apply(&view_pos), v.attrib)
         },
