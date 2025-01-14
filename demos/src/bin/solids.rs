@@ -1,7 +1,7 @@
 use core::ops::ControlFlow::Continue;
 
 use minifb::{Key, KeyRepeat};
-
+use re::geom::Polyline;
 use re::prelude::*;
 
 use re::math::{
@@ -159,18 +159,16 @@ fn objects(res: u32) -> [Mesh<Normal3>; 13] {
 
 // Creates a Lathe mesh.
 fn lathe(secs: u32) -> Mesh<Normal3> {
-    Lathe::new(
-        [
-            vertex(pt2(0.75, -0.5), vec2(1.0, 1.0)),
-            vertex(pt2(0.55, -0.25), vec2(1.0, 0.5)),
-            vertex(pt2(0.5, 0.0), vec2(1.0, 0.0)),
-            vertex(pt2(0.55, 0.25), vec2(1.0, -0.5)),
-            vertex(pt2(0.75, 0.5), vec2(1.0, 1.0)),
-        ],
-        secs,
-    )
-    .capped(true)
-    .build()
+    let pts = [
+        vertex(pt2(0.75, -0.5), vec2(1.0, 1.0)),
+        vertex(pt2(0.55, -0.25), vec2(1.0, 0.5)),
+        vertex(pt2(0.5, 0.0), vec2(1.0, 0.0)),
+        vertex(pt2(0.55, 0.25), vec2(1.0, -0.5)),
+        vertex(pt2(0.75, 0.5), vec2(1.0, 1.0)),
+    ];
+    Lathe::new(Polyline::new(pts), secs, pts.len() as u32)
+        .capped(true)
+        .build()
 }
 
 // Loads the Utah teapot model.
