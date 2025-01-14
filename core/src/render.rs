@@ -11,15 +11,14 @@ use core::fmt::Debug;
 use crate::geom::Vertex;
 use crate::math::{
     mat::{RealToProj, RealToReal},
-    vary::ZDiv,
     vec::ProjVec4,
-    vec3, Lerp, Mat4x4, Vary,
+    Lerp, Mat4x4, Vary,
 };
 
 use {
     clip::{view_frustum, ClipVert},
     ctx::{DepthSort, FaceCull},
-    raster::{Scanline, ScreenPt},
+    raster::Scanline,
 };
 
 pub use {
@@ -199,29 +198,6 @@ pub fn render<Prim, Vtx: Clone, Var, Uni: Copy, Shd>(
         });
     }
     *ctx.stats.borrow_mut() += stats.finish();
-}
-
-pub fn to_screen<V: ZDiv, const N: usize>(
-    vs: [ClipVert<V>; N],
-    tf: &Mat4x4<NdcToScreen>,
-) -> [Vertex<ScreenPt, V>; N] {
-    vs.map(|v| {
-        let [x, y, _, w] = v.pos.0;
-        // Perspective division (projection to the real plane)
-        //
-        // We use the screen-space z coordinate to store the reciprocal
-        // of the original view-space depth. The interpolated reciprocal
-        // is used in fragment processing for depth testing (larger values
-        // are closer) and for perspective correction of the varyings.
-        // TODO z_div could be space-aware
-        let pos = vec3(x, y, 1.0).z_div(w);
-        Vertex {
-            // Viewport transform
-            pos: tf.apply(&pos).to_pt(),
-            // Perspective correction
-            attrib: v.attrib.z_div(w),
-        }
-    })
 }
 
 fn depth_sort<P: Render<V>, V: Vary>(prims: &mut [P::Clip], d: DepthSort) {
