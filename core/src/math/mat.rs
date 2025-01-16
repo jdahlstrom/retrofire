@@ -42,7 +42,7 @@ pub trait Compose<Inner: LinearMap>: LinearMap<Source = Inner::Dest> {
 
 /// A change of basis in real vector space of dimension `DIM`.
 #[derive(Copy, Clone, Default, Eq, PartialEq)]
-pub struct RealToReal<const DIM: usize, SrcBasis = (), DstBasis = ()>(
+pub struct RealToReal<const DIM: usize, SrcBasis = (), DstBasis = SrcBasis>(
     Pd<(SrcBasis, DstBasis)>,
 );
 
@@ -526,8 +526,8 @@ pub const fn translate3(x: f32, y: f32, z: f32) -> Mat4x4<RealToReal<3>> {
 #[cfg(feature = "fp")]
 use super::{Angle, ApproxEq};
 
-/// Returns a matrix applying a rotation such that the original y axis
-/// is now parallel with `new_y` and the new z axis is orthogonal to
+/// Returns a matrix applying a rotation such that the original y-axis
+/// is now parallel with `new_y` and the new z-axis is orthogonal to
 /// both `x` and `new_y`.
 ///
 /// Returns an orthogonal basis. If `new_y` and `x` are unit vectors,
@@ -540,8 +540,8 @@ use super::{Angle, ApproxEq};
 pub fn orient_y(new_y: Vec3, x: Vec3) -> Mat4x4<RealToReal<3>> {
     orient(new_y, x.cross(&new_y).normalize())
 }
-/// Returns a matrix applying a rotation such that the original z axis
-/// is now parallel with `new_z` and the new y axis is orthogonal to
+/// Returns a matrix applying a rotation such that the original z-axis
+/// is now parallel with `new_z` and the new y-axis is orthogonal to
 /// both `new_z` and `x`.
 ///
 /// Returns an orthogonal basis. If `new_z` and `x` are unit vectors,
@@ -555,6 +555,12 @@ pub fn orient_z(new_z: Vec3, x: Vec3) -> Mat4x4<RealToReal<3>> {
     orient(new_z.cross(&x).normalize(), new_z)
 }
 
+pub fn orient_z_y(new_z: Vec3, y: Vec3) -> Mat4x4<RealToReal<3>> {
+    let new_x = y.cross(&new_z).normalize();
+    let new_y = new_z.cross(&new_x);
+    Mat4x4::from_basis(new_x, new_y, new_z)
+}
+
 /// Constructs a change-of-basis matrix given y and z basis vectors.
 ///
 /// The third basis vector is the cross product of `new_y` and `new_z`.
@@ -565,7 +571,7 @@ pub fn orient_z(new_z: Vec3, x: Vec3) -> Mat4x4<RealToReal<3>> {
 /// If `new_y` is approximately parallel to `new_z` and the basis would
 /// be degenerate.
 #[cfg(feature = "fp")]
-fn orient(new_y: Vec3, new_z: Vec3) -> Mat4x4<RealToReal<3>> {
+pub fn orient(new_y: Vec3, new_z: Vec3) -> Mat4x4<RealToReal<3>> {
     let new_x = new_y.cross(&new_z);
     assert!(
         !new_x.len_sqr().approx_eq(&0.0),
