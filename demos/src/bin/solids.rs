@@ -130,18 +130,21 @@ fn objects(res: u32) -> [Mesh<Normal3>; 13] {
     let segments = res;
     let sectors = 2 * res;
 
-    let cap_segments = res;
+    let cap_segments = res/2;
     let body_segments = res;
 
     let major_sectors = 3 * res;
     let minor_sectors = 2 * res;
     [
+        Octosphere { radius: 1.0, depth: res.ilog(4) + 1 }.build(),
+
         // The five Platonic solids
-        Tetrahedron.build(),
+        // Tetrahedron.build(),
         Cube { side_len: 1.25 }.build(),
         Octahedron.build(),
         Dodecahedron.build(),
         Icosahedron.build(),
+
 
         // Surfaces of revolution
         lathe(sectors),

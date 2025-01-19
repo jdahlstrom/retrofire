@@ -12,4 +12,5 @@ repository.workspace = true
 re = { path = "../core", package = "retrofire-core" }
 
 [features]
+default = ["std"]
 std = ["re/std"]

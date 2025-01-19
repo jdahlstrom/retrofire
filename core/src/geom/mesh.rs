@@ -4,6 +4,7 @@ use alloc::{vec, vec::Vec};
 use core::{
     fmt::{Debug, Formatter},
     iter::zip,
+    ops::Range,
 };
 
 use crate::{
@@ -125,17 +126,23 @@ impl<A> Builder<A> {
     }
 
     /// Appends a vertex with the given position and attribute.
-    pub fn push_vert(&mut self, pos: Point3, attrib: A) {
+    ///
+    /// Returns the index of the inserted vertex.
+    pub fn push_vert(&mut self, pos: Point3, attrib: A) -> usize {
         self.mesh.verts.push(vertex(pos.to(), attrib));
+        self.mesh.verts.len() - 1
     }
 
     /// Appends all the vertices yielded by the given iterator.
-    pub fn push_verts<Vs>(&mut self, verts: Vs)
+    pub fn push_verts<Vs>(&mut self, verts: Vs) -> Range<usize>
     where
         Vs: IntoIterator<Item = (Point3, A)>,
     {
         let vs = verts.into_iter().map(|(p, a)| vertex(p.to(), a));
-        self.mesh.verts.extend(vs);
+        let self_vs = &mut self.mesh.verts;
+        let l = self_vs.len();
+        self_vs.extend(vs);
+        l..self_vs.len()
     }
 
     /// Returns the finished mesh containing all the added faces and vertices.

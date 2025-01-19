@@ -1,7 +1,7 @@
 //! The five Platonic solids: tetrahedron, cube, octahedron, dodecahedron,
 //! and icosahedron.
 
-use core::array::from_fn;
+use core::{array::from_fn, iter::zip};
 
 use re::geom::{Mesh, Normal3};
 use re::math::{pt3, vec3, Lerp, Point3, Vec3};
@@ -92,6 +92,10 @@ pub struct Dodecahedron;
 /// where φ ≈ 1.618 is the golden ratio constant.
 #[derive(Copy, Clone, Debug, Default)]
 pub struct Icosahedron;
+
+//
+// Inherent impls
+//
 
 impl Tetrahedron {
     const FACES: [[usize; 3]; 4] = [[0, 2, 1], [0, 3, 2], [0, 1, 3], [1, 2, 3]];
@@ -203,7 +207,7 @@ impl Cube {
 }
 
 impl Octahedron {
-    const COORDS: [Point3; 6] = [
+    pub(super) const COORDS: [Point3; 6] = [
         pt3(-1.0, 0.0, 0.0),
         pt3(0.0, -1.0, 0.0),
         pt3(0.0, 0.0, -1.0),
@@ -310,18 +314,16 @@ impl Dodecahedron {
 
     /// Builds the dodecahedral mesh.
     pub fn build(self) -> Mesh<Normal3> {
-        let mut b = Mesh::builder();
+        let coords = Self::COORDS.map(|c| c.normalize().to_pt());
+        let norms = Self::NORMALS.map(|c| c.normalize());
 
-        for (i, face) in Self::FACES.iter().enumerate() {
-            let n = Self::NORMALS[i].normalize();
+        let mut b = Mesh::builder();
+        for (vs, n) in zip(Self::FACES, norms) {
             // Make a pentagon from three triangles
-            let i5 = 5 * i;
-            b.push_face(i5, i5 + 1, i5 + 2);
-            b.push_face(i5, i5 + 2, i5 + 3);
-            b.push_face(i5, i5 + 3, i5 + 4);
-            for &j in face {
-                b.push_vert(Self::COORDS[j].normalize().to_pt(), n);
-            }
+            let i = b.push_verts(vs.map(|i| (coords[i], n))).start;
+            b.push_face(i, i + 1, i + 2);
+            b.push_face(i, i + 2, i + 3);
+            b.push_face(i, i + 3, i + 4);
         }
         b.build()
     }
@@ -360,13 +362,13 @@ impl Icosahedron {
 
     /// Builds the icosahedral mesh.
     pub fn build(self) -> Mesh<Normal3> {
+        let coords = Self::COORDS.map(|c| c.normalize().to_pt());
+        let norms = Self::NORMALS.map(|c| c.normalize());
+
         let mut b = Mesh::builder();
-        for (i, vs) in Self::FACES.iter().enumerate() {
-            let n = Self::NORMALS[i].normalize();
-            b.push_face(3 * i, 3 * i + 1, 3 * i + 2);
-            for vi in *vs {
-                b.push_vert(Self::COORDS[vi].normalize().to_pt(), n);
-            }
+        for (vs, n) in zip(Self::FACES, norms) {
+            let n = b.push_verts(vs.map(|i| (coords[i], n))).start;
+            b.push_face(n, n + 1, n + 2);
         }
         b.build()
     }
