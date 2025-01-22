@@ -45,6 +45,7 @@ pub mod stats;
 pub mod target;
 pub mod tex;
 pub mod text;
+pub mod vis;
 
 /// Renderable geometric primitive.
 pub trait Render<V: Vary> {
