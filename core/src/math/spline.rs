@@ -5,6 +5,7 @@ use core::{array, fmt::Debug};
 
 use crate::geom::{Polyline, Ray};
 
+use super::float::f32;
 use super::{
     mat::RealToReal, Affine, Lerp, Linear, Mat4x4, Parametric, Point3, Vec3,
 };
@@ -196,11 +197,14 @@ where
     ///
     /// Every pair of consecutive rays (p₀, d₀), (p₁, d₁) makes up one cubic
     /// Bézier component with control points (p₀, p₀ + d₀, p₁ - d₁, p₁).
-    /// It follows that the returned composite curve is *C*² continuous:
-    /// it has continuous first and second derivatives.
+    /// The next component would thus be (p₁, p₁ + d₁, p₂ - d, p₂), making
+    /// the returned composite curve [*C*² continuous:][1] it has continuous
+    /// first and second derivatives.
     ///
     /// # Panics
     /// If the number of items in `rays` is less than 2.
+    ///
+    /// [1]: https://en.wikipedia.org/wiki/Smoothness#Parametric_continuity
     pub fn from_rays<I>(rays: I) -> Self
     where
         I: IntoIterator<Item = Ray<T>>,
@@ -208,6 +212,7 @@ where
         let mut rays = rays.into_iter().peekable();
         let mut first = true;
         let mut pts = Vec::with_capacity(2 * rays.size_hint().0);
+
         while let Some(ray) = rays.next() {
             if !first {
                 pts.push(ray.eval(-1.0));
@@ -226,8 +231,8 @@ where
     ///
     /// Returns the first point if `t < 0` and the last point if `t > 1`.
     pub fn eval(&self, t: f32) -> T {
-        // invariant self.0.len() != 0 -> last always exists
-        step(t, &self.0[0], self.0.last().unwrap(), |t| {
+        let last = self.0.last().expect("invariant: len > 0");
+        step(t, &self.0[0], last, |t| {
             let (t, seg) = self.segment(t);
             CubicBezier(seg).fast_eval(t)
         })
@@ -318,43 +323,37 @@ where
     }
 }
 
-impl BezierSpline<Point3> {
-    pub fn frames<'a>(
+impl<B: Debug + Default> BezierSpline<Point3<B>> {
+    ///
+    pub fn frames<'a, C>(
         &'a self,
         ts: impl IntoIterator<Item = f32> + 'a,
-    ) -> impl Iterator<Item = Mat4x4<RealToReal<3>>> + 'a {
-        let mut ts = ts.into_iter();
+    ) -> impl Iterator<Item = Mat4x4<RealToReal<3, C, B>>> + 'a {
+        let mut ts = ts.into_iter().peekable();
 
-        let mut fwd = Vec3::zero();
-        let mut right = Vec3::zero();
-        let mut up = Vec3::zero();
+        let mut up = Vec3::<B>::zero();
 
-        let mut t = 0.0;
-
-        if let Some(t_) = ts.next() {
-            t = t_;
-            fwd = self.tangent(t).normalize();
+        if let Some(t) = ts.next() {
+            let fwd = self.tangent(t).normalize();
             let [x, y, z] = fwd.0.map(f32::abs);
-            let up_ = if x < y && x < z {
+            up = if x <= y && x <= z {
                 Vec3::X
-            } else if y < x && y < z {
+            } else if y <= x && y <= z {
                 Vec3::Y
             } else {
                 Vec3::Z
-            };
-            right = up_.cross(&fwd).normalize();
-            up = fwd.cross(&right);
+            }
+            .to();
         }
 
-        ts.map(move |new_t| {
-            let res = Mat4x4::from_affine_basis(self.eval(t), right, up, fwd);
-
-            t = new_t;
-            fwd = self.tangent(t).normalize();
-            right = up.cross(&fwd).normalize();
+        ts.map(move |t| {
+            let fwd = self.tangent(t).normalize();
+            // Use last round's right vector to prevent sudden twists
+            // as curvature changes sign
+            let right = up.cross(&fwd).normalize();
             up = fwd.cross(&right);
 
-            res
+            Mat4x4::from_affine_basis::<C, B>(self.eval(t), right, up, fwd)
         })
     }
 }
@@ -383,10 +382,10 @@ where
 
 #[cfg(test)]
 mod tests {
-    use alloc::vec;
-
     use crate::assert_approx_eq;
-    use crate::math::{pt2, vec2, Parametric, Point2, Vec2};
+    use crate::math::{pt2, pt3, vec2, Parametric, Point2, Vary, Vec2};
+    use alloc::vec;
+    use std::dbg;
 
     use super::*;
 
@@ -533,5 +532,78 @@ mod tests {
         assert_eq!(b.eval(0.5), pt2(1.0, 1.0));
         assert_eq!(b.eval(0.75), pt2(1.875, 0.875));
         assert_eq!(b.eval(1.0), pt2(2.0, 0.0));
+    }
+
+    #[test]
+    fn frames_straight_positive_z() {
+        let b = BezierSpline::from_rays([
+            Ray(pt3(0.0, 0.0, 0.0), Vec3::Z),
+            Ray(pt3(0.0, 0.0, 2.0), Vec3::Z),
+        ]);
+        let frames = b.frames(0.0.vary_to(1.0, 3));
+
+        for (f, i) in frames.zip(0..) {
+            assert_eq!(f.row_vec(0).0, [1.0, 0.0, 0.0, 0.0]);
+            assert_eq!(f.row_vec(1).0, [0.0, 1.0, 0.0, 0.0]);
+            assert_eq!(f.row_vec(2).0, [0.0, 0.0, 1.0, i as f32]);
+            assert_eq!(f.row_vec(3).0, [0.0, 0.0, 0.0, 1.0]);
+        }
+    }
+
+    #[test]
+    fn frames_straight_negative_x() {
+        let b = BezierSpline::from_rays([
+            Ray(pt3(0.0, 0.0, 0.0), -Vec3::X),
+            Ray(pt3(-2.0, 0.0, 0.0), -Vec3::X),
+        ]);
+        let frames = b.frames(0.0.vary_to(1.0, 3));
+
+        for (f, i) in frames.zip(0..) {
+            assert_eq!(f.row_vec(0).0, [0.0, 0.0, -1.0, -i as f32]);
+            assert_eq!(f.row_vec(1).0, [0.0, 1.0, 0.0, 0.0]);
+            assert_eq!(f.row_vec(2).0, [1.0, 0.0, 0.0, 0.0]);
+            assert_eq!(f.row_vec(3).0, [0.0, 0.0, 0.0, 1.0]);
+        }
+    }
+    #[test]
+    fn frames_straight_positive_y() {
+        let b = BezierSpline::from_rays([
+            Ray(pt3(0.0, 0.0, 0.0), Vec3::Y),
+            Ray(pt3(0.0, 2.0, 0.0), Vec3::Y),
+        ]);
+        let frames = b.frames(0.0.vary_to(1.0, 3));
+
+        for (f, i) in frames.zip(0..) {
+            assert_eq!(f.row_vec(0).0, [0.0, 1.0, 0.0, 0.0]);
+            assert_eq!(f.row_vec(1).0, [0.0, 0.0, 1.0, i as f32]);
+            assert_eq!(f.row_vec(2).0, [1.0, 0.0, 0.0, 0.0]);
+            assert_eq!(f.row_vec(3).0, [0.0, 0.0, 0.0, 1.0]);
+        }
+    }
+    #[test]
+    fn frames_curved() {
+        let b = BezierSpline::from_rays([
+            Ray(pt3(0.0, 0.0, 0.0), Vec3::Z),
+            Ray(pt3(0.0, 2.0, 2.0), Vec3::Y),
+        ]);
+        let mut frames = b.frames(0.0.vary_to(1.0, 3));
+
+        let f = frames.next().unwrap();
+        assert_eq!(f.row_vec(0).0, [1.0, 0.0, 0.0, 0.0]);
+        assert_eq!(f.row_vec(1).0, [0.0, 1.0, 0.0, 0.0]);
+        assert_eq!(f.row_vec(2).0, [0.0, 0.0, 1.0, 0.0]);
+        assert_eq!(f.row_vec(3).0, [0.0, 0.0, 0.0, 1.0]);
+
+        let f = frames.next().unwrap();
+        assert_approx_eq!(f.row_vec(0).0, [1.0, 0.0, 0.0, 0.0]);
+        assert_approx_eq!(f.row_vec(1).0, [0.0, 0.70710677, 0.7071068, 0.625]);
+        assert_approx_eq!(f.row_vec(2).0, [0.0, 0.0, 1.0, 0.0]);
+        assert_approx_eq!(f.row_vec(3).0, [0.0, 0.0, 0.0, 1.0]);
+
+        let f = frames.next().unwrap();
+        assert_approx_eq!(f.row_vec(0).0, [1.0, 0.0, 0.0, 0.0]);
+        assert_approx_eq!(f.row_vec(1).0, [0.0, 1.0, 0.0, 0.0]);
+        assert_approx_eq!(f.row_vec(2).0, [0.0, 0.0, 1.0, 0.0]);
+        assert_approx_eq!(f.row_vec(3).0, [0.0, 0.0, 0.0, 1.0]);
     }
 }
