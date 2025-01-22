@@ -13,6 +13,7 @@ use crate::util::{rect::Rect, Dims};
 use crate::math::{
     orient_z, pt3, rotate_x, rotate_y, spherical, translate, turns, Angle, Vec3,
 };
+use crate::prelude::clip::ClipVert;
 
 use super::{
     clip::ClipVec, Clip, Context, FragmentShader, NdcToScreen, RealToProj,
@@ -152,7 +153,8 @@ impl<T: Transform> Camera<T> {
         ctx: &Context,
     ) where
         Prim: Render<Var> + Clone,
-        [<Prim>::Clip]: Clip<Item = Prim::Clip>,
+        [<Prim>::Mapped<ClipVert<Var>>]:
+            Clip<Item = <Prim>::Mapped<ClipVert<Var>>>,
         Shd: for<'a> VertexShader<
                 Vtx,
                 (&'a Mat4x4<RealToProj<B>>, Uni),
