@@ -100,6 +100,20 @@ impl<A> Mesh<A> {
     pub fn into_builder(self) -> Builder<A> {
         Builder { mesh: self }
     }
+
+    /// Consumes `self` and `other` and returns a mesh with the faces and
+    /// vertices of both inputs.
+    pub fn merge(mut self, mut other: Self) -> Self {
+        let l = self.verts.len();
+        self.verts.append(&mut other.verts);
+        self.faces.extend(
+            other
+                .faces
+                .into_iter()
+                .map(|Tri([a, b, c])| Tri([a + l, b + l, c + l])),
+        );
+        self
+    }
 }
 
 impl<A> Builder<A> {

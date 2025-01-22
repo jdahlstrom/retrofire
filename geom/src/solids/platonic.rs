@@ -175,6 +175,10 @@ impl Box {
         [20, 21, 23], [20, 23, 22],
     ];
 
+    pub fn new(left_bot_near: Point3, right_top_far: Point3) -> Self {
+        Self { left_bot_near, right_top_far }
+    }
+
     /// Builds the cuboid mesh.
     pub fn build(self) -> Mesh<Normal3> {
         let mut b = Mesh::builder();
