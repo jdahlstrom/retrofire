@@ -55,7 +55,7 @@ impl<V: Vary> Render<V> for Edge<usize> {
     }
 
     fn rasterize<F: FnMut(Scanline<V>)>(e: Self::Screen, scanline_fn: F) {
-        line([e.0, e.1], scanline_fn);
+        line(e.into(), scanline_fn);
     }
 }
 

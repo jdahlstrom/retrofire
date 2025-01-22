@@ -62,7 +62,7 @@ fn main() {
         .viewport(pt2(10, h - 10)..pt2(w - 10, 10));
 
     type VertexIn = Vertex3<Normal3>;
-    type VertexOut = Vertex<ProjVec3, Color3f>;
+    type VertexOut = Vertex<ProjVec3, Color4f>;
     type Uniform<'a> = (&'a ProjMat3<Model>, &'a Mat4);
 
     fn vtx_shader(v: VertexIn, (mvp, spin): Uniform) -> VertexOut {
@@ -71,12 +71,11 @@ fn main() {
         // Calculate diffuse shading
         let diffuse = (norm.z() + 0.2).max(0.2) * 0.8;
         // Visualize normal by mapping to RGB values
-        let [r, g, b] = (0.45 * (v.attrib + splat(1.1))).0;
-        let col = diffuse * rgb(r, g, b);
+        let col = diffuse * debug::dir_to_rgb(norm);
         vertex(mvp.apply(&v.pos), col)
     }
 
-    fn frag_shader(f: Frag<Color3f>) -> Color4 {
+    fn frag_shader(f: Frag<Color4f>) -> Color4 {
         f.var.to_color4()
     }
 
@@ -100,7 +99,7 @@ fn main() {
         let carouse = carousel.update(dt.as_secs_f32());
 
         // Compose transform stack
-        let model_view_project: ProjMat3<Model> = spin
+        let mvp: ProjMat3<Model> = spin
             .then(&translate)
             .then(&carouse)
             .to::<ModelToWorld>()
@@ -108,14 +107,61 @@ fn main() {
 
         let object = &objects[carousel.idx % objects.len()];
 
-        Batch::new()
-            .mesh(object)
-            .uniform((&model_view_project, &spin))
-            .shader(shader)
+        let b = Batch::new()
+            .uniform((&mvp, &spin))
             .viewport(cam.viewport)
+            .context(&*frame.ctx);
+
+        b.clone()
+            .mesh(object)
+            .shader(shader)
             .target(&mut frame.buf)
-            .context(&*frame.ctx)
             .render();
+
+        let sph = debug::sphere(pt3::<_, Model>(0.0, 0.0, 0.0), 1.0);
+        sph.uniform(&mvp)
+            .viewport(cam.viewport)
+            .context(&*frame.ctx)
+            .target(&mut frame.buf)
+            .render();
+
+        let bbox = debug::bbox(&object.verts);
+        bbox.uniform(&mvp)
+            .viewport(cam.viewport)
+            .context(&*frame.ctx)
+            .target(&mut frame.buf)
+            .render();
+
+        debug::frame::<Model, Model>(Mat4::identity())
+            .uniform(&mvp)
+            .viewport(cam.viewport)
+            .context(&*frame.ctx)
+            .target(&mut frame.buf)
+            .render();
+
+        for tri in &object.faces {
+            debug::face_normal(tri.0.map(|i| object.verts[i].pos))
+                .uniform(&mvp)
+                .viewport(cam.viewport)
+                .context(&*frame.ctx)
+                .target(&mut frame.buf)
+                .render();
+        }
+
+        /*let norms: Vec<_> = object
+            .verts
+            .iter()
+            .map(|v| (v.pos, v.attrib))
+            .collect();
+
+        for (o, dir) in norms {
+            debug::ray(o, 0.5 * dir.to())
+                .uniform(&mvp)
+                .viewport(cam.viewport)
+                .context(&*frame.ctx)
+                .target(&mut frame.buf)
+                .render();
+        }*/
 
         Continue(())
     });
@@ -162,7 +208,9 @@ fn lathe(secs: u32) -> Mesh<Normal3> {
         vertex(pt2(0.5, 0.0), vec2(1.0, 0.0)),
         vertex(pt2(0.55, 0.25), vec2(1.0, -0.5)),
         vertex(pt2(0.75, 0.5), vec2(1.0, -1.0)),
-    ];
+    ]
+    .map(|v| vertex(v.pos, v.attrib.normalize()));
+
     Lathe::new(Polyline::new(pts), secs, pts.len() as u32)
         .capped(true)
         .build()

@@ -680,11 +680,27 @@ impl<P: Lerp, A: Lerp> Lerp for Vertex<P, A> {
     }
 }
 
+//
+// Foreign trait impls
+//
+
+impl<T> From<[T; 2]> for Edge<T> {
+    fn from([a, b]: [T; 2]) -> Self {
+        Edge(a, b)
+    }
+}
+impl<T> From<Edge<T>> for [T; 2] {
+    fn from(Edge(a, b): Edge<T>) -> Self {
+        [a, b]
+    }
+}
+
 #[cfg(test)]
 mod tests {
+    use alloc::vec;
+
     use crate::assert_approx_eq;
     use crate::math::*;
-    use alloc::vec;
 
     use super::*;
 
