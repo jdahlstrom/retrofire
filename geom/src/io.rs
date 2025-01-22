@@ -187,10 +187,10 @@ where
                     max_i.n = max_i.n.max(i.n);
                 }
                 if let [a, b, c] = *indices {
-                    faces.push(Tri([a, b, c]));
+                    faces.push(tri(a, b, c));
                 } else if let [a, b, c, d] = *indices {
-                    faces.push(Tri([a, b, c]));
-                    faces.push(Tri([a, c, d]));
+                    faces.push(tri(a, b, c));
+                    faces.push(tri(a, c, d));
                 }
             }
             // TODO Ignore unsupported lines instead?
@@ -486,7 +486,7 @@ v 0.0 -2.0 0.0
         let mesh: Mesh<()> = parse_obj(input).unwrap().build();
 
         assert_eq!(mesh.faces.len(), 2);
-        assert_eq!(mesh.faces, [Tri([0, 1, 2]), Tri([0, 2, 3])]);
+        assert_eq!(mesh.faces, [tri(0, 1, 2), tri(0, 2, 3)]);
     }
 
     #[test]

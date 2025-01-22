@@ -3,12 +3,12 @@
 use alloc::vec::Vec;
 use core::borrow::Borrow;
 
+use super::{Clip, Context, NdcToScreen, Render, Shader, Target};
+use crate::geom::Edge;
 use crate::{
     geom::{Mesh, Tri, Vertex3},
     math::{Mat4x4, Vary},
 };
-
-use super::{Clip, Context, NdcToScreen, Render, Shader, Target};
 
 /// A builder for rendering a chunk of geometry as a batch.
 ///
@@ -31,9 +31,9 @@ use super::{Clip, Context, NdcToScreen, Render, Shader, Target};
 // [instances]: https://en.wikipedia.org/wiki/Geometry_instancing
 #[derive(Clone, Debug, Default)]
 pub struct Batch<Prim, Vtx, Uni, Shd, Tgt, Ctx> {
-    prims: Vec<Prim>,
-    verts: Vec<Vtx>,
-    uniform: Uni,
+    pub prims: Vec<Prim>,
+    pub verts: Vec<Vtx>,
+    pub uniform: Uni,
     shader: Shd,
     viewport: Mat4x4<NdcToScreen>,
     target: Tgt,
@@ -145,5 +145,30 @@ impl<Prim, Vtx, Uni, Shd, Tgt, Ctx> Batch<Prim, Vtx, Uni, Shd, &mut Tgt, Ctx> {
             prims, verts, shader, *uniform, *viewport, *target,
             (*ctx).borrow(),
         );
+    }
+}
+
+impl<Vtx, Uni, Shd, Tgt, Ctx> Batch<Edge<usize>, Vtx, Uni, Shd, Tgt, Ctx> {
+    pub fn append(&mut self, mut other: Self) {
+        let l = self.verts.len();
+        self.verts.extend(other.verts);
+        for edge in &mut other.prims {
+            edge.0 += l;
+            edge.1 += l;
+        }
+        self.prims.extend(other.prims);
+    }
+}
+
+impl<Vtx, Uni, Shd, Tgt, Ctx> Batch<Tri<usize>, Vtx, Uni, Shd, Tgt, Ctx> {
+    pub fn append(&mut self, mut other: Self) {
+        let l = self.verts.len();
+        self.verts.extend(other.verts);
+        for Tri([a, b, c]) in &mut other.prims {
+            *a += l;
+            *b += l;
+            *c += l;
+        }
+        self.prims.extend(other.prims);
     }
 }

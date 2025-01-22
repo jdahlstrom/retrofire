@@ -2,6 +2,11 @@
 //!
 //! TODO
 
+use crate::math::{
+    Affine, ApproxEq, Linear, Point,
+    space::{Proj3, Real},
+    vary::ZDiv,
+};
 use core::{
     array,
     fmt::{Debug, Formatter},
@@ -10,12 +15,7 @@ use core::{
     ops::{Add, Div, Index, IndexMut, Mul, Neg, Sub},
     ops::{AddAssign, DivAssign, MulAssign, SubAssign},
 };
-
-use crate::math::{
-    Affine, ApproxEq, Linear, Point,
-    space::{Proj3, Real},
-    vary::ZDiv,
-};
+use std::iter::zip;
 
 //
 // Types
@@ -288,6 +288,33 @@ impl<Sc: Copy, Sp, const N: usize> Vector<[Sc; N], Sp> {
         mut f: impl FnMut(Sc, T) -> U,
     ) -> Vector<[U; N], Sp> {
         array::from_fn(|i| f(self.0[i], other.0[i])).into()
+    }
+
+    /// Returns the index of the component with the largest value.
+    ///
+    /// If there are more than one component with the maximum value, returns
+    /// the index of the last one.
+    ///
+    /// If `N` = 0, returns 0.
+    ///
+    /// # Examples
+    /// ```
+    /// use retrofire_core::math::{vec3, Vec3};
+    ///
+    /// let v: Vec3 = vec3(1.0, 3.0, 2.0);
+    /// assert_eq!(v.arg_max(), 1);
+    ///
+    /// let v: Vec3 = vec3(1.0, 2.0, 2.0);
+    /// assert_eq!(v.arg_max(), 2);
+    /// ```
+    pub fn arg_max(&self) -> usize
+    where
+        Sc: PartialOrd,
+    {
+        zip(self.0, 0..)
+            .max_by(|a, b| a.0.partial_cmp(&b.0).unwrap())
+            .map(|a| a.1)
+            .unwrap_or(0)
     }
 }
 

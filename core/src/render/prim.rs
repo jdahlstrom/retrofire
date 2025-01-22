@@ -54,12 +54,11 @@ impl<V: Vary> Render<V> for Edge<usize> {
     }
 
     fn to_screen(e: Self::Clip, tf: &Mat4x4<NdcToScreen>) -> Self::Screen {
-        let [a, b] = to_screen([e.0, e.1], tf);
-        Edge(a, b)
+        to_screen(e.into(), tf).into()
     }
 
     fn rasterize<F: FnMut(Scanline<V>)>(e: Self::Screen, scanline_fn: F) {
-        line([e.0, e.1], scanline_fn);
+        line(e.into(), scanline_fn);
     }
 }
 
