@@ -1,6 +1,6 @@
 //! Translation of vector shapes into discrete pixels in the framebuffer.
 //!
-//! Rasterization proceeds by turning a primitive such as a triagle into
+//! Rasterization proceeds by turning a primitive such as a triangle into
 //! a sequence of *scanlines*, each corresponding to a horizontal span of
 //! pixels covered by the primitive on a given line. The scanlines, in turn,
 //! are converted into a series of *fragments* that represent potentially
@@ -53,6 +53,8 @@ pub struct ScanlineIter<V: Vary> {
 /// Point in screen space.
 /// `x` and `y` are viewport pixel coordinates, `z` is depth.
 pub type ScreenPt = Point3<Screen>;
+
+pub type ScreenVert<V> = Vertex<ScreenPt, V>;
 
 /// Values to interpolate across a rasterized primitive.
 pub type Varyings<V> = (ScreenPt, V);
@@ -121,7 +123,7 @@ impl<V: Vary> Iterator for ScanlineIter<V> {
 ///
 // TODO Optimize for cases where >1 pixels are drawn for each line
 // TODO Guarantee subpixel precision
-pub fn line<V, F>([mut v0, mut v1]: [Vertex<ScreenPt, V>; 2], mut scan_fn: F)
+pub fn line<V, F>([mut v0, mut v1]: [ScreenVert<V>; 2], mut scan_fn: F)
 where
     V: Vary + Clone,
     F: FnMut(Scanline<V>),
@@ -157,7 +159,7 @@ where
 /// for each scanline. The scanlines are guaranteed to cover exactly those
 /// pixels whose center point lies inside the triangle. For more information
 /// on the scanline conversion, see [`scan`].
-pub fn tri_fill<V, F>(mut verts: [Vertex<ScreenPt, V>; 3], mut scanline_fn: F)
+pub fn tri_fill<V, F>(mut verts: [ScreenVert<V>; 3], mut scanline_fn: F)
 where
     V: Vary,
     F: FnMut(Scanline<V>),

@@ -1,82 +1,94 @@
 //! Render impls for primitives and related items.
 
-use crate::geom::{Tri, Vertex};
-use crate::math::{Mat4x4, Vary, vary::ZDiv, vec3};
+use crate::{
+    geom::{Edge, Tri, Vertex},
+    math::Vary,
+};
 
-use super::clip::ClipVert;
-use super::raster::{Scanline, ScreenPt, line, tri_fill};
-use super::{NdcToScreen, Render};
+use super::{
+    clip::ClipVert,
+    raster::{Scanline, ScreenPt, line, tri_fill},
+};
 
-impl<V: Vary> Render<V> for Tri<usize> {
-    type Clip = Tri<ClipVert<V>>;
-    type Clips = [Tri<ClipVert<V>>];
-    type Screen = Tri<Vertex<ScreenPt, V>>;
+pub trait Primitive {
+    type Vertex;
+    type Vertices: AsRef<[Self::Vertex]>;
+    type Mapped<U: Clone>: Primitive<Vertex = U>;
 
-    fn inline(ixd: Tri<usize>, vs: &[ClipVert<V>]) -> Tri<ClipVert<V>> {
-        Tri(ixd.0.map(|i| vs[i].clone()))
+    /// Returns the vertices of the primitive.
+    fn vertices(&self) -> Self::Vertices;
+
+    /// Returns a primitive with the vertices of `self` mapped
+    fn map_vertices<U: Clone>(
+        &self,
+        f: impl Fn(Self::Vertex) -> U,
+    ) -> Self::Mapped<U>;
+
+    /// Returns the (average) depth of the primitive.
+    fn depth<V: Clone>(_: &ToClip<Self, V>) -> f32 {
+        f32::INFINITY
     }
 
-    fn depth(Tri([a, b, c]): &Self::Clip) -> f32 {
+    /// Returns whether the primitive is facing away from the camera.
+    fn is_backface<V: Clone>(_: &ToScreen<Self, V>) -> bool {
+        false
+    }
+
+    /// Rasterizes the argument by calling the function for each scanline.
+    fn rasterize<V: Vary, F: FnMut(Scanline<V>)>(
+        scr: &ToScreen<Self, V>,
+        scanline_fn: F,
+    );
+}
+
+pub type ToClip<P, V> = <P as Primitive>::Mapped<ClipVert<V>>;
+pub type ToScreen<P, V> =
+    <ToClip<P, V> as Primitive>::Mapped<Vertex<ScreenPt, V>>;
+
+impl<Vtx: Clone> Primitive for Tri<Vtx> {
+    type Vertex = Vtx;
+    type Vertices = [Vtx; 3];
+    type Mapped<U: Clone> = Tri<U>;
+
+    fn vertices(&self) -> [Vtx; 3] {
+        self.0.clone()
+    }
+    fn map_vertices<U: Clone>(&self, f: impl Fn(Vtx) -> U) -> Tri<U> {
+        Tri(self.0.clone().map(f))
+    }
+
+    fn depth<V>(Tri([a, b, c]): &Tri<ClipVert<V>>) -> f32 {
         (a.pos.z() + b.pos.z() + c.pos.z()) / 3.0
     }
 
-    fn is_backface(Tri(vs): &Self::Screen) -> bool {
+    fn is_backface<V>(Tri(vs): &Tri<Vertex<ScreenPt, V>>) -> bool {
         let v = vs[1].pos - vs[0].pos;
         let u = vs[2].pos - vs[0].pos;
         v[0] * u[1] - v[1] * u[0] > 0.0
     }
-
-    fn to_screen(
-        clip: Tri<ClipVert<V>>,
-        tf: &Mat4x4<NdcToScreen>,
-    ) -> Self::Screen {
-        Tri(to_screen(clip.0, tf))
-    }
-
-    fn rasterize<F: FnMut(Scanline<V>)>(scr: Self::Screen, scanline_fn: F) {
-        tri_fill(scr.0, scanline_fn);
+    fn rasterize<V: Vary, F: FnMut(Scanline<V>)>(
+        scr: &Tri<Vertex<ScreenPt, V>>,
+        scanline_fn: F,
+    ) {
+        tri_fill(scr.vertices(), scanline_fn);
     }
 }
 
-impl<V: Vary> Render<V> for [usize; 2] {
-    type Clip = [ClipVert<V>; 2];
+impl<Vtx: Clone> Primitive for Edge<Vtx> {
+    type Vertex = Vtx;
+    type Vertices = [Vtx; 2];
+    type Mapped<U: Clone> = Edge<U>;
 
-    type Clips = [Self::Clip];
-
-    type Screen = [Vertex<ScreenPt, V>; 2];
-
-    fn inline([i, j]: [usize; 2], vs: &[ClipVert<V>]) -> Self::Clip {
-        [vs[i].clone(), vs[j].clone()]
+    fn vertices(&self) -> [Vtx; 2] {
+        [self.0.clone(), self.1.clone()]
     }
-
-    fn to_screen(clip: Self::Clip, tf: &Mat4x4<NdcToScreen>) -> Self::Screen {
-        to_screen(clip, tf)
+    fn map_vertices<U: Clone>(&self, f: impl Fn(Vtx) -> U) -> Edge<U> {
+        Edge(f(self.0.clone()), f(self.1.clone()))
     }
-
-    fn rasterize<F: FnMut(Scanline<V>)>(scr: Self::Screen, scanline_fn: F) {
-        line(scr, scanline_fn);
+    fn rasterize<V: Vary, F: FnMut(Scanline<V>)>(
+        scr: &Edge<Vertex<ScreenPt, V>>,
+        scanline_fn: F,
+    ) {
+        line(scr.vertices(), scanline_fn);
     }
-}
-
-pub fn to_screen<V: ZDiv, const N: usize>(
-    vs: [ClipVert<V>; N],
-    tf: &Mat4x4<NdcToScreen>,
-) -> [Vertex<ScreenPt, V>; N] {
-    vs.map(|v| {
-        let [x, y, _, w] = v.pos.0;
-        // Perspective division (projection to the real plane)
-        //
-        // We use the screen-space z coordinate to store the reciprocal
-        // of the original view-space depth. The interpolated reciprocal
-        // is used in fragment processing for depth testing (larger values
-        // are closer) and for perspective correction of the varyings.
-        // TODO z_div could be space-aware
-        let pos = vec3(x, y, 1.0).z_div(w);
-        Vertex {
-            // Viewport transform
-            pos: tf.apply(&pos).to_pt(),
-            // Perspective correction
-            attrib: v.attrib.z_div(w),
-        }
-    })
 }

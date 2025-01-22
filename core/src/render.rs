@@ -8,17 +8,20 @@
 use alloc::vec::Vec;
 use core::fmt::Debug;
 
-use crate::geom::Vertex;
+use crate::geom::{Edge, Vertex};
 use crate::math::{
     Lerp, Mat4x4, Vary,
     mat::{RealToProj, RealToReal},
+    rgba,
     vec::ProjVec3,
+    vec3,
 };
 
 use {
     clip::{ClipVert, view_frustum},
     ctx::{DepthSort, FaceCull},
-    raster::Scanline,
+    prim::{ToClip, ToScreen},
+    raster::{ScreenPt, line},
 };
 
 pub use {
@@ -26,6 +29,7 @@ pub use {
     cam::Camera,
     clip::Clip,
     ctx::Context,
+    prim::Primitive,
     shader::{FragmentShader, VertexShader},
     stats::Stats,
     target::{Framebuf, Target},
@@ -44,37 +48,6 @@ pub mod stats;
 pub mod target;
 pub mod tex;
 pub mod text;
-
-/// Renderable geometric primitive.
-pub trait Render<V: Vary> {
-    /// The type of this primitive in clip space
-    type Clip;
-
-    /// The type for which `Clip` is implemented.
-    type Clips: Clip<Item = Self::Clip> + ?Sized;
-
-    /// The type of this primitive in screen space.
-    type Screen;
-
-    /// Maps the indexes of the argument to vertices.
-    fn inline(ixd: Self, vs: &[ClipVert<V>]) -> Self::Clip;
-
-    /// Returns the (average) depth of the argument.
-    fn depth(_clip: &Self::Clip) -> f32 {
-        f32::INFINITY
-    }
-
-    /// Returns whether the argument is facing away from the camera.
-    fn is_backface(_: &Self::Screen) -> bool {
-        false
-    }
-
-    /// Transforms the argument from NDC to screen space.
-    fn to_screen(clip: Self::Clip, tf: &Mat4x4<NdcToScreen>) -> Self::Screen;
-
-    /// Rasterizes the argument by calling the function for each scanline.
-    fn rasterize<F: FnMut(Scanline<V>)>(scr: Self::Screen, scanline_fn: F);
-}
 
 /// Model space coordinate basis.
 #[derive(Copy, Clone, Debug, Default, Eq, PartialEq)]
@@ -126,21 +99,19 @@ impl<S, Vtx, Var, Uni> Shader<Vtx, Var, Uni> for S where
 }
 
 /// Renders the given primitives into `target`.
-pub fn render<Prim, Vtx: Clone, Var, Uni: Copy, Shd>(
+pub fn render<Prim, Vtx: Clone, Var: Lerp + Vary, Uni: Copy>(
     prims: impl AsRef<[Prim]>,
     verts: impl AsRef<[Vtx]>,
-    shader: &Shd,
+    shader: &impl Shader<Vtx, Var, Uni>,
     uniform: Uni,
     to_screen: Mat4x4<NdcToScreen>,
     target: &mut impl Target,
     ctx: &Context,
 ) where
-    Prim: Render<Var> + Clone,
-    [<Prim>::Clip]: Clip<Item = Prim::Clip>,
-    Var: Lerp + Vary,
-    Shd: Shader<Vtx, Var, Uni>,
+    Prim: Primitive<Vertex = usize> + Clone,
+    [ToClip<Prim, Var>]: Clip<Item = ToClip<Prim, Var>>,
 {
-    // 0. Preparations
+    // 0. Setup
     let verts = verts.as_ref();
     let prims = prims.as_ref();
 
@@ -162,7 +133,7 @@ pub fn render<Prim, Vtx: Clone, Var, Uni: Copy, Shd>(
     // 2. Primitive assembly: map vertex indices to actual vertices
     let prims: Vec<_> = prims
         .iter()
-        .map(|tri| Prim::inline(tri.clone(), &verts))
+        .map(|tri| tri.map_vertices(|i| verts[i].clone()))
         // Collect needed because clip takes a slice...
         .collect();
 
@@ -173,12 +144,12 @@ pub fn render<Prim, Vtx: Clone, Var, Uni: Copy, Shd>(
 
     // Optional depth sorting for use case such as transparency
     if let Some(d) = ctx.depth_sort {
-        depth_sort::<Prim, _>(&mut clipped, d);
+        depth_sort::<Var, Prim>(&mut clipped, d);
     }
 
     for prim in clipped {
         // Transform to screen space
-        let prim = Prim::to_screen(prim, &to_screen);
+        let prim = map_to_screen::<Prim, Var>(prim, &to_screen);
         // Back/frontface culling
         // TODO This could also be done earlier, before or as part of clipping
         let bf = Prim::is_backface(&prim);
@@ -190,10 +161,10 @@ pub fn render<Prim, Vtx: Clone, Var, Uni: Copy, Shd>(
 
         // Log output stats after culling
         stats.prims.o += 1;
-        stats.verts.o += 3; // TODO Get number of verts in prim somehow
+        stats.verts.o += prim.vertices().as_ref().len();
 
         // 4. Fragment shader and rasterization
-        Prim::rasterize(prim, |scanline| {
+        Prim::rasterize(&prim, |scanline| {
             // Convert to fragments, shade, and draw to target
             stats.frags += target.rasterize(scanline, shader, ctx);
         });
@@ -201,7 +172,10 @@ pub fn render<Prim, Vtx: Clone, Var, Uni: Copy, Shd>(
     *ctx.stats.borrow_mut() += stats.finish();
 }
 
-fn depth_sort<P: Render<V>, V: Vary>(prims: &mut [P::Clip], d: DepthSort) {
+fn depth_sort<V: Vary, P: Primitive>(
+    prims: &mut [P::Mapped<ClipVert<V>>],
+    d: DepthSort,
+) {
     prims.sort_unstable_by(|t, u| {
         let z = P::depth(t);
         let w = P::depth(u);
@@ -211,4 +185,54 @@ fn depth_sort<P: Render<V>, V: Vary>(prims: &mut [P::Clip], d: DepthSort) {
             w.total_cmp(&z)
         }
     });
+}
+
+fn map_to_screen<P: Primitive, V: Vary>(
+    prim: ToClip<P, V>,
+    tf: &Mat4x4<NdcToScreen>,
+) -> ToScreen<P, V>
+where
+    ToClip<P, V>: Primitive<Vertex = ClipVert<V>>,
+{
+    prim.map_vertices(|v| {
+        use crate::math::vary::ZDiv;
+        let [x, y, _, w] = v.pos.0;
+        // Perspective division (projection to the real plane)
+        //
+        // We use the screen-space z coordinate to store the reciprocal
+        // of the original view-space depth. The interpolated reciprocal
+        // is used in fragment processing for depth testing (larger values
+        // are closer) and for perspective correction of the varyings.
+        // TODO z_div could be space-aware
+        let pos = vec3(x, y, 1.0).z_div(w);
+        Vertex {
+            // Viewport transform
+            pos: tf.apply(&pos).to_pt(),
+            // Perspective correction
+            attrib: v.attrib.z_div(w),
+        }
+    })
+}
+
+fn _wireframe<P, V: Vary, T: Target>(prim: &P, target: &mut T, ctx: &Context)
+where
+    P: Primitive<Vertex = Vertex<ScreenPt, V>>,
+{
+    let vs = prim.vertices();
+
+    let mut v0 = vs.as_ref()[0].clone();
+    for v1 in vs.as_ref()[1..]
+        .iter()
+        .cloned()
+        .chain([v0.clone()])
+    {
+        let mut edge = [v0.clone(), v1.clone()];
+        edge[0].pos[2] += 0.005;
+        edge[1].pos[2] += 0.005;
+
+        line(edge, |sl| {
+            target.rasterize(sl, &|_| rgba(0xFF, 0, 0, 0), ctx);
+        });
+        v0 = v1;
+    }
 }
