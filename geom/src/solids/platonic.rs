@@ -295,9 +295,10 @@ impl Build<Normal3> for Octahedron {
         let mut b = Mesh::builder();
         for (i, vs) in Self::FACES.iter().enumerate() {
             b.push_face(3 * i, 3 * i + 1, 3 * i + 2);
+            let n = Self::NORMS[i].normalize();
             for vi in *vs {
                 let pos = Self::COORDS[Self::VERTS[vi].0];
-                b.push_vert(pos, Self::NORMS[i]);
+                b.push_vert(pos, n);
             }
         }
         b.build()
