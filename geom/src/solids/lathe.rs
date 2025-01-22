@@ -24,6 +24,7 @@ pub struct Lathe<P> {
 }
 
 /// TODO
+#[derive(Copy, Clone, Debug)]
 pub struct Sphere {
     pub sectors: u32,
     pub segments: u32,
@@ -31,6 +32,7 @@ pub struct Sphere {
 }
 
 /// Toroidal polyhedron.
+#[derive(Copy, Clone, Debug)]
 pub struct Torus {
     /// Distance from the origin to the center of the tube.
     pub major_radius: f32,
@@ -42,6 +44,7 @@ pub struct Torus {
 }
 
 /// Right cylinder with regular *n*-gonal cross-section.
+#[derive(Copy, Clone, Debug)]
 pub struct Cylinder {
     pub sectors: u32,
     pub segments: u32,
@@ -50,6 +53,7 @@ pub struct Cylinder {
 }
 
 /// TODO
+#[derive(Copy, Clone, Debug)]
 pub struct Cone {
     pub sectors: u32,
     pub segments: u32,
@@ -59,6 +63,7 @@ pub struct Cone {
 }
 
 /// Cylinder with hemispherical caps.
+#[derive(Copy, Clone, Debug)]
 pub struct Capsule {
     pub sectors: u32,
     pub body_segments: u32,
