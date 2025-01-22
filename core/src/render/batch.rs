@@ -57,14 +57,12 @@ impl<Prim, Vtx, Uni, Shd, Tgt, Ctx> Batch<Prim, Vtx, Uni, Shd, Tgt, Ctx> {
     /// Sets the faces to be rendered.
     ///
     /// The faces are copied into the batch.
-    pub fn faces(self, faces: impl AsRef<[Prim]>) -> Self
-    where
-        Prim: Clone,
-    {
-        Self {
-            prims: faces.as_ref().to_vec(),
-            ..self
-        }
+    pub fn primitives<P: Clone>(
+        self,
+        prims: impl AsRef<[P]>,
+    ) -> Batch<P, Vtx, Uni, Shd, Tgt, Ctx> {
+        let prims = prims.as_ref().to_vec();
+        update!(prims; self verts uniform shader viewport target ctx)
     }
 
     /// Sets the vertices to be rendered.
@@ -98,7 +96,7 @@ impl<Prim, Vtx, Uni, Shd, Tgt, Ctx> Batch<Prim, Vtx, Uni, Shd, Tgt, Ctx> {
     }
 
     /// Sets the combined vertex and fragment shader.
-    pub fn shader<V: Vary, S: Shader<Vtx, V, Uni>>(
+    pub fn shader<V: Vary, U, S: Shader<Vtx, V, U>>(
         self,
         shader: S,
     ) -> Batch<Prim, Vtx, Uni, S, Tgt, Ctx> {
