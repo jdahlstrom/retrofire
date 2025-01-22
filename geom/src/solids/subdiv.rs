@@ -55,10 +55,10 @@ fn subdivide(
         bld.push_faces(faces.iter().copied());
     } else {
         for &[i, j, k] in faces {
-            let mut get = |i, j| {
-                *cache.entry([i, j]).or_insert_with(|| {
-                    let a = bld.mesh.verts[i];
-                    let b = bld.mesh.verts[j];
+            let mut midpoint_ix = |m, n| {
+                *cache.entry([m, n]).or_insert_with(|| {
+                    let a = bld.mesh.verts[m];
+                    let b = bld.mesh.verts[n];
                     let ab = a.midpoint(&b);
                     bld.push_vert(
                         ab.pos.to_vec().normalize().to_pt().to(),
@@ -66,7 +66,8 @@ fn subdivide(
                     )
                 })
             };
-            let [ij, ik, jk] = [get(i, j), get(i, k), get(j, k)];
+            let [ij, ik, jk] =
+                [midpoint_ix(i, j), midpoint_ix(i, k), midpoint_ix(j, k)];
             let new_faces =
                 [[i, ij, ik], [j, jk, ij], [k, ik, jk], [ij, jk, ik]];
 
