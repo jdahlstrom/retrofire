@@ -1,7 +1,7 @@
 //! The five Platonic solids: tetrahedron, cube, octahedron, dodecahedron,
 //! and icosahedron.
 
-use core::array::from_fn;
+use core::{array::from_fn, iter::zip};
 
 use re::geom::{Mesh, Normal3};
 use re::math::{Lerp, Point3, Vec3, pt3, vec3};
@@ -93,26 +93,35 @@ pub struct Dodecahedron;
 #[derive(Copy, Clone, Debug, Default)]
 pub struct Icosahedron;
 
+const SQRT_2_3: f32 = 0.8164965809;
+const SQRT_2_9: f32 = 0.4714045208;
+const SQRT_8_9: f32 = 2.0 * SQRT_2_9;
+
 impl Tetrahedron {
     const FACES: [[usize; 3]; 4] = [[0, 2, 1], [0, 3, 2], [0, 1, 3], [1, 2, 3]];
 
+    const COORDS: [Point3; 4] = [
+        pt3(0.0, 1.0, 0.0),
+        pt3(SQRT_8_9, -1.0 / 3.0, 0.0),
+        pt3(-SQRT_2_9, -1.0 / 3.0, SQRT_2_3),
+        pt3(-SQRT_2_9, -1.0 / 3.0, -SQRT_2_3),
+    ];
+
+    // Face normal is the opposite vertex coordinate, negated
+    const NORMS: [Vec3; 4] = [
+        vec3(SQRT_2_9, 1.0 / 3.0, SQRT_2_3),
+        vec3(-SQRT_8_9, 1.0 / 3.0, 0.0),
+        vec3(SQRT_2_9, 1.0 / 3.0, -SQRT_2_3),
+        vec3(0.0, -1.0, 0.0),
+    ];
+
     /// Builds the tetrahedral mesh.
     pub fn build(self) -> Mesh<Normal3> {
-        let sqrt = re::math::float::f32::sqrt;
-        let coords = [
-            pt3(0.0, 1.0, 0.0),
-            pt3(sqrt(8.0 / 9.0), -1.0 / 3.0, 0.0),
-            pt3(-sqrt(2.0 / 9.0), -1.0 / 3.0, sqrt(2.0 / 3.0)),
-            pt3(-sqrt(2.0 / 9.0), -1.0 / 3.0, -sqrt(2.0 / 3.0)),
-        ];
-        let norms = [3, 1, 2, 0].map(|i| -coords[i].to_vec());
-
         let mut b = Mesh::builder();
-
-        for (i, vs) in Self::FACES.into_iter().enumerate() {
+        for (vs, i) in zip(Self::FACES, 0..) {
             b.push_face(3 * i, 3 * i + 1, 3 * i + 2);
             for v in vs {
-                b.push_vert(coords[v], norms[i]);
+                b.push_vert(Self::COORDS[v], Self::NORMS[i]);
             }
         }
         b.build()
@@ -283,9 +292,9 @@ impl Octahedron {
     /// Builds the octahedral mesh.
     pub fn build(self) -> Mesh<Normal3> {
         let mut b = Mesh::builder();
-        for (i, vs) in Self::FACES.iter().enumerate() {
+        for (vs, i) in zip(Self::FACES, 0..) {
             b.push_face(3 * i, 3 * i + 1, 3 * i + 2);
-            for vi in *vs {
+            for vi in vs {
                 let pos = Self::COORDS[Self::VERTS[vi].0];
                 b.push_vert(pos, Self::NORMS[i]);
             }
@@ -349,15 +358,16 @@ impl Dodecahedron {
     pub fn build(self) -> Mesh<Normal3> {
         let mut b = Mesh::builder();
 
-        for (i, face) in Self::FACES.iter().enumerate() {
+        for (vs, i) in zip(Self::FACES, 0..) {
             let n = Self::NORMALS[i].normalize();
             // Make a pentagon from three triangles
             let i5 = 5 * i;
             b.push_face(i5, i5 + 1, i5 + 2);
             b.push_face(i5, i5 + 2, i5 + 3);
             b.push_face(i5, i5 + 3, i5 + 4);
-            for &j in face {
-                b.push_vert(Self::COORDS[j].normalize().to_pt(), n);
+            for vi in vs {
+                let pos = Self::COORDS[vi].normalize().to_pt();
+                b.push_vert(pos, n);
             }
         }
         b.build()
@@ -404,11 +414,12 @@ impl Icosahedron {
     /// Builds the icosahedral mesh.
     pub fn build(self) -> Mesh<Normal3> {
         let mut b = Mesh::builder();
-        for (i, vs) in Self::FACES.iter().enumerate() {
+        for (vs, i) in zip(Self::FACES, 0..) {
             let n = Self::NORMALS[i].normalize();
             b.push_face(3 * i, 3 * i + 1, 3 * i + 2);
-            for vi in *vs {
-                b.push_vert(Self::COORDS[vi].normalize().to_pt(), n);
+            for vi in vs {
+                let pos = Self::COORDS[vi].normalize().to_pt();
+                b.push_vert(pos, n);
             }
         }
         b.build()
