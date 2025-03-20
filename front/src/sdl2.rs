@@ -3,22 +3,22 @@
 use std::{fmt, mem::replace, ops::ControlFlow, time::Instant};
 
 use sdl2::{
+    EventPump, IntegerOrSdlError,
     event::Event,
     keyboard::Keycode,
     render::{Texture, TextureValueError, WindowCanvas},
     video::{FullscreenType, WindowBuildError},
-    EventPump, IntegerOrSdlError,
 };
 
 use retrofire_core::{
     math::Vary,
     render::{
-        raster::Scanline, stats::Throughput, Context, FragmentShader, Target,
+        Context, FragmentShader, Target, raster::Scanline, stats::Throughput,
     },
     util::buf::{Buf2, MutSlice2},
 };
 
-use crate::{dims, Frame};
+use crate::{Frame, dims};
 
 #[derive(Debug)]
 pub struct Error(String);

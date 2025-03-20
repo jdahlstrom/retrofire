@@ -17,27 +17,27 @@
 //! to matching vectors. Angles are strongly typed as well, to allow working
 //! with different angular units without confusion.
 
+pub use {
+    angle::{
+        Angle, PolarVec, SphericalVec, degs, polar, rads, spherical, turns,
+    },
+    approx::ApproxEq,
+    color::{Color, Color3, Color3f, Color4, Color4f, rgb, rgba},
+    mat::{
+        Mat3x3, Mat4x4, Matrix, orthographic, perspective, scale, scale3,
+        translate, translate3, viewport,
+    },
+    param::Parametric,
+    point::{Point, Point2, Point2u, Point3, pt2, pt3},
+    space::{Affine, Linear},
+    spline::{BezierSpline, CubicBezier, smootherstep, smoothstep},
+    vary::Vary,
+    vec::{Vec2, Vec2i, Vec3, Vec3i, Vector, splat, vec2, vec3},
+};
 #[cfg(feature = "fp")]
 pub use {
     angle::{acos, asin, atan2},
-    mat::{orient_y, orient_z, rotate, rotate2, rotate_x, rotate_y, rotate_z},
-};
-pub use {
-    angle::{
-        degs, polar, rads, spherical, turns, Angle, PolarVec, SphericalVec,
-    },
-    approx::ApproxEq,
-    color::{rgb, rgba, Color, Color3, Color3f, Color4, Color4f},
-    mat::{
-        orthographic, perspective, scale, scale3, translate, translate3,
-        viewport, Mat3x3, Mat4x4, Matrix,
-    },
-    param::Parametric,
-    point::{pt2, pt3, Point, Point2, Point2u, Point3},
-    space::{Affine, Linear},
-    spline::{smootherstep, smoothstep, BezierSpline, CubicBezier},
-    vary::Vary,
-    vec::{splat, vec2, vec3, Vec2, Vec2i, Vec3, Vec3i, Vector},
+    mat::{orient_y, orient_z, rotate, rotate_x, rotate_y, rotate_z, rotate2},
 };
 
 pub mod angle;

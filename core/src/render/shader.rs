@@ -16,7 +16,7 @@
 
 use crate::{
     geom::Vertex,
-    math::{vec::ProjVec4, Color4},
+    math::{Color4, vec::ProjVec4},
 };
 
 use super::raster::Frag;

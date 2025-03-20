@@ -325,7 +325,7 @@ mod tests {
     use alloc::vec;
 
     use crate::assert_approx_eq;
-    use crate::math::{pt2, vec2, Parametric, Point2, Vec2};
+    use crate::math::{Parametric, Point2, Vec2, pt2, vec2};
 
     use super::*;
 

@@ -7,10 +7,10 @@ use core::{
     ops::{Add, Div, Mul, Neg, Rem, Sub},
 };
 
-use crate::math::{vary::ZDiv, Affine, ApproxEq, Linear, Vector};
+use crate::math::{Affine, ApproxEq, Linear, Vector, vary::ZDiv};
 
 #[cfg(feature = "fp")]
-use crate::math::{float::f32, vec2, vec3, Vec2, Vec3};
+use crate::math::{Vec2, Vec3, float::f32, vec2, vec3};
 
 //
 // Types

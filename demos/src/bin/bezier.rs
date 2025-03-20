@@ -5,7 +5,7 @@ use re::prelude::*;
 use re::geom::{Edge, Ray};
 use re::math::rand::{Distrib, Uniform, VectorsOnUnitDisk, Xorshift64};
 use re::render::raster::line;
-use re_front::{dims, minifb::Window, Frame};
+use re_front::{Frame, dims, minifb::Window};
 
 fn main() {
     let dims @ (w, h) = dims::SVGA_800_600;

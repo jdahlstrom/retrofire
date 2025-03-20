@@ -188,7 +188,7 @@ mod tests {
     #[cfg(not(feature = "fp"))]
     #[test]
     fn fallback_functions() {
-        use super::{f32, RecipSqrt};
+        use super::{RecipSqrt, f32};
 
         assert_eq!(f32::floor(1.23), 1.0);
         assert_eq!(f32::floor(0.0), 0.0);
@@ -206,7 +206,7 @@ mod tests {
 
     #[test]
     fn recip_sqrt() {
-        use super::{f32, RecipSqrt};
+        use super::{RecipSqrt, f32};
         assert_approx_eq!(f32::recip_sqrt(2.0), f32::sqrt(0.5), eps = 1e-2);
         assert_approx_eq!(f32::recip_sqrt(9.0), 1.0 / 3.0, eps = 1e-3);
     }
