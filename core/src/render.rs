@@ -10,13 +10,13 @@ use core::fmt::Debug;
 
 use crate::geom::Vertex;
 use crate::math::{
+    Lerp, Mat4x4, Vary,
     mat::{RealToProj, RealToReal},
     vec::ProjVec4,
-    Lerp, Mat4x4, Vary,
 };
 
 use {
-    clip::{view_frustum, ClipVert},
+    clip::{ClipVert, view_frustum},
     ctx::{DepthSort, FaceCull},
     raster::Scanline,
 };
@@ -29,7 +29,7 @@ pub use {
     shader::{FragmentShader, VertexShader},
     stats::Stats,
     target::{Framebuf, Target},
-    tex::{uv, TexCoord, Texture},
+    tex::{TexCoord, Texture, uv},
     text::Text,
 };
 

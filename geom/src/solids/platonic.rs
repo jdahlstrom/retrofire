@@ -4,8 +4,8 @@
 use core::array::from_fn;
 
 use re::geom::{Mesh, Normal3};
-use re::math::{pt3, vec3, Lerp, Point3, Vec3};
-use re::render::{uv, TexCoord};
+use re::math::{Lerp, Point3, Vec3, pt3, vec3};
+use re::render::{TexCoord, uv};
 
 /// A regular tetrahedron.
 ///

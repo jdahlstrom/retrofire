@@ -1,9 +1,9 @@
 //! Textures and texture samplers.
 
-use crate::math::{pt2, vec2, Point2u, Vec2, Vector};
+use crate::math::{Point2u, Vec2, Vector, pt2, vec2};
 use crate::util::{
-    buf::{AsSlice2, Buf2, Slice2},
     Dims,
+    buf::{AsSlice2, Buf2, Slice2},
 };
 
 /// Basis of the texture space.
@@ -302,7 +302,7 @@ impl SamplerOnce {
 mod tests {
     use alloc::vec;
 
-    use crate::math::{rgb, Color3};
+    use crate::math::{Color3, rgb};
     use crate::util::buf::Buf2;
 
     use super::*;

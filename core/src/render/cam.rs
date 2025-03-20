@@ -4,19 +4,19 @@ use core::ops::Range;
 
 use crate::geom::Vertex;
 use crate::math::{
-    mat::RealToReal, orthographic, perspective, pt2, viewport, Lerp, Mat4x4,
-    Point3, SphericalVec, Vary,
+    Lerp, Mat4x4, Point3, SphericalVec, Vary, mat::RealToReal, orthographic,
+    perspective, pt2, viewport,
 };
-use crate::util::{rect::Rect, Dims};
+use crate::util::{Dims, rect::Rect};
 
 #[cfg(feature = "fp")]
 use crate::math::{
-    orient_z, pt3, rotate_x, rotate_y, spherical, translate, turns, Angle, Vec3,
+    Angle, Vec3, orient_z, pt3, rotate_x, rotate_y, spherical, translate, turns,
 };
 
 use super::{
-    clip::ClipVec, Clip, Context, FragmentShader, NdcToScreen, RealToProj,
-    Render, Target, VertexShader, View, ViewToProj, World, WorldToView,
+    Clip, Context, FragmentShader, NdcToScreen, RealToProj, Render, Target,
+    VertexShader, View, ViewToProj, World, WorldToView, clip::ClipVec,
 };
 
 /// Trait for different modes of camera motion.

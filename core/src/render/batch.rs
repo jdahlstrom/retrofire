@@ -5,7 +5,7 @@ use core::borrow::Borrow;
 
 use crate::{
     geom::{Mesh, Tri, Vertex3},
-    math::{mat::Mat4x4, vary::Vary, Lerp},
+    math::{Lerp, mat::Mat4x4, vary::Vary},
 };
 
 use super::{Context, NdcToScreen, Shader, Target};

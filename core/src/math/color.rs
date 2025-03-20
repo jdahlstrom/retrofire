@@ -7,7 +7,7 @@ use core::{
     ops::Index,
 };
 
-use crate::math::{float::f32, vary::ZDiv, Affine, Linear, Vector};
+use crate::math::{Affine, Linear, Vector, float::f32, vary::ZDiv};
 
 //
 // Types
