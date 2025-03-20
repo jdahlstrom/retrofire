@@ -8,11 +8,11 @@ use std::{
 use minifb::{Key, WindowOptions};
 
 use retrofire_core::{
-    render::{target, Context},
-    util::{buf::Buf2, buf::MutSlice2, Dims},
+    render::{Context, target},
+    util::{Dims, buf::Buf2, buf::MutSlice2},
 };
 
-use crate::{dims::SVGA_800_600, Frame};
+use crate::{Frame, dims::SVGA_800_600};
 
 /// A lightweight wrapper of a `minibuf` window.
 pub struct Window {

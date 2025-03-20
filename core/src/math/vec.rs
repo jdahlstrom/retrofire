@@ -12,10 +12,10 @@ use core::{
 };
 
 use crate::math::{
+    Affine, ApproxEq, Linear, Point,
     float::f32,
     space::{Proj4, Real},
     vary::ZDiv,
-    Affine, ApproxEq, Linear, Point,
 };
 
 //
@@ -137,9 +137,9 @@ impl<Sp, const N: usize> Vector<[f32; N], Sp> {
     where
         Self: Debug,
     {
-        use super::float::f32;
         #[cfg(feature = "std")]
         use super::float::RecipSqrt;
+        use super::float::f32;
         let len_sqr = self.len_sqr();
         assert!(
             len_sqr.is_finite() && !len_sqr.approx_eq_eps(&0.0, &1e-12),

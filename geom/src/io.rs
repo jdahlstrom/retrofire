@@ -49,9 +49,9 @@ use std::{
     path::Path,
 };
 
-use re::geom::{mesh::Builder, vertex, Mesh, Normal3, Tri};
-use re::math::{vec3, Point3, Vec3};
-use re::render::{uv, Model, TexCoord};
+use re::geom::{Mesh, Normal3, Tri, mesh::Builder, vertex};
+use re::math::{Point3, Vec3, vec3};
+use re::render::{Model, TexCoord, uv};
 
 use Error::*;
 

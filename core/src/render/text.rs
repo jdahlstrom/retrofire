@@ -2,8 +2,8 @@ use core::fmt;
 #[cfg(feature = "std")]
 use std::io;
 
-use crate::geom::{vertex, Mesh, Tri};
-use crate::math::{pt2, vec2, vec3, Color3, Point2, Vec2};
+use crate::geom::{Mesh, Tri, vertex};
+use crate::math::{Color3, Point2, Vec2, pt2, vec2, vec3};
 use crate::util::buf::Buf2;
 
 use super::tex::{Atlas, Layout, SamplerClamp, TexCoord};

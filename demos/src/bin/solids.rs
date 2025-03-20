@@ -8,10 +8,10 @@ use re::math::{
     color::gray, mat::RealToReal, pt2, smootherstep, vec::ProjVec4,
 };
 use re::render::{
-    raster::Frag, shader::Shader, Batch, Camera, ModelToProj, ModelToWorld,
+    Batch, Camera, ModelToProj, ModelToWorld, raster::Frag, shader::Shader,
 };
 
-use re_front::{minifb::Window, Frame};
+use re_front::{Frame, minifb::Window};
 use re_geom::{io::parse_obj, solids::*};
 
 // Carousel animation for switching between objects.

@@ -7,11 +7,11 @@ use core::{
 };
 
 use crate::{
-    math::{mat::RealToReal, Linear, Mat4x4, Point3},
+    math::{Linear, Mat4x4, Point3, mat::RealToReal},
     render::Model,
 };
 
-use super::{vertex, Normal3, Tri, Vertex3};
+use super::{Normal3, Tri, Vertex3, vertex};
 
 /// A triangle mesh.
 ///

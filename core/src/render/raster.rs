@@ -19,7 +19,7 @@ use core::{
 
 use crate::{
     geom::Vertex,
-    math::{point::Point3, Lerp, Vary},
+    math::{Lerp, Vary, point::Point3},
     render::Screen,
 };
 
@@ -299,7 +299,7 @@ mod tests {
         util::buf::Buf2,
     };
 
-    use super::{tri_fill, Scanline};
+    use super::{Scanline, tri_fill};
 
     // TODO Test different orientations and various edge cases
 

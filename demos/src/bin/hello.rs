@@ -2,12 +2,12 @@ use std::{env, fmt::Write, ops::ControlFlow::Continue};
 
 use re::prelude::*;
 use re::render::{
-    tex::{Atlas, Layout},
     Text,
+    tex::{Atlas, Layout},
 };
 use re::util::pnm::parse_pnm;
 
-use re_front::{dims::SVGA_800_600, minifb::Window, Frame};
+use re_front::{Frame, dims::SVGA_800_600, minifb::Window};
 
 fn main() {
     let font = *include_bytes!("../../../assets/font_16x24.pbm");

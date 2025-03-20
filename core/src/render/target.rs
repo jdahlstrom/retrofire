@@ -6,7 +6,7 @@
 
 use crate::{math::Vary, util::buf::AsMutSlice2};
 
-use super::{raster::Scanline, stats::Throughput, Context, FragmentShader};
+use super::{Context, FragmentShader, raster::Scanline, stats::Throughput};
 
 /// Trait for types that can be used as render targets.
 pub trait Target {
