@@ -13,13 +13,13 @@
 //! doing it for every scanline individually.
 //!
 
-use alloc::{vec, vec::Vec};
+use alloc::vec::Vec;
 use core::iter::zip;
 
 use view_frustum::{outcode, status};
 
-use crate::geom::{vertex, Tri, Vertex};
-use crate::math::{vec::ProjVec4, Lerp};
+use crate::geom::{Tri, Vertex, vertex};
+use crate::math::{Lerp, vec::ProjVec4};
 
 /// Trait for types that can be [clipped][self] against planes.
 ///
@@ -346,8 +346,8 @@ impl<A: Lerp + Clone> Clip for [Tri<ClipVert<A>>] {
         debug_assert!(out.is_empty());
 
         // Avoid unnecessary allocations by reusing these
-        let mut verts_in = vec![];
-        let mut verts_out = vec![];
+        let mut verts_in = Vec::with_capacity(10);
+        let mut verts_out = Vec::with_capacity(10);
 
         for tri @ Tri(vs) in self {
             match status(vs) {
@@ -389,6 +389,8 @@ impl<A: Lerp + Clone> Clip for [Tri<ClipVert<A>>] {
 
 #[cfg(test)]
 mod tests {
+    use alloc::vec;
+
     use crate::{geom::vertex, math::Vary};
 
     use super::{view_frustum::*, *};

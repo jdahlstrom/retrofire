@@ -5,7 +5,7 @@
 //! [texturing][tex], [rasterizing][raster], and [outputting][target] basic
 //! geometric shapes such as triangles.
 
-use alloc::{vec, vec::Vec};
+use alloc::vec::Vec;
 use core::fmt::Debug;
 
 use crate::geom::Vertex;
@@ -167,7 +167,8 @@ pub fn render<Prim, Vtx: Clone, Var, Uni: Copy, Shd>(
         .collect();
 
     // 3. Clipping: clip against the view frustum
-    let mut clipped = vec![];
+    // TODO capacity is just a heuristic, should retain vector between calls somehow
+    let mut clipped = Vec::with_capacity(prims.len() / 2);
     view_frustum::clip(&prims[..], &mut clipped);
 
     // Optional depth sorting for use case such as transparency
