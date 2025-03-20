@@ -12,22 +12,22 @@ use core::{
     time::Duration,
 };
 
-use wasm_bindgen::{prelude::*, Clamped};
+use wasm_bindgen::{Clamped, prelude::*};
 
 use web_sys::{
-    js_sys::{Uint32Array, Uint8ClampedArray},
     CanvasRenderingContext2d as Context2d, Document,
     HtmlCanvasElement as Canvas, ImageData,
+    js_sys::{Uint8ClampedArray, Uint32Array},
 };
 
 use retrofire_core::{
     math::color::rgba,
-    render::{target, Context, Stats},
-    util::buf::{AsMutSlice2, Buf2, MutSlice2},
+    render::{Context, Stats, target},
     util::Dims,
+    util::buf::{AsMutSlice2, Buf2, MutSlice2},
 };
 
-use crate::{dims::SVGA_800_600, Frame};
+use crate::{Frame, dims::SVGA_800_600};
 
 #[wasm_bindgen]
 extern "C" {

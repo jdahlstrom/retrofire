@@ -363,7 +363,7 @@ pub mod inner {
 
     use crate::{
         math::point::Point2u,
-        util::{rect::Rect, Dims},
+        util::{Dims, rect::Rect},
     };
 
     use super::{AsSlice2, MutSlice2, Slice2};

@@ -26,12 +26,12 @@ use std::{
 use Error::*;
 use Format::*;
 
-use crate::math::{rgb, Color3};
+use crate::math::{Color3, rgb};
 
 #[cfg(feature = "std")]
 use super::buf::AsSlice2;
 
-use super::{buf::Buf2, Dims};
+use super::{Dims, buf::Buf2};
 
 /// The header of a PNM image.
 #[derive(Copy, Clone, Debug, Eq, PartialEq)]

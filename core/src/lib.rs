@@ -52,7 +52,7 @@ pub mod util;
 /// Prelude module exporting many frequently used items.
 pub mod prelude {
     pub use crate::{
-        geom::{vertex, Mesh, Normal2, Normal3, Tri, Vertex, Vertex2, Vertex3},
+        geom::{Mesh, Normal2, Normal3, Tri, Vertex, Vertex2, Vertex3, vertex},
         math::*,
         render::{raster::Frag, *},
         util::buf::{AsMutSlice2, AsSlice2, Buf2, MutSlice2, Slice2},

@@ -5,7 +5,7 @@ use core::{
     ops::{Add, AddAssign, Index, IndexMut, Sub, SubAssign},
 };
 
-use super::{space::Real, vary::ZDiv, Affine, ApproxEq, Linear, Vector};
+use super::{Affine, ApproxEq, Linear, Vector, space::Real, vary::ZDiv};
 
 #[repr(transparent)]
 pub struct Point<Repr, Space = ()>(pub Repr, Pd<Space>);
@@ -319,7 +319,7 @@ where
 #[allow(non_upper_case_globals)]
 mod tests {
     use super::*;
-    use crate::math::{vec2, vec3, Lerp};
+    use crate::math::{Lerp, vec2, vec3};
 
     mod f32 {
         use super::*;
