@@ -513,8 +513,10 @@ pub mod inner {
         }
 
         /// Borrows `self` as a `Slice2`.
+        #[inline]
         pub fn as_slice2(&self) -> Slice2<T> {
-            Slice2::new(self.dims, self.stride, &self.data)
+            let Self { dims, stride, ref data, _pd } = *self;
+            Slice2(Inner { dims, stride, data, _pd })
         }
 
         /// Returns a borrowed rectangular slice of `self`.
@@ -553,8 +555,11 @@ pub mod inner {
 
     impl<T, D: DerefMut<Target = [T]>> Inner<T, D> {
         /// Returns a mutably borrowed rectangular slice of `self`.
+        #[inline]
         pub fn as_mut_slice2(&mut self) -> MutSlice2<T> {
-            MutSlice2::new(self.dims, self.stride, &mut self.data)
+            #[rustfmt::skip]
+            let Self { dims, stride, ref mut data, _pd, } = *self;
+            MutSlice2(Inner { dims, stride, data, _pd })
         }
 
         /// Returns the data of `self` as a single mutable slice.
