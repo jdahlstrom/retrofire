@@ -3,8 +3,8 @@
 
 use core::{array::from_fn, iter::zip};
 
-use re::geom::{Mesh, Normal3};
-use re::math::{Lerp, Point3, Vec3, pt3, vec3};
+use re::geom::{Mesh, Normal3, mesh::Builder};
+use re::math::{Point3, Vec3, Vec3i, pt3, vec3};
 use re::render::{TexCoord, uv};
 
 /// A regular tetrahedron.
@@ -116,30 +116,62 @@ impl Tetrahedron {
     ];
 
     /// Builds the tetrahedral mesh.
-    pub fn build(self) -> Mesh<Normal3> {
+    pub fn build<A>(self) -> Mesh<A>
+    where
+        Self: Into<Builder<A>>,
+    {
+        self.builder().build()
+    }
+
+    /// Returns a builder for the tetrahedral mesh.
+    pub fn builder<A>(self) -> Builder<A>
+    where
+        Self: Into<Builder<A>>,
+    {
+        self.into()
+    }
+}
+
+// TODO Duplication
+
+impl From<Tetrahedron> for Builder<()> {
+    fn from(_: Tetrahedron) -> Self {
         let mut b = Mesh::builder();
-        for (vs, i) in zip(Self::FACES, 0..) {
+        for (vs, i) in zip(Tetrahedron::FACES, 0..) {
             b.push_face(3 * i, 3 * i + 1, 3 * i + 2);
             for v in vs {
-                b.push_vert(Self::COORDS[v], Self::NORMS[i]);
+                b.push_vert(Tetrahedron::COORDS[v], ());
             }
         }
-        b.build()
+        b
+    }
+}
+
+impl From<Tetrahedron> for Builder<Normal3> {
+    fn from(_: Tetrahedron) -> Self {
+        let mut b = Mesh::builder();
+        for (vs, i) in zip(Tetrahedron::FACES, 0..) {
+            b.push_face(3 * i, 3 * i + 1, 3 * i + 2);
+            for vi in vs {
+                b.push_vert(Tetrahedron::COORDS[vi], Tetrahedron::NORMS[i]);
+            }
+        }
+        b
     }
 }
 
 impl Box {
-    const COORDS: [Vec3; 8] = [
+    const COORDS: [Vec3i; 8] = [
         // left
-        vec3(0.0, 0.0, 0.0), // 0b000
-        vec3(0.0, 0.0, 1.0), // 0b001
-        vec3(0.0, 1.0, 0.0), // 0b010
-        vec3(0.0, 1.0, 1.0), // 0b011
+        vec3(0, 0, 0), // 0b000
+        vec3(0, 0, 1), // 0b001
+        vec3(0, 1, 0), // 0b010
+        vec3(0, 1, 1), // 0b011
         // right
-        vec3(1.0, 0.0, 0.0), // 0b100
-        vec3(1.0, 0.0, 1.0), // 0b101
-        vec3(1.0, 1.0, 0.0), // 0b110
-        vec3(1.0, 1.0, 1.0), // 0b111
+        vec3(1, 0, 0), // 0b100
+        vec3(1, 0, 1), // 0b101
+        vec3(1, 1, 0), // 0b110
+        vec3(1, 1, 1), // 0b111
     ];
     const NORMS: [Normal3; 6] = [
         vec3(-1.0, 0.0, 0.0),
@@ -187,64 +219,97 @@ impl Box {
     /// Builds the cuboid mesh.
     pub fn build<A>(self) -> Mesh<A>
     where
-        Self: Into<Mesh<A>>,
+        Self: Into<Builder<A>>,
+    {
+        self.builder().build()
+    }
+
+    /// Returns a builder for the cuboid mesh.
+    pub fn builder<A>(self) -> Builder<A>
+    where
+        Self: Into<Builder<A>>,
     {
         self.into()
     }
 
-    fn build_with<A>(self, attr_fn: impl Fn(usize, usize) -> A) -> Mesh<A> {
+    /// Returns a builder for the cuboid with vertex attribute type `A`
+    /// by calling `attr_fn(norm_i, uv_i)` for each vertex.
+    fn builder_with<A>(
+        self,
+        attr_fn: impl Fn(usize, usize) -> A,
+    ) -> Builder<A> {
         let mut bld = Mesh::builder();
         bld.push_faces(Box::FACES);
         bld.push_verts(Box::VERTS.iter().map(|&(pos_i, [norm_i, uv_i])| {
-            (self.pos_at(pos_i), attr_fn(norm_i, uv_i))
+            (self.coord(pos_i), attr_fn(norm_i, uv_i))
         }));
-        bld.build()
+        bld
     }
 
-    fn pos_at(&self, i: usize) -> Point3 {
+    fn coord(&self, i: usize) -> Point3 {
         from_fn(|j| {
-            let coord = Self::COORDS[i][j];
-            // Coords are either 0 or 1, so this "lerp" simply chooses
-            // the corresponding component from either lbn or rtf
-            self.left_bot_near.0[j].lerp(&self.right_top_far.0[j], coord)
+            // Coords are either 0 or 1
+            if Self::COORDS[i][j] == 0 {
+                self.left_bot_near.0[j]
+            } else {
+                self.right_top_far.0[j]
+            }
         })
         .into()
     }
 }
 
-impl From<Box> for Mesh<()> {
+impl From<Box> for Builder<()> {
     fn from(b: Box) -> Self {
-        b.build_with(|_, _| ())
+        b.builder_with(|_, _| ())
     }
 }
-
-impl From<Box> for Mesh<Normal3> {
+impl From<Box> for Builder<Normal3> {
     fn from(b: Box) -> Self {
-        b.build_with(|norm_i, _| Box::NORMS[norm_i])
+        b.builder_with(|norm_i, _| Box::NORMS[norm_i])
     }
 }
-
-impl From<Box> for Mesh<TexCoord> {
+impl From<Box> for Builder<TexCoord> {
     fn from(b: Box) -> Self {
-        b.build_with(|_, uv_i| Box::TEX_COORDS[uv_i])
+        b.builder_with(|_, uv_i| Box::TEX_COORDS[uv_i])
+    }
+}
+impl From<Box> for Builder<(Normal3, TexCoord)> {
+    fn from(b: Box) -> Self {
+        b.builder_with(|norm_i, uv_i| {
+            (Box::NORMS[norm_i], Box::TEX_COORDS[uv_i])
+        })
     }
 }
 
 impl Cube {
+    /// Returns a builder for the cube mesh.
+    pub fn builder<A>(self) -> Builder<A>
+    where
+        Self: Into<Builder<A>>,
+    {
+        self.into()
+    }
     /// Builds the cube mesh.
-    pub fn build(self) -> Mesh<Normal3> {
-        let l = self.side_len / 2.0;
+    pub fn build<A>(self) -> Mesh<A>
+    where
+        Self: Into<Builder<A>>,
+    {
+        self.builder().build()
+    }
+}
+
+impl<A> From<Cube> for Builder<A>
+where
+    Self: From<Box>,
+{
+    fn from(cube: Cube) -> Self {
+        let l = cube.side_len / 2.0;
         Box {
             left_bot_near: pt3(-l, -l, -l),
             right_top_far: pt3(l, l, l),
         }
-        .build()
-    }
-}
-
-impl From<Cube> for Mesh<Normal3> {
-    fn from(c: Cube) -> Self {
-        c.build()
+        .into()
     }
 }
 
@@ -289,8 +354,8 @@ impl Octahedron {
         [21, 22, 23],
     ];
 
-    /// Builds the octahedral mesh.
-    pub fn build(self) -> Mesh<Normal3> {
+    /// Returns a builder for the octahedral mesh.
+    pub fn builder(self) -> Builder<Normal3> {
         let mut b = Mesh::builder();
         for (vs, i) in zip(Self::FACES, 0..) {
             b.push_face(3 * i, 3 * i + 1, 3 * i + 2);
@@ -299,13 +364,17 @@ impl Octahedron {
                 b.push_vert(pos, Self::NORMS[i]);
             }
         }
-        b.build()
+        b
+    }
+    /// Builds the octahedral mesh.
+    pub fn build(self) -> Mesh<Normal3> {
+        self.builder().build()
     }
 }
 
-impl From<Octahedron> for Mesh<Normal3> {
+impl From<Octahedron> for Builder<Normal3> {
     fn from(o: Octahedron) -> Self {
-        o.build()
+        o.builder()
     }
 }
 
@@ -352,10 +421,11 @@ impl Dodecahedron {
     ];
 
     /// The normals are exactly the vertices of the icosahedron, normalized.
+    /// (sqrt is currently not const, so normalization is done in `build`).  
     const NORMALS: [Vec3; 12] = Icosahedron::COORDS;
 
-    /// Builds the dodecahedral mesh.
-    pub fn build(self) -> Mesh<Normal3> {
+    /// Returns a builder for the dodecahedral mesh.
+    pub fn builder(self) -> Builder<Normal3> {
         let mut b = Mesh::builder();
 
         for (vs, i) in zip(Self::FACES, 0..) {
@@ -370,13 +440,17 @@ impl Dodecahedron {
                 b.push_vert(pos, n);
             }
         }
-        b.build()
+        b
+    }
+    /// Builds the dodecahedral mesh.
+    pub fn build(self) -> Mesh<Normal3> {
+        self.builder().build()
     }
 }
 
-impl From<Dodecahedron> for Mesh<Normal3> {
+impl From<Dodecahedron> for Builder<Normal3> {
     fn from(d: Dodecahedron) -> Self {
-        d.build()
+        d.builder()
     }
 }
 
@@ -409,10 +483,11 @@ impl Icosahedron {
     ];
 
     /// The normals are exactly the vertices of the dodecahedron, normalized.
+    /// (sqrt is currently not const, so normalization is done in `build`).  
     const NORMALS: [Vec3; 20] = Dodecahedron::COORDS;
 
-    /// Builds the icosahedral mesh.
-    pub fn build(self) -> Mesh<Normal3> {
+    /// Returns a builder for the icosahedral mesh.
+    pub fn builder(self) -> Builder<Normal3> {
         let mut b = Mesh::builder();
         for (vs, i) in zip(Self::FACES, 0..) {
             let n = Self::NORMALS[i].normalize();
@@ -422,12 +497,16 @@ impl Icosahedron {
                 b.push_vert(pos, n);
             }
         }
-        b.build()
+        b
+    }
+    /// Builds the icosahedral mesh.
+    pub fn build(self) -> Mesh<Normal3> {
+        self.builder().build()
     }
 }
 
-impl From<Icosahedron> for Mesh<Normal3> {
+impl From<Icosahedron> for Builder<Normal3> {
     fn from(i: Icosahedron) -> Self {
-        i.build()
+        i.builder()
     }
 }
