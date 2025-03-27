@@ -160,13 +160,13 @@ where
 // Local trait impls
 //
 
-impl<Sc, DSc, Sp, const N: usize> Affine for Point<[Sc; N], Sp>
+impl<ScSelf, ScDiff, Sp, const N: usize> Affine for Point<[ScSelf; N], Sp>
 where
-    Sc: Affine<Diff = DSc> + Copy,
-    DSc: Linear<Scalar = DSc> + Copy,
+    ScSelf: Affine<Diff = ScDiff> + Copy,
+    ScDiff: Linear<Scalar = ScDiff> + Copy,
 {
     type Space = Sp;
-    type Diff = Vector<[DSc; N], Sp>;
+    type Diff = Vector<[ScDiff; N], Sp>;
     const DIM: usize = N;
 
     #[inline]
@@ -314,87 +314,136 @@ mod tests {
     use super::*;
     use crate::math::{vec2, vec3, Lerp};
 
-    const pt2: fn(f32, f32) -> Point2 = super::pt2;
-    const pt3: fn(f32, f32, f32) -> Point3 = super::pt3;
+    mod f32 {
+        use super::*;
 
-    #[test]
-    fn point_plus_vec_gives_point() {
-        assert_eq!(pt2(1.0, 2.0) + vec2(-2.0, 3.0), pt2(-1.0, 5.0));
-        assert_eq!(
-            pt3(1.0, 2.0, 3.0) + vec3(-2.0, 3.0, 1.0),
-            pt3(-1.0, 5.0, 4.0)
-        )
-    }
-    #[test]
-    fn point_minus_vec_gives_point() {
-        assert_eq!(pt2(1.0, 2.0) - vec2(-2.0, 3.0), pt2(3.0, -1.0));
-        assert_eq!(
-            pt3(1.0, 2.0, 3.0) - vec3(-2.0, 3.0, 1.0),
-            pt3(3.0, -1.0, 2.0)
-        )
-    }
-    #[test]
-    fn point_minus_point_gives_vec() {
-        assert_eq!(pt2(1.0, 2.0) - pt2(-2.0, 3.0), vec2(3.0, -1.0));
-        assert_eq!(
-            pt3(1.0, 2.0, 3.0) - pt3(-2.0, 3.0, 1.0),
-            vec3(3.0, -1.0, 2.0)
-        )
-    }
-    #[test]
-    fn point_point_dist_sqr() {
-        assert_eq!(pt2(1.0, -1.0).distance_sqr(&pt2(-2.0, 3.0)), 25.0);
-        assert_eq!(
-            pt3(1.0, -3.0, 2.0).distance_sqr(&pt3(-2.0, 3.0, 4.0)),
-            49.0
-        );
-    }
-    #[test]
-    #[cfg(feature = "fp")]
-    fn point_point_dist() {
-        assert_eq!(pt2(1.0, -1.0).distance(&pt2(-2.0, 3.0)), 5.0);
-        assert_eq!(pt3(1.0, -3.0, 2.0).distance(&pt3(-2.0, 3.0, 4.0)), 7.0);
-    }
-    #[test]
-    fn point2_clamp() {
-        let (min, max) = (&pt2(-2.0, -1.0), &pt2(3.0, 2.0));
-        assert_eq!(pt2(1.0, -1.0).clamp(min, max), pt2(1.0, -1.0));
-        assert_eq!(pt2(3.0, -2.0).clamp(min, max), pt2(3.0, -1.0));
-        assert_eq!(pt2(-3.0, 4.0).clamp(min, max), pt2(-2.0, 2.0));
-    }
-    #[test]
-    fn point3_clamp() {
-        let (min, max) = (&pt3(-2.0, -1.0, 0.0), &pt3(3.0, 2.0, 1.0));
-        assert_eq!(pt3(1.0, -1.0, 0.0).clamp(min, max), pt3(1.0, -1.0, 0.0));
-        assert_eq!(pt3(3.0, -2.0, -1.0).clamp(min, max), pt3(3.0, -1.0, 0.0));
-        assert_eq!(pt3(-3.0, 4.0, 2.0).clamp(min, max), pt3(-2.0, 2.0, 1.0));
-    }
-    #[test]
-    fn point2_index() {
-        let mut p = pt2(2.0, -1.0);
-        assert_eq!(p[0], p.x());
-        assert_eq!(p[1], p.y());
+        const pt2: fn(f32, f32) -> Point2 = super::pt2;
+        const pt3: fn(f32, f32, f32) -> Point3 = super::pt3;
+        #[test]
+        fn vector_addition() {
+            assert_eq!(pt2(1.0, 2.0) + vec2(-2.0, 3.0), pt2(-1.0, 5.0));
+            assert_eq!(
+                pt3(1.0, 2.0, 3.0) + vec3(-2.0, 3.0, 1.0),
+                pt3(-1.0, 5.0, 4.0)
+            )
+        }
+        #[test]
+        fn vector_subtraction() {
+            assert_eq!(pt2(1.0, 2.0) - vec2(-2.0, 3.0), pt2(3.0, -1.0));
+            assert_eq!(
+                pt3(1.0, 2.0, 3.0) - vec3(-2.0, 3.0, 1.0),
+                pt3(3.0, -1.0, 2.0)
+            )
+        }
+        #[test]
+        fn point_subtraction() {
+            assert_eq!(pt2(1.0, 2.0) - pt2(-2.0, 3.0), vec2(3.0, -1.0));
+            assert_eq!(
+                pt3(1.0, 2.0, 3.0) - pt3(-2.0, 3.0, 1.0),
+                vec3(3.0, -1.0, 2.0)
+            )
+        }
+        #[test]
+        fn point_point_distance_sqr() {
+            assert_eq!(pt2(1.0, -1.0).distance_sqr(&pt2(-2.0, 3.0)), 25.0);
+            assert_eq!(
+                pt3(1.0, -3.0, 2.0).distance_sqr(&pt3(-2.0, 3.0, 4.0)),
+                49.0
+            );
+        }
+        #[test]
+        #[cfg(feature = "fp")]
+        fn point_point_distance() {
+            assert_eq!(pt2(1.0, -1.0).distance(&pt2(-2.0, 3.0)), 5.0);
+            assert_eq!(pt3(1.0, -3.0, 2.0).distance(&pt3(-2.0, 3.0, 4.0)), 7.0);
+        }
+        #[test]
+        fn point2_clamp() {
+            let (min, max) = (&pt2(-2.0, -1.0), &pt2(3.0, 2.0));
+            assert_eq!(pt2(1.0, -1.0).clamp(min, max), pt2(1.0, -1.0));
+            assert_eq!(pt2(3.0, -2.0).clamp(min, max), pt2(3.0, -1.0));
+            assert_eq!(pt2(-3.0, 4.0).clamp(min, max), pt2(-2.0, 2.0));
+        }
+        #[test]
+        fn point3_clamp() {
+            let (min, max) = (&pt3(-2.0, -1.0, 0.0), &pt3(3.0, 2.0, 1.0));
+            assert_eq!(
+                pt3(1.0, -1.0, 0.0).clamp(min, max),
+                pt3(1.0, -1.0, 0.0)
+            );
+            assert_eq!(
+                pt3(3.0, -2.0, -1.0).clamp(min, max),
+                pt3(3.0, -1.0, 0.0)
+            );
+            assert_eq!(
+                pt3(-3.0, 4.0, 2.0).clamp(min, max),
+                pt3(-2.0, 2.0, 1.0)
+            );
+        }
+        #[test]
+        fn point2_indexing() {
+            let mut p = pt2(2.0, -1.0);
+            assert_eq!(p[0], p.x());
+            assert_eq!(p[1], p.y());
 
-        p[1] -= 1.0;
-        assert_eq!(p[1], -2.0);
-    }
-    #[test]
-    fn point3_index() {
-        let mut p = pt3(2.0, -1.0, 3.0);
-        assert_eq!(p[0], p.x());
-        assert_eq!(p[1], p.y());
-        assert_eq!(p[2], p.z());
+            p[1] -= 1.0;
+            assert_eq!(p[1], -2.0);
+        }
+        #[test]
+        fn point3_indexing() {
+            let mut p = pt3(2.0, -1.0, 3.0);
+            assert_eq!(p[0], p.x());
+            assert_eq!(p[1], p.y());
+            assert_eq!(p[2], p.z());
 
-        p[2] += 1.0;
-        assert_eq!(p[2], 4.0);
+            p[2] += 1.0;
+            assert_eq!(p[2], 4.0);
+        }
+        #[test]
+        #[should_panic]
+        fn point2_index_oob() {
+            _ = pt2(1.0, 2.0)[2];
+        }
+        #[test]
+        fn point2_lerp() {
+            assert_eq!(
+                pt2(2.0, -1.0).lerp(&pt2(-2.0, 3.0), 0.25),
+                pt2(1.0, 0.0)
+            );
+        }
     }
-    #[test]
-    #[should_panic]
-    fn point2_index_oob() {
-        _ = pt2(1.0, 2.0)[2];
-    }
-    #[test]
-    fn point2_lerp() {
-        assert_eq!(pt2(2.0, -1.0).lerp(&pt2(-2.0, 3.0), 0.25), pt2(1.0, 0.0));
+
+    mod u32 {
+        use super::*;
+
+        const pt2: fn(u32, u32) -> Point2u = super::super::pt2;
+
+        #[test]
+        fn vector_addition() {
+            assert_eq!(pt2(1_u32, 2) + vec2(1_i32, -2), pt2(2_u32, 0));
+        }
+
+        #[test]
+        fn vector_subtraction() {
+            assert_eq!(pt2(3_u32, 2) - vec2(3_i32, -1), pt2(0_u32, 3));
+        }
+
+        #[test]
+        fn point_subtraction() {
+            assert_eq!(pt2(3_u32, 2) - pt2(3_u32, 3), vec2(0, -1));
+        }
+
+        #[test]
+        fn indexing() {
+            let mut p = pt2(1u32, 2);
+            assert_eq!(p[1], 2);
+            p[0] = 3;
+            assert_eq!(p.0, [3, 2]);
+        }
+
+        #[test]
+        fn from_array() {
+            assert_eq!(Point2u::from([1, 2]), pt2(1, 2));
+        }
     }
 }
