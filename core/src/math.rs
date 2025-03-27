@@ -37,7 +37,7 @@ pub use {
     space::{Affine, Linear},
     spline::{smootherstep, smoothstep, BezierSpline, CubicBezier},
     vary::Vary,
-    vec::{splat, vec2, vec3, Vec2, Vec2i, Vec2u, Vec3, Vec3i, Vector},
+    vec::{splat, vec2, vec3, Vec2, Vec2i, Vec3, Vec3i, Vector},
 };
 
 pub mod angle;
