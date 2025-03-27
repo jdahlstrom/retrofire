@@ -49,10 +49,6 @@ pub type Vec2i<Basis = ()> = Vector<[i32; 2], Real<2, Basis>>;
 /// A 3-vector with `i32` components.
 pub type Vec3i<Basis = ()> = Vector<[i32; 3], Real<3, Basis>>;
 
-/// A 2-vector with `u32` components.
-pub type Vec2u<Basis = ()> = Vector<[u32; 2], Real<2, Basis>>;
-// Will add Vec3u if needed at some point.
-
 //
 // Free functions
 //
@@ -373,23 +369,22 @@ where
 
 impl<Sc, Sp, const DIM: usize> Affine for Vector<[Sc; DIM], Sp>
 where
-    Sc: Affine<Diff: Linear<Scalar = Sc::Diff> + Copy>,
+    Sc: Linear<Scalar = Sc> + Copy,
 {
     type Space = Sp;
-    // TODO Vectors always Linear once Point used for affine stuff
-    type Diff = Vector<[Sc::Diff; DIM], Sp>;
+    type Diff = Self;
 
     /// The dimension (number of components) of `Self`.
     const DIM: usize = DIM;
 
     #[inline]
-    fn add(&self, other: &Self::Diff) -> Self {
+    fn add(&self, other: &Self) -> Self {
         // TODO Profile performance of array::from_fn
         Self(array::from_fn(|i| self.0[i].add(&other.0[i])), Pd)
     }
     #[inline]
-    fn sub(&self, other: &Self) -> Self::Diff {
-        Vector(array::from_fn(|i| self.0[i].sub(&other.0[i])), Pd)
+    fn sub(&self, other: &Self) -> Self {
+        Self(array::from_fn(|i| self.0[i].sub(&other.0[i])), Pd)
     }
 }
 
@@ -402,7 +397,7 @@ where
     /// Returns a vector with all-zero components, also called a zero vector.
     #[inline]
     fn zero() -> Self {
-        [Sc::zero(); DIM].into()
+        Self([Sc::zero(); DIM], Pd)
     }
     #[inline]
     fn neg(&self) -> Self {
@@ -823,41 +818,6 @@ mod tests {
         fn from_array() {
             assert_eq!(Vec2i::from([1, -2]), vec2(1, -2));
             assert_eq!(Vec3i::from([1, -2, 3]), vec3(1, -2, 3));
-        }
-    }
-
-    mod u32 {
-        use super::*;
-
-        #[test]
-        fn vector_addition() {
-            assert_eq!(vec2(1_u32, 2) + vec2(1_i32, -2), vec2(2_u32, 0));
-            assert_eq!(
-                vec3(1_u32, 2, 3) + vec3(-1_i32, 1, 0),
-                vec3(0_u32, 3, 3)
-            );
-        }
-
-        #[test]
-        fn vector_subtraction() {
-            assert_eq!(vec2(3_u32, 2) - vec2(3_i32, -1), vec2(0_u32, 3));
-            assert_eq!(
-                vec3(2_u32, 1, 3) - vec3(1_i32, -1, 0),
-                vec3(1_u32, 2, 3)
-            );
-        }
-
-        #[test]
-        fn indexing() {
-            let mut v = vec2(1u32, 2);
-            assert_eq!(v[1], 2);
-            v[0] = 3;
-            assert_eq!(v.0, [3, 2]);
-        }
-
-        #[test]
-        fn from_array() {
-            assert_eq!(Vec2u::from([1, 2]), vec2(1, 2));
         }
     }
 
