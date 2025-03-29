@@ -265,7 +265,14 @@ where
 impl<B> Vec2<B> {
     /// Unit vector codirectional with the x-axis.
     pub const X: Self = vec2(1.0, 0.0);
+
+    /// Unit vector codirectional with the y-axis.
     pub const Y: Self = vec2(0.0, 1.0);
+
+    /// Converts `self` into a `Vec3`, with z equal to 0.
+    pub fn to_vec3(self) -> Vec3<B> {
+        vec3(self.x(), self.y(), 0.0)
+    }
 }
 
 impl<R, Sc, B> Vector<R, Real<3, B>>
@@ -334,7 +341,11 @@ where
 impl<B> Vec3<B> {
     /// Unit vector codirectional with the x-axis.
     pub const X: Self = vec3(1.0, 0.0, 0.0);
+
+    /// Unit vector codirectional with the y-axis.
     pub const Y: Self = vec3(0.0, 1.0, 0.0);
+
+    /// Unit vector codirectional with the z-axis.
     pub const Z: Self = vec3(0.0, 0.0, 1.0);
 }
 
