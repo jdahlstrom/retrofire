@@ -3,7 +3,7 @@ use core::fmt;
 use std::io;
 
 use crate::geom::{vertex, Mesh, Tri};
-use crate::math::{pt2, pt3, vec2, vec3, Color3, Point2, Vec2};
+use crate::math::{pt2, vec2, vec3, Color3, Point2, Vec2};
 use crate::util::buf::Buf2;
 
 use super::tex::{Atlas, Layout, SamplerClamp, TexCoord};
@@ -75,8 +75,7 @@ impl Text {
             anchor.y() * glyph_h * rows as f32,
         );*/
         let offset = vec2(0.0, 0.0);
-        let pos = *cursor - offset;
-        let pos = pt3(pos.x(), pos.y(), 0.0);
+        let pos = (*cursor - offset).to_pt3().to();
         let l = geom.verts.len();
 
         geom.verts.extend([
