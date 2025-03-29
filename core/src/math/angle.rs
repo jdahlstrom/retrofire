@@ -462,10 +462,6 @@ impl Linear for Angle {
         Self::ZERO
     }
     #[inline]
-    fn neg(&self) -> Self {
-        -*self
-    }
-    #[inline]
     fn mul(&self, scalar: f32) -> Self {
         *self * scalar
     }

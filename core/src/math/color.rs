@@ -522,10 +522,6 @@ impl<Sp, const DIM: usize> Linear for Color<[f32; DIM], Sp> {
         [0.0; DIM].into()
     }
     #[inline]
-    fn neg(&self) -> Self {
-        array::from_fn(|i| -self.0[i]).into()
-    }
-    #[inline]
     fn mul(&self, scalar: Self::Scalar) -> Self {
         array::from_fn(|i| self.0[i] * scalar).into()
     }

@@ -400,10 +400,6 @@ where
         Self([Sc::zero(); DIM], Pd)
     }
     #[inline]
-    fn neg(&self) -> Self {
-        self.map(|c| c.neg())
-    }
-    #[inline]
     fn mul(&self, scalar: Sc) -> Self {
         self.map(|c| c.mul(scalar))
     }
