@@ -49,7 +49,9 @@ pub trait Linear: Affine<Diff = Self> {
     fn zero() -> Self;
 
     /// Returns the additive inverse of `self`.
-    fn neg(&self) -> Self;
+    fn neg(&self) -> Self {
+        Self::zero().sub(self)
+    }
 
     /// Multiplies all components of `self` by `scalar`.
     ///
@@ -98,9 +100,6 @@ impl Linear for f32 {
     fn zero() -> f32 {
         0.0
     }
-    fn neg(&self) -> f32 {
-        -*self
-    }
     fn mul(&self, rhs: f32) -> f32 {
         self * rhs
     }
@@ -124,9 +123,6 @@ impl Linear for i32 {
 
     fn zero() -> i32 {
         0
-    }
-    fn neg(&self) -> i32 {
-        -self
     }
     fn mul(&self, rhs: i32) -> i32 {
         self * rhs
