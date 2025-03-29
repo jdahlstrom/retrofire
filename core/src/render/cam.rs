@@ -210,7 +210,7 @@ impl FirstPerson {
     pub fn translate(&mut self, delta: Vec3<View>) {
         // Zero azimuth means parallel to the x-axis
         let fwd = az_alt(self.heading.az(), turns(0.0)).to_cart();
-        let up = Vec3::Y.to();
+        let up = Vec3::Y;
         let right = up.cross(&fwd);
 
         let to_world = Mat4x4::from_basis(right, up, fwd);
