@@ -134,6 +134,13 @@ where
     }
 }
 
+impl Point2 {
+    /// Converts `self` into a `Point3`, with z equal to 0.
+    pub fn to_pt3(self) -> Point3 {
+        pt3(self.x(), self.y(), 0.0)
+    }
+}
+
 impl<R, Sc, B> Point<R, Real<3, B>>
 where
     R: Index<usize, Output = Sc>,
