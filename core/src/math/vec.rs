@@ -262,7 +262,8 @@ where
 }
 
 // TODO Make more general - requires a "Scalar::one()" method
-impl Vec2 {
+impl<B> Vec2<B> {
+    /// Unit vector codirectional with the x-axis.
     pub const X: Self = vec2(1.0, 0.0);
     pub const Y: Self = vec2(0.0, 1.0);
 }
@@ -329,8 +330,9 @@ where
     }
 }
 
-// TODO Make more general
-impl Vec3 {
+// TODO Make more general - requires a "Scalar::one()" method
+impl<B> Vec3<B> {
+    /// Unit vector codirectional with the x-axis.
     pub const X: Self = vec3(1.0, 0.0, 0.0);
     pub const Y: Self = vec3(0.0, 1.0, 0.0);
     pub const Z: Self = vec3(0.0, 0.0, 1.0);
