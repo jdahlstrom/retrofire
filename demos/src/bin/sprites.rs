@@ -3,7 +3,7 @@ use core::{array::from_fn, ops::ControlFlow::Continue};
 use re::prelude::*;
 
 use re::math::rand::{Distrib, PointsInUnitBall, Xorshift64};
-use re::render::{Model, ModelToView, ViewToProj, cam::Transform, render};
+use re::render::{Model, ModelToView, ViewToProj, cam::*, render};
 use re_front::minifb::Window;
 
 fn main() {
@@ -52,7 +52,7 @@ fn main() {
     let (w, h) = win.dims;
     let cam = Camera::new(win.dims)
         .transform(translate(0.5 * Vec3::Z).to())
-        .perspective(1.0, 1e-2..1e3)
+        .perspective(Fov::FocalRatio(1.0), 1e-2..1e3)
         .viewport(pt2(10, 10)..pt2(w - 10, h - 10));
 
     win.run(|frame| {
