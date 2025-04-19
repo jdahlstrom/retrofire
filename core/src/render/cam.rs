@@ -137,10 +137,11 @@ impl Camera<()> {
         Self {
             dims,
             viewport: viewport(pt2(0, 0)..pt2(dims.0, dims.1)),
-            ..Default::default()
+            ..Self::default()
         }
     }
 
+    /// Sets the world-to-view transform of this camera.
     pub fn transform<T: Transform>(self, tf: T) -> Camera<T> {
         let Self { dims, project, viewport, .. } = self;
         Camera {
@@ -399,6 +400,8 @@ impl Default for Orbit {
 mod tests {
     use super::*;
 
+    use Fov::*;
+
     #[test]
     fn camera_tests_here() {
         // TODO
@@ -406,15 +409,33 @@ mod tests {
 
     #[test]
     fn fov_focal_ratio() {
-        assert_eq!(Fov::FocalRatio(1.23).focal_ratio(1.0), 1.23);
-        assert_eq!(Fov::Equiv35mm(28.0).focal_ratio(1.5), 1.23);
+        assert_eq!(FocalRatio(2.345).focal_ratio(1.0), 2.345);
+        assert_eq!(FocalRatio(2.345).focal_ratio(2.0), 2.345);
 
-        #[cfg(feature = "fp")]
-        {
-            use crate::math::degs;
-            assert_eq!(Fov::Horizontal(degs(60.0)).focal_ratio(1.0), 1.23);
-            assert_eq!(Fov::Vertical(degs(60.0)).focal_ratio(1.0), 1.23);
-            assert_eq!(Fov::Diagonal(degs(60.0)).focal_ratio(1.0), 1.23);
-        }
+        assert_eq!(Equiv35mm(18.0).focal_ratio(1.0), 1.0);
+        assert_eq!(Equiv35mm(36.0).focal_ratio(1.5), 2.0);
+    }
+
+    #[cfg(feature = "fp")]
+    #[test]
+    fn angle_of_view_focal_ratio_with_unit_aspect_ratio() {
+        use crate::math::degs;
+        use core::f32::consts::SQRT_2;
+        const SQRT_3: f32 = 1.7320509;
+
+        assert_eq!(Horizontal(degs(60.0)).focal_ratio(1.0), SQRT_3);
+        assert_eq!(Vertical(degs(60.0)).focal_ratio(1.0), SQRT_3);
+        assert_eq!(Diagonal(degs(60.0)).focal_ratio(1.0), SQRT_3 * SQRT_2);
+    }
+
+    #[cfg(feature = "fp")]
+    #[test]
+    fn angle_of_view_focal_ratio_with_other_aspect_ratio() {
+        use crate::math::degs;
+        const SQRT_3: f32 = 1.7320509;
+
+        assert_eq!(Horizontal(degs(60.0)).focal_ratio(SQRT_3), SQRT_3);
+        assert_eq!(Vertical(degs(60.0)).focal_ratio(SQRT_3), 1.0);
+        assert_eq!(Diagonal(degs(60.0)).focal_ratio(SQRT_3), 2.0);
     }
 }
