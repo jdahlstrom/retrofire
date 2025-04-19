@@ -644,12 +644,12 @@ pub fn rotate(axis: Vec3, a: Angle) -> Mat4x4<RealToReal<3>> {
 ///
 /// # Parameters
 /// * `focal_ratio`: Focal length/aperture ratio. Larger values mean
-/// a smaller angle of view, with 1.0 corresponding to a horizontal
-/// field of view of 90 degrees.
+///   a smaller angle of view, with 1.0 corresponding to a horizontal
+///   field of view of 90 degrees.
 /// * `aspect_ratio`: Viewport width/height ratio. Larger values mean
-/// a wider field of view.
+///   a wider field of view.
 /// * `near_far`: Depth range between the near and far clipping planes.
-/// Objects outside this range are clipped or culled.
+///   Objects outside this range are clipped or culled.
 ///
 /// # Panics
 /// * If any parameter value is nonpositive.

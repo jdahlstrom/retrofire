@@ -3,7 +3,10 @@ use core::ops::ControlFlow::*;
 use re::prelude::*;
 
 use re::math::color::gray;
-use re::render::{Batch, Camera, ModelToProj, cam::FirstPerson};
+use re::render::{
+    Batch, Camera, ModelToProj,
+    cam::{FirstPerson, Fov},
+};
 
 use re_front::sdl2::Window;
 use re_geom::solids::Cube;
@@ -34,7 +37,7 @@ fn main() {
     let mut cam = Camera::new(win.dims)
         .transform(FirstPerson::default())
         .viewport((10..w - 10, 10..h - 10))
-        .perspective(1.0, 0.1..1000.0);
+        .perspective(Fov::Diagonal(degs(90.0)), 0.1..1000.0);
 
     let floor = floor();
     let krate = Cube { side_len: 2.0 }.build();
