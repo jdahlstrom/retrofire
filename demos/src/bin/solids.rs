@@ -1,14 +1,15 @@
 use core::ops::ControlFlow::Continue;
 
 use minifb::{Key, KeyRepeat};
-use re::geom::Polyline;
+
 use re::prelude::*;
 
+use re::geom::Polyline;
 use re::math::{
     color::gray, mat::RealToReal, pt2, smootherstep, vec::ProjVec4,
 };
 use re::render::{
-    Batch, Camera, ModelToProj, ModelToWorld, raster::Frag, shader::Shader,
+    Batch, Camera, ModelToProj, ModelToWorld, cam::Fov, raster::Frag,
 };
 
 use re_front::{Frame, minifb::Window};
@@ -61,7 +62,7 @@ fn main() {
     let (w, h) = win.dims;
     let cam = Camera::new(win.dims)
         .transform(scale3(1.0, -1.0, -1.0).to())
-        .perspective(1.5, 0.1..1000.0)
+        .perspective(Fov::Equiv35mm(28.0), 0.1..1000.0)
         .viewport(pt2(10, 10)..pt2(w - 10, h - 10));
 
     type VertexIn = Vertex3<Normal3>;
@@ -83,7 +84,7 @@ fn main() {
         f.var.to_color4()
     }
 
-    let shader = Shader::new(vtx_shader, frag_shader);
+    let shader = shader::new(vtx_shader, frag_shader);
 
     let objects = objects(8);
 

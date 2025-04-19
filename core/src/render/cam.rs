@@ -25,6 +25,36 @@ pub trait Transform {
     fn world_to_view(&self) -> Mat4x4<WorldToView>;
 }
 
+/// Camera field of view.
+///
+/// Specifies how wide or narrow the *angle of view* of the camera is.
+/// The smaller the angle, the more "zoomed in" the image is.
+#[derive(Copy, Clone, Debug, PartialEq)]
+pub enum Fov {
+    /// Ratio of focal length to aperture size.
+    ///
+    /// This value is also called the 𝑓-number. The value of 1.0 corresponds
+    /// to a horizontal angle of view of 90°. Values less than 1.0 correspond
+    /// to wider and values greater than 1.0 to narrower angles of view.
+    FocalRatio(f32),
+    /// Focal length in [35mm-equivalent millimeters.][1]
+    ///
+    /// For instance, the value of 28.0 corresponds to the moderate wide-angle
+    /// view of a 28mm "full-frame" lens.
+    ///
+    /// [1]: https://en.wikipedia.org/wiki/35_mm_equivalent_focal_length
+    Equiv35mm(f32),
+    /// Angle of view as measured from the left to the right edge of the image.
+    #[cfg(feature = "fp")]
+    Horizontal(Angle),
+    /// Angle of view as measured from the top to the bottom edge of the image.
+    #[cfg(feature = "fp")]
+    Vertical(Angle),
+    /// Angle of view as measured between two opposite corners of the image.
+    #[cfg(feature = "fp")]
+    Diagonal(Angle),
+}
+
 /// Type to manage the world-to-viewport transformation.
 #[derive(Copy, Clone, Debug, Default)]
 pub struct Camera<Tf> {
@@ -73,16 +103,45 @@ pub struct Orbit {
 // Inherent impls
 //
 
+impl Fov {
+    /// TODO
+    pub fn focal_ratio(self, aspect_ratio: f32) -> f32 {
+        use Fov::*;
+        #[cfg(feature = "fp")]
+        fn ratio(a: Angle) -> f32 {
+            1.0 / (a / 2.0).tan()
+        }
+        match self {
+            FocalRatio(r) => r,
+            Equiv35mm(mm) => mm / (36.0 / 2.0), // half frame width
+
+            #[cfg(feature = "fp")]
+            Horizontal(a) => ratio(a),
+
+            #[cfg(feature = "fp")]
+            Vertical(a) => ratio(a) / aspect_ratio,
+
+            #[cfg(feature = "fp")]
+            Diagonal(a) => {
+                use crate::math::float::f32;
+                let diag = f32::sqrt(1.0 + 1.0 / aspect_ratio / aspect_ratio);
+                ratio(a) * diag
+            }
+        }
+    }
+}
+
 impl Camera<()> {
     /// Creates a camera with the given resolution.
     pub fn new(dims: Dims) -> Self {
         Self {
             dims,
             viewport: viewport(pt2(0, 0)..pt2(dims.0, dims.1)),
-            ..Default::default()
+            ..Self::default()
         }
     }
 
+    /// Sets the world-to-view transform of this camera.
     pub fn transform<T: Transform>(self, tf: T) -> Camera<T> {
         let Self { dims, project, viewport, .. } = self;
         Camera {
@@ -116,14 +175,19 @@ impl<T> Camera<T> {
         }
     }
 
-    /// Sets up perspective projection.
-    pub fn perspective(
-        mut self,
-        focal_ratio: f32,
-        near_far: Range<f32>,
-    ) -> Self {
-        let aspect_ratio = self.dims.0 as f32 / self.dims.1 as f32;
-        self.project = perspective(focal_ratio, aspect_ratio, near_far);
+    /// Sets up perspective projection with the given field of view
+    /// and near–far range.
+    ///
+    /// The endpoints of `near_far` denote the distance of the near and far
+    /// clipping planes.
+    ///
+    /// # Panics
+    /// * If any parameter value is non-positive.
+    /// * If `near_far` is an empty range.
+    pub fn perspective(mut self, fov: Fov, near_far: Range<f32>) -> Self {
+        let aspect = self.dims.0 as f32 / self.dims.1 as f32;
+
+        self.project = perspective(fov.focal_ratio(aspect), aspect, near_far);
         self
     }
 
@@ -334,10 +398,44 @@ impl Default for Orbit {
 
 #[cfg(test)]
 mod tests {
-    // use super::*;
+    use super::*;
+
+    use Fov::*;
 
     #[test]
     fn camera_tests_here() {
         // TODO
+    }
+
+    #[test]
+    fn fov_focal_ratio() {
+        assert_eq!(FocalRatio(2.345).focal_ratio(1.0), 2.345);
+        assert_eq!(FocalRatio(2.345).focal_ratio(2.0), 2.345);
+
+        assert_eq!(Equiv35mm(18.0).focal_ratio(1.0), 1.0);
+        assert_eq!(Equiv35mm(36.0).focal_ratio(1.5), 2.0);
+    }
+
+    #[cfg(feature = "fp")]
+    #[test]
+    fn angle_of_view_focal_ratio_with_unit_aspect_ratio() {
+        use crate::math::degs;
+        use core::f32::consts::SQRT_2;
+        const SQRT_3: f32 = 1.7320509;
+
+        assert_eq!(Horizontal(degs(60.0)).focal_ratio(1.0), SQRT_3);
+        assert_eq!(Vertical(degs(60.0)).focal_ratio(1.0), SQRT_3);
+        assert_eq!(Diagonal(degs(60.0)).focal_ratio(1.0), SQRT_3 * SQRT_2);
+    }
+
+    #[cfg(feature = "fp")]
+    #[test]
+    fn angle_of_view_focal_ratio_with_other_aspect_ratio() {
+        use crate::math::degs;
+        const SQRT_3: f32 = 1.7320509;
+
+        assert_eq!(Horizontal(degs(60.0)).focal_ratio(SQRT_3), SQRT_3);
+        assert_eq!(Vertical(degs(60.0)).focal_ratio(SQRT_3), 1.0);
+        assert_eq!(Diagonal(degs(60.0)).focal_ratio(SQRT_3), 2.0);
     }
 }
