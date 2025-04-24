@@ -14,7 +14,7 @@ use core::{
 use crate::math::{
     Affine, ApproxEq, Linear, Point,
     float::f32,
-    space::{Proj4, Real},
+    space::{Proj3, Real},
     vary::ZDiv,
 };
 
@@ -42,7 +42,7 @@ pub type Vec2<Basis = ()> = Vector<[f32; 2], Real<2, Basis>>;
 /// A 3-vector with `f32` components.
 pub type Vec3<Basis = ()> = Vector<[f32; 3], Real<3, Basis>>;
 /// A `f32` 4-vector in the projective 3-space over ℝ, aka P<sub>3</sub>(ℝ).
-pub type ProjVec4 = Vector<[f32; 4], Proj4>;
+pub type ProjVec3 = Vector<[f32; 4], Proj3>;
 
 /// A 2-vector with `i32` components.
 pub type Vec2i<Basis = ()> = Vector<[i32; 2], Real<2, Basis>>;
@@ -273,6 +273,23 @@ impl<B> Vec2<B> {
     pub fn to_vec3(self) -> Vec3<B> {
         vec3(self.x(), self.y(), 0.0)
     }
+
+    /// Returns `self` rotated 90° counter-clockwise.
+    pub fn perp(self) -> Self {
+        vec2(-self.y(), self.x())
+    }
+
+    /// Returns the "perpendicular dot product" of `self` and `other`.
+    ///
+    /// This operation is also called a "2D cross product". Like its 3D analog,
+    /// it satisfies the identity
+    ///
+    /// a<sup>⟂</sup> · b = |a| |b| sin θ, where
+    ///
+    /// θ is the (signed) angle between `a` and `b`.
+    pub fn perp_dot(self, other: Self) -> f32 {
+        self.perp().dot(&other)
+    }
 }
 
 impl<R, Sc, B> Vector<R, Real<3, B>>
@@ -349,7 +366,7 @@ impl<B> Vec3<B> {
     pub const Z: Self = vec3(0.0, 0.0, 1.0);
 }
 
-impl<R, Sc> Vector<R, Proj4>
+impl<R, Sc> Vector<R, Proj3>
 where
     R: Index<usize, Output = Sc>,
     Sc: Copy,
@@ -774,6 +791,23 @@ mod tests {
                 Vector::from([1.0, -2.0, 4.0, -3.0]),
                 vec4(1.0, -2.0, 4.0, -3.0)
             );
+        }
+
+        #[test]
+        fn perp() {
+            assert_eq!(Vec2::<()>::zero().perp(), Vec2::zero());
+            assert_eq!(Vec2::<()>::X.perp(), Vec2::Y);
+            assert_eq!(vec2(-0.2, -1.5).perp(), vec2(1.5, -0.2));
+        }
+
+        #[test]
+        fn perp_dot() {
+            const X: Vec2 = Vec2::X;
+            const Y: Vec2 = Vec2::Y;
+
+            assert_eq!(X.perp_dot(X), 0.0);
+            assert_eq!(X.perp_dot(Y), 1.0);
+            assert_eq!((2.0 * Y).perp_dot(3.0 * X), -6.0);
         }
     }
 
