@@ -16,8 +16,8 @@ use crate::render::{NdcToScreen, ViewToProj};
 use super::{
     float::f32,
     point::{Point2, Point2u, Point3},
-    space::{Linear, Proj4, Real},
-    vec::{ProjVec4, Vec2, Vec3, Vector},
+    space::{Linear, Proj3, Real},
+    vec::{ProjVec3, Vec2, Vec3, Vector},
 };
 
 /// A linear transform from one space (or basis) to another.
@@ -401,7 +401,7 @@ impl<Src> Mat4x4<RealToProj<Src>> {
     ///         \ ·  ·  M33 / \  1 /     \ v3' /
     /// ```
     #[must_use]
-    pub fn apply(&self, p: &Point3<Src>) -> ProjVec4 {
+    pub fn apply(&self, p: &Point3<Src>) -> ProjVec3 {
         let v = Vector::new([p.x(), p.y(), p.z(), 1.0]);
         from_fn(|i| self.row_vec(i).dot(&v)).into()
     }
@@ -424,7 +424,7 @@ impl<const DIM: usize, S, I, D> Compose<RealToReal<DIM, S, I>>
 
 impl<S> LinearMap for RealToProj<S> {
     type Source = Real<3, S>;
-    type Dest = Proj4;
+    type Dest = Proj3;
 }
 
 impl<S, I> Compose<RealToReal<3, S, I>> for RealToProj<I> {
