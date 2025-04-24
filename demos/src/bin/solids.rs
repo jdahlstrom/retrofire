@@ -6,7 +6,7 @@ use re::prelude::*;
 
 use re::geom::Polyline;
 use re::math::{
-    color::gray, mat::RealToReal, pt2, smootherstep, vec::ProjVec4,
+    color::gray, mat::RealToReal, pt2, smootherstep, vec::ProjVec3,
 };
 use re::render::{
     Batch, Camera, ModelToProj, ModelToWorld, cam::Fov, raster::Frag,
@@ -66,7 +66,7 @@ fn main() {
         .viewport(pt2(10, 10)..pt2(w - 10, h - 10));
 
     type VertexIn = Vertex3<Normal3>;
-    type VertexOut = Vertex<ProjVec4, Color3f>;
+    type VertexOut = Vertex<ProjVec3, Color3f>;
     type Uniform<'a> = (&'a Mat4x4<ModelToProj>, &'a Mat4x4<RealToReal<3>>);
 
     fn vtx_shader(v: VertexIn, (mvp, spin): Uniform) -> VertexOut {

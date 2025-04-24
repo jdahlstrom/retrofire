@@ -14,7 +14,7 @@ use core::{
 use crate::math::{
     Affine, ApproxEq, Linear, Point,
     float::f32,
-    space::{Proj4, Real},
+    space::{Proj3, Real},
     vary::ZDiv,
 };
 
@@ -42,7 +42,7 @@ pub type Vec2<Basis = ()> = Vector<[f32; 2], Real<2, Basis>>;
 /// A 3-vector with `f32` components.
 pub type Vec3<Basis = ()> = Vector<[f32; 3], Real<3, Basis>>;
 /// A `f32` 4-vector in the projective 3-space over ℝ, aka P<sub>3</sub>(ℝ).
-pub type ProjVec4 = Vector<[f32; 4], Proj4>;
+pub type ProjVec3 = Vector<[f32; 4], Proj3>;
 
 /// A 2-vector with `i32` components.
 pub type Vec2i<Basis = ()> = Vector<[i32; 2], Real<2, Basis>>;
@@ -366,7 +366,7 @@ impl<B> Vec3<B> {
     pub const Z: Self = vec3(0.0, 0.0, 1.0);
 }
 
-impl<R, Sc> Vector<R, Proj4>
+impl<R, Sc> Vector<R, Proj3>
 where
     R: Index<usize, Output = Sc>,
     Sc: Copy,
