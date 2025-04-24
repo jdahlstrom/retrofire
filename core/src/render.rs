@@ -12,7 +12,7 @@ use crate::geom::Vertex;
 use crate::math::{
     Lerp, Mat4x4, Vary,
     mat::{RealToProj, RealToReal},
-    vec::ProjVec4,
+    vec::ProjVec3,
 };
 
 use {
@@ -116,11 +116,11 @@ pub type NdcToScreen = RealToReal<3, Ndc, Screen>;
 
 /// Alias for combined vertex+fragment shader types
 pub trait Shader<Vtx, Var, Uni>:
-    VertexShader<Vtx, Uni, Output = Vertex<ProjVec4, Var>> + FragmentShader<Var>
+    VertexShader<Vtx, Uni, Output = Vertex<ProjVec3, Var>> + FragmentShader<Var>
 {
 }
 impl<S, Vtx, Var, Uni> Shader<Vtx, Var, Uni> for S where
-    S: VertexShader<Vtx, Uni, Output = Vertex<ProjVec4, Var>>
+    S: VertexShader<Vtx, Uni, Output = Vertex<ProjVec3, Var>>
         + FragmentShader<Var>
 {
 }

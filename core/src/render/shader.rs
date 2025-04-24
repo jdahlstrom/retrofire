@@ -16,7 +16,7 @@
 
 use crate::{
     geom::Vertex,
-    math::{Color4, vec::ProjVec4},
+    math::{Color4, vec::ProjVec3},
 };
 
 use super::raster::Frag;
@@ -77,7 +77,7 @@ where
 
 pub fn new<Vs, Fs, Vtx, Var, Uni>(vs: Vs, fs: Fs) -> Shader<Vs, Fs>
 where
-    Vs: VertexShader<Vtx, Uni, Output = Vertex<ProjVec4, Var>>,
+    Vs: VertexShader<Vtx, Uni, Output = Vertex<ProjVec3, Var>>,
     Fs: FragmentShader<Var>,
 {
     Shader::new(vs, fs)
