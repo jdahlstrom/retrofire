@@ -19,7 +19,7 @@ use core::iter::zip;
 use view_frustum::{outcode, status};
 
 use crate::geom::{Tri, Vertex, vertex};
-use crate::math::{Lerp, vec::ProjVec4};
+use crate::math::{Lerp, vec::ProjVec3};
 
 /// Trait for types that can be [clipped][self] against planes.
 ///
@@ -50,7 +50,7 @@ pub trait Clip {
 }
 
 /// A vector in clip space.
-pub type ClipVec = ProjVec4;
+pub type ClipVec = ProjVec3;
 
 /// A vertex in clip space.
 #[derive(Copy, Clone, Debug, PartialEq)]

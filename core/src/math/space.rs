@@ -74,12 +74,12 @@ pub trait Linear: Affine<Diff = Self> {
 #[derive(Copy, Clone, Default, Eq, PartialEq)]
 pub struct Real<const DIM: usize, Basis = ()>(PhantomData<Basis>);
 
-/// Tag type for the projective 4-space over reals, 𝗣<sub>4</sub>(ℝ).
+/// Tag type for the projective 3-space over the reals, 𝗣<sub>3</sub>(ℝ).
 ///
 /// The properties of this space make it useful for implementing perspective
 /// projection. Clipping is also done in the projective space.
 #[derive(Copy, Clone, Debug, Default, Eq, PartialEq)]
-pub struct Proj4;
+pub struct Proj3;
 
 impl Affine for f32 {
     type Space = ();
