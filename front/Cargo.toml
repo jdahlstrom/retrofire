@@ -11,7 +11,6 @@ categories.workspace = true
 repository.workspace = true
 
 [features]
-std = ["retrofire-core/std"]
 wasm = ["dep:wasm-bindgen", "dep:web-sys"]
 wasm-dev = ["wasm", "dep:console_error_panic_hook"]
 
