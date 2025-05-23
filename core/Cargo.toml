@@ -11,14 +11,15 @@ categories.workspace = true
 repository.workspace = true
 
 [features]
-# Support for floating-point functions.
-fp = []
+default = ["std"]
 # Use std fp functions, enable I/O and timing support.
 std = ["fp"]
 # Use fp functions from the libm crate.
 libm = ["fp", "dep:libm"]
 # Use fp functions from the micromath crate.
 mm = ["fp", "dep:micromath"]
+# For internal use only.
+fp = []
 
 [dependencies]
 libm = { version = "0.2", optional = true }
