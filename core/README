@@ -1,4 +1,4 @@
-                                                    _______
+```                                                 _______
                        ____                       /´  ____/\
       __ ______ _____ /   /\_ _ ______ _____ ____/   /_/___/\ __ _____ ______
    ==/  ´ ____/ __   \   ____/ ´ ____/  __  ` __    ___,  /==/  ´  ___/ __   \
@@ -17,26 +17,27 @@ shaders; with more to come.
 
 ============================== Crate features ================================
 
-  * std:
+  * `std`:
     Makes available items requiring I/O, timekeeping, or any floating-point
     functions not included in `core`. In particular this means trigonometric
-    and transcendental functions. If this feature is disabled, the crate only
-    depends on `alloc`.
+    and transcendental functions. Enabled by default. If this feature is
+    disabled, the crate only depends on `alloc`.
 
-  * libm:
+  * `libm`:
     Provides software implementations of floating-point functions via the
     `libm` crate (https://crates.io/crates/libm).
 
-  * `mm`
+  * `mm`:
     Provides fast approximate implementations of floating-point functions
     via the `micromath` crate (https://crates.io/crates/micromath).
 
-All features are disabled by default.
+One of the above features must be enabled in order to enable APIs using
+trigonometric or transcendental functions.
 
 
 ================================== License ===================================
 
-Copyright 2020-2024 Johannes Dahlström. retrofire is licensed under either of:
+Copyright 2020-2025 Johannes Dahlström. retrofire is licensed under either of:
 
   * Apache License, Version 2.0 (http://www.apache.org/licenses/LICENSE-2.0)
 
@@ -47,3 +48,5 @@ at your option.
 Unless you explicitly state otherwise, any contribution intentionally submit-
 ted for inclusion in the work by you, as defined in the Apache-2.0 license,
 shall be dual licensed as above, without any additional terms or conditions.
+
+```
