@@ -26,7 +26,17 @@ fn main() {
     let mut pos_vels: Vec<(Point2, Vec2)> =
         (pos, vel).samples(rng).take(32).collect();
 
+    // Disable some unneeded things
+    win.ctx.color_clear = None;
+    win.ctx.depth_clear = None;
+
     win.run(|Frame { dt, buf, .. }| {
+        // Fade out previous frame a bit
+        buf.color_buf
+            .buf
+            .iter_mut()
+            .for_each(|c| *c = c.saturating_sub(0x08_08_02));
+
         let rays: Vec<Ray<_>> = pos_vels
             .chunks(2)
             .map(|ch| Ray(ch[0].0, (ch[1].0 - ch[0].0) * 0.4))
@@ -36,18 +46,16 @@ fn main() {
         // Stop once error is less than one pixel
         let approx = b.approximate(|err| err.len_sqr() < 1.0);
 
-        let mut cbuf = buf.color_buf.as_mut_slice2();
         for Edge(p0, p1) in approx.edges() {
-            let p0 = p0.to_pt3().to();
-            let p1 = p1.to_pt3().to();
-            line([vertex(p0, ()), vertex(p1, ())], |sl| {
-                cbuf[sl.y][sl.xs].fill(0xFF_FF_FF);
+            let vs = [p0, p1].map(|p| vertex(p.to_pt3().to(), ()));
+            line(vs, |sl| {
+                buf.color_buf.buf[sl.y][sl.xs].fill(0xFF_FF_FF);
             })
         }
 
-        let secs = dt.as_secs_f32();
+        let dt = dt.as_secs_f32();
         for (pos, vel) in pos_vels.iter_mut() {
-            *pos = (*pos + 40.0 * secs * *vel).clamp(&min, &max);
+            *pos = (*pos + 80.0 * *vel * dt).clamp(&min, &max);
             let [dx, dy] = &mut vel.0;
             if pos.x() == min.x() || pos.x() == max.x() {
                 *dx = -*dx;
