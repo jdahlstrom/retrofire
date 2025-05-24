@@ -23,39 +23,17 @@ repository.workspace = true
 [dependencies]
 re = { path = "../core", package = "retrofire-core" }
 re-front = { path = "../front", package = "retrofire-front" }
-re-geom = { path = "../geom", package = "retrofire-geom", features = ["std"], optional = true }
+re-geom = { path = "../geom", package = "retrofire-geom", features = ["std"] }
 
 minifb = { version = "0.27.0", optional = true }
 sdl2 = { version = "0.35.2", optional = true }
-softbuffer = { version = "0.3.0", optional = true }
-winit = { version = "0.28.6", optional = true }
 
 [features]
-default = ["std"]
-std = ["re/std"]
+default = ["minifb"]
+# Enables the SDL2 frontend used by the crates demo
 minifb = ["dep:minifb", "re-front/minifb"]
 sdl2 = ["dep:sdl2", "re-front/sdl2"]
 
 [[bin]]
-name = "square"
-required-features = ["minifb"]
-
-[[bin]]
-name = "bezier"
-required-features = ["minifb"]
-
-[[bin]]
-name = "hello"
-required-features = ["minifb"]
-
-[[bin]]
-name = "solids"
-required-features = ["minifb", "re-geom"]
-
-[[bin]]
 name = "crates"
-required-features = ["sdl2", "re-geom"]
-
-[[bin]]
-name = "sprites"
-required-features = ["minifb"]
+required-features = ["sdl2"]
