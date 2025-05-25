@@ -87,6 +87,18 @@ impl<A, B> Mesh<A, B> {
         }
         Self { faces, verts }
     }
+
+    /// Returns a mesh with the faces and vertices of both `self` and `other`.
+    pub fn merge(mut self, Self { faces, verts }: Self) -> Self {
+        let n = self.verts.len();
+        self.verts.extend(verts);
+        self.faces.extend(
+            faces
+                .into_iter()
+                .map(|Tri(ixs)| Tri(ixs.map(|i| n + i))),
+        );
+        self
+    }
 }
 
 impl<A> Mesh<A> {
