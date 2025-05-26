@@ -18,7 +18,7 @@ use core::iter::zip;
 
 use view_frustum::{outcode, status};
 
-use crate::geom::{Tri, Vertex, vertex};
+use crate::geom::{Edge, Tri, Vertex, vertex};
 use crate::math::{Lerp, vec::ProjVec3};
 
 /// Trait for types that can be [clipped][self] against planes.
@@ -300,41 +300,41 @@ impl<V> ClipVert<V> {
     }
 }
 
-impl<A: Lerp + Clone> Clip for [[ClipVert<A>; 2]] {
-    type Item = [ClipVert<A>; 2];
+impl<A: Lerp + Clone> Clip for [Edge<ClipVert<A>>] {
+    type Item = Edge<ClipVert<A>>;
 
     fn clip(&self, planes: &[ClipPlane], out: &mut Vec<Self::Item>) {
-        'lines: for [v0, v1] in self {
-            let both_outside = v0.outcode & v1.outcode != 0;
-            let neither_outside = v0.outcode | v1.outcode == 0;
+        'lines: for Edge(a, b) in self {
+            let both_outside = a.outcode & b.outcode != 0;
+            let neither_outside = a.outcode | b.outcode == 0;
 
-            let mut v0 = v0.clone();
-            let mut v1 = v1.clone();
+            let mut a = a.clone();
+            let mut b = b.clone();
 
             if both_outside {
                 continue;
             }
             if neither_outside {
-                out.push([v0, v1]);
+                out.push(Edge(a, b));
                 continue;
             }
-
+            // Otherwise, clipping is needed
             for p in planes {
-                let v0_in = p.is_inside(&v0);
-                let v1_in = p.is_inside(&v1);
+                let a_in = p.is_inside(&a);
+                let b_in = p.is_inside(&b);
                 // TODO Why not handled by both_outside check?
-                if !v0_in && !v1_in {
+                if !a_in && !b_in {
                     continue 'lines;
                 }
-                if let Some(v) = p.intersect([&v0, &v1]) {
-                    if v0_in {
-                        v1 = v;
-                    } else if v1_in {
-                        v0 = v;
+                if let Some(v) = p.intersect([&a, &b]) {
+                    if a_in {
+                        b = v;
+                    } else if b_in {
+                        a = v;
                     }
                 }
             }
-            out.push([v0, v1]);
+            out.push(Edge(a, b));
         }
     }
 }
