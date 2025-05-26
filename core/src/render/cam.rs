@@ -15,8 +15,9 @@ use crate::math::{
 };
 
 use super::{
-    Clip, Context, FragmentShader, NdcToScreen, RealToProj, Render, Target,
-    VertexShader, View, ViewToProj, World, WorldToView, clip::ClipVec,
+    Clip, Context, FragmentShader, NdcToScreen, Primitive, RealToProj, Target,
+    VertexShader, View, ViewToProj, World, WorldToView,
+    clip::{ClipVec, ClipVert},
 };
 
 /// Trait for different modes of camera motion.
@@ -215,8 +216,9 @@ impl<T: Transform> Camera<T> {
         target: &mut impl Target,
         ctx: &Context,
     ) where
-        Prim: Render<Var> + Clone,
-        [<Prim>::Clip]: Clip<Item = Prim::Clip>,
+        Prim: Primitive<Vertex = usize> + Clone,
+        [<Prim>::Mapped<ClipVert<Var>>]:
+            Clip<Item = <Prim>::Mapped<ClipVert<Var>>>,
         Shd: for<'a> VertexShader<
                 Vtx,
                 (&'a Mat4x4<RealToProj<B>>, Uni),
@@ -286,7 +288,7 @@ impl FirstPerson {
 impl Orbit {
     /// Adds the azimuth and altitude to the camera's current direction.
     ///
-    /// Wraps the resulting azimuth to [-180°, 180°) and clamps the altitude to [-90°, 90°].
+    /// Wraps the azimuth to [-180°, 180°) and clamps the altitude to [-90°, 90°].
     pub fn rotate(&mut self, az_delta: Angle, alt_delta: Angle) {
         self.rotate_to(self.dir.az() + az_delta, self.dir.alt() + alt_delta);
     }
