@@ -87,7 +87,6 @@ impl<V: Vary> Iterator for ScanlineIter<V> {
         }
         let v0 = self.left.next()?;
         let x1 = self.right.next()?;
-        let y = self.y;
 
         // Find the next pixel centers to the right
         //
@@ -104,14 +103,13 @@ impl<V: Vary> Iterator for ScanlineIter<V> {
 
         let vs = v0.vary(self.dv_dx.clone(), Some((x1 - x0) as u32));
 
+        let y = self.y as usize;
+        let xs = x0 as usize..x1 as usize;
+
         self.y += 1.0;
         self.n -= 1;
 
-        Some(Scanline {
-            y: y as usize,
-            xs: x0 as usize..x1 as usize,
-            vs,
-        })
+        Some(Scanline { y, xs, vs })
     }
 }
 
@@ -123,7 +121,7 @@ impl<V: Vary> Iterator for ScanlineIter<V> {
 // TODO Guarantee subpixel precision
 pub fn line<V, F>([mut v0, mut v1]: [Vertex<ScreenPt, V>; 2], mut scan_fn: F)
 where
-    V: Vary + Clone,
+    V: Vary,
     F: FnMut(Scanline<V>),
 {
     use crate::math::float::f32;
@@ -131,24 +129,53 @@ where
     if v0.pos.y() > v1.pos.y() {
         swap(&mut v0, &mut v1);
     }
-    let d = v1.pos - v0.pos;
-    let max_d = if f32::abs(d.x()) > d.y() { 0 } else { 1 };
+    let [dx, dy, _] = (v1.pos - v0.pos).0;
 
-    let (p0, p1) = (&mut v0.pos[max_d], &mut v1.pos[max_d]);
-    *p0 = f32::floor(*p0);
-    *p1 = f32::floor(*p1);
-    let n = f32::abs(*p1 - *p0);
+    if f32::abs(dx) > dy {
+        // More wide than tall
+        if dx < 0.0 {
+            // Always draw from left to right
+            swap(&mut v0, &mut v1);
+        }
+        let x0 = round_up_to_half(v0.pos.x());
+        let x1 = round_up_to_half(v1.pos.x());
 
-    let y_vary = (v0.pos, v0.attrib)
-        // TODO Should vary to exclusive
-        .vary_to((v1.pos, v1.attrib), n as u32);
+        let dy_dx = dy / dx;
+        // Adjust y0 to match the rounded x0
+        let y0 = v0.pos.y() + dy_dx * (x0 - v0.pos.x());
 
-    y_vary.for_each(|(pos, var)| {
-        let [x, y, _] = pos.map(|x| x as usize).0;
-        let vs = (pos, var.clone()).vary_to((pos, var), 1);
+        let (xs, mut y) = (x0 as usize..x1 as usize, y0);
+        for x in xs {
+            let vs = (v0.pos, v0.attrib.clone());
+            let vs = vs.clone().vary_to(vs, 1); // TODO a bit silly
+            scan_fn(Scanline {
+                y: y as usize,
+                xs: x..x + 1,
+                vs,
+            });
+            y += dy_dx;
+        }
+    } else {
+        // More tall than wide
+        let y0 = round_up_to_half(v0.pos.y());
+        let y1 = round_up_to_half(v1.pos.y());
 
-        scan_fn(Scanline { y, xs: x..x + 1, vs });
-    })
+        let dx_dy = dx / dy;
+        // Adjust x0 to match the rounded y0
+        let x0 = v0.pos.x() + dx_dy * (y0 - v0.pos.y());
+
+        let mut x = x0;
+        for y in y0 as usize..y1 as usize {
+            let vs = (v0.pos, v0.attrib.clone());
+            let vs = vs.clone().vary_to(vs.clone(), 1);
+            scan_fn(Scanline {
+                y,
+                xs: x as usize..x as usize + 1,
+                vs,
+            });
+            x += dx_dy;
+        }
+    }
 }
 
 /// Rasterizes a filled triangle defined by three vertices.
@@ -276,15 +303,7 @@ pub fn scan<V: Vary>(
 
 #[inline]
 fn round_up_to_half(x: f32) -> f32 {
-    #[cfg(feature = "fp")]
-    {
-        use crate::math::float::f32;
-        f32::floor(x + 0.5) + 0.5
-    }
-    #[cfg(not(feature = "fp"))]
-    {
-        (x + 0.5) as i32 as f32 + 0.5
-    }
+    crate::math::float::f32::floor(x + 0.5) + 0.5
 }
 
 #[cfg(test)]
