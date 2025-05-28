@@ -1,18 +1,16 @@
 //! Frontend using the `minifb` crate for window creation and event handling.
 
-use std::{
-    ops::ControlFlow::{self, Break},
-    time::Instant,
-};
+use std::ops::ControlFlow::{self, Break};
+use std::time::Instant;
 
 use minifb::{Key, WindowOptions};
 
 use retrofire_core::{
-    render::{Context, target},
-    util::{Dims, buf::Buf2, buf::MutSlice2},
+    render::{Context, target, target::Colorbuf},
+    util::{Dims, buf::Buf2, buf::MutSlice2, pixfmt::Xrgb8888},
 };
 
-use crate::{Frame, dims::SVGA_800_600};
+use super::{Frame, dims};
 
 /// A lightweight wrapper of a `minibuf` window.
 pub struct Window {
@@ -32,13 +30,15 @@ pub struct Builder<'title> {
     pub opts: WindowOptions,
 }
 
-pub type Framebuf<'a> =
-    target::Framebuf<MutSlice2<'a, u32>, MutSlice2<'a, f32>>;
+pub type Framebuf<'a> = target::Framebuf<
+    Colorbuf<MutSlice2<'a, u32>, Xrgb8888>,
+    MutSlice2<'a, f32>,
+>;
 
 impl Default for Builder<'_> {
     fn default() -> Self {
         Self {
-            dims: SVGA_800_600,
+            dims: dims::SVGA_800_600,
             title: "// retrofire application //",
             target_fps: Some(60),
             opts: WindowOptions::default(),
@@ -126,7 +126,7 @@ impl Window {
                 t: start.elapsed(),
                 dt: last.elapsed(),
                 buf: Framebuf {
-                    color_buf: cbuf.as_mut_slice2(),
+                    color_buf: Colorbuf::new(cbuf.as_mut_slice2()),
                     depth_buf: zbuf.as_mut_slice2(),
                 },
                 win: self,

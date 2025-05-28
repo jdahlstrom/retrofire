@@ -10,15 +10,19 @@ use sdl2::{
     video::{FullscreenType, WindowBuildError},
 };
 
+use crate::{Frame, dims};
+use retrofire_core::util::pixfmt::IntoPixel;
 use retrofire_core::{
     math::Vary,
     render::{
         Context, FragmentShader, Target, raster::Scanline, stats::Throughput,
+        target::Colorbuf,
     },
-    util::buf::{Buf2, MutSlice2},
+    util::{
+        buf::{AsMutSlice2, Buf2, MutSlice2},
+        pixfmt::Bgra8888,
+    },
 };
-
-use crate::{Frame, dims};
 
 #[derive(Debug)]
 pub struct Error(String);
@@ -44,7 +48,7 @@ pub struct Builder<'title> {
 }
 
 pub struct Framebuf<'a> {
-    pub color_buf: MutSlice2<'a, u8>,
+    pub color_buf: Colorbuf<MutSlice2<'a, u8>, Bgra8888>,
     pub depth_buf: MutSlice2<'a, f32>,
 }
 
@@ -165,8 +169,12 @@ impl Window {
                     });
                 }
 
+                let color_buf = Colorbuf {
+                    buf: MutSlice2::new((4 * w, h), pitch as u32, cbuf),
+                    fmt: Bgra8888,
+                };
                 let buf = Framebuf {
-                    color_buf: MutSlice2::new((4 * w, h), pitch as u32, cbuf),
+                    color_buf,
                     depth_buf: zbuf.as_mut_slice2(),
                 };
 
@@ -193,44 +201,40 @@ impl Window {
 }
 
 impl<'a> Target for Framebuf<'a> {
-    fn rasterize<V, Fs>(
+    fn rasterize<V: Vary, Fs: FragmentShader<V>>(
         &mut self,
         mut sl: Scanline<V>,
         fs: &Fs,
         ctx: &Context,
-    ) -> Throughput
-    where
-        V: Vary,
-        Fs: FragmentShader<V>,
-    {
+    ) -> Throughput {
         // TODO Lots of duplicate code
 
         let x0 = sl.xs.start;
-        let x1 = sl.xs.end.max(sl.xs.start);
-        let cbuf_span =
-            &mut self.color_buf.as_mut_slice2()[sl.y][4 * x0..4 * x1];
+        let x1 = sl.xs.end.max(x0);
+        // TODO use as_chunks once stable
+        let mut cbuf_span = &mut self.color_buf.buf[sl.y][4 * x0..4 * x1];
         let zbuf_span = &mut self.depth_buf.as_mut_slice2()[sl.y][x0..x1];
 
         let mut io = Throughput { i: x1 - x0, o: 0 };
-        sl.fragments()
-            .zip(cbuf_span.chunks_exact_mut(4))
-            .zip(zbuf_span)
-            .for_each(|((frag, c), z)| {
-                let new_z = frag.pos.z();
-                if ctx.depth_test(new_z, *z) {
-                    if let Some(new_c) = fs.shade_fragment(frag) {
-                        if ctx.color_write {
-                            // TODO Blending should happen here
-                            io.o += 1;
-                            let [r, g, b, a] = new_c.0;
-                            c.copy_from_slice(&[b, g, r, a]);
-                        }
-                        if ctx.depth_write {
-                            *z = new_z;
-                        }
+
+        for (frag, z) in sl.fragments().zip(zbuf_span) {
+            let c;
+            (c, cbuf_span) = cbuf_span.split_first_chunk_mut().unwrap();
+
+            let new_z = frag.pos.z();
+            if ctx.depth_test(new_z, *z) {
+                if let Some(new_c) = fs.shade_fragment(frag) {
+                    if ctx.color_write {
+                        // TODO Blending should happen here
+                        io.o += 1;
+                        *c = new_c.into_pixel_fmt(self.color_buf.fmt);
+                    }
+                    if ctx.depth_write {
+                        *z = new_z;
                     }
                 }
-            });
+            }
+        }
         io
     }
 }
