@@ -131,12 +131,53 @@ where
     if v0.pos.y() > v1.pos.y() {
         swap(&mut v0, &mut v1);
     }
-    let d = v1.pos - v0.pos;
-    let max_d = if f32::abs(d.x()) > d.y() { 0 } else { 1 };
+    let [dx, dy, _] = (v1.pos - v0.pos).0;
 
-    let (p0, p1) = (&mut v0.pos[max_d], &mut v1.pos[max_d]);
-    *p0 = f32::floor(*p0);
-    *p1 = f32::floor(*p1);
+    if f32::abs(dx) > dy {
+        if dx < 0.0 {
+            swap(&mut v0, &mut v1);
+        }
+        let x0 = round_up_to_half(v0.pos.x());
+        let x1 = round_up_to_half(v1.pos.x());
+
+        let dy_dx = dy / dx;
+
+        let y0 = v0.pos.y() + dy_dx * (x0 - v0.pos.x());
+
+        let (xs, mut y) = (x0 as usize..x1 as usize, y0);
+        for x in xs {
+            let vs = (v0.pos, v0.attrib.clone());
+            let vs = vs.clone().vary_to(vs, 1);
+            scan_fn(Scanline {
+                y: y as usize,
+                xs: x..x + 1,
+                vs,
+            });
+            y += dy_dx;
+        }
+    } else {
+        let y0 = round_up_to_half(v0.pos.y());
+        let y1 = round_up_to_half(v1.pos.y());
+
+        let dx_dy = dx / dy;
+        let x0 = v0.pos.x() + dx_dy * (y0 - v0.pos.y());
+
+        let mut x = x0;
+        for y in y0 as usize..y1 as usize {
+            let vs = (v0.pos, v0.attrib.clone());
+            let vs = vs.clone().vary_to(vs.clone(), 1);
+            scan_fn(Scanline {
+                y,
+                xs: x as usize..x as usize + 1,
+                vs,
+            });
+            x += dx_dy;
+        }
+    }
+
+    /*let (p0, p1) = (&mut v0.pos[max_d], &mut v1.pos[max_d]);
+    *p0 = f32::floor(*p0 + 0.5) + 0.5;
+    *p1 = f32::floor(*p1 + 0.5) + 0.5;
     let n = f32::abs(*p1 - *p0);
 
     let y_vary = (v0.pos, v0.attrib)
@@ -148,7 +189,7 @@ where
         let vs = (pos, var.clone()).vary_to((pos, var), 1);
 
         scan_fn(Scanline { y, xs: x..x + 1, vs });
-    })
+    })*/
 }
 
 /// Rasterizes a filled triangle defined by three vertices.

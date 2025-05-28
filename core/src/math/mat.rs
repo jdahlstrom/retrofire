@@ -33,6 +33,7 @@ pub trait LinearMap {
 }
 
 /// Composition of two `LinearMap`s, `Self` ∘ `Inner`.
+///
 /// If `Self` maps from `B` to `C`, and `Inner` maps from `A` to `B`,
 /// `Self::Result` maps from `A` to `C`.
 pub trait Compose<Inner: LinearMap>: LinearMap<Source = Inner::Dest> {
