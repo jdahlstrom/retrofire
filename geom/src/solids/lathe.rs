@@ -3,6 +3,7 @@
 use alloc::vec::Vec;
 use core::ops::Range;
 
+use re::geom::mesh::Builder;
 use re::geom::{Mesh, Normal2, Normal3, Polyline, Vertex, Vertex2, vertex};
 use re::math::{
     Angle, Lerp, Parametric, Vary, Vec3, polar, pt2, rotate_y, turns, vec2,
@@ -87,6 +88,7 @@ impl<P: Parametric<Vertex2<Normal2, ()>>> Lathe<P> {
     }
 
     /// Builds the lathe mesh.
+    #[inline(never)]
     pub fn build(self) -> Mesh<Normal3> {
         let secs = self.sectors as usize;
         let segs = self.segments as usize;
@@ -94,45 +96,63 @@ impl<P: Parametric<Vertex2<Normal2, ()>>> Lathe<P> {
         // Fencepost problem: n + 1 vertices for n segments
         let verts_per_sec = segs + 1;
 
-        // Precompute capacity
-        let caps = 2 * self.capped as usize;
-        let n_faces = segs * secs * 2 + (secs - 2) * caps;
-        let n_verts = verts_per_sec * (secs + 1) + secs * caps;
-
-        let mut b =
-            Mesh::new(Vec::with_capacity(n_faces), Vec::with_capacity(n_verts))
-                .into_builder();
-
-        let Range { start, end } = self.az_range;
-        let rot = rotate_y((end - start) / secs as f32);
-        let start = rotate_y(start);
-
-        // Create vertices
-        for Vertex { pos, attrib: n } in 0.0
+        // TODO Consider if should just monomorphize Lathe
+        let vs: Vec<_> = 0.0
             .vary_to(1.0, verts_per_sec as u32)
             .map(|t| self.points.eval(t))
-        {
-            let mut pos = start.apply_pt(&pos.to_pt3());
-            let mut norm = start.apply(&n.to_vec3());
+            .collect();
 
-            for _ in 0..=secs {
-                b.push_vert(pos, norm);
-                pos = rot.apply_pt(&pos);
-                norm = rot.apply(&norm);
+        fn build(
+            secs: usize,
+            segs: usize,
+            capped: bool,
+            Range { start, end }: Range<Angle>,
+            vs: &[Vertex2<Normal2, ()>],
+        ) -> Builder<Normal3> {
+            let verts_per_sec = segs + 1;
+
+            // Precompute capacity
+            let caps = 2 * capped as usize;
+            let n_faces = segs * secs * 2 + (secs - 2) * caps;
+            let n_verts = verts_per_sec * (secs + 1) + secs * caps;
+
+            let mut b = Mesh::new(
+                Vec::with_capacity(n_faces),
+                Vec::with_capacity(n_verts),
+            )
+            .into_builder();
+
+            let rot = rotate_y((end - start) / secs as f32);
+            let start = rotate_y(start);
+
+            // Create vertices
+            for Vertex { pos, attrib: n } in vs {
+                let mut pos = start.apply_pt(&pos.to_pt3());
+                let mut norm = start.apply(&n.to_vec3());
+
+                for _ in 0..=secs {
+                    b.push_vert(pos, norm);
+                    pos = rot.apply_pt(&pos);
+                    norm = rot.apply(&norm);
+                }
             }
-        }
-        // Create faces
-        for j in 1..verts_per_sec {
-            let n = secs + 1;
-            for i in 1..n {
-                let p = (j - 1) * n + i - 1;
-                let q = (j - 1) * n + i;
-                let r = j * n + i - 1;
-                let s = j * n + i;
-                b.push_face(p, s, q);
-                b.push_face(p, r, s);
+            // Create faces
+            for j in 1..verts_per_sec {
+                let n = secs + 1;
+                for i in 1..n {
+                    let p = (j - 1) * n + i - 1;
+                    let q = (j - 1) * n + i;
+                    let r = j * n + i - 1;
+                    let s = j * n + i;
+                    b.push_face(p, s, q);
+                    b.push_face(p, r, s);
+                }
             }
+            b
         }
+
+        let mut b = build(secs, segs, self.capped, self.az_range, &vs);
+
         // Create optional caps
         if self.capped && verts_per_sec > 0 {
             let l = b.mesh.verts.len();

@@ -98,6 +98,12 @@ pub const INV_GAMMA: f32 = 1.0 / GAMMA;
 // Inherent impls
 //
 
+impl<R, Sp> Color<R, Sp> {
+    pub fn new(els: R) -> Self {
+        Self(els, PhantomData)
+    }
+}
+
 impl Color3<Rgb> {
     #[inline]
     /// Returns a `u32` containing the component bytes of `self`
@@ -392,6 +398,25 @@ impl Color4f<Hsla> {
 }
 
 impl<R, Sc> Color<R, Rgb>
+where
+    R: Index<usize, Output = Sc>,
+    Sc: Copy,
+{
+    /// Returns the red component of `self`.
+    pub fn r(&self) -> Sc {
+        self.0[0]
+    }
+    /// Returns the green component of `self`.
+    pub fn g(&self) -> Sc {
+        self.0[1]
+    }
+    /// Returns the blue component of `self`.
+    pub fn b(&self) -> Sc {
+        self.0[2]
+    }
+}
+
+impl<R, Sc> Color<R, LinRgb>
 where
     R: Index<usize, Output = Sc>,
     Sc: Copy,
