@@ -27,13 +27,18 @@ re-geom = { version = "0.4.0-pre3", path = "../geom", package = "retrofire-geom"
 
 minifb = { version = "0.27.0", optional = true }
 sdl2 = { version = "0.35.2", optional = true }
+pancurses = { version = "0.17.0", optional = true }
 
 [features]
 default = ["minifb"]
-# Enables the SDL2 frontend used by the crates demo
 minifb = ["dep:minifb", "re-front/minifb"]
 sdl2 = ["dep:sdl2", "re-front/sdl2"]
 
 [[bin]]
 name = "crates"
 required-features = ["sdl2"]
+default-features = false
+
+[[bin]]
+name = "curses"
+required-features = ["pancurses"]
