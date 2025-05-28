@@ -36,11 +36,12 @@ fn main() {
         // Stop once error is less than one pixel
         let approx = b.approximate(|err| err.len_sqr() < 1.0);
 
+        let mut cbuf = buf.color_buf.as_mut_slice2();
         for Edge(p0, p1) in approx.edges() {
             let p0 = p0.to_pt3().to();
             let p1 = p1.to_pt3().to();
             line([vertex(p0, ()), vertex(p1, ())], |sl| {
-                buf.color_buf[sl.y][sl.xs].fill(0xFF_FF_FF);
+                cbuf[sl.y][sl.xs].fill(0xFF_FF_FF);
             })
         }
 

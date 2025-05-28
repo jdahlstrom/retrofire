@@ -20,14 +20,14 @@ use web_sys::{
     js_sys::{Uint8ClampedArray, Uint32Array},
 };
 
+use crate::{Frame, dims::SVGA_800_600};
+
 use retrofire_core::{
     math::color::rgba,
     render::{Context, Stats, target},
-    util::Dims,
     util::buf::{AsMutSlice2, Buf2, MutSlice2},
+    util::{Dims, pixfmt::Argb8888},
 };
-
-use crate::{Frame, dims::SVGA_800_600};
 
 #[wasm_bindgen]
 extern "C" {
@@ -53,8 +53,10 @@ pub struct Builder {
     dims: Dims,
 }
 
-pub type Framebuf<'a> =
-    target::Framebuf<MutSlice2<'a, u32>, MutSlice2<'a, f32>>;
+pub type Framebuf<'a> = target::Framebuf<
+    target::Colorbuf<MutSlice2<'a, u32>, Argb8888>,
+    MutSlice2<'a, f32>,
+>;
 
 impl Builder {
     pub fn dims(self, dims: Dims) -> Self {
@@ -108,7 +110,10 @@ impl Window {
                 let t = Duration::from_secs_f32(ms / 1e3);
                 let dt = t - t_last;
                 let buf = Framebuf {
-                    color_buf: cbuf.as_mut_slice2(),
+                    color_buf: target::Colorbuf {
+                        buf: cbuf.as_mut_slice2(),
+                        fmt: Argb8888,
+                    },
                     depth_buf: zbuf.as_mut_slice2(),
                 };
                 let mut frame = Frame {
