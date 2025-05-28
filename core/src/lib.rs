@@ -34,6 +34,12 @@
 //!   via the [micromath](https://crates.io/crates/micromath) crate.
 //!
 //! All features are disabled by default.
+//!
+//! # Example
+//!
+//! ```
+#![doc = include_str!("../examples/hello_tri.rs")]
+//! ```
 
 #![no_std]
 
