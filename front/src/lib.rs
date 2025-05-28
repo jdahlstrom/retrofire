@@ -6,8 +6,9 @@ extern crate core;
 use core::time::Duration;
 
 use retrofire_core::{
-    render::{Context, Framebuf},
-    util::buf::AsMutSlice2,
+    math::Color4,
+    render::{Context, Framebuf, target::Colorbuf},
+    util::{buf::AsMutSlice2, pixfmt::IntoPixel},
 };
 
 #[cfg(feature = "minifb")]
@@ -71,14 +72,19 @@ pub mod dims {
     pub const DCI_4K_4096_2160: Dims = (4096, 2160);
 }
 
-impl<W, C: AsMutSlice2<u32>, Z: AsMutSlice2<f32>> Frame<'_, W, Framebuf<C, Z>> {
+impl<W, C: AsMutSlice2<u32>, F: Copy, Z: AsMutSlice2<f32>>
+    Frame<'_, W, Framebuf<Colorbuf<C, F>, Z>>
+where
+    Color4: IntoPixel<u32, F>,
+{
     pub fn clear(&mut self) {
         if let Some(c) = self.ctx.color_clear {
             // TODO Assumes pixel format
             self.buf
                 .color_buf
+                .buf
                 .as_mut_slice2()
-                .fill(c.to_argb_u32());
+                .fill(c.into_pixel());
         }
         if let Some(z) = self.ctx.depth_clear {
             // Depth buffer contains reciprocal depth values

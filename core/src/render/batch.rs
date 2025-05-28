@@ -114,10 +114,10 @@ impl<Vtx, Uni, Shd, Tgt, Ctx> Batch<Vtx, Uni, Shd, Tgt, Ctx> {
     }
 }
 
-impl<Vtx: Clone, Uni: Copy, Shd, Tgt: Target, Ctx>
-    Batch<Vtx, Uni, Shd, &mut Tgt, Ctx>
+impl<Vtx: Clone, Uni: Copy, Shd, Tgt, Ctx> Batch<Vtx, Uni, Shd, &mut Tgt, Ctx>
 where
     Ctx: Borrow<Context>,
+    Tgt: Target,
 {
     /// Renders this batch of geometry.
     #[rustfmt::skip]

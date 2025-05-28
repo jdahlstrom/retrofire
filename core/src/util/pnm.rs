@@ -4,11 +4,13 @@
 //! consisting of a simple textual header followed by either textual or
 //! binary pixel data.
 //!
+//! ```text
 //! Type  | Txt | Bin | Pixel format
 //! ------+-----+-----+-----------------
 //! PBM   | P1  | P4  | 1 bpp monochrome
 //! PGM   | P2  | P5  | 8 bpp grayscale
 //! PPM   | P3  | P6  | 3x8 bpp RGB
+//! ```
 
 use alloc::{string::String, vec::Vec};
 use core::{
@@ -26,10 +28,10 @@ use std::{
 use Error::*;
 use Format::*;
 
-use crate::math::{Color3, rgb};
-
 #[cfg(feature = "std")]
 use super::buf::AsSlice2;
+use crate::math::{Color3, rgb};
+use crate::util::pixfmt::{IntoPixel, Rgb888};
 
 use super::{Dims, buf::Buf2};
 
@@ -265,10 +267,13 @@ pub fn parse_pnm(input: impl IntoIterator<Item = u8>) -> Result<Buf2<Color3>> {
 /// # Errors
 /// Returns [`std::io::Error`] if an error occurs while writing.
 #[cfg(feature = "std")]
-pub fn save_ppm(
+pub fn save_ppm<T>(
     path: impl AsRef<Path>,
-    data: impl AsSlice2<Color3>,
-) -> io::Result<()> {
+    data: impl AsSlice2<T>,
+) -> io::Result<()>
+where
+    T: IntoPixel<[u8; 3], Rgb888> + Copy,
+{
     let out = BufWriter::new(File::create(path)?);
     write_ppm(out, data)
 }
@@ -279,10 +284,13 @@ pub fn save_ppm(
 /// # Errors
 /// Returns [`std::io::Error`] if an error occurs while writing.
 #[cfg(feature = "std")]
-pub fn write_ppm(
+pub fn write_ppm<T>(
     mut out: impl Write,
-    data: impl AsSlice2<Color3>,
-) -> io::Result<()> {
+    data: impl AsSlice2<T>,
+) -> io::Result<()>
+where
+    T: IntoPixel<[u8; 3], Rgb888> + Copy,
+{
     let slice = data.as_slice2();
     Header {
         format: BinaryPixmap,
@@ -295,7 +303,7 @@ pub fn write_ppm(
     let res = slice
         .rows()
         .flatten()
-        .map(|c| c.0)
+        .map(|c| c.into_pixel())
         .try_for_each(|rgb| out.write_all(&rgb[..]));
     res
 }
