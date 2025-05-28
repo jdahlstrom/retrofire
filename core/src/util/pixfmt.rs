@@ -107,6 +107,11 @@ impl IntoPixel<[u8; 4], Bgra8888> for Color4 {
         [b, g, r, a]
     }
 }
+impl IntoPixel<[u8; 3], Rgb888> for Color4 {
+    fn into_pixel(self) -> [u8; 3] {
+        [self.r(), self.g(), self.b()]
+    }
+}
 impl IntoPixel<[u8; 2], Rgba4444> for Color4 {
     fn into_pixel(self) -> [u8; 2] {
         let c: u16 = self.into_pixel_fmt(Rgba4444);
