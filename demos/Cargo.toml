@@ -49,3 +49,6 @@ required-features = ["sdl2", "re-geom"]
 [[bin]]
 name = "sprites"
 required-features = ["minifb"]
+
+[[bin]]
+name = "ppm"

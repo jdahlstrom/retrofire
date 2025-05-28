@@ -30,7 +30,8 @@ categories = ["graphics", "game-development", "no-std"]
 [profile.release]
 opt-level = 2
 lto = "thin"
-debug = 1
+debug = false
+strip = true
 
 [profile.dev]
 opt-level = 1

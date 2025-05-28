@@ -1,8 +1,6 @@
 use std::ops::ControlFlow::*;
 
 use re::prelude::*;
-
-use re::math::{pt2, pt3};
 use re::render::{Context, ModelToProj, render, tex::SamplerClamp};
 
 use re_front::minifb::Window;
@@ -28,9 +26,27 @@ fn main() {
         ..win.ctx
     };
 
-    let checker = Texture::from(Buf2::new_with((8, 8), |x, y| {
-        let xor = (x ^ y) & 1;
-        rgba(xor as u8 * 255, 128, 255 - xor as u8 * 128, 0)
+    let checker = Texture::from(Buf2::new_with((16, 2), |x, y| {
+        //let xor = (x ^ y) & 1;
+        //rgba(xor as u8 * 255, 128, 255 - xor as u8 * 128, 0)
+
+        let a = rgb(1.0, 0.0, 0.0);
+        let b = rgb(0.0, 1.0, 0.0);
+
+        let c = if y == 0 {
+            let a = a.to_linear();
+            let b = b.to_linear();
+            let c = a.lerp(&b, x as f32 / 15.0);
+            let c = c.r() * 0.3 + c.g() * 0.6 + c.b() * 0.1;
+
+            Color::new([c, c, c]).to_srgb()
+        } else {
+            let c = a.lerp(&b, x as f32 / 15.0);
+            let c = c.r() * 0.3 + c.g() * 0.6 + c.b() * 0.1;
+            gray(c)
+        };
+
+        c.to_color4()
     }));
 
     let shader = shader::new(
@@ -45,7 +61,7 @@ fn main() {
     let viewport = viewport(pt2(10, 10)..pt2(w - 10, h - 10));
 
     win.run(|frame| {
-        let secs = frame.t.as_secs_f32();
+        let secs = frame.t.as_secs_f32() * 0.0;
 
         let mvp = rotate_y(rads(secs))
             .then(&translate((3.0 + secs.sin()) * Vec3::Z))

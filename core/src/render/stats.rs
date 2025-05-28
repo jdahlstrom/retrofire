@@ -144,6 +144,7 @@ impl Throughput {
 
 impl Display for Stats {
     #[rustfmt::skip]
+    #[inline(never)]
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         let w = f.width().unwrap_or(16);
         let per_s = self.per_sec();
@@ -177,6 +178,7 @@ impl Display for Stats {
 }
 
 impl Display for Throughput {
+    #[inline(never)]
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         let &Self { i, o } = self;
         let w = f.width().unwrap_or(10);
@@ -213,6 +215,7 @@ impl AddAssign for Throughput {
     }
 }
 
+#[inline(never)]
 fn human_num(n: usize) -> String {
     if n < 1_000 {
         format!("{n:5}")
@@ -231,6 +234,7 @@ fn human_num(n: usize) -> String {
     }
 }
 
+#[inline(never)]
 fn human_time(d: Duration) -> String {
     let secs = d.as_secs_f32();
     if secs < 1e-3 {

@@ -132,6 +132,8 @@ pub fn parse_obj(src: impl IntoIterator<Item = u8>) -> Result<Builder<()>> {
                 .take_while(|&c| c != '\n'),
         );
 
+        fn _parse_line(line: &str) {}
+
         let tokens = &mut line.split_ascii_whitespace();
         let Some(item) = tokens.next() else {
             continue;

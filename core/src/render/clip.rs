@@ -165,13 +165,10 @@ impl ClipPlane {
         verts_in: &[ClipVert<A>],
         verts_out: &mut Vec<ClipVert<A>>,
     ) {
-        let mut verts = verts_in.iter().chain(&verts_in[..1]);
-
-        let Some(mut v0) = verts.next() else {
+        let Some(mut v0) = verts_in.first() else {
             return;
         };
-
-        for v1 in verts {
+        for v1 in verts_in[1..].iter().chain([v0]) {
             if self.is_inside(v0) {
                 // v0 is inside; emit it as-is. If v1 is also inside, we don't
                 // have to do anything; it is emitted on the next iteration.
@@ -208,12 +205,12 @@ pub mod view_frustum {
     /// The near, far, left, right, bottom, and top clipping planes,
     /// in that order.
     pub const PLANES: [ClipPlane; 6] = [
-        ClipPlane::new(0.0, 0.0, -1.0, 1.0, 1), // Near
-        ClipPlane::new(0.0, 0.0, 1.0, 1.0, 2),  // Far
-        ClipPlane::new(-1.0, 0.0, 0.0, 1.0, 4), // Left
-        ClipPlane::new(1.0, 0.0, 0.0, 1.0, 8),  // Right
-        ClipPlane::new(0.0, -1.0, 0.0, 1.0, 16), // Bottom
-        ClipPlane::new(0.0, 1.0, 0.0, 1.0, 32), // Top
+        ClipPlane::new(0.0, 0.0, -1.0, 1.0, 0o01), // Near
+        ClipPlane::new(0.0, 0.0, 1.0, 1.0, 0o02),  // Far
+        ClipPlane::new(-1.0, 0.0, 0.0, 1.0, 0o04), // Left
+        ClipPlane::new(1.0, 0.0, 0.0, 1.0, 0o10),  // Right
+        ClipPlane::new(0.0, -1.0, 0.0, 1.0, 0o20), // Bottom
+        ClipPlane::new(0.0, 1.0, 0.0, 1.0, 0o40),  // Top
     ];
 
     /// Clips geometry against the standard view frustum.
@@ -244,7 +241,7 @@ pub mod view_frustum {
         if all_outside != 0 {
             // If all vertices are outside at least one plane, the whole
             // polygon is hidden and can be culled. Note that they must be
-            // outside the *same* lane; it isn't enough that they are all
+            // outside the *same* plane; it isn't enough that they are all
             // outside at least *some* plane!
             Status::Hidden
         } else if any_outside == 0 {
