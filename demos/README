@@ -1,0 +1,37 @@
+```                                                 _______
+                        ___                       /´  ____/\
+      __ ______ _____ /   /\_ _ ______ _____ ____/   /_/___/\ __ _____ ______
+   ==/  ´ ____/ __   \   ____/ ´ ____/  __  ` __    ___,  /==/  ´  ___/ __   \
+  ==/   /´=/   ______/  /==/   /´=/   /==/   /=/   /=/   /==/   /´=/   ______/\
+ ==/   /==/   /____/   /__/   /==/   /__/   /=/   /=/   /__/   /==/   /______\/
+==/___/ ==\_______/\______/__/ ==\________,´_/   /==\______/__/ ==\________/\
+==\___\/ ==\______\/\_____\__\/ ==\______/_____,´ /==\_____\___\/==\_______\/
+                                         \_____\,´
+
+Simple demo programs showcasing `retrofire` features.
+
+
+============================== Demo binaries =================================
+
+  * `bezier`:  A Bézier curve bouncing around, like in a 90s era screensaver.
+  * `crates`:  A scene demonstrating a first-person camera and WASD controls.
+  * `hello`:   A bouncing message, pass a custom message on the command line.
+  * `solids`:  A collection of different solid shapes, hit space to switch.
+  * `sprites`: A ball filled with a large number of spherical particles.
+  * `square`:  A minimal-ish example rendering a textured, transformed quad.
+
+================================== License ===================================
+
+Copyright 2020-2025 Johannes Dahlström. retrofire is licensed under either of:
+
+  * Apache License, Version 2.0 (http://www.apache.org/licenses/LICENSE-2.0)
+
+  * MIT license (http://opensource.org/licenses/MIT)
+
+at your option.
+
+Unless you explicitly state otherwise, any contribution intentionally submit-
+ted for inclusion in the work by you, as defined in the Apache-2.0 license,
+shall be dual licensed as above, without any additional terms or conditions.
+
+```
