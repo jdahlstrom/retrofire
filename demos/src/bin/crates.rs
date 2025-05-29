@@ -6,6 +6,8 @@ use re::math::color::gray;
 use re::render::{
     ModelToProj, cam::FirstPerson, cam::Fov, clip::Status::Hidden, scene::Obj,
 };
+// Try also Rgb565 or Rgba4444
+use re::util::pixfmt::Rgba8888;
 
 use re_front::sdl2::Window;
 use re_geom::solids::Cube;
@@ -13,6 +15,7 @@ use re_geom::solids::Cube;
 fn main() {
     let mut win = Window::builder()
         .title("retrofire//crates")
+        .pixel_fmt(Rgba8888)
         .build()
         .expect("should create window");
 
