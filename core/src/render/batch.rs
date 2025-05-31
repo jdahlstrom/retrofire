@@ -91,7 +91,7 @@ impl<Vtx, Uni, Shd, Tgt, Ctx> Batch<Vtx, Uni, Shd, Tgt, Ctx> {
     }
 
     /// Sets the combined vertex and fragment shader.
-    pub fn shader<V: Vary, S: Shader<Vtx, V, Uni>>(
+    pub fn shader<V: Vary, U, S: Shader<Vtx, V, U>>(
         self,
         shader: S,
     ) -> Batch<Vtx, Uni, S, Tgt, Ctx> {

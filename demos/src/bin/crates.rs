@@ -89,7 +89,7 @@ fn main() {
             .target(&mut frame.buf)
             .render();
 
-        let krate = batch.clone().mesh(&krate);
+        let krate = batch.clone().mesh(&krate).shader(crate_shader);
 
         let n = 30;
         for i in (-n..=n).step_by(5) {
@@ -99,8 +99,6 @@ fn main() {
                     // TODO Try to get rid of clone
                     .clone()
                     .uniform(&pos.then(&world_to_project))
-                    // TODO Allow setting shader before uniform
-                    .shader(crate_shader)
                     // TODO storing &mut target makes Batch not Clone, maybe
                     //      pass to render() instead. OTOH then a Frame::batch
                     //      helper wouldn't be as useful. Maybe just wrap the
