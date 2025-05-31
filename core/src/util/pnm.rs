@@ -25,15 +25,17 @@ use std::{
     path::Path,
 };
 
-use Error::*;
-use Format::*;
-
-#[cfg(feature = "std")]
-use super::buf::AsSlice2;
 use crate::math::{Color3, rgb};
-use crate::util::pixfmt::{IntoPixel, Rgb888};
 
 use super::{Dims, buf::Buf2};
+#[cfg(feature = "std")]
+use super::{
+    buf::AsSlice2,
+    pixfmt::{IntoPixel, Rgb888},
+};
+
+use Error::*;
+use Format::*;
 
 /// The header of a PNM image.
 #[derive(Copy, Clone, Debug, Eq, PartialEq)]
