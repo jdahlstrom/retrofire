@@ -24,7 +24,7 @@ use crate::{Frame, dims::SVGA_800_600};
 
 use retrofire_core::{
     math::color::rgba,
-    render::{Context, Stats, target},
+    render::{Context, Stats, target, target::Colorbuf},
     util::buf::{AsMutSlice2, Buf2, MutSlice2},
     util::{Dims, pixfmt::Argb8888},
 };
@@ -54,7 +54,7 @@ pub struct Builder {
 }
 
 pub type Framebuf<'a> = target::Framebuf<
-    target::Colorbuf<MutSlice2<'a, u32>, Argb8888>,
+    Colorbuf<MutSlice2<'a, u32>, Argb8888>,
     MutSlice2<'a, f32>,
 >;
 
@@ -110,10 +110,7 @@ impl Window {
                 let t = Duration::from_secs_f32(ms / 1e3);
                 let dt = t - t_last;
                 let buf = Framebuf {
-                    color_buf: target::Colorbuf {
-                        buf: cbuf.as_mut_slice2(),
-                        fmt: Argb8888,
-                    },
+                    color_buf: Colorbuf::new(cbuf.as_mut_slice2()),
                     depth_buf: zbuf.as_mut_slice2(),
                 };
                 let mut frame = Frame {
