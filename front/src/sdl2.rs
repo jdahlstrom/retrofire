@@ -24,6 +24,7 @@ use retrofire_core::util::{
 
 use super::{Frame, dims};
 
+/// Helper trait to support different pixel format types.
 pub trait PixelFmt: Default {
     type Pixel: AsRef<[u8]>;
     const INSTANCE: Self;
@@ -69,8 +70,8 @@ pub struct Framebuf<'a, PF> {
 // Inherent impls
 //
 
-impl<'t, PF> Builder<'t, PF> {
-    /// Sets the width and height of the window.
+impl<'t, PF: PixelFmt> Builder<'t, PF> {
+    /// Sets the width and height of the window, in pixels.
     pub fn dims(mut self, w: u32, h: u32) -> Self {
         self.dims = (w, h);
         self
@@ -82,7 +83,7 @@ impl<'t, PF> Builder<'t, PF> {
     }
     /// Sets whether vertical sync is enabled.
     ///
-    /// If true, frame rate is tied to the monitor's refresh rate.
+    /// If true, the frame rate is synced to the monitor's refresh rate.
     pub fn vsync(mut self, enabled: bool) -> Self {
         self.vsync = enabled;
         self
@@ -92,7 +93,9 @@ impl<'t, PF> Builder<'t, PF> {
         self.fs = fs;
         self
     }
-
+    /// Sets the framebuffer pixel format.
+    ///
+    /// Supported formats are [`Rgba8888`], [`Rgb565`], and [`Rgb4444].
     pub fn pixel_fmt(mut self, fmt: PF) -> Self {
         self.pixfmt = fmt;
         self
@@ -143,6 +146,7 @@ impl<PF: PixelFmt> Window<PF> {
         Builder::default()
     }
 
+    /// Copies the texture to the frame buffer and updates the screen.
     pub fn present(&mut self, tex: &Texture) -> Result<(), Error> {
         self.canvas.copy(&tex, None, None)?;
         self.canvas.present();
@@ -153,9 +157,9 @@ impl<PF: PixelFmt> Window<PF> {
     /// iteration to compute and draw the next frame.
     ///
     /// The main loop stops and this function returns if:
-    /// * the user closes the window via the GUI (e.g. title bar close button);
+    /// * the user closes the window via the GUI (e.g. a title bar button);
     /// * the Esc key is pressed; or
-    /// * the callback returns `ControlFlow::Break`.
+    /// * the callback returns [`ControlFlow::Break`][ControlFlow].
     pub fn run<F>(&mut self, mut frame_fn: F) -> Result<(), Error>
     where
         F: FnMut(&mut Frame<Self, Framebuf<PF>>) -> ControlFlow<()>,
@@ -182,14 +186,14 @@ impl<PF: PixelFmt> Window<PF> {
                 }
             }
 
-            let cf = tex.with_lock(None, |cbuf, pitch| {
+            let cf = tex.with_lock(None, |bytes, pitch| {
                 if let Some(c) = ctx.depth_clear {
                     // Z-buffer stores reciprocals
                     zbuf.fill(c.recip());
                 }
                 if let Some(c) = ctx.color_clear {
                     let c: PF::Pixel = c.into_pixel_fmt(PF::INSTANCE);
-                    cbuf.chunks_exact_mut(PF::size()).for_each(|ch| {
+                    bytes.chunks_exact_mut(PF::size()).for_each(|ch| {
                         ch.copy_from_slice(c.as_ref());
                     });
                 }
@@ -197,7 +201,7 @@ impl<PF: PixelFmt> Window<PF> {
                 let color_buf = Colorbuf::new(MutSlice2::new(
                     (PF::size() as u32 * w, h),
                     pitch as u32,
-                    cbuf,
+                    bytes,
                 ));
                 let buf = Framebuf {
                     color_buf,
