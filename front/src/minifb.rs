@@ -1,4 +1,4 @@
-//! Frontend using the `minifb` crate for window creation and event handling.
+//! Frontend using the [`minifb`] crate for window creation and event handling.
 
 use std::ops::ControlFlow::{self, Break};
 use std::time::Instant;
@@ -12,7 +12,7 @@ use retrofire_core::{
 
 use super::{Frame, dims};
 
-/// A lightweight wrapper of a `minibuf` window.
+/// A lightweight wrapper of a [`minifb`] window.
 pub struct Window {
     /// The wrapped minifb window.
     pub imp: minifb::Window,
@@ -22,7 +22,7 @@ pub struct Window {
     pub ctx: Context,
 }
 
-/// Builder for creating `Window`s.
+/// Builder for creating [`Window`]s.
 pub struct Builder<'title> {
     pub dims: Dims,
     pub title: &'title str,
