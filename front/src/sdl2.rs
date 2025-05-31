@@ -263,8 +263,7 @@ where
     ) -> Throughput {
         // TODO Lots of duplicate code
 
-        let x0 = sl.xs.start;
-        let x1 = sl.xs.end.max(x0);
+        let (x0, x1) = (sl.xs.start, sl.xs.end);
         // TODO use as_chunks once stable
         let mut cbuf_span =
             &mut self.color_buf.buf[sl.y][PF::size() * x0..PF::size() * x1];

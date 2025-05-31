@@ -70,8 +70,7 @@ where
         V: Vary,
         Fs: FragmentShader<V>,
     {
-        let x0 = sl.xs.start;
-        let x1 = sl.xs.end.max(x0);
+        let (x0, x1) = (sl.xs.start, sl.xs.end);
         let cbuf_span = &mut self.color_buf.as_mut_slice2()[sl.y][x0..x1];
         let zbuf_span = &mut self.depth_buf.as_mut_slice2()[sl.y][x0..x1];
 
@@ -117,10 +116,9 @@ where
         V: Vary,
         Fs: FragmentShader<V>,
     {
-        let x0 = sl.xs.start;
-        let x1 = sl.xs.end.max(x0);
-        let mut io = Throughput { i: x1 - x0, o: 0 };
+        let (x0, x1) = (sl.xs.start, sl.xs.end);
         let cbuf_span = &mut self.as_mut_slice2()[sl.y][x0..x1];
+        let mut io = Throughput { i: x1 - x0, o: 0 };
 
         sl.fragments()
             .zip(cbuf_span)
