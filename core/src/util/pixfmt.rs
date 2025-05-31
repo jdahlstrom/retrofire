@@ -109,9 +109,15 @@ impl IntoPixel<[u8; 4], Bgra8888> for Color4 {
 }
 impl IntoPixel<[u8; 2], Rgba4444> for Color4 {
     fn into_pixel(self) -> [u8; 2] {
+        let c: u16 = self.into_pixel_fmt(Rgba4444);
+        c.to_ne_bytes()
+    }
+}
+impl IntoPixel<u16, Rgba4444> for Color4 {
+    fn into_pixel(self) -> u16 {
         let [r, g, b, a] = self.0.map(|c| c as u16 >> 4);
         // [0xBA, 0xRG] in little-endian
-        (r << 12 | g << 8 | b << 4 | a).to_ne_bytes()
+        r << 12 | g << 8 | b << 4 | a
     }
 }
 impl IntoPixel<u16, Rgb565> for Color4 {
@@ -121,7 +127,7 @@ impl IntoPixel<u16, Rgb565> for Color4 {
 }
 impl IntoPixel<[u8; 2], Rgb565> for Color4 {
     fn into_pixel(self) -> [u8; 2] {
-        let c: u16 = self.into_pixel();
+        let c: u16 = self.into_pixel_fmt(Rgb565);
         c.to_ne_bytes()
     }
 }
@@ -132,9 +138,11 @@ mod tests {
 
     use super::*;
 
+    const COL3: Color3 = rgb(0x11u8, 0x22, 0x33);
+
     #[test]
     fn color3_to_rgb888() {
-        let pix: u32 = rgb(0x11u8, 0x22, 0x33).into_pixel_fmt(Rgb888);
+        let pix: u32 = COL3.into_pixel_fmt(Rgb888);
         assert_eq!(pix, 0x00_11_22_33);
     }
 
@@ -148,35 +156,42 @@ mod tests {
     }
 
     #[test]
-    fn color4_to_u32() {
+    fn color4_to_rgba8888() {
         let col = rgba(0x11u8, 0x22, 0x33, 0x44);
-        let mut pix: u32;
 
-        pix = col.into_pixel_fmt(Rgba8888);
+        let pix: u32 = col.into_pixel_fmt(Rgba8888);
         assert_eq!(pix, 0x11_22_33_44);
 
-        pix = col.into_pixel_fmt(Argb8888);
+        let pix: [u8; 4] = col.into_pixel_fmt(Rgba8888);
+        assert_eq!(pix, [0x11, 0x22, 0x33, 0x44]);
+    }
+
+    const COL4: Color4 = rgba(0x11u8, 0x22, 0x33, 0x44);
+
+    #[test]
+    fn color4_to_argb8888() {
+        let pix: u32 = COL4.into_pixel_fmt(Argb8888);
         assert_eq!(pix, 0x44_11_22_33);
 
-        pix = col.into_pixel_fmt(Bgra8888);
-        assert_eq!(pix, 0x33_22_11_44);
+        let pix: [u8; 4] = COL4.into_pixel_fmt(Argb8888);
+        assert_eq!(pix, [0x44, 0x11, 0x22, 0x33]);
     }
 
     #[test]
-    fn color4_to_u8x4() {
-        let col = rgba(0x11u8, 0x22, 0x33, 0x44);
-        let mut pix: [u8; 4];
+    fn color4_to_bgra8888() {
+        let pix: u32 = COL4.into_pixel_fmt(Bgra8888);
+        assert_eq!(pix, 0x33_22_11_44);
 
-        pix = col.into_pixel_fmt(Rgba8888);
-        assert_eq!(pix, [0x11, 0x22, 0x33, 0x44]);
-
-        pix = col.into_pixel_fmt(Argb8888);
-        assert_eq!(pix, [0x44, 0x11, 0x22, 0x33]);
-
-        pix = col.into_pixel_fmt(Bgra8888);
+        let pix: [u8; 4] = COL4.into_pixel_fmt(Bgra8888);
         assert_eq!(pix, [0x33, 0x22, 0x11, 0x44]);
     }
 
     #[test]
-    fn color4_to_rgba4444() {}
+    fn color4_to_rgba4444() {
+        let pix: [u8; 2] = COL4.into_pixel_fmt(Rgba4444);
+        assert_eq!(pix, [0x34, 0x12]);
+
+        let pix: u16 = COL4.into_pixel_fmt(Rgba4444);
+        assert_eq!(pix, 0x1234);
+    }
 }
