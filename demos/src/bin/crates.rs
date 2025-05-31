@@ -3,28 +3,35 @@ use core::ops::ControlFlow::*;
 use re::prelude::*;
 
 use re::math::color::gray;
+use re::render::tex::SamplerRepeatPot;
 use re::render::{
     Batch, Camera, ModelToProj,
     cam::{FirstPerson, Fov},
 };
-// Try also Rgb565 or Rgba4444
 use re::util::pixfmt::Rgba8888;
 
 use re_front::sdl2::Window;
-use re_geom::solids::Cube;
+use re_geom::solids::{Box, Cube};
 
 fn main() {
     let mut win = Window::builder()
         .title("retrofire//crates")
+        // Try also Rgb565 or Rgba4444
         .pixel_fmt(Rgba8888)
         .build()
         .expect("should create window");
 
+    let check = Texture::from(Buf2::new_with((2, 2), |x, y| {
+        let even_odd = (x ^ y) as u8 & 1;
+        gray(0xFFu8 * even_odd).to_rgba()
+    }));
+
+    let floor_sampler = SamplerRepeatPot::new(&check);
     let floor_shader = shader::new(
         |v: Vertex3<_>, mvp: &Mat4x4<ModelToProj>| {
             vertex(mvp.apply(&v.pos), v.attrib)
         },
-        |frag: Frag<Color3f>| frag.var.to_color4(),
+        |frag: Frag<TexCoord>| floor_sampler.sample(&check, frag.var),
     );
     let crate_shader = shader::new(
         |v: Vertex3<_>, mvp: &Mat4x4<ModelToProj>| {
@@ -42,7 +49,15 @@ fn main() {
         .viewport((10..w - 10, 10..h - 10))
         .perspective(Fov::Diagonal(degs(90.0)), 0.1..1000.0);
 
-    let floor = floor();
+    let floor = Mesh::new(
+        [Tri([0, 2, 1]), Tri([0, 3, 2])],
+        [
+            vertex(pt3(-1e3, -1.0, -1e3), uv(0.0, 0.0)),
+            vertex(pt3(1e3, -1.0, -1e3), uv(1e3, 0.0)),
+            vertex(pt3(1e3, -1.0, 1e3), uv(1e3, 1e3)),
+            vertex(pt3(-1e3, -1.0, 1e3), uv(0.0, 1e3)),
+        ],
+    );
     let krate = Cube { side_len: 2.0 }.build();
 
     win.run(|frame| {
@@ -110,41 +125,4 @@ fn main() {
         Continue(())
     })
     .expect("should run")
-}
-
-fn floor() -> Mesh<Color3f> {
-    let mut bld = Mesh::builder();
-
-    let size = 50;
-    for j in -size..=size {
-        for i in -size..=size {
-            let even_odd = ((i & 1) ^ (j & 1)) == 1;
-
-            let pos = pt3(i as f32, -1.0, j as f32);
-            let col = if even_odd { gray(0.2) } else { gray(0.9) };
-            bld.push_vert(pos, col);
-
-            if j > -size && i > -size {
-                let w = size * 2 + 1;
-                let j = size + j;
-                let i = size + i;
-                let [a, b, c, d] = [
-                    w * (j - 1) + (i - 1),
-                    w * (j - 1) + i,
-                    w * j + (i - 1),
-                    w * j + i,
-                ]
-                .map(|i| i as usize);
-
-                if even_odd {
-                    bld.push_face(a, c, d);
-                    bld.push_face(a, d, b);
-                } else {
-                    bld.push_face(b, c, d);
-                    bld.push_face(b, a, c)
-                }
-            }
-        }
-    }
-    bld.build()
 }
