@@ -56,7 +56,7 @@ pub trait AsMutSlice2<T> {
 /// // Thus you can also do this, row first, column second:
 /// assert_eq!(buf[1][2], 123)
 /// ```
-#[derive(Clone)]
+#[derive(Clone, Eq, PartialEq)]
 #[repr(transparent)]
 pub struct Buf2<T>(Inner<T, Vec<T>>);
 
@@ -73,7 +73,7 @@ pub struct Buf2<T>(Inner<T, Vec<T>>);
 /// +-----------------+
 /// ```
 /// TODO More documentation
-#[derive(Copy, Clone)]
+#[derive(Copy, Clone, Eq, PartialEq)]
 #[repr(transparent)]
 pub struct Slice2<'a, T>(Inner<T, &'a [T]>);
 
@@ -371,7 +371,7 @@ pub mod inner {
     /// A helper type that abstracts over owned and borrowed buffers.
     ///
     /// The types `Buf2`, `Slice2`, and `MutSlice2` deref to `Inner`.
-    #[derive(Copy, Clone)]
+    #[derive(Copy, Clone, Eq, PartialEq)]
     pub struct Inner<T, D> {
         dims: Dims,
         stride: u32,
