@@ -82,12 +82,13 @@ impl<V: Vary> Iterator for ScanlineIter<V> {
 
     #[inline]
     fn next(&mut self) -> Option<Self::Item> {
+        let Self { left, right, dv_dx, .. } = self;
         if self.n == 0 {
             return None;
         }
-        let v0 = self.left.next()?;
-        let x1 = self.right.next()?;
         let y = self.y;
+        let v = left.next()?;
+        let xr = right.next()?;
 
         // Find the next pixel centers to the right
         //
@@ -97,20 +98,31 @@ impl<V: Vary> Iterator for ScanlineIter<V> {
         // Similarly, if x_right.fract() < 0.5 that's the "one-past-the-end"
         // pixel, otherwise it's the last covered pixel and the next one is
         // the actual one-past-the-end pixel.
-        let (x0, x1) = (round_up_to_half(v0.0.x()), round_up_to_half(x1));
+        let (x0, x1) = (round_up_to_half(v.0.x()), round_up_to_half(xr));
 
-        // Adjust v0 to match the rounded x0
-        let v0 = v0.lerp(&v0.step(&self.dv_dx), x0 - v0.0.x());
-
-        let vs = v0.vary(self.dv_dx.clone(), Some((x1 - x0) as u32));
-
+        // If x1 < n+0.5 and x0 > n+0.5 due to small inaccuracies, they will
+        // end up as n+0.5 and n+1+0.5 respectively. In that case the range is
+        // empty anyway, and we can just bail. if x1 < x0-1, there's a bug.
+        debug_assert!(
+            x1 >= x0 - 1.0,
+            "Scanline {x0:?} > {x1:?}? Originals: {:?}, {:?}, y: {y:?}",
+            v.0.x(),
+            xr
+        );
         self.y += 1.0;
         self.n -= 1;
+
+        if x1 <= x0 {
+            return self.next();
+        }
+
+        // Adjust v to match the rounded x0
+        let v = v.lerp(&v.step(dv_dx), x0 - v.0.x());
 
         Some(Scanline {
             y: y as usize,
             xs: x0 as usize..x1 as usize,
-            vs,
+            vs: v.vary(dv_dx.clone(), Some((x1 - x0) as u32)),
         })
     }
 }
@@ -289,23 +301,20 @@ fn round_up_to_half(x: f32) -> f32 {
 
 #[cfg(test)]
 mod tests {
-    use alloc::string::{String, ToString};
-    use core::iter::once;
-
+    use super::{Scanline, tri_fill};
+    use crate::prelude::Buf2;
     use crate::{
         assert_approx_eq,
         geom::vertex,
         math::{point::pt3, vary::Vary, vary::ZDiv},
-        util::buf::Buf2,
     };
-
-    use super::{Scanline, tri_fill};
+    use alloc::string::{String, ToString};
 
     // TODO Test different orientations and various edge cases
 
     #[test]
     fn shared_edge_should_not_have_gaps_or_overdraw() {
-        let mut buf = Buf2::new((20, 10));
+        let mut buf = Buf2::new_from((20, 10), [b'0'; 20 * 10]);
 
         let verts = [
             pt3(8.0, 0.0, 0.0),
@@ -316,15 +325,15 @@ mod tests {
         .map(|pos| vertex(pos, 0.0));
 
         let expected = r"
-00000001110000000000
-00000011111111000000
-00000111111111111100
-00011111111111111111
-00111111111111111110
-01111111111111111100
-00111111111111111000
-00000111111111110000
-00000000011111100000
+00000001220000000000
+00000011122222000000
+00000111112222222200
+00011111112222222222
+00111111111222222220
+01111111111222222200
+00111111111122222000
+00000111111112220000
+00000000011112200000
 00000000000011000000";
 
         tri_fill([verts[0], verts[1], verts[2]], |sl| {
@@ -334,18 +343,16 @@ mod tests {
         });
         tri_fill([verts[0], verts[2], verts[3]], |sl| {
             for x in sl.xs {
-                buf[[x as u32, sl.y as u32]] += 1;
+                buf[[x as u32, sl.y as u32]] += 2;
             }
         });
 
-        let s: String = buf
+        let actual: String = buf
             .rows()
-            .flat_map(|r| {
-                once("\n".to_string()).chain(r.iter().map(i32::to_string))
-            })
+            .flat_map(|r| "\n".chars().chain(r.iter().map(|u| *u as char)))
             .collect();
 
-        assert_eq!(s, expected);
+        assert_eq!(actual, expected);
     }
 
     #[test]

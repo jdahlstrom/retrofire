@@ -9,7 +9,7 @@ use core::{
     ops::{Deref, DerefMut},
 };
 
-use crate::util::Dims;
+use super::Dims;
 
 use inner::Inner;
 

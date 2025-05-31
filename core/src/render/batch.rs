@@ -91,7 +91,7 @@ impl<Vtx, Uni, Shd, Tgt, Ctx> Batch<Vtx, Uni, Shd, Tgt, Ctx> {
     }
 
     /// Sets the combined vertex and fragment shader.
-    pub fn shader<V: Vary, S: Shader<Vtx, V, Uni>>(
+    pub fn shader<V: Vary, U, S: Shader<Vtx, V, U>>(
         self,
         shader: S,
     ) -> Batch<Vtx, Uni, S, Tgt, Ctx> {
@@ -114,10 +114,10 @@ impl<Vtx, Uni, Shd, Tgt, Ctx> Batch<Vtx, Uni, Shd, Tgt, Ctx> {
     }
 }
 
-impl<Vtx: Clone, Uni: Copy, Shd, Tgt: Target, Ctx>
-    Batch<Vtx, Uni, Shd, &mut Tgt, Ctx>
+impl<Vtx: Clone, Uni: Copy, Shd, Tgt, Ctx> Batch<Vtx, Uni, Shd, &mut Tgt, Ctx>
 where
     Ctx: Borrow<Context>,
+    Tgt: Target,
 {
     /// Renders this batch of geometry.
     #[rustfmt::skip]

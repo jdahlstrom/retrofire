@@ -5,12 +5,8 @@ use minifb::{Key, KeyRepeat};
 use re::prelude::*;
 
 use re::geom::Polyline;
-use re::math::{
-    color::gray, mat::RealToReal, pt2, smootherstep, vec::ProjVec3,
-};
-use re::render::{
-    Batch, Camera, ModelToProj, ModelToWorld, cam::Fov, raster::Frag,
-};
+use re::math::{color::gray, mat::RealToReal, vec::ProjVec3};
+use re::render::cam::Fov;
 
 use re_front::{Frame, minifb::Window};
 use re_geom::{io::parse_obj, solids::*};

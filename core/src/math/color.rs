@@ -99,14 +99,6 @@ pub const INV_GAMMA: f32 = 1.0 / GAMMA;
 //
 
 impl Color3<Rgb> {
-    #[inline]
-    /// Returns a `u32` containing the component bytes of `self`
-    /// in format `0x00_RR_GG_BB`.
-    pub const fn to_rgb_u32(self) -> u32 {
-        let [r, g, b] = self.0;
-        u32::from_be_bytes([0x00, r, g, b])
-    }
-
     /// Returns `self` as RGBA, with alpha set to 0xFF (fully opaque).
     #[inline]
     pub const fn to_rgba(self) -> Color4 {
@@ -152,19 +144,6 @@ impl Color4<Rgba> {
     pub fn to_rgb(self) -> Color3<Rgb> {
         let [r, g, b, _] = self.0;
         rgb(r, g, b)
-    }
-
-    /// Returns a `u32` containing the component bytes of `self`
-    /// in format `0xRR_GG_BB_AA`.
-    pub const fn to_rgba_u32(self) -> u32 {
-        u32::from_be_bytes(self.0)
-    }
-
-    /// Returns a `u32` containing the component bytes of `self`
-    /// in format `0xAA_RR_GG_BB`.
-    #[inline]
-    pub const fn to_argb_u32(self) -> u32 {
-        self.to_rgba_u32().rotate_right(8)
     }
 
     /// Returns the HSLA color equivalent to `self`.
@@ -560,15 +539,6 @@ mod tests {
         assert_eq!(rgba(0, 0xFF, 0, 0).g(), 0xFF);
         assert_eq!(rgba(0, 0, 0xFF, 0).b(), 0xFF);
         assert_eq!(rgba(0, 0, 0, 0xFF).a(), 0xFF);
-    }
-    #[test]
-    fn rgb_to_u32() {
-        assert_eq!(rgb(0x11, 0x22, 0x33).to_rgb_u32(), 0x00_11_22_33);
-    }
-    #[test]
-    fn rgba_to_u32() {
-        assert_eq!(rgba(0x11, 0x22, 0x33, 0x44).to_rgba_u32(), 0x11_22_33_44);
-        assert_eq!(rgba(0x11, 0x22, 0x33, 0x44).to_argb_u32(), 0x44_11_22_33);
     }
 
     #[test]

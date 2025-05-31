@@ -4,7 +4,11 @@
 //! and possible auxiliary buffers. Special render targets can be used,
 //! for example, for visibility or occlusion computations.
 
-use crate::{math::Vary, util::buf::AsMutSlice2};
+use crate::math::{Color4, Vary};
+use crate::util::{
+    buf::{AsMutSlice2, MutSlice2},
+    pixfmt::IntoPixel,
+};
 
 use super::{Context, FragmentShader, raster::Scanline, stats::Throughput};
 
@@ -31,10 +35,29 @@ pub struct Framebuf<Col, Dep> {
     pub depth_buf: Dep,
 }
 
-impl<Col, Dep> Target for Framebuf<Col, Dep>
+/// Color buffer with a specified pixel format.
+pub struct Colorbuf<B, F> {
+    pub buf: B,
+    pub fmt: F,
+}
+
+impl<B, F: Default> Colorbuf<B, F> {
+    pub fn new(buf: B) -> Self {
+        Self { buf, fmt: F::default() }
+    }
+}
+
+impl<T, B: AsMutSlice2<T>, F> AsMutSlice2<T> for Colorbuf<B, F> {
+    fn as_mut_slice2(&mut self) -> MutSlice2<T> {
+        self.buf.as_mut_slice2()
+    }
+}
+
+impl<Col, Fmt, Dep> Target for Framebuf<Colorbuf<Col, Fmt>, Dep>
 where
     Col: AsMutSlice2<u32>,
     Dep: AsMutSlice2<f32>,
+    Color4: IntoPixel<u32, Fmt>,
 {
     /// Rasterizes `scanline` into this framebuffer.
     fn rasterize<V, Fs>(
@@ -47,8 +70,7 @@ where
         V: Vary,
         Fs: FragmentShader<V>,
     {
-        let x0 = sl.xs.start;
-        let x1 = sl.xs.end.max(x0);
+        let (x0, x1) = (sl.xs.start, sl.xs.end);
         let cbuf_span = &mut self.color_buf.as_mut_slice2()[sl.y][x0..x1];
         let zbuf_span = &mut self.depth_buf.as_mut_slice2()[sl.y][x0..x1];
 
@@ -65,7 +87,7 @@ where
                         if ctx.color_write {
                             io.o += 1;
                             // TODO Blending should happen here
-                            *curr_col = new_col.to_argb_u32();
+                            *curr_col = new_col.into_pixel()
                         }
                         if ctx.depth_write {
                             *curr_z = new_z;
@@ -77,7 +99,11 @@ where
     }
 }
 
-impl<Buf: AsMutSlice2<u32>> Target for Buf {
+impl<Buf, Fmt> Target for Colorbuf<Buf, Fmt>
+where
+    Buf: AsMutSlice2<u32>,
+    Color4: IntoPixel<u32, Fmt>,
+{
     /// Rasterizes `scanline` into this `u32` color buffer.
     /// Does no z-buffering.
     fn rasterize<V, Fs>(
@@ -90,10 +116,9 @@ impl<Buf: AsMutSlice2<u32>> Target for Buf {
         V: Vary,
         Fs: FragmentShader<V>,
     {
-        let x0 = sl.xs.start;
-        let x1 = sl.xs.end.max(x0);
-        let mut io = Throughput { i: x1 - x0, o: 0 };
+        let (x0, x1) = (sl.xs.start, sl.xs.end);
         let cbuf_span = &mut self.as_mut_slice2()[sl.y][x0..x1];
+        let mut io = Throughput { i: x1 - x0, o: 0 };
 
         sl.fragments()
             .zip(cbuf_span)
@@ -101,7 +126,7 @@ impl<Buf: AsMutSlice2<u32>> Target for Buf {
                 if let Some(color) = fs.shade_fragment(frag) {
                     if ctx.color_write {
                         io.o += 1;
-                        *c = color.to_argb_u32();
+                        *c = color.into_pixel()
                     }
                 }
             });
