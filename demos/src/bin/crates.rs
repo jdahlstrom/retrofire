@@ -2,12 +2,12 @@ use core::ops::ControlFlow::*;
 
 use re::prelude::*;
 
-use re::math::color::gray;
+use re::math::{color::gray, mat::RealToProj};
 use re::render::{
     Batch, Camera, ModelToProj,
     cam::{FirstPerson, Fov},
+    tex::SamplerRepeatPot,
 };
-// Try also Rgb565 or Rgba4444
 use re::util::pixfmt::Rgba8888;
 
 use re_front::sdl2::Window;
@@ -16,15 +16,22 @@ use re_geom::solids::Cube;
 fn main() {
     let mut win = Window::builder()
         .title("retrofire//crates")
+        // Try also Rgb565 or Rgba4444
         .pixel_fmt(Rgba8888)
         .build()
         .expect("should create window");
 
+    let check = Texture::from(Buf2::new_with((2, 2), |x, y| {
+        let even_odd = (x ^ y) as u8 & 1;
+        gray(0xCFu8 * even_odd + 0x20).to_rgba()
+    }));
+
+    let floor_sampler = SamplerRepeatPot::new(&check);
     let floor_shader = shader::new(
         |v: Vertex3<_>, mvp: &Mat4x4<ModelToProj>| {
             vertex(mvp.apply(&v.pos), v.attrib)
         },
-        |frag: Frag<Color3f>| frag.var.to_color4(),
+        |frag: Frag<TexCoord>| floor_sampler.sample(&check, frag.var),
     );
     let crate_shader = shader::new(
         |v: Vertex3<_>, mvp: &Mat4x4<ModelToProj>| {
@@ -42,7 +49,15 @@ fn main() {
         .viewport((10..w - 10, 10..h - 10))
         .perspective(Fov::Diagonal(degs(90.0)), 0.1..1000.0);
 
-    let floor = floor();
+    let floor = Mesh::new(
+        [Tri([0, 2, 1]), Tri([0, 3, 2])],
+        [
+            vertex(pt3(-1e3, 0.0, -1e3), uv(0.0, 0.0)),
+            vertex(pt3(1e3, 0.0, -1e3), uv(1e3, 0.0)),
+            vertex(pt3(1e3, 0.0, 1e3), uv(1e3, 1e3)),
+            vertex(pt3(-1e3, 0.0, 1e3), uv(0.0, 1e3)),
+        ],
+    );
     let krate = Cube { side_len: 2.0 }.build();
 
     win.run(|frame| {
@@ -75,30 +90,37 @@ fn main() {
 
         // Render
 
-        let world_to_project = flip.then(&cam.world_to_project());
+        let world_to_project: Mat4x4<RealToProj<World>> =
+            flip.then(&cam.world_to_project());
 
         let batch = Batch::new()
             .viewport(cam.viewport)
             .context(&frame.ctx);
 
+        let mvp = translate3(0.0, -1.0, 0.0)
+            .to()
+            .then(&world_to_project);
         batch
             .clone()
             .mesh(&floor)
-            .uniform(&world_to_project)
+            .uniform(&mvp)
             .shader(floor_shader)
             .target(&mut frame.buf)
             .render();
 
-        let krate = batch.clone().mesh(&krate).shader(crate_shader);
+        let krate = batch.mesh(&krate).shader(crate_shader);
 
         let n = 30;
         for i in (-n..=n).step_by(5) {
             for j in (-n..=n).step_by(5) {
-                let pos = translate3(i as f32, 0.0, j as f32).to();
+                let mvp = translate3(i as f32, 0.0, j as f32)
+                    .to()
+                    .then(&world_to_project);
+
                 krate
                     // TODO Try to get rid of clone
                     .clone()
-                    .uniform(&pos.then(&world_to_project))
+                    .uniform(&mvp)
                     // TODO storing &mut target makes Batch not Clone, maybe
                     //      pass to render() instead. OTOH then a Frame::batch
                     //      helper wouldn't be as useful. Maybe just wrap the
@@ -110,41 +132,4 @@ fn main() {
         Continue(())
     })
     .expect("should run")
-}
-
-fn floor() -> Mesh<Color3f> {
-    let mut bld = Mesh::builder();
-
-    let size = 50;
-    for j in -size..=size {
-        for i in -size..=size {
-            let even_odd = ((i & 1) ^ (j & 1)) == 1;
-
-            let pos = pt3(i as f32, -1.0, j as f32);
-            let col = if even_odd { gray(0.2) } else { gray(0.9) };
-            bld.push_vert(pos, col);
-
-            if j > -size && i > -size {
-                let w = size * 2 + 1;
-                let j = size + j;
-                let i = size + i;
-                let [a, b, c, d] = [
-                    w * (j - 1) + (i - 1),
-                    w * (j - 1) + i,
-                    w * j + (i - 1),
-                    w * j + i,
-                ]
-                .map(|i| i as usize);
-
-                if even_odd {
-                    bld.push_face(a, c, d);
-                    bld.push_face(a, d, b);
-                } else {
-                    bld.push_face(b, c, d);
-                    bld.push_face(b, a, c)
-                }
-            }
-        }
-    }
-    bld.build()
 }
