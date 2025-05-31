@@ -1,5 +1,6 @@
-use retrofire_core::util::pnm::load_pnm;
-use retrofire_core::{prelude::*, render::tex::SamplerClamp};
+#![allow(unused)]
+
+use retrofire_core::{prelude::*, render::tex::SamplerClamp, util};
 
 const VERTS: [Vertex3<TexCoord>; 4] = [
     vertex(pt3(-1.0, -1.0, 0.0), uv(0.0, 0.0)),
@@ -9,6 +10,7 @@ const VERTS: [Vertex3<TexCoord>; 4] = [
 ];
 const FACES: [Tri<usize>; 2] = [Tri([0, 1, 2]), Tri([3, 2, 1])];
 
+#[cfg(feature = "std")]
 #[test]
 fn textured_quad() {
     let checker = Texture::from(Buf2::new_with((8, 8), |x, y| {
@@ -46,6 +48,8 @@ fn textured_quad() {
             Color3::from(rgb)
         }),
     );
+
+    use util::pnm::*;
 
     let comp = load_pnm("tests/textured_quad.ppm") //
         .expect("should load comparison image");
