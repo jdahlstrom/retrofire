@@ -50,6 +50,7 @@ Done:
   * Type-tagged affine transforms and projections
   * Perspective-correct texture mapping
   * Triangle mesh data structure and a library of shapes
+  * Simple text rendering with bitmap fonts
   * Fully customizable rasterization stage
   * Collecting rendering performance data
   * Reading and writing pnm image files
@@ -62,12 +63,11 @@ Done:
 
 In progress:
 
-  = Sprite and text primitives
-  = Simple bitmap font support
+  = Different camera types
+  = Builtin light source support
   = Spherical, cube, etc UV mapping
   = Procedural noise generation
-  = Frontends for softbuffer and ncurses
-  = Different camera types
+  = Terminal frontend with ncurses
 
 Planned:
   - Material support
@@ -99,17 +99,17 @@ dependencies. However, because `no_std` lacks most floating-point functions,
 the package is not fully functional unless either the `std`, `libm`, or `mm`
 feature is enabled. Activating `std` additionally enables APIs that do I/O.
 
-The `front` package depends on `minifb` or `wasm-bindgen` and `web-sys`,
-depending on enabled features.
+The `front` package depends on either `sdl2`, `minifb`, or `wasm-bindgen` and
+`web-sys`, depending on enabled features.
 
 The `geom` package has no external dependencies. It only requires `alloc`;
-activating the optional feature `std` enables APIs doing I/O.
+activating the optional feature `std` enables APIs that do I/O.
 
 The `demos` package depends on `front`.
 
 ================================== License ===================================
 
-Copyright 2020-2024 Johannes Dahlström. retrofire is licensed under either of:
+Copyright 2020-2025 Johannes Dahlström. retrofire is licensed under either of:
 
   * Apache License, Version 2.0
     (LICENSE-APACHE or http://www.apache.org/licenses/LICENSE-2.0)
