@@ -56,7 +56,9 @@ Done:
   * Reading and writing Wavefront .obj files
   * Cubic Bezier curves and splines
   * Simple random number generation and distributions
-  * Wasm and minifb frontends
+  * Minifb, SDL2, and Wasm frontends
+  * Forever emoji-free README and docs
+  * Forever LLM-free code
 
 In progress:
 
@@ -64,7 +66,7 @@ In progress:
   = Simple bitmap font support
   = Spherical, cube, etc UV mapping
   = Procedural noise generation
-  = Frontends for sdl2, softbuffer, ncurses
+  = Frontends for softbuffer and ncurses
   = Different camera types
 
 Planned:
