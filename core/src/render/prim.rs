@@ -1,6 +1,6 @@
 //! Render impls for primitives and related items.
 
-use crate::geom::{Tri, Vertex};
+use crate::geom::{Edge, Tri, Vertex};
 use crate::math::{Mat4x4, Vary, vary::ZDiv, vec3};
 
 use super::clip::ClipVert;
@@ -38,23 +38,24 @@ impl<V: Vary> Render<V> for Tri<usize> {
     }
 }
 
-impl<V: Vary> Render<V> for [usize; 2] {
-    type Clip = [ClipVert<V>; 2];
+impl<V: Vary> Render<V> for Edge<usize> {
+    type Clip = Edge<ClipVert<V>>;
 
     type Clips = [Self::Clip];
 
-    type Screen = [Vertex<ScreenPt, V>; 2];
+    type Screen = Edge<Vertex<ScreenPt, V>>;
 
-    fn inline([i, j]: [usize; 2], vs: &[ClipVert<V>]) -> Self::Clip {
-        [vs[i].clone(), vs[j].clone()]
+    fn inline(Edge(i, j): Edge<usize>, vs: &[ClipVert<V>]) -> Self::Clip {
+        Edge(vs[i].clone(), vs[j].clone())
     }
 
-    fn to_screen(clip: Self::Clip, tf: &Mat4x4<NdcToScreen>) -> Self::Screen {
-        to_screen(clip, tf)
+    fn to_screen(e: Self::Clip, tf: &Mat4x4<NdcToScreen>) -> Self::Screen {
+        let [a, b] = to_screen([e.0, e.1], tf);
+        Edge(a, b)
     }
 
-    fn rasterize<F: FnMut(Scanline<V>)>(scr: Self::Screen, scanline_fn: F) {
-        line(scr, scanline_fn);
+    fn rasterize<F: FnMut(Scanline<V>)>(e: Self::Screen, scanline_fn: F) {
+        line([e.0, e.1], scanline_fn);
     }
 }
 
