@@ -2,7 +2,6 @@
 
 use retrofire_core::prelude::*;
 
-use retrofire_core::math::mat::ProjMat3;
 use retrofire_core::{
     render::tex::SamplerClamp,
     util::{self, pixfmt::Xrgb8888, pnm::parse_pnm},

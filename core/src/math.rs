@@ -24,15 +24,15 @@ pub use {
     approx::ApproxEq,
     color::{Color, Color3, Color3f, Color4, Color4f, rgb, rgba},
     mat::{
-        Apply, Mat2, Mat3, Mat4, Matrix, orthographic, perspective, scale,
-        scale3, translate, translate3, viewport,
+        Apply, Mat2, Mat3, Mat4, Matrix, ProjMat3, orthographic, perspective,
+        scale, scale3, translate, translate3, viewport,
     },
     param::Parametric,
     point::{Point, Point2, Point2u, Point3, pt2, pt3},
     space::{Affine, Linear},
     spline::{BezierSpline, CubicBezier, smootherstep, smoothstep},
     vary::Vary,
-    vec::{Vec2, Vec2i, Vec3, Vec3i, Vector, splat, vec2, vec3},
+    vec::{ProjVec3, Vec2, Vec2i, Vec3, Vec3i, Vector, splat, vec2, vec3},
 };
 #[cfg(feature = "fp")]
 pub use {

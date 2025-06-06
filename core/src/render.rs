@@ -10,9 +10,8 @@ use core::fmt::Debug;
 
 use crate::geom::Vertex;
 use crate::math::{
-    Mat4, Vary,
+    Mat4, ProjVec3, Vary,
     mat::{RealToProj, RealToReal},
-    vec::ProjVec3,
 };
 
 use self::{
@@ -26,6 +25,7 @@ pub use self::{
     cam::Camera,
     clip::Clip,
     ctx::Context,
+    raster::Frag,
     shader::{FragmentShader, VertexShader},
     stats::Stats,
     target::{Colorbuf, Framebuf, Target},
