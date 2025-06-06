@@ -26,6 +26,7 @@ pub use self::{
     cam::Camera,
     clip::Clip,
     ctx::Context,
+    raster::Frag,
     shader::{FragmentShader, VertexShader},
     stats::Stats,
     target::{Colorbuf, Framebuf, Target},

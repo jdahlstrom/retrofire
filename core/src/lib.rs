@@ -62,7 +62,7 @@ pub mod prelude {
             Mesh, Normal2, Normal3, Tri, Vertex, Vertex2, Vertex3, tri, vertex,
         },
         math::*,
-        render::{raster::Frag, *},
+        render::*,
         util::buf::{AsMutSlice2, AsSlice2, Buf2, MutSlice2, Slice2},
     };
 }
