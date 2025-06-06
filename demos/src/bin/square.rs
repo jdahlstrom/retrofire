@@ -2,7 +2,6 @@ use core::ops::ControlFlow::*;
 
 use re::prelude::*;
 
-use re::core::math::mat::ProjMat3;
 use re::core::render::tex::SamplerClamp;
 use re::front::minifb::Window;
 

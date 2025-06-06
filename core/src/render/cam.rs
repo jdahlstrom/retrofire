@@ -7,7 +7,7 @@ use crate::math::{
     Angle, Vec3, orient_z, rotate_x, rotate_y, spherical, translate, turns,
 };
 use crate::math::{
-    Lerp, Mat4, Point3, SphericalVec, Vary, mat::ProjMat3, mat::RealToReal,
+    Lerp, Mat4, Point3, ProjMat3, SphericalVec, Vary, mat::RealToReal,
     orthographic, perspective, pt2, viewport,
 };
 use crate::util::{Dims, rect::Rect};

@@ -1,8 +1,8 @@
-#![allow(clippy::needless_range_loop)]
-
 //! Matrices and linear and affine transforms.
 //!
 //! TODO Docs
+
+#![allow(clippy::needless_range_loop)]
 
 use core::{
     array,
