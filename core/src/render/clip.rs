@@ -16,10 +16,11 @@
 use alloc::vec::Vec;
 use core::{iter::zip, mem::swap};
 
-use view_frustum::{outcode, status};
 
 use crate::geom::{Edge, Tri, Vertex, vertex};
-use crate::math::{Lerp, vec::ProjVec3};
+use crate::math::{Lerp, ProjVec3};
+
+use view_frustum::{outcode, status};
 
 /// Trait for types that can be [clipped][self] against convex volumes.
 ///
