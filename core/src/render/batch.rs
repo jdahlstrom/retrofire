@@ -32,7 +32,7 @@ use super::{Clip, Context, NdcToScreen, Render, Shader, Target};
 pub struct Batch<Prim, Vtx, Uni, Shd, Tgt, Ctx> {
     prims: Vec<Prim>,
     verts: Vec<Vtx>,
-    uniform: Uni,
+    pub uniform: Uni,
     shader: Shd,
     viewport: Mat4x4<NdcToScreen>,
     target: Tgt,

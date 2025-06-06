@@ -26,11 +26,13 @@ fn main() {
         |frag: Frag<Color3f>| frag.var.to_color4(),
     );
     let crate_shader = shader::new(
-        |v: Vertex3<Normal3>, mvp: &Mat4x4<ModelToProj>| {
-            let [x, y, z] = ((v.attrib + splat(1.0)) / 2.0).0;
-            vertex(mvp.apply(&v.pos), rgb(x, y, z))
+        |v: Vertex3<_>, mvp: &Mat4x4<ModelToProj>| {
+            vertex(mvp.apply(&v.pos), v.attrib)
         },
-        |frag: Frag<Color3f>| frag.var.to_color4(),
+        |frag: Frag<Normal3>| {
+            let [x, y, z] = ((frag.var + splat(1.0)) / 2.0).0;
+            rgb(x, y, z).to_color4()
+        },
     );
 
     let (w, h) = win.dims;
