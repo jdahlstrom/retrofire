@@ -19,7 +19,7 @@ use crate::{
     math::{Color4, vec::ProjVec3},
 };
 
-use super::raster::Frag;
+use super::Frag;
 
 /// Trait for vertex shaders, used to transform vertices and perform other
 /// per-vertex computations.
