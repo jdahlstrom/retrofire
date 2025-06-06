@@ -24,7 +24,7 @@ fn main() {
         |frag: Frag<Color3f>| frag.var.to_color4(),
     );
     let crate_shader = shader::new(
-        |v: Vertex3<_>, mvp: &Mat4x4<ModelToProj>| {
+        |v: Vertex3<_>, mvp: Mat4x4<ModelToProj>| {
             vertex(mvp.apply(&v.pos), v.attrib)
         },
         |frag: Frag<Normal3>| {
@@ -75,6 +75,7 @@ fn main() {
         let world_to_project = flip.then(&cam.world_to_project());
 
         let batch = Batch::new()
+            .uniform(Matrix::identity())
             .viewport(cam.viewport)
             .context(&frame.ctx);
 
@@ -86,24 +87,21 @@ fn main() {
             .target(&mut frame.buf)
             .render();
 
-        let krate = batch.clone().mesh(&krate);
+        let mut krate = batch
+            .clone()
+            .mesh(&krate)
+            .shader(crate_shader)
+            .target(&mut frame.buf);
 
         let n = 30;
         for i in (-n..=n).step_by(5) {
             for j in (-n..=n).step_by(5) {
-                let pos = translate3(i as f32, 0.0, j as f32).to();
-                krate
-                    // TODO Try to get rid of clone
-                    .clone()
-                    .uniform(&pos.then(&world_to_project))
-                    // TODO Allow setting shader before uniform
-                    .shader(crate_shader)
-                    // TODO storing &mut target makes Batch not Clone, maybe
-                    //      pass to render() instead. OTOH then a Frame::batch
-                    //      helper wouldn't be as useful. Maybe just wrap the
-                    //      target in a RefCell?
-                    .target(&mut frame.buf)
-                    .render();
+                let mvp = translate3(i as f32, 0.0, j as f32)
+                    .to()
+                    .then(&world_to_project);
+
+                krate = krate.uniform(mvp);
+                krate.render();
             }
         }
         Continue(())
