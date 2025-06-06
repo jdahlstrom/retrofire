@@ -3,7 +3,6 @@ use std::{env, fmt::Write, ops::ControlFlow::Continue};
 use re::prelude::*;
 
 use re::core::{
-    math::mat::ProjMat3,
     render::{Text, tex::Atlas, tex::Layout},
     util::pnm::parse_pnm,
 };

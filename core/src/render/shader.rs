@@ -16,10 +16,10 @@
 
 use crate::{
     geom::Vertex,
-    math::{Color4, vec::ProjVec3},
+    math::{Color4, ProjVec3},
 };
 
-use super::raster::Frag;
+use super::Frag;
 
 /// Trait for vertex shaders, used to transform vertices and perform other
 /// per-vertex computations.

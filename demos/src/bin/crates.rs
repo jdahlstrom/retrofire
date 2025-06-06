@@ -2,7 +2,7 @@ use core::ops::ControlFlow::*;
 
 use re::prelude::*;
 
-use re::core::math::{color::gray, mat::ProjMat3};
+use re::core::math::color::gray;
 use re::core::render::{
     cam::{FirstPerson, Fov},
     clip::Status::*,

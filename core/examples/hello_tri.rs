@@ -1,5 +1,3 @@
-use retrofire_core::geom::tri;
-use retrofire_core::math::mat::ProjMat3;
 use retrofire_core::{prelude::*, util::*};
 
 fn main() {
