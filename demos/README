@@ -1,5 +1,5 @@
 ```                                                 _______
-                       ____                       /´  ____/\
+                        ___                       /´  ____/\
       __ ______ _____ /   /\_ _ ______ _____ ____/   /_/___/\ __ _____ ______
    ==/  ´ ____/ __   \   ____/ ´ ____/  __  ` __    ___,  /==/  ´  ___/ __   \
   ==/   /´=/   ______/  /==/   /´=/   /==/   /=/   /=/   /==/   /´=/   ______/\
@@ -8,32 +8,17 @@
 ==\___\/ ==\______\/\_____\__\/ ==\______/_____,´ /==\_____\___\/==\_______\/
                                          \_____\,´
 
-Core functionality of the `retrofire` project.
-
-Includes a math library with strongly typed vectors, matrices, colors, and
-angles; basic geometry primitives; a software 3D renderer with customizable
-shaders; with more to come.
+Simple demo programs showcasing `retrofire` features.
 
 
-============================== Crate features ================================
+============================== Demo binaries =================================
 
-  * `std`:
-    Makes available items requiring I/O, timekeeping, or any floating-point
-    functions not included in `core`. In particular this means trigonometric
-    and transcendental functions. Enabled by default. If this feature is
-    disabled, the crate only depends on `alloc`.
-
-  * `libm`:
-    Provides software implementations of floating-point functions via the
-    `libm` crate (https://crates.io/crates/libm).
-
-  * `mm`:
-    Provides fast approximate implementations of floating-point functions
-    via the `micromath` crate (https://crates.io/crates/micromath).
-
-One of the above features must be enabled in order to enable APIs using
-trigonometric or transcendental functions.
-
+  * `bezier`:  A Bézier curve bouncing around, like in a 90s era screensaver.
+  * `crates`:  A scene demonstrating a first-person camera and WASD controls.
+  * `hello`:   A bouncing message, pass a custom message on the command line.
+  * `solids`:  A collection of different solid shapes, hit space to switch.
+  * `sprites`: A ball filled with a large number of spherical particles.
+  * `square`:  A minimal-ish example rendering a textured, transformed quad.
 
 ================================== License ===================================
 
