@@ -114,18 +114,20 @@ impl<Vtx, Uni, Shd, Tgt, Ctx> Batch<Vtx, Uni, Shd, Tgt, Ctx> {
     }
 }
 
-impl<Vtx: Clone, Uni: Copy, Shd, Tgt, Ctx> Batch<Vtx, Uni, Shd, &mut Tgt, Ctx>
+impl<Vtx, Uni, Shd, Tgt, Ctx> Batch<Vtx, Uni, Shd, &mut Tgt, Ctx>
 where
-    Ctx: Borrow<Context>,
+    Vtx: Clone,
+    Uni: Copy,
     Tgt: Target,
+    Ctx: Borrow<Context>,
 {
     /// Renders this batch of geometry.
     #[rustfmt::skip]
-    pub fn render<V: Lerp + Vary>(&mut self)
+    pub fn render<V>(&mut self)
     where
+        V: Lerp + Vary,
         Shd: Shader<Vtx, V, Uni>,
     {
-
         let Self {
             faces, verts, shader, uniform, viewport, target, ctx,
         } = self;

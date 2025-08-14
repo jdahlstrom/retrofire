@@ -15,13 +15,13 @@ use crate::math::{
     vec::ProjVec3,
 };
 
-use {
+use self::{
     clip::{ClipVert, view_frustum},
     ctx::{DepthSort, FaceCull},
     raster::Scanline,
 };
 
-pub use {
+pub use self::{
     batch::Batch,
     cam::Camera,
     clip::Clip,
