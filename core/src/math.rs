@@ -44,6 +44,7 @@ pub mod angle;
 pub mod approx;
 pub mod color;
 pub mod float;
+pub mod grad;
 pub mod mat;
 pub mod param;
 pub mod point;
