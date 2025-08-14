@@ -1,7 +1,7 @@
 //! Bézier curves and splines.
 
 use alloc::vec::Vec;
-use core::{array, fmt::Debug};
+use core::{array::from_fn, fmt::Debug};
 
 use crate::geom::{Polyline, Ray};
 
@@ -212,10 +212,10 @@ where
     ///
     /// Returns the first point if `t < 0` and the last point if `t > 1`.
     pub fn eval(&self, t: f32) -> T {
-        // invariant self.0.len() != 0 -> last always exists
+        // invariant self.0.len() != 0 -> first and last always exist
         step(t, &self.0[0], self.0.last().unwrap(), |t| {
-            let (t, seg) = self.segment(t);
-            CubicBezier(seg).fast_eval(t)
+            let (seg, u) = self.segment(t);
+            seg.fast_eval(u)
         })
     }
 
@@ -223,17 +223,20 @@ where
     ///
     /// Clamps `t` to the range [0, 1].
     pub fn tangent(&self, t: f32) -> T::Diff {
-        let (t, seg) = self.segment(t);
-        CubicBezier(seg).tangent(t)
+        let (seg, u) = self.segment(t);
+        seg.tangent(u)
     }
 
-    fn segment(&self, t: f32) -> (f32, [T; 4]) {
-        let segs = ((self.0.len() - 1) / 3) as f32;
-        // TODO use floor and make the code cleaner
-        let seg = ((t * segs) as u32 as f32).min(segs - 1.0);
-        let t2 = t * segs - seg;
-        let idx = 3 * (seg as usize);
-        (t2, array::from_fn(|k| self.0[idx + k].clone()))
+    /// Returns the spline segment and local *t* corresponding to given *t*.
+    fn segment(&self, t: f32) -> (CubicBezier<T>, f32) {
+        use super::float::f32;
+
+        let num_segs = ((self.0.len() - 1) / 3) as f32;
+        let seg_idx = f32::floor(t * num_segs).min(num_segs - 1.0);
+        let idx = 3 * (seg_idx as usize);
+        let seg = from_fn(|i| self.0[idx..][i].clone());
+        let u = t * num_segs - seg_idx;
+        (CubicBezier(seg), u)
     }
 
     /// Approximates `self` as a chain of line segments.
