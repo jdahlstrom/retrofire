@@ -2,7 +2,7 @@ use core::ops::ControlFlow::*;
 
 use re::prelude::*;
 
-use re::math::color::gray;
+use re::math::grad::{Gradient2, Shape};
 use re::render::{
     ModelToProj, cam::FirstPerson, cam::Fov, clip::Status::Hidden, scene::Obj,
 };
@@ -23,7 +23,7 @@ fn main() {
         |v: Vertex3<_>, mvp: &Mat4x4<ModelToProj>| {
             vertex(mvp.apply(&v.pos), v.attrib)
         },
-        |frag: Frag<Color3f>| frag.var.to_color4(),
+        |frag: Frag<Color3f<_>>| frag.var.to_color4(),
     );
     let crate_shader = shader::new(
         |v: Vertex3<Normal3>, mvp: &Mat4x4<ModelToProj>| {
@@ -150,13 +150,26 @@ fn crates() -> Vec<Obj<Normal3>> {
 fn floor() -> Obj<Color3f> {
     let mut bld = Mesh::builder();
 
+    let mut grad = Gradient2::new(
+        Shape::Conical(pt2(0.0, 0.0)),
+        [
+            (0.0, rgb(1.0f32, 0.0, 0.0).to_linear()),
+            (0.8, rgb(0.0, 0.0, 1.0).to_linear()),
+            (1.0, rgb(1.0f32, 0.0, 0.0).to_linear()),
+        ],
+    );
+    grad.frequency = 10.0;
+
     let size = 50;
     for j in -size..=size {
         for i in -size..=size {
             let even_odd = ((i & 1) ^ (j & 1)) == 1;
 
             let pos = pt3(i as f32, -1.0, j as f32);
-            let col = if even_odd { gray(0.2) } else { gray(0.9) };
+            //let col = if even_odd { gray(0.2) } else { gray(0.9) };
+
+            let col = grad.eval(pt2(pos.x(), pos.z())).to_srgb();
+
             bld.push_vert(pos, col);
 
             if j > -size && i > -size {
