@@ -25,13 +25,12 @@ use retrofire_core::util::{
 use super::{Frame, dims};
 
 /// Helper trait to support different pixel format types.
-pub trait PixelFmt: Default {
-    type Pixel: AsRef<[u8]>;
-    const INSTANCE: Self;
+pub trait PixelFmt: Copy + Default {
+    type Pixel: AsRef<[u8]> + Copy + Sized;
     const SDL_FMT: PixelFormatEnum;
 
-    fn size() -> usize {
-        size_of::<Self::Pixel>()
+    fn encode<C: IntoPixel<Self::Pixel, Self>>(self, color: C) -> Self::Pixel {
+        color.into_pixel_fmt(self)
     }
 }
 
@@ -61,8 +60,8 @@ pub struct Builder<'title, PF> {
     pub pixfmt: PF,
 }
 
-pub struct Framebuf<'a, PF> {
-    pub color_buf: Colorbuf<MutSlice2<'a, u8>, PF>,
+pub struct Framebuf<'a, PF: PixelFmt> {
+    pub color_buf: Colorbuf<MutSlice2<'a, PF::Pixel>, PF>,
     pub depth_buf: MutSlice2<'a, f32>,
 }
 
@@ -95,7 +94,7 @@ impl<'t, PF: PixelFmt> Builder<'t, PF> {
     }
     /// Sets the framebuffer pixel format.
     ///
-    /// Supported formats are [`Rgba8888`], [`Rgb565`], and [`Rgb4444].
+    /// Supported formats are [`Rgba8888`], [`Rgb565`], and [`Rgb4444`].
     pub fn pixel_fmt(mut self, fmt: PF) -> Self {
         self.pixfmt = fmt;
         self
@@ -140,7 +139,7 @@ impl<'t, PF: PixelFmt> Builder<'t, PF> {
     }
 }
 
-impl<PF: PixelFmt> Window<PF> {
+impl<PF: PixelFmt<Pixel = [u8; N]>, const N: usize> Window<PF> {
     /// Returns a window builder.
     pub fn builder() -> Builder<'static, PF> {
         Builder::default()
@@ -187,22 +186,19 @@ impl<PF: PixelFmt> Window<PF> {
             }
 
             let cf = tex.with_lock(None, |bytes, pitch| {
-                if let Some(c) = ctx.depth_clear {
+                let bytes = bytes.as_chunks_mut().0;
+                let pitch = pitch / N;
+
+                if let Some(z) = ctx.depth_clear {
                     // Z-buffer stores reciprocals
-                    zbuf.fill(c.recip());
+                    zbuf.fill(z.recip());
                 }
                 if let Some(c) = ctx.color_clear {
-                    let c: PF::Pixel = c.into_pixel_fmt(PF::INSTANCE);
-                    bytes.chunks_exact_mut(PF::size()).for_each(|ch| {
-                        ch.copy_from_slice(c.as_ref());
-                    });
+                    bytes.fill(c.into_pixel_fmt(self.pixfmt));
                 }
 
-                let color_buf = Colorbuf::new(MutSlice2::new(
-                    (PF::size() as u32 * w, h),
-                    pitch as u32,
-                    bytes,
-                ));
+                let color_buf =
+                    Colorbuf::new(MutSlice2::new((w, h), pitch as u32, bytes));
                 let buf = Framebuf {
                     color_buf,
                     depth_buf: zbuf.as_mut_slice2(),
@@ -236,17 +232,14 @@ impl<PF: PixelFmt> Window<PF> {
 
 impl PixelFmt for Rgba8888 {
     type Pixel = [u8; 4];
-    const INSTANCE: Self = Self;
     const SDL_FMT: PixelFormatEnum = PixelFormatEnum::RGBA32;
 }
 impl PixelFmt for Rgb565 {
     type Pixel = [u8; 2];
-    const INSTANCE: Self = Self;
     const SDL_FMT: PixelFormatEnum = PixelFormatEnum::RGB565;
 }
 impl PixelFmt for Rgba4444 {
     type Pixel = [u8; 2];
-    const INSTANCE: Self = Self;
     const SDL_FMT: PixelFormatEnum = PixelFormatEnum::RGBA4444;
 }
 
@@ -265,27 +258,24 @@ where
 
         let x0 = sl.xs.start;
         let x1 = sl.xs.end.max(x0);
-        // TODO use as_chunks once stable
-        let mut cbuf_span =
-            &mut self.color_buf.buf[sl.y][PF::size() * x0..PF::size() * x1];
+        let cbuf_span = &mut self.color_buf.buf[sl.y][x0..x1];
         let zbuf_span = &mut self.depth_buf.as_mut_slice2()[sl.y][x0..x1];
 
         let mut io = Throughput { i: x1 - x0, o: 0 };
 
-        for (frag, z) in sl.fragments().zip(zbuf_span) {
-            let c: &mut PF::Pixel;
-            (c, cbuf_span) = cbuf_span.split_first_chunk_mut().unwrap();
-
+        for ((frag, curr_c), curr_z) in
+            sl.fragments().zip(cbuf_span).zip(zbuf_span)
+        {
             let new_z = frag.pos.z();
-            if ctx.depth_test(new_z, *z) {
+            if ctx.depth_test(new_z, *curr_z) {
                 if let Some(new_c) = fs.shade_fragment(frag) {
                     if ctx.color_write {
                         // TODO Blending should happen here
                         io.o += 1;
-                        *c = new_c.into_pixel_fmt(PF::INSTANCE);
+                        *curr_c = new_c.into_pixel_fmt(self.color_buf.fmt);
                     }
                     if ctx.depth_write {
-                        *z = new_z;
+                        *curr_z = new_z;
                     }
                 }
             }
@@ -301,7 +291,7 @@ impl<PF: PixelFmt> Default for Builder<'_, PF> {
             title: "// retrofire application //",
             vsync: true,
             fs: FullscreenType::Off,
-            pixfmt: PF::INSTANCE,
+            pixfmt: PF::default(),
         }
     }
 }
