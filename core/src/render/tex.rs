@@ -110,7 +110,7 @@ impl<C> Atlas<C> {
     /// # Panics
     /// If `i` is out of bounds.
     // TODO Improve error reporting
-    pub fn get(&self, i: u32) -> Texture<Slice2<C>> {
+    pub fn get(&self, i: u32) -> Texture<Slice2<'_, C>> {
         let [p0, p1] = self.rect(i);
         self.texture.data.slice(p0..p1).into()
     }
