@@ -20,14 +20,14 @@ use inner::Inner;
 /// A trait for types that can provide a view of their data as a [`Slice2`].
 pub trait AsSlice2<T> {
     /// Returns a borrowed `Slice2` view of `Self`.
-    fn as_slice2(&self) -> Slice2<T>;
+    fn as_slice2(&self) -> Slice2<'_, T>;
 }
 
 /// A trait for types that can provide a mutable view of their data
 /// as a [`MutSlice2`].
 pub trait AsMutSlice2<T> {
     /// Returns a mutably borrowed `MutSlice2` view of `Self`.
-    fn as_mut_slice2(&mut self) -> MutSlice2<T>;
+    fn as_mut_slice2(&mut self) -> MutSlice2<'_, T>;
 }
 
 //
@@ -259,44 +259,44 @@ impl<'a, T> MutSlice2<'a, T> {
 
 impl<T> AsSlice2<T> for Buf2<T> {
     #[inline]
-    fn as_slice2(&self) -> Slice2<T> {
+    fn as_slice2(&self) -> Slice2<'_, T> {
         self.0.as_slice2()
     }
 }
 impl<T> AsSlice2<T> for &Buf2<T> {
     #[inline]
-    fn as_slice2(&self) -> Slice2<T> {
+    fn as_slice2(&self) -> Slice2<'_, T> {
         self.0.as_slice2()
     }
 }
 impl<T> AsSlice2<T> for Slice2<'_, T> {
     #[inline]
-    fn as_slice2(&self) -> Slice2<T> {
+    fn as_slice2(&self) -> Slice2<'_, T> {
         self.0.as_slice2()
     }
 }
 impl<T> AsSlice2<T> for MutSlice2<'_, T> {
     #[inline]
-    fn as_slice2(&self) -> Slice2<T> {
+    fn as_slice2(&self) -> Slice2<'_, T> {
         self.0.as_slice2()
     }
 }
 
 impl<T> AsMutSlice2<T> for Buf2<T> {
     #[inline]
-    fn as_mut_slice2(&mut self) -> MutSlice2<T> {
+    fn as_mut_slice2(&mut self) -> MutSlice2<'_, T> {
         self.0.as_mut_slice2()
     }
 }
 impl<T> AsMutSlice2<T> for &mut Buf2<T> {
     #[inline]
-    fn as_mut_slice2(&mut self) -> MutSlice2<T> {
+    fn as_mut_slice2(&mut self) -> MutSlice2<'_, T> {
         self.0.as_mut_slice2()
     }
 }
 impl<T> AsMutSlice2<T> for MutSlice2<'_, T> {
     #[inline]
-    fn as_mut_slice2(&mut self) -> MutSlice2<T> {
+    fn as_mut_slice2(&mut self) -> MutSlice2<'_, T> {
         self.0.as_mut_slice2()
     }
 }
@@ -514,7 +514,7 @@ pub mod inner {
 
         /// Borrows `self` as a `Slice2`.
         #[inline]
-        pub fn as_slice2(&self) -> Slice2<T> {
+        pub fn as_slice2(&self) -> Slice2<'_, T> {
             let Self { dims, stride, ref data, _pd } = *self;
             Slice2(Inner { dims, stride, data, _pd })
         }
@@ -523,7 +523,7 @@ pub mod inner {
         ///
         /// # Panics
         /// If any part of `rect` is outside the bounds of `self`.
-        pub fn slice(&self, rect: impl Into<Rect>) -> Slice2<T> {
+        pub fn slice(&self, rect: impl Into<Rect>) -> Slice2<'_, T> {
             let (dims, rg) = self.resolve_bounds(&rect.into());
             Slice2::new(dims, self.stride, &self.data[rg])
         }
@@ -556,7 +556,7 @@ pub mod inner {
     impl<T, D: DerefMut<Target = [T]>> Inner<T, D> {
         /// Returns a mutably borrowed rectangular slice of `self`.
         #[inline]
-        pub fn as_mut_slice2(&mut self) -> MutSlice2<T> {
+        pub fn as_mut_slice2(&mut self) -> MutSlice2<'_, T> {
             #[rustfmt::skip]
             let Self { dims, stride, ref mut data, _pd, } = *self;
             MutSlice2(Inner { dims, stride, data, _pd })
@@ -644,7 +644,7 @@ pub mod inner {
         ///
         /// # Panics
         /// If any part of `rect` is outside the bounds of `self`.
-        pub fn slice_mut(&mut self, rect: impl Into<Rect>) -> MutSlice2<T> {
+        pub fn slice_mut(&mut self, rect: impl Into<Rect>) -> MutSlice2<'_, T> {
             let (dims, rg) = self.resolve_bounds(&rect.into());
             MutSlice2(Inner::new(dims, self.stride, &mut self.data[rg]))
         }
