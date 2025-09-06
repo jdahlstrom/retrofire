@@ -1,10 +1,11 @@
 //! Basic geometric primitives.
 
 use alloc::vec::Vec;
+use core::fmt::Debug;
 
 use crate::math::{
-    Affine, Lerp, Linear, Parametric, Point2, Point3, Vec2, Vec3, Vector,
-    space::Real,
+    Affine, Lerp, Linear, Mat4x4, Parametric, Point2, Point3, Vec2, Vec3,
+    Vector, mat::RealToReal, space::Real, vec3,
 };
 use crate::render::Model;
 
@@ -30,10 +31,13 @@ pub type Vertex3<A, B = Model> = Vertex<Point3<B>, A>;
 #[repr(transparent)]
 pub struct Tri<V>(pub [V; 3]);
 
-/// Plane, defined by normal vector and offset from the origin
+/// Plane, defined by the four parameters of the plane equation.
 #[derive(Copy, Clone, Debug, Eq, PartialEq)]
 #[repr(transparent)]
 pub struct Plane<V>(pub(crate) V);
+
+/// Plane embedded in 3D space, splitting the space into two half-spaces.
+pub type Plane3<B = ()> = Plane<Vector<[f32; 4], Real<3, B>>>;
 
 /// A ray, or a half line, composed of an initial point and a direction vector.
 #[derive(Copy, Clone, Debug, Eq, PartialEq)]
@@ -56,11 +60,185 @@ pub type Normal3 = Vec3;
 /// A surface normal in 2D.
 pub type Normal2 = Vec2;
 
+/// Polygon winding order.
+///
+/// The triangle *ABC* below has clockwise winding, while
+/// the triangle *DEF* has counter-clockwise winding.
+///
+/// ```text
+///     B            F
+///    / \          / \
+///   /   \        /   \
+///  /     \      /     \
+/// A-------C    D-------E
+///    Cw           Ccw
+/// ```
+#[derive(Copy, Clone, Debug, Default, Eq, PartialEq)]
+pub enum Winding {
+    /// Clockwise winding.
+    Cw,
+    /// Counter-clockwise winding.
+    #[default]
+    Ccw,
+}
+
+/// Creates a `Vertex` with the give position and attribute values.
 pub const fn vertex<P, A>(pos: P, attrib: A) -> Vertex<P, A> {
     Vertex { pos, attrib }
 }
 
-impl<B> Plane<Vector<[f32; 4], Real<3, B>>> {
+/// Creates a `Tri` with the given vertices.
+pub const fn tri<V>(a: V, b: V, c: V) -> Tri<V> {
+    Tri([a, b, c])
+}
+
+//
+// Inherent impls
+//
+
+impl<V> Tri<V> {
+    /// Given a triangle ABC, returns the edges [AB, BC, CA].
+    ///
+    /// # Examples
+    /// ```
+    /// use retrofire_core::geom::{Tri, Edge};
+    /// use retrofire_core::math::{Point2, pt2};
+    ///
+    /// let pts: [Point2; _] = [pt2(-1.0, 0.0), pt2(2.0, 0.0), pt2(1.0, 2.0)];
+    /// let tri = Tri(pts);
+    ///
+    /// let [e0, e1, e2] = tri.edges();
+    /// assert_eq!(e0, Edge(&pts[0], &pts[1]));
+    /// assert_eq!(e1, Edge(&pts[1], &pts[2]));
+    /// assert_eq!(e2, Edge(&pts[2], &pts[0]));
+    ///
+    /// ```
+    #[inline]
+    pub fn edges(&self) -> [Edge<&V>; 3] {
+        let [a, b, c] = &self.0;
+        [Edge(a, b), Edge(b, c), Edge(c, a)]
+    }
+}
+
+impl<P: Affine, A> Tri<Vertex<P, A>> {
+    /// Given a triangle ABC, returns the vectors [AB, AC].
+    #[inline]
+    pub fn tangents(&self) -> [P::Diff; 2] {
+        let [a, b, c] = &self.0;
+        [b.pos.sub(&a.pos), c.pos.sub(&a.pos)]
+    }
+}
+
+impl<A, B> Tri<Vertex2<A, B>> {
+    /// Returns the winding order of `self`.
+    pub fn winding(&self) -> Winding {
+        let [t, u] = self.tangents();
+        if t.perp_dot(u) < 0.0 {
+            Winding::Cw
+        } else {
+            Winding::Ccw
+        }
+    }
+
+    /// Returns the signed area of `self`.
+    ///
+    /// The area is positive *iff* `self` is wound counter-clockwise.
+    ///
+    /// # Examples
+    /// ```
+    /// use retrofire_core::geom::{vertex, Tri};
+    /// use retrofire_core::math::pt2;
+    ///
+    /// let tri = Tri([
+    ///     vertex(pt2::<_, ()>(0.0, 0.0), ()),
+    ///     vertex(pt2(0.0, 3.0), ()),
+    ///     vertex(pt2(4.0, 0.0), ()),
+    /// ]);
+    /// assert_eq!(tri.signed_area(), -6.0);
+    /// ```
+    pub fn signed_area(&self) -> f32 {
+        let [t, u] = self.tangents();
+        t.perp_dot(u) / 2.0
+    }
+
+    /// Returns the (positive) area of `self`.
+    ///
+    /// # Examples
+    /// ```
+    /// use retrofire_core::geom::{vertex, Tri};
+    /// use retrofire_core::math::pt2;
+    ///
+    /// let tri = Tri([
+    ///     vertex(pt2::<_, ()>(0.0, 0.0), ()),
+    ///     vertex(pt2(0.0, 3.0), ()),
+    ///     vertex(pt2(4.0, 0.0), ()),
+    /// ]);
+    /// assert_eq!(tri.area(), 6.0);
+    /// ```
+    pub fn area(&self) -> f32 {
+        self.signed_area().abs()
+    }
+}
+
+impl<A, B> Tri<Vertex3<A, B>> {
+    /// Returns the normal vector of `self`.
+    ///
+    /// The result is normalized to unit length.
+    pub fn normal(&self) -> Normal3 {
+        let [t, u] = self.tangents();
+        // TODO normal with basis
+        t.cross(&u).normalize().to()
+    }
+
+    /// Returns the plane that `self` lies on.
+    ///
+    /// # Examples
+    /// ```
+    /// use retrofire_core::geom::{Tri, Plane3, vertex};
+    /// use retrofire_core::math::{pt3, Vec3};
+    ///
+    /// let tri = Tri([
+    ///     vertex(pt3::<f32, ()>(0.0, 0.0, 2.0), ()),
+    ///     vertex(pt3(1.0, 0.0, 2.0), ()),
+    ///     vertex(pt3(0.0, 1.0, 2.0), ())
+    /// ]);
+    /// assert_eq!(tri.plane().normal(), Vec3::Z);
+    /// assert_eq!(tri.plane().offset(), 2.0);
+    /// ```
+    pub fn plane(&self) -> Plane3<B> {
+        let [a, b, c] = self.0.each_ref().map(|v| v.pos);
+        Plane::from_points(a, b, c)
+    }
+
+    /// Returns the winding order of `self`, as projected to the XY plane.
+    // TODO is this 3D version meaningful/useful enough?
+    pub fn winding(&self) -> Winding {
+        let z = self.normal().z();
+        if z < 0.0 { Winding::Cw } else { Winding::Ccw }
+    }
+
+    /// Returns the area of `self`.
+    ///
+    /// # Examples
+    /// ```
+    /// use retrofire_core::geom::{tri, vertex};
+    /// use retrofire_core::math::pt3;
+    ///
+    /// let tri = tri(
+    ///     vertex(pt3::<_, ()>(0.0, 0.0, 0.0), ()),
+    ///     vertex(pt3(4.0, 0.0, 0.0), ()),
+    ///     vertex(pt3(0.0, 3.0, 0.0), ()),
+    /// );
+    /// assert_eq!(tri.area(), 6.0);
+    /// ```
+    #[cfg(feature = "fp")]
+    pub fn area(&self) -> f32 {
+        let [t, u] = self.tangents();
+        t.cross(&u).len() / 2.0
+    }
+}
+
+impl<B> Plane3<B> {
     /// The x = 0 coordinate plane.
     pub const YZ: Self = Self::new(1.0, 0.0, 0.0, 0.0);
 
@@ -91,13 +269,237 @@ impl<B> Plane<Vector<[f32; 4], Real<3, B>>> {
     /// and d is proportional to the plane's distance to the origin.
     /// If (a, b, c) is a unit vector, then d is exactly the offset of the
     /// plane from the origin in the direction of the normal.
+    ///
+    /// # Examples
+    /// ```
+    /// use retrofire_core::{geom::Plane3, math::Vec3};
+    ///
+    /// let p = <Plane3>::new(1.0, 0.0, 0.0, -2.0);
+    /// assert_eq!(p.normal(), Vec3::X);
+    /// assert_eq!(p.offset(), -2.0);
+    ///
+    /// ```
     #[inline]
     pub const fn new(a: f32, b: f32, c: f32, d: f32) -> Self {
         Self(Vector::new([a, b, c, -d]))
     }
+
+    /// Creates a plane given three points on the plane.
+    ///
+    /// # Panics
+    /// If the points are collinear or nearly so.
+    ///
+    /// # Examples
+    /// ```
+    /// use retrofire_core::{geom::Plane3, math::{pt3, vec3}};
+    ///
+    /// let p = <Plane3>::from_points(
+    ///     pt3(0.0, 0.0, 2.0),
+    ///     pt3(1.0, 0.0, 2.0),
+    ///     pt3(0.0, 1.0, 2.0),
+    /// );
+    /// assert_eq!(p.normal(), vec3(0.0, 0.0, 1.0));
+    /// assert_eq!(p.offset(), 2.0);
+    ///
+    /// ```
+    pub fn from_points(a: Point3<B>, b: Point3<B>, c: Point3<B>) -> Self {
+        let n = (b - a).cross(&(c - a)).to();
+        Self::from_point_and_normal(a, n)
+    }
+
+    /// Creates a plane given a point on the plane and a normal.
+    ///
+    /// `n` does not have to be normalized.
+    ///
+    /// # Panics
+    /// If `n` is non-finite or nearly zero-length.
+    ///
+    /// # Examples
+    /// ```
+    /// use retrofire_core::{geom::Plane3, math::{Vec3, pt3, vec3}};
+    ///
+    /// let p = <Plane3>::from_point_and_normal(pt3(1.0, 2.0, 3.0), Vec3::Z);
+    /// assert_eq!(p.normal(), Vec3::Z);
+    /// assert_eq!(p.offset(), 3.0);
+    ///
+    /// ```
+    pub fn from_point_and_normal(pt: Point3<B>, n: Normal3) -> Self {
+        let n = n.normalize();
+        // For example, if pt = (0, 1, 0) and n = (0, 1, 0), d has to be 1
+        // to satisfy the plane equation n_x + n_y + n_z = d
+        let d = pt.to_vec().dot(&n.to());
+        Plane::new(n.x(), n.y(), n.z(), d)
+    }
+
+    /// Returns the normal vector of `self`.
+    ///
+    /// The normal returned is unit length.
+    ///
+    /// # Examples
+    /// ```
+    /// use retrofire_core::{geom::Plane3, math::Vec3};
+    ///
+    /// assert_eq!(<Plane3>::XY.normal(), Vec3::Z);
+    /// assert_eq!(<Plane3>::YZ.normal(), Vec3::X);
+    #[inline]
+    pub fn normal(&self) -> Normal3 {
+        self.abc().normalize().to()
+    }
+
+    /// Returns the signed distance of `self` from the origin.
+    ///
+    /// This distance is negative if the origin is [*outside*][Self::is_inside]
+    /// the plane and positive if the origin is *inside* the plane.
+    ///
+    /// # Examples
+    /// ```
+    /// use retrofire_core::{geom::Plane3, math::{Vec3, pt3}};
+    ///
+    /// assert_eq!(<Plane3>::new(0.0, 1.0, 0.0, 3.0).offset(), 3.0);
+    /// assert_eq!(<Plane3>::new(0.0, 2.0, 0.0, 6.0).offset(), 3.0);
+    /// assert_eq!(<Plane3>::new(0.0, -1.0, 0.0, -3.0).offset(), -3.0);
+    /// ```
+    #[inline]
+    pub fn offset(&self) -> f32 {
+        // plane dist from origin is origin dist from plane, negated
+        -self.signed_dist(Point3::origin())
+    }
+
+    /// Returns the perpendicular projection of a point on `self`.
+    ///
+    /// In other words, returns *P'*, the point on the plane closest to *P*.
+    ///
+    /// ```text
+    ///          ^        P
+    ///         /         ·
+    ///        /          ·
+    ///       / · · · · · P'
+    ///      /           ·
+    ///     /           ·
+    ///    O------------------>
+    /// ```
+    ///
+    /// # Examples
+    /// ```
+    /// use retrofire_core::geom::Plane3;
+    /// use retrofire_core::math::{Point3, pt3};
+    ///
+    /// let pt: Point3 = pt3(1.0, 2.0, -3.0);
+    ///
+    /// assert_eq!(<Plane3>::XZ.project(pt), pt3(1.0, 0.0, -3.0));
+    /// assert_eq!(<Plane3>::XY.project(pt), pt3(1.0, 2.0, 0.0));
+    ///
+    /// assert_eq!(<Plane3>::new(0.0, 0.0, 1.0, 2.0).project(pt), pt3(1.0, 2.0, 2.0));
+    /// assert_eq!(<Plane3>::new(0.0, 0.0, 2.0, 2.0).project(pt), pt3(1.0, 2.0, 1.0));
+    /// ```
+    pub fn project(&self, pt: Point3<B>) -> Point3<B> {
+        // t = -(plane dot orig) / (plane dot dir)
+        // In this case dir is parallel to plane normal
+
+        let dir = self.abc().to();
+
+        // TODO add to_homog()/to_real() methods
+        let pt_hom = [pt.x(), pt.y(), pt.z(), 1.0].into();
+
+        // Use homogeneous pt to get self · pt = ax + by + cz + d
+        // Could also just add d manually to ax + by + cz
+        let plane_dot_orig = self.0.dot(&pt_hom);
+
+        // Vector, so w = 0, so dir_hom · dir_hom = dir · dir
+        let plane_dot_dir = dir.len_sqr(); // = dir · dir
+
+        let t = -plane_dot_orig / plane_dot_dir;
+
+        pt + t * dir
+    }
+
+    /// Returns the signed distance of a point to `self`.
+    ///
+    /// # Examples
+    /// ```
+    /// use retrofire_core::geom::Plane3;
+    /// use retrofire_core::math::{Point3, pt3, Vec3};
+    ///
+    /// let pt: Point3 = pt3(1.0, 2.0, -3.0);
+    ///
+    /// assert_eq!(<Plane3>::XZ.signed_dist(pt), 2.0);
+    /// assert_eq!(<Plane3>::XY.signed_dist(pt), -3.0);
+    ///
+    /// let p = <Plane3>::new(-1.0, 0.0, 0.0, 2.0);
+    /// assert_eq!(p.signed_dist(pt), -3.0);
+    /// ```
+    #[inline]
+    pub fn signed_dist(&self, pt: Point3<B>) -> f32 {
+        use crate::math::float::*;
+        let len_sqr = self.abc().len_sqr();
+        // TODO use to_homog once committed
+        let pt = [pt.x(), pt.y(), pt.z(), 1.0].into();
+        self.0.dot(&pt) * f32::recip_sqrt(len_sqr)
+    }
+
+    /// Returns whether a point is in the half-space that the normal of `self`
+    /// points away from.
+    ///
+    /// # Examples
+    /// ```
+    /// use retrofire_core::geom::Plane3;
+    /// use retrofire_core::math::{Point3, pt3};
+    ///
+    /// let pt: Point3 = pt3(1.0, 2.0, -3.0);
+    ///
+    /// assert!(!<Plane3>::XZ.is_inside(pt));
+    /// assert!(<Plane3>::XY.is_inside(pt));
+    /// ```
+    // TODO "plane.is_inside(point)" reads wrong
+    #[cfg(feature = "fp")]
+    #[inline]
+    pub fn is_inside(&self, pt: Point3<B>) -> bool {
+        self.signed_dist(pt) <= 0.0
+    }
+
+    /// Returns an orthonormal affine basis on `self`.
+    ///
+    /// The y-axis of the basis is the normal vector; the x- and z-axes are
+    /// two arbitrary orthogonal unit vectors tangent to the plane. The origin
+    /// point is the point on the plane closest to the origin.
+    ///
+    /// # Examples
+    /// ```
+    /// use retrofire_core::assert_approx_eq;
+    /// use retrofire_core::geom::Plane3;
+    /// use retrofire_core::math::{Point3, pt3, vec3};
+    ///
+    /// let p = <Plane3>::from_point_and_normal(pt3(0.0,1.0,0.0), vec3(0.0,1.0,1.0));
+    /// let m = p.basis::<()>();
+    ///
+    /// assert_approx_eq!(m.apply_pt(&Point3::origin()), pt3(0.0, 0.5, 0.5));
+    /// ```
+    pub fn basis<F>(&self) -> Mat4x4<RealToReal<3, F, B>> {
+        let up = self.abc();
+
+        let right: Vec3<B> =
+            if up.x().abs() < up.y().abs() && up.x().abs() < up.z().abs() {
+                Vec3::X
+            } else {
+                Vec3::Z
+            };
+        let fwd = right.cross(&up).normalize();
+        let right = up.normalize().cross(&fwd);
+
+        let origin = self.offset() * up;
+
+        Mat4x4::from_affine(right, up, fwd, origin.to_pt())
+    }
+
+    /// Helper that returns the plane normal non-normalized.
+    fn abc(&self) -> Vec3<B> {
+        let [a, b, c, _] = self.0.0;
+        vec3(a, b, c)
+    }
 }
 
 impl<T> Polyline<T> {
+    /// Creates a new polyline from an iterator of vertex points.
     pub fn new(verts: impl IntoIterator<Item = T>) -> Self {
         Self(verts.into_iter().collect())
     }
@@ -116,19 +518,18 @@ impl<T> Polyline<T> {
     /// let pl = Polyline::<Point2>::new(points);
     /// let mut edges = pl.edges();
     ///
-    /// assert_eq!(edges.next(), Some(Edge(points[0], points[1])));
-    /// assert_eq!(edges.next(), Some(Edge(points[1], points[2])));
+    /// assert_eq!(edges.next(), Some(Edge(&points[0], &points[1])));
+    /// assert_eq!(edges.next(), Some(Edge(&points[1], &points[2])));
     /// assert_eq!(edges.next(), None);
     /// ```
-    pub fn edges(&self) -> impl Iterator<Item = Edge<T>> + '_
-    where
-        T: Clone,
-    {
-        self.0
-            .windows(2)
-            .map(|e| Edge(e[0].clone(), e[1].clone()))
+    pub fn edges(&self) -> impl Iterator<Item = Edge<&T>> + '_ {
+        self.0.windows(2).map(|e| Edge(&e[0], &e[1]))
     }
 }
+
+//
+// Local trait impls
+//
 
 impl<T> Parametric<T> for Ray<T>
 where
@@ -140,22 +541,22 @@ where
 }
 
 impl<T: Lerp + Clone> Parametric<T> for Polyline<T> {
-    /// Returns the point on `self` at `t`.
+    /// Returns the point on `self` at *t*.
     ///
-    /// If the number of vertices in `self` is `n`, the vertex at index
-    /// `k` < `n` corresponds to `t` = `k` / (`n` - 1). Intermediate values
-    /// of `t` are linearly interpolated between the two closest vertices.
-    /// Values `t` < 0 and `t` > 1 are clamped to 0 and 1 respectively.
+    /// If the number of vertices in `self` is *n* > 1, the vertex at index
+    /// *k* < *n* corresponds to `t` = *k* / (*n* - 1). Intermediate values
+    /// of *t* are linearly interpolated between the two closest vertices.
+    /// Values *t* < 0 and *t* > 1 are clamped to 0 and 1 respectively.
+    /// A polyline with a single vertex returns the value of that vertex
+    /// for any value of *t*.
     ///
     /// # Panics
     /// If `self` has no vertices.
     ///
     /// # Examples
     /// ```
-    /// use retrofire_core::{
-    ///     geom::{Polyline, Edge},
-    ///     math::{pt2, Point2, Parametric}
-    /// };
+    /// use retrofire_core::geom::{Polyline, Edge};
+    /// use retrofire_core::math::{pt2, Point2, Parametric};
     ///
     /// let pl = Polyline::<Point2>(
     ///     vec![pt2(0.0, 0.0), pt2(1.0, 2.0), pt2(2.0, 1.0)]);
@@ -173,19 +574,18 @@ impl<T: Lerp + Clone> Parametric<T> for Polyline<T> {
     /// assert_eq!(pl.eval(7.68), pl.eval(1.0));
     /// ```
     fn eval(&self, t: f32) -> T {
-        assert!(self.0.len() > 0, "cannot eval an empty polyline");
+        let pts = &self.0;
+        assert!(!pts.is_empty(), "cannot eval an empty polyline");
 
-        let max = self.0.len() as f32 - 1.0;
-        let i = 0.0.lerp(&max, t.clamp(0.0, 1.0));
+        let max = pts.len() - 1;
+        let i = t.clamp(0.0, 1.0) * max as f32;
         let t_rem = i % 1.0;
         let i = i as usize;
 
-        if i == max as usize {
-            self.0[i].clone()
+        if i == max {
+            pts[i].clone()
         } else {
-            let p0 = &self.0[i];
-            let p1 = &self.0[i + 1];
-            p0.lerp(p1, t_rem)
+            pts[i].lerp(&pts[i + 1], t_rem)
         }
     }
 }
@@ -202,10 +602,167 @@ impl<P: Lerp, A: Lerp> Lerp for Vertex<P, A> {
 
 #[cfg(test)]
 mod tests {
+    use crate::assert_approx_eq;
+    use crate::math::*;
     use alloc::vec;
 
     use super::*;
-    use crate::math::Parametric;
+
+    type Pt<const N: usize> = Point<[f32; N], Real<N>>;
+
+    fn tri<const N: usize>(
+        a: Pt<N>,
+        b: Pt<N>,
+        c: Pt<N>,
+    ) -> Tri<Vertex<Pt<N>, ()>> {
+        Tri([a, b, c].map(|p| vertex(p, ())))
+    }
+
+    #[test]
+    fn triangle_winding_2_cw() {
+        let tri = tri(pt2(-1.0, 0.0), pt2(0.0, 1.0), pt2(1.0, -1.0));
+        assert_eq!(tri.winding(), Winding::Cw);
+    }
+    #[test]
+    fn triangle_winding_2_ccw() {
+        let tri = tri(pt2(-2.0, 0.0), pt2(1.0, 0.0), pt2(0.0, 1.0));
+        assert_eq!(tri.winding(), Winding::Ccw);
+    }
+    #[test]
+    fn triangle_winding_3_cw() {
+        let tri =
+            tri(pt3(-1.0, 0.0, 0.0), pt3(0.0, 1.0, 1.0), pt3(1.0, -1.0, 0.0));
+        assert_eq!(tri.winding(), Winding::Cw);
+    }
+    #[test]
+    fn triangle_winding_3_ccw() {
+        let tri =
+            tri(pt3(-1.0, 0.0, 0.0), pt3(1.0, 0.0, 0.0), pt3(0.0, 1.0, -1.0));
+        assert_eq!(tri.winding(), Winding::Ccw);
+    }
+
+    #[test]
+    fn triangle_area_2() {
+        let tri = tri(pt2(-1.0, 0.0), pt2(2.0, 0.0), pt2(2.0, 1.0));
+        assert_eq!(tri.area(), 1.5);
+    }
+    #[cfg(feature = "fp")]
+    #[test]
+    fn triangle_area_3() {
+        // base = 3, height = 2
+        let tri = tri(
+            pt3(-1.0, 0.0, -1.0),
+            pt3(2.0, 0.0, -1.0),
+            pt3(0.0, 0.0, 1.0),
+        );
+        assert_approx_eq!(tri.area(), 3.0);
+    }
+
+    #[test]
+    fn triangle_plane() {
+        let tri = tri(
+            pt3(-1.0, -2.0, -1.0),
+            pt3(2.0, -2.0, -1.0),
+            pt3(0.0, -2.0, 1.0),
+        );
+        assert_approx_eq!(tri.plane().0, Plane3::new(0.0, -1.0, 0.0, 2.0).0);
+    }
+
+    #[test]
+    fn plane_from_points() {
+        let p = <Plane3>::from_points(
+            pt3(1.0, 0.0, 0.0),
+            pt3(0.0, 1.0, 0.0),
+            pt3(0.0, 0.0, 1.0),
+        );
+
+        assert_approx_eq!(p.normal(), vec3(1.0, 1.0, 1.0).normalize());
+        assert_approx_eq!(p.offset(), f32::sqrt(1.0 / 3.0));
+    }
+    #[test]
+    #[should_panic]
+    fn plane_from_collinear_points_panics() {
+        <Plane3>::from_points(
+            pt3(1.0, 2.0, 3.0),
+            pt3(-2.0, -4.0, -6.0),
+            pt3(0.5, 1.0, 1.5),
+        );
+    }
+    #[test]
+    #[should_panic]
+    fn plane_from_zero_normal_panics() {
+        <Plane3>::from_point_and_normal(
+            pt3(1.0, 2.0, 3.0),
+            vec3(0.0, 0.0, 0.0),
+        );
+    }
+    #[test]
+    fn plane_from_point_and_normal() {
+        let p = <Plane3>::from_point_and_normal(
+            pt3(1.0, 2.0, -3.0),
+            vec3(0.0, 0.0, 12.3),
+        );
+        assert_approx_eq!(p.normal(), vec3(0.0, 0.0, 1.0));
+        assert_approx_eq!(p.offset(), -3.0);
+    }
+    #[cfg(feature = "fp")]
+    #[test]
+    fn plane_is_point_inside_xz() {
+        let p = <Plane3>::from_point_and_normal(pt3(1.0, 2.0, 3.0), Vec3::Y);
+
+        // Inside
+        assert!(p.is_inside(pt3(0.0, 0.0, 0.0)));
+        // Coincident=inside
+        assert!(p.is_inside(pt3(0.0, 2.0, 0.0)));
+        assert!(p.is_inside(pt3(1.0, 2.0, 3.0)));
+        // Outside
+        assert!(!p.is_inside(pt3(0.0, 3.0, 0.0)));
+        assert!(!p.is_inside(pt3(1.0, 3.0, 3.0)));
+    }
+    #[cfg(feature = "fp")]
+    #[test]
+    fn plane_is_point_inside_neg_xz() {
+        let p = <Plane3>::from_point_and_normal(pt3(1.0, 2.0, 3.0), -Vec3::Y);
+
+        // Outside
+        assert!(!p.is_inside(pt3(0.0, 0.0, 0.0)));
+        // Coincident=inside
+        assert!(p.is_inside(pt3(0.0, 2.0, 0.0)));
+        assert!(p.is_inside(pt3(1.0, 2.0, 3.0)));
+        // Inside
+        assert!(p.is_inside(pt3(0.0, 3.0, 0.0)));
+        assert!(p.is_inside(pt3(1.0, 3.0, 3.0)));
+    }
+    #[cfg(feature = "fp")]
+    #[test]
+    fn plane_is_point_inside_diagonal() {
+        let p = <Plane3>::from_point_and_normal(pt3(0.0, 1.0, 0.0), splat(1.0));
+
+        // Inside
+        assert!(p.is_inside(pt3(0.0, 0.0, 0.0)));
+        assert!(p.is_inside(pt3(-1.0, 1.0, -1.0)));
+        // Coincident=inside
+        assert!(p.is_inside(pt3(0.0, 1.0, 0.0)));
+        // Outside
+        assert!(!p.is_inside(pt3(0.0, 2.0, 0.0)));
+        assert!(!p.is_inside(pt3(1.0, 1.0, 1.0)));
+        assert!(!p.is_inside(pt3(1.0, 0.0, 1.0)));
+    }
+
+    #[test]
+    fn plane_project_point() {
+        let p = <Plane3>::from_point_and_normal(pt3(0.0, 2.0, 0.0), Vec3::Y);
+
+        // Outside
+        assert_approx_eq!(p.project(pt3(5.0, 10.0, -3.0)), pt3(5.0, 2.0, -3.0));
+        // Coincident
+        assert_approx_eq!(p.project(pt3(5.0, 2.0, -3.0)), pt3(5.0, 2.0, -3.0));
+        // Inside
+        assert_approx_eq!(
+            p.project(pt3(5.0, -10.0, -3.0)),
+            pt3(5.0, 2.0, -3.0)
+        );
+    }
 
     #[test]
     fn polyline_eval_f32() {

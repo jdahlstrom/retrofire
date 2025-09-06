@@ -132,17 +132,15 @@ impl<Sp, const N: usize> Vector<[f32; N], Sp> {
     /// Panics in dev mode if `self` is a zero vector.
     #[inline]
     #[must_use]
-    pub fn normalize(&self) -> Self
-    where
-        Self: Debug,
-    {
+    pub fn normalize(&self) -> Self {
         #[cfg(feature = "std")]
         use super::float::RecipSqrt;
         use super::float::f32;
         let len_sqr = self.len_sqr();
         assert!(
             len_sqr.is_finite() && !len_sqr.approx_eq_eps(&0.0, &1e-12),
-            "cannot normalize a near-zero or non-finite vector: {self:?}"
+            "cannot normalize a near-zero or non-finite vector: {:?}",
+            self.0
         );
         *self * f32::recip_sqrt(len_sqr)
     }
