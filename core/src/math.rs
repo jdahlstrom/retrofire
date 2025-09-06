@@ -32,7 +32,7 @@ pub use {
     space::{Affine, Linear},
     spline::{BezierSpline, CubicBezier, smootherstep, smoothstep},
     vary::Vary,
-    vec::{Vec2, Vec2i, Vec3, Vec3i, Vector, splat, vec2, vec3},
+    vec::{Vec2, Vec2i, Vec3, Vec3i, Vec4, Vector, splat, vec2, vec3, vec4},
 };
 #[cfg(feature = "fp")]
 pub use {
@@ -64,8 +64,13 @@ pub trait Lerp: Sized {
     /// ```
     ///
     /// This method does not panic if `t < 0.0` or `t > 1.0`, or if `t`
-    /// is a `NaN`, but the return value in those cases is unspecified.
+    /// is `NaN`, but the return value in those cases is unspecified.
     /// Individual implementations may offer stronger guarantees.
+    ///
+    /// # Examples
+    /// ```
+    /// assert_eq!(f32::lerp(1.0, 5.0, 0.25), 2.0);
+    /// ```
     fn lerp(&self, other: &Self, t: f32) -> Self;
 
     /// Returns the (unweighted) average of `self` and `other`.
@@ -76,12 +81,28 @@ pub trait Lerp: Sized {
 
 /// Linearly interpolates between two values.
 ///
-/// For more information, see [`Lerp::lerp`].
+/// For examples and more information, see [`Lerp::lerp`].
 #[inline]
 pub fn lerp<T: Lerp>(t: f32, from: T, to: T) -> T {
     from.lerp(&to, t)
 }
 
+/// Returns the relative position of `t` between `min` and `max`.
+///
+/// That is, returns 0 when `t` = `min`, 1 when `t` = `max`, and linearly
+/// interpolates in between.
+///
+/// The result is unspecified if any of the parameters is non-finite, or if
+/// `min` = `max`.
+///
+/// # Examples
+/// ```
+/// assert_eq!(inv_lerp(2.0, 1.0, 5.0), 0.25);
+/// ```
+#[inline]
+pub fn inv_lerp(t: f32, min: f32, max: f32) -> f32 {
+    (t - min) / (max - min)
+}
 impl<T> Lerp for T
 where
     T: Affine<Diff: Linear<Scalar = f32>>,
@@ -99,7 +120,7 @@ where
     /// ```
     ///
     /// If `t < 0.0` or `t > 1.0`, returns the appropriate extrapolated value.
-    /// If `t` is a NaN, the result is unspecified.
+    /// If `t` is NaN, the result is unspecified.
     ///
     /// # Examples
     /// ```
