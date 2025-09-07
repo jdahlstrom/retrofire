@@ -1,11 +1,11 @@
 #![allow(clippy::needless_range_loop)]
 
-//! Matrices and linear transforms.
+//! Matrices and linear and affine transforms.
 //!
 //! TODO Docs
 
 use core::{
-    array::{self, from_fn},
+    array,
     fmt::{self, Debug, Formatter},
     marker::PhantomData as Pd,
     ops::Range,
@@ -15,7 +15,7 @@ use crate::render::{NdcToScreen, ViewToProj};
 
 use super::{
     float::f32,
-    point::{Point2, Point2u, Point3},
+    point::{Point2, Point2u, Point3, pt3},
     space::{Linear, Proj3, Real},
     vec::{ProjVec3, Vec2, Vec3, Vector},
 };
@@ -147,19 +147,31 @@ impl<const N: usize, Map> Matrix<[[f32; N]; N], Map> {
 }
 
 impl Mat4x4 {
-    /// Constructs a matrix from a set of basis vectors.
+    /// Constructs a matrix from a linear basis.
     ///
-    /// The vector do not need to be linearly independent.
-    pub const fn from_basis<S, D>(
+    /// The basis does not have to be orthonormal.
+    pub const fn from_linear<S, D>(
         i: Vec3<D>,
         j: Vec3<D>,
         k: Vec3<D>,
     ) -> Mat4x4<RealToReal<3, S, D>> {
-        let (i, j, k) = (i.0, j.0, k.0);
+        Self::from_affine(i, j, k, Point3::origin())
+    }
+
+    /// Constructs a matrix from an affine basis, or frame.
+    ///
+    /// The basis does not have to be orthonormal.
+    pub const fn from_affine<S, D>(
+        i: Vec3<D>,
+        j: Vec3<D>,
+        k: Vec3<D>,
+        o: Point3<D>,
+    ) -> Mat4x4<RealToReal<3, S, D>> {
+        let (o, i, j, k) = (o.0, i.0, j.0, k.0);
         mat![
-            i[0], j[0], k[0], 0.0;
-            i[1], j[1], k[1], 0.0;
-            i[2], j[2], k[2], 0.0;
+            i[0], j[0], k[0], o[0];
+            i[1], j[1], k[1], o[1];
+            i[2], j[2], k[2], o[2];
             0.0, 0.0, 0.0, 1.0
         ]
     }
@@ -404,7 +416,7 @@ impl<Src> Mat4x4<RealToProj<Src>> {
     #[must_use]
     pub fn apply(&self, p: &Point3<Src>) -> ProjVec3 {
         let v = Vector::new([p.x(), p.y(), p.z(), 1.0]);
-        from_fn(|i| self.row_vec(i).dot(&v)).into()
+        array::from_fn(|i| self.row_vec(i).dot(&v)).into()
     }
 }
 
@@ -572,7 +584,7 @@ fn orient(new_y: Vec3, new_z: Vec3) -> Mat4x4<RealToReal<3>> {
         !new_x.len_sqr().approx_eq(&0.0),
         "{new_y:?} × {new_z:?} non-finite or too close to zero vector"
     );
-    Mat4x4::from_basis(new_x, new_y, new_z)
+    Mat4x4::from_linear(new_x, new_y, new_z)
 }
 
 // TODO constify rotate_* functions once we have const trig functions
@@ -698,9 +710,9 @@ pub fn orthographic(lbn: Point3, rtf: Point3) -> Mat4x4<ViewToProj> {
 
 /// Creates a viewport transform matrix with the given pixel space bounds.
 ///
-/// A viewport matrix is used to transform points from the NDC space to screen
-/// space for rasterization. NDC coordinates (-1, -1, z) are mapped to
-/// `bounds.start` and NDC coordinates (1, 1, z) to `bounds.end`.
+/// A viewport matrix is used to transform points from the NDC space to
+/// screen space for rasterization. NDC coordinates (-1, -1, z) are mapped
+/// to `bounds.start` and NDC coordinates (1, 1, z) to `bounds.end`.
 pub fn viewport(bounds: Range<Point2u>) -> Mat4x4<NdcToScreen> {
     let s = bounds.start.map(|c| c as f32);
     let e = bounds.end.map(|c| c as f32);
@@ -942,7 +954,7 @@ mod tests {
 
         #[test]
         fn from_basis() {
-            let m = Mat4x4::from_basis(Y, 2.0 * Z, -3.0 * X);
+            let m = Mat4x4::from_linear(Y, 2.0 * Z, -3.0 * X);
             assert_eq!(m.apply(&X), Y);
             assert_eq!(m.apply(&Y), 2.0 * Z);
             assert_eq!(m.apply(&Z), -3.0 * X);
