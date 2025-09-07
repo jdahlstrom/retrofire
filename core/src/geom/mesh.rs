@@ -160,25 +160,27 @@ impl<A> Builder<A> {
     }
 }
 
-impl Builder<()> {
+impl<A> Builder<A> {
     /// Applies the given transform to the position of each vertex.
     ///
     /// This is an eager operation, that is, only vertices *currently*
     /// added to the builder are transformed.
     pub fn transform(
-        self,
+        mut self,
         tf: &Mat4x4<RealToReal<3, Model, Model>>,
-    ) -> Builder<()> {
-        let mesh = Mesh {
-            faces: self.mesh.faces,
-            verts: self
-                .mesh
-                .verts
-                .into_iter()
-                .map(|v| vertex(tf.apply_pt(&v.pos), v.attrib))
-                .collect(),
-        };
-        mesh.into_builder()
+    ) -> Self {
+        for v in &mut self.mesh.verts {
+            v.pos = tf.apply_pt(&v.pos);
+        }
+        self
+    }
+
+    /// Applies an arbitrary mapping to each vertex.
+    ///
+    ///
+    pub fn warp(mut self, f: impl FnMut(Vertex3<A>) -> Vertex3<A>) -> Self {
+        self.mesh.verts = self.mesh.verts.into_iter().map(f).collect();
+        self
     }
 
     /// Computes a vertex normal for each vertex as an area-weighted average
