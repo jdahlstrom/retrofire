@@ -5,7 +5,7 @@ use core::ops::{
 };
 use core::{
     array,
-    fmt::{self, Debug, Formatter},
+    fmt::{self, Debug, Display, Formatter},
     marker::PhantomData,
 };
 
@@ -109,9 +109,20 @@ impl Color3<Rgb> {
     }
 
     /// Returns the HSL color equivalent to `self`.
+    ///
+    /// # Examples
+    /// ```
+    /// use retrofire_core::math::color::{hsl, rgb};
+    ///
+    /// let red = rgb(1.0, 0.0, 0.0);
+    /// assert_eq!(red.to_hsl(), hsl(0.0, 1.0, 0.5));
+    ///
+    /// let light_blue = rgb(0.5, 0.5, 1.0);
+    /// assert_eq!(light_blue.to_hsl(), hsl(2.0/3.0, 1.0, 0.75));
+    /// ```
     pub fn to_hsl(self) -> Color3<Hsl> {
         // Fixed point multiplier
-        const M: i32 = 256;
+        const _1: i32 = 256;
 
         let [r, g, b] = self.0.map(i32::from);
 
@@ -122,18 +133,18 @@ impl Color3<Rgb> {
         let h = if d == 0 {
             0
         } else if max == r {
-            (((g - b) * M) / d).rem_euclid(6 * M)
+            (((g - b) * _1) / d).rem_euclid(6 * _1)
         } else if max == g {
-            ((b - r) * M) / d + (2 * M)
+            ((b - r) * _1) / d + (2 * _1)
         } else {
-            ((r - g) * M) / d + (4 * M)
+            ((r - g) * _1) / d + (4 * _1)
         };
         let h = h / 6;
         let l = (max + min + 1) / 2;
         let s = if l == 0 || l == 255 {
             0
         } else {
-            (d * M) / (M - (2 * l - M).abs())
+            (d * _1) / (_1 - (2 * l - _1).abs())
         };
 
         [h, s, l].map(|c| c.clamp(0, 255) as u8).into()
@@ -202,6 +213,17 @@ impl Color3f<Rgb> {
     }
 
     /// Returns the HSL color equivalent to `self`.
+    ///
+    /// # Examples
+    /// ```
+    /// use retrofire_core::math::color::{hsl, rgb};
+    ///
+    /// let red = rgb(0xFF, 0, 0);
+    /// assert_eq!(red.to_hsl(), hsl(0, 0xFF, 0x80));
+    ///
+    /// let light_blue = rgb(0x80, 0x80, 0xFF);
+    /// assert_eq!(light_blue.to_hsl(), hsl(0xAA, 0xFE, 0xC0));
+    /// ```
     pub fn to_hsl(self) -> Color3f<Hsl> {
         let [r, g, b] = self.0;
 
@@ -269,9 +291,9 @@ impl Color4f<Rgba> {
 impl Color3f<LinRgb> {
     /// Returns `self` gamma-converted to sRGB space.
     ///
-    /// Linear interpolation, used to compute eg. gradients and blending,
+    /// Linear interpolation, used to compute e.g. gradients and blending,
     /// is just an approximation if carried out in a nonlinear, gamma-corrected
-    /// color space such as the standard sRGB space. For visually optimal
+    /// color space such as the standard sRGB space. For visually correct
     /// results, sRGB input colors should be [converted to linear space][1]
     /// before interpolation, and right before writing to the output.
     /// Conversion, however, incurs a small performance penalty.
@@ -287,33 +309,35 @@ impl Color3f<LinRgb> {
 
 impl Color3<Hsl> {
     /// Returns the RGB color equivalent to `self`.
+    ///
+    /// # Examples
+    /// ```
+    /// use retrofire_core::math::color::{hsl, rgb};
+    ///
+    /// let red = hsl(0, 0xFF, 0x80);
+    /// assert_eq!(red.to_rgb(), rgb(0xFF, 0, 0));
+    ///
+    /// let light_blue = hsl(0xAB, 0xFF, 0xC0);
+    /// assert_eq!(light_blue.to_rgb(), rgb(0x80, 0x80, 0xFF));
+    /// ```
     pub fn to_rgb(self) -> Color3<Rgb> {
         // Fixed-point multiplier
-        const M: i32 = 256;
+        const _1: i32 = 256;
 
         let [h, s, l] = self.0.map(i32::from);
-        let h = h * 6;
+        let h = 6 * h;
 
-        let c = (M - (2 * l - M).abs()) * s;
-        let x = c * (M - (h % (2 * M) - M).abs());
-        let m = M * l - c / 2;
+        let c = (_1 - (2 * l - _1).abs()) * s;
+        let x = c * (_1 - (h % (2 * _1) - _1).abs());
+        let m = _1 * l - c / 2;
 
-        let c = c / M;
-        let x = x / M / M;
-        let m = m / M;
+        // Normalize
+        let [c, x, m] = [c / _1, x / _1 / _1, m / _1];
 
-        let rgb = match h / M {
-            0 => [c, x, 0],
-            1 => [x, c, 0],
-            2 => [0, c, x],
-            3 => [0, x, c],
-            4 => [x, 0, c],
-            5 => [c, 0, x],
-            _ => unreachable!(),
-        };
+        let rgb = hcx_to_rgb(h / _1, c, x, 0);
         rgb.map(|ch| {
             let ch = ch + m;
-            debug_assert!(0 <= ch && ch < 256, "channel oob: {:?}", ch);
+            debug_assert!(0 <= ch && ch < _1, "channel oob: {:?}", ch);
             ch as u8
         })
         .into()
@@ -322,30 +346,45 @@ impl Color3<Hsl> {
 
 impl Color3f<Hsl> {
     /// Returns the RGB color equivalent to `self`.
+    ///
+    /// # Examples
+    /// ```
+    /// use retrofire_core::math::color::{hsl, rgb};
+    ///
+    /// let red = hsl(0.0f32, 1.0, 0.5);
+    /// assert_eq!(red.to_rgb(), rgb(1.0, 0.0, 0.0));
+    ///
+    /// let light_blue = hsl(2.0 / 3.0, 1.0, 0.75);
+    /// assert_eq!(light_blue.to_rgb(), rgb(0.5, 0.5, 1.0));
+    /// ```
     pub fn to_rgb(self) -> Color3f<Rgb> {
         let [h, s, l] = self.0;
-        let h = h * 6.0;
+        let h = 6.0 * h;
 
+        use super::float::f32;
         let c = (1.0 - f32::abs(2.0 * l - 1.0)) * s;
         let x = c * (1.0 - f32::abs(h % 2.0 - 1.0));
-        let m = 1.0 * l - c / 2.0;
+        let m = l - c / 2.0;
 
-        let rgb = match (h - 0.5) as i32 {
-            0 => [c, x, 0.0],
-            1 => [x, c, 0.0],
-            2 => [0.0, c, x],
-            3 => [0.0, x, c],
-            4 => [x, 0.0, c],
-            5 => [c, 0.0, x],
-            _ => unreachable!("h={h}"),
-        };
-
+        let rgb = hcx_to_rgb(h as i32, c, x, 0.0);
         rgb.map(|ch| {
             let ch = ch + m;
-            debug_assert!(0.0 <= ch && ch <= 1.0, "channel oob: {ch:?}");
+            debug_assert!(-1e6 <= ch && ch <= 1.0 + 1e6, "channel oob: {ch:?}");
             ch
         })
         .into()
+    }
+}
+
+fn hcx_to_rgb<T: Display>(h: i32, c: T, x: T, z: T) -> [T; 3] {
+    match h {
+        0 => [c, x, z],
+        1 => [x, c, z],
+        2 => [z, c, x],
+        3 => [z, x, c],
+        4 => [x, z, c],
+        5 | 6 => [c, z, x],
+        _ => unreachable!("h = {h}, c = {c}, x = {z}"),
     }
 }
 
