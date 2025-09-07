@@ -6,7 +6,7 @@
 
 use crate::math::{Color4, Vary};
 use crate::util::{
-    buf::{AsMutSlice2, MutSlice2},
+    buf::{AsMutSlice2, Buf2, MutSlice2},
     pixfmt::IntoPixel,
 };
 
@@ -48,7 +48,7 @@ impl<B, F: Default> Colorbuf<B, F> {
 }
 
 impl<T, B: AsMutSlice2<T>, F> AsMutSlice2<T> for Colorbuf<B, F> {
-    fn as_mut_slice2(&mut self) -> MutSlice2<T> {
+    fn as_mut_slice2(&mut self) -> MutSlice2<'_, T> {
         self.buf.as_mut_slice2()
     }
 }
@@ -124,11 +124,41 @@ where
 
         sl.fragments()
             .zip(cbuf_span)
-            .for_each(|(frag, c)| {
-                if let Some(color) = fs.shade_fragment(frag) {
+            .for_each(|(frag, curr_col)| {
+                if let Some(new_col) = fs.shade_fragment(frag) {
                     if ctx.color_write {
                         io.o += 1;
-                        *c = color.into_pixel()
+                        *curr_col = new_col.into_pixel()
+                    }
+                }
+            });
+        io
+    }
+}
+
+impl Target for Buf2<Color4> {
+    fn rasterize<V, Fs>(
+        &mut self,
+        mut sl: Scanline<V>,
+        fs: &Fs,
+        ctx: &Context,
+    ) -> Throughput
+    where
+        V: Vary,
+        Fs: FragmentShader<V>,
+    {
+        let x0 = sl.xs.start;
+        let x1 = sl.xs.end.max(x0);
+        let mut io = Throughput { i: x1 - x0, o: 0 };
+        let cbuf_span = &mut self.as_mut_slice2()[sl.y][x0..x1];
+
+        sl.fragments()
+            .zip(cbuf_span)
+            .for_each(|(frag, curr_col)| {
+                if let Some(new_col) = fs.shade_fragment(frag) {
+                    if ctx.color_write {
+                        io.o += 1;
+                        *curr_col = new_col;
                     }
                 }
             });
