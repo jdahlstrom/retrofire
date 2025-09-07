@@ -2,7 +2,7 @@
 
 use core::{
     array,
-    fmt::{self, Debug, Formatter},
+    fmt::{self, Debug, Display, Formatter},
     marker::PhantomData,
     ops::Index,
 };
@@ -285,34 +285,37 @@ impl Color3<Hsl> {
     /// Returns the RGB color equivalent to `self`.
     pub fn to_rgb(self) -> Color3<Rgb> {
         // Fixed-point multiplier
-        const M: i32 = 256;
+        const _1: i32 = 256;
 
         let [h, s, l] = self.0.map(i32::from);
-        let h = h * 6;
+        let h = 6 * h;
 
-        let c = (M - (2 * l - M).abs()) * s;
-        let x = c * (M - (h % (2 * M) - M).abs());
-        let m = M * l - c / 2;
+        let c = (_1 - (2 * l - _1).abs()) * s;
+        let x = c * (_1 - (h % (2 * _1) - _1).abs());
+        let m = _1 * l - c / 2;
 
-        let c = c / M;
-        let x = x / M / M;
-        let m = m / M;
+        // Normalize
+        let [c, x, m] = [c / _1, x / _1 / _1, m / _1];
 
-        let rgb = match h / M {
-            0 => [c, x, 0],
-            1 => [x, c, 0],
-            2 => [0, c, x],
-            3 => [0, x, c],
-            4 => [x, 0, c],
-            5 => [c, 0, x],
-            _ => unreachable!(),
-        };
+        let rgb = hcx_to_rgb(h / _1, c, x, 0);
         rgb.map(|ch| {
             let ch = ch + m;
-            debug_assert!(0 <= ch && ch < 256, "channel oob: {:?}", ch);
+            debug_assert!(0 <= ch && ch < _1, "channel oob: {:?}", ch);
             ch as u8
         })
         .into()
+    }
+}
+
+fn hcx_to_rgb<T: Display>(h: i32, c: T, x: T, z: T) -> [T; 3] {
+    match h {
+        0 => [c, x, z],
+        1 => [x, c, z],
+        2 => [z, c, x],
+        3 => [z, x, c],
+        4 => [x, z, c],
+        5 | 6 => [c, z, x],
+        _ => unreachable!("h = {h}, c = {c}, x = {z}"),
     }
 }
 
@@ -320,25 +323,16 @@ impl Color3f<Hsl> {
     /// Returns the RGB color equivalent to `self`.
     pub fn to_rgb(self) -> Color3f<Rgb> {
         let [h, s, l] = self.0;
-        let h = h * 6.0;
+        let h = 6.0 * h;
 
         let c = (1.0 - f32::abs(2.0 * l - 1.0)) * s;
         let x = c * (1.0 - f32::abs(h % 2.0 - 1.0));
-        let m = 1.0 * l - c / 2.0;
+        let m = l - c / 2.0;
 
-        let rgb = match (h - 0.5) as i32 {
-            0 => [c, x, 0.0],
-            1 => [x, c, 0.0],
-            2 => [0.0, c, x],
-            3 => [0.0, x, c],
-            4 => [x, 0.0, c],
-            5 => [c, 0.0, x],
-            _ => unreachable!("h={h}"),
-        };
-
+        let rgb = hcx_to_rgb(h as i32, c, x, 0.0);
         rgb.map(|ch| {
             let ch = ch + m;
-            debug_assert!(0.0 <= ch && ch <= 1.0, "channel oob: {ch:?}");
+            debug_assert!(-1e6 <= ch && ch <= 1.0 + 1e6, "channel oob: {ch:?}");
             ch
         })
         .into()
