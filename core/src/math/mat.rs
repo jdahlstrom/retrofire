@@ -362,9 +362,9 @@ impl<Src, Dst> Mat4x4<RealToReal<3, Src, Dst>> {
         for idx in 0..4 {
             let pivot = (idx..4)
                 .max_by(|&r1, &r2| {
-                    let v1 = f32::abs(this.0[r1][idx]);
-                    let v2 = f32::abs(this.0[r2][idx]);
-                    v1.partial_cmp(&v2).unwrap()
+                    let v1 = this.0[r1][idx].abs();
+                    let v2 = this.0[r2][idx].abs();
+                    v1.total_cmp(&v2)
                 })
                 .unwrap();
 

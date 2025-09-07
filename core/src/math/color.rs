@@ -245,7 +245,7 @@ impl Color3f<Rgb> {
         let s = if l == 0.0 || l == 1.0 {
             0.0
         } else {
-            d / (1.0 - f32::abs(2.0 * l - 1.0))
+            d / (1.0 - (2.0 * l - 1.0).abs())
         };
 
         for ch in [h, s, l] {
@@ -361,9 +361,8 @@ impl Color3f<Hsl> {
         let [h, s, l] = self.0;
         let h = 6.0 * h;
 
-        use super::float::f32;
-        let c = (1.0 - f32::abs(2.0 * l - 1.0)) * s;
-        let x = c * (1.0 - f32::abs(h % 2.0 - 1.0));
+        let c = (1.0 - (2.0 * l - 1.0).abs()) * s;
+        let x = c * (1.0 - (h % 2.0 - 1.0).abs());
         let m = l - c / 2.0;
 
         let rgb = hcx_to_rgb(h as i32, c, x, 0.0);
