@@ -1,11 +1,11 @@
 #![allow(clippy::needless_range_loop)]
 
-//! Matrices and linear transforms.
+//! Matrices and linear and affine transforms.
 //!
 //! TODO Docs
 
 use core::{
-    array::{self, from_fn},
+    array,
     fmt::{self, Debug, Formatter},
     marker::PhantomData as Pd,
     ops::Range,
@@ -15,7 +15,7 @@ use crate::render::{NdcToScreen, ViewToProj};
 
 use super::{
     float::f32,
-    point::{Point2, Point2u, Point3},
+    point::{Point2, Point2u, Point3, pt3},
     space::{Linear, Proj3, Real},
     vec::{ProjVec3, Vec2, Vec3, Vector},
 };
@@ -147,19 +147,30 @@ impl<const N: usize, Map> Matrix<[[f32; N]; N], Map> {
 }
 
 impl Mat4x4 {
-    /// Constructs a matrix from a set of basis vectors.
+    /// Constructs a matrix from a linear basis.
     ///
-    /// The vector do not need to be linearly independent.
+    /// The vectors do not have to be orthonormal.
     pub const fn from_basis<S, D>(
         i: Vec3<D>,
         j: Vec3<D>,
         k: Vec3<D>,
     ) -> Mat4x4<RealToReal<3, S, D>> {
-        let (i, j, k) = (i.0, j.0, k.0);
+        Self::from_affine(pt3(0.0, 0.0, 0.0), i, j, k)
+    }
+    /// Constructs a matrix from an affine basis.
+    ///
+    /// The vectors do not have to be orthonormal.
+    pub const fn from_affine<S, D>(
+        o: Point3<D>,
+        i: Vec3<D>,
+        j: Vec3<D>,
+        k: Vec3<D>,
+    ) -> Mat4x4<RealToReal<3, S, D>> {
+        let (o, i, j, k) = (o.0, i.0, j.0, k.0);
         mat![
-            i[0], j[0], k[0], 0.0;
-            i[1], j[1], k[1], 0.0;
-            i[2], j[2], k[2], 0.0;
+            i[0], j[0], k[0], o[0];
+            i[1], j[1], k[1], o[1];
+            i[2], j[2], k[2], o[2];
             0.0, 0.0, 0.0, 1.0
         ]
     }
@@ -404,7 +415,7 @@ impl<Src> Mat4x4<RealToProj<Src>> {
     #[must_use]
     pub fn apply(&self, p: &Point3<Src>) -> ProjVec3 {
         let v = Vector::new([p.x(), p.y(), p.z(), 1.0]);
-        from_fn(|i| self.row_vec(i).dot(&v)).into()
+        array::from_fn(|i| self.row_vec(i).dot(&v)).into()
     }
 }
 
