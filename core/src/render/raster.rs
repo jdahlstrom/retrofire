@@ -124,14 +124,12 @@ where
     V: Vary,
     F: FnMut(Scanline<V>),
 {
-    use crate::math::float::f32;
-
     if v0.pos.y() > v1.pos.y() {
         swap(&mut v0, &mut v1);
     }
     let [dx, dy, _] = (v1.pos - v0.pos).0;
 
-    if f32::abs(dx) > dy {
+    if dx.abs() > dy {
         // More wide than tall
         if dx < 0.0 {
             // Always draw from left to right
