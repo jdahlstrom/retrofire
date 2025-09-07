@@ -41,6 +41,9 @@ pub struct Vector<Repr, Space = ()>(pub Repr, Pd<Space>);
 pub type Vec2<Basis = ()> = Vector<[f32; 2], Real<2, Basis>>;
 /// A 3-vector with `f32` components.
 pub type Vec3<Basis = ()> = Vector<[f32; 3], Real<3, Basis>>;
+/// A 4-vector with `f32` components.
+pub type Vec4<Basis = ()> = Vector<[f32; 4], Real<4, Basis>>;
+
 /// A `f32` 4-vector in the projective 3-space over ℝ, aka P<sub>3</sub>(ℝ).
 pub type ProjVec3 = Vector<[f32; 4], Proj3>;
 
@@ -54,13 +57,24 @@ pub type Vec3i<Basis = ()> = Vector<[i32; 3], Real<3, Basis>>;
 //
 
 /// Returns a real 2-vector with components `x` and `y`.
+#[inline]
 pub const fn vec2<Sc, B>(x: Sc, y: Sc) -> Vector<[Sc; 2], Real<2, B>> {
     Vector([x, y], Pd)
 }
 
 /// Returns a real 3-vector with components `x`, `y`, and `z`.
+#[inline]
 pub const fn vec3<Sc, B>(x: Sc, y: Sc, z: Sc) -> Vector<[Sc; 3], Real<3, B>> {
     Vector([x, y, z], Pd)
+}
+
+/// Returns a real 4-vector with components `x`, `y`, `z`, and `w`.
+#[rustfmt::skip]
+#[inline]
+pub const fn vec4<Sc, B>(x: Sc, y: Sc, z: Sc, w: Sc)
+    -> Vector<[Sc; 4], Real<4, B>>
+{
+    Vector([x, y, z, w], Pd)
 }
 
 /// Returns a vector with all components equal to a scalar.
