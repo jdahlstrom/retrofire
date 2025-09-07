@@ -134,10 +134,17 @@ where
     }
 }
 
-impl Point2 {
+impl<B> Point2<B> {
     /// Converts `self` into a `Point3`, with z equal to 0.
-    pub fn to_pt3(self) -> Point3 {
-        pt3(self.x(), self.y(), 0.0)
+    pub const fn to_pt3(self) -> Point3<B> {
+        let [x, y] = self.0;
+        pt3(x, y, 0.0)
+    }
+
+    // Returns `self` in homogeneous coordinates.
+    pub const fn to_homog(&self) -> Vector<[f32; 3], Real<2, B>> {
+        let [x, y] = self.0;
+        Vector::new([x, y, 1.0])
     }
 }
 
@@ -160,6 +167,14 @@ where
     #[inline]
     pub fn z(&self) -> Sc {
         self.0[2]
+    }
+}
+
+impl<B> Point3<B> {
+    // Returns `self` in homogeneous coordinates.
+    pub const fn to_homog(&self) -> Vector<[f32; 4], Real<3, B>> {
+        let [x, y, z] = self.0;
+        Vector::new([x, y, z, 1.0])
     }
 }
 

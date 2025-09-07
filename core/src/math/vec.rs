@@ -302,6 +302,11 @@ impl<B> Vec2<B> {
     pub fn perp_dot(self, other: Self) -> f32 {
         self.perp().dot(&other)
     }
+
+    /// Returns `self` in homogeneous coordinates.
+    pub fn to_homog(&self) -> Vector<[f32; 3], Real<2, B>> {
+        Vector::new([self.x(), self.y(), 0.0])
+    }
 }
 
 impl<R, Sc, B> Vector<R, Real<3, B>>
@@ -376,6 +381,38 @@ impl<B> Vec3<B> {
 
     /// Unit vector codirectional with the z-axis.
     pub const Z: Self = vec3(0.0, 0.0, 1.0);
+
+    // Returns `self` in homogeneous coordinates.
+    pub fn to_homog(&self) -> Vector<[f32; 4], Real<3, B>> {
+        Vector::new([self.x(), self.y(), self.z(), 0.0])
+    }
+}
+
+impl<R, Sc, B> Vector<R, Real<4, B>>
+where
+    R: Index<usize, Output = Sc>,
+    Sc: Copy,
+{
+    /// Returns the x component of `self`.
+    #[inline]
+    pub fn x(&self) -> Sc {
+        self.0[0]
+    }
+    /// Returns the y component of `self`.
+    #[inline]
+    pub fn y(&self) -> Sc {
+        self.0[1]
+    }
+    /// Returns the z component of `self`.
+    #[inline]
+    pub fn z(&self) -> Sc {
+        self.0[2]
+    }
+    /// Returns the w component of `self`.
+    #[inline]
+    pub fn w(&self) -> Sc {
+        self.0[3]
+    }
 }
 
 impl<R, Sc> Vector<R, Proj3>

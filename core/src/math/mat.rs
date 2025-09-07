@@ -15,7 +15,7 @@ use crate::render::{NdcToScreen, ViewToProj};
 
 use super::{
     float::f32,
-    point::{Point2, Point2u, Point3},
+    point::{Point2, Point2u, Point3, pt3},
     space::{Linear, Proj3, Real},
     vec::{ProjVec3, Vec2, Vec3, Vector},
 };
@@ -191,6 +191,7 @@ where
     /// ```
     /// for some matrices 𝗠 and 𝗡 and a vector 𝘃.
     #[must_use]
+    #[inline]
     pub fn compose<Inner: LinearMap>(
         &self,
         other: &Matrix<[[Sc; N]; N], Inner>,
@@ -212,6 +213,7 @@ where
     /// `other`. The call `self.then(other)` is thus equivalent to
     /// `other.compose(self)`.
     #[must_use]
+    #[inline]
     pub fn then<Outer: Compose<Map>>(
         &self,
         other: &Matrix<[[Sc; N]; N], Outer>,
@@ -233,14 +235,14 @@ impl<Src, Dst> Mat3x3<RealToReal<2, Src, Dst>> {
     /// ```
     #[must_use]
     pub fn apply(&self, v: &Vec2<Src>) -> Vec2<Dst> {
-        let v = [v.x(), v.y(), 1.0].into(); // TODO w=0.0
+        let v = v.to_homog();
         array::from_fn(|i| self.row_vec(i).dot(&v)).into()
     }
 
     // TODO Add trait to overload apply or similar
     #[must_use]
     pub fn apply_pt(&self, p: &Point2<Src>) -> Point2<Dst> {
-        let p = [p.x(), p.y(), 1.0].into();
+        let p = p.to_homog();
         array::from_fn(|i| self.row_vec(i).dot(&p)).into()
     }
 }
@@ -259,14 +261,14 @@ impl<Src, Dst> Mat4x4<RealToReal<3, Src, Dst>> {
     /// ```
     #[must_use]
     pub fn apply(&self, v: &Vec3<Src>) -> Vec3<Dst> {
-        let v = [v.x(), v.y(), v.z(), 1.0].into(); // TODO w=0.0
+        let v = v.to_homog();
         array::from_fn(|i| self.row_vec(i).dot(&v)).into()
     }
 
     // TODO Add trait to overload apply or similar
     #[must_use]
     pub fn apply_pt(&self, p: &Point3<Src>) -> Point3<Dst> {
-        let p = [p.x(), p.y(), p.z(), 1.0].into();
+        let p = p.to_homog();
         array::from_fn(|i| self.row_vec(i).dot(&p)).into()
     }
 
@@ -538,7 +540,7 @@ pub const fn translate3(x: f32, y: f32, z: f32) -> Mat4x4<RealToReal<3>> {
 #[cfg(feature = "fp")]
 use super::{Angle, ApproxEq};
 
-/// Returns a matrix applying a rotation such that the original y axis
+/// Returns a matrix applying a rotation such that the original y-axis
 /// is now parallel with `new_y` and the new z axis is orthogonal to
 /// both `x` and `new_y`.
 ///
@@ -553,7 +555,7 @@ pub fn orient_y(new_y: Vec3, x: Vec3) -> Mat4x4<RealToReal<3>> {
     orient(new_y, x.cross(&new_y).normalize())
 }
 /// Returns a matrix applying a rotation such that the original z axis
-/// is now parallel with `new_z` and the new y axis is orthogonal to
+/// is now parallel with `new_z` and the new y-axis is orthogonal to
 /// both `new_z` and `x`.
 ///
 /// Returns an orthogonal basis. If `new_z` and `x` are unit vectors,
