@@ -206,6 +206,15 @@ impl<T> Buf2<T> {
     pub fn data_mut(&mut self) -> &mut [T] {
         self.0.data_mut()
     }
+
+    /// Reinterprets `self` as a buffer of different dimensions but same area.
+    ///
+    /// # Panics
+    /// If `nw` * `nh` != `cw` * `ch` for the new dimensions (`nw`, `nh`)
+    /// and current dimensions (`cw`, `ch`).
+    pub fn reshape(&mut self, dims: Dims) {
+        self.0.reshape(dims);
+    }
 }
 
 impl<'a, T> Slice2<'a, T> {
@@ -317,20 +326,18 @@ impl<T> Debug for Slice2<'_, T> {
 }
 impl<T> Debug for MutSlice2<'_, T> {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
-        self.0.debug_fmt(f, "Slice2Mut")
+        self.0.debug_fmt(f, "MutSlice2")
     }
 }
 
 impl<T> Deref for Buf2<T> {
     type Target = Inner<T, Vec<T>>;
-
     fn deref(&self) -> &Self::Target {
         &self.0
     }
 }
 impl<'a, T> Deref for Slice2<'a, T> {
     type Target = Inner<T, &'a [T]>;
-
     fn deref(&self) -> &Self::Target {
         &self.0
     }
@@ -481,6 +488,12 @@ pub mod inner {
                 .field("dims", &self.dims)
                 .field("stride", &self.stride)
                 .finish()
+        }
+
+        pub(super) fn reshape(&mut self, dims: Dims) {
+            assert!(self.is_contiguous());
+            assert_eq!(dims.0 * dims.1, self.dims.0 * self.dims.1);
+            self.dims = dims;
         }
     }
 
