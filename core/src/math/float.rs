@@ -8,7 +8,6 @@
 
 #[cfg(feature = "libm")]
 pub mod libm {
-    pub use libm::fabsf as abs;
     pub use libm::floorf as floor;
 
     pub use libm::powf;
@@ -36,10 +35,6 @@ pub mod libm {
 pub mod mm {
     use micromath::F32Ext as mm;
 
-    #[inline]
-    pub fn abs(x: f32) -> f32 {
-        mm::abs(x)
-    }
     #[inline]
     pub fn floor(x: f32) -> f32 {
         mm::floor(x)
@@ -98,11 +93,6 @@ pub mod mm {
 }
 
 pub mod fallback {
-    /// Returns the absolute value of `x`.
-    #[inline]
-    pub fn abs(x: f32) -> f32 {
-        f32::from_bits(x.to_bits() & !0x8000_0000)
-    }
     /// Returns the largest integer less than or equal to `x`.
     #[inline]
     pub fn floor(x: f32) -> f32 {
