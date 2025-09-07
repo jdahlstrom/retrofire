@@ -10,41 +10,54 @@ use super::Stats;
 #[derive(Clone, Debug)]
 pub struct Context {
     /// The color with which to fill the color buffer to clear it, if any.
+    ///
     /// If rendered geometry always fills the entire frame, `color_clear`
-    /// can be set to `None`.
+    /// can be set to `None` to avoid redundant work.
     pub color_clear: Option<Color4>,
 
     /// The value with which to fill the depth buffer to clear it, if any.
     pub depth_clear: Option<f32>,
 
     /// Whether to cull (discard) faces pointing either away from or towards
-    /// the camera. If all geometry drawn is "solid" meshes without holes,
-    /// backfaces can usually be culled because they are always occluded by
-    /// frontfaces and drawing them would be useless.
+    /// the camera.
+    ///
+    /// If all geometry drawn is "solid" meshes without holes, backfaces can
+    /// usually be culled because they are always occluded by front faces and
+    /// drawing them would be redundant.
     pub face_cull: Option<FaceCull>,
 
-    /// Whether to sort visible faces by their depth. This is important when
-    /// rendering overlapping transparent faces, which *have* to be drawn
-    /// back-to-front to get correct results. On the other hand, rendering
-    /// nontransparent geometry in front-to-back order can improve performance
-    /// by reducing overdraw.
+    /// Whether to sort visible faces by their depth.
+    ///
+    /// If z-buffering or other hidden surface determination method is not used,
+    /// back-to-front depth sorting can be used to ensure correct rendering
+    /// unless there is intersecting or non-orderable geometry (this is the
+    /// so-called "painter's algorithm").
+    ///
+    /// Overlapping transparent surfaces have to be drawn back-to-front to get
+    /// correct results. Rendering nontransparent geometry in front-to-back
+    /// order can improve performance by reducing overdraw.
     pub depth_sort: Option<DepthSort>,
 
-    /// Whether to do depth testing and which predicate to use. If set to
-    /// `Some(Ordering::Less)`, a fragment passes the depth test *iff*
-    /// `new_z < old_z` (the default). If set to `None`, depth test is not
-    /// performed. This setting has no effect if the render target does not
-    /// support z-buffering.
+    /// Whether to do depth testing and which predicate to use.
+    ///
+    /// If set to `Some(Ordering::Less)`, a fragment passes the depth test
+    /// *iff* `new_z < old_z` (the default). If set to `None`, depth test
+    /// is not performed. This setting has no effect if the render target
+    /// does not support z-buffering.
     pub depth_test: Option<Ordering>,
 
-    /// Whether to write color values. If `false`, other fragment processing
-    /// is done but there is no color output. This setting has no effect if
-    /// the render target does not support color writes.
+    /// Whether to write color values.
+    ///
+    /// If `false`, other fragment processing is done but there is no color
+    /// output. This setting has no effect if the render target does not
+    /// support color writes.
     pub color_write: bool,
 
-    /// Whether to write depth values. If `false`, other fragment processing
-    /// is done but there is no depth output. This setting has no effect if
-    /// the render target does not support depth writes.
+    /// Whether to write depth values.
+    ///
+    /// If `false`, other fragment processing is done but there is no depth
+    /// output. This setting has no effect if the render target does not
+    /// support depth writes.
     pub depth_write: bool,
 
     /// Collecting rendering statistics.
@@ -58,7 +71,7 @@ pub enum DepthSort {
     BackToFront,
 }
 
-/// Whether to cull frontfaces or backfaces.
+/// Whether to cull front faces or backfaces.
 #[derive(Copy, Clone, Debug, Eq, PartialEq)]
 pub enum FaceCull {
     Front,
