@@ -11,7 +11,7 @@ use crate::util::{Dims, rect::Rect};
 
 #[cfg(feature = "fp")]
 use crate::math::{
-    Angle, Vec3, orient_z, pt3, rotate_x, rotate_y, spherical, translate, turns,
+    Angle, Vec3, orient_z, rotate_x, rotate_y, spherical, translate, turns,
 };
 
 use super::{
@@ -277,7 +277,7 @@ impl FirstPerson {
         let up = Vec3::Y;
         let right = up.cross(&fwd);
 
-        let to_world = Mat4x4::from_basis(right, up, fwd);
+        let to_world = Mat4x4::from_linear(right, up, fwd);
         self.pos += to_world.apply(&delta);
     }
 }
