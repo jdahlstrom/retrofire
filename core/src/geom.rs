@@ -1,13 +1,12 @@
 //! Basic geometric primitives.
 
+use alloc::vec::Vec;
+
 use crate::math::{
     Affine, Lerp, Linear, Mat4x4, Parametric, Point2, Point3, Vec2, Vec3,
     Vector, mat::RealToReal, space::Real, vec3,
 };
 use crate::render::Model;
-use alloc::vec::Vec;
-use core::fmt::Debug;
-use std::dbg;
 
 pub use mesh::Mesh;
 
@@ -248,10 +247,7 @@ impl<B> Plane3<B> {
     /// Returns the perpendicular projection of a point on the plane.
     ///
     /// In other words, returns the point on the plane closest to `pt`.
-    pub fn project(&self, pt: Point3<B>) -> Point3<B>
-    where
-        B: Debug + Default,
-    {
+    pub fn project(&self, pt: Point3<B>) -> Point3<B> {
         // t = -(plane dot orig) / (plane dot dir)
         // In this special case plane dot dir == 1
 
@@ -272,7 +268,7 @@ impl<B> Plane3<B> {
     ///
     /// The y-axis of the basis is the normal vector; the x- and z-axes are
     /// two arbitrary orthogonal unit vectors tangent to the plane. The origin
-    /// point is
+    /// point is the point on the plane closest to the origin.
     pub fn basis<T>(&self) -> Mat4x4<RealToReal<3, B, T>> {
         let y = self.normal();
 
@@ -398,9 +394,9 @@ impl<P: Lerp, A: Lerp> Lerp for Vertex<P, A> {
 
 #[cfg(test)]
 mod tests {
-    use crate::math::{Parametric, Point, pt2, pt3, space::Real};
     use alloc::vec;
-    use std::dbg;
+
+    use crate::math::*;
 
     use super::*;
 
