@@ -39,6 +39,7 @@ pub mod clip;
 pub mod ctx;
 pub mod prim;
 pub mod raster;
+pub mod scene;
 pub mod shader;
 pub mod stats;
 pub mod target;
