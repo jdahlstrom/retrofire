@@ -48,13 +48,42 @@ impl<R, Sp> Point<R, Sp> {
     }
 }
 
-impl<Sc, Sp, const N: usize> Point<[Sc; N], Sp> {
-    /// Returns a point of the same dimension as `self` by applying `f`
+impl<Sc: Copy, Sp, const N: usize> Point<[Sc; N], Sp> {
+    /// Returns a vector of the same dimension as `self` by applying `f`
     /// component-wise.
+    ///
+    /// # Examples
+    /// ```
+    /// use retrofire_core::math::{pt3};
+    ///
+    /// let p = pt3::<i32, ()>(1, 2, 3);
+    /// assert_eq!(p.map(|x| x as f32 + 0.5), pt3(1.5, 2.5, 3.5));
+    /// ```
     #[inline]
     #[must_use]
     pub fn map<T>(self, f: impl FnMut(Sc) -> T) -> Point<[T; N], Sp> {
         self.0.map(f).into()
+    }
+
+    /// Returns a vector of the same dimension as `self` by applying `f`
+    /// component-wise to `self` and `other`.
+    ///
+    /// # Examples
+    /// ```
+    /// use retrofire_core::math::pt3;
+    ///
+    /// let a = pt3::<f32, ()>(1.0, 2.0, 3.0);
+    /// let b = pt3(4, 3, 2);
+    /// assert_eq!(a.zip_map(b, |x, exp| x.powi(exp)), pt3(1.0, 8.0, 9.0));
+    /// ```
+    #[inline]
+    #[must_use]
+    pub fn zip_map<T: Copy, U>(
+        self,
+        other: Point<[T; N], Sp>,
+        mut f: impl FnMut(Sc, T) -> U,
+    ) -> Point<[U; N], Sp> {
+        array::from_fn(|i| f(self.0[i], other.0[i])).into()
     }
 }
 
@@ -77,7 +106,7 @@ impl<const N: usize, B> Point<[f32; N], Real<N, B>> {
     /// Returns the square of the Euclidean distance between `self` and another
     /// point.
     ///
-    /// Faster to compute than [distance][Self::distance].
+    /// The squared distance is faster to compute than the [distance][Self::distance].
     ///
     /// # Example
     /// ```
@@ -111,6 +140,7 @@ impl<const N: usize, B> Point<[f32; N], Real<N, B>> {
     /// // Clamp to the unit cube
     /// let clamped = pt.clamp(&pt3(0.0, 0.0, 0.0), &pt3(1.0, 1.0, 1.0));
     /// assert_eq!(clamped, pt3(0.5, 1.0, 0.0));
+    /// ```
     #[must_use]
     pub fn clamp(&self, min: &Self, max: &Self) -> Self {
         array::from_fn(|i| self.0[i].clamp(min.0[i], max.0[i])).into()
