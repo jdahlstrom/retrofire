@@ -74,7 +74,7 @@ pub const fn vec3<Sc, B>(x: Sc, y: Sc, z: Sc) -> Vector<[Sc; 3], Real<3, B>> {
 /// assert_eq!(v, vec3(1.23, 1.23, 1.23));
 #[inline]
 pub fn splat<Sp, Sc: Clone, const DIM: usize>(s: Sc) -> Vector<[Sc; DIM], Sp> {
-    array::from_fn(|_| s.clone()).into()
+    array::from_fn(|_| s.clone()).into() // Use array::repeat once stable
 }
 
 //
@@ -237,10 +237,38 @@ where
 impl<Sc: Copy, Sp, const N: usize> Vector<[Sc; N], Sp> {
     /// Returns a vector of the same dimension as `self` by applying `f`
     /// component-wise.
+    ///
+    /// # Examples
+    /// ```
+    /// use retrofire_core::math::vec3;
+    ///
+    /// let v = vec3::<i32, ()>(1, 2, 3);
+    /// assert_eq!(v.map(|x| x as f32 + 0.5), vec3(1.5, 2.5, 3.5));
+    /// ```
     #[inline]
     #[must_use]
     pub fn map<T>(self, mut f: impl FnMut(Sc) -> T) -> Vector<[T; N], Sp> {
         array::from_fn(|i| f(self.0[i])).into()
+    }
+    /// Returns a vector of the same dimension as `self` by applying `f`
+    /// component-wise to `self` and `other`.
+    ///
+    /// # Examples
+    /// ```
+    /// use retrofire_core::math::vec3;
+    ///
+    /// let a = vec3::<f32, ()>(1.0, 2.0, 3.0);
+    /// let b = vec3(4, 3, 2);
+    /// assert_eq!(a.zip_map(b, |x, exp| x.powi(exp)), vec3(1.0, 8.0, 9.0));
+    /// ```
+    #[inline]
+    #[must_use]
+    pub fn zip_map<T: Copy, U>(
+        self,
+        other: Vector<[T; N], Sp>,
+        mut f: impl FnMut(Sc, T) -> U,
+    ) -> Vector<[U; N], Sp> {
+        array::from_fn(|i| f(self.0[i], other.0[i])).into()
     }
 }
 
@@ -263,10 +291,10 @@ where
 
 // TODO Make more general - requires a "Scalar::one()" method
 impl<B> Vec2<B> {
-    /// Unit vector codirectional with the x-axis.
+    /// Unit vector codirectional with the positive x-axis.
     pub const X: Self = vec2(1.0, 0.0);
 
-    /// Unit vector codirectional with the y-axis.
+    /// Unit vector codirectional with the positive y-axis.
     pub const Y: Self = vec2(0.0, 1.0);
 
     /// Converts `self` into a `Vec3`, with z equal to 0.
@@ -356,13 +384,13 @@ where
 
 // TODO Make more general - requires a "Scalar::one()" method
 impl<B> Vec3<B> {
-    /// Unit vector codirectional with the x-axis.
+    /// Unit vector codirectional with the positive x-axis.
     pub const X: Self = vec3(1.0, 0.0, 0.0);
 
-    /// Unit vector codirectional with the y-axis.
+    /// Unit vector codirectional with the positive y-axis.
     pub const Y: Self = vec3(0.0, 1.0, 0.0);
 
-    /// Unit vector codirectional with the z-axis.
+    /// Unit vector codirectional with the positive z-axis.
     pub const Z: Self = vec3(0.0, 0.0, 1.0);
 }
 
