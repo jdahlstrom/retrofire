@@ -5,7 +5,7 @@ use core::borrow::Borrow;
 
 use crate::{
     geom::{Mesh, Tri, Vertex3},
-    math::{Lerp, mat::Mat4x4, vary::Vary},
+    math::{Mat4x4, Vary},
 };
 
 use super::{Context, NdcToScreen, Shader, Target};
@@ -104,6 +104,7 @@ impl<Vtx, Uni, Shd, Tgt, Ctx> Batch<Vtx, Uni, Shd, Tgt, Ctx> {
     }
 
     /// Sets the render target.
+    // TODO what bound for T?
     pub fn target<T>(self, target: T) -> Batch<Vtx, Uni, Shd, T, Ctx> {
         update!(target; self verts faces uniform shader viewport ctx)
     }
@@ -114,24 +115,24 @@ impl<Vtx, Uni, Shd, Tgt, Ctx> Batch<Vtx, Uni, Shd, Tgt, Ctx> {
     }
 }
 
-impl<Vtx: Clone, Uni: Copy, Shd, Tgt: Target, Ctx>
-    Batch<Vtx, Uni, Shd, &mut Tgt, Ctx>
-where
-    Ctx: Borrow<Context>,
-{
+impl<Vtx, Uni, Shd, Tgt, Ctx> Batch<Vtx, Uni, Shd, &mut Tgt, Ctx> {
     /// Renders this batch of geometry.
     #[rustfmt::skip]
-    pub fn render<V: Lerp + Vary>(&mut self)
+    pub fn render<V: Vary>(&mut self)
     where
+        Vtx: Clone,
+        Uni: Copy,
         Shd: Shader<Vtx, V, Uni>,
+        Tgt: Target,
+        Ctx: Borrow<Context>
     {
-
         let Self {
             faces, verts, shader, uniform, viewport, target, ctx,
         } = self;
+
         super::render(
-            faces, verts, shader, *uniform, *viewport, *target,
-            (*ctx).borrow(),
+            faces, verts, shader, *uniform, *viewport,
+            *target, (*ctx).borrow(),
         );
     }
 }
