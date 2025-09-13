@@ -10,14 +10,14 @@ use core::fmt::Debug;
 
 use crate::geom::Vertex;
 use crate::math::{
-    Lerp, Mat4x4, Vary,
+    Mat4x4, Vary,
     mat::{RealToProj, RealToReal},
     vec::ProjVec3,
 };
 
 use {
     clip::{ClipVert, view_frustum},
-    ctx::{DepthSort, FaceCull},
+    ctx::DepthSort,
     raster::Scanline,
 };
 
@@ -138,7 +138,7 @@ pub fn render<Prim, Vtx: Clone, Var, Uni: Copy, Shd>(
 ) where
     Prim: Render<Var> + Clone,
     [<Prim>::Clip]: Clip<Item = Prim::Clip>,
-    Var: Lerp + Vary,
+    Var: Vary,
     Shd: Shader<Vtx, Var, Uni>,
 {
     // 0. Preparations
@@ -177,16 +177,14 @@ pub fn render<Prim, Vtx: Clone, Var, Uni: Copy, Shd>(
         depth_sort::<Prim, _>(&mut clipped, d);
     }
 
+    // For each primitive in the view frustum:
     for prim in clipped {
         // Transform to screen space
         let prim = Prim::to_screen(prim, &to_screen);
         // Back/frontface culling
         // TODO This could also be done earlier, before or as part of clipping
-        let bf = Prim::is_backface(&prim);
-        match ctx.face_cull {
-            Some(FaceCull::Back) if bf => continue,
-            Some(FaceCull::Front) if !bf => continue,
-            _ => {}
+        if ctx.face_cull(Prim::is_backface(&prim)) {
+            continue;
         }
 
         // Log output stats after culling

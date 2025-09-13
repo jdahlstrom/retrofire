@@ -72,12 +72,33 @@ impl Context {
     #[inline]
     pub fn depth_test(&self, new: f32, curr: f32) -> bool {
         // Reverse comparison because we're comparing reciprocals
-        self.depth_test
-            .map_or(true, |ord| curr.partial_cmp(&new) == Some(ord))
+        self.depth_test.is_none() || self.depth_test == curr.partial_cmp(&new)
+    }
+
+    /// Returns whether a primitive should be culled based on the current face
+    /// culling setting.
+    // TODO this could also be in Render
+    #[inline]
+    pub fn face_cull(&self, is_backface: bool) -> bool {
+        match self.face_cull {
+            Some(FaceCull::Back) if is_backface => true,
+            Some(FaceCull::Front) if !is_backface => true,
+            _ => false,
+        }
     }
 }
 
 impl Default for Context {
+    /// Creates a rendering context with default settings.
+    ///
+    /// The default values are:
+    /// * Color clear:   Opaque black
+    /// * Depth clear:   Positive infinity
+    /// * Face culling:  Backfaces
+    /// * Depth sorting: Disabled
+    /// * Color writes:  Enabled
+    /// * Depth testing: Pass if closer
+    /// * Depth writes:  Enabled
     fn default() -> Self {
         Self {
             color_clear: Some(rgba(0, 0, 0, 0xFF)),
