@@ -1,3 +1,6 @@
+use crate::geom::vertex;
+use crate::math::mat::RealToProj;
+use crate::prelude::clip::{ClipVert, Status, view_frustum};
 use crate::{
     geom::Mesh,
     math::{Mat4x4, Point3, pt3, splat},
@@ -52,19 +55,35 @@ impl<B: Default> BBox<B> {
         (0..3).all(|i| low[i] <= pt[i] && pt[i] <= upp[i])
     }
 
+    #[rustfmt::skip]
     pub fn verts(&self) -> [Point3<B>; 8] {
-        let [lx, ly, lz] = self.0.0;
-        let [ux, uy, uz] = self.1.0;
+        let [x0, y0, z0] = self.0.0;
+        let [x1, y1, z1] = self.1.0;
         [
-            pt3(lx, ly, lz),
-            pt3(lx, ly, uz),
-            pt3(lx, uy, lz),
-            pt3(lx, uy, uz),
-            pt3(ux, ly, lz),
-            pt3(ux, ly, uz),
-            pt3(ux, uy, lz),
-            pt3(ux, uy, uz),
+            pt3(x0, y0, z0), pt3(x0, y0, z1), pt3(x0, y1, z0), pt3(x0, y1, z1),
+            pt3(x1, y0, z0), pt3(x1, y0, z1), pt3(x1, y1, z0), pt3(x1, y1, z1),
         ]
+    }
+
+    /// Returns whether `self` intersects the view frustum.
+    ///
+    /// Given a real-to-projection transform, tests this bounding box against
+    /// the view frustum and returns whether the box (and thus any bounded
+    /// geometry) is fully hidden, fully visible, or potentially partially
+    /// visible.
+    ///
+    /// If this method returns `Hidden`, the box is definitely outside the
+    /// frustum and any bounded geometry does not have to be drawn. If it
+    /// returns `Visible`, it is fully inside the frustum, and contained
+    /// geometry needs no clipping or culling.  If the return value is
+    /// `Clipped`, the box and the geometry are *potentially* visible and
+    /// more fine-grained culling is required.
+    pub fn visibility(&self, tf: &Mat4x4<RealToProj<B>>) -> Status {
+        view_frustum::status(
+            &self
+                .verts()
+                .map(|p| ClipVert::new(vertex(tf.apply(&p), ()))),
+        )
     }
 }
 
