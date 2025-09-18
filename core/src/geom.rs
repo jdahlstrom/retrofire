@@ -3,7 +3,8 @@
 use alloc::vec::Vec;
 
 use crate::math::{
-    Affine, Lerp, Linear, Parametric, Point2, Point3, Vec2, Vec3,
+    Affine, Lerp, Linear, Parametric, Point2, Point3, Vec2, Vec3, Vector,
+    space::Real,
 };
 use crate::render::Model;
 
@@ -45,6 +46,7 @@ pub struct Ray<T: Affine>(pub T, pub T::Diff);
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct Polyline<T>(pub Vec<T>);
 
+/// A line segment between two vertices.
 #[derive(Copy, Clone, Debug, Eq, PartialEq)]
 pub struct Edge<T>(pub T, pub T);
 
@@ -58,6 +60,17 @@ pub const fn vertex<P, A>(pos: P, attrib: A) -> Vertex<P, A> {
     Vertex { pos, attrib }
 }
 
+impl<B> Plane<Vector<[f32; 4], Real<3, B>>> {
+    /// The x = 0 coordinate plane.
+    pub const YZ: Self = Self(Vector::new([1.0, 0.0, 0.0, 0.0]));
+
+    /// The y = 0 coordinate plane.
+    pub const XZ: Self = Self(Vector::new([0.0, 1.0, 1.0, 0.0]));
+
+    /// The z = 0 coordinate plane.
+    pub const XY: Self = Self(Vector::new([0.0, 0.0, 1.0, 0.0]));
+}
+
 impl<T> Polyline<T> {
     pub fn new(verts: impl IntoIterator<Item = T>) -> Self {
         Self(verts.into_iter().collect())
@@ -65,16 +78,20 @@ impl<T> Polyline<T> {
 
     /// Returns an iterator over the line segments of `self`.
     ///
-    /// # Example
+    /// # Examples
     /// ```
-    /// use retrofire_core::{geom::{Polyline, Edge}, math::{pt2, Point2}};
+    /// use retrofire_core::{
+    ///     geom::{Polyline, Edge},
+    ///     math::{pt2, Point2}
+    /// };
     ///
-    /// let pl = Polyline::<Point2>(
-    ///     vec![pt2(0.0, 0.0), pt2(1.0, 1.0), pt2(2.0, 1.0)]);
+    /// let points = [pt2(0.0, 0.0), pt2(1.0, 1.0), pt2(2.0, 1.0)];
+    ///
+    /// let pl = Polyline::<Point2>::new(points);
     /// let mut edges = pl.edges();
     ///
-    /// assert_eq!(edges.next(), Some(Edge(pl.0[0], pl.0[1])));
-    /// assert_eq!(edges.next(), Some(Edge(pl.0[1], pl.0[2])));
+    /// assert_eq!(edges.next(), Some(Edge(points[0], points[1])));
+    /// assert_eq!(edges.next(), Some(Edge(points[1], points[2])));
     /// assert_eq!(edges.next(), None);
     /// ```
     pub fn edges(&self) -> impl Iterator<Item = Edge<T>> + '_
