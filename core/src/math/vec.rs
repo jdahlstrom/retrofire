@@ -232,6 +232,25 @@ where
     {
         other.mul(self.scalar_project(other))
     }
+
+    /// Reflects `self` across a line.
+    ///
+    /// # Examples
+    /// ```
+    /// use retrofire_core::math::{Vec3, vec3};
+    ///
+    /// let axis: Vec3 = vec3(1.0, 1.0, 0.0);
+    /// let v = vec3(3.0, 2.0, -1.0);
+    ///
+    /// assert_eq!(v.reflect(axis), vec3(2.0, 3.0, 1.0));
+    /// ```
+    pub fn reflect(self, other: Self) -> Self
+    where
+        Sc: Div<Sc, Output = Sc>,
+    {
+        let proj_on_other = self.vector_project(&other);
+        proj_on_other + proj_on_other - self
+    }
 }
 
 impl<Sc: Copy, Sp, const N: usize> Vector<[Sc; N], Sp> {
@@ -240,9 +259,9 @@ impl<Sc: Copy, Sp, const N: usize> Vector<[Sc; N], Sp> {
     ///
     /// # Examples
     /// ```
-    /// use retrofire_core::math::vec3;
+    /// use retrofire_core::math::{Vec3i, vec3};
     ///
-    /// let v = vec3::<i32, ()>(1, 2, 3);
+    /// let v: Vec3i = vec3(1, 2, 3);
     /// assert_eq!(v.map(|x| x as f32 + 0.5), vec3(1.5, 2.5, 3.5));
     /// ```
     #[inline]
@@ -297,7 +316,7 @@ impl<B> Vec2<B> {
     /// Unit vector codirectional with the positive y-axis.
     pub const Y: Self = vec2(0.0, 1.0);
 
-    /// Converts `self` into a `Vec3`, with z equal to 0.
+    /// Converts `self` into a `Vec3`, with z set to 0.
     pub fn to_vec3(self) -> Vec3<B> {
         vec3(self.x(), self.y(), 0.0)
     }
