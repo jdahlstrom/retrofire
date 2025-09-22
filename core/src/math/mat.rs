@@ -319,7 +319,7 @@ impl<Src, Dst> Mat4x4<RealToReal<3, Src, Dst>> {
     /// If `self` is singular or near-singular:
     /// * Panics in debug mode.
     /// * Does not panic in release mode, but the result may be inaccurate
-    /// or contain `Inf`s or `NaN`s.
+    ///   or contain `Inf`s or `NaN`s.
     #[must_use]
     pub fn inverse(&self) -> Mat4x4<RealToReal<3, Dst, Src>> {
         use super::float::f32;

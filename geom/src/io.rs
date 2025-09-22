@@ -86,8 +86,7 @@ pub type Result<T> = core::result::Result<T, Error>;
 /// Returns [`Error`] if I/O or OBJ parsing fails.
 #[cfg(feature = "std")]
 pub fn load_obj(path: impl AsRef<Path>) -> Result<Builder<()>> {
-    let r = &mut BufReader::new(File::open(path)?);
-    read_obj(r)
+    read_obj(File::open(path)?)
 }
 
 /// Reads an OBJ format mesh from input.
@@ -96,6 +95,7 @@ pub fn load_obj(path: impl AsRef<Path>) -> Result<Builder<()>> {
 /// Returns [`Error`] if I/O or OBJ parsing fails.
 #[cfg(feature = "std")]
 pub fn read_obj(input: impl Read) -> Result<Builder<()>> {
+    let input = BufReader::new(input);
     let mut io_res: Result<()> = Ok(());
     let res = parse_obj(input.bytes().map_while(|r| match r {
         Err(e) => {
@@ -463,7 +463,7 @@ v 0.0 -2.0 0.0
             fn read(&mut self, buf: &mut [u8]) -> std::io::Result<usize> {
                 if self.0 {
                     self.0 = false;
-                    buf.copy_from_slice(b"t");
+                    buf[..1].copy_from_slice(b"t");
                     Ok(7)
                 } else {
                     Err(ErrorKind::BrokenPipe.into())

@@ -384,7 +384,7 @@ impl<T: Lerp + Clone> Parametric<T> for Polyline<T> {
     /// assert_eq!(pl.eval(7.68), pl.eval(1.0));
     /// ```
     fn eval(&self, t: f32) -> T {
-        assert!(self.0.len() > 0, "cannot eval an empty polyline");
+        assert!(!self.0.is_empty(), "cannot eval an empty polyline");
 
         let max = self.0.len() as f32 - 1.0;
         let i = 0.0.lerp(&max, t.clamp(0.0, 1.0));

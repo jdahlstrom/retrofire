@@ -62,7 +62,7 @@ fn main() {
             &model_view_project,
             viewport,
             &mut frame.buf,
-            &frame.ctx,
+            frame.ctx,
         );
 
         Continue(())

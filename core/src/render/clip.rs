@@ -287,7 +287,7 @@ pub fn clip_simple_polygon<'a, A: Lerp + Clone>(
     debug_assert!(verts_out.is_empty());
 
     for (p, i) in zip(planes, 0..) {
-        p.clip_simple_polygon(&verts_in, verts_out);
+        p.clip_simple_polygon(verts_in, verts_out);
         verts_in.clear();
         if verts_out.is_empty() {
             // Nothing left to clip; the polygon was fully outside

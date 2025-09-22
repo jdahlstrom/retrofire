@@ -54,3 +54,7 @@ debug = 1
 [profile.dev]
 opt-level = 1
 split-debuginfo = "unpacked"
+
+[lints.clippy]
+manual_range_contains = "allow"
+collapsible_if = "allow"

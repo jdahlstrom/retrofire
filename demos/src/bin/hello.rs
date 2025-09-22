@@ -60,7 +60,7 @@ fn main() {
             &mvp,
             viewport,
             &mut frame.buf,
-            &frame.ctx,
+            frame.ctx,
         );
         Continue(())
     });

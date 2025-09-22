@@ -150,6 +150,6 @@ impl Lerp for () {
 
 impl<U: Lerp, V: Lerp> Lerp for (U, V) {
     fn lerp(&self, (u, v): &Self, t: f32) -> Self {
-        (self.0.lerp(&u, t), self.1.lerp(&v, t))
+        (self.0.lerp(u, t), self.1.lerp(v, t))
     }
 }
