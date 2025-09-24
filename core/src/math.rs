@@ -24,8 +24,8 @@ pub use {
     approx::ApproxEq,
     color::{Color, Color3, Color3f, Color4, Color4f, rgb, rgba},
     mat::{
-        Mat3x3, Mat4x4, Matrix, orthographic, perspective, scale, scale3,
-        translate, translate3, viewport,
+        Mat2x2, Mat3x3, Mat4x4, Matrix, orthographic, perspective, scale,
+        scale3, translate, translate3, viewport,
     },
     param::Parametric,
     point::{Point, Point2, Point2u, Point3, pt2, pt3},
