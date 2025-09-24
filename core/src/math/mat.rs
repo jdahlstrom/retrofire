@@ -17,7 +17,7 @@ use super::{
     float::f32,
     point::{Point2, Point2u, Point3},
     space::{Linear, Proj3, Real},
-    vec::{ProjVec3, Vec2, Vec3, Vector},
+    vec::{ProjVec3, Vec2, Vec3, Vector, vec2},
 };
 
 /// A linear transform from one space (or basis) to another.
@@ -56,6 +56,8 @@ pub struct RealToProj<SrcBasis>(Pd<SrcBasis>);
 #[derive(Copy, Eq, PartialEq)]
 pub struct Matrix<Repr, Map>(pub Repr, Pd<Map>);
 
+/// Type alias for a 2x2 float matrix.
+pub type Mat2x2<Map = ()> = Matrix<[[f32; 2]; 2], Map>;
 /// Type alias for a 3x3 float matrix.
 pub type Mat3x3<Map = ()> = Matrix<[[f32; 3]; 3], Map>;
 /// Type alias for a 4x4 float matrix.
@@ -218,6 +220,106 @@ where
         other: &Matrix<[[Sc; N]; N], Outer>,
     ) -> Matrix<[[Sc; N]; N], <Outer as Compose<Map>>::Result> {
         other.compose(self)
+    }
+}
+
+impl<Src, Dest> Mat2x2<RealToReal<2, Src, Dest>> {
+    /// Returns the determinant of `self`.
+    ///
+    /// # Examples
+    /// ```
+    /// use retrofire_core::math::{Mat2x2, mat::RealToReal};
+    ///
+    /// let double: Mat2x2<RealToReal<2>> = [[2.0, 0.0], [0.0, 2.0]].into();
+    /// assert_eq!(double.determinant(), 4.0);
+    ///
+    /// let singular: Mat2x2<RealToReal<2>> = [[1.0, 0.0], [2.0, 0.0]].into();
+    /// assert_eq!(singular.determinant(), 0.0);
+    /// ```
+    pub const fn determinant(&self) -> f32 {
+        let [[a, b], [c, d]] = self.0;
+        a * d - b * c
+    }
+
+    /// Returns the inverse of `self`, or `None` if `self` is not invertible.
+    ///
+    /// A matrix is invertible if and only if its [determinant][Self::determinant]
+    /// is nonzero. A non-invertible matrix is also called singular.
+    ///
+    /// # Examples
+    /// ```
+    /// use retrofire_core::math::{Mat2x2, mat::RealToReal};
+    ///
+    /// let rotate_90: Mat2x2<RealToReal<2>> = [[0.0, -1.0], [1.0, 0.0]].into();
+    /// let rotate_neg_90 = rotate_90.checked_inverse();
+    ///
+    /// assert_eq!(rotate_neg_90, Some([[0.0, 1.0], [-1.0, 0.0]].into()));
+    ///
+    /// let singular: Mat2x2<RealToReal<2>> = [[1.0, 0.0], [2.0, 0.0]].into();
+    /// assert_eq!(singular.checked_inverse(), None);
+    /// ```
+    #[must_use]
+    pub const fn checked_inverse(
+        &self,
+    ) -> Option<Mat2x2<RealToReal<2, Dest, Src>>> {
+        let det = self.determinant();
+        if det.abs() < 1e-6 {
+            return None;
+        }
+        let det = 1.0 / det;
+        let [[a, b], [c, d]] = self.0;
+        Some(Mat2x2::new([[det * d, det * -b], [det * -c, det * a]]))
+    }
+
+    /// Returns the inverse of `self`, if it exists.
+    ///
+    /// A matrix is invertible if and only if its [determinant][Self::determinant]
+    /// is nonzero. A non-invertible matrix is also called singular.
+    ///
+    /// # Panics
+    /// If `self` has no inverse.
+    ///
+    /// # Examples
+    /// ```
+    /// use retrofire_core::math::{Mat2x2, mat::RealToReal, vec2};
+    ///
+    /// let rotate_90: Mat2x2<RealToReal<2>> = [[0.0, -1.0], [1.0, 0.0]].into();
+    /// let rotate_neg_90 = rotate_90.inverse();
+    ///
+    /// assert_eq!(rotate_neg_90.0, [[0.0, 1.0], [-1.0, 0.0]]);
+    /// assert_eq!(rotate_90.then(&rotate_neg_90), Mat2x2::identity())
+    /// ```
+    /// ```should_panic
+    /// # use retrofire_core::math::{Mat2x2, mat::RealToReal};
+    ///
+    /// // This matrix has no inverse
+    /// let singular: Mat2x2<RealToReal<2>> = [[1.0, 0.0], [2.0, 0.0]].into();
+    ///
+    /// // This will panic
+    /// let _ = singular.inverse();
+    /// ```
+    #[must_use]
+    pub const fn inverse(&self) -> Mat2x2<RealToReal<2, Dest, Src>> {
+        self.checked_inverse()
+            .expect("matrix must be invertible")
+    }
+
+    /// Maps the real 2-vector 𝘃 from basis `Src` to basis `Dst`.
+    ///
+    /// Computes the matrix–vector multiplication 𝝡𝘃 where 𝘃 is interpreted as
+    /// a column vector:
+    ///
+    /// ```text
+    ///  Mv  =  ⎛ M00 M01 ⎞ ⎛ v0 ⎞  =  ⎛ v0' ⎞
+    ///         ⎝ M10 M11 ⎠ ⎝ v1 ⎠     ⎝ v1' ⎠
+    /// ```
+    #[must_use]
+    pub fn apply(&self, v: &Vec2<Src>) -> Vec2<Dest> {
+        //let [x, y] = v.0;
+        //let [[a, b], [c, d]] = self.0;
+        //vec2(a * x + b * y, c * x + d * y)
+
+        vec2(self.row_vec(0).dot(&v), self.row_vec(1).dot(&v))
     }
 }
 
@@ -763,6 +865,40 @@ mod tests {
     const Y: Vec3 = Vec3::Y;
     const Z: Vec3 = Vec3::Z;
     const O: Vec3 = Vec3::new([0.0; 3]);
+
+    mod mat2x2 {
+        use super::*;
+
+        #[test]
+        fn determinant_of_identity_is_one() {
+            let id = Mat2x2::<RealToReal<2>>::identity();
+            assert_eq!(id.determinant(), 1.0);
+        }
+        #[test]
+        fn determinant_of_reflection_is_negative_one() {
+            let refl: Mat2x2<Map<2>> = [[0.0, 1.0], [1.0, 0.0]].into();
+            assert_eq!(refl.determinant(), -1.0);
+        }
+
+        #[test]
+        fn inverse_of_identity_is_identity() {
+            let id = Mat2x2::<RealToReal<2>>::identity();
+            assert_eq!(id.inverse(), id);
+        }
+        #[test]
+        fn inverse_of_inverse_is_original() {
+            let m: Mat2x2<Map<2>> = [[0.5, 1.5], [1.0, -0.5]].into();
+            let m_inv: Mat2x2<InvMap<2>> = m.inverse();
+            assert_approx_eq!(m_inv.inverse(), m);
+        }
+        #[test]
+        fn composition_of_inverse_is_identity() {
+            let m: Mat2x2<Map<2>> = [[0.5, 1.5], [1.0, -0.5]].into();
+            let m_inv: Mat2x2<InvMap<2>> = m.inverse();
+            assert_approx_eq!(m.compose(&m_inv), Mat2x2::identity());
+            assert_approx_eq!(m.then(&m_inv), Mat2x2::identity());
+        }
+    }
 
     mod mat3x3 {
         use super::*;
