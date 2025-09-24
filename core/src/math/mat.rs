@@ -244,6 +244,20 @@ impl<Src, Dst> Mat3x3<RealToReal<2, Src, Dst>> {
         let p = [p.x(), p.y(), 1.0].into();
         array::from_fn(|i| self.row_vec(i).dot(&p)).into()
     }
+
+    /// Returns the determinant of `self`.
+    pub fn determinant(&self) -> f32 {
+        #[rustfmt::skip]
+        let [[a, b, c],
+             [d, e, f],
+             [g, h, i]] = self.0;
+
+        // assert!(g == 0.0 && h == 0.0 && i == 1.0);
+        // TODO If affine (as should be), reduces to:
+        // a * e - b * d
+
+        a * (e * i - f * h) - b * (d * i - f * g) + c * (d * h - e * g)
+    }
 }
 
 impl<Src, Dst> Mat4x4<RealToReal<3, Src, Dst>> {
