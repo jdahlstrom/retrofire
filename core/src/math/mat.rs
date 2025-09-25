@@ -18,7 +18,7 @@ use super::{
     float::f32,
     point::{Point2, Point2u, Point3, pt3},
     space::{Linear, Proj3, Real},
-    vec::{ProjVec3, Vec2, Vec3, Vector},
+    vec::{ProjVec3, Vec2, Vec3, Vector, vec2},
 };
 
 /// A linear transform from one space (or basis) to another.
@@ -627,7 +627,7 @@ impl<S: Debug, Map: Debug + Default, const N: usize, const M: usize> Debug
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         writeln!(f, "Matrix<{:?}>[", Map::default())?;
         for i in 0..M {
-            writeln!(f, "    {:6.2?}", self.0[i])?;
+            writeln!(f, "    {:4?}", self.0[i])?;
         }
         write!(f, "]")
     }
@@ -668,7 +668,7 @@ pub const fn scale(s: Vec3) -> Mat4x4<RealToReal<3>> {
 }
 
 pub const fn scale3(x: f32, y: f32, z: f32) -> Mat4x4<RealToReal<3>> {
-    mat! [
+    mat![
          x,  0.0, 0.0, 0.0;
         0.0,  y,  0.0, 0.0;
         0.0, 0.0,  z,  0.0;
@@ -1005,9 +1005,9 @@ mod tests {
             assert_eq!(
                 alloc::format!("{MAT:?}"),
                 r#"Matrix<Basis1→Basis2>[
-    [  0.00,   1.00,   2.00]
-    [ 10.00,  11.00,  12.00]
-    [ 20.00,  21.00,  22.00]
+    [ 0.0,  1.0,  2.0]
+    [10.0, 11.0, 12.0]
+    [20.0, 21.0, 22.0]
 ]"#
             );
         }
@@ -1199,10 +1199,10 @@ mod tests {
             assert_eq!(
                 alloc::format!("{MAT:?}"),
                 r#"Matrix<Basis1→Basis2>[
-    [  0.00,   1.00,   2.00,   3.00]
-    [ 10.00,  11.00,  12.00,  13.00]
-    [ 20.00,  21.00,  22.00,  23.00]
-    [ 30.00,  31.00,  32.00,  33.00]
+    [ 0.0,  1.0,  2.0,  3.0]
+    [10.0, 11.0, 12.0, 13.0]
+    [20.0, 21.0, 22.0, 23.0]
+    [30.0, 31.0, 32.0, 33.0]
 ]"#
             );
         }
