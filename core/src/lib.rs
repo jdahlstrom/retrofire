@@ -41,9 +41,9 @@
 //! use retrofire_core::{prelude::*, util::*};
 //!
 //! let verts = [
-//!     vertex(pt3(-0.8, 1.0, 0.0), rgb(1.0, 0.0, 0.0)),
-//!     vertex(pt3(0.8, 1.0, 0.0), rgb(0.0, 0.8, 0.0)),
-//!     vertex(pt3(0.0, -1.5, 0.0), rgb(0.4, 0.4, 1.0)),
+//!     vertex(pt3(-1.0, 1.0, 0.0), rgb(1.0, 0.0, 0.0)),
+//!     vertex(pt3(1.0, 1.0, 0.0), rgb(0.0, 0.8, 0.0)),
+//!     vertex(pt3(0.0, -1.0, 0.0), rgb(0.4, 0.4, 1.0)),
 //! ];
 //!
 //! let shader = shader::new(
@@ -58,7 +58,7 @@
 //! let project = perspective(1.0, w as f32 / h as f32, 0.1..1000.0);
 //! let viewport = viewport(pt2(0, 0)..pt2(w, h));
 //!
-//! let mut fb = Colorbuf {
+//! let mut framebuf = Colorbuf {
 //!     buf: Buf2::new(dims),
 //!     fmt: pixfmt::Xrgb8888,
 //! };
@@ -69,11 +69,11 @@
 //!     &shader,
 //!     &modelview.then(&project),
 //!     viewport,
-//!     &mut fb,
+//!     &mut framebuf,
 //!     &Context::default(),
 //! );
-//!
-//! assert_eq!(fb.buf[[w/2, h/2]], 0x00_74_66_65);
+//! let center_pixel = framebuf.buf[[w / 2, h / 2]];
+//! assert_eq!(center_pixel, 0x72_66_7f);
 //! ```
 
 #![no_std]
