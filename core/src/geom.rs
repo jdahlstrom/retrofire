@@ -222,8 +222,25 @@ impl<B> Plane3<B> {
     /// The normal returned is unit length.
     #[inline]
     pub fn normal(&self) -> Normal3 {
-        let [x, y, z, _] = self.0.0;
-        vec3(x, y, z)
+        let [a, b, c, _] = self.0.0;
+        vec3(a, b, c).normalize()
+    }
+
+    /// Returns the signed distance of `self` from the origin.
+    ///
+    /// # Examples
+    /// ```
+    /// use retrofire_core::{geom::Plane3, math::{Vec3, pt3}};
+    ///
+    /// assert_eq!(<Plane3>::new(0.0, 1.0, 0.0, 3.0).offset(), -3.0);
+    /// assert_eq!(<Plane3>::new(0.0, 2.0, 0.0, 6.0).offset(), -3.0);
+    /// assert_eq!(<Plane3>::new(0.0, -1.0, 0.0, -3.0).offset(), 3.0);
+    /// ```
+    #[cfg(feature = "fp")]
+    #[inline]
+    pub fn offset(&self) -> f32 {
+        let [a, b, c, d] = self.0.0;
+        return -d / <Vec3>::new([a, b, c]).len();
     }
 
     /*
@@ -262,21 +279,26 @@ impl<B> Plane3<B> {
     pub fn project(&self, pt: Point3<B>) -> Point3<B> {
         // t = -(plane dot orig) / (plane dot dir)
         // In this special case plane dot dir == 1
-
-        let p = self.0;
-        // TODO use to_homog once committed
-        let o = Vector::new([pt.x(), pt.y(), pt.z(), 1.0]);
         let d = self.normal().to();
-        let t = -p.dot(&o);
-
+        let t = -self.signed_dist(pt);
         pt + t * d
     }
 
-    /// Returns whether a point is in the half-space that the normal points away from.
-    pub fn is_inside(&self, pt: Point3<B>) -> bool {
+    /// Returns the signed distance of a point to `self`.
+    #[cfg(feature = "fp")]
+    #[inline]
+    pub fn signed_dist(&self, pt: Point3<B>) -> f32 {
         // TODO use to_homog once committed
-        let pt: Vec4 = [pt.x(), pt.y(), pt.z(), 1.0].into();
-        self.0.dot(&pt.to()) <= 0.0
+        let pt = Vector::new([pt.x(), pt.y(), pt.z(), 1.0]);
+        self.0.dot(&pt)
+    }
+
+    /// Returns whether a point is in the half-space that the normal of `self`
+    /// points away from.
+    #[cfg(feature = "fp")]
+    #[inline]
+    pub fn is_inside(&self, pt: Point3<B>) -> bool {
+        self.signed_dist(pt) <= 0.0
     }
 
     /// Returns an orthonormal affine basis on the plane.
@@ -458,6 +480,7 @@ mod tests {
         assert_eq!(tri.area(), 1.5);
     }
     #[test]
+    #[cfg(feature = "fp")]
     fn triangle_area_3() {
         // base = 3, height = 2
         let tri = tri(
