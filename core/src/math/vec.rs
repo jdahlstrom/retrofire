@@ -319,18 +319,50 @@ impl<B> Vec2<B> {
     }
 
     /// Returns `self` rotated 90° counter-clockwise.
+    ///
+    /// # Examples
+    /// ```
+    /// use retrofire_core::math::Vec2;
+    ///
+    /// assert_eq!(<Vec2>::X.perp(), Vec2::Y);
+    /// assert_eq!(<Vec2>::Y.perp(), -Vec2::X);
+    /// ```
     pub fn perp(self) -> Self {
         vec2(-self.y(), self.x())
     }
 
     /// Returns the "perpendicular dot product" of `self` and `other`.
     ///
-    /// This operation is also called a "2D cross product". Like its 3D analog,
-    /// it satisfies the identity
+    /// This operation is also called the "2D cross product". Like its 3D analog,
+    /// it satisfies the following identity:
     ///
     /// **a**<sup>⟂</sup> · **b** = |**a**| |**b**| sin *θ*,
     ///
-    /// where θ is the (signed) angle between **a** and **b**.
+    /// where *θ* is the (signed) angle between **a** and **b**. In particular,
+    /// the result is zero if **a** and **b** are parallel (or either is zero),
+    /// positive if the angle from **a** to **b** is positive, and negative if
+    /// the angle is negative:
+    ///
+    /// ```text
+    ///       ^ b               ^ a
+    ///      /           ^ b   /        ^ a
+    ///     ^ a           \   /          \
+    ///    /               \ /            \
+    ///   O                 O              O-----> b
+    ///
+    ///  a⟂·b = 0        a⟂·b > 0       a⟂·b < 0
+    /// ```
+    ///
+    /// # Examples
+    /// ```
+    /// use retrofire_core::math::{vec2, Vec2};
+    /// let v: Vec2 = vec2(2.0, 1.0);
+    ///
+    /// assert_eq!(v.perp_dot(3.0 * v),  0.0, "v and 3*v are parallel");
+    /// assert_eq!(v.perp_dot(-v),       0.0, "v and -v are parallel");
+    /// assert!   (v.perp_dot(Vec2::X) < 0.0, "X is clockwise from v");
+    /// assert!   (v.perp_dot(Vec2::Y) > 0.0, "Y is counter-clockwise from v");
+    /// ```
     pub fn perp_dot(self, other: Self) -> f32 {
         self.perp().dot(&other)
     }
