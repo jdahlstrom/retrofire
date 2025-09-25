@@ -333,16 +333,27 @@ impl<Src, Dst> Mat3x3<RealToReal<2, Src, Dst>> {
     /// a column vector with an implicit 𝘃<sub>2</sub> component with value 1:
     ///
     /// ```text
-    ///         / M00 ·  ·  \ / v0 \     / v0' \
-    ///  Mv  =  |  ·  ·  ·  | | v1 |  =  | v1' |
-    ///         \  ·  · M22 / \  1 /     \  1  /
+    ///         ⎛ M00 ·  ·  ⎞ ⎛ v0 ⎞     ⎛ v0' ⎞
+    ///  Mv  =  ⎜  ·  ·  ·  ⎟ ⎜ v1 ⎜  =  ⎜ v1' ⎟
+    ///         ⎝  ·  · M22 ⎠ ⎝  1 ⎠     ⎝  1  ⎠
     /// ```
+    // FIXME applies to homogeneous (x, y, 1) but should be (x, y, 0)
     #[must_use]
     pub fn apply(&self, v: &Vec2<Src>) -> Vec2<Dst> {
         let v = [v.x(), v.y(), 1.0].into(); // TODO w=0.0
         array::from_fn(|i| self.row_vec(i).dot(&v)).into()
     }
 
+    /// Maps the real 2-point *p* from basis `Src` to basis `Dst`.
+    ///
+    /// Computes the affine matrix–point multiplication 𝝡*p* where *p* is interpreted
+    /// as a column vector with an implicit *p*<sub>2</sub> component with value 1:
+    ///
+    /// ```text
+    ///         ⎛ M00 ·  ·  ⎞ ⎛ p0 ⎞     ⎛ p0' ⎞
+    ///  Mp  =  ⎜  ·  ·  ·  ⎟ ⎜ p1 ⎟  =  ⎜ p1' ⎟
+    ///         ⎝  ·  · M22 ⎠ ⎝  1 ⎠     ⎝  1  ⎠
+    /// ```
     // TODO Add trait to overload apply or similar
     #[must_use]
     pub fn apply_pt(&self, p: &Point2<Src>) -> Point2<Dst> {
@@ -372,17 +383,29 @@ impl<Src, Dst> Mat4x4<RealToReal<3, Src, Dst>> {
     /// a column vector with an implicit 𝘃<sub>3</sub> component with value 1:
     ///
     /// ```text
-    ///         / M00 ·  ·  ·  \ / v0 \     / v0' \
-    ///  Mv  =  |  ·  ·  ·  ·  | | v1 |  =  | v1' |
-    ///         |  ·  ·  ·  ·  | | v2 |     | v2' |
-    ///         \  ·  ·  · M33 / \  1 /     \  1  /
+    ///         ⎛ M00 ·  ·  ·  ⎞ ⎛ v0 ⎞     ⎛ v0' ⎞
+    ///  Mv  =  ⎜  ·  ·  ·  ·  ⎟ ⎜ v1 ⎟  =  ⎜ v1' ⎟
+    ///         ⎜  ·  ·  ·  ·  ⎟ ⎜ v2 ⎟     ⎜ v2' ⎟
+    ///         ⎝  ·  ·  · M33 ⎠ ⎝  1 ⎠     ⎝  1  ⎠
     /// ```
+    // FIXME applies to homogeneous (x, y, z, 1) but should be (x, y, z, 0)
     #[must_use]
     pub fn apply(&self, v: &Vec3<Src>) -> Vec3<Dst> {
         let v = [v.x(), v.y(), v.z(), 1.0].into(); // TODO w=0.0
         array::from_fn(|i| self.row_vec(i).dot(&v)).into()
     }
 
+    /// Maps the real 3-point *p* from basis `Src` to basis `Dst`.
+    ///
+    /// Computes the affine matrix–point multiplication 𝝡*p* where *p* is interpreted as
+    /// a column vector with an implicit *p*<sub>3</sub> component with value 1:
+    ///
+    /// ```text
+    ///         ⎛ M00 ·  ·  ·  ⎞ ⎛ p0 ⎞     ⎛ p0' ⎞
+    ///  Mp  =  ⎜  ·  ·  ·  ·  ⎟ ⎜ p1 ⎟  =  ⎜ p1' ⎟
+    ///         ⎜  ·  ·  ·  ·  ⎟ ⎜ p2 ⎜     ⎜ p2' ⎟
+    ///         ⎝  ·  ·  · M33 ⎠ ⎝  1 ⎠     ⎝  1  ⎠
+    /// ```
     // TODO Add trait to overload apply or similar
     #[must_use]
     pub fn apply_pt(&self, p: &Point3<Src>) -> Point3<Dst> {
@@ -394,18 +417,17 @@ impl<Src, Dst> Mat4x4<RealToReal<3, Src, Dst>> {
     ///
     /// Given a matrix M,
     /// ```text
-    ///         / a  b  c  d \
-    ///  M  =   | e  f  g  h |
-    ///         | i  j  k  l |
-    ///         \ m  n  o  p /
+    ///         ⎛ a  b  c  d ⎞
+    ///  M  =   ⎜ e  f  g  h ⎟
+    ///         ⎜ i  j  k  l ⎟
+    ///         ⎝ m  n  o  p ⎠
     /// ```
-    /// its determinant can be computed by recursively computing
-    /// the determinants of sub-matrices on rows 1.. and multiplying
-    /// them by the elements on row 0:
+    /// its determinant can be computed by recursively computing the determinants
+    /// of sub-matrices on rows 1..4 and multiplying them by the elements on row 0:
     /// ```text
-    ///              | f g h |       | e g h |
-    /// det(M) = a · | j k l | - b · | i k l |  + - ···
-    ///              | n o p |       | m o p |
+    ///              ⎜ f g h ⎜       ⎜ e g h ⎜
+    /// det(M) = a · ⎜ j k l ⎜ - b · ⎜ i k l ⎜  + - ···
+    ///              ⎜ n o p ⎜       ⎜ m o p ⎜
     /// ```
     pub fn determinant(&self) -> f32 {
         let [[a, b, c, d], r, s, t] = self.0;
@@ -446,7 +468,7 @@ impl<Src, Dst> Mat4x4<RealToReal<3, Src, Dst>> {
         if cfg!(debug_assertions) {
             let det = self.determinant();
             assert!(
-                f32::abs(det) > f32::EPSILON,
+                !det.approx_eq(&0.0),
                 "a singular, near-singular, or non-finite matrix does not \
                  have a well-defined inverse (determinant = {det})"
             );
@@ -521,16 +543,16 @@ impl<Src, Dst> Mat4x4<RealToReal<3, Src, Dst>> {
 }
 
 impl<Src> Mat4x4<RealToProj<Src>> {
-    /// Maps the real 3-vector 𝘃 from basis 𝖡 to the projective 4-space.
+    /// Maps the real 3-point *p* from basis 𝖡 to the projective 4-space.
     ///
-    /// Computes the matrix–vector multiplication 𝝡𝘃 where 𝘃 is interpreted as
-    /// a column vector with an implicit 𝘃<sub>3</sub> component with value 1:
+    /// Computes the matrix–point multiplication 𝝡*p* where *p* is interpreted as
+    /// a column vector with an implicit *p*<sub>3</sub> component with value 1:
     ///
     /// ```text
-    ///         / M00  ·  · \ / v0 \     / v0' \
-    ///  Mv  =  |    ·      | | v1 |  =  | v1' |
-    ///         |      ·    | | v2 |     | v2' |
-    ///         \ ·  ·  M33 / \  1 /     \ v3' /
+    ///         ⎛ M00  ·  · ⎞ ⎛ p0 ⎞     ⎛ p0' ⎞
+    ///  Mp  =  ⎜    ·      ⎟ ⎜ p1 ⎟  =  ⎜ p1' ⎟
+    ///         ⎜      ·    ⎟ ⎜ p2 ⎟     ⎜ p2' ⎟
+    ///         ⎝ ·  ·  M33 ⎠ ⎝  1 ⎠     ⎝ p3' ⎠
     /// ```
     #[must_use]
     pub fn apply(&self, p: &Point3<Src>) -> ProjVec3 {
@@ -658,7 +680,7 @@ pub const fn translate3(x: f32, y: f32, z: f32) -> Mat4x4<RealToReal<3>> {
 #[cfg(feature = "fp")]
 use super::{Angle, ApproxEq};
 
-/// Returns a matrix applying a rotation such that the original y axis
+/// Returns a matrix applying a rotation such that the original y-axis
 /// is now parallel with `new_y` and the new z axis is orthogonal to
 /// both `x` and `new_y`.
 ///
@@ -673,7 +695,7 @@ pub fn orient_y(new_y: Vec3, x: Vec3) -> Mat4x4<RealToReal<3>> {
     orient(new_y, x.cross(&new_y).normalize())
 }
 /// Returns a matrix applying a rotation such that the original z axis
-/// is now parallel with `new_z` and the new y axis is orthogonal to
+/// is now parallel with `new_z` and the new y-axis is orthogonal to
 /// both `new_z` and `x`.
 ///
 /// Returns an orthogonal basis. If `new_z` and `x` are unit vectors,
@@ -708,7 +730,7 @@ fn orient(new_y: Vec3, new_z: Vec3) -> Mat4x4<RealToReal<3>> {
 
 // TODO constify rotate_* functions once we have const trig functions
 
-/// Returns a matrix applying a 3D rotation about the x axis.
+/// Returns a matrix applying a 3D rotation about the x-axis.
 #[cfg(feature = "fp")]
 pub fn rotate_x(a: Angle) -> Mat4x4<RealToReal<3>> {
     let (sin, cos) = a.sin_cos();
@@ -719,7 +741,7 @@ pub fn rotate_x(a: Angle) -> Mat4x4<RealToReal<3>> {
         0.0,  0.0, 0.0, 1.0;
     ]
 }
-/// Returns a matrix applying a 3D rotation about the y axis.
+/// Returns a matrix applying a 3D rotation about the y-axis.
 #[cfg(feature = "fp")]
 pub fn rotate_y(a: Angle) -> Mat4x4<RealToReal<3>> {
     let (sin, cos) = a.sin_cos();
@@ -768,6 +790,7 @@ pub fn rotate(axis: Vec3, a: Angle) -> Mat4x4<RealToReal<3>> {
     }
 
     let z_to_axis = orient_z(axis.normalize(), other);
+    // Inverse of orthogonal matrix is its transpose
     let axis_to_z = z_to_axis.transpose();
     axis_to_z.then(&rotate_z(a)).then(&z_to_axis)
 }
@@ -796,7 +819,7 @@ pub fn perspective(
     assert!(focal_ratio > 0.0, "focal ratio must be positive");
     assert!(aspect_ratio > 0.0, "aspect ratio must be positive");
     assert!(near > 0.0, "near must be positive");
-    assert!(!near_far.is_empty(), "far must be greater than near");
+    assert!(far > near, "far must be greater than near");
 
     let e00 = focal_ratio;
     let e11 = e00 * aspect_ratio;
