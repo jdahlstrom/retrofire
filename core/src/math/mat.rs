@@ -14,6 +14,7 @@ use core::{
 use crate::render::{NdcToScreen, ViewToProj};
 
 use super::{
+    approx::ApproxEq,
     float::f32,
     point::{Point2, Point2u, Point3, pt3},
     space::{Linear, Proj3, Real},
@@ -590,6 +591,19 @@ impl LinearMap for () {
     type Dest = ();
 }
 
+impl<Repr, E, M> ApproxEq<Self, E> for Matrix<Repr, M>
+where
+    Repr: ApproxEq<Repr, E>,
+{
+    fn approx_eq_eps(&self, other: &Self, rel_eps: &E) -> bool {
+        self.0.approx_eq_eps(&other.0, rel_eps)
+    }
+
+    fn relative_epsilon() -> E {
+        Repr::relative_epsilon()
+    }
+}
+
 //
 // Foreign trait impls
 //
@@ -677,7 +691,7 @@ pub const fn translate3(x: f32, y: f32, z: f32) -> Mat4x4<RealToReal<3>> {
 }
 
 #[cfg(feature = "fp")]
-use super::{Angle, ApproxEq};
+use super::Angle;
 
 /// Returns a matrix applying a rotation such that the original y-axis
 /// is now parallel with `new_y` and the new z axis is orthogonal to
