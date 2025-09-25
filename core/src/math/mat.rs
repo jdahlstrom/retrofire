@@ -67,9 +67,12 @@ pub type Mat4x4<Map = ()> = Matrix<[[f32; 4]; 4], Map>;
 // Inherent impls
 //
 
+#[macro_export]
 macro_rules! mat {
-    ($($i:expr),+; $($j:expr),+; $($k:expr),+; $($($l:expr),+)? $(;)?) => {
-        Matrix([[$($i),+], [$($j),+], [$($k),+], $([$($l),+])?], Pd)
+    ( $( $( $elem:expr ),+ );+ $(;)? ) => {
+        $crate::math::mat::Matrix::new([
+            $([$($elem),+]),+
+        ])
     };
 }
 
