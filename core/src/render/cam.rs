@@ -218,11 +218,6 @@ impl<T: Transform> Camera<T> {
         Prim: Render<Var> + Clone,
         [<Prim>::Clip]: Clip<Item = Prim::Clip>,
         Shd: for<'a> Shader<Vtx, Var, (&'a Mat4x4<RealToProj<B>>, Uni)>,
-        /*for<'a> VertexShader<
-            Vtx,
-            (&'a Mat4x4<RealToProj<B>>, Uni),
-            Output = Vertex<ClipVec, Var>,
-        > + FragmentShader<Var>,*/
     {
         let tf = to_world.then(&self.world_to_project());
 
