@@ -14,6 +14,7 @@ use core::{
 use crate::render::{NdcToScreen, ViewToProj};
 
 use super::{
+    approx::ApproxEq,
     float::f32,
     point::{Point2, Point2u, Point3},
     space::{Linear, Proj3, Real},
@@ -334,7 +335,7 @@ impl<Src, Dst> Mat3x3<RealToReal<2, Src, Dst>> {
     ///
     /// ```text
     ///         ⎛ M00 ·  ·  ⎞ ⎛ v0 ⎞     ⎛ v0' ⎞
-    ///  Mv  =  ⎜  ·  ·  ·  ⎟ ⎜ v1 ⎜  =  ⎜ v1' ⎟
+    ///  Mv  =  ⎜  ·  ·  ·  ⎟ ⎜ v1 ⎟  =  ⎜ v1' ⎟
     ///         ⎝  ·  · M22 ⎠ ⎝  1 ⎠     ⎝  1  ⎠
     /// ```
     // FIXME applies to homogeneous (x, y, 1) but should be (x, y, 0)
@@ -403,7 +404,7 @@ impl<Src, Dst> Mat4x4<RealToReal<3, Src, Dst>> {
     /// ```text
     ///         ⎛ M00 ·  ·  ·  ⎞ ⎛ p0 ⎞     ⎛ p0' ⎞
     ///  Mp  =  ⎜  ·  ·  ·  ·  ⎟ ⎜ p1 ⎟  =  ⎜ p1' ⎟
-    ///         ⎜  ·  ·  ·  ·  ⎟ ⎜ p2 ⎜     ⎜ p2' ⎟
+    ///         ⎜  ·  ·  ·  ·  ⎟ ⎜ p2 ⎟     ⎜ p2' ⎟
     ///         ⎝  ·  ·  · M33 ⎠ ⎝  1 ⎠     ⎝  1  ⎠
     /// ```
     // TODO Add trait to overload apply or similar
@@ -591,6 +592,19 @@ impl LinearMap for () {
     type Dest = ();
 }
 
+impl<Repr, E, M> ApproxEq<Self, E> for Matrix<Repr, M>
+where
+    Repr: ApproxEq<Repr, E>,
+{
+    fn approx_eq_eps(&self, other: &Self, rel_eps: &E) -> bool {
+        self.0.approx_eq_eps(&other.0, rel_eps)
+    }
+
+    fn relative_epsilon() -> E {
+        Repr::relative_epsilon()
+    }
+}
+
 //
 // Foreign trait impls
 //
@@ -614,7 +628,7 @@ impl<S: Debug, Map: Debug + Default, const N: usize, const M: usize> Debug
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         writeln!(f, "Matrix<{:?}>[", Map::default())?;
         for i in 0..M {
-            writeln!(f, "    {:6.2?}", self.0[i])?;
+            writeln!(f, "    {:4?}", self.0[i])?;
         }
         write!(f, "]")
     }
@@ -655,7 +669,7 @@ pub const fn scale(s: Vec3) -> Mat4x4<RealToReal<3>> {
 }
 
 pub const fn scale3(x: f32, y: f32, z: f32) -> Mat4x4<RealToReal<3>> {
-    mat! [
+    mat![
          x,  0.0, 0.0, 0.0;
         0.0,  y,  0.0, 0.0;
         0.0, 0.0,  z,  0.0;
@@ -678,7 +692,7 @@ pub const fn translate3(x: f32, y: f32, z: f32) -> Mat4x4<RealToReal<3>> {
 }
 
 #[cfg(feature = "fp")]
-use super::{Angle, ApproxEq};
+use super::Angle;
 
 /// Returns a matrix applying a rotation such that the original y-axis
 /// is now parallel with `new_y` and the new z axis is orthogonal to
@@ -992,9 +1006,9 @@ mod tests {
             assert_eq!(
                 alloc::format!("{MAT:?}"),
                 r#"Matrix<Basis1→Basis2>[
-    [  0.00,   1.00,   2.00]
-    [ 10.00,  11.00,  12.00]
-    [ 20.00,  21.00,  22.00]
+    [ 0.0,  1.0,  2.0]
+    [10.0, 11.0, 12.0]
+    [20.0, 21.0, 22.0]
 ]"#
             );
         }
@@ -1186,10 +1200,10 @@ mod tests {
             assert_eq!(
                 alloc::format!("{MAT:?}"),
                 r#"Matrix<Basis1→Basis2>[
-    [  0.00,   1.00,   2.00,   3.00]
-    [ 10.00,  11.00,  12.00,  13.00]
-    [ 20.00,  21.00,  22.00,  23.00]
-    [ 30.00,  31.00,  32.00,  33.00]
+    [ 0.0,  1.0,  2.0,  3.0]
+    [10.0, 11.0, 12.0, 13.0]
+    [20.0, 21.0, 22.0, 23.0]
+    [30.0, 31.0, 32.0, 33.0]
 ]"#
             );
         }
