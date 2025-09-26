@@ -372,18 +372,18 @@ impl<A: Lerp + Clone> Clip for [Tri<ClipVert<A>>] {
                 // Clipping a triangle results in an n-gon, where n depends on
                 // how many planes the triangle intersects. For example, here
                 // clipping triangle ABC generated three new vertices, resulting
-                // in quad ARQP. Convert the quad into triangles PAR and PRQ
-                // (or ARQ and AQP, it is arbitrary):
+                // in quad APQR. Convert the quad into triangles PRA and PQR
+                // (or APQ and AQR, it is arbitrary):
                 //
                 //              B
                 //
                 //           /     \
-                //             Q_____R___________
+                //             Q_____P___________
                 //        /    |..../..\
                 //             |.../.....\
                 //     /       |./.........\
                 //             |/............\
-                //   C  _  _  _P_______________A
+                //   C  _  _  _R_______________A
                 //             |
                 //             |
                 //
