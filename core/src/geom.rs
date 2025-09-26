@@ -184,11 +184,13 @@ impl<A, B> Tri<Vertex3<A, B>> {
     }
 
     /// Returns the signed area of `self`.
+    #[cfg(feature = "fp")]
     pub fn signed_area(&self) -> f32 {
         let [t, u] = self.tangents();
         t.cross(&u).len() / 2.0
     }
     /// Returns the area of `self`.
+    #[cfg(feature = "fp")]
     pub fn area(&self) -> f32 {
         self.signed_area().abs()
     }
