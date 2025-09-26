@@ -49,6 +49,13 @@ pub struct Ray<T: Affine>(pub T, pub T::Diff);
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct Polyline<T>(pub Vec<T>);
 
+/// A closed curve composed of a chain of line segments.
+///
+/// The polygon is represented as a list of points, or vertices, with each pair
+/// of consecutive vertices, as well as the first and last vertex, sharing an edge.
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct Polygon<T>(pub Vec<T>);
+
 /// A line segment between two vertices.
 #[derive(Copy, Clone, Debug, Eq, PartialEq)]
 pub struct Edge<T>(pub T, pub T);
@@ -339,27 +346,58 @@ impl<T> Polyline<T> {
     ///
     /// # Examples
     /// ```
-    /// use retrofire_core::{
-    ///     geom::{Polyline, Edge},
-    ///     math::{pt2, Point2}
-    /// };
+    /// use retrofire_core::geom::{Polyline, Edge};
+    /// use retrofire_core::math::{pt2, Point2};
     ///
-    /// let points = [pt2(0.0, 0.0), pt2(1.0, 1.0), pt2(2.0, 1.0)];
+    /// let pts: [Point2; _] = [pt2(0.0, 0.0), pt2(1.0, 1.0), pt2(2.0, 1.0)];
     ///
-    /// let pl = Polyline::<Point2>::new(points);
-    /// let mut edges = pl.edges();
+    /// let pline = Polyline::new(pts);
+    /// let mut edges = pline.edges();
     ///
-    /// assert_eq!(edges.next(), Some(Edge(points[0], points[1])));
-    /// assert_eq!(edges.next(), Some(Edge(points[1], points[2])));
+    /// assert_eq!(edges.next(), Some(Edge(&pts[0], &pts[1])));
+    /// assert_eq!(edges.next(), Some(Edge(&pts[1], &pts[2])));
     /// assert_eq!(edges.next(), None);
     /// ```
-    pub fn edges(&self) -> impl Iterator<Item = Edge<T>> + '_
-    where
-        T: Clone,
-    {
+    pub fn edges(&self) -> impl Iterator<Item = Edge<&T>> + '_ {
+        self.0.windows(2).map(|e| Edge(&e[0], &e[1]))
+    }
+}
+
+impl<T> Polygon<T> {
+    pub fn new(verts: impl IntoIterator<Item = T>) -> Self {
+        Self(verts.into_iter().collect())
+    }
+
+    /// Returns an iterator over the edges of `self`.
+    ///
+    /// Given a polygon ABC...XYZ, returns the edges AB, BC, ..., XY, YZ, ZA.
+    /// If `self` has zero or one vertices, returns an empty iterator.
+    ///
+    /// # Examples
+    /// ```
+    /// use retrofire_core::geom::{Polygon, Edge};
+    /// use retrofire_core::math::{Point2, pt2};
+    ///
+    /// let pts: [Point2; _] = [pt2(0.0, 0.0), pt2(1.0, 1.0), pt2(2.0, 1.0)];
+    ///
+    /// let poly = Polygon::new(pts);
+    /// let mut edges = poly.edges();
+    ///
+    /// assert_eq!(edges.next(), Some(Edge(&pts[0], &pts[1])));
+    /// assert_eq!(edges.next(), Some(Edge(&pts[1], &pts[2])));
+    /// assert_eq!(edges.next(), Some(Edge(&pts[2], &pts[0])));
+    /// assert_eq!(edges.next(), None);
+    /// ```
+    pub fn edges(&self) -> impl Iterator<Item = Edge<&T>> + '_ {
+        let last_first = if let [f, .., l] = &self.0[..] {
+            Some(Edge(l, f))
+        } else {
+            None
+        };
         self.0
             .windows(2)
-            .map(|e| Edge(e[0].clone(), e[1].clone()))
+            .map(|e| Edge(&e[0], &e[1]))
+            .chain(last_first)
     }
 }
 
