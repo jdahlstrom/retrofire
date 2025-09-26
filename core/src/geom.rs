@@ -88,17 +88,6 @@ pub const fn tri<V>(a: V, b: V, c: V) -> Tri<V> {
 
 // Inherent impls
 
-impl<B> Plane<Vector<[f32; 4], Real<3, B>>> {
-    /// The x = 0 coordinate plane.
-    pub const YZ: Self = Self(Vector::new([1.0, 0.0, 0.0, 0.0]));
-
-    /// The y = 0 coordinate plane.
-    pub const XZ: Self = Self(Vector::new([0.0, 1.0, 1.0, 0.0]));
-
-    /// The z = 0 coordinate plane.
-    pub const XY: Self = Self(Vector::new([0.0, 0.0, 1.0, 0.0]));
-}
-
 impl<A, B> Tri<Vertex2<A, B>> {
     /// Given a triangle ABC, returns the vectors AB, AC.
     pub fn tangents(&self) -> [Vec2<B>; 2] {
@@ -204,6 +193,49 @@ impl<A, B> Tri<Vertex3<A, B>> {
 }
 
 impl<B> Plane3<B> {
+    /// The x = 0 coordinate plane.
+    pub const YZ: Self = Self::new(1.0, 0.0, 0.0, 0.0);
+
+    /// The y = 0 coordinate plane.
+    pub const XZ: Self = Self::new(0.0, 1.0, 0.0, 0.0);
+
+    /// The z = 0 coordinate plane.
+    pub const XY: Self = Self::new(0.0, 0.0, 1.0, 0.0);
+
+    /// Creates a new plane with the given coefficients.
+    ///
+    // TODO not normalized because const
+    // The coefficients are normalized to
+    //
+    // (a', b', c', d') = (a, b, c, d) / |(a, b, c)|.
+    ///
+    /// The returned plane satisfies the plane equation
+    ///
+    /// *ax* + *by* + *cz* + *d* = 0,
+    ///
+    /// or equivalently
+    ///
+    /// *ax* + *by* + *cz* = -*d*.
+    ///
+    /// Note the sign of the *d* coefficient.
+    ///
+    /// # Examples
+    /// ```
+    /// use retrofire_core::{geom::Plane3, math::{pt3, vec3}};
+    ///
+    /// let p = <Plane3>::new(0.0, 0.0, 1.0, -2.0);
+    /// assert_eq!(p.normal(), vec3(0.0, 0.0, 1.0));
+    /// assert_eq!(p.offset(), 2.0);
+    ///
+    /// let p = <Plane3>::new(0.0, -2.0, 0.0, 1.0);
+    /// assert_eq!(p.normal(), vec3(0.0, -1.0, 0.0));
+    /// assert_eq!(p.offset(), -0.5);
+    /// ```
+    #[inline]
+    pub const fn new(a: f32, b: f32, c: f32, d: f32) -> Self {
+        Plane(Vector::new([a, b, c, d]))
+    }
+
     /// Creates a plane given three points on the plane.
     ///
     /// # Panics
@@ -223,7 +255,7 @@ impl<B> Plane3<B> {
         // For example, if pt = (0, 1, 0) and n = (0, 1, 0), d has to be -1
         // to satisfy the plane equation n_x + n_y + n_z + d = 0
         let d = -pt.to_vec().dot(&n.to());
-        Plane(Vector::new([n.x(), n.y(), n.z(), d]))
+        Self::new(n.x(), n.y(), n.z(), d)
     }
 
     /// Returns the normal vector of this plane.
