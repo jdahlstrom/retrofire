@@ -62,13 +62,34 @@ pub const fn vertex<P, A>(pos: P, attrib: A) -> Vertex<P, A> {
 
 impl<B> Plane<Vector<[f32; 4], Real<3, B>>> {
     /// The x = 0 coordinate plane.
-    pub const YZ: Self = Self(Vector::new([1.0, 0.0, 0.0, 0.0]));
+    pub const YZ: Self = Self::new(1.0, 0.0, 0.0, 0.0);
 
     /// The y = 0 coordinate plane.
-    pub const XZ: Self = Self(Vector::new([0.0, 1.0, 1.0, 0.0]));
+    pub const XZ: Self = Self::new(0.0, 1.0, 1.0, 0.0);
 
     /// The z = 0 coordinate plane.
-    pub const XY: Self = Self(Vector::new([0.0, 0.0, 1.0, 0.0]));
+    pub const XY: Self = Self::new(0.0, 0.0, 1.0, 0.0);
+
+    /// Creates a new plane with the given coefficients.
+    ///
+    // TODO not normalized because const
+    // The coefficients are normalized to
+    //
+    // (a', b', c', d') = (a, b, c, d) / |(a, b, c)|.
+    ///
+    /// The returned plane satisfies the plane equation
+    ///
+    /// *ax* + *by* + *cz* = *d*,
+    ///
+    /// or equivalently
+    ///
+    /// *ax* + *by* + *cz* - *d* = 0.
+    ///
+    /// Note the sign of the *d* coefficient.
+    #[inline]
+    pub const fn new(a: f32, b: f32, c: f32, d: f32) -> Self {
+        Self(Vector::new([a, b, c, d]))
+    }
 }
 
 impl<T> Polyline<T> {
