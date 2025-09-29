@@ -131,26 +131,33 @@ impl<A, B> Tri<Vertex2<A, B>> {
     }
 }
 
-impl<A, B> Tri<Vertex3<A, B>> {
+impl<V> Tri<V> {
     /// Given a triangle ABC, returns the edges [AB, BC, CA].
-    pub fn edges(&self) -> [Edge<Vertex3<A, B>>; 3]
-    where
-        Vertex3<A, B>: Clone,
-    {
-        let [a, b, c] = &self.0;
-        [
-            Edge(a.clone(), b.clone()),
-            Edge(b.clone(), c.clone()),
-            Edge(c.clone(), a.clone()),
-        ]
-    }
-
-    /// Given a triangle ABC, returns the vectors [AB, AC].
     ///
     /// # Examples
     /// ```
+    /// use retrofire_core::geom::{Tri, Edge};
+    /// use retrofire_core::math::{Point2, pt2};
+    ///
+    /// let pts: [Point2; _] = [pt2(-1.0, 0.0), pt2(2.0, 0.0), pt2(1.0, 2.0)];
+    /// let tri = Tri(pts);
+    ///
+    /// let [e0, e1, e2] = tri.edges();
+    /// assert_eq!(e0, Edge(&pts[0], &pts[1]));
+    /// assert_eq!(e1, Edge(&pts[1], &pts[2]));
+    /// assert_eq!(e2, Edge(&pts[2], &pts[0]));
     ///
     /// ```
+    #[inline]
+    pub fn edges(&self) -> [Edge<&V>; 3] {
+        let [a, b, c] = &self.0;
+        [Edge(a, b), Edge(b, c), Edge(c, a)]
+    }
+}
+
+impl<A, B> Tri<Vertex3<A, B>> {
+    /// Given a triangle ABC, returns the vectors [AB, AC].
+    #[inline]
     pub fn tangents(&self) -> [Vec3<B>; 2] {
         let [a, b, c] = &self.0;
         [b.pos - a.pos, c.pos - a.pos]
@@ -159,10 +166,6 @@ impl<A, B> Tri<Vertex3<A, B>> {
     /// Returns the normal vector of `self`.
     ///
     /// The result is normalized to unit length.
-    ///
-    /// # Examples
-    /// ```
-    /// ```
     pub fn normal(&self) -> Normal3 {
         let [t, u] = self.tangents();
         // TODO normal with basis
