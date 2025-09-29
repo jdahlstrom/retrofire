@@ -3,18 +3,18 @@
 use std::{fmt, mem::replace, ops::ControlFlow, time::Instant};
 
 use sdl2::{
-    EventPump, IntegerOrSdlError,
+    EventPump, IntegerOrSdlError, Sdl,
     event::Event,
     keyboard::Keycode,
     pixels::PixelFormatEnum,
     render::{Texture, TextureValueError, WindowCanvas},
-    video::{FullscreenType, WindowBuildError},
+    video::{FullscreenType, Window as SdlWindow, WindowBuildError},
 };
 
 use retrofire_core::math::{Color4, Vary};
 use retrofire_core::render::{
     Context, FragmentShader, Target, raster::Scanline, stats::Throughput,
-    target::Colorbuf,
+    target::Colorbuf, target::rasterize_fb,
 };
 use retrofire_core::util::{
     Dims,
@@ -43,12 +43,14 @@ pub struct Window<PF> {
     pub canvas: WindowCanvas,
     /// The SDL event pump.
     pub ev_pump: EventPump,
+    /// Pending events.
+    pub events: Vec<Event>,
     /// The width and height of the window.
     pub dims: Dims,
-    /// Rendering context defaults.
-    pub ctx: Context,
     /// Framebuffer pixel format.
     pub pixfmt: PF,
+    /// Rendering context defaults.
+    pub ctx: Context,
 }
 
 /// Builder for creating `Window`s.
@@ -56,6 +58,7 @@ pub struct Builder<'title, PF> {
     pub dims: (u32, u32),
     pub title: &'title str,
     pub vsync: bool,
+    pub hidpi: bool,
     pub fs: FullscreenType,
     pub pixfmt: PF,
 }
@@ -87,6 +90,13 @@ impl<'t, PF: PixelFmt> Builder<'t, PF> {
         self.vsync = enabled;
         self
     }
+    /// Sets whether high-dpi
+    ///
+    /// If true, the physical resolution may be higher than the logical resolution.
+    pub fn high_dpi(mut self, enabled: bool) -> Self {
+        self.hidpi = enabled;
+        self
+    }
     /// Sets the fullscreen state of the window.
     pub fn fullscreen(mut self, fs: FullscreenType) -> Self {
         self.fs = fs;
@@ -94,7 +104,7 @@ impl<'t, PF: PixelFmt> Builder<'t, PF> {
     }
     /// Sets the framebuffer pixel format.
     ///
-    /// Supported formats are [`Rgba8888`], [`Rgb565`], and [`Rgb4444`].
+    /// Supported formats are [`Rgba8888`], [`Rgb565`], and [`Rgba4444`].
     pub fn pixel_fmt(mut self, fmt: PF) -> Self {
         self.pixfmt = fmt;
         self
@@ -102,40 +112,51 @@ impl<'t, PF: PixelFmt> Builder<'t, PF> {
 
     /// Creates the window.
     pub fn build(self) -> Result<Window<PF>, Error> {
-        let Self { dims, title, vsync, fs, pixfmt } = self;
-
         let sdl = sdl2::init()?;
+        let win = self.create_window(&sdl)?;
 
-        let mut win = sdl
-            .video()?
-            .window(title, dims.0, dims.1)
-            .build()?;
+        self.set_mouse_mode(&sdl);
 
-        win.set_fullscreen(fs)?;
-        sdl.mouse().set_relative_mouse_mode(true);
-
-        let mut canvas = win.into_canvas();
-        if vsync {
-            canvas = canvas.present_vsync();
-        }
-        let canvas = canvas.accelerated().build()?;
-
+        let canvas = self.create_canvas(win)?;
         let ev_pump = sdl.event_pump()?;
-
         let ctx = Context::default();
-
-        let m = sdl.mouse();
-        m.set_relative_mouse_mode(true);
-        m.capture(true);
-        m.show_cursor(true);
 
         Ok(Window {
             canvas,
             ev_pump,
-            dims,
             ctx,
-            pixfmt,
+            events: Vec::new(),
+            dims: self.dims,
+            pixfmt: self.pixfmt,
         })
+    }
+
+    fn create_window(&self, sdl: &Sdl) -> Result<SdlWindow, Error> {
+        let Self {
+            dims: (w, h), title, fs, hidpi, ..
+        } = *self;
+        let mut win = sdl.video()?.window(title, w, h);
+        if hidpi {
+            win.allow_highdpi();
+        }
+        let mut win = win.build()?;
+        win.set_fullscreen(fs)?;
+        Ok(win)
+    }
+
+    fn create_canvas(&self, w: SdlWindow) -> Result<WindowCanvas, Error> {
+        let mut canvas = w.into_canvas();
+        if self.vsync {
+            canvas = canvas.present_vsync();
+        }
+        Ok(canvas.accelerated().build()?)
+    }
+
+    fn set_mouse_mode(&self, sdl: &Sdl) {
+        let m = sdl.mouse();
+        m.set_relative_mouse_mode(true);
+        m.capture(true);
+        m.show_cursor(true);
     }
 }
 
@@ -152,8 +173,9 @@ impl<PF: PixelFmt<Pixel = [u8; N]>, const N: usize> Window<PF> {
         Ok(())
     }
 
-    /// Runs the main loop of the program, invoking the callback on each
-    /// iteration to compute and draw the next frame.
+    /// Runs the main loop of the program.
+    ///
+    /// Invokes `frame_fn` on each iteration to compute and draw the next frame.
     ///
     /// The main loop stops and this function returns if:
     /// * the user closes the window via the GUI (e.g. a title bar button);
@@ -164,24 +186,25 @@ impl<PF: PixelFmt<Pixel = [u8; N]>, const N: usize> Window<PF> {
         F: FnMut(&mut Frame<Self, Framebuf<PF>>) -> ControlFlow<()>,
         Color4: IntoPixel<PF::Pixel, PF>,
     {
-        let (w, h) = self.dims;
+        let dims @ (w, h) = self.canvas.window().drawable_size();
 
         let tc = self.canvas.texture_creator();
         let mut tex = tc.create_texture_streaming(PF::SDL_FMT, w, h)?;
 
-        let mut zbuf = Buf2::new(self.dims);
+        let mut zbuf = Buf2::new(dims);
         let mut ctx = self.ctx.clone();
 
         let start = Instant::now();
         let mut last = Instant::now();
         'main: loop {
+            self.events.clear();
             for e in self.ev_pump.poll_iter() {
                 match e {
                     Event::Quit { .. }
                     | Event::KeyDown {
                         keycode: Some(Keycode::Escape), ..
                     } => break 'main,
-                    _ => (),
+                    e => self.events.push(e),
                 }
             }
 
@@ -194,11 +217,11 @@ impl<PF: PixelFmt<Pixel = [u8; N]>, const N: usize> Window<PF> {
                     zbuf.fill(z.recip());
                 }
                 if let Some(c) = ctx.color_clear {
-                    bytes.fill(c.into_pixel_fmt(self.pixfmt));
+                    bytes.fill(self.pixfmt.encode(c));
                 }
 
                 let color_buf =
-                    Colorbuf::new(MutSlice2::new((w, h), pitch as u32, bytes));
+                    Colorbuf::new(MutSlice2::new(dims, pitch as u32, bytes));
                 let buf = Framebuf {
                     color_buf,
                     depth_buf: zbuf.as_mut_slice2(),
@@ -250,37 +273,18 @@ where
 {
     fn rasterize<V: Vary, Fs: FragmentShader<V>>(
         &mut self,
-        mut sl: Scanline<V>,
+        sl: Scanline<V>,
         fs: &Fs,
         ctx: &Context,
     ) -> Throughput {
-        // TODO Lots of duplicate code
-
-        let x0 = sl.xs.start;
-        let x1 = sl.xs.end.max(x0);
-        let cbuf_span = &mut self.color_buf.buf[sl.y][x0..x1];
-        let zbuf_span = &mut self.depth_buf.as_mut_slice2()[sl.y][x0..x1];
-
-        let mut io = Throughput { i: x1 - x0, o: 0 };
-
-        for ((frag, curr_c), curr_z) in
-            sl.fragments().zip(cbuf_span).zip(zbuf_span)
-        {
-            let new_z = frag.pos.z();
-            if ctx.depth_test(new_z, *curr_z) {
-                if let Some(new_c) = fs.shade_fragment(frag) {
-                    if ctx.color_write {
-                        // TODO Blending should happen here
-                        io.o += 1;
-                        *curr_c = new_c.into_pixel_fmt(self.color_buf.fmt);
-                    }
-                    if ctx.depth_write {
-                        *curr_z = new_z;
-                    }
-                }
-            }
-        }
-        io
+        rasterize_fb(
+            &mut self.color_buf,
+            &mut self.depth_buf,
+            sl,
+            fs,
+            |c| c.into_pixel(),
+            ctx,
+        )
     }
 }
 
@@ -292,6 +296,7 @@ impl<PF: PixelFmt> Default for Builder<'_, PF> {
             vsync: true,
             fs: FullscreenType::Off,
             pixfmt: PF::default(),
+            hidpi: false,
         }
     }
 }
