@@ -27,18 +27,18 @@ pub struct Angle(f32);
 
 /// Tag type for a polar coordinate space
 #[derive(Copy, Clone, Debug, Default, Eq, PartialEq)]
-pub struct Polar;
+pub struct Polar<B>(PhantomData<B>);
 
 /// Tag type for a spherical coordinate space.
 #[derive(Copy, Clone, Debug, Default, Eq, PartialEq)]
 pub struct Spherical<B>(PhantomData<B>);
 
 /// A polar coordinate vector, with radius and azimuth components.
-pub type PolarVec = Vector<[f32; 2], Polar>;
+pub type PolarVec<B = ()> = Vector<[f32; 2], Polar<B>>;
 
 /// A spherical coordinate vector, with radius, azimuth, and altitude
 /// (elevation) components.
-pub type SphericalVec<B> = Vector<[f32; 3], Spherical<B>>;
+pub type SphericalVec<B = ()> = Vector<[f32; 3], Spherical<B>>;
 
 //
 // Free fns and consts
@@ -115,7 +115,7 @@ pub fn atan2(y: f32, x: f32) -> Angle {
 }
 
 /// Returns a polar coordinate vector with azimuth `az` and radius `r`.
-pub const fn polar(r: f32, az: Angle) -> PolarVec {
+pub const fn polar<B>(r: f32, az: Angle) -> PolarVec<B> {
     Vector::new([r, az.to_rads()])
 }
 
@@ -343,7 +343,7 @@ impl<B> SphericalVec<B> {
 }
 
 #[cfg(feature = "fp")]
-impl Vec2 {
+impl<B> Vec2<B> {
     /// Returns `self` converted into the equivalent polar coordinate vector.
     ///
     /// The `r` component of the result equals `self.len()`.
@@ -377,7 +377,7 @@ impl Vec2 {
     /// // A negative x and zero y maps to straight angle azimuth
     /// assert_approx_eq!(vec2(-1.0, 0.0).to_polar().az(), degs(180.0));
     /// ```
-    pub fn to_polar(&self) -> PolarVec {
+    pub fn to_polar(&self) -> PolarVec<B> {
         let r = self.len();
         let az = atan2(self.y(), self.x());
         polar(r, az)
@@ -695,6 +695,9 @@ mod tests {
         assert_approx_eq!(i.next(), None);
     }
 
+    const vec2: fn(f32, f32) -> Vec2 = super::vec2;
+    const vec3: fn(f32, f32, f32) -> Vec3 = super::vec3;
+
     #[cfg(feature = "fp")]
     #[test]
     fn polar_to_cartesian_zero_r() {
@@ -773,7 +776,6 @@ mod tests {
     #[cfg(feature = "fp")]
     #[test]
     fn cartesian_to_spherical_zero_alt() {
-        let vec3 = vec3::<f32, ()>;
         assert_approx_eq!(
             vec3(0.0, 0.0, 0.0).to_spherical(),
             spherical(0.0, degs(0.0), degs(0.0))
@@ -796,7 +798,6 @@ mod tests {
     #[test]
     fn cartesian_to_spherical() {
         use core::f32::consts::SQRT_2;
-        let vec3 = vec3::<f32, ()>;
         assert_approx_eq!(
             vec3(SQRT_3, 0.0, 1.0).to_spherical(),
             spherical(2.0, degs(30.0), degs(0.0))
