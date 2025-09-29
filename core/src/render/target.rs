@@ -4,7 +4,7 @@
 //! and possible auxiliary buffers. Special render targets can be used,
 //! for example, for visibility or occlusion computations.
 
-use crate::math::{Color4, Vary};
+use crate::math::{Color3, Color4, Vary};
 use crate::util::{
     buf::{AsMutSlice2, Buf2, MutSlice2},
     pixfmt::IntoPixel,
@@ -83,16 +83,16 @@ where
             .for_each(|((frag, curr_col), curr_z)| {
                 let new_z = frag.pos.z();
 
-                if ctx.depth_test(new_z, *curr_z) {
-                    if let Some(new_col) = fs.shade_fragment(frag) {
-                        if ctx.color_write {
-                            io.o += 1;
-                            // TODO Blending should happen here
-                            *curr_col = new_col.into_pixel()
-                        }
-                        if ctx.depth_write {
-                            *curr_z = new_z;
-                        }
+                if ctx.depth_test(new_z, *curr_z)
+                    && let Some(new_col) = fs.shade_fragment(frag)
+                {
+                    if ctx.color_write {
+                        io.o += 1;
+                        // TODO Blending should happen here
+                        *curr_col = new_col.into_pixel()
+                    }
+                    if ctx.depth_write {
+                        *curr_z = new_z;
                     }
                 }
             });
@@ -109,7 +109,7 @@ where
     /// Does no z-buffering.
     fn rasterize<V, Fs>(
         &mut self,
-        mut sl: Scanline<V>,
+        sl: Scanline<V>,
         fs: &Fs,
         ctx: &Context,
     ) -> Throughput
@@ -117,29 +117,14 @@ where
         V: Vary,
         Fs: FragmentShader<V>,
     {
-        let x0 = sl.xs.start;
-        let x1 = sl.xs.end.max(x0);
-        let mut io = Throughput { i: x1 - x0, o: 0 };
-        let cbuf_span = &mut self.as_mut_slice2()[sl.y][x0..x1];
-
-        sl.fragments()
-            .zip(cbuf_span)
-            .for_each(|(frag, curr_col)| {
-                if let Some(new_col) = fs.shade_fragment(frag) {
-                    if ctx.color_write {
-                        io.o += 1;
-                        *curr_col = new_col.into_pixel()
-                    }
-                }
-            });
-        io
+        rasterize(&mut self.buf, sl, fs, |c| c.into_pixel(), ctx)
     }
 }
 
 impl Target for Buf2<Color4> {
     fn rasterize<V, Fs>(
         &mut self,
-        mut sl: Scanline<V>,
+        sl: Scanline<V>,
         fs: &Fs,
         ctx: &Context,
     ) -> Throughput
@@ -147,21 +132,46 @@ impl Target for Buf2<Color4> {
         V: Vary,
         Fs: FragmentShader<V>,
     {
-        let x0 = sl.xs.start;
-        let x1 = sl.xs.end.max(x0);
-        let mut io = Throughput { i: x1 - x0, o: 0 };
-        let cbuf_span = &mut self.as_mut_slice2()[sl.y][x0..x1];
-
-        sl.fragments()
-            .zip(cbuf_span)
-            .for_each(|(frag, curr_col)| {
-                if let Some(new_col) = fs.shade_fragment(frag) {
-                    if ctx.color_write {
-                        io.o += 1;
-                        *curr_col = new_col;
-                    }
-                }
-            });
-        io
+        rasterize(self, sl, fs, |c| c, ctx)
     }
+}
+
+impl Target for Buf2<Color3> {
+    fn rasterize<V, Fs>(
+        &mut self,
+        sl: Scanline<V>,
+        fs: &Fs,
+        ctx: &Context,
+    ) -> Throughput
+    where
+        V: Vary,
+        Fs: FragmentShader<V>,
+    {
+        rasterize(self, sl, fs, |c| c.to_rgb(), ctx)
+    }
+}
+
+fn rasterize<T, V: Vary>(
+    buf: &mut impl AsMutSlice2<T>,
+    mut sl: Scanline<V>,
+    fs: &impl FragmentShader<V>,
+    mut conv: impl FnMut(Color4) -> T,
+    ctx: &Context,
+) -> Throughput {
+    let x0 = sl.xs.start;
+    let x1 = sl.xs.end.max(x0);
+    let mut io = Throughput { i: x1 - x0, o: 0 };
+    let cbuf_span = &mut buf.as_mut_slice2()[sl.y][x0..x1];
+
+    sl.fragments()
+        .zip(cbuf_span)
+        .for_each(|(frag, curr_col)| {
+            if let Some(new_col) = fs.shade_fragment(frag)
+                && ctx.color_write
+            {
+                io.o += 1;
+                *curr_col = conv(new_col);
+            }
+        });
+    io
 }
