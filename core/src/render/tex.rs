@@ -1,6 +1,7 @@
 //! Textures and texture samplers.
 
-use crate::math::{Point2u, Vec2, Vector, pt2, vec2};
+use crate::geom::Normal3;
+use crate::math::{Point2u, Vec2, Vec3, Vector, pt2, splat, vec2};
 use crate::util::{
     Dims,
     buf::{AsSlice2, Buf2, Slice2},
@@ -15,23 +16,6 @@ pub struct Tex;
 /// relative, in range (0, 0)..(1, 1), in which case they are independent
 /// of the actual dimensions of the texture.
 pub type TexCoord = Vec2<Tex>;
-
-impl TexCoord {
-    /// Returns the u (horizontal) component of `self`.
-    pub const fn u(&self) -> f32 {
-        self.0[0]
-    }
-    /// Returns the v (vertical) component of `self`.
-    pub const fn v(&self) -> f32 {
-        self.0[1]
-    }
-}
-
-/// Returns a new texture coordinate with components `u` and `v`.
-#[inline]
-pub const fn uv(u: f32, v: f32) -> TexCoord {
-    Vector::new([u, v])
-}
 
 /// A texture type. Can contain either owned or borrowed pixel data.
 ///
@@ -65,9 +49,77 @@ pub enum Layout {
     Grid { sub_dims: Dims },
 }
 
+/// Returns a new texture coordinate with components `u` and `v`.
+#[inline]
+pub const fn uv(u: f32, v: f32) -> TexCoord {
+    Vector::new([u, v])
+}
+
+/// Returns a texture coordinate in a cube map.
+///
+/// A cube map texture is a composite of six subtextures in a 3x2 grid.
+/// Each subtexture corresponds to one of the six cardinal directions:
+/// right (+x), left (-x), top (+y), bottom (-y), front (+z), back (-z).
+///
+/// The subtexture is chosen based on which component of `dir` has the greatest
+/// absolute value and its sign. The texture coordinates within the subtexture
+/// are based on the zy, xz, or xy components of `pos` accordingly, such that
+/// the range [-1.0, 1.0] is transformed to the range of uv values in the
+/// appropriate subtexture.
+///
+/// ```text
+///     u
+///     0       1/3      2/3       1
+/// v 0 +--------+--------+--------+
+///     |        |        |        |
+///     |   +x   |   +y   |   +z   |
+///   1 |        |        |        |
+///   / +---zy---+---xz---+---xy---+
+///   2 |        |        |        |
+///     |   -x   |   -y   |   -z   |
+///     |        |        |        |
+///   1 +--------+--------+--------+
+///
+/// ```
+pub fn cube_map(pos: Vec3, dir: Normal3) -> TexCoord {
+    // -1.0..1.0 -> 0.0..1.0
+    let [x, y, z] = (0.5 * pos + splat(0.5))
+        .0
+        .map(|x| x.clamp(0.0, 1.0));
+    let [ax, ay, az] = dir.0.map(f32::abs);
+
+    let max_i =
+        (ay > ax && ay > az) as usize + 2 * (az > ax && az > ay) as usize;
+
+    let [mut u, v] = match max_i {
+        // zy plane - mirrored
+        0 => [1.0 - z, y],
+        // xz plane - mirrored
+        1 => [1.0 - x, z],
+        // xy plane
+        _ => [x, y],
+    };
+    let neg = dir[max_i] < 0.0;
+    if neg {
+        u = 1.0 - u;
+    }
+    uv((u + max_i as f32) / 3.0, (v + neg as i32 as f32) / 2.0)
+}
+
 //
 // Inherent impls
 //
+
+impl TexCoord {
+    /// Returns the u (horizontal) component of `self`.
+    pub const fn u(&self) -> f32 {
+        self.0[0]
+    }
+    /// Returns the v (vertical) component of `self`.
+    pub const fn v(&self) -> f32 {
+        self.0[1]
+    }
+}
 
 impl<D> Texture<D> {
     /// Returns the width of `self` as `f32`.
