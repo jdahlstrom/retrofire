@@ -1,6 +1,7 @@
 //! Textures and texture samplers.
 
-use crate::math::{Point2u, Vec2, Vector, pt2, vec2};
+use crate::geom::Normal3;
+use crate::math::{Point2u, Vec2, Vec3, Vector, pt2, splat, vec2};
 use crate::util::{
     Dims,
     buf::{AsSlice2, Buf2, Slice2},
@@ -15,23 +16,6 @@ pub struct Tex;
 /// relative, in range (0, 0)..(1, 1), in which case they are independent
 /// of the actual dimensions of the texture.
 pub type TexCoord = Vec2<Tex>;
-
-impl TexCoord {
-    /// Returns the u (horizontal) component of `self`.
-    pub const fn u(&self) -> f32 {
-        self.0[0]
-    }
-    /// Returns the v (vertical) component of `self`.
-    pub const fn v(&self) -> f32 {
-        self.0[1]
-    }
-}
-
-/// Returns a new texture coordinate with components `u` and `v`.
-#[inline]
-pub const fn uv(u: f32, v: f32) -> TexCoord {
-    Vector::new([u, v])
-}
 
 /// A texture type. Can contain either owned or borrowed pixel data.
 ///
@@ -65,9 +49,77 @@ pub enum Layout {
     Grid { sub_dims: Dims },
 }
 
+/// Returns a new texture coordinate with components `u` and `v`.
+#[inline]
+pub const fn uv(u: f32, v: f32) -> TexCoord {
+    Vector::new([u, v])
+}
+
+/// Returns a texture coordinate in a cube map.
+///
+/// A cube map texture is a composite of six subtextures in a 3x2 grid.
+/// Each subtexture corresponds to one of the six cardinal directions:
+/// right (+x), left (-x), top (+y), bottom (-y), front (+z), back (-z).
+///
+/// The subtexture is chosen based on which component of `dir` has the greatest
+/// absolute value. The texture coordinates within the subtexture are based on
+/// the zy, xz, or xy components of `pos` such that the range  [-1.0, 1.0] is
+/// transformed to the range of uv values in the appropriate subtexture.
+///
+/// ```text
+///     u
+///     0     1/3    2/3     1
+/// v 0 +------+------+------+
+///     |      |      |      |
+///     |  +x  |  +y  |  +z  |
+///   1 |      |      |      |
+///   / +--zy--+--xz--+--xy--+
+///   2 |      |      |      |
+///     |  -x  |  -y  |  -z  |
+///     |      |      |      |
+///   1 +------+------+------+
+///
+/// ```
+pub fn cube_map(pos: Vec3, dir: Normal3) -> TexCoord {
+    // -1.0..1.0 -> 0.0..1.0
+    let [x, y, z] = (0.5 * pos + splat(0.5))
+        .clamp(&splat(0.0), &splat(1.0))
+        .0;
+    // TODO implement vec::abs
+    let [ax, ay, az] = dir.map(f32::abs).0;
+
+    // TODO implement vec::argmax
+    let (max_i, mut u, mut v) = if az > ax && az > ay {
+        // xy plane
+        (2, x, y)
+    } else if ay > ax && ay > az {
+        // xz plane left-handed - mirror x
+        (1, 1.0 - x, z)
+    } else {
+        // zy plane left-handed - mirror z
+        (0, 1.0 - z, y)
+    };
+    if dir[max_i] < 0.0 {
+        u = 1.0 - u;
+        v += 1.0;
+    }
+    uv((u + max_i as f32) / 3.0, v / 2.0)
+}
+
 //
 // Inherent impls
 //
+
+impl TexCoord {
+    /// Returns the u (horizontal) component of `self`.
+    pub const fn u(&self) -> f32 {
+        self.0[0]
+    }
+    /// Returns the v (vertical) component of `self`.
+    pub const fn v(&self) -> f32 {
+        self.0[1]
+    }
+}
 
 impl<D> Texture<D> {
     /// Returns the width of `self` as `f32`.
@@ -302,7 +354,7 @@ impl SamplerOnce {
 mod tests {
     use alloc::vec;
 
-    use crate::math::{Color3, rgb};
+    use crate::math::{Color3, Linear, rgb};
     use crate::util::buf::Buf2;
 
     use super::*;
@@ -357,5 +409,24 @@ mod tests {
         assert_eq!(s.sample(&tex, uv(0.5, 0.0)), rgb(0, 0xFF, 0));
         assert_eq!(s.sample(&tex, uv(0.0, 0.5)), rgb(0, 0, 0xFF));
         assert_eq!(s.sample(&tex, uv(0.5, 0.5)), rgb(0xFF, 0xFF, 0));
+    }
+
+    #[test]
+    fn cube_mapping() {
+        let zero = Vec3::zero();
+        let tc = cube_map(zero, Vec3::X);
+        assert_eq!(tc, uv(1.0 / 6.0, 0.25));
+        let tc = cube_map(zero, -Vec3::X);
+        assert_eq!(tc, uv(1.0 / 6.0, 0.75));
+
+        let tc = cube_map(zero, Vec3::Y);
+        assert_eq!(tc, uv(3.0 / 6.0, 0.25));
+        let tc = cube_map(zero, -Vec3::Y);
+        assert_eq!(tc, uv(3.0 / 6.0, 0.75));
+
+        let tc = cube_map(zero, Vec3::Z);
+        assert_eq!(tc, uv(5.0 / 6.0, 0.25));
+        let tc = cube_map(zero, -Vec3::Z);
+        assert_eq!(tc, uv(5.0 / 6.0, 0.75));
     }
 }
