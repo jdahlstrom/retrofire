@@ -94,28 +94,28 @@ pub struct Dodecahedron;
 #[derive(Copy, Clone, Debug, Default)]
 pub struct Icosahedron;
 
-// TODO use consts instead of sqrt
-#[cfg(feature = "std")]
+const SQRT_3: f32 = 1.7320508_f32;
+
 impl Tetrahedron {
     const FACES: [[usize; 3]; 4] = [[0, 2, 1], [0, 3, 2], [0, 1, 3], [1, 2, 3]];
 
+    const COORDS: [Point3; 4] = [
+        pt3(0.0, 1.0, 0.0),
+        pt3(SQRT_2 * 2.0 / 3.0, -1.0 / 3.0, 0.0),
+        pt3(-SQRT_2 / 3.0, -1.0 / 3.0, SQRT_2 / SQRT_3),
+        pt3(-SQRT_2 / 3.0, -1.0 / 3.0, -SQRT_2 / SQRT_3),
+    ];
+
     /// Builds the tetrahedral mesh.
     pub fn build(self) -> Mesh<Normal3> {
-        let sqrt = f32::sqrt;
-        let coords = [
-            pt3(0.0, 1.0, 0.0),
-            pt3(sqrt(8.0 / 9.0), -1.0 / 3.0, 0.0),
-            pt3(-sqrt(2.0 / 9.0), -1.0 / 3.0, sqrt(2.0 / 3.0)),
-            pt3(-sqrt(2.0 / 9.0), -1.0 / 3.0, -sqrt(2.0 / 3.0)),
-        ];
-        let norms = [3, 1, 2, 0].map(|i| -coords[i].to_vec());
+        let norms = [3, 1, 2, 0].map(|i| -Self::COORDS[i].to_vec());
 
         let mut b = Mesh::builder();
 
         for (i, vs) in Self::FACES.into_iter().enumerate() {
             b.push_face(3 * i, 3 * i + 1, 3 * i + 2);
             for v in vs {
-                b.push_vert(coords[v], norms[i]);
+                b.push_vert(Self::COORDS[v], norms[i]);
             }
         }
         b.build()
