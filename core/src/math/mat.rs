@@ -68,6 +68,23 @@ pub type Mat4x4<Map = ()> = Matrix<[[f32; 4]; 4], Map>;
 // Inherent impls
 //
 
+/// Slight syntactic sugar for creating [`Matrix`] instances.
+///
+/// # Examples
+/// ```
+/// use retrofire_core::{mat, math::Mat3x3};
+///
+/// let m: Mat3x3 = mat![
+///     0.0, 2.0, 0.0;
+///     1.0, 0.0, 0.0;
+///     0.0, 0.0, 3.0;
+/// ];
+/// assert_eq!(m.0, [
+///     [0.0, 2.0, 0.0],
+///     [1.0, 0.0, 0.0],
+///     [0.0, 0.0, 3.0]
+/// ]);
+/// ```
 #[macro_export]
 macro_rules! mat {
     ( $( $( $elem:expr ),+ );+ $(;)? ) => {
