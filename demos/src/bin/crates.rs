@@ -10,7 +10,7 @@ use re::render::{
 use re::util::pixfmt::Rgba8888;
 
 use re_front::sdl2::Window;
-use re_geom::solids::Cube;
+use re_geom::solids::{Build, Cube};
 
 fn main() {
     let mut win = Window::builder()
