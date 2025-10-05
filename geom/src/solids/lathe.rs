@@ -158,7 +158,7 @@ impl<P: Parametric<Vertex2<Normal2, ()>>> Lathe<P> {
 
     fn make_cap<A, F>(
         b: &mut Builder<A>,
-        mut f: &mut F,
+        f: &mut F,
         rg: Range<usize>,
         n: Normal3,
     ) where
