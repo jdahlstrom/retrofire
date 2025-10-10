@@ -37,9 +37,9 @@
 //! f 1//7 2//4 3//8
 //! ```
 
-use alloc::{string::String, vec};
+use alloc::{collections::BTreeMap, string::String, vec::Vec};
 use core::{
-    fmt::{self, Display, Formatter},
+    fmt::{self, Display, Formatter, Write},
     num::{ParseFloatError, ParseIntError},
 };
 #[cfg(feature = "std")]
@@ -69,9 +69,19 @@ pub enum Error {
     InvalidValue,
     /// A vertex attribute index that refers to a nonexistent attribute.
     IndexOutOfBounds(&'static str, usize),
+    /// Requested vertex attribute not contained in input
+    MissingVertexAttribType(&'static str),
 }
 
-#[derive(Copy, Clone, Debug, Eq, PartialEq)]
+#[derive(Default)]
+pub struct Obj {
+    faces: Vec<Tri<Indices>>,
+    coords: Vec<Point3<Model>>,
+    norms: Vec<Normal3>,
+    texcs: Vec<TexCoord>,
+}
+
+#[derive(Copy, Clone, Debug, Default, Eq, PartialEq, Ord, PartialOrd)]
 struct Indices {
     pos: usize,
     uv: Option<usize>,
@@ -109,17 +119,16 @@ pub fn read_obj(input: impl Read) -> Result<Builder<()>> {
 
 /// Parses an OBJ format mesh from an iterator.
 ///
-/// TODO Parses normals and coords but does not return them
-///
 /// # Errors
-/// Returns [`Error`] if OBJ parsing fails.
-pub fn parse_obj(src: impl IntoIterator<Item = u8>) -> Result<Builder<()>> {
-    let mut faces = vec![];
-    let mut verts = vec![];
-    let mut norms = vec![];
-    let mut texcs = vec![];
+/// Returns [`self::Error`] if OBJ parsing fails.
+pub fn parse_obj<A>(src: impl IntoIterator<Item = u8>) -> Result<Builder<A>>
+where
+    Builder<A>: TryFrom<Obj, Error = Error>,
+{
+    let mut obj = Obj::default();
+    let Obj { faces, coords, norms, texcs } = &mut obj;
 
-    let mut max_i = Indices { pos: 0, uv: None, n: None };
+    let mut max_i = Indices::default();
     let mut line = String::new();
 
     let mut it = src.into_iter().peekable();
@@ -140,7 +149,7 @@ pub fn parse_obj(src: impl IntoIterator<Item = u8>) -> Result<Builder<()>> {
             // Comment; skip it
             [b'#', ..] => continue,
             // Vertex position
-            b"v" => verts.push(parse_point(tokens)?),
+            b"v" => coords.push(parse_point(tokens)?),
             // Texture coordinate
             b"vt" => texcs.push(parse_texcoord(tokens)?),
             // Normal vector
@@ -148,6 +157,14 @@ pub fn parse_obj(src: impl IntoIterator<Item = u8>) -> Result<Builder<()>> {
             // Face
             b"f" => {
                 let tri = parse_face(tokens)?;
+
+                if max_i.n.is_some() && tri.0[0].n.is_none() {
+                    todo!("return error if not all faces have normals")
+                }
+                if max_i.uv.is_some() && tri.0[0].uv.is_none() {
+                    todo!("return error if not all faces have texcoords")
+                }
+
                 // Keep track of max indices to report error at the end of
                 // parsing if there turned out to be out-of-bounds indices
                 for i in tri.0 {
@@ -163,7 +180,7 @@ pub fn parse_obj(src: impl IntoIterator<Item = u8>) -> Result<Builder<()>> {
         }
     }
 
-    if !verts.is_empty() && max_i.pos >= verts.len() {
+    if !coords.is_empty() && max_i.pos >= coords.len() {
         return Err(IndexOutOfBounds("vertex", max_i.pos));
     }
     if let Some(uv) = max_i.uv.filter(|&i| i >= texcs.len()) {
@@ -172,14 +189,81 @@ pub fn parse_obj(src: impl IntoIterator<Item = u8>) -> Result<Builder<()>> {
     if let Some(n) = max_i.n.filter(|&i| i >= norms.len()) {
         return Err(IndexOutOfBounds("normal", n));
     }
+    obj.try_into()
+}
 
-    // TODO Support returning texcoords and normals
-    let faces = faces
-        .into_iter()
-        .map(|Tri(vs)| Tri(vs.map(|ics| ics.pos)));
-    let verts = verts.into_iter().map(|pos| vertex(pos, ()));
+impl TryFrom<Obj> for Builder<()> {
+    type Error = Error;
 
-    Ok(Mesh::new(faces, verts).into_builder())
+    fn try_from(o: Obj) -> Result<Self> {
+        o.try_into_with(|_| Some(()))
+    }
+}
+impl TryFrom<Obj> for Builder<Normal3> {
+    type Error = Error;
+
+    fn try_from(o: Obj) -> Result<Self> {
+        if o.norms.is_empty() {
+            return Err(MissingVertexAttribType("normal"));
+        }
+        o.try_into_with(|i| i.n.map(|ti| o.norms[ti]))
+    }
+}
+impl TryFrom<Obj> for Builder<TexCoord> {
+    type Error = Error;
+
+    fn try_from(o: Obj) -> Result<Self> {
+        if o.texcs.is_empty() {
+            return Err(MissingVertexAttribType("texcoord"));
+        }
+        o.try_into_with(|i| i.uv.map(|ti| o.texcs[ti]))
+    }
+}
+impl TryFrom<Obj> for Builder<(Normal3, TexCoord)> {
+    type Error = Error;
+
+    fn try_from(o: Obj) -> Result<Self> {
+        if o.norms.is_empty() {
+            return Err(MissingVertexAttribType("normal"));
+        }
+        if o.texcs.is_empty() {
+            return Err(MissingVertexAttribType("texcoord"));
+        }
+        o.try_into_with(|i| {
+            i.n.zip(i.uv)
+                .map(|(n, uv)| (o.norms[n], o.texcs[uv]))
+        })
+    }
+}
+
+impl Obj {
+    fn try_into_with<A>(
+        &self,
+        mut attr_fn: impl FnMut(&Indices) -> Option<A>,
+    ) -> Result<Builder<A>> {
+        // HashMap not in alloc :(
+        let mut map: BTreeMap<Indices, usize> = BTreeMap::new();
+
+        let mut faces = Vec::new();
+        let mut verts = Vec::new();
+
+        for Tri(indices) in &self.faces {
+            if indices.iter().any(|i| attr_fn(i).is_none()) {
+                return Err(MissingVertexAttribType(""));
+            }
+            let indices = indices.map(|v| {
+                *map.entry(v).or_insert_with(|| {
+                    verts.push(vertex(
+                        self.coords[v.pos],
+                        attr_fn(&v).unwrap(), // TODO
+                    ));
+                    verts.len() - 1
+                })
+            });
+            faces.push(Tri(indices));
+        }
+        Ok(Mesh::new(faces, verts).into_builder())
+    }
 }
 
 fn next<'a>(i: &mut impl Iterator<Item = &'a str>) -> Result<&'a str> {
@@ -259,12 +343,17 @@ impl Display for Error {
             #[cfg(feature = "std")]
             Io(e) => write!(f, "I/O error: {e}"),
             UnsupportedItem(c) => {
-                write!(f, "unsupported item type '{c}'")
+                f.write_str("unsupported item type: '")?;
+                f.write_char(*c)
             }
             UnexpectedEnd => f.write_str("unexpected end of input"),
             InvalidValue => f.write_str("invalid numeric value"),
             IndexOutOfBounds(item, idx) => {
                 write!(f, "{item} index out of bounds: {idx}")
+            }
+            MissingVertexAttribType(s) => {
+                f.write_str("missing vertex attribute: ")?;
+                f.write_str(s)
             }
         }
     }
@@ -299,9 +388,9 @@ impl From<ParseIntError> for Error {
 
 #[cfg(test)]
 mod tests {
-    use re::{geom::Tri, math::point::pt3};
-
     use super::*;
+    use re::geom::Vertex;
+    use re::{geom::Tri, math::point::pt3};
 
     #[test]
     fn input_with_whitespace_and_comments() {
@@ -316,48 +405,36 @@ v       1.0 0.0 0.0
 v 0.0 -2.0 0.0
         v 1 2 3";
 
-        let mesh = parse_obj(input).unwrap().build();
+        let m = &parse_obj::<()>(input).unwrap().build();
 
-        assert_eq!(mesh.faces, vec![tri(0, 1, 3), tri(3, 0, 2)]);
-        assert_eq!(mesh.verts[3].pos, pt3(1.0, 2.0, 3.0));
+        assert_eq!(m.faces.len(), 2);
+        assert_eq!(m.verts.len(), 4);
+
+        assert_eq!(
+            m.faces()
+                .map(|tri| tri.0.map(|v| v.pos))
+                .collect::<Vec<_>>(),
+            [
+                [pt3(0.0, 0.0, 0.0), pt3(1.0, 0.0, 0.0), pt3(1.0, 2.0, 3.0)],
+                [pt3(1.0, 2.0, 3.0), pt3(0.0, 0.0, 0.0), pt3(0.0, -2.0, 0.0)]
+            ]
+        );
     }
 
     #[test]
     fn exp_notation() {
-        let input = *b"v -1.0e0 0.2e1  3.0e-2";
-        let mesh = parse_obj(input).unwrap().build();
-        assert_eq!(mesh.verts[0].pos, pt3(-1.0, 2.0, 0.03));
-    }
-
-    #[test]
-    fn positions_and_texcoords() {
         let input = *br"
-            f 1/1/1 2/3/2 3/2/2
-            f 4/3/2 1/2/3 3/1/3
-
-            vn 1.0 0.0 0.0
-            vt 0.0 0.0 0.0
-            v 0.0 0.0 0.0
-            v 1.0 0.0 0.0
-            vn 1.0 0.0 0.0
-            v 0.0 2.0 0.0
-            vt 1.0 1.0 1.0
-            v 1.0 2.0 3.0
-            vt 0.0 -1.0 2.0
-            vn 1.0 0.0 0.0";
-
-        let mesh = parse_obj(input).unwrap().build();
-        assert_eq!(mesh.faces, vec![tri(0, 1, 2), tri(3, 0, 2)]);
-
-        let v = mesh.verts[3];
-        assert_eq!(v.pos, pt3(1.0, 2.0, 3.0));
+            v -1.0e0 0.2e1  3.0e-2
+            f 1 1 1";
+        let mesh: Mesh<()> = parse_obj(input).unwrap().build();
+        assert_eq!(mesh.verts[0].pos, pt3(-1.0, 2.0, 0.03));
     }
 
     #[test]
     fn positions_and_normals() {
         let input = *br"
             f 1//1 2//3 4//2
-            f 4//3 1//2 3//1
+            f 4//3 1//1 3//1
 
             vn 1.0 0.0 0.0
             v 0.0 0.0 0.0
@@ -367,34 +444,118 @@ v 0.0 -2.0 0.0
             v 1.0 2.0 3.0
             vn 0.0 0.0 -1.0";
 
-        let mesh = parse_obj(input).unwrap().build();
-        assert_eq!(mesh.faces, vec![tri(0, 1, 3), tri(3, 0, 2)]);
-        assert_eq!(mesh.verts[3].pos, pt3(1.0, 2.0, 3.0));
+        let m: Mesh<Normal3> = parse_obj(input).unwrap().build();
+
+        assert_eq!(m.faces.len(), 2);
+        assert_eq!(m.verts.len(), 5);
+
+        assert_eq!(
+            m.faces()
+                .map(|tri| tri.0.map(|&Vertex { pos, attrib: n }| (pos, n)))
+                .collect::<Vec<_>>(),
+            [
+                [
+                    (pt3(0.0, 0.0, 0.0), vec3(1.0, 0.0, 0.0)),
+                    (pt3(1.0, 0.0, 0.0), vec3(0.0, 0.0, -1.0)),
+                    (pt3(1.0, 2.0, 3.0), vec3(0.0, 1.0, 0.0)),
+                ],
+                [
+                    (pt3(1.0, 2.0, 3.0), vec3(0.0, 0.0, -1.0)),
+                    (pt3(0.0, 0.0, 0.0), vec3(1.0, 0.0, 0.0)),
+                    (pt3(0.0, 2.0, 0.0), vec3(1.0, 0.0, 0.0))
+                ]
+            ]
+        );
+    }
+
+    #[test]
+    fn positions_and_texcoords() {
+        let input = *br"
+            f 1/1 2/3 4/2
+            f 4/3 1/2 3/1
+
+            vt 0.0 0.0
+            v 0.0 0.0 0.0
+            v 1.0 0.0 0.0
+            v 0.0 2.0 0.0
+            vt 0.0 1.0
+            v 1.0 2.0 3.0
+            vt 1.0 1.0";
+
+        let m: Mesh<TexCoord> = parse_obj(input).unwrap().build();
+
+        assert_eq!(m.faces.len(), 2);
+        assert_eq!(m.verts.len(), 6);
+
+        assert_eq!(
+            m.faces()
+                .map(|tri| tri.0.map(|&Vertex { pos, attrib: uv }| (pos, uv)))
+                .collect::<Vec<_>>(),
+            [
+                [
+                    (pt3(0.0, 0.0, 0.0), uv(0.0, 0.0)),
+                    (pt3(1.0, 0.0, 0.0), uv(1.0, 1.0)),
+                    (pt3(1.0, 2.0, 3.0), uv(0.0, 1.0))
+                ],
+                [
+                    (pt3(1.0, 2.0, 3.0), uv(1.0, 1.0)),
+                    (pt3(0.0, 0.0, 0.0), uv(0.0, 1.0)),
+                    (pt3(0.0, 2.0, 0.0), uv(0.0, 0.0))
+                ]
+            ]
+        );
     }
 
     #[test]
     fn positions_texcoords_and_normals() {
         let input = *br"
-            f 1//1 2//3 4//2
-            f 4//3 1//2 3//1
+            f 1/1/1 2/3/2 3/2/2
+            f 4/3/2 1/1/1 3/1/3
 
             vn 1.0 0.0 0.0
+            vt 0.0 0.0
             v 0.0 0.0 0.0
             v 1.0 0.0 0.0
-            v 0.0 2.0 0.0
             vn 0.0 1.0 0.0
+            v 0.0 2.0 0.0
+            vt 1.0 1.0
             v 1.0 2.0 3.0
-            vn 0.0 0.0 -1.0";
+            vt 0.0 -1.0
+            vn 0.0 0.0 1.0";
 
-        let mesh = parse_obj(input).unwrap().build();
-        assert_eq!(mesh.faces, vec![tri(0, 1, 3), tri(3, 0, 2)]);
-        assert_eq!(mesh.verts[3].pos, pt3(1.0, 2.0, 3.0));
+        let m = &parse_obj::<(Normal3, TexCoord)>(input)
+            .unwrap()
+            .build();
+        assert_eq!(m.faces.len(), 2);
+        assert_eq!(m.verts.len(), 5);
+
+        assert_eq!(
+            m.faces()
+                .map(|tri| tri
+                    .0
+                    .map(|&Vertex { pos, attrib: (n, uv) }| (pos, n, uv)))
+                .collect::<Vec<_>>(),
+            [
+                [
+                    (pt3(0.0, 0.0, 0.0), vec3(1.0, 0.0, 0.0), uv(0.0, 0.0)),
+                    (pt3(1.0, 0.0, 0.0), vec3(0.0, 1.0, 0.0), uv(0.0, -1.0)),
+                    (pt3(0.0, 2.0, 0.0), vec3(0.0, 1.0, 0.0), uv(1.0, 1.0))
+                ],
+                [
+                    (pt3(1.0, 2.0, 3.0), vec3(0.0, 1.0, 0.0), uv(0.0, -1.0)),
+                    (pt3(0.0, 0.0, 0.0), vec3(1.0, 0.0, 0.0), uv(0.0, 0.0)),
+                    (pt3(0.0, 2.0, 0.0), vec3(0.0, 0.0, 1.0), uv(0.0, 0.0))
+                ]
+            ]
+        );
     }
 
     #[test]
     fn empty_input() {
-        let mesh = parse_obj(*b"")
-            .expect("empty input should be valid")
+        let mesh: Mesh<()> = parse_obj(*b"")
+            .unwrap_or_else(|e| {
+                panic!("empty input should be valid, got {e:?}")
+            })
             .build();
         assert!(mesh.faces.is_empty());
         assert!(mesh.verts.is_empty());
@@ -402,7 +563,7 @@ v 0.0 -2.0 0.0
 
     #[test]
     fn input_only_whitespace() {
-        let mesh = parse_obj(*b"   \n     \n\n ")
+        let mesh: Mesh<()> = parse_obj(*b"   \n     \n\n ")
             .expect("white-space only input should be valid")
             .build();
         assert!(mesh.faces.is_empty());
@@ -411,7 +572,7 @@ v 0.0 -2.0 0.0
 
     #[test]
     fn input_only_comments() {
-        let mesh = parse_obj(*b"# comment\n #another comment")
+        let mesh: Mesh<()> = parse_obj(*b"# comment\n #another comment")
             .expect("comment-only input should be valid")
             .build();
         assert!(mesh.faces.is_empty());
@@ -420,7 +581,7 @@ v 0.0 -2.0 0.0
 
     #[test]
     fn unknown_item() {
-        let result = parse_obj(*b"f 1 2 3\nxyz 4 5 6");
+        let result = parse_obj::<()>(*b"f 1 2 3\nxyz 4 5 6");
         assert!(
             matches!(result, Err(UnsupportedItem('x'))),
             "actual was: {result:?}"
@@ -430,7 +591,7 @@ v 0.0 -2.0 0.0
     #[test]
     fn vertex_index_oob() {
         let input = *b"f 1 2 3\nv 0.0 0.0 0.0\nv 1.0 1.0 1.0";
-        let result = parse_obj(input);
+        let result = parse_obj::<()>(input);
         assert!(
             matches!(result, Err(IndexOutOfBounds("vertex", 2))),
             "actual was: {result:?}",
@@ -439,7 +600,7 @@ v 0.0 -2.0 0.0
     #[test]
     fn texcoord_index_oob() {
         let input = *b"f 1/1 1/4 1/2\nv 0.0 0.0 0.0\nvt 0.0 0.0\nvt 0.0 1.0";
-        let result = parse_obj(input);
+        let result = parse_obj::<()>(input);
         assert!(
             matches!(result, Err(IndexOutOfBounds("texcoord", 3))),
             "actual was: {result:?}",
@@ -449,7 +610,7 @@ v 0.0 -2.0 0.0
     #[test]
     fn unexpected_end_of_input() {
         let input = *b"f";
-        let result = parse_obj(input);
+        let result = parse_obj::<()>(input);
         assert!(matches!(result, Err(UnexpectedEnd)));
     }
 

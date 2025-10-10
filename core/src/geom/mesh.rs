@@ -88,6 +88,14 @@ impl<A, B> Mesh<A, B> {
         Self { faces, verts }
     }
 
+    /// Returns an iterator over the faces of `self`, mapping the vertex indices
+    /// to references to the corresponding vertices.
+    pub fn faces(&self) -> impl Iterator<Item = Tri<&Vertex3<A, B>>> {
+        self.faces
+            .iter()
+            .map(|Tri(vs)| Tri(vs.map(|i| &self.verts[i])))
+    }
+
     /// Returns a mesh with the faces and vertices of both `self` and `other`.
     pub fn merge(mut self, Self { faces, verts }: Self) -> Self {
         let n = self.verts.len();
