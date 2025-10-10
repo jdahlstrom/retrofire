@@ -170,7 +170,7 @@ fn lathe(secs: u32) -> Mesh<Normal3> {
 
 // Loads the Utah teapot model.
 fn teapot() -> Mesh<Normal3> {
-    parse_obj(*include_bytes!("../../assets/teapot.obj"))
+    parse_obj::<()>(*include_bytes!("../../assets/teapot.obj"))
         .unwrap()
         .transform(
             &scale(splat(0.4))
@@ -183,7 +183,7 @@ fn teapot() -> Mesh<Normal3> {
 
 // Loads the Stanford bunny model.
 fn bunny() -> Mesh<Normal3> {
-    parse_obj(*include_bytes!("../../assets/bunny.obj"))
+    parse_obj::<()>(*include_bytes!("../../assets/bunny.obj"))
         .unwrap()
         .transform(&scale(splat(0.15)).then(&translate(-Vec3::Y)).to())
         .with_vertex_normals()
