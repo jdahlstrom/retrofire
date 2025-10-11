@@ -39,7 +39,7 @@
 
 use alloc::{collections::BTreeMap, string::String, vec::Vec};
 use core::{
-    fmt::{self, Display, Formatter, Write},
+    fmt::{self, Display, Formatter},
     num::{ParseFloatError, ParseIntError},
 };
 #[cfg(feature = "std")]
@@ -59,10 +59,10 @@ use Error::*;
 #[derive(Debug)]
 pub enum Error {
     #[cfg(feature = "std")]
-    /// An input/output error during reading from a `Read`.
+    /// An input/output error while reading from a [`Read`].
     Io(std::io::Error),
     /// An item that is not a face, vertex, texture coordinate, or normal.
-    UnsupportedItem(char),
+    UnsupportedItem(Vec<u8>),
     /// Unexpected end of line or input.
     UnexpectedEnd,
     /// An invalid integer or floating-point value.
@@ -148,18 +148,21 @@ where
         );
 
         let tokens = &mut line.split_ascii_whitespace();
-        let Some(item) = tokens.next() else {
-            continue;
-        };
-        match item.as_bytes() {
-            // Comment; skip it
-            [b'#', ..] => continue,
-            // Vertex position
+        match tokens.next().unwrap_or("").as_bytes() {
+            // Skip empty lines and comments
+            | b"" | [b'#', ..]
+            // Skip group or material definitions for now
+            | b"g" | b"mtllib" | b"usemtl"
+            // Skip smoothing group names for now
+            | b"s" => continue,
+
+            // Vertex coordinate
             b"v" => coords.push(parse_point(tokens)?),
             // Texture coordinate
             b"vt" => texcs.push(parse_texcoord(tokens)?),
             // Normal vector
             b"vn" => norms.push(parse_normal(tokens)?),
+
             // Face
             b"f" => {
                 let face = parse_face(tokens)?;
@@ -191,18 +194,23 @@ where
                 }
             }
             // TODO Ignore unsupported lines instead?
-            [c, ..] => return Err(UnsupportedItem(*c as char)),
-            b"" => unreachable!("empty slices are filtered out"),
+            other => {
+                return Err(UnsupportedItem(other.to_vec()));
+            }
         }
     }
 
     if !coords.is_empty() && max_i.pos >= coords.len() {
         return Err(IndexOutOfBounds("vertex", max_i.pos));
     }
-    if let Some(uv) = max_i.uv.filter(|&i| i >= texcs.len()) {
+    if let Some(uv) = max_i.uv
+        && uv >= texcs.len()
+    {
         return Err(IndexOutOfBounds("texcoord", uv));
     }
-    if let Some(n) = max_i.n.filter(|&i| i >= norms.len()) {
+    if let Some(n) = max_i.n
+        && n >= norms.len()
+    {
         return Err(IndexOutOfBounds("normal", n));
     }
     obj.try_into()
@@ -361,9 +369,9 @@ impl Display for Error {
         match self {
             #[cfg(feature = "std")]
             Io(e) => write!(f, "I/O error: {e}"),
-            UnsupportedItem(c) => {
+            UnsupportedItem(item) => {
                 f.write_str("unsupported item type: '")?;
-                f.write_char(*c)
+                f.write_str(String::from_utf8_lossy(&item).as_ref())
             }
             UnexpectedEnd => f.write_str("unexpected end of input"),
             InvalidValue => f.write_str("invalid numeric value"),
@@ -605,7 +613,7 @@ v 0.0 -2.0 0.0
     fn unknown_item() {
         let result = parse_obj::<()>(*b"f 1 2 3\nxyz 4 5 6");
         assert!(
-            matches!(result, Err(UnsupportedItem('x'))),
+            matches!(&result, Err(UnsupportedItem(item)) if item == b"xyz"),
             "actual was: {result:?}"
         );
     }
