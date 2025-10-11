@@ -81,6 +81,8 @@ pub struct Obj {
     texcs: Vec<TexCoord>,
 }
 
+pub type Result<T> = core::result::Result<T, Error>;
+
 #[derive(Copy, Clone, Debug, Default, Eq, PartialEq, Ord, PartialOrd)]
 struct Indices {
     pos: usize,
@@ -88,7 +90,11 @@ struct Indices {
     n: Option<usize>,
 }
 
-pub type Result<T> = core::result::Result<T, Error>;
+#[derive(Copy, Clone, Debug)]
+enum Face {
+    Tri([Indices; 3]),
+    Quad([Indices; 4]),
+}
 
 /// Loads an OBJ model from a path.
 ///
@@ -156,23 +162,33 @@ where
             b"vn" => norms.push(parse_normal(tokens)?),
             // Face
             b"f" => {
-                let tri = parse_face(tokens)?;
+                let face = parse_face(tokens)?;
 
-                if max_i.n.is_some() && tri.0[0].n.is_none() {
+                let indices = match &face {
+                    Face::Tri(is) => is.as_slice(),
+                    Face::Quad(is) => is.as_slice(),
+                };
+
+                if max_i.n.is_some() && indices[0].n.is_none() {
                     todo!("return error if not all faces have normals")
                 }
-                if max_i.uv.is_some() && tri.0[0].uv.is_none() {
+                if max_i.uv.is_some() && indices[0].uv.is_none() {
                     todo!("return error if not all faces have texcoords")
                 }
 
                 // Keep track of max indices to report error at the end of
                 // parsing if there turned out to be out-of-bounds indices
-                for i in tri.0 {
+                for i in indices {
                     max_i.pos = max_i.pos.max(i.pos);
                     max_i.uv = max_i.uv.max(i.uv);
                     max_i.n = max_i.n.max(i.n);
                 }
-                faces.push(tri)
+                if let [a, b, c] = *indices {
+                    faces.push(Tri([a, b, c]));
+                } else if let [a, b, c, d] = *indices {
+                    faces.push(Tri([a, b, c]));
+                    faces.push(Tri([a, c, d]));
+                }
             }
             // TODO Ignore unsupported lines instead?
             [c, ..] => return Err(UnsupportedItem(*c as char)),
@@ -270,13 +286,16 @@ fn next<'a>(i: &mut impl Iterator<Item = &'a str>) -> Result<&'a str> {
     i.next().ok_or(UnexpectedEnd)
 }
 
-fn parse_face<'a>(
-    i: &mut impl Iterator<Item = &'a str>,
-) -> Result<Tri<Indices>> {
+fn parse_face<'a>(i: &mut impl Iterator<Item = &'a str>) -> Result<Face> {
     let a = parse_indices(next(i)?)?;
     let b = parse_indices(next(i)?)?;
     let c = parse_indices(next(i)?)?;
-    Ok(tri(a, b, c))
+    if let Some(d) = i.next() {
+        let d = parse_indices(d)?;
+        Ok(Face::Quad([a, b, c, d]))
+    } else {
+        Ok(Face::Tri([a, b, c]))
+    }
 }
 
 fn parse_texcoord<'a>(
@@ -428,6 +447,21 @@ v 0.0 -2.0 0.0
             f 1 1 1";
         let mesh: Mesh<()> = parse_obj(input).unwrap().build();
         assert_eq!(mesh.verts[0].pos, pt3(-1.0, 2.0, 0.03));
+    }
+
+    #[test]
+    fn quads() {
+        let input = *br"
+            v 0.0 0.0 0.0
+            v 1.0 0.0 0.0
+            v 1.0 1.0 0.0
+            v 0.0 1.0 0.0
+            f 1 2 3 4
+        ";
+        let mesh: Mesh<()> = parse_obj(input).unwrap().build();
+
+        assert_eq!(mesh.faces.len(), 2);
+        assert_eq!(mesh.faces, [Tri([0, 1, 2]), Tri([0, 2, 3])]);
     }
 
     #[test]
