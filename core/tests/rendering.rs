@@ -3,8 +3,7 @@
 use retrofire_core::prelude::*;
 
 use retrofire_core::{
-    math::color::Rgb,
-    render::{target::Colorbuf, tex::SamplerClamp},
+    render::tex::SamplerClamp,
     util::{self, pixfmt::Xrgb8888, pnm::parse_pnm},
 };
 
@@ -36,38 +35,25 @@ fn textured_quad() {
     let viewport = viewport(pt2(0, 0)..pt2(w, h));
     let mvp = translate3(0.0, 0.0, 1.0).to().then(&project);
 
-    let mut color_buf = Colorbuf {
-        buf: Buf2::new((w, h)),
-        fmt: Xrgb8888,
-    };
-    let ctx = Context::default();
+    let mut framebuf = Buf2::<Color3>::new((w, h));
+    let mut ctx = Context::default();
 
-    render(FACES, VERTS, &shader, &mvp, viewport, &mut color_buf, &ctx);
+    render(FACES, VERTS, &shader, &mvp, viewport, &mut framebuf, &ctx);
 
-    let buf = color_buf.buf;
-    assert_eq!(buf[0][0], 0x00_00_00_FF);
-    assert_eq!(buf[255][0], 0x00_7F_00_00);
-    assert_eq!(buf[0][255], 0x00_7F_00_00);
-
-    let buf = Buf2::new_from(
-        (w, h),
-        buf.data().iter().map(|u| {
-            // Xrgb8888: 0x00_RR_GG_BB
-            let [_, rgb @ ..] = u.to_be_bytes();
-            Color3::<Rgb>::from(rgb)
-        }),
-    );
+    assert_eq!(framebuf[0][0], rgb(0, 0, 0xFF));
+    assert_eq!(framebuf[255][0], rgb(0x7F, 0, 0));
+    assert_eq!(framebuf[0][255], rgb(0x7F, 0, 0));
 
     let comp = *include_bytes!("textured_quad.ppm");
     let comp = parse_pnm(comp).expect("should be a valid ppm");
 
-    assert_eq!(buf, comp);
+    assert_eq!(framebuf, comp);
 
     #[cfg(feature = "std")]
     {
         use util::pnm::*;
         // Uncomment to save generated image to compare visually
-        //save_ppm("tests/textured_quad_actual.ppm", &buf);
+        //save_ppm("tests/textured_quad_actual.ppm", &framebuf);
         // Uncomment to (re)generate the comparison image
         //save_ppm("tests/textured_quad.ppm", &buf).expect("should save image");
     }
