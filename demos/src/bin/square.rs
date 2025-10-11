@@ -1,9 +1,6 @@
 use std::ops::ControlFlow::*;
 
-use re::prelude::*;
-
-use re::math::{pt2, pt3};
-use re::render::{Context, ModelToProj, render, tex::SamplerClamp};
+use re::{prelude::*, render::tex::SamplerClamp};
 
 use re_front::minifb::Window;
 
