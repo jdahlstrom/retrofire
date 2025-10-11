@@ -98,9 +98,42 @@ pub const fn tri<V>(a: V, b: V, c: V) -> Tri<V> {
     Tri([a, b, c])
 }
 
+pub struct Bary;
+
 // Inherent impls
 
 impl<A, B> Tri<Vertex2<A, B>> {
+    pub fn cart_to_bary(&self, pt: &Point2<B>) -> Vec3<Bary> {
+        let a = &self.0[0].pos;
+
+        let [ab, ac] = self.tangents();
+
+        let pt = *pt - *a;
+
+        let bary_to_cart = Mat2x2::<RealToReal<2, Bary, B>>::new([
+            [ab.x(), ac.x()],
+            [ab.y(), ac.y()],
+        ]);
+        let cart_to_bary = bary_to_cart.inverse();
+
+        // s == amount of b
+        // t == amount of c
+        let [s, t] = cart_to_bary.apply(&pt).0;
+
+        vec3(1.0 - s - t, s, t)
+    }
+    pub fn bary_to_cart(&self, pt: &Point3<Bary>) -> Point2<B> {
+        let [ab, ac] = self.tangents();
+
+        let bary_to_cart = Mat2x2::<RealToReal<2, Bary, B>>::new([
+            [ab.x(), ac.x()],
+            [ab.y(), ac.y()],
+        ]);
+        let b = bary_to_cart.apply(&vec2(pt.y(), pt.z()));
+
+        self.0[0].pos + b
+    }
+
     /// Given a triangle ABC, returns the vectors AB, AC.
     pub fn tangents(&self) -> [Vec2<B>; 2] {
         let [a, b, c] = &self.0;
@@ -722,7 +755,41 @@ mod tests {
             pt3(2.0, -2.0, -1.0),
             pt3(0.0, -2.0, 1.0),
         );
-        assert_eq!(tri.plane(), Plane([0.0, -1.0, 0.0, -2.0].into()));
+        assert_eq!(tri.plane(), Plane3::new(0.0, -1.0, 0.0, -2.0));
+    }
+
+    #[test]
+    fn triangle_cartesian_to_barycentric() {
+        let a = pt2(1.0, 1.0);
+        let b = pt2(2.0, 1.0);
+        let c = pt2(1.0, 2.0);
+
+        let tr = tri(a, b, c);
+
+        assert_eq!(tr.cart_to_bary(&a).0, [1.0, 0.0, 0.0]);
+        assert_eq!(tr.cart_to_bary(&b).0, [0.0, 1.0, 0.0]);
+        assert_eq!(tr.cart_to_bary(&c).0, [0.0, 0.0, 1.0]);
+
+        assert_eq!(tr.cart_to_bary(&pt2(1.5, 1.0)).0, [0.5, 0.5, 0.0]);
+        assert_eq!(tr.cart_to_bary(&pt2(1.0, 1.5)).0, [0.5, 0.0, 0.5]);
+        assert_eq!(tr.cart_to_bary(&pt2(1.5, 1.5)).0, [0.0, 0.5, 0.5]);
+    }
+
+    #[test]
+    fn triangle_barycentric_to_cartesian() {
+        let a = pt2(1.0, 1.0);
+        let b = pt2(2.0, 1.0);
+        let c = pt2(1.0, 2.0);
+
+        let tr = tri(a, b, c);
+
+        assert_eq!(tr.bary_to_cart(&pt3(1.0, 0.0, 0.0)), a);
+        assert_eq!(tr.bary_to_cart(&pt3(0.0, 1.0, 0.0)), b);
+        assert_eq!(tr.bary_to_cart(&pt3(0.0, 0.0, 1.0)), c);
+
+        assert_eq!(tr.cart_to_bary(&pt2(1.5, 1.0)).0, [0.5, 0.5, 0.0]);
+        assert_eq!(tr.cart_to_bary(&pt2(1.0, 1.5)).0, [0.5, 0.0, 0.5]);
+        assert_eq!(tr.cart_to_bary(&pt2(1.5, 1.5)).0, [0.0, 0.5, 0.5]);
     }
 
     #[test]
