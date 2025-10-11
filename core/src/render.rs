@@ -28,7 +28,7 @@ pub use self::{
     ctx::Context,
     shader::{FragmentShader, VertexShader},
     stats::Stats,
-    target::{Framebuf, Target},
+    target::{Colorbuf, Framebuf, Target},
     tex::{TexCoord, Texture, uv},
     text::Text,
 };
