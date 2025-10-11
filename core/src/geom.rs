@@ -4,8 +4,8 @@ use alloc::vec::Vec;
 use core::fmt::Debug;
 
 use crate::math::{
-    Affine, Lerp, Linear, Mat4, Parametric, Point2, Point3, Vec2, Vec3, Vector,
-    space::Real, vec2, vec3,
+    Affine, Lerp, Linear, Mat4, Parametric, Point, Point2, Point3, Vec2, Vec3,
+    Vector, space::Real, vec2, vec3,
 };
 
 use crate::render::Model;
@@ -569,7 +569,54 @@ impl<T> Polyline<T> {
     }
 }
 
+impl<T> Polyline<T> {
+    /// Returns the sum of the lengths of the edges using a custom metric.
+    ///
+    /// The function passed can be arbitrary; this method does not assume any
+    /// actual metric properties such as positivity or triangle inequality.
+    ///
+    /// # Examples
+    /// ```
+    /// use retrofire_core::geom::{Polyline, Edge};
+    /// use retrofire_core::math::{pt2, Point2};
+    ///
+    /// let pts: [Point2; _] = [pt2(0.0, 0.0), pt2(1.0, 2.0), pt2(2.0, -3.0)];
+    /// let pline = Polyline::new(pts);
+    ///
+    /// // The taxicab, or Manhattan, distance.
+    /// fn taxicab(a: &Point2, b: &Point2) -> f32 {
+    ///     let d = *b - *a;
+    ///     d.x().abs() + d.y().abs()
+    /// }
+    ///
+    /// assert_eq!(pline.len_by(taxicab), 9.0);
+    /// ```
+    pub fn len_by(&self, mut m: impl FnMut(&T, &T) -> f32) -> f32 {
+        self.edges().map(|Edge(a, b)| m(a, b)).sum()
+    }
+}
+
+impl<const N: usize, B> Polyline<Point<[f32; N], Real<N, B>>> {
+    /// Returns the sum of the lengths of the edges of `self`.
+    ///
+    /// # Examples
+    /// ```
+    /// use retrofire_core::geom::{Polyline, Edge};
+    /// use retrofire_core::math::{pt2, Point2};
+    ///
+    /// let pts: [Point2; _] = [pt2(0.0, 0.0), pt2(1.0, 0.0), pt2(1.0, -3.0)];
+    /// let pline = Polyline::new(pts);
+    ///
+    /// assert_eq!(pline.len(), 4.0);
+    /// ```
+    #[cfg(feature = "fp")]
+    pub fn len(&self) -> f32 {
+        self.len_by(Point::distance)
+    }
+}
+
 impl<T> Polygon<T> {
+    /// Creates a new polygon from an iterator of vertex points.
     pub fn new(verts: impl IntoIterator<Item = T>) -> Self {
         Self(verts.into_iter().collect())
     }
