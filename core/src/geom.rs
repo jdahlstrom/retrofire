@@ -1,10 +1,11 @@
 //! Basic geometric primitives.
 
 use alloc::vec::Vec;
+use core::fmt::Debug;
 
 use crate::math::{
     Affine, Lerp, Linear, Mat2x2, Mat4x4, Parametric, Point, Point2, Point3,
-    Vec2, Vec3, Vec4, Vector, mat::RealToReal, space::Real, vec2, vec3,
+    Vec2, Vec3, Vector, mat::RealToReal, space::Real, vec2, vec3,
 };
 use crate::render::Model;
 
@@ -368,7 +369,8 @@ impl<B> Plane3<B> {
     #[inline]
     pub fn offset(&self) -> f32 {
         let [a, b, c, d] = self.0.0;
-        return -d / <Vec3>::new([a, b, c]).len();
+        let v = vec3::<_, ()>(a, b, c);
+        -d / v.len()
     }
 
     /*
@@ -428,10 +430,23 @@ impl<B> Plane3<B> {
     /// ```
     pub fn project(&self, pt: Point3<B>) -> Point3<B> {
         // t = -(plane dot orig) / (plane dot dir)
-        // In this special case plane dot dir == 1
-        let d = self.normal().to();
-        let t = -self.signed_dist(pt);
-        pt + t * d
+        // In this case dir is parallel to plane normal
+
+        let dir = self.abc().to();
+
+        // TODO add to_homog()/to_real() methods
+        let pt_hom = [pt.x(), pt.y(), pt.z(), 1.0].into();
+
+        // Use homogeneous pt to get self · pt = ax + by + cz + d
+        // Could also just add d manually to ax + by + cz
+        let plane_dot_orig = self.0.dot(&pt_hom);
+
+        // Vector, so w = 0, so dir_hom · dir_hom = dir · dir
+        let plane_dot_dir = dir.len_sqr(); // = dir · dir
+
+        let t = -plane_dot_orig / plane_dot_dir;
+
+        pt + t * dir
     }
 
     /// Returns the signed distance of a point to `self`.
@@ -455,8 +470,9 @@ impl<B> Plane3<B> {
     #[inline]
     pub fn signed_dist(&self, pt: Point3<B>) -> f32 {
         // TODO use to_homog once committed
-        let pt = Vector::new([pt.x(), pt.y(), pt.z(), 1.0]);
-        self.0.dot(&pt)
+        let pt = [pt.x(), pt.y(), pt.z(), 1.0].into();
+        let len = self.abc().len();
+        self.0.dot(&pt) / len
     }
 
     /// Returns whether a point is in the half-space that the normal of `self`
@@ -485,24 +501,24 @@ impl<B> Plane3<B> {
     /// two arbitrary orthogonal unit vectors tangent to the plane. The origin
     /// point is the point on the plane closest to the origin.
     pub fn basis<T>(&self) -> Mat4x4<RealToReal<3, B, T>> {
-        let y = self.normal();
+        let y = self.abc().to::<Real<3, T>>();
 
         let x = if y.x().abs() < y.y().abs() && y.x().abs() < y.z().abs() {
-            Vec3::X
+            Vec3::<T>::X
         } else {
             Vec3::Z
         };
         let z = x.cross(&y).normalize();
-        let x = y.cross(&z);
+        let x = y.normalize().cross(&z);
 
         let t = self.0[3] * y;
-        [
-            [x.x(), y.x(), z.x(), t.x()],
-            [x.y(), y.y(), z.y(), t.y()],
-            [x.z(), y.z(), z.z(), t.z()],
-            [0.0, 0.0, 0.0, 1.0],
-        ]
-        .into()
+
+        Mat4x4::from_affine(t.to_pt(), x, y, z)
+    }
+
+    /// Helper that returns the plane normal non-normalized.
+    fn abc(&self) -> Vec3 {
+        vec3(self.0.x(), self.0.y(), self.0.z())
     }
 }
 
@@ -663,19 +679,18 @@ impl<T: Lerp + Clone> Parametric<T> for Polyline<T> {
     /// assert_eq!(pl.eval(7.68), pl.eval(1.0));
     /// ```
     fn eval(&self, t: f32) -> T {
-        assert!(!self.0.is_empty(), "cannot eval an empty polyline");
+        let pts = &self.0;
+        assert!(!pts.is_empty(), "cannot eval an empty polyline");
 
-        let max = self.0.len() as f32 - 1.0;
-        let i = 0.0.lerp(&max, t.clamp(0.0, 1.0));
+        let max = pts.len() - 1;
+        let i = t.clamp(0.0, 1.0) * max as f32;
         let t_rem = i % 1.0;
         let i = i as usize;
 
-        if i == max as usize {
-            self.0[i].clone()
+        if i == max {
+            pts[i].clone()
         } else {
-            let p0 = &self.0[i];
-            let p1 = &self.0[i + 1];
-            p0.lerp(p1, t_rem)
+            pts[i].lerp(&pts[i + 1], t_rem)
         }
     }
 }
@@ -692,9 +707,9 @@ impl<P: Lerp, A: Lerp> Lerp for Vertex<P, A> {
 
 #[cfg(test)]
 mod tests {
-    use crate::assert_approx_eq;
-    use crate::math::*;
     use alloc::vec;
+
+    use crate::math::*;
 
     use super::*;
 
@@ -710,7 +725,7 @@ mod tests {
 
     #[test]
     fn triangle_winding_2_cw() {
-        let tri = tri(pt2(-1.0, -1.0), pt2(1.0, 1.0), pt2(1.0, 0.0));
+        let tri = tri(pt2(-1.0, 0.0), pt2(0.0, 1.0), pt2(1.0, -1.0));
         assert_eq!(tri.winding(), Winding::Cw);
     }
     #[test]
@@ -721,13 +736,13 @@ mod tests {
     #[test]
     fn triangle_winding_3_cw() {
         let tri =
-            tri(pt3(0.0, 0.0, 0.0), pt3(1.0, 0.0, 0.0), pt3(0.0, 1.0, 0.0));
-        assert_eq!(tri.winding(), Winding::Ccw);
+            tri(pt3(-1.0, 0.0, 0.0), pt3(0.0, 1.0, 1.0), pt3(1.0, -1.0, 0.0));
+        assert_eq!(tri.winding(), Winding::Cw);
     }
     #[test]
     fn triangle_winding_3_ccw() {
         let tri =
-            tri(pt3(0.0, 0.0, 0.0), pt3(1.0, 0.0, 0.0), pt3(0.0, 1.0, 0.0));
+            tri(pt3(-1.0, 0.0, 0.0), pt3(1.0, 0.0, 0.0), pt3(0.0, 1.0, -1.0));
         assert_eq!(tri.winding(), Winding::Ccw);
     }
 
@@ -878,7 +893,11 @@ mod tests {
         let p: Plane3 =
             Plane3::from_point_and_normal(pt3(0.0, 2.0, 0.0), Vec3::Y);
 
+        // Outside
         assert_eq!(p.project(pt3(5.0, 10.0, -3.0)), pt3(5.0, 2.0, -3.0));
+        // Coincident
+        assert_eq!(p.project(pt3(5.0, 2.0, -3.0)), pt3(5.0, 2.0, -3.0));
+        // Inside
         assert_eq!(p.project(pt3(5.0, -10.0, -3.0)), pt3(5.0, 2.0, -3.0));
     }
 
