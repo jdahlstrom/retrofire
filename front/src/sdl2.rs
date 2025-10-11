@@ -13,8 +13,8 @@ use sdl2::{
 
 use retrofire_core::math::{Color4, Vary};
 use retrofire_core::render::{
-    Context, FragmentShader, Target, raster::Scanline, stats::Throughput,
-    target::Colorbuf, target::rasterize_fb,
+    Colorbuf, Context, FragmentShader, Target, raster::Scanline,
+    stats::Throughput, target::rasterize_fb,
 };
 use retrofire_core::util::{
     Dims,

@@ -6,7 +6,7 @@ use std::time::Instant;
 use minifb::{Key, WindowOptions};
 
 use retrofire_core::{
-    render::{Context, target, target::Colorbuf},
+    render::{Colorbuf, Context, target},
     util::{Dims, buf::Buf2, buf::MutSlice2, pixfmt::Xrgb8888},
 };
 
