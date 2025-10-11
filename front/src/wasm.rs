@@ -24,7 +24,7 @@ use crate::{Frame, dims::SVGA_800_600};
 
 use retrofire_core::{
     math::color::rgba,
-    render::{Context, Stats, target, target::Colorbuf},
+    render::{Colorbuf, Context, Stats, target},
     util::buf::{AsMutSlice2, Buf2, MutSlice2},
     util::{Dims, pixfmt::Argb8888},
 };

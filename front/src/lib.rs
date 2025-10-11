@@ -7,7 +7,7 @@ use core::time::Duration;
 
 use retrofire_core::{
     math::Color4,
-    render::{Context, Framebuf, target::Colorbuf},
+    render::{Colorbuf, Context, Framebuf},
     util::{buf::AsMutSlice2, pixfmt::IntoPixel},
 };
 
