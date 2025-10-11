@@ -60,43 +60,20 @@ where
     Color4: IntoPixel<u32, Fmt>,
 {
     /// Rasterizes `scanline` into this framebuffer.
-    fn rasterize<V, Fs>(
+    fn rasterize<V: Vary, Fs: FragmentShader<V>>(
         &mut self,
-        mut sl: Scanline<V>,
+        sl: Scanline<V>,
         fs: &Fs,
         ctx: &Context,
-    ) -> Throughput
-    where
-        V: Vary,
-        Fs: FragmentShader<V>,
-    {
-        let x0 = sl.xs.start;
-        let x1 = sl.xs.end.max(x0);
-        let cbuf_span = &mut self.color_buf.as_mut_slice2()[sl.y][x0..x1];
-        let zbuf_span = &mut self.depth_buf.as_mut_slice2()[sl.y][x0..x1];
-
-        let mut io = Throughput { i: x1 - x0, o: 0 };
-
-        sl.fragments()
-            .zip(cbuf_span)
-            .zip(zbuf_span)
-            .for_each(|((frag, curr_col), curr_z)| {
-                let new_z = frag.pos.z();
-
-                if ctx.depth_test(new_z, *curr_z)
-                    && let Some(new_col) = fs.shade_fragment(frag)
-                {
-                    if ctx.color_write {
-                        io.o += 1;
-                        // TODO Blending should happen here
-                        *curr_col = new_col.into_pixel()
-                    }
-                    if ctx.depth_write {
-                        *curr_z = new_z;
-                    }
-                }
-            });
-        io
+    ) -> Throughput {
+        rasterize_fb(
+            &mut self.color_buf,
+            &mut self.depth_buf,
+            sl,
+            fs,
+            Color4::into_pixel,
+            ctx,
+        )
     }
 }
 
@@ -107,51 +84,39 @@ where
 {
     /// Rasterizes `scanline` into this `u32` color buffer.
     /// Does no z-buffering.
-    fn rasterize<V, Fs>(
+    fn rasterize<V: Vary, Fs: FragmentShader<V>>(
         &mut self,
         sl: Scanline<V>,
         fs: &Fs,
         ctx: &Context,
-    ) -> Throughput
-    where
-        V: Vary,
-        Fs: FragmentShader<V>,
-    {
-        rasterize(&mut self.buf, sl, fs, |c| c.into_pixel(), ctx)
+    ) -> Throughput {
+        rasterize(&mut self.buf, sl, fs, Color4::into_pixel, ctx)
     }
 }
 
 impl Target for Buf2<Color4> {
-    fn rasterize<V, Fs>(
+    fn rasterize<V: Vary, Fs: FragmentShader<V>>(
         &mut self,
         sl: Scanline<V>,
         fs: &Fs,
         ctx: &Context,
-    ) -> Throughput
-    where
-        V: Vary,
-        Fs: FragmentShader<V>,
-    {
+    ) -> Throughput {
         rasterize(self, sl, fs, |c| c, ctx)
     }
 }
 
 impl Target for Buf2<Color3> {
-    fn rasterize<V, Fs>(
+    fn rasterize<V: Vary, Fs: FragmentShader<V>>(
         &mut self,
         sl: Scanline<V>,
         fs: &Fs,
         ctx: &Context,
-    ) -> Throughput
-    where
-        V: Vary,
-        Fs: FragmentShader<V>,
-    {
+    ) -> Throughput {
         rasterize(self, sl, fs, |c| c.to_rgb(), ctx)
     }
 }
 
-fn rasterize<T, V: Vary>(
+pub fn rasterize<T, V: Vary>(
     buf: &mut impl AsMutSlice2<T>,
     mut sl: Scanline<V>,
     fs: &impl FragmentShader<V>,
@@ -171,6 +136,43 @@ fn rasterize<T, V: Vary>(
             {
                 io.o += 1;
                 *curr_col = conv(new_col);
+            }
+        });
+    io
+}
+
+pub fn rasterize_fb<T, V: Vary>(
+    cbuf: &mut impl AsMutSlice2<T>,
+    zbuf: &mut impl AsMutSlice2<f32>,
+    mut sl: Scanline<V>,
+    fs: &impl FragmentShader<V>,
+    mut conv: impl FnMut(Color4) -> T,
+    ctx: &Context,
+) -> Throughput {
+    let x0 = sl.xs.start;
+    let x1 = sl.xs.end.max(x0);
+    let cbuf_span = &mut cbuf.as_mut_slice2()[sl.y][x0..x1];
+    let zbuf_span = &mut zbuf.as_mut_slice2()[sl.y][x0..x1];
+
+    let mut io = Throughput { i: x1 - x0, o: 0 };
+
+    sl.fragments()
+        .zip(cbuf_span)
+        .zip(zbuf_span)
+        .for_each(|((frag, curr_col), curr_z)| {
+            let new_z = frag.pos.z();
+
+            if ctx.depth_test(new_z, *curr_z)
+                && let Some(new_col) = fs.shade_fragment(frag)
+            {
+                if ctx.color_write {
+                    io.o += 1;
+                    // TODO Blending should happen here
+                    *curr_col = conv(new_col);
+                }
+                if ctx.depth_write {
+                    *curr_z = new_z;
+                }
             }
         });
     io
