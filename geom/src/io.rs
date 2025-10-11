@@ -461,12 +461,18 @@ v 0.0 -2.0 0.0
     }
 
     #[test]
-    fn exp_notation() {
+    fn float_formats() {
         let input = *br"
-            v -1.0e0 0.2e1  3.0e-2
-            f 1 1 1";
+            v 1 -2 +3
+            v 1.0 -2.0 +3.0
+            v .1 -.2 +.3
+            v 1. -2. +3.
+            v 1.0e0 -0.2e1  +300.0e-2
+            f 1 2 3
+            f 3 4 5";
         let mesh: Mesh<()> = parse_obj(input).unwrap().build();
-        assert_eq!(mesh.verts[0].pos, pt3(-1.0, 2.0, 0.03));
+        assert_eq!(mesh.verts[0].pos, pt3(1.0, -2.0, 3.0));
+        assert_eq!(mesh.verts[4].pos, pt3(1.0, -2.0, 3.0));
     }
 
     #[test]
