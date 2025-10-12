@@ -53,7 +53,7 @@ fn main() {
         .build()
         .expect("should create window");
 
-    win.ctx.color_clear = Some(gray(32).to_rgba());
+    win.ctx.color_clear = Some(gray(0xFF).to_rgba());
 
     let (w, h) = win.dims;
     let cam = Camera::new(win.dims)
@@ -82,7 +82,7 @@ fn main() {
 
     let shader = shader::new(vtx_shader, frag_shader);
 
-    let objects = objects(8);
+    let objects = objects_n(8);
 
     let translate = translate(-4.0 * Vec3::Z);
     let mut carousel = Carousel::default();
@@ -95,7 +95,7 @@ fn main() {
             carousel.start();
         }
 
-        let theta = rads(t.as_secs_f32());
+        let theta = rads(t.as_secs_f32() * 0.0);
         let spin = rotate_x(theta * 0.47).then(&rotate_y(theta * 0.61));
         let carouse = carousel.update(dt.as_secs_f32());
 
@@ -123,7 +123,7 @@ fn main() {
 
 // Creates the 13 objects exhibited.
 #[rustfmt::skip]
-fn objects(res: u32) -> [Mesh<Normal3>; 13] {
+fn objects_n(res: u32) -> [Mesh<Normal3>; 14] {
     let segments = res;
     let sectors = 2 * res;
 
@@ -133,6 +133,7 @@ fn objects(res: u32) -> [Mesh<Normal3>; 13] {
     let major_sectors = 3 * res;
     let minor_sectors = 2 * res;
     [
+        dragon(),
         // The five Platonic solids
         Tetrahedron.build(),
         Cube { side_len: 1.25 }.build(),
@@ -157,11 +158,11 @@ fn objects(res: u32) -> [Mesh<Normal3>; 13] {
 // Creates a Lathe mesh.
 fn lathe(secs: u32) -> Mesh<Normal3> {
     let pts = [
-        vertex(pt2(0.75, -0.5), vec2(1.0, 1.0)),
-        vertex(pt2(0.55, -0.25), vec2(1.0, 0.5)),
+        vertex(pt2(0.75, -0.5), vec2(1.0, 1.0).normalize()),
+        vertex(pt2(0.55, -0.25), vec2(1.0, 0.5).normalize()),
         vertex(pt2(0.5, 0.0), vec2(1.0, 0.0)),
-        vertex(pt2(0.55, 0.25), vec2(1.0, -0.5)),
-        vertex(pt2(0.75, 0.5), vec2(1.0, -1.0)),
+        vertex(pt2(0.55, 0.25), vec2(1.0, -0.5).normalize()),
+        vertex(pt2(0.75, 0.5), vec2(1.0, -1.0).normalize()),
     ];
     Lathe::new(Polyline::new(pts), secs, pts.len() as u32)
         .capped(true)
@@ -170,14 +171,14 @@ fn lathe(secs: u32) -> Mesh<Normal3> {
 
 // Loads the Utah teapot model.
 fn teapot() -> Mesh<Normal3> {
-    parse_obj::<()>(*include_bytes!("../../assets/teapot.obj"))
+    parse_obj(*include_bytes!("../../assets/teapot.obj"))
         .unwrap()
         .transform(
-            &scale(splat(0.4))
+            &scale(splat(0.3))
                 .then(&translate(-0.5 * Vec3::Y))
                 .to(),
         )
-        .with_vertex_normals()
+        //.with_vertex_normals()
         .build()
 }
 
@@ -187,5 +188,20 @@ fn bunny() -> Mesh<Normal3> {
         .unwrap()
         .transform(&scale(splat(0.15)).then(&translate(-Vec3::Y)).to())
         .with_vertex_normals()
+        .build()
+}
+
+// Loads the Stanford dragon model.
+fn dragon() -> Mesh<Normal3> {
+    static DRAGON: &[u8] = include_bytes!("../../assets/dragon.obj");
+    parse_obj::<()>(DRAGON.iter().copied())
+        .unwrap()
+        .with_vertex_normals()
+        .transform(
+            &scale(splat(0.25))
+                .then(&translate(-1.2 * Vec3::Y))
+                .to(),
+        )
+        //.with_vertex_normals()
         .build()
 }
