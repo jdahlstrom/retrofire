@@ -42,6 +42,9 @@ use core::{
     fmt::{self, Display, Formatter},
     num::{ParseFloatError, ParseIntError},
 };
+use re::geom::{Mesh, Normal3, Tri, mesh::Builder, vertex};
+use re::math::{Point3, Vec3, vec3};
+use re::render::{Model, TexCoord, uv};
 #[cfg(feature = "std")]
 use std::{
     fs::File,
@@ -49,15 +52,16 @@ use std::{
     path::Path,
 };
 
-use re::geom::{Mesh, Normal3, Tri, mesh::Builder, vertex};
-use re::math::{Point3, Vec3, vec3};
-use re::render::{Model, TexCoord, uv};
-
-use Error::*;
+use ErrorKind::*;
 
 /// Represents errors that may occur during reading OBJ data.
 #[derive(Debug)]
-pub enum Error {
+pub struct Error {
+    pub kind: ErrorKind,
+    pub line_no: u32,
+}
+#[derive(Debug)]
+pub enum ErrorKind {
     #[cfg(feature = "std")]
     /// An input/output error while reading from a [`Read`].
     Io(std::io::Error),
@@ -65,8 +69,10 @@ pub enum Error {
     UnsupportedItem(Vec<u8>),
     /// Unexpected end of line or input.
     UnexpectedEnd,
-    /// An invalid integer or floating-point value.
-    InvalidValue,
+    /// An invalid index value.
+    InvalidIndex,
+    /// An invalid floating-point value.
+    InvalidNumber,
     /// A vertex attribute index that refers to a nonexistent attribute.
     IndexOutOfBounds(&'static str, usize),
     /// Requested vertex attribute not contained in input
@@ -79,6 +85,9 @@ pub struct Obj {
     coords: Vec<Point3<Model>>,
     norms: Vec<Normal3>,
     texcs: Vec<TexCoord>,
+
+    curr_line: String,
+    line_no: u32,
 }
 
 pub type Result<T> = core::result::Result<T, Error>;
@@ -102,7 +111,7 @@ enum Face {
 /// Returns [`Error`] if I/O or OBJ parsing fails.
 #[cfg(feature = "std")]
 pub fn load_obj(path: impl AsRef<Path>) -> Result<Builder<()>> {
-    read_obj(File::open(path)?)
+    read_obj(File::open(path).map_err(|e| Error { line_no: 0, kind: Io(e) })?)
 }
 
 /// Reads an OBJ format mesh from input.
@@ -115,7 +124,7 @@ pub fn read_obj(input: impl Read) -> Result<Builder<()>> {
     let mut io_res: Result<()> = Ok(());
     let res = parse_obj(input.bytes().map_while(|r| match r {
         Err(e) => {
-            io_res = Err(e.into());
+            io_res = Err(Error { line_no: 0, kind: e.into() });
             None
         }
         Ok(b) => Some(b),
@@ -131,89 +140,101 @@ pub fn parse_obj<A>(src: impl IntoIterator<Item = u8>) -> Result<Builder<A>>
 where
     Builder<A>: TryFrom<Obj, Error = Error>,
 {
-    let mut obj = Obj::default();
-    let Obj { faces, coords, norms, texcs } = &mut obj;
+    fn parse_obj_(src: &mut dyn Iterator<Item = u8>) -> Result<Obj> {
+        let mut obj = Obj::default();
 
-    let mut max_i = Indices::default();
-    let mut line = String::new();
+        let mut max_i = Indices::default();
+        let mut line = String::new();
 
-    let mut it = src.into_iter().peekable();
-    while it.peek().is_some() {
-        // Reuse allocation
-        line.clear();
-        line.extend(
-            (&mut it)
-                .map(char::from)
-                .take_while(|&c| c != '\n'),
-        );
+        let mut bytes = src.peekable();
+        while bytes.peek().is_some() {
+            // Reuse allocation
+            line.clear();
+            line.extend(
+                (&mut bytes)
+                    .map(char::from)
+                    .take_while(|&c| c != '\n'),
+            );
+            obj.line_no += 1;
 
-        let tokens = &mut line.split_ascii_whitespace();
-        match tokens.next().unwrap_or("").as_bytes() {
-            // Skip empty lines and comments
-            | b"" | [b'#', ..]
-            // Skip group or material definitions for now
-            | b"g" | b"mtllib" | b"usemtl"
-            // Skip smoothing group names for now
-            | b"s" => continue,
+            let tokens = &mut line.split_ascii_whitespace();
+            match tokens.next().unwrap_or("").as_bytes() {
+                // Skip empty lines and comments
+                | b"" | [b'#', ..]
+                // Skip group or material definitions for now
+                | b"g" | b"mtllib" | b"usemtl"
+                // Skip smoothing group names for now
+                | b"s" => continue,
 
-            // Vertex coordinate
-            b"v" => coords.push(parse_point(tokens)?),
-            // Texture coordinate
-            b"vt" => texcs.push(parse_texcoord(tokens)?),
-            // Normal vector
-            b"vn" => norms.push(parse_normal(tokens)?),
+                // Vertex coordinate
+                b"v" => obj.coords.push(obj.parse_vector(tokens)?.to_pt()),
+                // Texture coordinate
+                b"vt" => obj.texcs.push(obj.parse_texcoord(tokens)?),
+                // Normal vector
+                b"vn" => obj.norms.push(obj.parse_vector(tokens)?.to()),
 
-            // Face
-            b"f" => {
-                let face = parse_face(tokens)?;
+                // Face
+                b"f" => {
+                    let face = obj.parse_face(tokens)?;
 
-                let indices = match &face {
-                    Face::Tri(is) => is.as_slice(),
-                    Face::Quad(is) => is.as_slice(),
-                };
+                    let indices: &[_] = match &face {
+                        Face::Tri(is) => is,
+                        Face::Quad(is) => is,
+                    };
 
-                if max_i.n.is_some() && indices[0].n.is_none() {
-                    todo!("return error if not all faces have normals")
+                    if max_i.n.is_some() && indices[0].n.is_none() {
+                        todo!("return error if not all faces have normals")
+                    }
+                    if max_i.uv.is_some() && indices[0].uv.is_none() {
+                        todo!("return error if not all faces have texcoords")
+                    }
+
+                    // Keep track of max indices to report error at the end of
+                    // parsing if there turned out to be out-of-bounds indices
+                    // TODO also record line for error reporting
+                    for i in indices {
+                        max_i.pos = max_i.pos.max(i.pos);
+                        max_i.uv = max_i.uv.max(i.uv);
+                        max_i.n = max_i.n.max(i.n);
+                    }
+                    match *indices {
+                        [a, b, c] => obj.faces.push(Tri([a, b, c])),
+                        [a, b, c, d] => {
+                            obj.faces.push(Tri([a, b, c]));
+                            obj.faces.push(Tri([a, c, d]));
+                        },
+                        _ => unreachable!("source is either Face::Tri or Face::Quad"),
+                    };
                 }
-                if max_i.uv.is_some() && indices[0].uv.is_none() {
-                    todo!("return error if not all faces have texcoords")
+                // TODO Ignore unsupported lines instead?
+                other => {
+                    return obj.err(UnsupportedItem(other.to_vec()));
                 }
-
-                // Keep track of max indices to report error at the end of
-                // parsing if there turned out to be out-of-bounds indices
-                for i in indices {
-                    max_i.pos = max_i.pos.max(i.pos);
-                    max_i.uv = max_i.uv.max(i.uv);
-                    max_i.n = max_i.n.max(i.n);
-                }
-                if let [a, b, c] = *indices {
-                    faces.push(Tri([a, b, c]));
-                } else if let [a, b, c, d] = *indices {
-                    faces.push(Tri([a, b, c]));
-                    faces.push(Tri([a, c, d]));
-                }
-            }
-            // TODO Ignore unsupported lines instead?
-            other => {
-                return Err(UnsupportedItem(other.to_vec()));
             }
         }
-    }
 
-    if !coords.is_empty() && max_i.pos >= coords.len() {
-        return Err(IndexOutOfBounds("vertex", max_i.pos));
+        if !obj.coords.is_empty() && max_i.pos >= obj.coords.len() {
+            return obj.err(IndexOutOfBounds("vertex", max_i.pos));
+        }
+        if let Some(uv) = max_i.uv
+            && uv >= obj.texcs.len()
+        {
+            return obj.err(IndexOutOfBounds("texcoord", uv));
+        }
+        if let Some(n) = max_i.n
+            && n >= obj.norms.len()
+        {
+            return obj.err(IndexOutOfBounds("normal", n));
+        }
+        Ok(obj)
     }
-    if let Some(uv) = max_i.uv
-        && uv >= texcs.len()
-    {
-        return Err(IndexOutOfBounds("texcoord", uv));
+    parse_obj_(&mut src.into_iter())?.try_into()
+}
+
+impl Obj {
+    fn err<T>(&self, kind: ErrorKind) -> Result<T> {
+        Err(Error { line_no: self.line_no, kind })
     }
-    if let Some(n) = max_i.n
-        && n >= norms.len()
-    {
-        return Err(IndexOutOfBounds("normal", n));
-    }
-    obj.try_into()
 }
 
 impl TryFrom<Obj> for Builder<()> {
@@ -228,7 +249,7 @@ impl TryFrom<Obj> for Builder<Normal3> {
 
     fn try_from(o: Obj) -> Result<Self> {
         if o.norms.is_empty() {
-            return Err(MissingVertexAttribType("normal"));
+            return o.err(MissingVertexAttribType("normal"));
         }
         o.try_into_with(|i| i.n.map(|ti| o.norms[ti]))
     }
@@ -238,7 +259,7 @@ impl TryFrom<Obj> for Builder<TexCoord> {
 
     fn try_from(o: Obj) -> Result<Self> {
         if o.texcs.is_empty() {
-            return Err(MissingVertexAttribType("texcoord"));
+            return o.err(MissingVertexAttribType("texcoord"));
         }
         o.try_into_with(|i| i.uv.map(|ti| o.texcs[ti]))
     }
@@ -248,10 +269,10 @@ impl TryFrom<Obj> for Builder<(Normal3, TexCoord)> {
 
     fn try_from(o: Obj) -> Result<Self> {
         if o.norms.is_empty() {
-            return Err(MissingVertexAttribType("normal"));
+            return o.err(MissingVertexAttribType("normal"));
         }
         if o.texcs.is_empty() {
-            return Err(MissingVertexAttribType("texcoord"));
+            return o.err(MissingVertexAttribType("texcoord"));
         }
         o.try_into_with(|i| {
             i.n.zip(i.uv)
@@ -267,97 +288,100 @@ impl Obj {
     ) -> Result<Builder<A>> {
         // HashMap not in alloc :(
         let mut map: BTreeMap<Indices, usize> = BTreeMap::new();
-
-        let mut faces = Vec::new();
-        let mut verts = Vec::new();
+        let mut bld = Builder::default();
 
         for Tri(indices) in &self.faces {
             if indices.iter().any(|i| attr_fn(i).is_none()) {
-                return Err(MissingVertexAttribType(""));
+                return self.err(MissingVertexAttribType(""));
             }
-            let indices = indices.map(|v| {
+            let [a, b, c] = indices.map(|v| {
                 *map.entry(v).or_insert_with(|| {
-                    verts.push(vertex(
+                    bld.mesh.verts.push(vertex(
                         self.coords[v.pos],
                         attr_fn(&v).unwrap(), // TODO
                     ));
-                    verts.len() - 1
+                    bld.mesh.verts.len() - 1
                 })
             });
-            faces.push(Tri(indices));
+            bld.push_face(a, b, c)
         }
-        Ok(Mesh::new(faces, verts).into_builder())
+        Ok(bld)
     }
-}
 
-fn next<'a>(i: &mut impl Iterator<Item = &'a str>) -> Result<&'a str> {
-    i.next().ok_or(UnexpectedEnd)
-}
-
-fn parse_face<'a>(i: &mut impl Iterator<Item = &'a str>) -> Result<Face> {
-    let a = parse_indices(next(i)?)?;
-    let b = parse_indices(next(i)?)?;
-    let c = parse_indices(next(i)?)?;
-    if let Some(d) = i.next() {
-        let d = parse_indices(d)?;
-        Ok(Face::Quad([a, b, c, d]))
-    } else {
-        Ok(Face::Tri([a, b, c]))
+    fn next<'a>(
+        &self,
+        i: &mut impl Iterator<Item = &'a str>,
+    ) -> Result<&'a str> {
+        match i.next() {
+            Some(next) => Ok(next),
+            None => self.err(UnexpectedEnd),
+        }
     }
-}
 
-fn parse_texcoord<'a>(
-    i: &mut impl Iterator<Item = &'a str>,
-) -> Result<TexCoord> {
-    let u = next(i)?.parse()?;
-    let v = next(i)?.parse()?;
-    Ok(uv(u, v))
-}
-
-fn parse_vector<'a>(
-    i: &mut impl Iterator<Item = &'a str>,
-) -> Result<Vec3<Model>> {
-    let x = next(i)?.parse()?;
-    let y = next(i)?.parse()?;
-    let z = next(i)?.parse()?;
-    Ok(vec3(x, y, z))
-}
-
-fn parse_normal<'a>(i: &mut impl Iterator<Item = &'a str>) -> Result<Normal3> {
-    Ok(parse_vector(i)?.to())
-}
-
-fn parse_point<'a>(
-    i: &mut impl Iterator<Item = &'a str>,
-) -> Result<Point3<Model>> {
-    Ok(parse_vector(i)?.to_pt())
-}
-
-fn parse_index(s: &str) -> Result<usize> {
-    // OBJ has one-based indices
-    Ok(s.parse::<usize>()? - 1)
-}
-
-fn parse_indices(param: &str) -> Result<Indices> {
-    let indices = &mut param.split('/');
-    let pos = next(indices).and_then(parse_index)?;
-    // Texcoord and normal are optional
-    let uv = if let Some(uv) = indices.next() {
-        if !uv.is_empty() {
-            Some(parse_index(uv)?)
+    fn parse_face<'a>(
+        &self,
+        i: &mut impl Iterator<Item = &'a str>,
+    ) -> Result<Face> {
+        let a = self.parse_indices(self.next(i)?)?;
+        let b = self.parse_indices(self.next(i)?)?;
+        let c = self.parse_indices(self.next(i)?)?;
+        if let Some(d) = i.next() {
+            let d = self.parse_indices(d)?;
+            Ok(Face::Quad([a, b, c, d]))
         } else {
-            // `1//2`: only position and normal
-            None
+            Ok(Face::Tri([a, b, c]))
         }
-    } else {
-        None
-    };
-    let n = if let Some(n) = indices.next() {
-        Some(parse_index(n)?)
-    } else {
-        None
-    };
-    Ok(Indices { pos, uv, n })
+    }
+
+    fn parse_texcoord<'a>(
+        &self,
+        i: &mut impl Iterator<Item = &'a str>,
+    ) -> Result<TexCoord> {
+        let u = self.parse_num(self.next(i)?)?;
+        let v = self.parse_num(self.next(i)?)?;
+        Ok(uv(u, v))
+    }
+
+    fn parse_vector<'a>(
+        &self,
+        i: &mut impl Iterator<Item = &'a str>,
+    ) -> Result<Vec3<Model>> {
+        let x = self.parse_num(self.next(i)?)?;
+        let y = self.parse_num(self.next(i)?)?;
+        let z = self.parse_num(self.next(i)?)?;
+        Ok(vec3(x, y, z))
+    }
+
+    fn parse_index(&self, s: &str) -> Result<usize> {
+        // OBJ has one-based indices
+        s.parse()
+            .map(|i: usize| i - 1)
+            .or_else(|_| self.err(InvalidIndex))
+    }
+
+    fn parse_num(&self, s: &str) -> Result<f32> {
+        s.parse().or_else(|_| self.err(InvalidNumber))
+    }
+
+    fn parse_indices(&self, param: &str) -> Result<Indices> {
+        let indices = &mut param.split('/');
+        let pos = self.parse_index(self.next(indices)?)?;
+
+        // Texcoord and normal are optional
+        let uv = if let Some(uv) = indices.next()
+            && !uv.is_empty()
+        {
+            Some(self.parse_index(uv)?)
+        } else {
+            None
+        };
+        let n = if let Some(n) = indices.next() {
+            Some(self.parse_index(n)?)
+        } else {
+            None
+        };
+        Ok(Indices { pos, uv, n })
+    }
 }
 
 //
@@ -366,7 +390,8 @@ fn parse_indices(param: &str) -> Result<Indices> {
 
 impl Display for Error {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
-        match self {
+        write!(f, "error at line {}: ", self.line_no)?;
+        match &self.kind {
             #[cfg(feature = "std")]
             Io(e) => write!(f, "I/O error: {e}"),
             UnsupportedItem(item) => {
@@ -374,7 +399,8 @@ impl Display for Error {
                 f.write_str(String::from_utf8_lossy(&item).as_ref())
             }
             UnexpectedEnd => f.write_str("unexpected end of input"),
-            InvalidValue => f.write_str("invalid numeric value"),
+            InvalidIndex => f.write_str("invalid index value"),
+            InvalidNumber => f.write_str("invalid numeric value"),
             IndexOutOfBounds(item, idx) => {
                 write!(f, "{item} index out of bounds: {idx}")
             }
@@ -389,7 +415,7 @@ impl Display for Error {
 impl core::error::Error for Error {
     fn source(&self) -> Option<&(dyn core::error::Error + 'static)> {
         #[cfg(feature = "std")]
-        if let Io(e) = self {
+        if let Io(e) = &self.kind {
             return Some(e);
         }
         None
@@ -397,19 +423,19 @@ impl core::error::Error for Error {
 }
 
 #[cfg(feature = "std")]
-impl From<std::io::Error> for Error {
+impl From<std::io::Error> for ErrorKind {
     fn from(e: std::io::Error) -> Self {
         Io(e)
     }
 }
-impl From<ParseFloatError> for Error {
+impl From<ParseFloatError> for ErrorKind {
     fn from(_: ParseFloatError) -> Self {
-        InvalidValue
+        InvalidNumber
     }
 }
-impl From<ParseIntError> for Error {
+impl From<ParseIntError> for ErrorKind {
     fn from(_: ParseIntError) -> Self {
-        InvalidValue
+        InvalidIndex
     }
 }
 
@@ -438,7 +464,7 @@ mod tests {
 # comment
 f 1 2 4
  f 4 1 3
-#anothercomment
+#comment without whitespace after hash
     v 0.0 0.0       0.0
 v       1.0 0.0 0.0
   # comment with leading whitespace
@@ -509,6 +535,7 @@ v 0.0 -2.0 0.0
 
         let m @ Mesh::<(Normal3, TexCoord)> { faces, verts } =
             &parse_obj(input).unwrap().build();
+
         assert_eq!(faces.len(), 2);
         assert_eq!(verts.len(), 5);
 
@@ -619,7 +646,8 @@ v 0.0 -2.0 0.0
     fn unknown_item() {
         let result = parse_obj::<()>(*b"f 1 2 3\nxyz 4 5 6");
         assert!(
-            matches!(&result, Err(UnsupportedItem(item)) if item == b"xyz"),
+            matches!(&result, Err(Error { line_no: 2, kind: UnsupportedItem(item) }) if item ==
+                b"xyz"),
             "actual was: {result:?}"
         );
     }
@@ -629,7 +657,13 @@ v 0.0 -2.0 0.0
         let input = *b"f 1 2 3\nv 0.0 0.0 0.0\nv 1.0 1.0 1.0";
         let result = parse_obj::<()>(input);
         assert!(
-            matches!(result, Err(IndexOutOfBounds("vertex", 2))),
+            matches!(
+                result,
+                Err(Error {
+                    line_no: 3,
+                    kind: IndexOutOfBounds("vertex", 2)
+                })
+            ),
             "actual was: {result:?}",
         );
     }
@@ -638,7 +672,13 @@ v 0.0 -2.0 0.0
         let input = *b"f 1/1 1/4 1/2\nv 0.0 0.0 0.0\nvt 0.0 0.0\nvt 0.0 1.0";
         let result = parse_obj::<()>(input);
         assert!(
-            matches!(result, Err(IndexOutOfBounds("texcoord", 3))),
+            matches!(
+                result,
+                Err(Error {
+                    line_no: 4, // TODO incorrect
+                    kind: IndexOutOfBounds("texcoord", 3)
+                })
+            ),
             "actual was: {result:?}",
         );
     }
@@ -647,7 +687,13 @@ v 0.0 -2.0 0.0
     fn unexpected_end_of_input() {
         let input = *b"f";
         let result = parse_obj::<()>(input);
-        assert!(matches!(result, Err(UnexpectedEnd)));
+        assert!(matches!(
+            result,
+            Err(Error {
+                line_no: 1,
+                kind: UnexpectedEnd
+            })
+        ));
     }
 
     #[test]
