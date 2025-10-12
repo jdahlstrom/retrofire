@@ -4,7 +4,7 @@ use alloc::vec::Vec;
 use core::ops::Range;
 
 use re::geom::{
-    Mesh, Normal2, Normal3, Polyline, Vertex, Vertex2, Vertex3, mesh::Builder,
+    Mesh, Normal2, Normal3, Polyline, Tri, Vertex, Vertex2, Vertex3, tri,
     vertex,
 };
 use re::math::{
@@ -108,78 +108,104 @@ impl<P: Parametric<Vertex2<Normal2, ()>>> Lathe<P> {
         let caps = 2 * self.capped as usize;
         let n_faces = segs * secs * 2 + (secs - 2) * caps;
         let n_verts = verts_per_sec * (secs + 1) + secs * caps;
+        let mut m =
+            Mesh::new(Vec::with_capacity(n_faces), Vec::with_capacity(n_verts));
 
-        let mut b =
-            Mesh::new(Vec::with_capacity(n_faces), Vec::with_capacity(n_verts))
-                .into_builder();
+        m.faces = create_faces(secs, verts_per_sec);
 
-        let Range { start, end } = self.az_range;
-        let rot = rotate_y((end - start) / secs as f32);
-        let start = rotate_y(start);
+        m.verts = create_verts(
+            &mut f,
+            &self.points,
+            secs,
+            verts_per_sec,
+            self.az_range,
+        );
 
-        // Create vertices
-        for (v, Vertex { pos, attrib: n }) in 0.0
-            .vary_to(1.0, verts_per_sec as u32)
-            .map(|t| (t, self.points.eval(t)))
-        {
-            let mut pos = start.apply_pt(&pos.to_pt3());
-            let mut norm = start.apply(&n.to_vec3());
-
-            for u in 0..=secs {
-                let v = f(pos.to(), norm, uv(u as f32 / secs as f32, v));
-                b.push_vert(v.pos.to(), v.attrib);
-
-                pos = rot.apply_pt(&pos);
-                norm = rot.apply(&norm);
-            }
-        }
-        // Create faces
-        for j in 1..verts_per_sec {
-            let n = secs + 1;
-            for i in 1..n {
-                let p = (j - 1) * n + i - 1;
-                let q = (j - 1) * n + i;
-                let r = j * n + i - 1;
-                let s = j * n + i;
-                b.push_face(p, s, q);
-                b.push_face(p, r, s);
-            }
-        }
         // Create optional caps
         if self.capped && verts_per_sec > 0 {
-            let l = b.mesh.verts.len();
+            let l = m.verts.len();
             // Duplicate the bottom ring of vertices to make the bottom cap...
-            Self::make_cap(&mut b, &mut f, 0..secs, -Vec3::Y);
+            make_cap(&mut m, &mut f, 0..secs, -Vec3::Y);
             // ...and the top vertices to make the top cap
-            Self::make_cap(&mut b, &mut f, l - secs..l, Vec3::Y);
+            make_cap(&mut m, &mut f, l - secs..l, Vec3::Y);
         }
-        b.build()
+        m
+    }
+}
+
+#[inline(never)]
+fn create_faces(secs: usize, verts_per_sec: usize) -> Vec<Tri<usize>> {
+    let mut res = Vec::new();
+    for j in 1..verts_per_sec {
+        let n = secs + 1;
+        for i in 1..n {
+            let p = (j - 1) * n + i - 1;
+            let q = (j - 1) * n + i;
+            let r = j * n + i - 1;
+            let s = j * n + i;
+            // TODO could alternate direction of diagonal
+            //    - or support quads
+            // _____       _____
+            // |/|/|  ->   |\|/|
+            // |/|/|       |/|\|
+            res.push(tri(p, s, q));
+            res.push(tri(p, r, s));
+        }
+    }
+    res
+}
+
+#[inline(never)]
+fn create_verts<A>(
+    f: &mut dyn FnMut(Point3, Normal3, TexCoord) -> Vertex3<A>,
+    pts: &dyn Parametric<Vertex2<Normal2, ()>>,
+    secs: usize,
+    verts_per_sec: usize,
+    az_range: Range<Angle>,
+) -> Vec<Vertex3<A>> {
+    let Range { start, end } = az_range;
+    let rot = rotate_y((end - start) / secs as f32);
+    let start = rotate_y(start);
+    let mut res = Vec::new();
+
+    // Create vertices
+    for (v, Vertex { pos, attrib: n }) in 0.0
+        .vary_to(1.0, verts_per_sec as u32)
+        .map(|t| (t, pts.eval(t)))
+    {
+        let mut pos = start.apply_pt(&pos.to_pt3());
+        let mut norm = start.apply(&n.to_vec3());
+
+        for u in 0..=secs {
+            let v = f(pos.to(), norm, uv(u as f32 / secs as f32, v));
+            res.push(v);
+
+            pos = rot.apply_pt(&pos);
+            norm = rot.apply(&norm);
+        }
+    }
+    res
+}
+
+fn make_cap<A, F>(m: &mut Mesh<A>, f: &mut F, rg: Range<usize>, n: Normal3)
+where
+    F: FnMut(Point3, Normal3, TexCoord) -> Vertex3<A>,
+{
+    let verts = &mut m.verts;
+    let secs = rg.len();
+    let l = verts.len();
+
+    verts.reserve(secs);
+    for i in rg {
+        let p = verts[i].pos.to();
+        let uv = uv(0.0, 0.0); // TODO
+        verts.push(f(p, n, uv));
     }
 
-    fn make_cap<A, F>(
-        b: &mut Builder<A>,
-        f: &mut F,
-        rg: Range<usize>,
-        n: Normal3,
-    ) where
-        F: FnMut(Point3, Normal3, TexCoord) -> Vertex3<A>,
-    {
-        let verts = &mut b.mesh.verts;
-        let secs = rg.len();
-        let l = verts.len();
-
-        verts.reserve(secs);
-        for i in rg {
-            let p = verts[i].pos.to();
-            let uv = uv(0.0, 0.0); // TODO
-            verts.push(f(p, n, uv));
-        }
-
-        // Adjust winding depending on whether top or bottom
-        let (j, k) = if n.y() < 0.0 { (0, 1) } else { (1, 0) };
-        for i in 1..secs - 1 {
-            b.push_face(l, l + i + j, l + i + k);
-        }
+    // Adjust winding depending on whether top or bottom
+    let (j, k) = if n.y() < 0.0 { (0, 1) } else { (1, 0) };
+    for i in 1..secs - 1 {
+        m.faces.push(tri(l, l + i + j, l + i + k));
     }
 }
 
