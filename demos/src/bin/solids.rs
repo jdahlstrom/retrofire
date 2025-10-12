@@ -161,7 +161,7 @@ fn lathe(secs: u32) -> Mesh<Normal3> {
         vertex(pt2(0.55, -0.25), vec2(1.0, 0.5)),
         vertex(pt2(0.5, 0.0), vec2(1.0, 0.0)),
         vertex(pt2(0.55, 0.25), vec2(1.0, -0.5)),
-        vertex(pt2(0.75, 0.5), vec2(1.0, 1.0)),
+        vertex(pt2(0.75, 0.5), vec2(1.0, -1.0)),
     ];
     Lathe::new(Polyline::new(pts), secs, pts.len() as u32)
         .capped(true)
