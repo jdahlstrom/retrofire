@@ -53,7 +53,7 @@ fn main() {
         .build()
         .expect("should create window");
 
-    win.ctx.color_clear = Some(gray(32).to_rgba());
+    win.ctx.color_clear = Some(gray(0x33).to_rgba());
 
     let (w, h) = win.dims;
     let cam = Camera::new(win.dims)
@@ -82,9 +82,9 @@ fn main() {
 
     let shader = shader::new(vtx_shader, frag_shader);
 
-    let objects = objects(8);
+    let objects = objects_n(8);
 
-    let translate = translate(-4.0 * Vec3::Z);
+    let translate = translate(-3.0 * Vec3::Z);
     let mut carousel = Carousel::default();
 
     win.run(|frame| {
@@ -96,7 +96,7 @@ fn main() {
         }
 
         let theta = rads(t.as_secs_f32());
-        let spin = rotate_x(theta * 0.47).then(&rotate_y(theta * 0.61));
+        let spin = rotate_x(theta * 0.37).then(&rotate_y(theta * 0.51));
         let carouse = carousel.update(dt.as_secs_f32());
 
         // Compose transform stack
@@ -121,9 +121,9 @@ fn main() {
     });
 }
 
-// Creates the 13 objects exhibited.
+// Creates the 14 objects exhibited.
 #[rustfmt::skip]
-fn objects(res: u32) -> [Mesh<Normal3>; 13] {
+fn objects_n(res: u32) -> [Mesh<Normal3>; 14] {
     let segments = res;
     let sectors = 2 * res;
 
@@ -151,18 +151,21 @@ fn objects(res: u32) -> [Mesh<Normal3>; 13] {
         // Traditional demo models
         teapot(),
         bunny(),
+        dragon()
     ]
 }
 
 // Creates a Lathe mesh.
 fn lathe(secs: u32) -> Mesh<Normal3> {
     let pts = [
-        vertex(pt2(0.75, -0.5), vec2(1.0, 1.0)),
-        vertex(pt2(0.55, -0.25), vec2(1.0, 0.5)),
-        vertex(pt2(0.5, 0.0), vec2(1.0, 0.0)),
-        vertex(pt2(0.55, 0.25), vec2(1.0, -0.5)),
-        vertex(pt2(0.75, 0.5), vec2(1.0, -1.0)),
-    ];
+        (pt2(0.75, -0.5), vec2(1.0, 1.0)),
+        (pt2(0.55, -0.25), vec2(1.0, 0.5)),
+        (pt2(0.5, 0.0), vec2(1.0, 0.0)),
+        (pt2(0.55, 0.25), vec2(1.0, -0.5)),
+        (pt2(0.75, 0.5), vec2(1.0, -1.0)),
+    ]
+    .map(|(p, n)| vertex(p, n.normalize()));
+
     Lathe::new(Polyline::new(pts), secs, pts.len() as u32)
         .capped(true)
         .build()
@@ -170,14 +173,14 @@ fn lathe(secs: u32) -> Mesh<Normal3> {
 
 // Loads the Utah teapot model.
 fn teapot() -> Mesh<Normal3> {
-    parse_obj::<()>(*include_bytes!("../../assets/teapot.obj"))
+    parse_obj(*include_bytes!("../../assets/teapot.obj"))
         .unwrap()
         .transform(
             &scale(splat(0.4))
                 .then(&translate(-0.5 * Vec3::Y))
                 .to(),
         )
-        .with_vertex_normals()
+        //.with_vertex_normals()
         .build()
 }
 
@@ -185,7 +188,21 @@ fn teapot() -> Mesh<Normal3> {
 fn bunny() -> Mesh<Normal3> {
     parse_obj::<()>(*include_bytes!("../../assets/bunny.obj"))
         .unwrap()
-        .transform(&scale(splat(0.15)).then(&translate(-Vec3::Y)).to())
+        .transform(&scale(splat(0.12)).then(&translate(-Vec3::Y)).to())
         .with_vertex_normals()
+        .build()
+}
+
+// Loads the Stanford dragon model.
+fn dragon() -> Mesh<Normal3> {
+    static DRAGON: &[u8] = include_bytes!("../../assets/dragon.obj");
+    parse_obj::<()>(DRAGON.iter().copied())
+        .unwrap()
+        .with_vertex_normals()
+        .transform(
+            &scale(splat(0.18))
+                .then(&translate(-0.5 * Vec3::Y))
+                .to(),
+        )
         .build()
 }
