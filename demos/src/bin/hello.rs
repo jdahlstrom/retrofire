@@ -10,7 +10,7 @@ use re::util::pnm::parse_pnm;
 use re_front::{Frame, dims::SVGA_800_600, minifb::Window};
 
 fn main() {
-    let font = *include_bytes!("../../../assets/font_16x24.pbm");
+    let font = *include_bytes!("../../assets/font_16x24.pbm");
     let font = parse_pnm(font).expect("valid image");
     let font = Atlas::new(Layout::Grid { sub_dims: (16, 24) }, font.into());
 
