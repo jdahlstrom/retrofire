@@ -33,7 +33,7 @@ resolver = "2"
 
 [workspace.package]
 edition = "2024"
-version = "0.4.0-pre2"
+version = "0.4.0-pre3"
 authors = ["Johannes 'Sharlin' Dahlström <johannes.dahlstrom@gmail.com>"]
 license = "MIT OR Apache-2.0"
 repository = "https://github.com/jdahlstrom/retrofire"
@@ -41,9 +41,9 @@ keywords = ["graphics", "gamedev", "demoscene", "retrocomputing", "rendering"]
 categories = ["graphics", "game-development", "no-std"]
 
 [dependencies]
-retrofire-core = { version = "0.4.0-pre2", path = "core" }
-retrofire-front = { version = "0.4.0-pre2", path = "front" }
-retrofire-geom = { version = "0.4.0-pre2", path = "geom" }
+retrofire-core = { version = "0.4.0-pre3", path = "core" }
+retrofire-front = { version = "0.4.0-pre3", path = "front" }
+retrofire-geom = { version = "0.4.0-pre3", path = "geom" }
 
 [profile.release]
 opt-level = 2
