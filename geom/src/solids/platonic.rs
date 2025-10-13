@@ -93,12 +93,13 @@ pub struct Dodecahedron;
 #[derive(Copy, Clone, Debug, Default)]
 pub struct Icosahedron;
 
+// TODO use consts instead of sqrt
+#[cfg(feature = "std")]
 impl Tetrahedron {
     const FACES: [[usize; 3]; 4] = [[0, 2, 1], [0, 3, 2], [0, 1, 3], [1, 2, 3]];
 
     /// Builds the tetrahedral mesh.
     pub fn build(self) -> Mesh<Normal3> {
-        use re::math::float::f32;
         let sqrt = f32::sqrt;
         let coords = [
             pt3(0.0, 1.0, 0.0),
