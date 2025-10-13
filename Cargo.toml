@@ -8,8 +8,21 @@
 # \___\/ ==\______\/\_____\__\/ ==\______/_____,´ /==\_____\___\/==\_______\/
 #                                        \_____\,´
 
+[package]
+name = "retrofire"
+description = "90s style software 3D renderer and graphics tools."
+
+edition.workspace = true
+version.workspace = true
+authors.workspace = true
+license.workspace = true
+keywords.workspace = true
+categories.workspace = true
+repository.workspace = true
+
 [workspace]
 members = [
+    "",
     "core",
     "geom",
     "front",
@@ -26,6 +39,11 @@ license = "MIT OR Apache-2.0"
 repository = "https://github.com/jdahlstrom/retrofire"
 keywords = ["graphics", "gamedev", "demoscene", "retrocomputing", "rendering"]
 categories = ["graphics", "game-development", "no-std"]
+
+[dependencies]
+retrofire-core = { version = "0.4.0-pre2", path = "core" }
+retrofire-front = { version = "0.4.0-pre2", path = "front" }
+retrofire-geom = { version = "0.4.0-pre2", path = "geom" }
 
 [profile.release]
 opt-level = 2
