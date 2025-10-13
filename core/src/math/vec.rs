@@ -11,8 +11,8 @@ use core::{
     ops::{AddAssign, DivAssign, MulAssign, SubAssign},
 };
 
-use crate::math::{
-    Affine, ApproxEq, Linear, Point,
+use super::{
+    Affine, Angle, ApproxEq, Linear, Point, atan2,
     space::{Proj3, Real},
     vary::ZDiv,
 };
@@ -40,6 +40,7 @@ pub struct Vector<Repr, Space = ()>(pub Repr, Pd<Space>);
 pub type Vec2<Basis = ()> = Vector<[f32; 2], Real<2, Basis>>;
 /// A 3-vector with `f32` components.
 pub type Vec3<Basis = ()> = Vector<[f32; 3], Real<3, Basis>>;
+
 /// A `f32` 4-vector in the projective 3-space over ℝ, aka P<sub>3</sub>(ℝ).
 pub type ProjVec3 = Vector<[f32; 4], Proj3>;
 
@@ -53,11 +54,13 @@ pub type Vec3i<Basis = ()> = Vector<[i32; 3], Real<3, Basis>>;
 //
 
 /// Returns a real 2-vector with components `x` and `y`.
+#[inline]
 pub const fn vec2<Sc, B>(x: Sc, y: Sc) -> Vector<[Sc; 2], Real<2, B>> {
     Vector([x, y], Pd)
 }
 
 /// Returns a real 3-vector with components `x`, `y`, and `z`.
+#[inline]
 pub const fn vec3<Sc, B>(x: Sc, y: Sc, z: Sc) -> Vector<[Sc; 3], Real<3, B>> {
     Vector([x, y, z], Pd)
 }
@@ -365,6 +368,13 @@ impl<B> Vec2<B> {
     /// ```
     pub fn perp_dot(self, other: Self) -> f32 {
         self.perp().dot(&other)
+    }
+
+    /// Returns the angle between `self` and the x-axis.
+    ///
+    /// Equivalent to `atan2(self.y(), self.x())` or `self.to_polar().az()`.
+    pub fn atan(self) -> Angle {
+        atan2(self.y(), self.x())
     }
 }
 
