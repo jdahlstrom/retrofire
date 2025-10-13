@@ -10,6 +10,8 @@
 
 [package]
 name = "retrofire-geom"
+description = "Additional geometry tools for retrofire."
+
 edition.workspace = true
 version.workspace = true
 authors.workspace = true
