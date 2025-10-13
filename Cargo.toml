@@ -20,7 +20,7 @@ resolver = "2"
 
 [workspace.package]
 edition = "2024"
-version = "0.4.0-pre1"
+version = "0.4.0-pre2"
 authors = ["Johannes 'Sharlin' Dahlström <johannes.dahlstrom@gmail.com>"]
 license = "MIT OR Apache-2.0"
 repository = "https://github.com/jdahlstrom/retrofire"
