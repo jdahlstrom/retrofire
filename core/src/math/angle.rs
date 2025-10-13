@@ -107,7 +107,7 @@ pub fn acos(x: f32) -> Angle {
 ///
 /// assert_eq!(atan2(0.0, 1.0), degs(0.0));
 /// assert_eq!(atan2(2.0, 2.0), degs(45.0));
-/// assert_eq!(atan2(3.0, 0.0), degs(90.0));
+/// assert_eq!(atan2(-3.0, 0.0), degs(-90.0));
 /// ```
 #[cfg(feature = "fp")]
 pub fn atan2(y: f32, x: f32) -> Angle {
@@ -491,7 +491,7 @@ impl<B> Default for PolarVec<B> {
 impl Display for Angle {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         let (val, unit) = if f.alternate() {
-            (self.to_rads() / PI, "𝜋 rad")
+            (self.to_rads() / PI, "·𝜋 rad")
         } else {
             (self.to_degs(), "°")
         };
@@ -503,8 +503,8 @@ impl Display for Angle {
 impl Debug for Angle {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         f.write_str("Angle(")?;
-        Display::fmt(self, f)?;
-        f.write_str(")")
+        Debug::fmt(&(self.to_rads() / PI), f)?;
+        f.write_str("·𝜋 rad)")
     }
 }
 
