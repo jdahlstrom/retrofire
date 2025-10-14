@@ -75,15 +75,14 @@ for custom allocators is planned in order to make `alloc` optional as well.
 
 ## Planned
 
-- Material support
-- Basic scene graph
-- Hierarchical transforms
-
-- Mipmapping and mipmap generation
-- More procedural generation
-- Basic animation and sequencing
-- Particle simulations
-- Support for more file types
+* Material support
+* Basic scene graph
+* Hierarchical transforms
+* Mipmapping and mipmap generation
+* More procedural generation
+* Basic animation and sequencing
+* Particle simulations
+* Support for more file types
 
 # Organization
 
