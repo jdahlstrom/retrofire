@@ -46,6 +46,13 @@ re_geom = { package = "retrofire-geom", path = "geom", version = "0.4.0-pre2" }
 re_front = { package = "retrofire-front", path = "front", version = "0.4.0-pre2" }
 re_demos = { package = "retrofire-demos", path = "demos", version = "0.4.0-pre2" }
 
+[dev-dependencies]
+divan = "0.1.21"
+
+[[bench]]
+name = "test"
+harness = false
+
 [profile.release]
 opt-level = 2
 lto = "thin"
