@@ -60,6 +60,10 @@ pub const fn vertex<P, A>(pos: P, attrib: A) -> Vertex<P, A> {
     Vertex { pos, attrib }
 }
 
+//
+// Inherent impls
+//
+
 impl<B> Plane<Vector<[f32; 4], Real<3, B>>> {
     /// The x = 0 coordinate plane.
     pub const YZ: Self = Self(Vector::new([1.0, 0.0, 0.0, 0.0]));
@@ -103,6 +107,10 @@ impl<T> Polyline<T> {
             .map(|e| Edge(e[0].clone(), e[1].clone()))
     }
 }
+
+//
+// Local trait impls
+//
 
 impl<T> Parametric<T> for Ray<T>
 where
@@ -171,6 +179,21 @@ impl<P: Lerp, A: Lerp> Lerp for Vertex<P, A> {
             // TODO Normals shouldn't be lerped
             self.attrib.lerp(&other.attrib, t),
         )
+    }
+}
+
+//
+// Foreign trait impls
+//
+
+impl<T> From<[T; 2]> for Edge<T> {
+    fn from([a, b]: [T; 2]) -> Self {
+        Edge(a, b)
+    }
+}
+impl<T> From<Edge<T>> for [T; 2] {
+    fn from(Edge(a, b): Edge<T>) -> Self {
+        [a, b]
     }
 }
 

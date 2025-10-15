@@ -122,7 +122,7 @@ impl<Sc: Copy, const N: usize, const DIM: usize, S, D>
     /// Returns `self` with its rows and columns swapped.
     pub fn transpose(self) -> Matrix<[[Sc; N]; N], RealToReal<DIM, D, S>> {
         const { assert!(N >= DIM, "map dimension >= matrix dimension") }
-        array::from_fn(|j| array::from_fn(|i| self.0[i][j])).into()
+        from_fn(|j| from_fn(|i| self.0[i][j])).into()
     }
 }
 

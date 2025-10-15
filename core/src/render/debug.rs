@@ -1,15 +1,15 @@
-//! Visualization and debugging aids.
-
-use alloc::vec::Vec;
-use core::array::from_fn;
-
-use crate::geom::{Edge, Vertex, Vertex3, vertex};
-use crate::math::{
-    Color4, Color4f, Mat4x4, Point3, Vary, Vec3, mat::RealToProj, pt3, rgba,
-    spherical, splat, turns, vec::ProjVec3, vec3,
-};
+//! Debugging and visualization aids.
 
 use super::{Context, Frag, FragmentShader, VertexShader};
+use crate::geom::{Edge, Mesh, Tri, Vertex, Vertex3, vertex};
+use crate::math::mat::{LinearMap, RealToReal};
+use crate::math::{
+    Color4, Color4f, Lerp, Mat4x4, Point3, Vary, Vec3, mat::RealToProj, polar,
+    pt3, rgba, spherical, splat, turns, vec::ProjVec3, vec3,
+};
+use alloc::vec::Vec;
+use core::array::from_fn;
+use core::fmt::Debug;
 
 pub struct Shader;
 
@@ -41,7 +41,7 @@ type Batch<B> =
 /// # Examples
 /// ```
 /// use retrofire_core::math::{rgba, vec3};
-/// use retrofire_core::render::vis::dir_to_rgb;
+/// use retrofire_core::render::debug::dir_to_rgb;
 ///
 /// let right = vec3(1.0, 0.0, 0.0);
 /// assert_eq!(dir_to_rgb(right), rgba(1.0, 0.5, 0.5, 1.0));
@@ -74,11 +74,34 @@ pub fn ray<'a, B: 'static>(o: Point3<B>, dir: Vec3<B>) -> Batch<B> {
     #[rustfmt::skip]
     let edges = [
         [0, 1], [1, 2], [1, 3], [1, 4], [1, 5], [2, 4], [2, 5], [3, 4], [3, 5],
-    ].map(|[a, b]| Edge(a,b));
+    ].map(Edge::from);
     super::Batch::new()
         .primitives(&edges)
         .vertices(&verts)
         .shader(Shader)
+}
+
+pub fn face_normal<B: 'static + Debug + Default>(
+    [a, b, c]: [Point3<B>; 3],
+) -> Batch<B> {
+    let ab = b - a;
+    let ac = c - a;
+    let n = ab.cross(&ac).normalize();
+    let mid = (a.to_vec() + b.to_vec() + c.to_vec()) / 3.0;
+    ray(mid.to_pt(), n)
+}
+
+pub fn frame<S, D: 'static>(m: Mat4x4<RealToReal<3, S, D>>) -> Batch<D> {
+    let [x, y, z, o] = m.transpose().0;
+    let o = pt3(o[0], o[1], o[2]);
+    let x = vec3(x[0], x[1], x[2]);
+    let y = vec3(y[0], y[1], y[2]);
+    let z = vec3(z[0], z[1], z[2]);
+
+    let mut b = ray(o, x);
+    b.append(ray(o, y));
+    b.append(ray(o, z));
+    b
 }
 
 /// Returns a cuboid with the given opposite vertices.
@@ -98,7 +121,7 @@ pub fn cuboid<'a, B: 'static>(v0: Point3<B>, v1: Point3<B>) -> Batch<B> {
         [0, 1], [1, 2], [2, 3], [3, 0],
         [4, 5], [5, 6], [6, 7], [7, 4],
         [0, 4], [1, 5], [2, 6], [3, 7],
-    ].map(|[a, b]| Edge(a, b)); //TODO Edge::from
+    ].map(Edge::from);
 
     super::Batch::new()
         .primitives(&edges)
@@ -107,7 +130,7 @@ pub fn cuboid<'a, B: 'static>(v0: Point3<B>, v1: Point3<B>) -> Batch<B> {
 }
 
 /// Returns the smallest box that contains all the vertices in `vs`.
-pub fn aabb<'a, A, B: 'static>(vs: &[Vertex3<A, B>]) -> Batch<B> {
+pub fn bbox<'a, A, B: 'static>(vs: &[Vertex3<A, B>]) -> Batch<B> {
     let init: (Point3<B>, Point3<B>) =
         (splat(f32::INFINITY).to_pt(), splat(-f32::INFINITY).to_pt());
 
@@ -121,20 +144,39 @@ pub fn aabb<'a, A, B: 'static>(vs: &[Vertex3<A, B>]) -> Batch<B> {
     cuboid(min, max)
 }
 
+pub fn circle<B>(o: Point3<B>, r: f32) -> Batch<B> {
+    const RES: usize = 64; // TODO constant, use array rather than Vec
+
+    let verts: Vec<_> = 0.0
+        .vary_to(1.0, RES as u32 + 1)
+        .map(|a| {
+            let v = polar(r, turns(a)).to_cart().to_vec3();
+            vertex(o + v.to(), dir_to_rgb(v))
+        })
+        .collect();
+
+    let edges: Vec<_> = (0..RES).map(|i| Edge(i, i + 1)).collect();
+
+    super::Batch::new()
+        .primitives(&edges)
+        .vertices(&verts)
+        .shader(Shader)
+}
+
 /// Returns a `Batch` drawing a wireframe sphere with the given center and
 /// radius.
 ///
 /// The sphere is represented by three circles lying on the XY, XZ, and
-/// YZ planes (in the coordinate space with basis `B`).
+/// YZ planes (in basis `B`).
 pub fn sphere<'a, B: 'static>(o: Point3<B>, r: f32) -> Batch<B> {
     const RES: usize = 64;
 
     let verts: Vec<_> = 0.0
         .vary_to(1.0, RES as u32 + 1)
         .flat_map(|a| {
-            let xz = spherical(r, turns(a), turns(0.0)).to_cart();
-            let xy = vec3(xz.x(), xz.z(), 0.0);
-            let yz = vec3(0.0, xz.z(), xz.x());
+            let xy: Vec3<B> = polar(r, turns(a)).to_cart().to_vec3().to();
+            let xz = vec3(xy.x(), 0.0, xy.y());
+            let yz = vec3(0.0, xy.x(), xy.y());
             [
                 vertex(o + xy, dir_to_rgb(xy)),
                 vertex(o + xz, dir_to_rgb(xz)),

@@ -6,8 +6,8 @@ use re::prelude::*;
 
 use re::geom::Polyline;
 use re::math::{color::gray, mat::RealToReal, smootherstep, vec::ProjVec3};
+use re::render::debug::face_normal;
 use re::render::{ModelToProj, ModelToWorld, cam::Fov};
-
 use re_front::{Frame, minifb::Window};
 use re_geom::{io::parse_obj, solids::*};
 
@@ -71,7 +71,7 @@ fn main() {
         // Calculate diffuse shading
         let diffuse = (norm.z() + 0.2).max(0.2) * 0.8;
         // Visualize normal by mapping to RGB values
-        let col = vis::dir_to_rgb(norm).mul(diffuse);
+        let col = debug::dir_to_rgb(norm).mul(diffuse);
         vertex(mvp.apply(&v.pos), col)
     }
 
@@ -99,18 +99,17 @@ fn main() {
         let carouse = carousel.update(dt.as_secs_f32());
 
         // Compose transform stack
-        let model_view_project: Mat4x4<ModelToProj> = spin
-            .then(&translate)
-            .then(&carouse)
-            .to::<ModelToWorld>()
-            .then(&cam.world_to_project());
+        let modelview: Mat4x4<ModelToWorld> =
+            spin.then(&translate).then(&carouse).to();
+        let proj = cam.world_to_project();
+        let mvp = modelview.then(&proj);
 
         let object = &objects[carousel.idx % objects.len()];
 
         let b = Batch::new()
+            .uniform((&mvp, &spin))
             .viewport(cam.viewport)
-            .context(&*frame.ctx)
-            .uniform((&model_view_project, &spin));
+            .context(&*frame.ctx);
 
         b.clone()
             .mesh(object)
@@ -118,74 +117,50 @@ fn main() {
             .target(&mut frame.buf)
             .render();
 
-        let sph = vis::sphere(pt3::<_, Model>(0.0, 0.0, 0.0), 1.0);
-        sph.uniform(&model_view_project)
+        let sph = debug::sphere(pt3::<_, Model>(0.0, 0.0, 0.0), 1.0);
+        sph.uniform(&mvp)
             .viewport(cam.viewport)
             .context(&*frame.ctx)
             .target(&mut frame.buf)
             .render();
 
-        let aabb = vis::aabb(&object.verts);
-        aabb.uniform(&model_view_project)
+        let bbox = debug::bbox(&object.verts);
+        bbox.uniform(&mvp)
             .viewport(cam.viewport)
             .context(&*frame.ctx)
             .target(&mut frame.buf)
             .render();
 
-        let axes: [(Point3<Model>, Vec3<Model>); 3] = [
-            (pt3(0.0, 0.0, 0.0), Vec3::X),
-            (pt3(0.0, 0.0, 0.0), Vec3::Y),
-            (pt3(0.0, 0.0, 0.0), Vec3::Z),
-        ];
+        debug::frame::<Model, Model>(Mat4x4::identity())
+            .uniform(&mvp)
+            .viewport(cam.viewport)
+            .context(&*frame.ctx)
+            .target(&mut frame.buf)
+            .render();
 
-        for (o, dir) in axes {
-            vis::ray(o, dir.to())
-                .uniform(&model_view_project)
+        for tri in &object.faces {
+            face_normal(tri.0.map(|i| object.verts[i].pos))
+                .uniform(&mvp)
                 .viewport(cam.viewport)
                 .context(&*frame.ctx)
                 .target(&mut frame.buf)
                 .render();
         }
 
-        let norms: Vec<_> = object
+        /*let norms: Vec<_> = object
             .verts
             .iter()
             .map(|v| (v.pos, v.attrib))
             .collect();
 
         for (o, dir) in norms {
-            vis::ray(o, 0.5 * dir.to())
-                .uniform(&model_view_project)
+            debug::ray(o, 0.5 * dir.to())
+                .uniform(&mvp)
                 .viewport(cam.viewport)
                 .context(&*frame.ctx)
                 .target(&mut frame.buf)
                 .render();
-        }
-
-        /*
-        let norm_vs: Vec<_> = object
-            .verts
-            .iter()
-            .flat_map(|v| {
-                let n: Vec3<Model> = v.attrib.to();
-                let col = n * 0.5 + splat(0.5);
-                let col = rgb(col.x(), col.y(), col.z());
-                [vertex(v.pos, col), vertex(v.pos + 0.25 * n, col)]
-            })
-            .collect();
-        let norm_is: Vec<_> = (0..norm_vs.len() - 1)
-            .step_by(2)
-            .map(|i| [i, i + 1])
-            .collect();
-
-        let mut ns = b
-            .clone()
-            .primitives(norm_is)
-            .vertices(norm_vs)
-            .shader(debug_shd)
-            .context(&ctx)
-            .target(&mut frame.buf);
-        ns.render();*/
+        }*/
 
         Continue(())
     });

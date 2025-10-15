@@ -38,6 +38,7 @@ pub mod batch;
 pub mod cam;
 pub mod clip;
 pub mod ctx;
+pub mod debug;
 pub mod prim;
 pub mod raster;
 pub mod scene;
@@ -46,7 +47,6 @@ pub mod stats;
 pub mod target;
 pub mod tex;
 pub mod text;
-pub mod vis;
 
 /// Renderable geometric primitive.
 pub trait Render<V: Vary> {
