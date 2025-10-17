@@ -193,7 +193,7 @@ impl<D: Distrib> Iterator for Iter<D, &'_ mut DefaultRng> {
     ///
     /// This method never returns `None`.
     fn next(&mut self) -> Option<Self::Item> {
-        Some(self.0.sample(&mut self.1))
+        Some(self.0.sample(self.1))
     }
 }
 

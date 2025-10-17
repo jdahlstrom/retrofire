@@ -2,7 +2,6 @@
 
 use core::ops::Range;
 
-use crate::geom::Vertex;
 use crate::math::{
     Lerp, Mat4x4, Point3, SphericalVec, Vary, mat::RealToReal, orthographic,
     perspective, pt2, viewport,
@@ -15,8 +14,8 @@ use crate::math::{
 };
 
 use super::{
-    Clip, Context, FragmentShader, NdcToScreen, RealToProj, Render, Target,
-    VertexShader, View, ViewToProj, World, WorldToView, clip::ClipVec,
+    Clip, Context, NdcToScreen, RealToProj, Render, Shader, Target, View,
+    ViewToProj, World, WorldToView,
 };
 
 /// Trait for different modes of camera motion.
@@ -82,6 +81,7 @@ pub struct FirstPerson {
 
 pub type ViewToWorld = RealToReal<3, View, World>;
 
+/// Creates a unit `SphericalVec` from azimuth and altitude.
 #[cfg(feature = "fp")]
 fn az_alt<B>(az: Angle, alt: Angle) -> SphericalVec<B> {
     spherical(1.0, az, alt)
@@ -217,11 +217,7 @@ impl<T: Transform> Camera<T> {
     ) where
         Prim: Render<Var> + Clone,
         [<Prim>::Clip]: Clip<Item = Prim::Clip>,
-        Shd: for<'a> VertexShader<
-                Vtx,
-                (&'a Mat4x4<RealToProj<B>>, Uni),
-                Output = Vertex<ClipVec, Var>,
-            > + FragmentShader<Var>,
+        Shd: for<'a> Shader<Vtx, Var, (&'a Mat4x4<RealToProj<B>>, Uni)>,
     {
         let tf = to_world.then(&self.world_to_project());
 

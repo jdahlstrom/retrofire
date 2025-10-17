@@ -27,7 +27,7 @@ use super::raster::Frag;
 /// # Type parameters
 /// * `In`: Type of the input vertex.
 /// * `Uni`: Type of custom "uniform" (non-vertex-specific) data, such as
-///     transform matrices, passed to the shader.
+///   transform matrices, passed to the shader.
 pub trait VertexShader<In, Uni> {
     /// The type of the output vertex.
     type Output;
