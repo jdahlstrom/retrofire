@@ -96,6 +96,15 @@ pub trait Lerp: Sized {
     fn lerp(&self, other: &Self, t: f32) -> Self;
 
     /// Returns the (unweighted) average of `self` and `other`.
+    ///
+    /// # Examples
+    /// ```
+    /// use retrofire_core::math::{Lerp, pt2, Point2};
+    ///
+    /// let a: Point2 = pt2(-1.0, 2.0);
+    /// let b = pt2(3.0, -2.0);
+    /// assert_eq!(a.midpoint(&b), pt2(1.0, 0.0));
+    /// ```
     fn midpoint(&self, other: &Self) -> Self {
         self.lerp(other, 0.5)
     }
@@ -121,7 +130,11 @@ pub fn lerp<T: Lerp>(t: f32, from: T, to: T) -> T {
 /// ```
 /// use retrofire_core::math::inv_lerp;
 ///
+/// // Two is one fourth of the way from one to five
 /// assert_eq!(inv_lerp(2.0, 1.0, 5.0), 0.25);
+///
+/// // Zero is halfway between -2 and 2
+/// assert_eq!(inv_lerp(0.0, -2.0, 2.0), 0.5);
 /// ```
 #[inline]
 pub fn inv_lerp(t: f32, min: f32, max: f32) -> f32 {
