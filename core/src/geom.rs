@@ -4,8 +4,8 @@ use alloc::vec::Vec;
 use core::fmt::Debug;
 
 use crate::math::{
-    Affine, Lerp, Linear, Mat4x4, Parametric, Point2, Point3, Vec2, Vec3,
-    Vector, mat::RealToReal, space::Real, vec3,
+    Affine, Lerp, Linear, Mat2x2, Mat4x4, Parametric, Point2, Point3, Vec2,
+    Vec3, Vector, mat::RealToReal, space::Real, vec2, vec3,
 };
 use crate::render::Model;
 
@@ -89,6 +89,8 @@ pub enum Winding {
     Ccw,
 }
 
+pub struct Bary;
+
 /// Creates a `Vertex` with the give position and attribute values.
 pub const fn vertex<P, A>(pos: P, attrib: A) -> Vertex<P, A> {
     Vertex { pos, attrib }
@@ -158,6 +160,38 @@ impl<A, B> Tri<Vertex2<A, B>> {
     /// Returns the (positive) area of `self`.
     pub fn area(&self) -> f32 {
         self.signed_area().abs()
+    }
+
+    /// Converts barycentric coordinates to Cartesian.
+    pub fn bary_to_cart(&self, pt: &Point3<Bary>) -> Point2<B> {
+        let [ab, ac] = self.tangents();
+
+        let bary_to_cart = Mat2x2::<RealToReal<2, Bary, B>>::new([
+            [ab.x(), ac.x()],
+            [ab.y(), ac.y()],
+        ]);
+        let b = bary_to_cart.apply(&vec2(pt.y(), pt.z()));
+
+        self.0[0].pos + b
+    }
+
+    /// Converts Cartesian coordinates to barycentric.
+    pub fn cart_to_bary(&self, pt: &Point2<B>) -> Vec3<Bary> {
+        let a = &self.0[0].pos;
+        let [ab, ac] = self.tangents();
+        let pt = *pt - *a;
+
+        let bary_to_cart = Mat2x2::<RealToReal<2, Bary, B>>::new([
+            [ab.x(), ac.x()],
+            [ab.y(), ac.y()],
+        ]);
+        let cart_to_bary = bary_to_cart.inverse();
+
+        // s == amount of b
+        // t == amount of c
+        let [s, t] = cart_to_bary.apply(&pt).0;
+
+        vec3(1.0 - s - t, s, t)
     }
 }
 
@@ -677,6 +711,40 @@ mod tests {
             pt3(0.0, -2.0, 1.0),
         );
         assert_approx_eq!(tri.plane().0, Plane3::new(0.0, -1.0, 0.0, 2.0).0);
+    }
+
+    #[test]
+    fn triangle_cartesian_to_barycentric() {
+        let a = pt2(1.0, 1.0);
+        let b = pt2(2.0, 1.0);
+        let c = pt2(1.0, 2.0);
+
+        let tr = tri(a, b, c);
+
+        assert_eq!(tr.cart_to_bary(&a).0, [1.0, 0.0, 0.0]);
+        assert_eq!(tr.cart_to_bary(&b).0, [0.0, 1.0, 0.0]);
+        assert_eq!(tr.cart_to_bary(&c).0, [0.0, 0.0, 1.0]);
+
+        assert_eq!(tr.cart_to_bary(&pt2(1.5, 1.0)).0, [0.5, 0.5, 0.0]);
+        assert_eq!(tr.cart_to_bary(&pt2(1.0, 1.5)).0, [0.5, 0.0, 0.5]);
+        assert_eq!(tr.cart_to_bary(&pt2(1.5, 1.5)).0, [0.0, 0.5, 0.5]);
+    }
+
+    #[test]
+    fn triangle_barycentric_to_cartesian() {
+        let a = pt2(1.0, 1.0);
+        let b = pt2(2.0, 1.0);
+        let c = pt2(1.0, 2.0);
+
+        let tr = tri(a, b, c);
+
+        assert_eq!(tr.bary_to_cart(&pt3(1.0, 0.0, 0.0)), a);
+        assert_eq!(tr.bary_to_cart(&pt3(0.0, 1.0, 0.0)), b);
+        assert_eq!(tr.bary_to_cart(&pt3(0.0, 0.0, 1.0)), c);
+
+        assert_eq!(tr.cart_to_bary(&pt2(1.5, 1.0)).0, [0.5, 0.5, 0.0]);
+        assert_eq!(tr.cart_to_bary(&pt2(1.0, 1.5)).0, [0.5, 0.0, 0.5]);
+        assert_eq!(tr.cart_to_bary(&pt2(1.5, 1.5)).0, [0.0, 0.5, 0.5]);
     }
 
     #[test]
