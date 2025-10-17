@@ -16,7 +16,7 @@ use wasm_bindgen::{Clamped, prelude::*};
 
 use web_sys::{
     CanvasRenderingContext2d as Context2d, Document,
-    HtmlCanvasElement as Canvas, ImageData,
+    HtmlCanvasElement as Canvas, HtmlCanvasElement, ImageData,
     js_sys::{Uint8ClampedArray, Uint32Array},
 };
 
@@ -60,7 +60,7 @@ pub type Framebuf<'a> = target::Framebuf<
 
 impl Builder {
     pub fn dims(self, dims: Dims) -> Self {
-        Self { dims, ..self }
+        Self { dims }
     }
 }
 
@@ -138,17 +138,16 @@ impl Window {
         web_sys::window()?.document()
     }
 
-    fn create_canvas(dims: Dims) -> Option<Canvas> {
-        Self::document()?
+    fn create_canvas((w, h): Dims) -> Option<Canvas> {
+        let cvs: HtmlCanvasElement = Self::document()?
             .create_element("canvas")
             .ok()?
             .dyn_into()
-            .map(|cvs: Canvas| {
-                cvs.set_width(dims.0);
-                cvs.set_height(dims.1);
-                cvs
-            })
-            .ok()
+            .ok()?;
+
+        cvs.set_width(w);
+        cvs.set_height(h);
+        Some(cvs)
     }
 
     fn context2d(cvs: &Canvas) -> Option<Context2d> {

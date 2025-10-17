@@ -147,7 +147,7 @@ impl<PF: PixelFmt<Pixel = [u8; N]>, const N: usize> Window<PF> {
 
     /// Copies the texture to the frame buffer and updates the screen.
     pub fn present(&mut self, tex: &Texture) -> Result<(), Error> {
-        self.canvas.copy(&tex, None, None)?;
+        self.canvas.copy(tex, None, None)?;
         self.canvas.present();
         Ok(())
     }

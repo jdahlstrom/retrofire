@@ -80,7 +80,7 @@ fn main() {
 
         let batch = Batch::new()
             .viewport(cam.viewport)
-            .context(&frame.ctx);
+            .context(frame.ctx);
 
         // Floor
         {
@@ -89,7 +89,7 @@ fn main() {
             if bbox.visibility(&model_to_project) != Hidden {
                 batch
                     .clone()
-                    .mesh(&geom)
+                    .mesh(geom)
                     .uniform(&model_to_project)
                     .shader(floor_shader)
                     .target(&mut frame.buf)
@@ -112,7 +112,7 @@ fn main() {
             batch
                 // TODO Try to get rid of clone
                 .clone()
-                .mesh(&geom)
+                .mesh(geom)
                 .uniform(&model_to_project)
                 // TODO Allow setting shader before uniform
                 .shader(crate_shader)

@@ -392,7 +392,7 @@ mod tests {
         super::tri_fill(verts, |mut sl| {
             write!(s, "{:w$}", " ", w = sl.xs.start).ok();
 
-            for c in sl.fragments().map(|f| ((10.0 * f.var) as u8)) {
+            for c in sl.fragments().map(|f| (10.0 * f.var) as u8) {
                 write!(s, "{c}").ok();
             }
             writeln!(s).ok();
