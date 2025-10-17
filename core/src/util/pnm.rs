@@ -193,6 +193,7 @@ pub fn load_pnm(path: impl AsRef<Path>) -> Result<Buf2<Color3>> {
 /// Returns [`pnm::Error`][Error] in case of an I/O error or invalid PNM image.
 #[cfg(feature = "std")]
 pub fn read_pnm(input: impl Read) -> Result<Buf2<Color3>> {
+    let input = BufReader::new(input);
     parse_pnm(input.bytes().map_while(io::Result::ok))
 }
 
@@ -302,12 +303,11 @@ where
     .write(&mut out)?;
 
     // Appease the borrow checker
-    let res = slice
+    slice
         .rows()
         .flatten()
         .map(|c| c.into_pixel())
-        .try_for_each(|rgb| out.write_all(&rgb[..]));
-    res
+        .try_for_each(|rgb| out.write_all(&rgb[..]))
 }
 
 /// Parses a numeric value from `src`, skipping whitespace and comments.
