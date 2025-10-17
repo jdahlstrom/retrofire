@@ -21,7 +21,7 @@ use super::{Affine, Linear, Vector, vary::ZDiv};
 ///
 /// # Type parameters
 /// * `Repr`: the representation of the components of `Self`.
-/// Color components are also called *channels*.
+///   Color components are also called *channels*.
 /// * `Space`: the color space that `Self` is an element of.
 #[repr(transparent)]
 #[derive(Copy, Clone, Default, Eq, PartialEq)]

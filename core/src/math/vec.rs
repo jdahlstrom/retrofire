@@ -27,9 +27,9 @@ use crate::math::{
 ///
 /// # Type parameters
 /// * `Repr`: Representation of the scalar components of the vector,
-/// for example an array or a SIMD vector.
+///   for example an array or a SIMD vector.
 /// * `Space`: The space that the vector is an element of. A tag type used to
-/// prevent mixing up vectors of different spaces and bases.
+///   prevent mixing up vectors of different spaces and bases.
 ///
 /// # Examples
 /// TODO examples
