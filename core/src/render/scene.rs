@@ -31,10 +31,7 @@ impl<A> Obj<A> {
 
 impl<B: Default> BBox<B> {
     pub fn of<A>(mesh: &Mesh<A, B>) -> Self {
-        (&mesh.verts)
-            .into_iter()
-            .map(|v| &v.pos)
-            .collect()
+        mesh.verts.iter().map(|v| &v.pos).collect()
     }
 
     /// If needed, enlarges `self` so that a point is just contained.
