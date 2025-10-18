@@ -50,8 +50,9 @@ impl Text {
 
     /// Erases all text from `self`.
     pub fn clear(&mut self) {
-        self.cursor = pt2(0.0, 0.0);
-        self.geom = Mesh::default();
+        self.cursor = Point2::origin();
+        self.geom.faces.clear();
+        self.geom.verts.clear();
     }
 
     /// Samples the font at `uv`.

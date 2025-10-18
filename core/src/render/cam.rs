@@ -243,7 +243,7 @@ impl FirstPerson {
     /// and heading in the direction of the positive x-axis.
     pub fn new() -> Self {
         Self {
-            pos: pt3(0.0, 0.0, 0.0),
+            pos: Point3::origin(),
             heading: az_alt(turns(0.0), turns(0.0)),
         }
     }

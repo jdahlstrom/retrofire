@@ -131,7 +131,7 @@ mod tests {
     #[test]
     fn bbox_default() {
         assert!(BBox::<()>::default().is_empty());
-        assert!(!BBox::<()>::default().contains(&pt3(0.0, 0.0, 0.0)));
+        assert!(!BBox::<()>::default().contains(&Point3::origin()));
     }
 
     #[test]
