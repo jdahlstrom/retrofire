@@ -15,7 +15,7 @@ use crate::render::{NdcToScreen, ViewToProj};
 
 use super::{
     float::f32,
-    point::{Point2, Point2u, Point3, pt3},
+    point::{Point2, Point2u, Point3},
     space::{Linear, Proj3, Real},
     vec::{ProjVec3, Vec2, Vec3, Vector},
 };
