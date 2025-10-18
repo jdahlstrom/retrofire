@@ -29,7 +29,7 @@ pub const fn pt3<Sc, B>(x: Sc, y: Sc, z: Sc) -> Point<[Sc; 3], Real<3, B>> {
 
 impl<R, Sp> Point<R, Sp> {
     #[inline]
-    pub fn new(repr: R) -> Self {
+    pub const fn new(repr: R) -> Self {
         Self(repr, Pd)
     }
 
@@ -88,6 +88,12 @@ impl<Sc: Copy, Sp, const N: usize> Point<[Sc; N], Sp> {
 }
 
 impl<const N: usize, B> Point<[f32; N], Real<N, B>> {
+    /// Returns the canonical origin point (0, …, 0).
+    #[inline]
+    pub const fn origin() -> Self {
+        Self::new([0.0; N])
+    }
+
     /// Returns the Euclidean distance between `self` and another point.
     ///
     /// # Example
@@ -103,6 +109,7 @@ impl<const N: usize, B> Point<[f32; N], Real<N, B>> {
     pub fn distance(&self, other: &Self) -> f32 {
         self.sub(other).len()
     }
+
     /// Returns the square of the Euclidean distance between `self` and another
     /// point.
     ///
