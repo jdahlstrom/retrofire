@@ -27,18 +27,18 @@ pub struct Angle(f32);
 
 /// Tag type for a polar coordinate space
 #[derive(Copy, Clone, Debug, Default, Eq, PartialEq)]
-pub struct Polar;
+pub struct Polar<B>(PhantomData<B>);
 
 /// Tag type for a spherical coordinate space.
 #[derive(Copy, Clone, Debug, Default, Eq, PartialEq)]
 pub struct Spherical<B>(PhantomData<B>);
 
 /// A polar coordinate vector, with radius and azimuth components.
-pub type PolarVec = Vector<[f32; 2], Polar>;
+pub type PolarVec<B = ()> = Vector<[f32; 2], Polar<B>>;
 
 /// A spherical coordinate vector, with radius, azimuth, and altitude
 /// (elevation) components.
-pub type SphericalVec<B> = Vector<[f32; 3], Spherical<B>>;
+pub type SphericalVec<B = ()> = Vector<[f32; 3], Spherical<B>>;
 
 //
 // Free fns and consts
@@ -115,7 +115,7 @@ pub fn atan2(y: f32, x: f32) -> Angle {
 }
 
 /// Returns a polar coordinate vector with azimuth `az` and radius `r`.
-pub const fn polar(r: f32, az: Angle) -> PolarVec {
+pub const fn polar<B>(r: f32, az: Angle) -> PolarVec<B> {
     Vector::new([r, az.to_rads()])
 }
 
@@ -264,7 +264,7 @@ impl Angle {
     }
 }
 
-impl PolarVec {
+impl<B> PolarVec<B> {
     /// Returns the radial component of `self`.
     #[inline]
     pub fn r(&self) -> f32 {
@@ -278,8 +278,8 @@ impl PolarVec {
 
     /// Returns `self` converted to the equivalent Cartesian 2-vector.
     ///
-    /// Let the components of self be `(r, az)`. Then the `x` component of the
-    /// result equals `r * cos(az)`, and the `y` component equals `r * sin(az)`.
+    /// Let the components of `self` be `(r, az)`. Then the result `(x, y)`
+    /// equals `(r * cos(az), r * sin(az))`.
     ///
     /// ```text
     /// +y
@@ -296,13 +296,15 @@ impl PolarVec {
     /// use retrofire_core::assert_approx_eq;
     /// use retrofire_core::math::{vec2, polar, degs};
     ///
+    /// let vec2 = vec2::<f32, ()>;
+    ///
     /// assert_approx_eq!(polar(2.0, degs(0.0)).to_cart(), vec2(2.0, 0.0));
     /// assert_approx_eq!(polar(3.0, degs(90.0)).to_cart(), vec2(0.0, 3.0));
     /// assert_approx_eq!(polar(4.0, degs(-180.0)).to_cart(), vec2(-4.0, 0.0));
     ///
     /// ```
     #[cfg(feature = "fp")]
-    pub fn to_cart(&self) -> Vec2 {
+    pub fn to_cart(&self) -> Vec2<B> {
         let (y, x) = self.az().sin_cos();
         vec2(x, y) * self.r()
     }
@@ -343,7 +345,7 @@ impl<B> SphericalVec<B> {
 }
 
 #[cfg(feature = "fp")]
-impl Vec2 {
+impl<B> Vec2<B> {
     /// Returns `self` converted into the equivalent polar coordinate vector.
     ///
     /// The `r` component of the result equals `self.len()`.
@@ -364,6 +366,8 @@ impl Vec2 {
     /// use retrofire_core::assert_approx_eq;
     /// use retrofire_core::math::{vec2, degs};
     ///
+    /// let vec2 = vec2::<f32, ()>;
+    ///
     /// // A non-negative x and zero y maps to zero azimuth
     /// assert_eq!(vec2(0.0, 0.0).to_polar().az(), degs(0.0));
     /// assert_eq!(vec2(1.0, 0.0).to_polar().az(), degs(0.0));
@@ -377,7 +381,7 @@ impl Vec2 {
     /// // A negative x and zero y maps to straight angle azimuth
     /// assert_approx_eq!(vec2(-1.0, 0.0).to_polar().az(), degs(180.0));
     /// ```
-    pub fn to_polar(&self) -> PolarVec {
+    pub fn to_polar(&self) -> PolarVec<B> {
         let r = self.len();
         let az = atan2(self.y(), self.x());
         polar(r, az)
@@ -532,21 +536,21 @@ impl Rem for Angle {
 }
 
 #[cfg(feature = "fp")]
-impl From<PolarVec> for Vec2 {
+impl<B> From<PolarVec<B>> for Vec2<B> {
     /// Converts a polar vector into the equivalent Cartesian vector.
     ///
     /// See [PolarVec::to_cart] for more information.
-    fn from(p: PolarVec) -> Self {
+    fn from(p: PolarVec<B>) -> Self {
         p.to_cart()
     }
 }
 
 #[cfg(feature = "fp")]
-impl From<Vec2> for PolarVec {
+impl<B> From<Vec2<B>> for PolarVec<B> {
     /// Converts a Cartesian 2-vector into the equivalent polar vector.
     ///
     /// See [Vec2::to_polar] for more information.
-    fn from(v: Vec2) -> Self {
+    fn from(v: Vec2<B>) -> Self {
         v.to_polar()
     }
 }
@@ -572,13 +576,13 @@ impl<B> From<Vec3<B>> for SphericalVec<B> {
 }
 
 #[cfg(test)]
-#[allow(unused)]
+#[allow(unused, nonstandard_style)]
 mod tests {
     use core::f32::consts::{PI, TAU};
 
     use crate::{
         assert_approx_eq,
-        math::{Lerp, Vary},
+        math::{self, Lerp, Vary, Vec2, Vec3},
     };
 
     use super::*;
@@ -695,6 +699,9 @@ mod tests {
         assert_approx_eq!(i.next(), None);
     }
 
+    const vec2: fn(f32, f32) -> Vec2 = math::vec2;
+    const vec3: fn(f32, f32, f32) -> Vec3 = math::vec3;
+
     #[cfg(feature = "fp")]
     #[test]
     fn polar_to_cartesian_zero_r() {
@@ -773,7 +780,6 @@ mod tests {
     #[cfg(feature = "fp")]
     #[test]
     fn cartesian_to_spherical_zero_alt() {
-        let vec3 = vec3::<f32, ()>;
         assert_approx_eq!(
             vec3(0.0, 0.0, 0.0).to_spherical(),
             spherical(0.0, degs(0.0), degs(0.0))
@@ -796,7 +802,6 @@ mod tests {
     #[test]
     fn cartesian_to_spherical() {
         use core::f32::consts::SQRT_2;
-        let vec3 = vec3::<f32, ()>;
         assert_approx_eq!(
             vec3(SQRT_3, 0.0, 1.0).to_spherical(),
             spherical(2.0, degs(30.0), degs(0.0))
