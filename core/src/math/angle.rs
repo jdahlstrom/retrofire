@@ -477,6 +477,17 @@ impl ZDiv for Angle {}
 // Foreign trait impls
 //
 
+impl<B> Default for SphericalVec<B> {
+    fn default() -> Self {
+        Self::new([1.0, 0.0, 0.0])
+    }
+}
+impl<B> Default for PolarVec<B> {
+    fn default() -> Self {
+        Self::new([1.0, 0.0])
+    }
+}
+
 impl Display for Angle {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         let (val, unit) = if f.alternate() {

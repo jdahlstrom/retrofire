@@ -505,8 +505,8 @@ impl<Sc: ApproxEq, Sp, const N: usize> ApproxEq<Self, Sc>
 // Foreign trait impls
 //
 
-// Manual impls of Copy, Clone, Eq, and PartialEq to avoid
-// superfluous where S: Trait bound
+// Manual impls of Copy, Clone, Default, Eq, and PartialEq
+// to avoid superfluous where S: Trait bound
 
 impl<R: Copy, S> Copy for Vector<R, S> {}
 
@@ -516,7 +516,7 @@ impl<R: Clone, S> Clone for Vector<R, S> {
     }
 }
 
-impl<R: Default, S> Default for Vector<R, S> {
+impl<R: Default, B, const DIM: usize> Default for Vector<R, Real<DIM, B>> {
     fn default() -> Self {
         Self(R::default(), Pd)
     }
