@@ -1,11 +1,12 @@
 use core::ops::ControlFlow::Continue;
 
-use minifb::{Key, KeyRepeat};
+use minifb::{Key, KeyRepeat, MouseMode};
 
 use re::prelude::*;
 
 use re::geom::Polyline;
 use re::math::{color::gray, mat::RealToReal, vec::ProjVec3};
+use re::prelude::cam::Orbit;
 use re::render::cam::Fov;
 
 use re_front::{Frame, minifb::Window};
@@ -56,8 +57,12 @@ fn main() {
     win.ctx.color_clear = Some(gray(32).to_rgba());
 
     let (w, h) = win.dims;
-    let cam = Camera::new(win.dims)
-        .transform(scale3(1.0, -1.0, -1.0).to())
+    let mut cam = Camera::new(win.dims)
+        //.transform(scale3(1.0, -1.0, -1.0).to())
+        .transform(Orbit::new(
+            pt3(0.0, 0.0, 4.0),
+            SphericalVec::default() * 4.0,
+        ))
         .perspective(Fov::Equiv35mm(28.0), 0.1..1000.0)
         .viewport(pt2(10, 10)..pt2(w - 10, h - 10));
 
@@ -84,18 +89,53 @@ fn main() {
 
     let objects = objects(8);
 
-    let translate = translate(-4.0 * Vec3::Z);
+    let translate = translate(4.0 * Vec3::Z);
     let mut carousel = Carousel::default();
 
     win.run(|frame| {
         let Frame { t, dt, win, .. } = frame;
 
         // Press Space to trigger carousel animation
+
+        let mut delta_az = 0.0;
+        let mut delta_alt = 0.0;
+        let mut zoom = 1.0;
+        let secs = dt.as_secs_f32();
+        for key in win.imp.get_keys() {
+            match key {
+                Key::A => delta_az -= secs,
+                Key::D => delta_az += secs,
+                Key::W => delta_alt += secs,
+                Key::S => delta_alt -= secs,
+                Key::Up => zoom = 0.98,
+                Key::Down => zoom = 1.02,
+                _ => {}
+            }
+        }
         if win.imp.is_key_pressed(Key::Space, KeyRepeat::No) {
-            carousel.start();
+            carousel.start()
         }
 
-        let theta = rads(t.as_secs_f32());
+        if let Some((mut mx, mut my)) = win.imp.get_mouse_pos(MouseMode::Clamp)
+        {
+            mx -= w as f32 / 2.0;
+            my -= h as f32 / 2.0;
+            cam.transform.rotate_to(degs(-mx), degs(my));
+        }
+
+        if let Some((_, sy)) = win.imp.get_scroll_wheel() {
+            if sy < 0.0 {
+                cam.transform.zoom(1.05);
+            } else {
+                cam.transform.zoom(0.95);
+            }
+        }
+
+        cam.transform
+            .rotate(turns(delta_az), turns(delta_alt));
+        cam.transform.zoom(zoom);
+
+        let theta = rads(t.as_secs_f32() * 0.0);
         let spin = rotate_x(theta * 0.47).then(&rotate_y(theta * 0.61));
         let carouse = carousel.update(dt.as_secs_f32());
 
