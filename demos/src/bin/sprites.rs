@@ -4,6 +4,7 @@ use re::prelude::*;
 
 use re::math::rand::{Distrib, PointsInUnitBall, Xorshift64};
 use re::render::{Model, ModelToView, ViewToProj, cam::*, render};
+
 use re_front::minifb::Window;
 
 fn main() {
@@ -24,7 +25,7 @@ fn main() {
 
     let tris: Vec<_> = (0..count)
         .map(|i| from_fn(|j| 4 * i + j))
-        .flat_map(|[a, b, c, d]| [Tri([a, b, d]), Tri([a, d, c])])
+        .flat_map(|[a, b, c, d]| [tri(a, b, d), tri(a, d, c)])
         .collect();
 
     let mut win = Window::builder()

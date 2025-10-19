@@ -83,11 +83,13 @@ pub enum Winding {
 }
 
 /// Creates a `Vertex` with the give position and attribute values.
+#[inline]
 pub const fn vertex<P, A>(pos: P, attrib: A) -> Vertex<P, A> {
     Vertex { pos, attrib }
 }
 
 /// Creates a `Tri` with the given vertices.
+#[inline]
 pub const fn tri<V>(a: V, b: V, c: V) -> Tri<V> {
     Tri([a, b, c])
 }
@@ -146,7 +148,7 @@ impl<A, B> Tri<Vertex2<A, B>> {
     ///
     /// # Examples
     /// ```
-    /// use retrofire_core::geom::{vertex, Tri};
+    /// use retrofire_core::geom::{Tri, vertex};
     /// use retrofire_core::math::pt2;
     ///
     /// let tri = Tri([

@@ -49,7 +49,7 @@ use std::{
     path::Path,
 };
 
-use re::geom::{Mesh, Normal3, Tri, mesh::Builder, vertex};
+use re::geom::{Mesh, Normal3, Tri, mesh::Builder, tri, vertex};
 use re::math::{Point3, Vec3, vec3};
 use re::render::{Model, TexCoord, uv};
 
@@ -192,7 +192,7 @@ fn parse_face<'a>(
     let a = parse_indices(next(i)?)?;
     let b = parse_indices(next(i)?)?;
     let c = parse_indices(next(i)?)?;
-    Ok(Tri([a, b, c]))
+    Ok(tri(a, b, c))
 }
 
 fn parse_texcoord<'a>(
@@ -318,7 +318,7 @@ v 0.0 -2.0 0.0
 
         let mesh = parse_obj(input).unwrap().build();
 
-        assert_eq!(mesh.faces, vec![Tri([0, 1, 3]), Tri([3, 0, 2])]);
+        assert_eq!(mesh.faces, vec![tri(0, 1, 3), tri(3, 0, 2)]);
         assert_eq!(mesh.verts[3].pos, pt3(1.0, 2.0, 3.0));
     }
 
@@ -347,7 +347,7 @@ v 0.0 -2.0 0.0
             vn 1.0 0.0 0.0";
 
         let mesh = parse_obj(input).unwrap().build();
-        assert_eq!(mesh.faces, vec![Tri([0, 1, 2]), Tri([3, 0, 2])]);
+        assert_eq!(mesh.faces, vec![tri(0, 1, 2), tri(3, 0, 2)]);
 
         let v = mesh.verts[3];
         assert_eq!(v.pos, pt3(1.0, 2.0, 3.0));
@@ -368,7 +368,7 @@ v 0.0 -2.0 0.0
             vn 0.0 0.0 -1.0";
 
         let mesh = parse_obj(input).unwrap().build();
-        assert_eq!(mesh.faces, vec![Tri([0, 1, 3]), Tri([3, 0, 2])]);
+        assert_eq!(mesh.faces, vec![tri(0, 1, 3), tri(3, 0, 2)]);
         assert_eq!(mesh.verts[3].pos, pt3(1.0, 2.0, 3.0));
     }
 
@@ -387,7 +387,7 @@ v 0.0 -2.0 0.0
             vn 0.0 0.0 -1.0";
 
         let mesh = parse_obj(input).unwrap().build();
-        assert_eq!(mesh.faces, vec![Tri([0, 1, 3]), Tri([3, 0, 2])]);
+        assert_eq!(mesh.faces, vec![tri(0, 1, 3), tri(3, 0, 2)]);
         assert_eq!(mesh.verts[3].pos, pt3(1.0, 2.0, 3.0));
     }
 
