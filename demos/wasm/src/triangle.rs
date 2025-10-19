@@ -42,7 +42,7 @@ pub fn start() {
         );
 
         render(
-            [Tri([0, 1, 2])], //
+            [tri(0, 1, 2)], //
             vs,
             &sh,
             (),
