@@ -5,7 +5,7 @@ use core::ops::Range;
 use crate::geom::Vertex;
 use crate::math::{
     Lerp, Mat4x4, Point3, SphericalVec, Vary, mat::RealToReal, orthographic,
-    perspective, pt2, viewport,
+    perspective, pt2, vec3, viewport,
 };
 use crate::util::{Dims, rect::Rect};
 
@@ -72,7 +72,7 @@ pub struct Camera<Tf> {
 ///
 /// This is the familiar "FPS" movement mode, based on camera
 /// position and heading (look-at vector).
-#[derive(Copy, Clone, Debug)]
+#[derive(Copy, Clone, Debug, Default)]
 pub struct FirstPerson {
     /// Current position of the camera in **world** space.
     pub pos: Point3<World>,
@@ -91,7 +91,7 @@ fn az_alt<B>(az: Angle, alt: Angle) -> SphericalVec<B> {
 /// Keeps the camera centered on a **world-space** point, and allows free
 /// 360°/180° azimuth/altitude rotation around that point as well as setting
 /// the distance from the point.
-#[derive(Copy, Clone, Debug)]
+#[derive(Copy, Clone, Debug, Default)]
 pub struct Orbit {
     /// The camera's target point in **world** space.
     pub target: Point3<World>,
@@ -242,10 +242,7 @@ impl FirstPerson {
     /// Creates a first-person transform with position in the origin
     /// and heading in the direction of the positive x-axis.
     pub fn new() -> Self {
-        Self {
-            pos: Point3::origin(),
-            heading: az_alt(turns(0.0), turns(0.0)),
-        }
+        Self::default()
     }
 
     /// Rotates the camera to center the view on a **world-space** point.
@@ -284,6 +281,10 @@ impl FirstPerson {
 
 #[cfg(feature = "fp")]
 impl Orbit {
+    pub fn new(target: Point3<World>, dir: SphericalVec<World>) -> Self {
+        Self { target, dir }
+    }
+
     /// Adds the azimuth and altitude to the camera's current direction.
     ///
     /// Wraps the resulting azimuth to [-180°, 180°) and clamps the altitude to [-90°, 90°].
@@ -291,7 +292,7 @@ impl Orbit {
         self.rotate_to(self.dir.az() + az_delta, self.dir.alt() + alt_delta);
     }
 
-    /// Rotates the camera to the **world**-space azimuth and altitude given.
+    /// Rotates the camera to the world-space azimuth and altitude given.
     ///
     /// Wraps the azimuth to [-180°, 180°) and clamps the altitude to [-90°, 90°].
     pub fn rotate_to(&mut self, az: Angle, alt: Angle) {
@@ -302,18 +303,21 @@ impl Orbit {
         );
     }
 
-    /// Translates the camera's target point in **world** space.
+    /// Translates the camera's target point in world space.
     pub fn translate(&mut self, delta: Vec3<World>) {
         self.target += delta;
     }
 
     /// Moves the camera towards or away from the target.
     ///
-    /// Multiplies the current camera distance by `factor`. The distance is
-    /// clamped to zero. Note that if the distance becomes zero, you cannot use
-    /// this method to make it nonzero again!
+    /// This is commonly called "zoom" even though the proper name would be
+    /// "dolly". The camera moves, its angle of view does not change.
     ///
-    /// To set an absolute zoom distance, use [`zoom_to`][Self::zoom_to].
+    /// Multiplies the current camera distance by `factor`. Note that if the
+    /// distance becomes zero, you cannot use this method to make it nonzero
+    /// again!
+    ///
+    /// To set an absolute camera distance, use [`zoom_to`][Self::zoom_to].
     ///
     /// # Panics
     /// If `factor < 0`.
@@ -323,11 +327,14 @@ impl Orbit {
     }
     /// Moves the camera to the given distance from the target.
     ///
+    /// This is commonly called "zoom" even though the proper name would be
+    /// "dolly". The camera moves, its angle of view does not change.
+    ///
     /// # Panics
     /// If `r < 0`.
-    pub fn zoom_to(&mut self, r: f32) {
-        assert!(r >= 0.0, "camera distance cannot be negative");
-        self.dir[0] = r.max(0.0);
+    pub fn zoom_to(&mut self, dist: f32) {
+        assert!(dist >= 0.0, "camera distance cannot be negative");
+        self.dir[0] = dist;
     }
 }
 
@@ -354,16 +361,17 @@ impl Transform for FirstPerson {
 #[cfg(feature = "fp")]
 impl Transform for Orbit {
     fn world_to_view(&self) -> Mat4x4<WorldToView> {
-        // TODO Figure out how to do this with orient
-        //let fwd = self.dir.to_cart().normalize();
-        //let o = orient_z(fwd, Vec3::X - 0.1 * Vec3::Z);
+        // TODO Maybe figure out how to do this with orient
+        //      or just do the product by hand
 
-        // TODO Work out how and whether this is the correct inverse
-        //      of the view-to-world transform
-        translate(self.target.to_vec().to()) // to world-space target
-            .then(&rotate_y(self.dir.az())) // to world-space az
-            .then(&rotate_x(self.dir.alt())) // to world-space alt
-            .then(&translate(self.dir.r() * Vec3::Z)) // view space
+        let to_target = translate(-self.target.to_vec().to());
+        let azimuth = &rotate_y(-self.dir.az());
+        let altitude = rotate_x(-self.dir.alt());
+        let zoom = translate(self.dir.r() * Vec3::Z);
+        to_target
+            .then(&azimuth)
+            .then(&altitude)
+            .then(&zoom)
             .to()
     }
 }
@@ -371,28 +379,6 @@ impl Transform for Orbit {
 impl Transform for Mat4x4<WorldToView> {
     fn world_to_view(&self) -> Mat4x4<WorldToView> {
         *self
-    }
-}
-
-//
-// Foreign trait impls
-//
-
-#[cfg(feature = "fp")]
-impl Default for FirstPerson {
-    /// Returns [`FirstPerson::new`].
-    fn default() -> Self {
-        Self::new()
-    }
-}
-
-#[cfg(feature = "fp")]
-impl Default for Orbit {
-    fn default() -> Self {
-        Self {
-            target: Point3::default(),
-            dir: az_alt(turns(0.0), turns(0.0)),
-        }
     }
 }
 
