@@ -1,5 +1,6 @@
 #![allow(unused)]
 
+use retrofire_core::geom::tri;
 use retrofire_core::{
     math::color::Rgb,
     prelude::*,
@@ -13,7 +14,7 @@ const VERTS: [Vertex3<TexCoord>; 4] = [
     vertex(pt3(1.0, -1.0, 0.0), uv(1.0, 0.0)),
     vertex(pt3(1.0, 1.0, 0.0), uv(1.0, 1.0)),
 ];
-const FACES: [Tri<usize>; 2] = [Tri([0, 1, 2]), Tri([3, 2, 1])];
+const FACES: [Tri<usize>; 2] = [tri(0, 1, 2), tri(3, 2, 1)];
 
 #[test]
 fn textured_quad() {

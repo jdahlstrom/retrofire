@@ -1,5 +1,5 @@
 use core::{array::from_fn, ops::ControlFlow::Continue};
-
+use re::geom::tri;
 use re::prelude::*;
 
 use re::math::rand::{Distrib, PointsInUnitBall, Xorshift64};
@@ -24,7 +24,7 @@ fn main() {
 
     let tris: Vec<_> = (0..count)
         .map(|i| from_fn(|j| 4 * i + j))
-        .flat_map(|[a, b, c, d]| [Tri([a, b, d]), Tri([a, d, c])])
+        .flat_map(|[a, b, c, d]| [tri(a, b, d), tri(a, d, c)])
         .collect();
 
     let mut win = Window::builder()

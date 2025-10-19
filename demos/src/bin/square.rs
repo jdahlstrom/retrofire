@@ -1,9 +1,7 @@
 use std::ops::ControlFlow::*;
 
 use re::prelude::*;
-
-use re::math::{pt2, pt3};
-use re::render::{Context, ModelToProj, render, tex::SamplerClamp};
+use re::render::tex::SamplerClamp;
 
 use re_front::minifb::Window;
 
@@ -56,7 +54,7 @@ fn main() {
             .then(&projection);
 
         render(
-            [Tri([0, 1, 2]), Tri([3, 2, 1])],
+            [tri(0, 1, 2), tri(3, 2, 1)],
             verts,
             &shader,
             &model_view_project,

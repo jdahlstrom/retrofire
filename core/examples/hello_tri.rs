@@ -1,3 +1,4 @@
+use retrofire_core::geom::tri;
 use retrofire_core::{prelude::*, util::*};
 
 fn main() {
@@ -34,7 +35,7 @@ fn main() {
     let mut framebuf = Buf2::<Color4>::new(dims);
 
     render(
-        [Tri([0, 1, 2])],
+        [tri(0, 1, 2)],
         verts,
         &shader,
         &modelview.then(&project),
