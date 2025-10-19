@@ -1,6 +1,8 @@
+use core::fmt::{self, Debug, Formatter};
+
 use crate::{
     geom::{Mesh, vertex},
-    math::{Mat4, Point3, ProjMat3, pt3, splat},
+    math::{Mat4, Point3, mat::ProjMat3, pt3},
 };
 
 use super::{
@@ -17,8 +19,8 @@ pub struct Obj<A> {
 
 // TODO Decide whether upper bound is inclusive or exclusive
 // TODO Needs to be more generic to work with clip points
-#[derive(Copy, Clone, Debug, PartialEq)]
-pub struct BBox<B: Default>(pub Point3<B>, pub Point3<B>);
+#[derive(Copy, Clone, PartialEq)]
+pub struct BBox<B>(pub Point3<B>, pub Point3<B>);
 
 impl<A> Obj<A> {
     pub fn new(geom: Mesh<A>) -> Self {
@@ -30,7 +32,7 @@ impl<A> Obj<A> {
     }
 }
 
-impl<B: Default> BBox<B> {
+impl<B> BBox<B> {
     pub fn of<A>(mesh: &Mesh<A, B>) -> Self {
         mesh.verts.iter().map(|v| &v.pos).collect()
     }
@@ -85,6 +87,15 @@ impl<B: Default> BBox<B> {
     }
 }
 
+impl<B: Debug + Default> Debug for BBox<B> {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        f.debug_tuple("BBox")
+            .field(&self.0)
+            .field(&self.1)
+            .finish()
+    }
+}
+
 impl<A> Default for Obj<A> {
     /// Returns an empty `Obj`.
     fn default() -> Self {
@@ -96,26 +107,23 @@ impl<A> Default for Obj<A> {
     }
 }
 
-impl<B: Default> Default for BBox<B> {
+impl<B> Default for BBox<B> {
     /// Returns an empty `BBox`.
     fn default() -> Self {
-        BBox(
-            splat(f32::INFINITY).to_pt(),
-            splat(f32::NEG_INFINITY).to_pt(),
-        )
+        BBox([f32::INFINITY; 3].into(), [f32::NEG_INFINITY; 3].into())
     }
 }
 
-impl<'a, B: Default> Extend<&'a Point3<B>> for BBox<B> {
+impl<'a, B> Extend<&'a Point3<B>> for BBox<B> {
     fn extend<I: IntoIterator<Item = &'a Point3<B>>>(&mut self, it: I) {
         it.into_iter().for_each(|pt| self.extend(pt));
     }
 }
 
-impl<'a, B: Default> FromIterator<&'a Point3<B>> for BBox<B> {
+impl<'a, B> FromIterator<&'a Point3<B>> for BBox<B> {
     fn from_iter<I: IntoIterator<Item = &'a Point3<B>>>(it: I) -> Self {
         let mut bbox = BBox::default();
-        it.into_iter().for_each(|pt| bbox.extend(pt));
+        Extend::extend(&mut bbox, it);
         bbox
     }
 }
