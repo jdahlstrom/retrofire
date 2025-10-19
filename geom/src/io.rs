@@ -560,16 +560,16 @@ v 0.0 -2.0 0.0
     #[test]
     fn positions_and_texcoords() {
         let input = *br"
-            f 1//1 2//3 4//2
-            f 4//3 1//2 3//1
+            f 1/1 2/3 4/2
+            f 4/3 1/2 3/1
 
-            vn 1.0 0.0 0.0
+            vt 0.0 0.0
             v 0.0 0.0 0.0
             v 1.0 0.0 0.0
             v 0.0 2.0 0.0
-            vn 0.0 1.0 0.0
+            vt 0.0 1.0
             v 1.0 2.0 3.0
-            vn 0.0 0.0 -1.0";
+            vt 1.0 1.0";
 
         let m: Mesh<TexCoord> = parse_obj(input).unwrap().build();
 
