@@ -1,10 +1,12 @@
 //! Bézier curves and splines.
 
+use alloc::vec::Vec;
+use core::array;
+
 use crate::assert_approx_eq;
 use crate::geom::{Polyline, Ray};
-use crate::math::{Affine, Lerp, Linear, Parametric};
-use alloc::vec::Vec;
-use core::{array, fmt::Debug};
+
+use super::{Affine, Lerp, Linear, Parametric, Vector};
 
 /// A cubic Bézier curve, defined by four control points.
 ///
@@ -238,7 +240,33 @@ where
         (t2, array::from_fn(|k| self.0[idx + k].clone()))
     }
 
-    /// Approximates `self` as a sequence of line segments.
+    /// Approximates `self` as a chain of line segments.
+    ///
+    /// Recursively subdivides the curve into two half-curves, stopping once
+    /// the approximation error is less than `error`.
+    ///
+    /// # Examples
+    /// ```
+    /// use retrofire_core::math::{BezierSpline, vec2, Vec2};
+    ///
+    /// let curve = BezierSpline::<Vec2>::new(
+    ///     &[vec2(0.0, 0.0), vec2(0.0, 1.0), vec2(1.0, 1.0), vec2(1.0, 0.0)]
+    /// );
+    /// let approx = curve.approximate(0.01);
+    /// assert_eq!(approx.0.len(), 17);
+    /// ```
+    ///
+    /// # Panics
+    /// If `err` ≤ 0.
+    pub fn approximate<Sp, const DIM: usize>(&self, error: f32) -> Polyline<T>
+    where
+        T: Affine<Diff = Vector<[f32; DIM], Sp>>,
+    {
+        assert!(error > 0.0);
+        self.approximate_with(&|e: &T::Diff| e.len_sqr() < error * error)
+    }
+
+    /// Approximates `self` as a chain of line segments.
     ///
     /// Recursively subdivides the curve into two half-curves, stopping once
     /// the approximation error is small enough, as determined by the `halt`
@@ -270,10 +298,13 @@ where
     /// let curve = BezierSpline::<Vec2>::new(
     ///     &[vec2(0.0, 0.0), vec2(0.0, 1.0), vec2(1.0, 1.0), vec2(1.0, 0.0)]
     /// );
-    /// let approx = curve.approximate(|err| err.len_sqr() < 0.01*0.01);
+    /// let approx = curve.approximate_with(|err| err.len_sqr() < 0.01 * 0.01);
     /// assert_eq!(approx.0.len(), 17);
     /// ```
-    pub fn approximate(&self, halt: impl Fn(&T::Diff) -> bool) -> Polyline<T> {
+    pub fn approximate_with(
+        &self,
+        halt: impl Fn(&T::Diff) -> bool,
+    ) -> Polyline<T> {
         let len = self.0.len();
         let mut res = Vec::with_capacity(3 * len);
         self.do_approx(0.0, 1.0, 10 + len.ilog2(), &halt, &mut res);
@@ -289,13 +320,13 @@ where
         halt: &impl Fn(&T::Diff) -> bool,
         accum: &mut Vec<T>,
     ) {
-        let mid = a.lerp(&b, 0.5);
+        let mid = a.midpoint(b);
 
         let ap = self.eval(a);
         let bp = self.eval(b);
 
         let real = self.eval(mid);
-        let approx = ap.lerp(&bp, 0.5);
+        let approx = ap.midpoint(&bp);
 
         if max_dep == 0 || halt(&real.sub(&approx)) {
             accum.push(ap);
