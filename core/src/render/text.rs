@@ -2,7 +2,7 @@ use core::fmt;
 #[cfg(feature = "std")]
 use std::io;
 
-use crate::geom::{Mesh, Tri, vertex};
+use crate::geom::{Mesh, tri, vertex};
 use crate::math::{Color3, Point2, Vec2, pt2, vec2, vec3};
 use crate::util::buf::Buf2;
 
@@ -85,8 +85,8 @@ impl Text {
             vertex(pos + vec3(0.0, glyph_h, 0.0), bl),
             vertex(pos + vec3(glyph_w, glyph_h, 0.0), br),
         ]);
-        geom.faces.push(Tri([l, l + 1, l + 3]));
-        geom.faces.push(Tri([l, l + 3, l + 2]));
+        geom.faces.push(tri(l, l + 1, l + 3));
+        geom.faces.push(tri(l, l + 3, l + 2));
 
         *cursor += vec2(glyph_w, 0.0);
     }

@@ -11,7 +11,7 @@ use crate::{
     render::Model,
 };
 
-use super::{Normal3, Tri, Vertex3, vertex};
+use super::{Normal3, Tri, Vertex3, tri, vertex};
 
 /// A triangle mesh.
 ///
@@ -47,7 +47,7 @@ impl<A, B> Mesh<A, B> {
     ///
     /// # Examples
     /// ```
-    /// use retrofire_core::geom::{Tri, Mesh, vertex};
+    /// use retrofire_core::geom::{Mesh, tri, vertex};
     /// use retrofire_core::math::pt3;
     ///
     /// let verts = [
@@ -60,10 +60,10 @@ impl<A, B> Mesh<A, B> {
     ///
     /// let faces = [
     ///     // Indices point to the verts array
-    ///     Tri([0, 1, 2]),
-    ///     Tri([0, 1, 3]),
-    ///     Tri([0, 2, 3]),
-    ///     Tri([1, 2, 3])
+    ///     tri(0, 1, 2),
+    ///     tri(0, 1, 3),
+    ///     tri(0, 2, 3),
+    ///     tri(1, 2, 3)
     /// ];
     ///
     /// // Create a mesh with a tetrahedral shape
@@ -121,7 +121,7 @@ impl<A> Builder<A> {
     /// as long as all indices are valid when the [`build`][Builder::build]
     /// method is called.
     pub fn push_face(&mut self, a: usize, b: usize, c: usize) {
-        self.mesh.faces.push(Tri([a, b, c]));
+        self.mesh.faces.push(tri(a, b, c));
     }
 
     /// Appends all the faces yielded by the given iterator.
@@ -275,7 +275,7 @@ mod tests {
     #[should_panic]
     fn mesh_new_panics_if_vertex_index_oob() {
         let _: Mesh<()> = Mesh::new(
-            [Tri([0, 1, 2]), Tri([1, 2, 3])],
+            [tri(0, 1, 2), tri(1, 2, 3)],
             [
                 vertex(pt3(0.0, 0.0, 0.0), ()),
                 vertex(pt3(1.0, 1.0, 1.0), ()),
