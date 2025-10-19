@@ -44,7 +44,7 @@ fn main() {
 
         let b = BezierSpline::from_rays(rays);
         // Stop once error is less than one pixel
-        let approx = b.approximate(|err| err.len_sqr() < 1.0);
+        let approx = b.approximate(1.0);
 
         for Edge(p0, p1) in approx.edges() {
             let vs = [p0, p1].map(|p| vertex(p.to_pt3().to(), ()));
