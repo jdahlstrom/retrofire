@@ -133,6 +133,22 @@ impl<P: Affine, A> Tri<Vertex<P, A>> {
 
 impl<A, B> Tri<Vertex2<A, B>> {
     /// Returns the winding order of `self`.
+    ///
+    /// # Examples
+    /// ```
+    /// use retrofire_core::geom::{Tri, vertex, Winding};
+    /// use retrofire_core::math::pt2;
+    ///
+    /// let mut tri = Tri([
+    ///     vertex(pt2::<_, ()>(0.0, 0.0), ()),
+    ///     vertex(pt2(0.0, 3.0), ()),
+    ///     vertex(pt2(4.0, 0.0), ()),
+    /// ]);
+    /// assert_eq!(tri.winding(), Winding::Cw);
+    ///
+    /// tri.0.swap(1, 2);
+    /// assert_eq!(tri.winding(), Winding::Ccw);
+    /// ```
     pub fn winding(&self) -> Winding {
         let [t, u] = self.tangents();
         if t.perp_dot(u) < 0.0 {
@@ -186,6 +202,21 @@ impl<A, B> Tri<Vertex3<A, B>> {
     /// Returns the normal vector of `self`.
     ///
     /// The result is normalized to unit length.
+    ///
+    /// # Examples
+    /// ```
+    /// use core::f32::consts::SQRT_2;
+    /// use retrofire_core::geom::{Tri, vertex};
+    /// use retrofire_core::math::{pt3, vec3};
+    ///
+    /// // Triangle lying in a 45° angle
+    /// let tri = Tri([
+    ///     vertex(pt3::<_, ()>(0.0, 0.0, 0.0), ()),
+    ///     vertex(pt3(0.0, 3.0, 3.0), ()),
+    ///     vertex(pt3(4.0, 0.0,0.0), ()),
+    /// ]);
+    /// assert_eq!(tri.normal(), vec3(0.0, SQRT_2 / 2.0, -SQRT_2 / 2.0));
+    /// ```
     pub fn normal(&self) -> Normal3 {
         let [t, u] = self.tangents();
         // TODO normal with basis
