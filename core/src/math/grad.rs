@@ -1,11 +1,11 @@
 use alloc::vec::Vec;
 use core::fmt::Debug;
 
-use super::{Lerp, Parametric, Point2, inv_lerp, smoothstep};
+use super::{Lerp, Parametric, Point2, inv_lerp};
 
 pub struct Gradient2<T> {
     pub shape: Shape,
-    pub stops: Vec<(f32, T)>,
+    pub stops: Stops<T>,
     pub frequency: f32,
 }
 
@@ -15,14 +15,16 @@ pub enum Shape {
     Conical(Point2),
 }
 
+pub struct Stops<T>(Vec<(f32, T)>);
+
 /// Two-dimensional gradient.
 impl<T: Lerp + Clone + Debug> Gradient2<T> {
     pub fn new(
         shape: Shape,
         stops: impl IntoIterator<Item = (f32, T)>,
     ) -> Self {
-        let stops: Vec<_> = stops.into_iter().collect();
-        assert!(!stops.is_empty(), "at least one stop must be supplied");
+        let stops = Stops::new(stops);
+        assert!(!stops.0.is_empty(), "at least one stop must be supplied");
         Self { shape, stops, frequency: 1.0 }
     }
 
@@ -40,39 +42,37 @@ impl<T: Lerp + Clone + Debug> Gradient2<T> {
     }
 }
 
-impl<T: Lerp + Clone> Parametric<T> for Vec<(f32, T)> {
-    fn eval(&self, t: f32) -> T {
-        let res = self.binary_search_by(|(u, _)| u.total_cmp(&t));
-        match res {
-            Ok(i) => self[i].1.clone(),
-            Err(i) => {
-                match i {
-                    0 => self[0].1.clone(),                        // t < t0
-                    i if i == self.len() => self[i - 1].1.clone(), // t > tn
-                    i => {
-                        let (t1, v1) = &self[i - 1]; // ok: i != 0
-                        let (t2, v2) = &self[i]; // ok: i != len
-                        // Remap t such that t=0 -> v1 and t=1 -> v2
-                        v1.lerp(v2, inv_lerp(t, *t1, *t2))
-                    }
-                }
-            }
-        }
+impl<T> Stops<T> {
+    pub fn new(it: impl IntoIterator<Item = (f32, T)>) -> Self {
+        let mut t0 = f32::MIN;
+        let stops = it
+            .into_iter()
+            .inspect(|&(t, _)| {
+                assert!(t >= t0, "t values must be nondecreasing");
+                t0 = t;
+            })
+            .collect();
+        Self(stops)
+    }
+}
 
-        /*if t < *t0 {
-            return v0.clone();
-        }
-        for ((t0, v0), (t1, v1)) in
-            self.windows(2).map(|win| (&win[0], &win[1]))
-        {
-            if *t0 <= t && t < *t1 {
-                let t = inv_lerp(t, *t0, *t1);
-                let t = if t < 0.5 { 0.0 } else { 1.0 };
-                return v0.lerp(&v1, t);
+impl<T: Lerp> Parametric<T> for Stops<T> {
+    fn eval(&self, t: f32) -> T {
+        let v = &self.0[..];
+        debug_assert!(!v.is_empty(), "failed invariant");
+        let res = v.binary_search_by(|(u, _)| u.total_cmp(&t));
+        match res {
+            Ok(i) => v[i].1.clone(),                      // t == t_i
+            Err(0) => v[0].1.clone(),                     // t < t_0
+            Err(i) if i == v.len() => v[i - 1].1.clone(), // t > t_n
+            Err(i) => {
+                // 0 < i < len
+                let (t1, v1) = &v[i - 1];
+                let (t2, v2) = &v[i];
+                // Remap t such that t=0 -> v1 and t=1 -> v2
+                v1.lerp(v2, inv_lerp(t, *t1, *t2))
             }
         }
-        // if not yet returned, t >= tn
-        vn.clone()*/
     }
 }
 
@@ -83,14 +83,14 @@ mod tests {
 
     #[test]
     fn t_less_than_or_eq_to_min() {
-        let g = vec![(0.5, 1.23f32)];
+        let g = Stops(vec![(0.5, 1.23f32)]);
         assert_eq!(g.eval(-10.0), 1.23);
         assert_eq!(g.eval(0.0), 1.23);
         assert_eq!(g.eval(0.5), 1.23);
     }
     #[test]
     fn t_greater_than_or_eq_to_max() {
-        let g = vec![(0.5, 1.23f32)];
+        let g = Stops(vec![(0.5, 1.23f32)]);
         assert_eq!(g.eval(10.0), 1.23);
         assert_eq!(g.eval(1.0), 1.23);
         assert_eq!(g.eval(0.5), 1.23);
@@ -98,7 +98,7 @@ mod tests {
 
     #[test]
     fn t_between_min_max() {
-        let g = vec![(0.2, 1.23f32), (0.6, 2.23f32)];
+        let g = Stops(vec![(0.2, 1.23f32), (0.6, 2.23f32)]);
 
         assert_eq!(g.eval(0.2), 1.23);
         assert_eq!(g.eval(0.4), 1.73);
