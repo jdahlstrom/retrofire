@@ -1,10 +1,13 @@
-use crate::geom::vertex;
-use crate::math::mat::RealToProj;
-use crate::prelude::clip::{ClipVert, Status, view_frustum};
-use crate::{
-    geom::Mesh,
-    math::{Mat4x4, Point3, pt3, splat},
-    render::{Model, ModelToWorld},
+use crate::geom::{Mesh, vertex};
+use crate::math::{
+    Mat4x4, Point3,
+    mat::{Apply, RealToProj},
+    pt3, splat,
+};
+
+use super::{
+    Model, ModelToWorld,
+    clip::{ClipVert, Status, view_frustum},
 };
 
 #[derive(Clone, Debug)]

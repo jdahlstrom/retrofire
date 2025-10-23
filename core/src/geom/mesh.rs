@@ -7,7 +7,7 @@ use core::{
 };
 
 use crate::{
-    math::{Linear, Mat4x4, Point3, mat::RealToReal},
+    math::{Apply, Linear, Mat4x4, Point3, mat::RealToReal},
     render::Model,
 };
 
@@ -166,7 +166,7 @@ impl<A> Builder<A> {
     /// This is an eager operation, that is, only vertices *currently*
     /// added to the builder are transformed.
     pub fn transform(self, tf: &Mat4x4<RealToReal<3, Model, Model>>) -> Self {
-        self.warp(|v| vertex(tf.apply_pt(&v.pos), v.attrib))
+        self.warp(|v| vertex(tf.apply(&v.pos), v.attrib))
     }
 
     /// Applies an arbitrary mapping to each vertex.

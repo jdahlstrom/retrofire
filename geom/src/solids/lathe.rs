@@ -8,8 +8,8 @@ use re::geom::{
     vertex,
 };
 use re::math::{
-    Angle, Lerp, Parametric, Point3, Vary, Vec3, polar, pt2, rotate_y, turns,
-    vec2,
+    Angle, Apply, Lerp, Parametric, Point3, Vary, Vec3, polar, pt2, rotate_y,
+    turns, vec2,
 };
 use re::render::{TexCoord, uv};
 
@@ -100,19 +100,18 @@ impl<P: Parametric<Vertex2<Normal2, ()>>> Lathe<P> {
     {
         let secs = self.sectors as usize;
         let segs = self.segments as usize;
+        let caps = 2 * self.capped as usize;
 
         // Fencepost problem: n + 1 vertices for n segments
         let verts_per_sec = segs + 1;
 
         // Precompute capacity
-        let caps = 2 * self.capped as usize;
         let n_faces = segs * secs * 2 + (secs - 2) * caps;
         let n_verts = verts_per_sec * (secs + 1) + secs * caps;
         let mut m =
             Mesh::new(Vec::with_capacity(n_faces), Vec::with_capacity(n_verts));
 
         create_faces(secs, verts_per_sec, &mut m.faces);
-
         create_verts(
             &mut f,
             &self.points,
@@ -172,14 +171,14 @@ fn create_verts<A>(
         .vary_to(1.0, verts_per_sec as u32)
         .map(|t| (t, pts.eval(t)))
     {
-        let mut pos = start.apply_pt(&pos.to_pt3());
+        let mut pos = start.apply(&pos.to_pt3());
         let mut norm = start.apply(&n.to_vec3());
 
         for u in 0..=secs {
             let v = f(pos.to(), norm, uv(u as f32 / secs as f32, v));
             out.push(v);
 
-            pos = rot.apply_pt(&pos);
+            pos = rot.apply(&pos);
             norm = rot.apply(&norm);
         }
     }
