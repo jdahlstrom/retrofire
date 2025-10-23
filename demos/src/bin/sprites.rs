@@ -1,7 +1,8 @@
 use core::{array::from_fn, ops::ControlFlow::Continue};
-use re::math::color::gray;
+
 use re::prelude::*;
 
+use re::math::color::gray;
 use re::math::rand::{Distrib, PointsInUnitBall, Xorshift64};
 use re::render::{Model, ModelToView, ViewToProj, cam::*, render};
 
@@ -37,7 +38,7 @@ fn main() {
         |v: Vertex3<Vec2<_>>,
          (mv, proj): (&Mat4x4<ModelToView>, &Mat4x4<ViewToProj>)| {
             let vertex_pos = 0.008 * v.attrib.to_vec3().to();
-            let view_pos = mv.apply_pt(&v.pos) + vertex_pos;
+            let view_pos = mv.apply(&v.pos) + vertex_pos;
             vertex(proj.apply(&view_pos), v.attrib)
         },
         |frag: Frag<Vec2<_>>| {

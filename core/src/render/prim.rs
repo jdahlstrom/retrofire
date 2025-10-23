@@ -1,11 +1,13 @@
 //! Render impls for primitives and related items.
 
 use crate::geom::{Edge, Tri, Vertex, Winding};
-use crate::math::{Mat4x4, Vary, vary::ZDiv, vec3};
+use crate::math::{Apply, Mat4x4, Vary, pt3, vary::ZDiv};
 
-use super::clip::ClipVert;
-use super::raster::{Scanline, ScreenPt, line, tri_fill};
-use super::{NdcToScreen, Render};
+use super::{
+    NdcToScreen, Render,
+    clip::ClipVert,
+    raster::{Scanline, ScreenPt, line, tri_fill},
+};
 
 impl<V: Vary> Render<V> for Tri<usize> {
     type Clip = Tri<ClipVert<V>>;
@@ -69,11 +71,16 @@ pub fn to_screen<V: ZDiv, const N: usize>(
         // of the original view-space depth. The interpolated reciprocal
         // is used in fragment processing for depth testing (larger values
         // are closer) and for perspective correction of the varyings.
-        // TODO z_div could be space-aware
-        let pos = vec3(x, y, 1.0).z_div(w);
+        //
+        // TODO Ad-hoc conversion from clip space vector to screen space point.
+        //      This should be a typed conversion from projective to real space.
+        //      Vec3 was used here, which only worked because apply used to use
+        //      w=1 for vectors. Fixing it made viewport transform incorrect.
+        //      The z-div concept and trait likely need clarification.
+        let pos = pt3(x, y, 1.0).z_div(w);
         Vertex {
             // Viewport transform
-            pos: tf.apply(&pos).to_pt(),
+            pos: tf.apply(&pos),
             // Perspective correction
             attrib: v.attrib.z_div(w),
         }
