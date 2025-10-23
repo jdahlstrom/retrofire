@@ -7,6 +7,7 @@ use re::prelude::*;
 use re::render::{
     ctx::DepthSort::BackToFront, raster::Scanline, stats::Throughput,
 };
+
 use re_geom::solids::{Build, Torus};
 
 struct Win(Window);
