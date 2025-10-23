@@ -286,6 +286,20 @@ impl<R, Sp> From<R> for Point<R, Sp> {
         Self(repr, Pd)
     }
 }
+/*
+impl<B> From<Point3<B>> for HomVec3<B> {
+    fn from(p: Point3<B>) -> Self {
+        let [x, y, z] = p.0;
+        [x, y, z, 1.0].into()
+    }
+}
+
+impl<B> From<Point2<B>> for HomVec2<B> {
+    fn from(p: Point2<B>) -> Self {
+        let [x, y] = p.0;
+        [x, y, 1.0].into()
+    }
+}*/
 
 impl<R: Index<usize>, Sp> Index<usize> for Point<R, Sp> {
     type Output = R::Output;
