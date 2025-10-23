@@ -43,6 +43,9 @@ pub type Vec3<Basis = ()> = Vector<[f32; 3], Real<3, Basis>>;
 /// A `f32` 4-vector in the projective 3-space over ℝ, aka P<sub>3</sub>(ℝ).
 pub type ProjVec3 = Vector<[f32; 4], Proj3>;
 
+//pub type HomVec2<B> = Vector<[f32; 3], Hom<2, B>>;
+//pub type HomVec3<B> = Vector<[f32; 4], Hom<3, B>>;
+
 /// A 2-vector with `i32` components.
 pub type Vec2i<Basis = ()> = Vector<[i32; 2], Real<2, Basis>>;
 /// A 3-vector with `i32` components.
@@ -583,7 +586,20 @@ impl<Sp, Sc: Clone, const DIM: usize> From<Sc> for Vector<[Sc; DIM], Sp> {
         splat(scalar)
     }
 }
-
+/*
+impl<B> From<Vec2<B>> for HomVec2<B> {
+    fn from(v: Vec2<B>) -> Self {
+        let [x, y] = v.0;
+        [x, y, 0.0].into()
+    }
+}
+impl<B> From<Vec3<B>> for HomVec3<B> {
+    fn from(v: Vec3<B>) -> Self {
+        let [x, y, z] = v.0;
+        [x, y, z, 0.0].into()
+    }
+}
+*/
 impl<R, Sp> Index<usize> for Vector<R, Sp>
 where
     Self: Affine,

@@ -4,14 +4,13 @@
 //!
 //! TODO Docs
 
+use crate::render::{NdcToScreen, ViewToProj};
 use core::{
     array,
     fmt::{self, Debug, Formatter},
     marker::PhantomData as Pd,
     ops::Range,
 };
-
-use crate::render::{NdcToScreen, ViewToProj};
 
 use super::{
     approx::ApproxEq,
@@ -394,7 +393,16 @@ impl<Src, Dst> Mat3x3<RealToReal<2, Src, Dst>> {
     }
 }
 
-impl<Src, Dst> Mat4x4<RealToReal<3, Src, Dst>> {
+pub trait Apply<T> {
+    type Output;
+
+    #[must_use]
+    fn apply(&self, t: &T) -> Self::Output;
+}
+
+impl<Src, Dst> Apply<Vec3<Src>> for Mat4x4<RealToReal<3, Src, Dst>> {
+    type Output = Vec3<Dst>;
+
     /// Maps the real 3-vector 𝘃 from basis `Src` to basis `Dst`.
     ///
     /// Computes the matrix–vector multiplication 𝝡𝘃 where 𝘃 is interpreted as
@@ -404,14 +412,16 @@ impl<Src, Dst> Mat4x4<RealToReal<3, Src, Dst>> {
     ///         ⎛ M00 ·  ·  ·  ⎞ ⎛ v0 ⎞     ⎛ v0' ⎞
     ///  Mv  =  ⎜  ·  ·  ·  ·  ⎟ ⎜ v1 ⎟  =  ⎜ v1' ⎜
     ///         ⎜  ·  ·  ·  ·  ⎜ ⎜ v2 ⎜     ⎜ v2' ⎜
-    ///         ⎝  ·  ·  · M33 ⎠ ⎝  1 ⎠     ⎝  1  ⎠
+    ///         ⎝  ·  ·  · M33 ⎠ ⎝  0 ⎠     ⎝  0  ⎠
     /// ```
-    // FIXME applies to homogeneous (x, y, z, 1) but should be (x, y, z, 0)
-    #[must_use]
-    pub fn apply(&self, v: &Vec3<Src>) -> Vec3<Dst> {
-        let v = [v.x(), v.y(), v.z(), 1.0].into(); // TODO w=0.0
+    fn apply(&self, v: &Vec3<Src>) -> Vec3<Dst> {
+        let v = [v.x(), v.y(), v.z(), 0.0].into();
         array::from_fn(|i| self.row_vec(i).dot(&v)).into()
     }
+}
+
+impl<Src, Dst> Apply<Point3<Src>> for Mat4x4<RealToReal<3, Src, Dst>> {
+    type Output = Point3<Dst>;
 
     /// Maps the real 3-point *p* from basis `Src` to basis `Dst`.
     ///
@@ -425,12 +435,13 @@ impl<Src, Dst> Mat4x4<RealToReal<3, Src, Dst>> {
     ///         ⎝  ·  ·  · M33 ⎠ ⎝  1 ⎠     ⎝  1  ⎠
     /// ```
     // TODO Add trait to overload apply or similar
-    #[must_use]
-    pub fn apply_pt(&self, p: &Point3<Src>) -> Point3<Dst> {
+    fn apply(&self, p: &Point3<Src>) -> Point3<Dst> {
         let p = [p.x(), p.y(), p.z(), 1.0].into();
         array::from_fn(|i| self.row_vec(i).dot(&p)).into()
     }
+}
 
+impl<Src, Dst> Mat4x4<RealToReal<3, Src, Dst>> {
     /// Returns the determinant of `self`.
     ///
     /// Given a matrix M,
@@ -1059,8 +1070,9 @@ mod tests {
             assert_eq!(ts, s.compose(&t));
             assert_eq!(st, t.compose(&s));
 
-            assert_eq!(ts.apply(&O.to()), vec3::<_, Basis1>(3.0, 4.0, 3.0));
-            assert_eq!(st.apply(&O.to()), vec3::<_, Basis2>(1.0, 2.0, 3.0));
+            let o = <Point3>::origin();
+            assert_eq!(ts.apply(&o.to()), pt3::<_, Basis1>(3.0, 4.0, 3.0));
+            assert_eq!(st.apply(&o.to()), pt3::<_, Basis2>(1.0, 2.0, 3.0));
         }
 
         #[test]
@@ -1071,18 +1083,19 @@ mod tests {
             assert_eq!(m.apply(&v), vec3(0.0, -8.0, -9.0));
 
             let p = pt3(4.0, 0.0, -3.0);
-            assert_eq!(m.apply_pt(&p), pt3(4.0, 0.0, -9.0));
+            assert_eq!(m.apply(&p), pt3(4.0, 0.0, -9.0));
         }
 
         #[test]
         fn translation() {
             let m = translate3(1.0, 2.0, 3.0);
 
-            let v = vec3(0.0, 5.0, -3.0);
-            assert_eq!(m.apply(&v), vec3(1.0, 7.0, 0.0));
+            // No-op for vectors
+            let v = vec3(0.0, 3.0, -2.0);
+            assert_eq!(m.apply(&v), vec3(0.0, 3.0, -2.0));
 
-            let p = pt3(3.0, 5.0, 0.0);
-            assert_eq!(m.apply_pt(&p), pt3(4.0, 7.0, 3.0));
+            let p = pt3(0.0, 3.0, -2.0);
+            assert_eq!(m.apply(&p), pt3(1.0, 5.0, 1.0));
         }
 
         #[cfg(feature = "fp")]
@@ -1093,10 +1106,9 @@ mod tests {
             assert_eq!(m.apply(&O), O);
 
             assert_approx_eq!(m.apply(&Z), Y);
-            assert_approx_eq!(
-                m.apply_pt(&pt3(0.0, -2.0, 0.0)),
-                pt3(0.0, 0.0, 2.0)
-            );
+
+            let p = pt3(0.0, -2.0, 0.0);
+            assert_approx_eq!(m.apply(&p), pt3(0.0, 0.0, 2.0));
         }
 
         #[cfg(feature = "fp")]
@@ -1105,12 +1117,10 @@ mod tests {
             let m = rotate_y(degs(90.0));
 
             assert_eq!(m.apply(&O), O);
-
             assert_approx_eq!(m.apply(&X), Z);
-            assert_approx_eq!(
-                m.apply_pt(&pt3(0.0, 0.0, -2.0)),
-                pt3(2.0, 0.0, 0.0)
-            );
+
+            let p = pt3(0.0, 0.0, -2.0);
+            assert_approx_eq!(m.apply(&p), pt3(2.0, 0.0, 0.0));
         }
 
         #[cfg(feature = "fp")]
@@ -1119,12 +1129,10 @@ mod tests {
             let m = rotate_z(degs(90.0));
 
             assert_eq!(m.apply(&O), O);
-
             assert_approx_eq!(m.apply(&Y), X);
-            assert_approx_eq!(
-                m.apply_pt(&(pt3(-2.0, 0.0, 0.0))),
-                pt3(0.0, 2.0, 0.0)
-            );
+
+            let p = pt3(-2.0, 0.0, 0.0);
+            assert_approx_eq!(m.apply(&p), pt3(0.0, 2.0, 0.0));
         }
 
         #[cfg(feature = "fp")]
@@ -1160,11 +1168,30 @@ mod tests {
         }
 
         #[test]
-        fn from_basis() {
+        fn from_linear_basis() {
             let m = Mat4x4::from_linear(Y, 2.0 * Z, -3.0 * X);
+
             assert_eq!(m.apply(&X), Y);
             assert_eq!(m.apply(&Y), 2.0 * Z);
             assert_eq!(m.apply(&Z), -3.0 * X);
+
+            assert_eq!(m.apply(&X.to_pt()), Y.to_pt());
+            assert_eq!(m.apply(&Y.to_pt()), (2.0 * Z).to_pt());
+            assert_eq!(m.apply(&Z.to_pt()), (-3.0 * X).to_pt());
+        }
+
+        #[test]
+        fn from_affine_basis() {
+            let orig = pt3(1.0, 2.0, 3.0);
+            let m = Mat4x4::from_affine(Y, 2.0 * Z, -3.0 * X, orig);
+
+            assert_eq!(m.apply(&X), Y);
+            assert_eq!(m.apply(&Y), 2.0 * Z);
+            assert_eq!(m.apply(&Z), -3.0 * X);
+
+            assert_eq!(m.apply(&X.to_pt()), pt3(1.0, 3.0, 3.0));
+            assert_eq!(m.apply(&Y.to_pt()), pt3(1.0, 2.0, 5.0));
+            assert_eq!(m.apply(&Z.to_pt()), pt3(-2.0, 2.0, 3.0));
         }
 
         #[cfg(feature = "fp")]
@@ -1173,13 +1200,13 @@ mod tests {
             let m = orient_y(Y, X);
 
             assert_eq!(m.apply(&X), X);
-            assert_eq!(m.apply_pt(&X.to_pt()), X.to_pt());
+            assert_eq!(m.apply(&X.to_pt()), X.to_pt());
 
             assert_eq!(m.apply(&Y), Y);
-            assert_eq!(m.apply_pt(&Y.to_pt()), Y.to_pt());
+            assert_eq!(m.apply(&Y.to_pt()), Y.to_pt());
 
             assert_eq!(m.apply(&Z), Z);
-            assert_eq!(m.apply_pt(&Z.to_pt()), Z.to_pt());
+            assert_eq!(m.apply(&Z.to_pt()), Z.to_pt());
         }
 
         #[cfg(feature = "fp")]
@@ -1188,13 +1215,13 @@ mod tests {
             let m = orient_y(Z, X);
 
             assert_eq!(m.apply(&X), X);
-            assert_eq!(m.apply_pt(&X.to_pt()), X.to_pt());
+            assert_eq!(m.apply(&X.to_pt()), X.to_pt());
 
             assert_eq!(m.apply(&Y), Z);
-            assert_eq!(m.apply_pt(&Y.to_pt()), Z.to_pt());
+            assert_eq!(m.apply(&Y.to_pt()), Z.to_pt());
 
             assert_eq!(m.apply(&Z), -Y);
-            assert_eq!(m.apply_pt(&Z.to_pt()), (-Y).to_pt());
+            assert_eq!(m.apply(&Z.to_pt()), (-Y).to_pt());
         }
 
         #[cfg(feature = "fp")]
@@ -1203,13 +1230,13 @@ mod tests {
             let m = orient_z(Y, X);
 
             assert_eq!(m.apply(&X), X);
-            assert_eq!(m.apply_pt(&X.to_pt()), X.to_pt());
+            assert_eq!(m.apply(&X.to_pt()), X.to_pt());
 
             assert_eq!(m.apply(&Y), -Z);
-            assert_eq!(m.apply_pt(&Y.to_pt()), (-Z).to_pt());
+            assert_eq!(m.apply(&Y.to_pt()), (-Z).to_pt());
 
             assert_eq!(m.apply(&Z), Y);
-            assert_eq!(m.apply_pt(&Z.to_pt()), Y.to_pt());
+            assert_eq!(m.apply(&Z.to_pt()), Y.to_pt());
         }
 
         #[test]
@@ -1228,18 +1255,18 @@ mod tests {
 
     #[test]
     fn transposition() {
-        let m = Matrix::<_, Map>::new([
-            [0.0, 1.0, 2.0], //
-            [10.0, 11.0, 12.0],
-            [20.0, 21.0, 22.0],
-        ]);
+        let m: Mat3x3<RealToReal<3>> = mat![
+            0.0,  1.0, 2.0;
+            10.0, 11.0, 12.0;
+            20.0, 21.0, 22.0
+        ];
         assert_eq!(
             m.transpose(),
-            Matrix::<_, InvMap>::new([
-                [0.0, 10.0, 20.0], //
-                [1.0, 11.0, 21.0],
-                [2.0, 12.0, 22.0],
-            ])
+            mat![
+                0.0, 10.0, 20.0;
+                1.0, 11.0, 21.0;
+                2.0, 12.0, 22.0
+            ],
         );
     }
 
@@ -1324,7 +1351,7 @@ mod tests {
     fn viewport_maps_ndc_to_screen() {
         let m = viewport(pt2(20, 10)..pt2(620, 470));
 
-        assert_eq!(m.apply_pt(&pt3(-1.0, -1.0, 0.2)), pt3(20.0, 10.0, 0.2));
-        assert_eq!(m.apply_pt(&pt3(1.0, 1.0, 0.6)), pt3(620.0, 470.0, 0.6));
+        assert_eq!(m.apply(&pt3(-1.0, -1.0, 0.2)), pt3(20.0, 10.0, 0.2));
+        assert_eq!(m.apply(&pt3(1.0, 1.0, 0.6)), pt3(620.0, 470.0, 0.6));
     }
 }

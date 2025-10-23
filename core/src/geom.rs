@@ -507,12 +507,12 @@ impl<B> Plane3<B> {
     /// ```
     /// use retrofire_core::assert_approx_eq;
     /// use retrofire_core::geom::Plane3;
-    /// use retrofire_core::math::{Point3, pt3, vec3};
+    /// use retrofire_core::math::{Point3, pt3, vec3, mat::Apply};
     ///
     /// let p = <Plane3>::from_point_and_normal(pt3(0.0,1.0,0.0), vec3(0.0,1.0,1.0));
     /// let m = p.basis::<()>();
     ///
-    /// assert_approx_eq!(m.apply_pt(&Point3::origin()), pt3(0.0, 0.5, 0.5));
+    /// assert_approx_eq!(m.apply(&Point3::origin()), pt3(0.0, 0.5, 0.5));
     /// ```
     pub fn basis<F>(&self) -> Mat4x4<RealToReal<3, F, B>> {
         let up = self.abc();

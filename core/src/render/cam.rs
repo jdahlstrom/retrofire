@@ -2,16 +2,15 @@
 
 use core::ops::Range;
 
-use crate::math::{
-    Lerp, Mat4x4, Point3, SphericalVec, Vary, mat::RealToReal, orthographic,
-    perspective, pt2, viewport,
-};
-use crate::util::{Dims, rect::Rect};
-
 #[cfg(feature = "fp")]
 use crate::math::{
     Angle, Vec3, orient_z, rotate_x, rotate_y, spherical, translate, turns,
 };
+use crate::math::{
+    Lerp, Mat4x4, Point3, SphericalVec, Vary, mat::Apply, mat::RealToReal,
+    orthographic, perspective, pt2, viewport,
+};
+use crate::util::{Dims, rect::Rect};
 
 use super::{
     Clip, Context, NdcToScreen, RealToProj, Render, Shader, Target, View,
