@@ -2,10 +2,10 @@
 //!
 //! TODO
 
+use crate::math::vary::{Iter, Vary, ZDiv};
 use core::fmt::{Debug, Formatter};
 use core::marker::PhantomData;
-
-use crate::math::vary::{Iter, Vary, ZDiv};
+use std::iter::zip;
 
 /// Trait for types representing elements of an affine space.
 ///
@@ -29,6 +29,28 @@ pub trait Affine: Sized {
     ///
     /// `sub` is anti-commutative: `v.sub(w) == w.sub(v).neg()`.
     fn sub(&self, other: &Self) -> Self::Diff;
+
+    /// Returns an affine combination of points.
+    ///
+    /// Given a list of weights (w<sub>1</sub>, ..., w<sub>*n*</sub>) and
+    /// points (P<sub>1</sub>, ..., P<sub>*n*</sub>),
+    /// returns
+    ///
+    /// w<sub>1</sub> * P<sub>1</sub> + ... + w<sub>*n*</sub> * P<sub>*n*</sub>
+    fn combine<S: Copy, const N: usize>(
+        weights: &[S; N],
+        points: &[Self; N],
+    ) -> Self
+    where
+        Self: Clone,
+        Self::Diff: Linear<Scalar = S>,
+    {
+        const { assert!(N != 0) }
+
+        let p0 = &points[0]; // ok, asserted N > 0
+        zip(&weights[1..], &points[1..])
+            .fold(p0.clone(), |res, (w, q)| res.add(&q.sub(&p0).mul(*w)))
+    }
 }
 
 /// Trait for types representing elements of a linear space (vector space).
@@ -80,6 +102,9 @@ pub struct Real<const DIM: usize, Basis = ()>(PhantomData<Basis>);
 /// projection. Clipping is also done in the projective space.
 #[derive(Copy, Clone, Debug, Default, Eq, PartialEq)]
 pub struct Proj3;
+
+#[derive(Copy, Clone, Debug, Default, Eq, PartialEq)]
+pub struct Hom<const DIM: usize, Basis = ()>(PhantomData<Basis>);
 
 impl Affine for f32 {
     type Space = ();

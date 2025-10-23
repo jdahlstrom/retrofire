@@ -2,11 +2,13 @@ use std::time::Instant;
 
 use pancurses::*;
 
-use re::prelude::ctx::DepthSort::BackToFront;
-use re::prelude::raster::Scanline;
-use re::prelude::stats::Throughput;
 use re::prelude::*;
-use re_geom::solids::Torus;
+
+use re::render::{
+    ctx::DepthSort::BackToFront, raster::Scanline, stats::Throughput,
+};
+
+use re_geom::solids::{Build, Torus};
 
 struct Win(Window);
 

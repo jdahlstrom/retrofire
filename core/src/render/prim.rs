@@ -1,11 +1,15 @@
 //! Render impls for primitives and related items.
 
-use crate::geom::{Edge, Tri, Vertex};
-use crate::math::{Mat4x4, Vary, vary::ZDiv, vec3};
+use crate::{
+    geom::{Edge, Tri, Vertex},
+    math::{Mat4x4, Vary, mat::Apply, vary::ZDiv, vec3},
+};
 
-use super::clip::ClipVert;
-use super::raster::{Scanline, ScreenPt, line, tri_fill};
-use super::{NdcToScreen, Render};
+use super::{
+    NdcToScreen, Render,
+    clip::ClipVert,
+    raster::{Scanline, ScreenPt, line, tri_fill},
+};
 
 impl<V: Vary> Render<V> for Tri<usize> {
     type Clip = Tri<ClipVert<V>>;
