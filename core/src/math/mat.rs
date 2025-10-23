@@ -16,9 +16,9 @@ use crate::render::{NdcToScreen, ViewToProj};
 use super::{
     approx::ApproxEq,
     float::f32,
-    point::{Point2, Point2u, Point3},
+    point::{Point2, Point2u, Point3, pt2, pt3},
     space::{Linear, Proj3, Real},
-    vec::{ProjVec3, Vec2, Vec3, Vector, vec2},
+    vec::{ProjVec3, Vec2, Vec3, Vector, vec2, vec3},
 };
 
 /// A linear transform from one space (or basis) to another.
@@ -40,6 +40,16 @@ pub trait LinearMap {
 pub trait Compose<Inner: LinearMap>: LinearMap<Source = Inner::Dest> {
     /// The result of composing `Self` with `Inner`.
     type Result: LinearMap<Source = Inner::Source, Dest = Self::Dest>;
+}
+
+/// Trait for applying a transform to a type.
+pub trait Apply<T> {
+    /// The transform codomain type.
+    type Output;
+
+    /// Applies this transform to a value.
+    #[must_use]
+    fn apply(&self, t: &T) -> Self::Output;
 }
 
 /// A change of basis in real vector space of dimension `DIM`.
@@ -324,113 +334,23 @@ impl<Src, Dest> Mat2x2<RealToReal<2, Src, Dest>> {
         self.checked_inverse()
             .expect("matrix must be invertible")
     }
-
-    /// Maps the real 2-vector 𝘃 from basis `Src` to basis `Dst`.
-    ///
-    /// Computes the matrix–vector multiplication 𝝡𝘃 where 𝘃 is interpreted as
-    /// a column vector:
-    ///
-    /// ```text
-    ///  Mv  =  ⎛ M00 M01 ⎞ ⎛ v0 ⎞  =  ⎛ v0' ⎞
-    ///         ⎝ M10 M11 ⎠ ⎝ v1 ⎠     ⎝ v1' ⎠
-    /// ```
-    #[must_use]
-    pub fn apply(&self, v: &Vec2<Src>) -> Vec2<Dest> {
-        //let [x, y] = v.0;
-        //let [[a, b], [c, d]] = self.0;
-        //vec2(a * x + b * y, c * x + d * y)
-
-        vec2(self.row_vec(0).dot(&v), self.row_vec(1).dot(&v))
-    }
 }
 
-impl<Src, Dst> Mat3x3<RealToReal<2, Src, Dst>> {
-    /// Maps the real 2-vector 𝘃 from basis `Src` to basis `Dst`.
-    ///
-    /// Computes the matrix–vector multiplication 𝝡𝘃 where 𝘃 is interpreted as
-    /// a column vector with an implicit 𝘃<sub>2</sub> component with value 1:
-    ///
-    /// ```text
-    ///         ⎛ M00 ·  ·  ⎞ ⎛ v0 ⎞     ⎛ v0' ⎞
-    ///  Mv  =  ⎜  ·  ·  ·  ⎟ ⎜ v1 ⎟  =  ⎜ v1' ⎟
-    ///         ⎝  ·  · M22 ⎠ ⎝  1 ⎠     ⎝  1  ⎠
-    /// ```
-    // FIXME applies to homogeneous (x, y, 1) but should be (x, y, 0)
-    #[must_use]
-    pub fn apply(&self, v: &Vec2<Src>) -> Vec2<Dst> {
-        let v = [v.x(), v.y(), 1.0].into(); // TODO w=0.0
-        array::from_fn(|i| self.row_vec(i).dot(&v)).into()
-    }
-
-    /// Maps the real 2-point *p* from basis `Src` to basis `Dst`.
-    ///
-    /// Computes the affine matrix–point multiplication 𝝡*p* where *p* is interpreted
-    /// as a column vector with an implicit *p*<sub>2</sub> component with value 1:
-    ///
-    /// ```text
-    ///         ⎛ M00 ·  ·  ⎞ ⎛ p0 ⎞     ⎛ p0' ⎞
-    ///  Mp  =  ⎜  ·  ·  ·  ⎟ ⎜ p1 ⎟  =  ⎜ p1' ⎟
-    ///         ⎝  ·  · M22 ⎠ ⎝  1 ⎠     ⎝  1  ⎠
-    /// ```
-    // TODO Add trait to overload apply or similar
-    #[must_use]
-    pub fn apply_pt(&self, p: &Point2<Src>) -> Point2<Dst> {
-        let p = [p.x(), p.y(), 1.0].into();
-        array::from_fn(|i| self.row_vec(i).dot(&p)).into()
-    }
-
+impl<Src, Dest> Mat3x3<RealToReal<2, Src, Dest>> {
     /// Returns the determinant of `self`.
     pub fn determinant(&self) -> f32 {
         #[rustfmt::skip]
         let [[a, b, c],
              [d, e, f],
              [g, h, i]] = self.0;
-
         // assert!(g == 0.0 && h == 0.0 && i == 1.0);
         // TODO If affine (as should be), reduces to:
         // a * e - b * d
-
         a * (e * i - f * h) - b * (d * i - f * g) + c * (d * h - e * g)
     }
 }
 
 impl<Src, Dst> Mat4x4<RealToReal<3, Src, Dst>> {
-    /// Maps the real 3-vector 𝘃 from basis `Src` to basis `Dst`.
-    ///
-    /// Computes the matrix–vector multiplication 𝝡𝘃 where 𝘃 is interpreted as
-    /// a column vector with an implicit 𝘃<sub>3</sub> component with value 1:
-    ///
-    /// ```text
-    ///         ⎛ M00 ·  ·  ·  ⎞ ⎛ v0 ⎞     ⎛ v0' ⎞
-    ///  Mv  =  ⎜  ·  ·  ·  ·  ⎟ ⎜ v1 ⎟  =  ⎜ v1' ⎟
-    ///         ⎜  ·  ·  ·  ·  ⎟ ⎜ v2 ⎟     ⎜ v2' ⎟
-    ///         ⎝  ·  ·  · M33 ⎠ ⎝  1 ⎠     ⎝  1  ⎠
-    /// ```
-    // FIXME applies to homogeneous (x, y, z, 1) but should be (x, y, z, 0)
-    #[must_use]
-    pub fn apply(&self, v: &Vec3<Src>) -> Vec3<Dst> {
-        let v = [v.x(), v.y(), v.z(), 1.0].into(); // TODO w=0.0
-        array::from_fn(|i| self.row_vec(i).dot(&v)).into()
-    }
-
-    /// Maps the real 3-point *p* from basis `Src` to basis `Dst`.
-    ///
-    /// Computes the affine matrix–point multiplication 𝝡*p* where *p* is interpreted as
-    /// a column vector with an implicit *p*<sub>3</sub> component with value 1:
-    ///
-    /// ```text
-    ///         ⎛ M00 ·  ·  ·  ⎞ ⎛ p0 ⎞     ⎛ p0' ⎞
-    ///  Mp  =  ⎜  ·  ·  ·  ·  ⎟ ⎜ p1 ⎟  =  ⎜ p1' ⎟
-    ///         ⎜  ·  ·  ·  ·  ⎟ ⎜ p2 ⎟     ⎜ p2' ⎟
-    ///         ⎝  ·  ·  · M33 ⎠ ⎝  1 ⎠     ⎝  1  ⎠
-    /// ```
-    // TODO Add trait to overload apply or similar
-    #[must_use]
-    pub fn apply_pt(&self, p: &Point3<Src>) -> Point3<Dst> {
-        let p = [p.x(), p.y(), p.z(), 1.0].into();
-        array::from_fn(|i| self.row_vec(i).dot(&p)).into()
-    }
-
     /// Returns the determinant of `self`.
     ///
     /// Given a matrix M,
@@ -560,25 +480,6 @@ impl<Src, Dst> Mat4x4<RealToReal<3, Src, Dst>> {
     }
 }
 
-impl<Src> Mat4x4<RealToProj<Src>> {
-    /// Maps the real 3-point *p* from basis 𝖡 to the projective 4-space.
-    ///
-    /// Computes the matrix–point multiplication 𝝡*p* where *p* is interpreted as
-    /// a column vector with an implicit *p*<sub>3</sub> component with value 1:
-    ///
-    /// ```text
-    ///         ⎛ M00  ·  · ⎞ ⎛ p0 ⎞     ⎛ p0' ⎞
-    ///  Mp  =  ⎜    ·      ⎟ ⎜ p1 ⎟  =  ⎜ p1' ⎟
-    ///         ⎜      ·    ⎟ ⎜ p2 ⎟     ⎜ p2' ⎟
-    ///         ⎝ ·  ·  M33 ⎠ ⎝  1 ⎠     ⎝ p3' ⎠
-    /// ```
-    #[must_use]
-    pub fn apply(&self, p: &Point3<Src>) -> ProjVec3 {
-        let v = Vector::new([p.x(), p.y(), p.z(), 1.0]);
-        array::from_fn(|i| self.row_vec(i).dot(&v)).into()
-    }
-}
-
 //
 // Local trait impls
 //
@@ -619,6 +520,181 @@ where
 
     fn relative_epsilon() -> E {
         Repr::relative_epsilon()
+    }
+}
+
+// Apply trait impls
+
+impl<Src, Dest> Apply<Vec2<Src>> for Mat2x2<RealToReal<2, Src, Dest>> {
+    type Output = Vec2<Dest>;
+
+    /// Maps a real 2-vector from basis `Src` to basis `Dst`.
+    ///
+    /// Computes the matrix–vector multiplication **MV** where **v** is
+    /// interpreted as a column vector:
+    ///
+    /// ```text
+    ///  Mv  =  ⎛ M00 M01 ⎞ ⎛ v0 ⎞  =  ⎛ v0' ⎞
+    ///         ⎝ M10 M11 ⎠ ⎝ v1 ⎠     ⎝ v1' ⎠
+    /// ```
+    fn apply(&self, v: &Vec2<Src>) -> Vec2<Dest> {
+        vec2(self.row_vec(0).dot(&v), self.row_vec(1).dot(&v))
+    }
+}
+
+impl<Src, Dest> Apply<Point2<Src>> for Mat2x2<RealToReal<2, Src, Dest>> {
+    type Output = Point2<Dest>;
+
+    /// Maps a real 2-vector from basis `Src` to basis `Dst`.
+    ///
+    /// Computes the matrix–point multiplication **M***p* where *p* is
+    /// interpreted as a column vector:
+    ///
+    /// ```text
+    ///  Mp  =  ⎛ M00 M01 ⎞ ⎛ v0 ⎞  =  ⎛ v0' ⎞
+    ///         ⎝ M10 M11 ⎠ ⎝ v1 ⎠     ⎝ v1' ⎠
+    /// ```
+    fn apply(&self, pt: &Point2<Src>) -> Point2<Dest> {
+        self.apply(&pt.to_vec()).to_pt()
+    }
+}
+
+impl<Src, Dest> Apply<Vec2<Src>> for Mat3x3<RealToReal<2, Src, Dest>> {
+    type Output = Vec2<Dest>;
+
+    /// Maps a real 2-vector from basis `Src` to basis `Dst`.
+    ///
+    /// Computes the matrix–vector multiplication 𝝡𝘃 where 𝘃 is interpreted as
+    /// a column vector with an implicit 𝘃<sub>2</sub> component with value 0:
+    ///
+    /// ```text
+    ///         ⎛ M00 ·  ·  ⎞ ⎛ v0 ⎞     ⎛ v0' ⎞
+    ///  Mv  =  ⎜  ·  ·  ·  ⎟ ⎜ v1 ⎟  =  ⎜ v1' ⎟
+    ///         ⎝  ·  · M22 ⎠ ⎝  0 ⎠     ⎝  0  ⎠
+    /// ```
+    fn apply(&self, v: &Vec2<Src>) -> Vec2<Dest> {
+        // TODO can't use vec3, as space has to be Real<2> to match row_vec
+        let v = Vector::new([v.x(), v.y(), 0.0]);
+        vec2(self.row_vec(0).dot(&v), self.row_vec(1).dot(&v))
+    }
+}
+
+impl<Src, Dest> Apply<Point2<Src>> for Mat3x3<RealToReal<2, Src, Dest>> {
+    type Output = Point2<Dest>;
+
+    /// Maps a real 2-point from basis `Src` to basis `Dst`.
+    ///
+    /// Computes the affine matrix–point multiplication 𝝡*p* where *p* is interpreted
+    /// as a column vector with an implicit *p*<sub>2</sub> component with value 1:
+    ///
+    /// ```text
+    ///         ⎛ M00 ·  ·  ⎞ ⎛ p0 ⎞     ⎛ p0' ⎞
+    ///  Mp  =  ⎜  ·  ·  ·  ⎟ ⎜ p1 ⎟  =  ⎜ p1' ⎟
+    ///         ⎝  ·  · M22 ⎠ ⎝  1 ⎠     ⎝  1  ⎠
+    /// ```
+    fn apply(&self, p: &Point2<Src>) -> Point2<Dest> {
+        let v = Vector::new([p.x(), p.y(), 1.0]);
+        pt2(self.row_vec(0).dot(&v), self.row_vec(1).dot(&v))
+    }
+}
+
+impl<Src, Dest> Apply<Vec3<Src>> for Mat3x3<RealToReal<3, Src, Dest>> {
+    type Output = Vec3<Dest>;
+
+    /// Maps a real 3-vector from basis `Src` to basis `Dst`.
+    ///
+    /// Computes the matrix–vector multiplication **Mv** where **v** is
+    /// interpreted as a column vector:
+    ///
+    /// ```text
+    ///         ⎛ M00 ·  ·  ⎞ ⎛ v0 ⎞     ⎛ v0' ⎞
+    ///  Mv  =  ⎜  ·  ·  ·  ⎟ ⎜ v1 ⎟  =  ⎜ v1' ⎟
+    ///         ⎝  ·  · M22 ⎠ ⎝ v2 ⎠     ⎝ v2' ⎠
+    /// ```
+    fn apply(&self, v: &Vec3<Src>) -> Vec3<Dest> {
+        vec3(
+            self.row_vec(0).dot(&v),
+            self.row_vec(1).dot(&v),
+            self.row_vec(2).dot(&v),
+        )
+    }
+}
+
+impl<Src, Dest> Apply<Point3<Src>> for Mat3x3<RealToReal<3, Src, Dest>> {
+    type Output = Point3<Dest>;
+
+    /// Maps a real 3-point from basis `Src` to basis `Dst`.
+    ///
+    /// Computes the linear matrix–point multiplication **M***p* where *p* is
+    /// interpreted as a column vector:
+    ///
+    /// ```text
+    ///         ⎛ M00 ·  ·  ⎞ ⎛ p0 ⎞     ⎛ p0' ⎞
+    ///  Mp  =  ⎜  ·  ·  ·  ⎟ ⎜ p1 ⎟  =  ⎜ p1' ⎟
+    ///         ⎝  ·  · M22 ⎠ ⎝ p2 ⎠     ⎝ p2' ⎠
+    /// ```
+    fn apply(&self, p: &Point3<Src>) -> Point3<Dest> {
+        self.apply(&p.to_vec()).to_pt()
+    }
+}
+
+impl<Src, Dst> Apply<Vec3<Src>> for Mat4x4<RealToReal<3, Src, Dst>> {
+    type Output = Vec3<Dst>;
+
+    /// Maps a real 3-vector from basis `Src` to basis `Dst`.
+    ///
+    /// Computes the matrix–vector multiplication **Mv** where **v** is interpreted
+    /// as a column vector with an implicit **v**<sub>3</sub> component with value 0:
+    ///
+    /// ```text
+    ///         ⎛ M00 ·  ·  ·  ⎞ ⎛ v0 ⎞     ⎛ v0' ⎞
+    ///  Mv  =  ⎜  ·  ·  ·  ·  ⎟ ⎜ v1 ⎟  =  ⎜ v1' ⎟
+    ///         ⎜  ·  ·  ·  ·  ⎟ ⎜ v2 ⎟     ⎜ v2' ⎟
+    ///         ⎝  ·  ·  · M33 ⎠ ⎝  0 ⎠     ⎝  0  ⎠
+    /// ```
+    fn apply(&self, v: &Vec3<Src>) -> Vec3<Dst> {
+        let v = [v.x(), v.y(), v.z(), 0.0].into();
+        array::from_fn(|i| self.row_vec(i).dot(&v)).into()
+    }
+}
+
+impl<Src, Dst> Apply<Point3<Src>> for Mat4x4<RealToReal<3, Src, Dst>> {
+    type Output = Point3<Dst>;
+
+    /// Maps a real 3-point from basis `Src` to basis `Dst`.
+    ///
+    /// Computes the affine matrix–point multiplication 𝝡*p* where *p* is interpreted
+    /// as a column vector with an implicit *p*<sub>3</sub> component with value 1:
+    ///
+    /// ```text
+    ///         ⎛ M00 ·  ·  ·  ⎞ ⎛ p0 ⎞     ⎛ p0' ⎞
+    ///  Mp  =  ⎜  ·  ·  ·  ·  ⎟ ⎜ p1 ⎟  =  ⎜ p1' ⎟
+    ///         ⎜  ·  ·  ·  ·  ⎟ ⎜ p2 ⎟     ⎜ p2' ⎟
+    ///         ⎝  ·  ·  · M33 ⎠ ⎝  1 ⎠     ⎝  1  ⎠
+    /// ```
+    fn apply(&self, p: &Point3<Src>) -> Point3<Dst> {
+        let p = [p.x(), p.y(), p.z(), 1.0].into();
+        array::from_fn(|i| self.row_vec(i).dot(&p)).into()
+    }
+}
+
+impl<Src> Apply<Point3<Src>> for Mat4x4<RealToProj<Src>> {
+    type Output = ProjVec3;
+
+    /// Maps the real 3-point *p* from basis B to the projective 3-space.
+    ///
+    /// Computes the matrix–point multiplication **M***p* where *p* is interpreted
+    /// as a column vector with an implicit *p*<sub>3</sub> component with value 1:
+    ///
+    /// ```text
+    ///         ⎛ M00  ·  · ⎞ ⎛ p0 ⎞     ⎛ p0' ⎞
+    ///  Mp  =  ⎜    ·      ⎟ ⎜ p1 ⎟  =  ⎜ p1' ⎟
+    ///         ⎜      ·    ⎟ ⎜ p2 ⎟     ⎜ p2' ⎟
+    ///         ⎝ ·  ·  M33 ⎠ ⎝  1 ⎠     ⎝ p3' ⎠
+    /// ```
+    fn apply(&self, p: &Point3<Src>) -> ProjVec3 {
+        let v = Vector::new([p.x(), p.y(), p.z(), 1.0]);
+        array::from_fn(|i| self.row_vec(i).dot(&v)).into()
     }
 }
 
@@ -903,7 +979,6 @@ pub fn viewport(bounds: Range<Point2u>) -> Mat4x4<NdcToScreen> {
 #[cfg(test)]
 mod tests {
     use crate::assert_approx_eq;
-    use crate::math::{pt2, pt3, vec2, vec3};
 
     #[cfg(feature = "fp")]
     use crate::math::degs;
@@ -959,7 +1034,6 @@ mod tests {
 
     mod mat3x3 {
         use super::*;
-        use crate::math::pt2;
 
         const MAT: Mat3x3<Map> = mat![
              0.0,  1.0,  2.0;
@@ -975,25 +1049,28 @@ mod tests {
 
         #[test]
         fn composition() {
-            let t: Mat3x3<Map<2>> = mat![
+            let tr: Mat3x3<Map<2>> = mat![
                 1.0,  0.0,  2.0;
                 0.0,  1.0, -3.0;
                 0.0,  0.0,  1.0;
             ];
-            let s: Mat3x3<InvMap<2>> = mat![
+            let sc: Mat3x3<InvMap<2>> = mat![
                 -1.0, 0.0, 0.0;
                  0.0, 2.0, 0.0;
                  0.0, 0.0, 1.0;
             ];
 
-            let ts = t.then(&s);
-            let st = s.then(&t);
+            let tr_sc = tr.then(&sc);
+            let sc_tr = sc.then(&tr);
 
-            assert_eq!(ts, s.compose(&t));
-            assert_eq!(st, t.compose(&s));
+            assert_eq!(tr_sc, sc.compose(&tr));
+            assert_eq!(sc_tr, tr.compose(&sc));
 
-            assert_eq!(ts.apply(&vec2(0.0, 0.0)), vec2(-2.0, -6.0));
-            assert_eq!(st.apply(&vec2(0.0, 0.0)), vec2(2.0, -3.0));
+            assert_eq!(tr_sc.apply(&vec2(1.0, 2.0)), vec2(-1.0, 4.0));
+            assert_eq!(sc_tr.apply(&vec2(1.0, 2.0)), vec2(-1.0, 4.0));
+
+            assert_eq!(tr_sc.apply(&pt2(1.0, 2.0)), pt2(-3.0, -2.0));
+            assert_eq!(sc_tr.apply(&pt2(1.0, 2.0)), pt2(1.0, 1.0));
         }
 
         #[test]
@@ -1004,7 +1081,7 @@ mod tests {
                 0.0,  0.0,  1.0;
             ];
             assert_eq!(m.apply(&vec2(1.0, 2.0)), vec2(2.0, -6.0));
-            assert_eq!(m.apply_pt(&pt2(2.0, -1.0)), pt2(4.0, 3.0));
+            assert_eq!(m.apply(&pt2(2.0, -1.0)), pt2(4.0, 3.0));
         }
 
         #[test]
@@ -1014,8 +1091,8 @@ mod tests {
                 0.0,  1.0, -3.0;
                 0.0,  0.0,  1.0;
             ];
-            assert_eq!(m.apply(&vec2(1.0, 2.0)), vec2(3.0, -1.0));
-            assert_eq!(m.apply_pt(&pt2(2.0, -1.0)), pt2(4.0, -4.0));
+            assert_eq!(m.apply(&vec2(1.0, 2.0)), vec2(1.0, 2.0));
+            assert_eq!(m.apply(&pt2(2.0, -1.0)), pt2(4.0, -4.0));
         }
 
         #[test]
@@ -1033,7 +1110,6 @@ mod tests {
 
     mod mat4x4 {
         use super::*;
-        use crate::math::pt3;
 
         const MAT: Mat4x4<Map> = mat![
              0.0,  1.0,  2.0,  3.0;
@@ -1059,8 +1135,9 @@ mod tests {
             assert_eq!(ts, s.compose(&t));
             assert_eq!(st, t.compose(&s));
 
-            assert_eq!(ts.apply(&O.to()), vec3::<_, Basis1>(3.0, 4.0, 3.0));
-            assert_eq!(st.apply(&O.to()), vec3::<_, Basis2>(1.0, 2.0, 3.0));
+            let o = <Point3>::origin();
+            assert_eq!(ts.apply(&o.to()), pt3::<_, Basis1>(3.0, 4.0, 3.0));
+            assert_eq!(st.apply(&o.to()), pt3::<_, Basis2>(1.0, 2.0, 3.0));
         }
 
         #[test]
@@ -1071,7 +1148,7 @@ mod tests {
             assert_eq!(m.apply(&v), vec3(0.0, -8.0, -9.0));
 
             let p = pt3(4.0, 0.0, -3.0);
-            assert_eq!(m.apply_pt(&p), pt3(4.0, 0.0, -9.0));
+            assert_eq!(m.apply(&p), pt3(4.0, 0.0, -9.0));
         }
 
         #[test]
@@ -1079,10 +1156,10 @@ mod tests {
             let m = translate3(1.0, 2.0, 3.0);
 
             let v = vec3(0.0, 5.0, -3.0);
-            assert_eq!(m.apply(&v), vec3(1.0, 7.0, 0.0));
+            assert_eq!(m.apply(&v), vec3(0.0, 5.0, -3.0));
 
             let p = pt3(3.0, 5.0, 0.0);
-            assert_eq!(m.apply_pt(&p), pt3(4.0, 7.0, 3.0));
+            assert_eq!(m.apply(&p), pt3(4.0, 7.0, 3.0));
         }
 
         #[cfg(feature = "fp")]
@@ -1094,7 +1171,7 @@ mod tests {
 
             assert_approx_eq!(m.apply(&Z), Y);
             assert_approx_eq!(
-                m.apply_pt(&pt3(0.0, -2.0, 0.0)),
+                m.apply(&pt3(0.0, -2.0, 0.0)),
                 pt3(0.0, 0.0, 2.0)
             );
         }
@@ -1108,7 +1185,7 @@ mod tests {
 
             assert_approx_eq!(m.apply(&X), Z);
             assert_approx_eq!(
-                m.apply_pt(&pt3(0.0, 0.0, -2.0)),
+                m.apply(&pt3(0.0, 0.0, -2.0)),
                 pt3(2.0, 0.0, 0.0)
             );
         }
@@ -1122,7 +1199,7 @@ mod tests {
 
             assert_approx_eq!(m.apply(&Y), X);
             assert_approx_eq!(
-                m.apply_pt(&(pt3(-2.0, 0.0, 0.0))),
+                m.apply(&(pt3(-2.0, 0.0, 0.0))),
                 pt3(0.0, 2.0, 0.0)
             );
         }
@@ -1173,13 +1250,13 @@ mod tests {
             let m = orient_y(Y, X);
 
             assert_eq!(m.apply(&X), X);
-            assert_eq!(m.apply_pt(&X.to_pt()), X.to_pt());
+            assert_eq!(m.apply(&X.to_pt()), X.to_pt());
 
             assert_eq!(m.apply(&Y), Y);
-            assert_eq!(m.apply_pt(&Y.to_pt()), Y.to_pt());
+            assert_eq!(m.apply(&Y.to_pt()), Y.to_pt());
 
             assert_eq!(m.apply(&Z), Z);
-            assert_eq!(m.apply_pt(&Z.to_pt()), Z.to_pt());
+            assert_eq!(m.apply(&Z.to_pt()), Z.to_pt());
         }
 
         #[cfg(feature = "fp")]
@@ -1188,13 +1265,13 @@ mod tests {
             let m = orient_y(Z, X);
 
             assert_eq!(m.apply(&X), X);
-            assert_eq!(m.apply_pt(&X.to_pt()), X.to_pt());
+            assert_eq!(m.apply(&X.to_pt()), X.to_pt());
 
             assert_eq!(m.apply(&Y), Z);
-            assert_eq!(m.apply_pt(&Y.to_pt()), Z.to_pt());
+            assert_eq!(m.apply(&Y.to_pt()), Z.to_pt());
 
             assert_eq!(m.apply(&Z), -Y);
-            assert_eq!(m.apply_pt(&Z.to_pt()), (-Y).to_pt());
+            assert_eq!(m.apply(&Z.to_pt()), (-Y).to_pt());
         }
 
         #[cfg(feature = "fp")]
@@ -1203,13 +1280,13 @@ mod tests {
             let m = orient_z(Y, X);
 
             assert_eq!(m.apply(&X), X);
-            assert_eq!(m.apply_pt(&X.to_pt()), X.to_pt());
+            assert_eq!(m.apply(&X.to_pt()), X.to_pt());
 
             assert_eq!(m.apply(&Y), -Z);
-            assert_eq!(m.apply_pt(&Y.to_pt()), (-Z).to_pt());
+            assert_eq!(m.apply(&Y.to_pt()), (-Z).to_pt());
 
             assert_eq!(m.apply(&Z), Y);
-            assert_eq!(m.apply_pt(&Z.to_pt()), Y.to_pt());
+            assert_eq!(m.apply(&Z.to_pt()), Y.to_pt());
         }
 
         #[test]
@@ -1324,7 +1401,7 @@ mod tests {
     fn viewport_maps_ndc_to_screen() {
         let m = viewport(pt2(20, 10)..pt2(620, 470));
 
-        assert_eq!(m.apply_pt(&pt3(-1.0, -1.0, 0.2)), pt3(20.0, 10.0, 0.2));
-        assert_eq!(m.apply_pt(&pt3(1.0, 1.0, 0.6)), pt3(620.0, 470.0, 0.6));
+        assert_eq!(m.apply(&pt3(-1.0, -1.0, 0.2)), pt3(20.0, 10.0, 0.2));
+        assert_eq!(m.apply(&pt3(1.0, 1.0, 0.6)), pt3(620.0, 470.0, 0.6));
     }
 }
