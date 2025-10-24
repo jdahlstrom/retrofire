@@ -5,7 +5,7 @@
 use core::{
     array,
     fmt::{Debug, Formatter},
-    iter::Sum,
+    iter::{Sum, zip},
     marker::PhantomData as Pd,
     ops::{Add, Div, Index, IndexMut, Mul, Neg, Sub},
     ops::{AddAssign, DivAssign, MulAssign, SubAssign},
@@ -204,27 +204,6 @@ where
             .fold(Sc::zero(), |acc, x| acc.add(&x))
     }
 
-    /// Returns the scalar projection of `self` onto a vector.
-    ///
-    /// (TODO the **relative** length of the component of `self` parallel to `other`).
-    ///
-    /// # Examples
-    /// ```
-    /// use retrofire_core::math::{vec2, Vec2};
-    ///
-    /// let v: Vec2 = vec2(3.0, 2.0);
-    /// let u = vec2(2.0, 0.0);
-    /// assert_eq!(v.scalar_project(&u), 1.5);
-    /// let w = vec2(0.0, -4.0);
-    /// assert_eq!(v.scalar_project(&w), -0.5);
-    /// ```
-    #[must_use]
-    pub fn scalar_project(&self, other: &Self) -> Sc
-    where
-        Sc: Div<Sc, Output = Sc>,
-    {
-        self.dot(other) / other.dot(other)
-    }
     /// Returns the vector projection of `self` onto a vector.
     ///
     /// (TODO the vector component of `self` parallel to `other`).
@@ -246,6 +225,27 @@ where
     {
         other.mul(self.scalar_project(other))
     }
+    /// Returns the scalar projection of `self` onto a vector.
+    ///
+    /// (TODO the **relative** length of the component of `self` parallel to `other`).
+    ///
+    /// # Examples
+    /// ```
+    /// use retrofire_core::math::{vec2, Vec2};
+    ///
+    /// let v: Vec2 = vec2(3.0, 2.0);
+    /// let u = vec2(2.0, 0.0);
+    /// assert_eq!(v.scalar_project(&u), 1.5);
+    /// let w = vec2(0.0, -4.0);
+    /// assert_eq!(v.scalar_project(&w), -0.5);
+    /// ```
+    #[must_use]
+    pub fn scalar_project(&self, other: &Self) -> Sc
+    where
+        Sc: Div<Sc, Output = Sc>,
+    {
+        self.dot(other) / other.dot(other)
+    }
 
     /// Reflects `self` across an origin-crossing line.
     ///
@@ -264,6 +264,46 @@ where
     {
         let proj_on_other = self.vector_project(&other);
         proj_on_other + proj_on_other - self
+    }
+
+    /// Returns whether `self` is parallel to another vector.
+    ///
+    /// Two vectors **a** and **b** are parallel if and only if either:
+    /// * at least one is a zero vector, or
+    /// * there exists a nonzero scalar *k* such that *k*·**a** = **b**.
+    ///
+    /// # Examples
+    /// ```
+    /// use retrofire_core::math::vec2;
+    /// let vec2 = vec2::<f32, ()>;
+    ///
+    /// // Zero vector is parallel with anything
+    /// assert!(vec2(0.0, 0.0).is_parallel_to(&vec2(0.0, 0.0)));
+    /// assert!(vec2(0.0, 0.0).is_parallel_to(&vec2(1.0, 2.0)));
+    ///
+    /// // (1, 0) is parallel with any (k, 0)
+    /// assert!(vec2(1.0, 0.0).is_parallel_to(&vec2(-3.0, 0.0)));
+    ///
+    /// // (2, -1) is parallel with any (2·k, -1·k)
+    /// assert!(vec2(2.0, -1.0).is_parallel_to(&vec2(-4.0, 2.0)));
+    ///
+    /// // Counterexamples
+    /// assert!(!vec2(1.0, 0.0).is_parallel_to(&vec2(2.0, 1.0)));
+    /// assert!(!vec2(1.0, 2.0).is_parallel_to(&vec2(1.0, 1.0)));
+    /// ```
+    pub fn is_parallel_to(&self, other: &Self) -> bool
+    where
+        Sc: ApproxEq,
+    {
+        let (mut x, mut y) = (Sc::zero(), Sc::zero());
+        for (a, b) in zip(self.0, other.0) {
+            // cross-multiply to compare ratios
+            if !a.mul(y).approx_eq(&b.mul(x)) {
+                return false;
+            }
+            (x, y) = (a, b)
+        }
+        true
     }
 }
 
@@ -297,6 +337,7 @@ impl<Sc: Copy, Sp, const N: usize> Vector<[Sc; N], Sp> {
     #[inline]
     #[must_use]
     pub fn zip_map<T: Copy, U>(
+        // TODO change to borrow
         self,
         other: Vector<[T; N], Sp>,
         mut f: impl FnMut(Sc, T) -> U,
@@ -853,6 +894,42 @@ mod tests {
         fn dot_product() {
             assert_eq!(vec2(1.0, -2.0).dot(&vec2(2.0, 3.0)), -4.0);
             assert_eq!(vec3(1.0, -2.0, 3.0).dot(&vec3(2.0, 3.0, -1.0)), -7.0);
+        }
+
+        #[test]
+        fn zero_parallel_to_anything() {
+            // Zero vector is parallel with anything
+            assert!(vec2(0.0, 0.0).is_parallel_to(&vec2(0.0, 0.0)));
+            assert!(vec2(0.0, 0.0).is_parallel_to(&vec2(1.0, 2.0)));
+            assert!(vec2(0.0, 0.0).is_parallel_to(&vec2(-1.0, 2.0)));
+        }
+
+        #[test]
+        fn x_parallel_to_x_times_k() {
+            // (1, 0) is parallel with any (k, 0)
+            assert!(vec2(1.0, 0.0).is_parallel_to(&vec2(0.0, 0.0)));
+            assert!(vec2(1.0, 0.0).is_parallel_to(&vec2(1.0, 0.0)));
+            assert!(vec2(1.0, 0.0).is_parallel_to(&vec2(2.0, 0.0)));
+            assert!(vec2(1.0, 0.0).is_parallel_to(&vec2(-3.0, 0.0)));
+        }
+
+        #[test]
+        fn a_b_parallel_to_ka_kb() {
+            // (2, -1) is parallel with any (2·k, -1·k)
+            assert!(vec2(2.0, -1.0).is_parallel_to(&vec2(0.0, 0.0)));
+            assert!(vec2(2.0, -1.0).is_parallel_to(&vec2(2.0, -1.0)));
+            assert!(vec2(2.0, -1.0).is_parallel_to(&vec2(-4.0, 2.0)));
+            assert!(vec2(2.0, -1.0).is_parallel_to(&vec2(1.0, -0.5)));
+        }
+
+        #[test]
+        fn nonparallel() {
+            // Counterexamples
+            assert!(!vec2(1.0, 0.0).is_parallel_to(&vec2(2.0, 1.0)));
+            assert!(!vec2(1.0, 0.0).is_parallel_to(&vec2(0.0, 2.0)));
+            assert!(!vec2(0.0, 2.0).is_parallel_to(&vec2(1.0, 2.0)));
+            assert!(!vec2(1.0, 2.0).is_parallel_to(&vec2(1.0, 0.0)));
+            assert!(!vec2(1.0, 2.0).is_parallel_to(&vec2(1.0, 1.0)));
         }
 
         #[test]
