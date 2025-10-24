@@ -1,6 +1,6 @@
 //! Testing and asserting approximate equality.
 
-use core::iter::zip;
+use core::{iter::zip, ops::Range};
 
 /// Trait for testing approximate equality.
 ///
@@ -29,6 +29,35 @@ pub trait ApproxEq<Other: ?Sized = Self, Epsilon = Self> {
     /// Returns whether `self` and `other` are approximately equal,
     /// using the relative epsilon `rel_eps`.
     fn approx_eq_eps(&self, other: &Other, rel_eps: &Epsilon) -> bool;
+
+    /// Returns whether `self` is approximately in a range of values.
+    ///
+    /// This means that `self` is either strictly contained in the range
+    /// or approximately equal to one of the endpoints.
+    fn approx_in(&self, rg: Range<Other>) -> bool
+    where
+        Self: PartialOrd<Other>,
+        Other: PartialOrd + PartialOrd<Self> + Sized,
+    {
+        let Range { start, end } = &rg;
+        !rg.is_empty() && self.approx_gt(start) && self.approx_le(end)
+    }
+
+    /// Returns whether `self` is less than or approximately equal to a value.
+    fn approx_le(&self, other: &Other) -> bool
+    where
+        Self: PartialOrd<Other>,
+    {
+        self < other || self.approx_eq(other)
+    }
+
+    /// Returns whether `self` is greater than or approximately equal to a value.
+    fn approx_gt(&self, other: &Other) -> bool
+    where
+        Self: PartialOrd<Other>,
+    {
+        self > other || self.approx_eq(other)
+    }
 
     /// Returns the default relative epsilon of type `E`.
     fn relative_epsilon() -> Epsilon;
