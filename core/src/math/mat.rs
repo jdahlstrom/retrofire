@@ -741,9 +741,9 @@ impl LinearMap for () {
     type Dest = ();
 }
 
-impl<Repr, E, M> ApproxEq<Self, E> for Matrix<Repr, M>
+impl<Repr, E, M> ApproxEq<E> for Matrix<Repr, M>
 where
-    Repr: ApproxEq<Repr, E>,
+    Repr: ApproxEq<E>,
 {
     fn approx_eq_eps(&self, other: &Self, rel_eps: &E) -> bool {
         self.0.approx_eq_eps(&other.0, rel_eps)
