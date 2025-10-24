@@ -170,8 +170,7 @@ impl<Sp, const N: usize> Vector<[f32; N], Sp> {
         array::from_fn(|i| self[i].clamp(min[i], max[i])).into()
     }
 
-    /// Returns `true` if every component of `self` is finite,
-    /// `false` otherwise.
+    /// Returns `true` if every component of `self` is finite, `false` otherwise.
     ///
     /// See [`f32::is_finite()`].
     pub fn is_finite(&self) -> bool {
@@ -186,14 +185,16 @@ where
 {
     /// Returns the length of `self`, squared.
     ///
-    /// This avoids taking the square root in cases it's not needed and works with scalars for
-    /// which a square root is not defined.
+    /// This avoids taking the square root in cases where it's not needed,
+    /// and works with scalars for which a square root is not defined.
     #[inline]
     pub fn len_sqr(&self) -> Sc {
         self.dot(self)
     }
 
     /// Returns the dot product of `self` and `other`.
+    ///
+    /// TODO docs
     #[inline]
     pub fn dot(&self, other: &Self) -> Sc {
         self.0
@@ -203,8 +204,20 @@ where
             .fold(Sc::zero(), |acc, x| acc.add(&x))
     }
 
-    /// Returns the scalar projection of `self` onto `other`
-    /// (the length of the component of `self` parallel to `other`).
+    /// Returns the scalar projection of `self` onto a vector.
+    ///
+    /// (TODO the **relative** length of the component of `self` parallel to `other`).
+    ///
+    /// # Examples
+    /// ```
+    /// use retrofire_core::math::{vec2, Vec2};
+    ///
+    /// let v: Vec2 = vec2(3.0, 2.0);
+    /// let u = vec2(2.0, 0.0);
+    /// assert_eq!(v.scalar_project(&u), 1.5);
+    /// let w = vec2(0.0, -4.0);
+    /// assert_eq!(v.scalar_project(&w), -0.5);
+    /// ```
     #[must_use]
     pub fn scalar_project(&self, other: &Self) -> Sc
     where
@@ -212,8 +225,9 @@ where
     {
         self.dot(other) / other.dot(other)
     }
-    /// Returns the vector projection of `self` onto `other`
-    /// (the vector component of `self` parallel to `other`).
+    /// Returns the vector projection of `self` onto a vector.
+    ///
+    /// (TODO the vector component of `self` parallel to `other`).
     /// ```text
     ///            self
     ///            ^
@@ -233,7 +247,7 @@ where
         other.mul(self.scalar_project(other))
     }
 
-    /// Reflects `self` across a line.
+    /// Reflects `self` across an origin-crossing line.
     ///
     /// # Examples
     /// ```

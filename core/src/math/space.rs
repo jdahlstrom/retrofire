@@ -2,10 +2,13 @@
 //!
 //! TODO
 
-use crate::math::vary::{Iter, Vary, ZDiv};
-use core::fmt::{Debug, Formatter};
-use core::marker::PhantomData;
-use std::iter::zip;
+use core::{
+    fmt::{Debug, Formatter},
+    iter::zip,
+    marker::PhantomData,
+};
+
+use super::vary::{Iter, Vary, ZDiv};
 
 /// Trait for types representing elements of an affine space.
 ///

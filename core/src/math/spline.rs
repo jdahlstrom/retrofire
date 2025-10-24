@@ -88,7 +88,7 @@ where
         let points @ [p0, .., p3] = &self.0;
         let weights = &bernstein(t);
 
-        step(t, p0, p3, |t| {
+        step(t, p0, p3, |_t| {
             // Add a linear combination of the three coefficients
             // to `p0` to get the result
             //let [co3, co2, co1] = self.coefficients();
@@ -134,7 +134,7 @@ where
     ///
     /// = (((co3 * t) + co2 * t) + co1 * t) + p0.
     /// ```
-    fn coefficients(&self) -> [T::Diff; 3] {
+    fn _coefficients(&self) -> [T::Diff; 3] {
         let [p0, p1, p2, p3] = &self.0;
 
         // Rewrite the parametric equation into a form where three of the
@@ -307,8 +307,8 @@ where
 }
 
 fn bernstein(t: f32) -> [f32; 4] {
-    let u = (1.0 - t);
-    let t2 = t * t;
+    let u = 1.0 - t;
+    let _t2 = t * t;
     let u2 = u * u;
 
     /*

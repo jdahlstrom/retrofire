@@ -4,14 +4,6 @@
 //!
 //! TODO Docs
 
-use crate::render::{NdcToScreen, ViewToProj};
-use core::{
-    array,
-    fmt::{self, Debug, Formatter},
-    marker::PhantomData as Pd,
-    ops::Range,
-};
-
 use super::{
     approx::ApproxEq,
     float::f32,
@@ -19,6 +11,15 @@ use super::{
     space::{Linear, Proj3, Real},
     vec::{ProjVec3, Vec2, Vec3, Vector, vec2},
 };
+use crate::assert_approx_eq;
+use crate::render::{NdcToScreen, ViewToProj};
+use core::{
+    array,
+    fmt::{self, Debug, Formatter},
+    marker::PhantomData as Pd,
+    ops::Range,
+};
+use std::any::type_name;
 
 /// A linear transform from one space (or basis) to another.
 ///
@@ -283,12 +284,16 @@ impl<Src, Dest> Mat2x2<RealToReal<2, Src, Dest>> {
         &self,
     ) -> Option<Mat2x2<RealToReal<2, Dest, Src>>> {
         let det = self.determinant();
+        // approx_eq not const
         if det.abs() < 1e-6 {
             return None;
         }
         let det = 1.0 / det;
         let [[a, b], [c, d]] = self.0;
-        Some(Mat2x2::new([[det * d, det * -b], [det * -c, det * a]]))
+        Some(mat![
+            det *  d, det * -b;
+            det * -c, det *  a
+        ])
     }
 
     /// Returns the inverse of `self`, if it exists.
@@ -323,8 +328,12 @@ impl<Src, Dest> Mat2x2<RealToReal<2, Src, Dest>> {
         self.checked_inverse()
             .expect("matrix must be invertible")
     }
+}
 
-    /// Maps the real 2-vector 𝘃 from basis `Src` to basis `Dst`.
+impl<S, D> Apply<Vec2<S>> for Mat2x2<RealToReal<2, S, D>> {
+    type Output = Vec2<D>;
+
+    /// Maps a real 2-vector from basis `Src` to basis `Dst`.
     ///
     /// Computes the matrix–vector multiplication 𝝡𝘃 where 𝘃 is interpreted as
     /// a column vector:
@@ -333,33 +342,47 @@ impl<Src, Dest> Mat2x2<RealToReal<2, Src, Dest>> {
     ///  Mv  =  ⎛ M00 M01 ⎞ ⎛ v0 ⎞  =  ⎛ v0' ⎞
     ///         ⎝ M10 M11 ⎠ ⎝ v1 ⎠     ⎝ v1' ⎠
     /// ```
-    #[must_use]
-    pub fn apply(&self, v: &Vec2<Src>) -> Vec2<Dest> {
-        //let [x, y] = v.0;
-        //let [[a, b], [c, d]] = self.0;
-        //vec2(a * x + b * y, c * x + d * y)
-
+    fn apply(&self, v: &Vec2<S>) -> Vec2<D> {
         vec2(self.row_vec(0).dot(&v), self.row_vec(1).dot(&v))
     }
 }
+impl<S, D> Apply<Point2<S>> for Mat2x2<RealToReal<2, S, D>> {
+    type Output = Point2<D>;
 
-impl<Src, Dst> Mat3x3<RealToReal<2, Src, Dst>> {
+    /// Maps a real 2-point from basis `Src` to basis `Dst`.
+    ///
+    /// Computes the matrix–vector multiplication 𝝡p where p is interpreted as
+    /// a column vector:
+    ///
+    /// ```text
+    ///  Mp  =  ⎛ M00 M01 ⎞ ⎛ p0 ⎞  =  ⎛ p0' ⎞
+    ///         ⎝ M10 M11 ⎠ ⎝ p1 ⎠     ⎝ p1' ⎠
+    /// ```
+    fn apply(&self, p: &Point2<S>) -> Point2<D> {
+        self.apply(&p.to_vec()).to_pt()
+    }
+}
+
+impl<Src, Dst> Apply<Vec2<Src>> for Mat3x3<RealToReal<2, Src, Dst>> {
+    type Output = Vec2<Dst>;
+
     /// Maps the real 2-vector 𝘃 from basis `Src` to basis `Dst`.
     ///
     /// Computes the matrix–vector multiplication 𝝡𝘃 where 𝘃 is interpreted as
-    /// a column vector with an implicit 𝘃<sub>2</sub> component with value 1:
+    /// a column vector with an implicit 𝘃<sub>2</sub> component with value 0:
     ///
     /// ```text
     ///         ⎛ M00 ·  ·  ⎞ ⎛ v0 ⎞     ⎛ v0' ⎞
     ///  Mv  =  ⎜  ·  ·  ·  ⎟ ⎜ v1 ⎜  =  ⎜ v1' ⎜
-    ///         ⎝  ·  · M22 ⎠ ⎝  1 ⎠     ⎝  1  ⎠
+    ///         ⎝  ·  · M22 ⎠ ⎝  0 ⎠     ⎝  0  ⎠
     /// ```
-    // FIXME applies to homogeneous (x, y, 1) but should be (x, y, 0)
-    #[must_use]
-    pub fn apply(&self, v: &Vec2<Src>) -> Vec2<Dst> {
-        let v = [v.x(), v.y(), 1.0].into(); // TODO w=0.0
+    fn apply(&self, v: &Vec2<Src>) -> Vec2<Dst> {
+        let v = [v.x(), v.y(), 0.0].into();
         array::from_fn(|i| self.row_vec(i).dot(&v)).into()
     }
+}
+impl<Src, Dst> Apply<Point2<Src>> for Mat3x3<RealToReal<2, Src, Dst>> {
+    type Output = Point2<Dst>;
 
     /// Maps the real 2-point *p* from basis `Src` to basis `Dst`.
     ///
@@ -371,13 +394,13 @@ impl<Src, Dst> Mat3x3<RealToReal<2, Src, Dst>> {
     ///  Mp  =  ⎜  ·  ·  ·  ⎟ ⎜ p1 ⎜  =  ⎜ p1' ⎜
     ///         ⎝  ·  · M22 ⎠ ⎝  1 ⎠     ⎝  1  ⎠
     /// ```
-    // TODO Add trait to overload apply or similar
-    #[must_use]
-    pub fn apply_pt(&self, p: &Point2<Src>) -> Point2<Dst> {
+    fn apply(&self, p: &Point2<Src>) -> Point2<Dst> {
         let p = [p.x(), p.y(), 1.0].into();
         array::from_fn(|i| self.row_vec(i).dot(&p)).into()
     }
+}
 
+impl<Src, Dst> Mat3x3<RealToReal<2, Src, Dst>> {
     /// Returns the determinant of `self`.
     pub fn determinant(&self) -> f32 {
         #[rustfmt::skip]
@@ -390,6 +413,55 @@ impl<Src, Dst> Mat3x3<RealToReal<2, Src, Dst>> {
         // a * e - b * d
 
         a * (e * i - f * h) - b * (d * i - f * g) + c * (d * h - e * g)
+    }
+
+    pub fn minor(&self, row: usize, col: usize) -> f32 {
+        let foo = [[1, 2], [0, 2], [0, 1]];
+
+        let r = self.0[foo[row][0]];
+        let s = self.0[foo[row][1]];
+
+        let a = r[foo[col][0]];
+        let b = r[foo[col][1]];
+        let c = s[foo[col][0]];
+        let d = s[foo[col][1]];
+
+        a * d - b * c
+    }
+
+    pub fn checked_inverse(&self) -> Option<Mat3x3<RealToReal<2, Dst, Src>>> {
+        let det = self.determinant();
+
+        if det.abs() < 1e-6 {
+            return None;
+        }
+        let r_det = 1.0 / det;
+
+        let [
+            [a, b, c], //
+            [d, e, f], //
+            [g, h, i],
+        ] = self.0;
+
+        let a_ = e * i - f * h;
+        let b_ = d * i - f * g;
+        let c_ = d * h - e * g;
+        let d_ = b * i - c * h;
+        let e_ = a * i - c * g;
+        let f_ = a * h - b * g;
+        let g_ = b * f - c * e;
+        let h_ = a * f - c * d;
+        let i_ = a * e - b * d;
+
+        let abc = [a_, -b_, c_].map(|x| x * r_det);
+        let def = [-d_, e_, -f_].map(|x| x * r_det);
+        let ghi = [g_, -h_, i_].map(|x| x * r_det);
+
+        let inv = Mat3x3::new([abc, def, ghi]).transpose();
+
+        assert_approx_eq!(self.then(&inv).0, Self::identity().0);
+
+        Some(inv)
     }
 }
 
@@ -664,11 +736,13 @@ impl<S: Debug, Map: Debug + Default, const N: usize, const M: usize> Debug
 
 impl<const DIM: usize, F, T> Debug for RealToReal<DIM, F, T>
 where
-    F: Debug + Default,
-    T: Debug + Default,
+//F: Debug + Default,
+//T: Debug + Default,
 {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
-        write!(f, "{:?}→{:?}", F::default(), T::default())
+        let ff = type_name::<F>();
+        let tt = type_name::<T>();
+        write!(f, "{ff}→{tt}")
     }
 }
 

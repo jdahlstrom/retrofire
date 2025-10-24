@@ -49,7 +49,7 @@ use std::{
     path::Path,
 };
 
-use re::geom::{Mesh, Normal3, Tri, mesh::Builder, tri, vertex};
+use re::geom::{Mesh, Normal3, Tri, mesh::Builder, vertex};
 use re::math::{Point3, Vec3, vec3};
 use re::render::{Model, TexCoord, uv};
 

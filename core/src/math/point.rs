@@ -1,11 +1,11 @@
+use super::{Affine, ApproxEq, Linear, Vector, space::Real, vary::ZDiv};
 use core::{
     array,
     fmt::{Debug, Formatter},
     marker::PhantomData as Pd,
     ops::{Add, AddAssign, Index, IndexMut, Sub, SubAssign},
 };
-
-use super::{Affine, ApproxEq, Linear, Vector, space::Real, vary::ZDiv};
+use std::any::type_name;
 
 #[repr(transparent)]
 pub struct Point<Repr, Space = ()>(pub Repr, Pd<Space>);
@@ -265,9 +265,11 @@ impl<R: Default, S> Default for Point<R, S> {
     }
 }
 
-impl<R: Debug, Sp: Debug + Default> Debug for Point<R, Sp> {
+impl<R: Debug, Sp> Debug for Point<R, Sp> {
     fn fmt(&self, f: &mut Formatter<'_>) -> core::fmt::Result {
-        write!(f, "Point<{:?}>", Sp::default())?;
+        let sp = type_name::<Sp>();
+        let sp = sp.rsplit_once("::").map(|s| s.1).unwrap_or(sp);
+        write!(f, "Point<{sp}>",)?;
         Debug::fmt(&self.0, f)
     }
 }
