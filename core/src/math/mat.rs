@@ -1089,7 +1089,7 @@ mod tests {
                 0.0,  0.0,  1.0;
             ];
             assert_eq!(m.apply(&vec2(1.0, 2.0)), vec2(2.0, -6.0));
-            assert_eq!(m.apply_pt(&pt2(2.0, -1.0)), pt2(4.0, 3.0));
+            assert_eq!(m.apply(&pt2(2.0, -1.0)), pt2(4.0, 3.0));
         }
 
         #[test]
@@ -1100,7 +1100,7 @@ mod tests {
                 0.0,  0.0,  1.0;
             ];
             assert_eq!(m.apply(&vec2(1.0, 2.0)), vec2(3.0, -1.0));
-            assert_eq!(m.apply_pt(&pt2(2.0, -1.0)), pt2(4.0, -4.0));
+            assert_eq!(m.apply(&pt2(2.0, -1.0)), pt2(4.0, -4.0));
         }
 
         #[test]
