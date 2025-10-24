@@ -19,42 +19,41 @@ use core::{iter::zip, ops::Range};
 /// Moreover, due to the nature of floating point, a naive comparison against
 /// a fixed value does not work well. Rather, the epsilon should be *relative*
 /// to the magnitude of the values being compared.
-pub trait ApproxEq<Other: ?Sized = Self, Epsilon = Self> {
+pub trait ApproxEq<Epsilon = Self> {
     /// Returns whether `self` and `other` are approximately equal.
     /// Uses the epsilon returned by [`Self::relative_epsilon`].
-    fn approx_eq(&self, other: &Other) -> bool {
+    fn approx_eq(&self, other: &Self) -> bool {
         self.approx_eq_eps(other, &Self::relative_epsilon())
     }
 
     /// Returns whether `self` and `other` are approximately equal,
     /// using the relative epsilon `rel_eps`.
-    fn approx_eq_eps(&self, other: &Other, rel_eps: &Epsilon) -> bool;
+    fn approx_eq_eps(&self, other: &Self, rel_eps: &Epsilon) -> bool;
 
     /// Returns whether `self` is approximately in a range of values.
     ///
     /// This means that `self` is either strictly contained in the range
     /// or approximately equal to one of the endpoints.
-    fn approx_in(&self, rg: Range<Other>) -> bool
+    fn approx_in(&self, rg: Range<Self>) -> bool
     where
-        Self: PartialOrd<Other>,
-        Other: PartialOrd + PartialOrd<Self> + Sized,
+        Self: PartialOrd + Sized,
     {
         let Range { start, end } = &rg;
         !rg.is_empty() && self.approx_gt(start) && self.approx_le(end)
     }
 
     /// Returns whether `self` is less than or approximately equal to a value.
-    fn approx_le(&self, other: &Other) -> bool
+    fn approx_le(&self, other: &Self) -> bool
     where
-        Self: PartialOrd<Other>,
+        Self: PartialOrd,
     {
         self < other || self.approx_eq(other)
     }
 
     /// Returns whether `self` is greater than or approximately equal to a value.
-    fn approx_gt(&self, other: &Other) -> bool
+    fn approx_gt(&self, other: &Self) -> bool
     where
-        Self: PartialOrd<Other>,
+        Self: PartialOrd,
     {
         self > other || self.approx_eq(other)
     }
@@ -78,7 +77,7 @@ impl ApproxEq for f32 {
     }
 }
 
-impl<E, T: Sized + ApproxEq<T, E>> ApproxEq<Self, E> for [T] {
+impl<E, T: Sized + ApproxEq<E>> ApproxEq<E> for [T] {
     fn approx_eq_eps(&self, other: &Self, rel_eps: &E) -> bool {
         self.len() == other.len()
             && zip(self, other).all(|(s, o)| s.approx_eq_eps(o, rel_eps))
@@ -88,9 +87,7 @@ impl<E, T: Sized + ApproxEq<T, E>> ApproxEq<Self, E> for [T] {
     }
 }
 
-impl<E, T: Sized + ApproxEq<T, E>, const N: usize> ApproxEq<Self, E>
-    for [T; N]
-{
+impl<E, T: Sized + ApproxEq<E>, const N: usize> ApproxEq<E> for [T; N] {
     fn approx_eq_eps(&self, other: &Self, rel_eps: &E) -> bool {
         self.as_slice().approx_eq_eps(other, rel_eps)
     }
@@ -99,7 +96,7 @@ impl<E, T: Sized + ApproxEq<T, E>, const N: usize> ApproxEq<Self, E>
     }
 }
 
-impl<E, T: ApproxEq<T, E>> ApproxEq<Self, E> for Option<T> {
+impl<E, T: ApproxEq<E>> ApproxEq<E> for Option<T> {
     fn approx_eq_eps(&self, other: &Self, rel_eps: &E) -> bool {
         match (self, other) {
             (Some(s), Some(o)) => s.approx_eq_eps(o, rel_eps),

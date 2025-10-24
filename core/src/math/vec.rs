@@ -21,7 +21,9 @@ use crate::math::{
 // Types
 //
 
-/// A generic vector type. Represents an element of a vector space or a module,
+/// A generic vector type. Represents an element of a vector space.
+///
+/// or a module,
 /// a generalization of a vector space where the scalars can be integers
 /// (technically, the scalar type can be any *ring*-like type).
 ///
@@ -578,9 +580,7 @@ where
     }
 }
 
-impl<Sc: ApproxEq, Sp, const N: usize> ApproxEq<Self, Sc>
-    for Vector<[Sc; N], Sp>
-{
+impl<Sc: ApproxEq, Sp, const N: usize> ApproxEq<Sc> for Vector<[Sc; N], Sp> {
     fn approx_eq_eps(&self, other: &Self, eps: &Sc) -> bool {
         self.0.approx_eq_eps(&other.0, eps)
     }

@@ -233,9 +233,7 @@ where
     }
 }
 
-impl<Sc: ApproxEq, Sp, const N: usize> ApproxEq<Self, Sc>
-    for Point<[Sc; N], Sp>
-{
+impl<Sc: ApproxEq, Sp, const N: usize> ApproxEq<Sc> for Point<[Sc; N], Sp> {
     fn approx_eq_eps(&self, other: &Self, eps: &Sc) -> bool {
         self.0.approx_eq_eps(&other.0, eps)
     }
