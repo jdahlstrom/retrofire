@@ -8,3 +8,5 @@ extern crate std;
 pub mod io;
 pub mod isect;
 pub mod solids;
+
+pub use isect::Intersect;
