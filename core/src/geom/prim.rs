@@ -130,6 +130,14 @@ impl<P: Affine, A> Tri<Vertex<P, A>> {
         [b.pos.sub(&a.pos), c.pos.sub(&a.pos)]
     }
 }
+impl<P: Affine> Tri<P> {
+    /// Given a triangle ABC, returns the vectors [AB, AC].
+    #[inline]
+    pub fn tangents(&self) -> [P::Diff; 2] {
+        let [a, b, c] = &self.0;
+        [b.sub(&a), c.sub(&a)]
+    }
+}
 
 impl<A, B> Tri<Vertex2<A, B>> {
     /// Returns the winding order of `self`.
@@ -239,13 +247,13 @@ impl<A, B> Tri<Vertex3<A, B>> {
     /// assert_eq!(tri.plane().offset(), 2.0);
     /// ```
     pub fn plane(&self) -> Plane3<B> {
-        let [a, b, c] = self.0.each_ref().map(|v| v.pos);
-        Plane::from_points(a, b, c)
+        let [a, b, c] = &self.0;
+        Plane::from_points(a.pos, b.pos, c.pos)
     }
 
     /// Returns the winding order of `self`, as projected to the XY plane.
     // TODO is this 3D version meaningful/useful enough?
-    pub fn winding(&self) -> Winding {
+    pub(crate) fn winding(&self) -> Winding {
         let z = self.normal().z();
         if z < 0.0 { Winding::Cw } else { Winding::Ccw }
     }
@@ -302,6 +310,9 @@ impl<B> Plane3<B> {
     /// and d is proportional to the plane's distance to the origin.
     /// If (a, b, c) is a unit vector, then d is exactly the offset of the
     /// plane from the origin in the direction of the normal.
+    ///
+    /// # Panics
+    /// If a = b = c = 0.
     ///
     /// # Examples
     /// ```
@@ -514,12 +525,8 @@ impl<B> Plane3<B> {
     pub fn basis<F>(&self) -> Mat4x4<RealToReal<3, F, B>> {
         let up = self.normal();
 
-        let right: Vec3<B> =
-            if up.x().abs() < up.y().abs() && up.x().abs() < up.z().abs() {
-                Vec3::X
-            } else {
-                Vec3::Z
-            };
+        let right = [Vec3::X, Vec3::Y, Vec3::Z][up.argmin()];
+        let up = up.to();
         let fwd = right.cross(&up).normalize();
         let right = up.cross(&fwd);
 
