@@ -7,8 +7,8 @@ use core::{iter::zip, ops::Range};
 /// Floating-point types are only an approximation of real numbers due to their
 /// finite precision. The presence of rounding errors means that two floats may
 /// not compare equal even if their counterparts in ℝ would. Even such a simple
-/// expression as `0.1 + 0.2 == 0.3` will evaluate to false due to precision
-/// issues.
+/// expression as `0.1 + 0.2 == 0.3` will evaluate to false because none of the
+/// three numbers have exact representations in binary floating-point.
 ///
 /// Approximate equality is a more robust way to compare floating-point values
 /// than strict equality. Two values are considered approximately equal if their
@@ -21,13 +21,14 @@ use core::{iter::zip, ops::Range};
 /// to the magnitude of the values being compared.
 pub trait ApproxEq<Epsilon = Self> {
     /// Returns whether `self` and `other` are approximately equal.
+    ///
     /// Uses the epsilon returned by [`Self::relative_epsilon`].
     fn approx_eq(&self, other: &Self) -> bool {
         self.approx_eq_eps(other, &Self::relative_epsilon())
     }
 
     /// Returns whether `self` and `other` are approximately equal,
-    /// using the relative epsilon `rel_eps`.
+    /// using the given relative epsilon.
     fn approx_eq_eps(&self, other: &Self, rel_eps: &Epsilon) -> bool;
 
     /// Returns whether `self` is approximately in a range of values.
