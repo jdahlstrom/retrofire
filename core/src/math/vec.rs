@@ -362,8 +362,8 @@ impl<Sc: Copy, Sp, const N: usize> Vector<[Sc; N], Sp> {
     /// ```
     #[inline]
     #[must_use]
-    pub fn map<T>(self, mut f: impl FnMut(Sc) -> T) -> Vector<[T; N], Sp> {
-        array::from_fn(|i| f(self.0[i])).into()
+    pub fn map<T>(self, f: impl FnMut(Sc) -> T) -> Vector<[T; N], Sp> {
+        self.0.map(f).into()
     }
     /// Returns a vector of the same dimension as `self` by applying `f`
     /// component-wise to `self` and `other`.
@@ -385,6 +385,70 @@ impl<Sc: Copy, Sp, const N: usize> Vector<[Sc; N], Sp> {
         mut f: impl FnMut(Sc, T) -> U,
     ) -> Vector<[U; N], Sp> {
         array::from_fn(|i| f(self.0[i], other.0[i])).into()
+    }
+
+    #[inline]
+    pub fn max(&self) -> Sc
+    where
+        Sc: PartialOrd,
+    {
+        const { assert!(N > 0, "0D vectors have no maximum") }
+        let mut max = self.0[0];
+        for c in self.0 {
+            if c > max {
+                max = c;
+            }
+        }
+        max
+    }
+
+    #[inline]
+    pub fn min(&self) -> Sc
+    where
+        Sc: PartialOrd,
+    {
+        const { assert!(N > 0, "0D vectors have no minimum") }
+        let mut min = self.0[0];
+        for c in self.0 {
+            if c < min {
+                min = c;
+            }
+        }
+        min
+    }
+
+    #[inline]
+    pub fn argmax(&self) -> usize
+    where
+        Sc: PartialOrd,
+    {
+        const { assert!(N > 0, "0D vectors have no maximum") }
+        let mut max = self.0[0];
+        let mut max_i = 0;
+        for (c, i) in zip(self.0, 0..) {
+            if c > max {
+                max = c;
+                max_i = i;
+            }
+        }
+        max_i
+    }
+
+    #[inline]
+    pub fn argmin(&self) -> usize
+    where
+        Sc: PartialOrd,
+    {
+        const { assert!(N > 0, "0D vectors have no minimum") }
+        let mut min = self.0[0];
+        let mut min_i = 0;
+        for (c, i) in zip(self.0, 0..) {
+            if c < min {
+                min = c;
+                min_i = i;
+            }
+        }
+        min_i
     }
 }
 
@@ -437,17 +501,17 @@ impl<B> Vec2<B> {
     ///
     /// where *θ* is the (signed) angle between **a** and **b**. In particular,
     /// the result is zero if **a** and **b** are parallel (or either is zero),
-    /// positive if the angle from **a** to **b** is positive, and negative if
-    /// the angle is negative:
+    /// negative if the angle from **a** to **b** is negative (clockwise), and
+    /// positive if the angle is positive (counter-clockwise)
     ///
     /// ```text
-    ///       ^ b               ^ a
-    ///      /           ^ b   /        ^ a
-    ///     ^ a           \   /          \
-    ///    /               \ /            \
-    ///   O                 O              O-----> b
+    ///       ^ b
+    ///      /                 a ^        ^ a
+    ///     ^ a                 /          \
+    ///    /                   /            \
+    ///   O           b <-----O              O-----> b
     ///
-    ///  a⟂·b = 0        a⟂·b > 0       a⟂·b < 0
+    ///  a⟂·b = 0        a⟂·b > 0         a⟂·b < 0
     /// ```
     ///
     /// # Examples
@@ -510,15 +574,13 @@ where
     /// proportional to the area of the parallelogram formed by the vectors.
     /// Specifically, the length is given by the identity:
     ///
-    /// ```text
-    ///     |𝗮 × 𝗯| = |𝗮| |𝗯| sin 𝜽
-    /// ```
+    /// |**a** × **b**| = |**a**| |**b**| sin *θ*,
     ///
     /// where |·| denotes the length of a vector and 𝜽 equals the angle
-    /// between 𝗮 and 𝗯. Specifically, the result has unit length if 𝗮 and 𝗯
-    /// are orthogonal and |𝗮| = |𝗯| = 1. The cross product can be used to
-    /// produce an *orthonormal basis* from any two non-parallel non-zero
-    /// 3-vectors.
+    /// between **a** and **b**. Specifically, the result has unit length if
+    /// **a** and **b** are orthogonal and |**a**| = |**b**| = 1. The cross
+    /// product can be used to produce an *orthonormal basis* from any two
+    /// non-parallel non-zero 3-vectors.
     ///
     /// ```text
     ///        ^
@@ -1041,8 +1103,8 @@ mod tests {
 
         #[test]
         fn perp() {
-            assert_eq!(Vec2::<()>::zero().perp(), Vec2::zero());
-            assert_eq!(Vec2::<()>::X.perp(), Vec2::Y);
+            assert_eq!(<Vec2>::zero().perp(), <Vec2>::zero());
+            assert_eq!(<Vec2>::X.perp(), Vec2::Y);
             assert_eq!(vec2(-0.2, -1.5).perp(), vec2(1.5, -0.2));
         }
 
