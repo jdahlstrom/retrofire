@@ -4,7 +4,7 @@ use minifb::{Key, KeyRepeat};
 
 use re::prelude::*;
 
-use re::core::geom::Polyline;
+use re::core::geom::{Edge, Polyline, Ray};
 use re::core::math::{ProjMat3, ProjVec3, color::gray};
 use re::core::render::cam::Fov;
 
@@ -85,6 +85,7 @@ fn main() {
 
     let translate = translate(-4.0 * Vec3::Z);
     let mut carousel = Carousel::default();
+    let mut debug: u8 = 0;
 
     win.run(|frame| {
         let Frame { t, dt, win, .. } = frame;
@@ -92,6 +93,9 @@ fn main() {
         // Press Space to trigger carousel animation
         if win.imp.is_key_pressed(Key::Space, KeyRepeat::No) {
             carousel.start();
+        }
+        if win.imp.is_key_pressed(Key::D, KeyRepeat::No) {
+            debug = (debug + 1) % 7;
         }
 
         let theta = rads(t.as_secs_f32());
@@ -118,51 +122,95 @@ fn main() {
             .target(&mut frame.buf)
             .render();
 
-        let sph = debug::sphere(pt3::<_, Model>(0.0, 0.0, 0.0), 1.0);
-        sph.uniform(&mvp)
-            .viewport(cam.viewport)
-            .context(&*frame.ctx)
-            .target(&mut frame.buf)
-            .render();
-
-        let bbox = debug::bbox(&object.verts);
-        bbox.uniform(&mvp)
-            .viewport(cam.viewport)
-            .context(&*frame.ctx)
-            .target(&mut frame.buf)
-            .render();
-
-        debug::frame::<Model, Model>(Mat4::identity())
-            .uniform(&mvp)
-            .viewport(cam.viewport)
-            .context(&*frame.ctx)
-            .target(&mut frame.buf)
-            .render();
-
-        for tri in &object.faces {
-            debug::face_normal(tri.0.map(|i| object.verts[i].pos))
+        if debug > 0 {
+            let bbox = debug::bbox(&object.verts);
+            bbox.uniform(&mvp)
+                .viewport(cam.viewport)
+                .context(&*frame.ctx)
+                .target(&mut frame.buf)
+                .render();
+        }
+        if debug > 1 {
+            debug::sphere::<Model>(pt3(0.0, 0.0, 0.0), 1.0)
                 .uniform(&mvp)
                 .viewport(cam.viewport)
                 .context(&*frame.ctx)
                 .target(&mut frame.buf)
                 .render();
         }
-
-        /*let norms: Vec<_> = object
-            .verts
-            .iter()
-            .map(|v| (v.pos, v.attrib))
-            .collect();
-
-        for (o, dir) in norms {
-            debug::ray(o, 0.5 * dir.to())
+        if debug > 2 {
+            debug::frame::<Model, Model>(Mat4::identity())
                 .uniform(&mvp)
                 .viewport(cam.viewport)
                 .context(&*frame.ctx)
                 .target(&mut frame.buf)
                 .render();
-        }*/
+        }
+        if debug > 3 {
+            // Wireframe faces
+            let edges: Vec<_> = object
+                .faces
+                .iter()
+                .flat_map(|tri| tri.edges().map(|Edge(a, b)| Edge(*a, *b)))
+                .collect();
+            let verts = object
+                .verts
+                .iter()
+                .map(|v| vertex(v.pos, gray(1.0f32).to_rgba()))
+                .collect::<Vec<_>>();
 
+            Batch::new()
+                .primitives(edges)
+                .vertices(verts)
+                .uniform(&mvp)
+                .shader(debug::Shader)
+                .viewport(cam.viewport)
+                .context(&*frame.ctx)
+                .target(&mut frame.buf)
+                .render();
+        }
+        if debug > 4 {
+            debug::frame::<Model, Model>(Mat4::identity())
+                .uniform(&mvp)
+                .viewport(cam.viewport)
+                .context(&*frame.ctx)
+                .target(&mut frame.buf)
+                .render();
+        }
+        if debug > 5 {
+            let norms = object
+                .faces
+                .iter()
+                .map(|Tri(vs)| {
+                    debug::face_normal(vs.map(|i| object.verts[i].pos))
+                })
+                .reduce(|mut a, b| {
+                    a.append(b);
+                    a
+                })
+                .expect("at least one face");
+            norms
+                .uniform(&mvp)
+                .viewport(cam.viewport)
+                .context(&*frame.ctx)
+                .target(&mut frame.buf)
+                .render();
+
+            /*let norms: Vec<_> = object
+                .verts
+                .iter()
+                .map(|v| (v.pos, v.attrib))
+                .collect();
+
+            for (o, dir) in norms {
+                debug::ray(o, 0.5 * dir.to())
+                    .uniform(&mvp)
+                    .viewport(cam.viewport)
+                    .context(&*frame.ctx)
+                    .target(&mut frame.buf)
+                    .render();
+            }*/
+        }
         Continue(())
     });
 }
@@ -179,6 +227,7 @@ fn objects(res: u32) -> [Mesh<Normal3>; 13] {
     let major_sectors = 3 * res;
     let minor_sectors = 2 * res;
     [
+        lathe(sectors),
         // The five Platonic solids
         Tetrahedron.build(),
         Cube { side_len: 1.25 }.build(),
@@ -187,7 +236,6 @@ fn objects(res: u32) -> [Mesh<Normal3>; 13] {
         Icosahedron.build(),
 
         // Surfaces of revolution
-        lathe(sectors),
         Sphere { radius: 1.0, sectors, segments, }.build(),
         Cylinder { radius: 0.8, sectors, segments, capped: true }.build(),
         Cone { base_radius: 1.1, apex_radius: 0.3, sectors, segments, capped: true }.build(),
@@ -202,16 +250,59 @@ fn objects(res: u32) -> [Mesh<Normal3>; 13] {
 
 // Creates a Lathe mesh.
 fn lathe(secs: u32) -> Mesh<Normal3> {
-    let pts = [
-        vertex(pt2(0.75, -0.5), vec2(1.0, 1.0)),
-        vertex(pt2(0.55, -0.25), vec2(1.0, 0.5)),
-        vertex(pt2(0.5, 0.0), vec2(1.0, 0.0)),
-        vertex(pt2(0.55, 0.25), vec2(1.0, -0.5)),
-        vertex(pt2(0.75, 0.5), vec2(1.0, -1.0)),
-    ]
-    .map(|v| vertex(v.pos, v.attrib.normalize()));
+    let _pts: [Vertex<Point2, Normal2>; _] = [
+        // _________
+        //         |
+        //        /
+        //   ____/
+        //  /
+        // |
+        // \______
+        // _______\
 
-    Lathe::new(Polyline::new(pts), secs, pts.len() as u32)
+        // Base
+        vertex(pt2(0.5, -0.6), vec2(1.0, 0.0)),
+        vertex(pt2(0.45, -0.55), vec2(0.0, 1.0)),
+        // Neck
+        vertex(pt2(0.15, -0.5), vec2(1.0, 1.0)),
+        vertex(pt2(0.1, -0.45), vec2(1.0, 0.0)),
+        vertex(pt2(0.1, 0.0), vec2(1.0, 0.0)),
+        vertex(pt2(0.15, 0.05), vec2(1.0, -1.0)),
+        // Bowl outer
+        vertex(pt2(0.4, 0.1), vec2(1.0, -0.5)),
+        vertex(pt2(0.5, 0.2), vec2(1.0, 0.0)),
+        vertex(pt2(0.5, 0.3), vec2(1.0, 0.0)),
+        vertex(pt2(0.4, 0.6), vec2(1.0, 0.1)),
+        // Bowl inner
+        vertex(pt2(0.35, 0.6), vec2(-1.0, 0.1)),
+        vertex(pt2(0.4, 0.25), vec2(-1.0, 0.0)),
+        vertex(pt2(0.2, 0.15), vec2(-0.2, 1.0)),
+        vertex(pt2(0.0, 0.1), vec2(0.0, 1.0)),
+    ];
+
+    let curve = BezierSpline::from_rays(
+        [
+            Ray(pt2(0.5, -0.6), vec2(0.0, 0.1)),
+            Ray(pt2(0.4, -0.55), vec2(-0.1, 0.0)),
+            Ray(pt2(0.1, -0.4), vec2(0.0, 0.1)),
+            Ray(pt2(0.1, 0.0), vec2(0.0, 0.1)),
+            Ray(pt2(0.3, 0.2), vec2(0.1, 0.0)),
+            Ray(pt2(0.5, 0.4), vec2(0.0, 0.1)),
+            Ray(pt2(0.4, 1.0), vec2(-0.1, 0.0)),
+            Ray(pt2(0.48, 0.4), vec2(0.0, -0.1)),
+            Ray(pt2(0.0, 0.05), vec2(-0.1, 0.0)),
+        ], //.map(|Ray(pos, dir)| Ray(vertex(pos, dir.perp().normalize()))),
+    );
+
+    let curve: Vec<_> = curve
+        .approximate(0.05)
+        .0
+        .into_iter()
+        .map(|p| vertex(p, vec2(1.0, 1.0)))
+        .collect();
+
+    let n = curve.len();
+    Lathe::new(Polyline(curve), secs, 2 * n as u32)
         .capped(true)
         .build()
 }
