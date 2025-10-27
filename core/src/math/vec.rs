@@ -2,20 +2,20 @@
 //!
 //! TODO
 
-use crate::math::{
-    Affine, ApproxEq, Linear, Point,
-    space::{Proj3, Real},
-    vary::ZDiv,
-};
 use core::{
     array,
     fmt::{Debug, Formatter},
-    iter::Sum,
+    iter::{Sum, zip},
     marker::PhantomData as Pd,
     ops::{Add, Div, Index, IndexMut, Mul, Neg, Sub},
     ops::{AddAssign, DivAssign, MulAssign, SubAssign},
 };
-use std::iter::zip;
+
+use super::{
+    Affine, ApproxEq, Linear, Point,
+    space::{Proj3, Real},
+    vary::ZDiv,
+};
 
 //
 // Types
