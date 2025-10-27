@@ -29,9 +29,9 @@ impl Carousel {
             self.new_idx += 1;
         }
     }
-    fn update(&mut self, dt: f32) -> Mat4x4<RealToReal<3>> {
+    fn update(&mut self, dt: f32) -> Mat4<RealToReal<3>> {
         let Some(t) = self.t.as_mut() else {
-            return Mat4x4::identity();
+            return Mat4::identity();
         };
         *t += dt;
         let t = *t;
@@ -63,7 +63,7 @@ fn main() {
 
     type VertexIn = Vertex3<Normal3>;
     type VertexOut = Vertex<ProjVec3, Color3f>;
-    type Uniform<'a> = (&'a Mat4x4<ModelToProj>, &'a Mat4x4<RealToReal<3>>);
+    type Uniform<'a> = (&'a Mat4<ModelToProj>, &'a Mat4<RealToReal<3>>);
 
     fn vtx_shader(v: VertexIn, (mvp, spin): Uniform) -> VertexOut {
         // Transform vertex normal
@@ -100,7 +100,7 @@ fn main() {
         let carouse = carousel.update(dt.as_secs_f32());
 
         // Compose transform stack
-        let model_view_project: Mat4x4<ModelToProj> = spin
+        let model_view_project: Mat4<ModelToProj> = spin
             .then(&translate)
             .then(&carouse)
             .to::<ModelToWorld>()

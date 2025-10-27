@@ -1,9 +1,5 @@
 use crate::geom::{Mesh, vertex};
-use crate::math::{
-    Mat4x4, Point3,
-    mat::{Apply, RealToProj},
-    pt3, splat,
-};
+use crate::math::{Apply, Mat4, Point3, mat::RealToProj, pt3, splat};
 
 use super::{
     Model, ModelToWorld,
@@ -14,7 +10,7 @@ use super::{
 pub struct Obj<A> {
     pub geom: Mesh<A>,
     pub bbox: BBox<Model>,
-    pub tf: Mat4x4<ModelToWorld>,
+    pub tf: Mat4<ModelToWorld>,
 }
 
 // TODO Decide whether upper bound is inclusive or exclusive
@@ -24,9 +20,9 @@ pub struct BBox<B: Default>(pub Point3<B>, pub Point3<B>);
 
 impl<A> Obj<A> {
     pub fn new(geom: Mesh<A>) -> Self {
-        Self::with_transform(geom, Mat4x4::identity())
+        Self::with_transform(geom, Mat4::identity())
     }
-    pub fn with_transform(geom: Mesh<A>, tf: Mat4x4<ModelToWorld>) -> Self {
+    pub fn with_transform(geom: Mesh<A>, tf: Mat4<ModelToWorld>) -> Self {
         let bbox = BBox::of(&geom);
         Self { geom, bbox, tf }
     }
@@ -78,7 +74,7 @@ impl<B: Default> BBox<B> {
     /// geometry needs no clipping or culling.  If the return value is
     /// `Clipped`, the box and the geometry are *potentially* visible and
     /// more fine-grained culling is required.
-    pub fn visibility(&self, tf: &Mat4x4<RealToProj<B>>) -> Status {
+    pub fn visibility(&self, tf: &Mat4<RealToProj<B>>) -> Status {
         view_frustum::status(
             &self
                 .verts()

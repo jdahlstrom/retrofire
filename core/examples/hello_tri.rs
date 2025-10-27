@@ -10,7 +10,7 @@ fn main() {
 
     #[cfg(feature = "fp")]
     let shader = shader::new(
-        |v: Vertex3<Color3f>, mvp: &Mat4x4<ModelToProj>| {
+        |v: Vertex3<Color3f>, mvp: &Mat4<ModelToProj>| {
             // Transform vertex position from model to projection space
             // Interpolate vertex colors in linear color space
             vertex(mvp.apply(&v.pos), v.attrib.to_linear())
@@ -19,7 +19,7 @@ fn main() {
     );
     #[cfg(not(feature = "fp"))]
     let shader = shader::new(
-        |v: Vertex3<Color3f>, mvp: &Mat4x4<ModelToProj>| {
+        |v: Vertex3<Color3f>, mvp: &Mat4<ModelToProj>| {
             // Transform vertex position from model to projection space
             // Interpolate vertex colors in normal sRGB color space
             vertex(mvp.apply(&v.pos), v.attrib)
