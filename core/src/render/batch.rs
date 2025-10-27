@@ -5,7 +5,7 @@ use core::borrow::Borrow;
 
 use crate::{
     geom::{Mesh, Tri, Vertex3},
-    math::{Mat4x4, Vary},
+    math::{Mat4, Vary},
 };
 
 use super::{Clip, Context, NdcToScreen, Render, Shader, Target};
@@ -35,7 +35,7 @@ pub struct Batch<Prim, Vtx, Uni, Shd, Tgt, Ctx> {
     verts: Vec<Vtx>,
     uniform: Uni,
     shader: Shd,
-    viewport: Mat4x4<NdcToScreen>,
+    viewport: Mat4<NdcToScreen>,
     target: Tgt,
     ctx: Ctx,
 }
@@ -104,7 +104,7 @@ impl<Prim, Vtx, Uni, Shd, Tgt, Ctx> Batch<Prim, Vtx, Uni, Shd, Tgt, Ctx> {
     }
 
     /// Sets the viewport matrix.
-    pub fn viewport(self, viewport: Mat4x4<NdcToScreen>) -> Self {
+    pub fn viewport(self, viewport: Mat4<NdcToScreen>) -> Self {
         update!(viewport; self verts prims uniform shader target ctx)
     }
 

@@ -24,7 +24,7 @@ fn main() {
     let tex = Texture::from(read_pnm(&tex_data[..]).expect("data exists"));
 
     let floor_shader = shader::new(
-        |v: Vertex3<_>, mvp: &Mat4x4<ModelToProj>| {
+        |v: Vertex3<_>, mvp: &Mat4<ModelToProj>| {
             vertex(mvp.apply(&v.pos), v.attrib)
         },
         |frag: Frag<Vec2>| {
@@ -33,7 +33,7 @@ fn main() {
         },
     );
     let crate_shader = shader::new(
-        |v: Vertex3<TexCoord>, mvp: &Mat4x4<ModelToProj>| {
+        |v: Vertex3<TexCoord>, mvp: &Mat4<ModelToProj>| {
             vertex(mvp.apply(&v.pos), v.attrib)
         },
         |frag: Frag<TexCoord>| SamplerClamp.sample(&tex, frag.var).to_rgba(),

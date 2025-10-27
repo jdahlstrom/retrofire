@@ -1,7 +1,7 @@
 //! Render impls for primitives and related items.
 
 use crate::geom::{Edge, Tri, Vertex, Winding};
-use crate::math::{Apply, Mat4x4, Vary, pt3, vary::ZDiv};
+use crate::math::{Apply, Mat4, Vary, pt3, vary::ZDiv};
 
 use super::{
     NdcToScreen, Render,
@@ -28,7 +28,7 @@ impl<V: Vary> Render<V> for Tri<usize> {
 
     fn to_screen(
         clip: Tri<ClipVert<V>>,
-        tf: &Mat4x4<NdcToScreen>,
+        tf: &Mat4<NdcToScreen>,
     ) -> Self::Screen {
         Tri(to_screen(clip.0, tf))
     }
@@ -49,7 +49,7 @@ impl<V: Vary> Render<V> for Edge<usize> {
         Edge(vs[i].clone(), vs[j].clone())
     }
 
-    fn to_screen(e: Self::Clip, tf: &Mat4x4<NdcToScreen>) -> Self::Screen {
+    fn to_screen(e: Self::Clip, tf: &Mat4<NdcToScreen>) -> Self::Screen {
         let [a, b] = to_screen([e.0, e.1], tf);
         Edge(a, b)
     }
@@ -61,7 +61,7 @@ impl<V: Vary> Render<V> for Edge<usize> {
 
 pub fn to_screen<V: ZDiv, const N: usize>(
     vs: [ClipVert<V>; N],
-    tf: &Mat4x4<NdcToScreen>,
+    tf: &Mat4<NdcToScreen>,
 ) -> [Vertex<ScreenPt, V>; N] {
     vs.map(|v| {
         let [x, y, _, w] = v.pos.0;

@@ -4,9 +4,10 @@ use alloc::vec::Vec;
 use core::fmt::Debug;
 
 use crate::math::{
-    Affine, Lerp, Linear, Mat4x4, Parametric, Point2, Point3, Vec2, Vec3,
-    Vector, mat::RealToReal, space::Real, vec2, vec3,
+    Affine, Lerp, Linear, Mat4, Parametric, Point2, Point3, Vec2, Vec3, Vector,
+    mat::RealToReal, space::Real, vec2, vec3,
 };
+
 use crate::render::Model;
 
 pub use mesh::Mesh;
@@ -517,7 +518,7 @@ impl<B> Plane3<B> {
     ///
     /// assert_approx_eq!(m.apply(&Point3::origin()), pt3(0.0, 0.5, 0.5));
     /// ```
-    pub fn basis<F>(&self) -> Mat4x4<RealToReal<3, F, B>> {
+    pub fn basis<F>(&self) -> Mat4<RealToReal<3, F, B>> {
         let up = self.abc();
 
         let right: Vec3<B> =
@@ -531,7 +532,7 @@ impl<B> Plane3<B> {
 
         let origin = self.offset() * up;
 
-        Mat4x4::from_affine(right, up, fwd, origin.to_pt())
+        Mat4::from_affine(right, up, fwd, origin.to_pt())
     }
 
     /// Helper that returns the plane normal non-normalized.
