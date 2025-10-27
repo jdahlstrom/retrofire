@@ -26,7 +26,7 @@ fn main() {
     let light_dir = vec3(-2.0, 1.0, -4.0).normalize();
 
     let floor_shader = shader::new(
-        |v: Vertex3<_>, mvp: &Mat4x4<ModelToProj>| {
+        |v: Vertex3<_>, mvp: &Mat4<ModelToProj>| {
             vertex(mvp.apply(&v.pos), v.attrib)
         },
         |frag: Frag<Vec2>| {
@@ -35,7 +35,7 @@ fn main() {
         },
     );
     let crate_shader = shader::new(
-        |v: Vertex3<(Normal3, TexCoord)>, mvp: &Mat4x4<ModelToProj>| {
+        |v: Vertex3<(Normal3, TexCoord)>, mvp: &Mat4<ModelToProj>| {
             vertex(mvp.apply(&v.pos), v.attrib)
         },
         |frag: Frag<(Normal3, TexCoord)>| {
