@@ -182,6 +182,17 @@ impl<Sp, const N: usize> Vector<[f32; N], Sp> {
         array::from_fn(|i| self[i].clamp(min[i], max[i])).into()
     }
 
+    /// Returns `self` with component-wise absolute values taken.
+    ///
+    /// # Examples
+    /// ```
+    /// let v: Vec3 = vec3(1.0, -2.0, 0.0);
+    /// assert_eq!(v.abs(), vec3(1.0, 2.0, 0.0));
+    /// ```
+    pub fn abs(&self) -> Self {
+        self.map(|x| x.abs())
+    }
+
     /// Returns `true` if every component of `self` is finite,
     /// `false` otherwise.
     ///
@@ -300,12 +311,12 @@ impl<Sc: Copy, Sp, const N: usize> Vector<[Sc; N], Sp> {
         array::from_fn(|i| f(self.0[i], other.0[i])).into()
     }
 
-    /// Returns the index of the component with the largest value.
+    /// Returns the index of the component with the maximum value.
     ///
     /// If there are more than one component with the maximum value, returns
     /// the index of the last one.
     ///
-    /// If `N` = 0, returns 0.
+    /// If `N` = 0, fails at compile time.
     ///
     /// # Examples
     /// ```
@@ -321,10 +332,38 @@ impl<Sc: Copy, Sp, const N: usize> Vector<[Sc; N], Sp> {
     where
         Sc: PartialOrd,
     {
+        const { assert!(N > 0) }
         zip(self.0, 0..)
             .max_by(|a, b| a.0.partial_cmp(&b.0).unwrap())
             .map(|a| a.1)
-            .unwrap_or(0)
+            .expect("unreachable: N cannot be 0")
+    }
+    /// Returns the index of the component with the minimum value.
+    ///
+    /// If there are more than one component with the minimum value, returns
+    /// the index of the last one.
+    ///
+    /// If `N` = 0, fails at compile time.
+    ///
+    /// # Examples
+    /// ```
+    /// use retrofire_core::math::{vec3, Vec3};
+    ///
+    /// let v: Vec3 = vec3(1.0, 3.0, 2.0);
+    /// assert_eq!(v.arg_max(), 1);
+    ///
+    /// let v: Vec3 = vec3(1.0, 2.0, 2.0);
+    /// assert_eq!(v.arg_max(), 2);
+    /// ```
+    pub fn arg_min(&self) -> usize
+    where
+        Sc: PartialOrd,
+    {
+        const { assert!(N > 0) }
+        zip(self.0, 0..)
+            .min_by(|a, b| a.0.partial_cmp(&b.0).unwrap())
+            .map(|a| a.1)
+            .expect("unreachable: N cannot be 0")
     }
 }
 
