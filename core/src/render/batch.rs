@@ -29,7 +29,7 @@ use crate::{
 // A batch can be freely reused, for example to render several chunks of geometry
 // using the same configuration, or several [instances] of the same geometry.
 // [instances]: https://en.wikipedia.org/wiki/Geometry_instancing
-#[derive(Clone, Debug, Default)]
+#[derive(Clone, Debug)]
 pub struct Batch<Prim, Vtx, Uni, Shd, Tgt, Ctx> {
     pub prims: Vec<Prim>,
     pub verts: Vec<Vtx>,
@@ -50,6 +50,26 @@ macro_rules! update {
 impl Batch<(), (), (), (), (), Context> {
     pub fn new() -> Self {
         Self::default()
+    }
+}
+
+impl<P, V, Uni, Shd, Tgt, Ctx> Default for Batch<P, V, Uni, Shd, Tgt, Ctx>
+where
+    Uni: Default,
+    Shd: Default,
+    Tgt: Default,
+    Ctx: Default,
+{
+    fn default() -> Self {
+        Self {
+            prims: Default::default(),
+            verts: Default::default(),
+            uniform: Default::default(),
+            shader: Default::default(),
+            viewport: Default::default(),
+            target: Default::default(),
+            ctx: Default::default(),
+        }
     }
 }
 
