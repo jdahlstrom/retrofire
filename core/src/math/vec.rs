@@ -2,11 +2,6 @@
 //!
 //! TODO
 
-use crate::math::{
-    Affine, ApproxEq, Linear, Point,
-    space::{Proj3, Real},
-    vary::ZDiv,
-};
 use core::{
     array,
     fmt::{Debug, Formatter},
@@ -14,6 +9,12 @@ use core::{
     marker::PhantomData as Pd,
     ops::{Add, Div, Index, IndexMut, Mul, Neg, Sub},
     ops::{AddAssign, DivAssign, MulAssign, SubAssign},
+};
+
+use super::{
+    Affine, ApproxEq, Linear, Point,
+    space::{Proj3, Real},
+    vary::ZDiv,
 };
 
 //
