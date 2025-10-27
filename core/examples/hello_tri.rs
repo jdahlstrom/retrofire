@@ -21,7 +21,7 @@ fn main() {
     let shader = shader::new(
         |v: Vertex3<Color3f>, mvp: &Mat4x4<ModelToProj>| {
             // Transform vertex position from model to projection space
-            // Interpolate vertex colors in linear color space
+            // Interpolate vertex colors in normal sRGB color space
             vertex(mvp.apply(&v.pos), v.attrib)
         },
         |frag: Frag<Color3f<_>>| frag.var.to_color4(),
@@ -46,13 +46,13 @@ fn main() {
 
     let center_pixel = framebuf[[w / 2, h / 2]];
 
+    if cfg!(feature = "fp") {
+        assert_eq!(center_pixel, rgba(150, 128, 185, 255));
+    } else {
+        assert_eq!(center_pixel, rgba(114, 102, 127, 255));
+    }
     #[cfg(feature = "std")]
     {
-        assert_eq!(center_pixel, rgba(150, 128, 185, 255));
         pnm::save_ppm("triangle.ppm", framebuf).unwrap();
-    }
-    #[cfg(not(feature = "std"))]
-    {
-        assert_eq!(center_pixel, rgba(114, 102, 127, 255));
     }
 }
