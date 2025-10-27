@@ -4,11 +4,12 @@ use core::ops::Range;
 
 #[cfg(feature = "fp")]
 use crate::math::{
-    Angle, Vec3, orient_z, rotate_x, rotate_y, spherical, translate, turns,
+    Angle, Apply, Vec3, orient_z, rotate_x, rotate_y, spherical, translate,
+    turns,
 };
 use crate::math::{
-    Apply, Lerp, Mat4x4, Point3, SphericalVec, Vary, mat::RealToReal,
-    orthographic, perspective, pt2, viewport,
+    Lerp, Mat4, Point3, SphericalVec, Vary, mat::RealToReal, orthographic,
+    perspective, pt2, viewport,
 };
 use crate::util::{Dims, rect::Rect};
 
@@ -20,7 +21,7 @@ use super::{
 /// Trait for different modes of camera motion.
 pub trait Transform {
     /// Returns the current world-to-view matrix.
-    fn world_to_view(&self) -> Mat4x4<WorldToView>;
+    fn world_to_view(&self) -> Mat4<WorldToView>;
 }
 
 /// Camera field of view.
@@ -61,9 +62,9 @@ pub struct Camera<Tf> {
     /// Viewport width and height.
     pub dims: Dims,
     /// Projection matrix.
-    pub project: Mat4x4<ViewToProj>,
+    pub project: Mat4<ViewToProj>,
     /// Viewport matrix.
-    pub viewport: Mat4x4<NdcToScreen>,
+    pub viewport: Mat4<NdcToScreen>,
 }
 
 /// First-person camera transform.
@@ -199,7 +200,7 @@ impl<T> Camera<T> {
 
 impl<T: Transform> Camera<T> {
     /// Returns the composed camera and projection matrix.
-    pub fn world_to_project(&self) -> Mat4x4<RealToProj<World>> {
+    pub fn world_to_project(&self) -> Mat4<RealToProj<World>> {
         self.transform.world_to_view().then(&self.project)
     }
 
@@ -208,7 +209,7 @@ impl<T: Transform> Camera<T> {
         &self,
         prims: impl AsRef<[Prim]>,
         verts: impl AsRef<[Vtx]>,
-        to_world: &Mat4x4<RealToReal<3, B, World>>,
+        to_world: &Mat4<RealToReal<3, B, World>>,
         shader: &Shd,
         uniform: Uni,
         target: &mut impl Target,
@@ -216,7 +217,7 @@ impl<T: Transform> Camera<T> {
     ) where
         Prim: Render<Var> + Clone,
         [<Prim>::Clip]: Clip<Item = Prim::Clip>,
-        Shd: for<'a> Shader<Vtx, Var, (&'a Mat4x4<RealToProj<B>>, Uni)>,
+        Shd: for<'a> Shader<Vtx, Var, (&'a Mat4<RealToProj<B>>, Uni)>,
     {
         let tf = to_world.then(&self.world_to_project());
 
@@ -272,7 +273,7 @@ impl FirstPerson {
         let up = Vec3::Y;
         let right = up.cross(&fwd);
 
-        let to_world = Mat4x4::from_linear(right, up, fwd);
+        let to_world = Mat4::from_linear(right, up, fwd);
         self.pos += to_world.apply(&delta);
     }
 }
@@ -332,7 +333,7 @@ impl Orbit {
 
 #[cfg(feature = "fp")]
 impl Transform for FirstPerson {
-    fn world_to_view(&self) -> Mat4x4<WorldToView> {
+    fn world_to_view(&self) -> Mat4<WorldToView> {
         let &Self { pos, heading, .. } = self;
         let fwd_move = az_alt(heading.az(), turns(0.0)).to_cart();
         let fwd = heading.to_cart();
@@ -348,7 +349,7 @@ impl Transform for FirstPerson {
 
 #[cfg(feature = "fp")]
 impl Transform for Orbit {
-    fn world_to_view(&self) -> Mat4x4<WorldToView> {
+    fn world_to_view(&self) -> Mat4<WorldToView> {
         // TODO Figure out how to do this with orient
         //let fwd = self.dir.to_cart().normalize();
         //let o = orient_z(fwd, Vec3::X - 0.1 * Vec3::Z);
@@ -363,8 +364,8 @@ impl Transform for Orbit {
     }
 }
 
-impl Transform for Mat4x4<WorldToView> {
-    fn world_to_view(&self) -> Mat4x4<WorldToView> {
+impl Transform for Mat4<WorldToView> {
+    fn world_to_view(&self) -> Mat4<WorldToView> {
         *self
     }
 }
