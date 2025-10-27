@@ -1045,7 +1045,6 @@ use super::Angle;
 /// If `x` is approximately parallel to `new_y` and the basis would be
 /// degenerate.
 // TODO example
-#[cfg(feature = "fp")]
 pub fn orient_y(new_y: Vec3, x: Vec3) -> Mat4 {
     orient(new_y, x.cross(&new_y).normalize())
 }
@@ -1058,7 +1057,6 @@ pub fn orient_y(new_y: Vec3, x: Vec3) -> Mat4 {
 /// # Panics
 /// If `x` is approximately parallel to `new_z` and the basis would be
 /// degenerate.
-#[cfg(feature = "fp")]
 pub fn orient_z(new_z: Vec3, x: Vec3) -> Mat4 {
     orient(new_z.cross(&x).normalize(), new_z)
 }
@@ -1072,7 +1070,6 @@ pub fn orient_z(new_z: Vec3, x: Vec3) -> Mat4 {
 /// # Panics
 /// If `new_y` is approximately parallel to `new_z` and the basis would
 /// be degenerate.
-#[cfg(feature = "fp")]
 fn orient(new_y: Vec3, new_z: Vec3) -> Mat4 {
     let new_x = new_y.cross(&new_z);
     assert!(
@@ -1621,7 +1618,6 @@ mod tests {
             assert_eq!(m.apply(&Z.to_pt()), pt3(-2.0, 2.0, 3.0));
         }
 
-        #[cfg(feature = "fp")]
         #[test]
         fn orientation_no_op() {
             let m = orient_y(Y, X);
@@ -1636,7 +1632,6 @@ mod tests {
             assert_eq!(m.apply(&Z.to_pt()), Z.to_pt());
         }
 
-        #[cfg(feature = "fp")]
         #[test]
         fn orientation_y_to_z() {
             let m = orient_y(Z, X);
@@ -1651,7 +1646,6 @@ mod tests {
             assert_eq!(m.apply(&Z.to_pt()), (-Y).to_pt());
         }
 
-        #[cfg(feature = "fp")]
         #[test]
         fn orientation_z_to_y() {
             let m = orient_z(Y, X);
@@ -1716,7 +1710,6 @@ mod tests {
         assert_approx_eq!(rot.determinant(), 1.0);
     }
 
-    #[cfg(feature = "fp")]
     #[test]
     fn matrix_composed_with_inverse_is_identity() {
         let m: Mat4<B1, B2> = translate3(1.0e3, -2.0e2, 0.0)
