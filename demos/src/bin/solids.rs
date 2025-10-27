@@ -83,7 +83,7 @@ fn main() {
 
     let objects = objects(8);
 
-    let translate = translate(-4.0 * Vec3::Z);
+    let translate = translate(-3.0 * Vec3::Z);
     let mut carousel = Carousel::default();
     let mut debug: u8 = 0;
 
@@ -103,10 +103,10 @@ fn main() {
         let carouse = carousel.update(dt.as_secs_f32());
 
         // Compose transform stack
-        let modelview: Mat4x4<ModelToWorld> =
+        let model_to_world: Mat4x4<ModelToWorld> =
             spin.then(&translate).then(&carouse).to();
-        let proj = cam.world_to_project();
-        let mvp = modelview.then(&proj);
+        let world_to_proj = cam.world_to_project();
+        let mvp = model_to_world.then(&world_to_proj);
 
         let object = &objects[carousel.idx % objects.len()];
 
@@ -128,9 +128,24 @@ fn main() {
                 .context(&*frame.ctx)
                 .target(&mut frame.buf)
                 .render();
+
+            let grid = debug::grid::<World>(10);
+            let m2w = rotate_x(degs(90.0)).then(&translate).to();
+            grid.uniform(&m2w.then(&world_to_proj))
+                .viewport(cam.viewport)
+                .context(&*frame.ctx)
+                .target(&mut frame.buf)
+                .render();
         }
         if debug > 1 {
             debug::sphere(pt3::<_, Model>(0.0, 0.0, 0.0), 1.0)
+                .uniform(&mvp)
+                .viewport(cam.viewport)
+                .context(&*frame.ctx)
+                .target(&mut frame.buf)
+                .render();
+
+            debug::cone(0.8)
                 .uniform(&mvp)
                 .viewport(cam.viewport)
                 .context(&*frame.ctx)
@@ -181,7 +196,7 @@ fn main() {
                 .faces
                 .iter()
                 .map(|Tri(vs)| {
-                    debug::face_normal(vs.map(|i| object.verts[i].pos))
+                    debug::face_normal(vs.map(|i| object.verts[i].pos), 0.3)
                 })
                 .reduce(|mut a, b| {
                     a.append(b);
