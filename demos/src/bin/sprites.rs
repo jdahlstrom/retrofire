@@ -36,7 +36,7 @@ fn main() {
 
     let shader = shader::new(
         |v: Vertex3<Vec2<_>>,
-         (mv, proj): (&Mat4x4<ModelToView>, &Mat4x4<ViewToProj>)| {
+         (mv, proj): (&Mat4<ModelToView>, &Mat4<ViewToProj>)| {
             let vertex_pos = 0.008 * v.attrib.to_vec3().to();
             let view_pos = mv.apply(&v.pos) + vertex_pos;
             vertex(proj.apply(&view_pos), v.attrib)
