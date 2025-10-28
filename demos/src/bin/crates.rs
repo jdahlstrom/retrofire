@@ -36,7 +36,7 @@ fn main() {
     let (w, h) = win.dims;
     let mut cam = Camera::new(win.dims)
         .transform(FirstPerson::default())
-        .viewport((10..w - 10, 10..h - 10))
+        .viewport((10..w - 10, h - 10..10))
         .perspective(Fov::Diagonal(degs(90.0)), 0.1..1000.0);
 
     let floor = floor();
@@ -65,18 +65,16 @@ fn main() {
         let ms = ep.relative_mouse_state();
         cam.transform.rotate(
             turns(ms.x() as f32) * -0.001,
-            turns(ms.y() as f32) * 0.001,
+            turns(ms.y() as f32) * -0.001,
         );
         cam.transform
             .translate(cam_vel.mul(frame.dt.as_secs_f32()));
-
-        let flip = scale3(1.0, -1.0, -1.0).to();
 
         //
         // Render
         //
 
-        let world_to_project = flip.then(&cam.world_to_project());
+        let world_to_project = &cam.world_to_project();
 
         let batch = Batch::new()
             .viewport(cam.viewport)
