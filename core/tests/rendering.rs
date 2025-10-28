@@ -2,6 +2,7 @@
 
 use retrofire_core::prelude::*;
 
+use retrofire_core::math::mat::ProjMat3;
 use retrofire_core::{
     render::tex::SamplerClamp,
     util::{self, pixfmt::Xrgb8888, pnm::parse_pnm},
@@ -24,7 +25,7 @@ fn textured_quad() {
     }));
 
     let shader = shader::new(
-        |v: Vertex3<_>, mvp: &Mat4<ModelToProj>| {
+        |v: Vertex3<_>, mvp: &ProjMat3<Model>| {
             vertex(mvp.apply(&v.pos), v.attrib)
         },
         |frag: Frag<_>| SamplerClamp.sample(&checker, frag.var),
