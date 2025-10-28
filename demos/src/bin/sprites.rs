@@ -3,8 +3,10 @@ use core::{array::from_fn, ops::ControlFlow::Continue};
 use re::prelude::*;
 
 use re::math::color::gray;
+use re::math::mat::{Apply, ProjMat3};
 use re::math::rand::{Distrib, PointsInUnitBall, Xorshift64};
-use re::render::{Model, ModelToView, ViewToProj, cam::*, render};
+
+use re::render::{Model, cam::*, render};
 
 use re_front::minifb::Window;
 
@@ -36,7 +38,7 @@ fn main() {
 
     let shader = shader::new(
         |v: Vertex3<Vec2<_>>,
-         (mv, proj): (&Mat4<ModelToView>, &Mat4<ViewToProj>)| {
+         (mv, proj): (&Mat4<Model, View>, &ProjMat3<View>)| {
             let vertex_pos = 0.008 * v.attrib.to_vec3().to();
             let view_pos = mv.apply(&v.pos) + vertex_pos;
             vertex(proj.apply(&view_pos), v.attrib)

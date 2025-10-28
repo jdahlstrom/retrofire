@@ -5,7 +5,7 @@ use minifb::{Key, KeyRepeat};
 use re::prelude::*;
 
 use re::geom::Polyline;
-use re::math::{Apply, color::gray, mat::RealToReal, vec::ProjVec3};
+use re::math::{Apply, color::gray, mat::ProjMat3, vec::ProjVec3};
 use re::render::cam::Fov;
 
 use re_front::{Frame, minifb::Window};
@@ -29,7 +29,7 @@ impl Carousel {
             self.new_idx += 1;
         }
     }
-    fn update(&mut self, dt: f32) -> Mat4<RealToReal<3>> {
+    fn update(&mut self, dt: f32) -> Mat4 {
         let Some(t) = self.t.as_mut() else {
             return Mat4::identity();
         };
@@ -63,7 +63,7 @@ fn main() {
 
     type VertexIn = Vertex3<Normal3>;
     type VertexOut = Vertex<ProjVec3, Color3f>;
-    type Uniform<'a> = (&'a Mat4<ModelToProj>, &'a Mat4<RealToReal<3>>);
+    type Uniform<'a> = (&'a ProjMat3<Model>, &'a Mat4);
 
     fn vtx_shader(v: VertexIn, (mvp, spin): Uniform) -> VertexOut {
         // Transform vertex normal
@@ -100,7 +100,7 @@ fn main() {
         let carouse = carousel.update(dt.as_secs_f32());
 
         // Compose transform stack
-        let model_view_project: Mat4<ModelToProj> = spin
+        let model_view_project: ProjMat3<Model> = spin
             .then(&translate)
             .then(&carouse)
             .to::<ModelToWorld>()

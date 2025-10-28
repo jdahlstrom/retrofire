@@ -1,7 +1,7 @@
-use std::ops::ControlFlow::*;
-
+use re::math::mat::ProjMat3;
 use re::prelude::*;
 use re::render::tex::SamplerClamp;
+use std::ops::ControlFlow::*;
 
 use re_front::minifb::Window;
 
@@ -35,9 +35,7 @@ fn main() {
     }));
 
     let shader = shader::new(
-        |v: Vertex3<_>, mvp: &Mat4<ModelToProj>| {
-            vertex(mvp.apply(&v.pos), v.attrib)
-        },
+        |v: Vertex3<_>, mvp: &ProjMat3<_>| vertex(mvp.apply(&v.pos), v.attrib),
         |frag: Frag<_>| SamplerClamp.sample(&checker, frag.var),
     );
 

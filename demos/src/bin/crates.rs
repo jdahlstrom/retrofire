@@ -2,10 +2,9 @@ use core::ops::ControlFlow::*;
 
 use re::prelude::*;
 
-use re::math::color::gray;
+use re::math::{color::gray, mat::ProjMat3};
 use re::render::{
-    ModelToProj, cam::FirstPerson, cam::Fov, clip::Status::*, scene::Obj,
-    tex::SamplerClamp,
+    cam::FirstPerson, cam::Fov, clip::Status::*, scene::Obj, tex::SamplerClamp,
 };
 // Try also Rgb565 or Rgba4444
 use re::util::{pixfmt::Rgba8888, pnm::read_pnm};
@@ -26,16 +25,14 @@ fn main() {
     let light_dir = vec3(-2.0, 1.0, -4.0).normalize();
 
     let floor_shader = shader::new(
-        |v: Vertex3<_>, mvp: &Mat4<ModelToProj>| {
-            vertex(mvp.apply(&v.pos), v.attrib)
-        },
+        |v: Vertex3<_>, mvp: &ProjMat3<_>| vertex(mvp.apply(&v.pos), v.attrib),
         |frag: Frag<Vec2>| {
             let even_odd = (frag.var.x() > 0.5) ^ (frag.var.y() > 0.5);
             gray(if even_odd { 0.8 } else { 0.1 }).to_color4()
         },
     );
     let crate_shader = shader::new(
-        |v: Vertex3<(Normal3, TexCoord)>, mvp: &Mat4<ModelToProj>| {
+        |v: Vertex3<(Normal3, TexCoord)>, mvp: &ProjMat3<_>| {
             vertex(mvp.apply(&v.pos), v.attrib)
         },
         |frag: Frag<(Normal3, TexCoord)>| {

@@ -11,8 +11,7 @@ use core::{
     ops::Range,
 };
 
-use crate::assert_approx_eq;
-use crate::render::{NdcToScreen, ViewToProj};
+use crate::render::{Ndc, Screen, View};
 
 use super::{
     approx::ApproxEq,
@@ -69,11 +68,16 @@ pub struct RealToProj<SrcBasis>(Pd<SrcBasis>);
 pub struct Matrix<Repr, Map>(pub Repr, Pd<Map>);
 
 /// Type alias for a 2x2 float matrix.
-pub type Mat2<Map = ()> = Matrix<[[f32; 2]; 2], Map>;
+pub type Mat2<Src = (), Dst = Src, const DIM: usize = 2> =
+    Matrix<[[f32; 2]; 2], RealToReal<DIM, Src, Dst>>;
 /// Type alias for a 3x3 float matrix.
-pub type Mat3<Map = ()> = Matrix<[[f32; 3]; 3], Map>;
+pub type Mat3<Src = (), Dst = Src, const DIM: usize = 2> =
+    Matrix<[[f32; 3]; 3], RealToReal<DIM, Src, Dst>>;
 /// Type alias for a 4x4 float matrix.
-pub type Mat4<Map = ()> = Matrix<[[f32; 4]; 4], Map>;
+pub type Mat4<Src = (), Dst = Src, const DIM: usize = 3> =
+    Matrix<[[f32; 4]; 4], RealToReal<DIM, Src, Dst>>;
+
+pub type ProjMat3<Src = ()> = Matrix<[[f32; 4]; 4], RealToProj<Src>>;
 
 //
 // Inherent impls
@@ -201,7 +205,7 @@ impl Mat4 {
         i: Vec3<D>,
         j: Vec3<D>,
         k: Vec3<D>,
-    ) -> Mat4<RealToReal<3, S, D>> {
+    ) -> Mat4<S, D> {
         Self::from_affine(i, j, k, Point3::origin())
     }
 
@@ -213,7 +217,7 @@ impl Mat4 {
         j: Vec3<D>,
         k: Vec3<D>,
         o: Point3<D>,
-    ) -> Mat4<RealToReal<3, S, D>> {
+    ) -> Mat4<S, D> {
         let (o, i, j, k) = (o.0, i.0, j.0, k.0);
         mat![
             i[0], j[0], k[0], o[0];
@@ -268,17 +272,17 @@ where
     }
 }
 
-impl<Src, Dest> Mat2<RealToReal<2, Src, Dest>> {
+impl<Src, Dest> Mat2<Src, Dest> {
     /// Returns the determinant of `self`.
     ///
     /// # Examples
     /// ```
-    /// use retrofire_core::math::{Mat2, mat::RealToReal};
+    /// use retrofire_core::math::Mat2;
     ///
-    /// let double: Mat2<RealToReal<2>> = [[2.0, 0.0], [0.0, 2.0]].into();
+    /// let double: Mat2 = [[2.0, 0.0], [0.0, 2.0]].into();
     /// assert_eq!(double.determinant(), 4.0);
     ///
-    /// let singular: Mat2<RealToReal<2>> = [[1.0, 0.0], [2.0, 0.0]].into();
+    /// let singular: Mat2 = [[1.0, 0.0], [2.0, 0.0]].into();
     /// assert_eq!(singular.determinant(), 0.0);
     /// ```
     pub const fn determinant(&self) -> f32 {
@@ -305,9 +309,7 @@ impl<Src, Dest> Mat2<RealToReal<2, Src, Dest>> {
     /// assert_eq!(singular.checked_inverse(), None);
     /// ```
     #[must_use]
-    pub const fn checked_inverse(
-        &self,
-    ) -> Option<Mat2<RealToReal<2, Dest, Src>>> {
+    pub const fn checked_inverse(&self) -> Option<Mat2<Dest, Src>> {
         let det = self.determinant();
         // No approx_eq in const :/
         if det.abs() < 1e-6 {
@@ -349,13 +351,13 @@ impl<Src, Dest> Mat2<RealToReal<2, Src, Dest>> {
     /// let _ = singular.inverse();
     /// ```
     #[must_use]
-    pub const fn inverse(&self) -> Mat2<RealToReal<2, Dest, Src>> {
+    pub const fn inverse(&self) -> Mat2<Dest, Src> {
         self.checked_inverse()
             .expect("matrix cannot be singular or near-singular")
     }
 }
 
-impl<Src, Dest> Mat3<RealToReal<2, Src, Dest>> {
+impl<Src, Dest> Mat3<Src, Dest, 2> {
     /// Returns the determinant of `self`.
     pub const fn determinant(&self) -> f32 {
         let [a, b, c] = self.0[0];
@@ -404,7 +406,7 @@ impl<Src, Dest> Mat3<RealToReal<2, Src, Dest>> {
 
     /// Returns the inverse of `self`, or `None` if `self` is singular.
     #[must_use]
-    pub fn checked_inverse(&self) -> Option<Mat3<RealToReal<2, Dest, Src>>> {
+    pub fn checked_inverse(&self) -> Option<Mat3<Dest, Src, 2>> {
         let det = self.determinant();
         if det.abs() < 1e-6 {
             return None;
@@ -430,7 +432,7 @@ impl<Src, Dest> Mat3<RealToReal<2, Src, Dest>> {
         Some(Mat3::from_rows(abc, def, ghi))
     }
 
-    pub fn inverse(&self) -> Mat3<RealToReal<2, Dest, Src>> {
+    pub fn inverse(&self) -> Mat3<Dest, Src> {
         self.checked_inverse()
             .expect("matrix cannot be singular or near-singular")
     }
@@ -440,7 +442,7 @@ impl<Src, Dest> Mat3<RealToReal<2, Src, Dest>> {
     }
 }
 
-impl<Src, Dst> Mat4<RealToReal<3, Src, Dst>> {
+impl<Src, Dst> Mat4<Src, Dst> {
     /// Returns the determinant of `self`.
     ///
     /// Given a matrix M,
@@ -490,7 +492,7 @@ impl<Src, Dst> Mat4<RealToReal<3, Src, Dst>> {
     /// If not enabled, the return value is unspecified and may contain non-finite
     /// values (infinities and NaNs).
     #[must_use]
-    pub fn inverse(&self) -> Mat4<RealToReal<3, Dst, Src>> {
+    pub fn inverse(&self) -> Mat4<Dst, Src> {
         use super::float::f32;
         if cfg!(debug_assertions) {
             let det = self.determinant();
@@ -614,7 +616,7 @@ where
 
 // Apply trait impls
 
-impl<Src, Dest> Apply<Vec2<Src>> for Mat2<RealToReal<2, Src, Dest>> {
+impl<Src, Dest> Apply<Vec2<Src>> for Mat2<Src, Dest> {
     type Output = Vec2<Dest>;
 
     /// Maps a real 2-vector from basis `Src` to basis `Dst`.
@@ -631,7 +633,7 @@ impl<Src, Dest> Apply<Vec2<Src>> for Mat2<RealToReal<2, Src, Dest>> {
     }
 }
 
-impl<Src, Dest> Apply<Point2<Src>> for Mat2<RealToReal<2, Src, Dest>> {
+impl<Src, Dest> Apply<Point2<Src>> for Mat2<Src, Dest> {
     type Output = Point2<Dest>;
 
     /// Maps a real 2-vector from basis `Src` to basis `Dst`.
@@ -648,7 +650,7 @@ impl<Src, Dest> Apply<Point2<Src>> for Mat2<RealToReal<2, Src, Dest>> {
     }
 }
 
-impl<Src, Dest> Apply<Vec2<Src>> for Mat3<RealToReal<2, Src, Dest>> {
+impl<Src, Dest> Apply<Vec2<Src>> for Mat3<Src, Dest, 2> {
     type Output = Vec2<Dest>;
 
     /// Maps a real 2-vector from basis `Src` to basis `Dst`.
@@ -668,7 +670,7 @@ impl<Src, Dest> Apply<Vec2<Src>> for Mat3<RealToReal<2, Src, Dest>> {
     }
 }
 
-impl<Src, Dest> Apply<Point2<Src>> for Mat3<RealToReal<2, Src, Dest>> {
+impl<Src, Dest> Apply<Point2<Src>> for Mat3<Src, Dest, 2> {
     type Output = Point2<Dest>;
 
     /// Maps a real 2-point from basis `Src` to basis `Dst`.
@@ -687,7 +689,7 @@ impl<Src, Dest> Apply<Point2<Src>> for Mat3<RealToReal<2, Src, Dest>> {
     }
 }
 
-impl<Src, Dest> Apply<Vec3<Src>> for Mat3<RealToReal<3, Src, Dest>> {
+impl<Src, Dest> Apply<Vec3<Src>> for Mat3<Src, Dest, 3> {
     type Output = Vec3<Dest>;
 
     /// Maps a real 3-vector from basis `Src` to basis `Dst`.
@@ -702,14 +704,14 @@ impl<Src, Dest> Apply<Vec3<Src>> for Mat3<RealToReal<3, Src, Dest>> {
     /// ```
     fn apply(&self, v: &Vec3<Src>) -> Vec3<Dest> {
         vec3(
-            self.row_vec(0).dot(&v),
-            self.row_vec(1).dot(&v),
-            self.row_vec(2).dot(&v),
+            self.row_vec(0).dot(v),
+            self.row_vec(1).dot(v),
+            self.row_vec(2).dot(v),
         )
     }
 }
 
-impl<Src, Dest> Apply<Point3<Src>> for Mat3<RealToReal<3, Src, Dest>> {
+impl<Src, Dest> Apply<Point3<Src>> for Mat3<Src, Dest, 3> {
     type Output = Point3<Dest>;
 
     /// Maps a real 3-point from basis `Src` to basis `Dst`.
@@ -727,7 +729,7 @@ impl<Src, Dest> Apply<Point3<Src>> for Mat3<RealToReal<3, Src, Dest>> {
     }
 }
 
-impl<Src, Dst> Apply<Vec3<Src>> for Mat4<RealToReal<3, Src, Dst>> {
+impl<Src, Dst> Apply<Vec3<Src>> for Mat4<Src, Dst, 3> {
     type Output = Vec3<Dst>;
 
     /// Maps a real 3-vector from basis `Src` to basis `Dst`.
@@ -747,7 +749,7 @@ impl<Src, Dst> Apply<Vec3<Src>> for Mat4<RealToReal<3, Src, Dst>> {
     }
 }
 
-impl<Src, Dst> Apply<Point3<Src>> for Mat4<RealToReal<3, Src, Dst>> {
+impl<Src, Dst> Apply<Point3<Src>> for Mat4<Src, Dst, 3> {
     type Output = Point3<Dst>;
 
     /// Maps a real 3-point from basis `Src` to basis `Dst`.
@@ -767,7 +769,7 @@ impl<Src, Dst> Apply<Point3<Src>> for Mat4<RealToReal<3, Src, Dst>> {
     }
 }
 
-impl<Src> Apply<Point3<Src>> for Mat4<RealToProj<Src>> {
+impl<Src> Apply<Point3<Src>> for ProjMat3<Src> {
     type Output = ProjVec3;
 
     /// Maps the real 3-point *p* from basis B to the projective 3-space.
@@ -846,11 +848,11 @@ impl<Repr, M> From<Repr> for Matrix<Repr, M> {
 /// assert_eq!(m.0[1][1], 2.0);
 /// assert_eq!(m.0[2][2], 2.0);
 /// ```
-pub const fn scale(s: Vec3) -> Mat4<RealToReal<3>> {
+pub const fn scale(s: Vec3) -> Mat4 {
     scale3(s.0[0], s.0[1], s.0[2])
 }
 
-pub const fn scale3(x: f32, y: f32, z: f32) -> Mat4<RealToReal<3>> {
+pub const fn scale3(x: f32, y: f32, z: f32) -> Mat4 {
     mat![
          x,  0.0, 0.0, 0.0;
         0.0,  y,  0.0, 0.0;
@@ -860,11 +862,11 @@ pub const fn scale3(x: f32, y: f32, z: f32) -> Mat4<RealToReal<3>> {
 }
 
 /// Returns a matrix applying a translation by `t`.
-pub const fn translate(t: Vec3) -> Mat4<RealToReal<3>> {
+pub const fn translate(t: Vec3) -> Mat4 {
     translate3(t.0[0], t.0[1], t.0[2])
 }
 
-pub const fn translate3(x: f32, y: f32, z: f32) -> Mat4<RealToReal<3>> {
+pub const fn translate3(x: f32, y: f32, z: f32) -> Mat4 {
     mat![
         1.0, 0.0, 0.0,  x ;
         0.0, 1.0, 0.0,  y ;
@@ -887,7 +889,7 @@ use super::Angle;
 /// If `x` is approximately parallel to `new_y` and the basis would be
 /// degenerate.
 #[cfg(feature = "fp")]
-pub fn orient_y(new_y: Vec3, x: Vec3) -> Mat4<RealToReal<3>> {
+pub fn orient_y(new_y: Vec3, x: Vec3) -> Mat4 {
     orient(new_y, x.cross(&new_y).normalize())
 }
 /// Returns a matrix applying a rotation such that the original z axis
@@ -901,7 +903,7 @@ pub fn orient_y(new_y: Vec3, x: Vec3) -> Mat4<RealToReal<3>> {
 /// If `x` is approximately parallel to `new_z` and the basis would be
 /// degenerate.
 #[cfg(feature = "fp")]
-pub fn orient_z(new_z: Vec3, x: Vec3) -> Mat4<RealToReal<3>> {
+pub fn orient_z(new_z: Vec3, x: Vec3) -> Mat4 {
     orient(new_z.cross(&x).normalize(), new_z)
 }
 
@@ -915,7 +917,7 @@ pub fn orient_z(new_z: Vec3, x: Vec3) -> Mat4<RealToReal<3>> {
 /// If `new_y` is approximately parallel to `new_z` and the basis would
 /// be degenerate.
 #[cfg(feature = "fp")]
-fn orient(new_y: Vec3, new_z: Vec3) -> Mat4<RealToReal<3>> {
+fn orient(new_y: Vec3, new_z: Vec3) -> Mat4 {
     let new_x = new_y.cross(&new_z);
     assert!(
         !new_x.len_sqr().approx_eq(&0.0),
@@ -928,7 +930,7 @@ fn orient(new_y: Vec3, new_z: Vec3) -> Mat4<RealToReal<3>> {
 
 /// Returns a matrix applying a 3D rotation about the x-axis.
 #[cfg(feature = "fp")]
-pub fn rotate_x(a: Angle) -> Mat4<RealToReal<3>> {
+pub fn rotate_x(a: Angle) -> Mat4 {
     let (sin, cos) = a.sin_cos();
     mat![
         1.0,  0.0, 0.0, 0.0;
@@ -939,7 +941,7 @@ pub fn rotate_x(a: Angle) -> Mat4<RealToReal<3>> {
 }
 /// Returns a matrix applying a 3D rotation about the y-axis.
 #[cfg(feature = "fp")]
-pub fn rotate_y(a: Angle) -> Mat4<RealToReal<3>> {
+pub fn rotate_y(a: Angle) -> Mat4 {
     let (sin, cos) = a.sin_cos();
     mat![
         cos, 0.0, -sin, 0.0;
@@ -950,7 +952,7 @@ pub fn rotate_y(a: Angle) -> Mat4<RealToReal<3>> {
 }
 /// Returns a matrix applying a 3D rotation about the z axis.
 #[cfg(feature = "fp")]
-pub fn rotate_z(a: Angle) -> Mat4<RealToReal<3>> {
+pub fn rotate_z(a: Angle) -> Mat4 {
     let (sin, cos) = a.sin_cos();
     mat![
          cos, sin, 0.0, 0.0;
@@ -962,7 +964,7 @@ pub fn rotate_z(a: Angle) -> Mat4<RealToReal<3>> {
 
 /// Returns a matrix applying a 2D rotation by an angle.
 #[cfg(feature = "fp")]
-pub fn rotate2(a: Angle) -> Mat3<RealToReal<2>> {
+pub fn rotate2(a: Angle) -> Mat3 {
     let (sin, cos) = a.sin_cos();
     mat![
          cos, sin, 0.0;
@@ -973,7 +975,7 @@ pub fn rotate2(a: Angle) -> Mat3<RealToReal<2>> {
 
 /// Returns a matrix applying a 3D rotation about an arbitrary axis.
 #[cfg(feature = "fp")]
-pub fn rotate(axis: Vec3, a: Angle) -> Mat4<RealToReal<3>> {
+pub fn rotate(axis: Vec3, a: Angle) -> Mat4 {
     use crate::math::approx::ApproxEq;
 
     // 1. Change of basis such that `axis` is mapped to the z-axis,
@@ -1009,7 +1011,7 @@ pub fn perspective(
     focal_ratio: f32,
     aspect_ratio: f32,
     near_far: Range<f32>,
-) -> Mat4<ViewToProj> {
+) -> ProjMat3<View> {
     let (near, far) = (near_far.start, near_far.end);
 
     assert!(focal_ratio > 0.0, "focal ratio must be positive");
@@ -1034,7 +1036,7 @@ pub fn perspective(
 /// # Parameters
 /// * `lbn`: The left-bottom-near corner of the projection box.
 /// * `rtf`: The right-bottom-far corner of the projection box.
-pub fn orthographic(lbn: Point3, rtf: Point3) -> Mat4<ViewToProj> {
+pub fn orthographic(lbn: Point3, rtf: Point3) -> ProjMat3<View> {
     let half_d = (rtf - lbn) / 2.0;
     let [cx, cy, cz] = (lbn + half_d).0;
     let [idx, idy, idz] = half_d.map(f32::recip).0;
@@ -1051,7 +1053,7 @@ pub fn orthographic(lbn: Point3, rtf: Point3) -> Mat4<ViewToProj> {
 /// A viewport matrix is used to transform points from the NDC space to
 /// screen space for rasterization. NDC coordinates (-1, -1, z) are mapped
 /// to `bounds.start` and NDC coordinates (1, 1, z) to `bounds.end`.
-pub fn viewport(bounds: Range<Point2u>) -> Mat4<NdcToScreen> {
+pub fn viewport(bounds: Range<Point2u>) -> Mat4<Ndc, Screen> {
     let s = bounds.start.map(|c| c as f32);
     let e = bounds.end.map(|c| c as f32);
     let half_d = (e - s) / 2.0;
@@ -1076,12 +1078,12 @@ mod tests {
     use super::*;
 
     #[derive(Debug, Default, Eq, PartialEq)]
-    struct Basis1;
+    struct B1;
     #[derive(Debug, Default, Eq, PartialEq)]
-    struct Basis2;
+    struct B2;
 
-    type Map<const N: usize = 3> = RealToReal<N, Basis1, Basis2>;
-    type InvMap<const N: usize = 3> = RealToReal<N, Basis2, Basis1>;
+    type Map<const N: usize = 3> = RealToReal<N, B1, B2>;
+    type InvMap<const N: usize = 3> = RealToReal<N, B2, B1>;
 
     const X: Vec3 = Vec3::X;
     const Y: Vec3 = Vec3::Y;
@@ -1094,30 +1096,30 @@ mod tests {
 
         #[test]
         fn determinant_of_identity_is_one() {
-            let id = Mat2::<RealToReal<2>>::identity();
+            let id = <Mat2>::identity();
             assert_eq!(id.determinant(), 1.0);
         }
         #[test]
         fn determinant_of_reflection_is_negative_one() {
-            let refl: Mat2<Map<2>> = [[0.0, 1.0], [1.0, 0.0]].into();
+            let refl: Mat2 = [[0.0, 1.0], [1.0, 0.0]].into();
             assert_eq!(refl.determinant(), -1.0);
         }
 
         #[test]
         fn inverse_of_identity_is_identity() {
-            let id = Mat2::<RealToReal<2>>::identity();
+            let id = <Mat2>::identity();
             assert_eq!(id.inverse(), id);
         }
         #[test]
         fn inverse_of_inverse_is_original() {
-            let m: Mat2<Map<2>> = [[0.5, 1.5], [1.0, -0.5]].into();
-            let m_inv: Mat2<InvMap<2>> = m.inverse();
+            let m: Mat2<B1, B2> = [[0.5, 1.5], [1.0, -0.5]].into();
+            let m_inv: Mat2<B2, B1> = m.inverse();
             assert_approx_eq!(m_inv.inverse(), m);
         }
         #[test]
         fn composition_of_inverse_is_identity() {
-            let m: Mat2<Map<2>> = [[0.5, 1.5], [1.0, -0.5]].into();
-            let m_inv: Mat2<InvMap<2>> = m.inverse();
+            let m: Mat2<B1, B2> = [[0.5, 1.5], [1.0, -0.5]].into();
+            let m_inv: Mat2<B2, B1> = m.inverse();
             assert_approx_eq!(m.compose(&m_inv), Mat2::identity());
             assert_approx_eq!(m.then(&m_inv), Mat2::identity());
         }
@@ -1126,7 +1128,7 @@ mod tests {
     mod mat3x3 {
         use super::*;
 
-        const MAT: Mat3<Map> = mat![
+        const MAT: Mat3<B1, B2, 3> = mat![
              0.0,  1.0,  2.0;
             10.0, 11.0, 12.0;
             20.0, 21.0, 22.0;
@@ -1134,18 +1136,18 @@ mod tests {
 
         #[test]
         fn row_col_vecs() {
-            assert_eq!(MAT.row_vec(2), vec3::<_, Basis1>(20.0, 21.0, 22.0));
-            assert_eq!(MAT.col_vec(2), vec3::<_, Basis2>(2.0, 12.0, 22.0));
+            assert_eq!(MAT.row_vec(2), vec3::<_, B1>(20.0, 21.0, 22.0));
+            assert_eq!(MAT.col_vec(2), vec3::<_, B2>(2.0, 12.0, 22.0));
         }
 
         #[test]
         fn composition() {
-            let tr: Mat3<Map<2>> = mat![
+            let tr: Mat3<B1, B2> = mat![
                 1.0,  0.0,  2.0;
                 0.0,  1.0, -3.0;
                 0.0,  0.0,  1.0;
             ];
-            let sc: Mat3<InvMap<2>> = mat![
+            let sc: Mat3<B2, B1> = mat![
                 -1.0, 0.0, 0.0;
                  0.0, 2.0, 0.0;
                  0.0, 0.0, 1.0;
@@ -1166,7 +1168,7 @@ mod tests {
 
         #[test]
         fn scaling() {
-            let m: Mat3<Map<2>> = mat![
+            let m: Mat3 = mat![
                 2.0,  0.0,  0.0;
                 0.0, -3.0,  0.0;
                 0.0,  0.0,  1.0;
@@ -1177,7 +1179,7 @@ mod tests {
 
         #[test]
         fn translation() {
-            let m: Mat3<Map<2>> = mat![
+            let m: Mat3 = mat![
                 1.0,  0.0,  2.0;
                 0.0,  1.0, -3.0;
                 0.0,  0.0,  1.0;
@@ -1188,12 +1190,12 @@ mod tests {
 
         #[test]
         fn inverse_of_identity_is_identity() {
-            let i = Mat3::<RealToReal<_>>::identity();
+            let i = <Mat3>::identity();
             assert_eq!(i.inverse(), i);
         }
         #[test]
         fn inverse_of_scale_is_reciprocal_scale() {
-            let scale: Mat3<Map<2>> = mat![
+            let scale: Mat3 = mat![
                 2.0, 0.0,  0.0;
                 0.0, -3.0,  0.0;
                 0.0,  0.0,  4.0;
@@ -1209,18 +1211,20 @@ mod tests {
         }
         #[test]
         fn matrix_composed_with_inverse_is_identity() {
-            let mat: Mat3<Map<2>> = mat![
+            let mat: Mat3<B1, B2> = mat![
                 1.0, -2.0,  2.0;
                 3.0,  4.0, -3.0;
                 0.0,  0.0,  1.0;
             ];
-            let composed = mat.compose(&mat.inverse());
+            let composed: Mat3<B2, B2> = mat.compose(&mat.inverse());
+            assert_approx_eq!(composed, Mat3::identity());
+            let composed: Mat3<B1, B1> = mat.then(&mat.inverse());
             assert_approx_eq!(composed, Mat3::identity());
         }
 
         #[test]
         fn singular_matrix_has_no_inverse() {
-            let singular: Mat3<Map<2>> = mat![
+            let singular: Mat3 = mat![
                 1.0,  2.0,  0.0;
                 0.0,  0.0,  0.0;
                 0.0,  0.0,  1.0;
@@ -1233,7 +1237,7 @@ mod tests {
         fn matrix_debug() {
             assert_eq!(
                 alloc::format!("{MAT:?}"),
-                r#"Matrix<Basis1→Basis2>[
+                r#"Matrix<B1→B2>[
     [ 0.0,  1.0,  2.0]
     [10.0, 11.0, 12.0]
     [20.0, 21.0, 22.0]
@@ -1245,7 +1249,7 @@ mod tests {
     mod mat4 {
         use super::*;
 
-        const MAT: Mat4<Map> = mat![
+        const MAT: Mat4<B1, B2> = mat![
              0.0,  1.0,  2.0,  3.0;
             10.0, 11.0, 12.0, 13.0;
             20.0, 21.0, 22.0, 23.0;
@@ -1270,8 +1274,8 @@ mod tests {
             assert_eq!(st, t.compose(&s));
 
             let o = <Point3>::origin();
-            assert_eq!(ts.apply(&o.to()), pt3::<_, Basis1>(3.0, 4.0, 3.0));
-            assert_eq!(st.apply(&o.to()), pt3::<_, Basis2>(1.0, 2.0, 3.0));
+            assert_eq!(ts.apply(&o.to()), pt3::<_, B1>(3.0, 4.0, 3.0));
+            assert_eq!(st.apply(&o.to()), pt3::<_, B2>(1.0, 2.0, 3.0));
         }
 
         #[test]
@@ -1446,7 +1450,7 @@ mod tests {
         fn matrix_debug() {
             assert_eq!(
                 alloc::format!("{MAT:?}"),
-                r#"Matrix<Basis1→Basis2>[
+                r#"Matrix<B1→B2>[
     [ 0.0,  1.0,  2.0,  3.0]
     [10.0, 11.0, 12.0, 13.0]
     [20.0, 21.0, 22.0, 23.0]
@@ -1458,14 +1462,14 @@ mod tests {
 
     #[test]
     fn transposition() {
-        let m: Mat3<Map> = mat![
+        let m: Mat3<B1, B2> = mat![
             0.0,  1.0, 2.0;
             10.0, 11.0, 12.0;
             20.0, 21.0, 22.0
         ];
         assert_eq!(
             m.transpose(),
-            Mat3::<InvMap>::new([
+            Mat3::<B2, B1>::new([
                 [0.0, 10.0, 20.0], //
                 [1.0, 11.0, 21.0],
                 [2.0, 12.0, 22.0],
@@ -1495,31 +1499,25 @@ mod tests {
     #[cfg(feature = "fp")]
     #[test]
     fn matrix_composed_with_inverse_is_identity() {
-        let m = translate3(1.0e3, -2.0e2, 0.0)
+        let m: Mat4<B1, B2> = translate3(1.0e3, -2.0e2, 0.0)
             .then(&scale3(0.5, 100.0, 42.0))
-            .to::<Map>();
+            .to();
 
-        let m_inv: Mat4<InvMap> = m.inverse();
+        let m_inv: Mat4<B2, B1> = m.inverse();
 
-        assert_eq!(
-            m.compose(&m_inv),
-            Mat4::<RealToReal<3, Basis2, Basis2>>::identity()
-        );
-        assert_eq!(
-            m_inv.compose(&m),
-            Mat4::<RealToReal<3, Basis1, Basis1>>::identity()
-        );
+        assert_eq!(m.compose(&m_inv), Mat4::identity());
+        assert_eq!(m_inv.compose(&m), Mat4::identity());
     }
 
     #[test]
     fn inverse_reverts_transform() {
-        let m: Mat4<Map> = scale3(1.0, 2.0, 0.5)
+        let m: Mat4<B1, B2> = scale3(1.0, 2.0, 0.5)
             .then(&translate3(-2.0, 3.0, 0.0))
             .to();
-        let m_inv: Mat4<InvMap> = m.inverse();
+        let m_inv: Mat4<B2, B1> = m.inverse();
 
-        let v1: Vec3<Basis1> = vec3(1.0, -2.0, 3.0);
-        let v2: Vec3<Basis2> = vec3(2.0, 0.0, -2.0);
+        let v1: Vec3<B1> = vec3(1.0, -2.0, 3.0);
+        let v2: Vec3<B2> = vec3(2.0, 0.0, -2.0);
 
         assert_eq!(m_inv.apply(&m.apply(&v1)), v1);
         assert_eq!(m.apply(&m_inv.apply(&v2)), v2);

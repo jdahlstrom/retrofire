@@ -1,6 +1,8 @@
 use std::{env, fmt::Write, ops::ControlFlow::Continue};
 
 use re::prelude::*;
+
+use re::math::mat::ProjMat3;
 use re::render::{
     Text,
     tex::{Atlas, Layout},
@@ -31,13 +33,13 @@ fn main() {
     win.ctx.face_cull = None;
 
     let shader = shader::new(
-        |v: Vertex<_, _>, mvp: &Mat4<ModelToProj>| {
+        |v: Vertex<_, _>, mvp: &ProjMat3<Model>| {
             vertex(mvp.apply(&v.pos), v.attrib)
         },
         |frag: Frag<TexCoord>| text.sample(frag.var).to_rgba(),
     );
 
-    let vp: Mat4<mat::RealToProj<World>> = translate(vec3(0.0, 0.0, 15.0))
+    let vp: ProjMat3<World> = translate(vec3(0.0, 0.0, 15.0))
         .to()
         .then(&perspective(1.0, 4.0 / 3.0, 0.1..1000.0));
 
