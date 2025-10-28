@@ -1,5 +1,5 @@
 use core::{array::from_fn, ops::ControlFlow::Continue};
-
+use re::math::color::gray;
 use re::prelude::*;
 
 use re::math::rand::{Distrib, PointsInUnitBall, Xorshift64};
@@ -43,9 +43,8 @@ fn main() {
         |frag: Frag<Vec2<_>>| {
             let d2 = frag.var.len_sqr();
             (d2 < 1.0).then(|| {
-                // TODO ops trait for colors
-                let col: Vec3 = splat(1.0) - d2 * vec3(0.25, 0.5, 1.0);
-                rgba(col.x(), col.y(), col.z(), 1.0).to_color4()
+                let col = gray(1.0) - d2 * rgb(0.25, 0.5, 1.0);
+                col.to_color4()
             })
         },
     );
