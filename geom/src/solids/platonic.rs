@@ -237,6 +237,8 @@ where
 }
 
 impl Octahedron {
+    // TODO Could reuse Box norms and coords, but they are in a different
+    //      order and the coords need mapping to be valid normals
     const COORDS: [Point3; 6] = [
         pt3(-1.0, 0.0, 0.0),
         pt3(0.0, -1.0, 0.0),
@@ -286,7 +288,8 @@ impl Build<Normal3> for Octahedron {
             b.push_face(3 * i, 3 * i + 1, 3 * i + 2);
             for vi in *vs {
                 let pos = Self::COORDS[Self::VERTS[vi].0];
-                b.push_vert(pos, Self::NORMS[i]);
+                let n = Self::NORMS[i].normalize();
+                b.push_vert(pos, n);
             }
         }
         b.build()
