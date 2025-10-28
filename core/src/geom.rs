@@ -5,7 +5,7 @@ use core::fmt::Debug;
 
 use crate::math::{
     Affine, Lerp, Linear, Mat4, Parametric, Point2, Point3, Vec2, Vec3, Vector,
-    mat::RealToReal, space::Real, vec2, vec3,
+    space::Real, vec2, vec3,
 };
 
 use crate::render::Model;
@@ -518,7 +518,7 @@ impl<B> Plane3<B> {
     ///
     /// assert_approx_eq!(m.apply(&Point3::origin()), pt3(0.0, 0.5, 0.5));
     /// ```
-    pub fn basis<F>(&self) -> Mat4<RealToReal<3, F, B>> {
+    pub fn basis<F>(&self) -> Mat4<F, B> {
         let up = self.abc();
 
         let right: Vec3<B> =
