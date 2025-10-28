@@ -4,6 +4,7 @@ use pancurses::*;
 
 use re::prelude::*;
 
+use re::core::math::mat::ProjMat3;
 use re::core::render::{
     ctx::DepthSort::BackToFront, raster::Scanline, stats::Throughput,
 };
@@ -46,7 +47,7 @@ fn main() {
     };
 
     let shader = shader::new(
-        |v: Vertex3<_>, mvp: &Mat4<ModelToProj>| {
+        |v: Vertex3<_>, mvp: &ProjMat3<Model>| {
             vertex(mvp.apply(&v.pos), v.attrib)
         },
         |frag: Frag<Normal3>| {

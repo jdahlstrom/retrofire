@@ -71,7 +71,7 @@ pub trait Render<V: Vary> {
     }
 
     /// Transforms the argument from NDC to screen space.
-    fn to_screen(clip: Self::Clip, tf: &Mat4<NdcToScreen>) -> Self::Screen;
+    fn to_screen(clip: Self::Clip, tf: &Mat4<Ndc, Screen>) -> Self::Screen;
 
     /// Rasterizes the argument by calling the function for each scanline.
     fn rasterize<F: FnMut(Scanline<V>)>(scr: Self::Screen, scanline_fn: F);
@@ -132,7 +132,7 @@ pub fn render<Prim, Vtx: Clone, Var, Uni: Copy, Shd>(
     verts: impl AsRef<[Vtx]>,
     shader: &Shd,
     uniform: Uni,
-    to_screen: Mat4<NdcToScreen>,
+    to_screen: Mat4<Ndc, Screen>,
     target: &mut impl Target,
     ctx: &Context,
 ) where
