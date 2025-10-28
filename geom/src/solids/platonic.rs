@@ -3,6 +3,7 @@
 
 use core::array::from_fn;
 
+use crate::solids::Build;
 use re::geom::{Mesh, Normal3};
 use re::math::{Lerp, Point3, Vec3, pt3, vec3};
 use re::render::{TexCoord, uv};
@@ -180,9 +181,10 @@ impl Box {
     pub fn new(left_bot_near: Point3, right_top_far: Point3) -> Self {
         Box { left_bot_near, right_top_far }
     }
-
-    /// Builds the cuboid mesh.
-    pub fn build(self) -> Mesh<Normal3> {
+}
+impl Build<Normal3> for Box {
+    /// Builds the cuboid mesh with vertex normals.
+    fn build(self) -> Mesh<Normal3> {
         let mut b = Mesh::builder();
         b.push_faces(Self::FACES);
         for (pos_i, [norm_i, _uv_i]) in Self::VERTS {
@@ -196,9 +198,28 @@ impl Box {
     }
 }
 
-impl Cube {
+impl Build<TexCoord> for Box {
+    /// Builds the cuboid mesh with texture coordinates.
+    fn build(self) -> Mesh<TexCoord> {
+        let mut b = Mesh::builder();
+        b.push_faces(Self::FACES);
+        for (pos_i, [_norm_i, uv_i]) in Self::VERTS {
+            let pos = from_fn(|i| {
+                self.left_bot_near.0[i]
+                    .lerp(&self.right_top_far.0[i], Self::COORDS[pos_i][i])
+            });
+            b.push_vert(pos.into(), Self::TEX_COORDS[uv_i]);
+        }
+        b.build()
+    }
+}
+
+impl<A> Build<A> for Cube
+where
+    Box: Build<A>,
+{
     /// Builds the cube mesh.
-    pub fn build(self) -> Mesh<Normal3> {
+    fn build(self) -> Mesh<A> {
         let l = self.side_len / 2.0;
         Box {
             left_bot_near: pt3(-l, -l, -l),
