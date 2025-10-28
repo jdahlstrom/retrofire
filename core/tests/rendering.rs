@@ -10,8 +10,8 @@ use retrofire_core::{
 
 const VERTS: [Vertex3<TexCoord>; 4] = [
     vertex(pt3(-1.0, -1.0, 0.0), uv(0.0, 0.0)),
-    vertex(pt3(-1.0, 1.0, 0.0), uv(0.0, 1.0)),
-    vertex(pt3(1.0, -1.0, 0.0), uv(1.0, 0.0)),
+    vertex(pt3(1.0, -1.0, 0.0), uv(0.0, 1.0)),
+    vertex(pt3(-1.0, 1.0, 0.0), uv(1.0, 0.0)),
     vertex(pt3(1.0, 1.0, 0.0), uv(1.0, 1.0)),
 ];
 const FACES: [Tri<usize>; 2] = [tri(0, 1, 2), tri(3, 2, 1)];
