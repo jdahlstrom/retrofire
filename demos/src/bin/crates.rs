@@ -4,13 +4,14 @@ use re::prelude::*;
 
 use re::math::color::gray;
 use re::render::{
-    ModelToProj, cam::FirstPerson, cam::Fov, clip::Status::Hidden, scene::Obj,
+    ModelToProj, cam::FirstPerson, cam::Fov, clip::Status::*, scene::Obj,
+    tex::SamplerClamp,
 };
 // Try also Rgb565 or Rgba4444
-use re::util::pixfmt::Rgba8888;
+use re::util::{pixfmt::Rgba8888, pnm::read_pnm};
 
 use re_front::sdl2::Window;
-use re_geom::solids::Cube;
+use re_geom::solids::{Build, Cube};
 
 fn main() {
     let mut win = Window::builder()
@@ -19,18 +20,23 @@ fn main() {
         .build()
         .expect("should create window");
 
+    let tex_data = *include_bytes!("../../assets/crate.ppm");
+    let tex = Texture::from(read_pnm(&tex_data[..]).expect("data exists"));
+
     let floor_shader = shader::new(
         |v: Vertex3<_>, mvp: &Mat4x4<ModelToProj>| {
             vertex(mvp.apply(&v.pos), v.attrib)
         },
-        |frag: Frag<Color3f>| frag.var.to_color4(),
+        |frag: Frag<Vec2>| {
+            let even_odd = (frag.var.x() > 0.5) ^ (frag.var.y() > 0.5);
+            gray(if even_odd { 0.9 } else { 0.2 }).to_color4()
+        },
     );
     let crate_shader = shader::new(
-        |v: Vertex3<Normal3>, mvp: &Mat4x4<ModelToProj>| {
-            let [x, y, z] = ((v.attrib + splat(1.0)) / 2.0).0;
-            vertex(mvp.apply(&v.pos), rgb(x, y, z))
+        |v: Vertex3<TexCoord>, mvp: &Mat4x4<ModelToProj>| {
+            vertex(mvp.apply(&v.pos), v.attrib)
         },
-        |frag: Frag<Color3f>| frag.var.to_color4(),
+        |frag: Frag<TexCoord>| SamplerClamp.sample(&tex, frag.var).to_rgba(),
     );
 
     let (w, h) = win.dims;
@@ -129,9 +135,8 @@ fn main() {
     .expect("should run")
 }
 
-fn crates() -> Vec<Obj<Normal3>> {
-    let krate = Cube { side_len: 2.0 }.build();
-    let obj = Obj::new(krate);
+fn crates() -> Vec<Obj<TexCoord>> {
+    let obj = Obj::new(Cube { side_len: 2.0 }.build());
 
     let mut res = vec![];
     let n = 30;
@@ -145,17 +150,18 @@ fn crates() -> Vec<Obj<Normal3>> {
     }
     res
 }
-fn floor() -> Obj<Color3f> {
+fn floor() -> Obj<Vec2> {
     let mut bld = Mesh::builder();
 
     let size = 50;
     for j in -size..=size {
         for i in -size..=size {
-            let even_odd = ((i & 1) ^ (j & 1)) == 1;
+            let i_odd = i & 1;
+            let j_odd = j & 1;
 
             let pos = pt3(i as f32, -1.0, j as f32);
-            let col = if even_odd { gray(0.2) } else { gray(0.9) };
-            bld.push_vert(pos, col);
+            let attrib = vec2(i_odd as f32, j_odd as f32);
+            bld.push_vert(pos, attrib);
 
             if j > -size && i > -size {
                 let w = size * 2 + 1;
@@ -169,7 +175,7 @@ fn floor() -> Obj<Color3f> {
                 ]
                 .map(|i| i as usize);
 
-                if even_odd {
+                if i_odd ^ j_odd != 0 {
                     bld.push_face(a, c, d);
                     bld.push_face(a, d, b);
                 } else {
