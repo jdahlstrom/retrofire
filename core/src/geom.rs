@@ -5,7 +5,7 @@ use core::fmt::Debug;
 
 use crate::math::{
     Affine, Lerp, Linear, Mat4x4, Parametric, Point2, Point3, Vec2, Vec3,
-    Vector, mat::RealToReal, space::Real, vec3,
+    Vector, mat::RealToReal, space::Real, vec2, vec3,
 };
 use crate::render::Model;
 
@@ -253,7 +253,10 @@ impl<A, B> Tri<Vertex3<A, B>> {
     /// Returns the winding order of `self`, as projected to the XY plane.
     // TODO is this 3D version meaningful/useful enough?
     pub fn winding(&self) -> Winding {
-        let z = self.normal().z();
+        // TODO better way to xyz->xy...
+        let [u, v] = self.tangents();
+        let ([ux, uy, _], [vx, vy, _]) = (u.0, v.0);
+        let z = vec2::<_, ()>(ux, uy).perp_dot(vec2(vx, vy));
         if z < 0.0 { Winding::Cw } else { Winding::Ccw }
     }
 

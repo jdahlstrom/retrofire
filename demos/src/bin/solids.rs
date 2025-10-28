@@ -59,7 +59,7 @@ fn main() {
     let cam = Camera::new(win.dims)
         .transform(scale3(1.0, -1.0, -1.0).to())
         .perspective(Fov::Equiv35mm(28.0), 0.1..1000.0)
-        .viewport(pt2(10, 10)..pt2(w - 10, h - 10));
+        .viewport(pt2(10, h - 10)..pt2(w - 10, 10));
 
     type VertexIn = Vertex3<Normal3>;
     type VertexOut = Vertex<ProjVec3, Color3f>;

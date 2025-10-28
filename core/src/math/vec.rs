@@ -327,6 +327,7 @@ impl<B> Vec2<B> {
     /// assert_eq!(<Vec2>::X.perp(), Vec2::Y);
     /// assert_eq!(<Vec2>::Y.perp(), -Vec2::X);
     /// ```
+    #[inline]
     pub fn perp(self) -> Self {
         vec2(-self.y(), self.x())
     }
@@ -363,6 +364,7 @@ impl<B> Vec2<B> {
     /// assert!   (v.perp_dot(Vec2::X) < 0.0, "X is clockwise from v");
     /// assert!   (v.perp_dot(Vec2::Y) > 0.0, "Y is counter-clockwise from v");
     /// ```
+    #[inline]
     pub fn perp_dot(self, other: Self) -> f32 {
         self.perp().dot(&other)
     }

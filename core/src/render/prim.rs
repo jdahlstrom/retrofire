@@ -1,6 +1,6 @@
 //! Render impls for primitives and related items.
 
-use crate::geom::{Edge, Tri, Vertex};
+use crate::geom::{Edge, Tri, Vertex, Winding};
 use crate::math::{Mat4x4, Vary, vary::ZDiv, vec3};
 
 use super::clip::ClipVert;
@@ -20,10 +20,8 @@ impl<V: Vary> Render<V> for Tri<usize> {
         (a.pos.z() + b.pos.z() + c.pos.z()) / 3.0
     }
 
-    fn is_backface(Tri(vs): &Self::Screen) -> bool {
-        let v = vs[1].pos - vs[0].pos;
-        let u = vs[2].pos - vs[0].pos;
-        v[0] * u[1] - v[1] * u[0] > 0.0
+    fn is_backface(tri: &Self::Screen) -> bool {
+        tri.winding() == Winding::Cw
     }
 
     fn to_screen(
