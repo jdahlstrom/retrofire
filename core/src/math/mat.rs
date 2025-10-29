@@ -162,6 +162,19 @@ impl<Sc: Copy, const N: usize, const DIM: usize, S, D>
 
 impl<const N: usize, Map> Matrix<[[f32; N]; N], Map> {
     /// Returns the `N`×`N` identity matrix.
+    ///
+    /// An identity matrix is a square matrix with ones on the main diagonal
+    /// and zeroes everywhere else:
+    /// ```text
+    ///         ⎛ 1  0  ⋯  0 ⎞
+    ///  I  =   ⎜ 0  1       ⎟
+    ///         ⎜ ⋮     ⋱  0 ⎟
+    ///         ⎝ 0     0  1 ⎠
+    /// ```
+    /// It is the neutral element of matrix multiplication:
+    /// **A · I** = **I · A** = **A**, as well as matrix-vector
+    /// multiplication: **I·v** = **v**.
+
     pub const fn identity() -> Self {
         let mut els = [[0.0; N]; N];
         let mut i = 0;
@@ -221,7 +234,7 @@ where
     /// the resulting transformation is equivalent to first applying `other`
     /// and then `self`. More succinctly,
     /// ```text
-    /// (𝗠 ∘ 𝗡)𝘃 = 𝗠(𝗡𝘃)
+    /// (𝗠 ∘ 𝗡) 𝘃 = 𝗠(𝗡 𝘃)
     /// ```
     /// for some matrices 𝗠 and 𝗡 and a vector 𝘃.
     #[must_use]
@@ -272,7 +285,8 @@ impl<Src, Dest> Mat2x2<RealToReal<2, Src, Dest>> {
         a * d - b * c
     }
 
-    /// Returns the inverse of `self`, or `None` if `self` is not invertible.
+    /// Returns the [inverse][Self::inverse] of `self`, or `None` if `self`
+    /// is not invertible.
     ///
     /// A matrix is invertible if and only if its [determinant][Self::determinant]
     /// is nonzero. A non-invertible matrix is also called singular.
@@ -294,12 +308,15 @@ impl<Src, Dest> Mat2x2<RealToReal<2, Src, Dest>> {
         &self,
     ) -> Option<Mat2x2<RealToReal<2, Dest, Src>>> {
         let det = self.determinant();
-        if det.abs() < 1e-6 {
+        if det.approx_eq(&0.0) {
             return None;
         }
-        let det = 1.0 / det;
+        let r_det = 1.0 / det;
         let [[a, b], [c, d]] = self.0;
-        Some(Mat2x2::new([[det * d, det * -b], [det * -c, det * a]]))
+        Some(mat![
+            r_det * d, r_det * -b;
+            r_det * -c, r_det * a
+        ])
     }
 
     /// Returns the inverse of `self`, if it exists.
@@ -380,7 +397,7 @@ impl<Src, Dst> Mat4x4<RealToReal<3, Src, Dst>> {
     /// Returns the inverse matrix of `self`.
     ///
     /// The inverse 𝝡<sup>-1</sup> of matrix 𝝡 is a matrix that, when
-    /// composed with 𝝡, results in the identity matrix:
+    /// composed with 𝝡, results in the [identity](Self::identity) matrix:
     ///
     /// 𝝡 ∘ 𝝡<sup>-1</sup> = 𝝡<sup>-1</sup> ∘ 𝝡 = 𝐈
     ///
@@ -396,10 +413,9 @@ impl<Src, Dst> Mat4x4<RealToReal<3, Src, Dst>> {
     /// suffer from imprecision or numerical instability in certain cases.
     ///
     /// # Panics
-    /// If `self` is singular or near-singular:
-    /// * Panics in debug mode.
-    /// * Does not panic in release mode, but the result may be inaccurate
-    ///   or contain `Inf`s or `NaN`s.
+    /// If debug assertions are enabled, panics if `self` is singular or near-singular.
+    /// If not enabled, the return value is unspecified and may contain non-finite
+    /// values (infinities and NaNs).
     #[must_use]
     pub fn inverse(&self) -> Mat4x4<RealToReal<3, Dst, Src>> {
         use super::float::f32;
