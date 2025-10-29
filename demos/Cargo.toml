@@ -37,7 +37,10 @@ sdl2 = ["dep:sdl2", "re-front/sdl2"]
 [[bin]]
 name = "crates"
 required-features = ["sdl2"]
-default-features = false
+
+[[bin]]
+name = "terrain"
+required-features = ["sdl2"]
 
 [[bin]]
 name = "curses"
