@@ -39,6 +39,10 @@ name = "crates"
 required-features = ["sdl2"]
 
 [[bin]]
+name = "terrain"
+required-features = ["sdl2"]
+
+[[bin]]
 name = "curses"
 required-features = ["pancurses"]
 
