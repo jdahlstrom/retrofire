@@ -308,7 +308,8 @@ impl<Src, Dest> Mat2x2<RealToReal<2, Src, Dest>> {
         &self,
     ) -> Option<Mat2x2<RealToReal<2, Dest, Src>>> {
         let det = self.determinant();
-        if det.approx_eq(&0.0) {
+        // No approx_eq in const :/
+        if det.abs() < 1e-6 {
             return None;
         }
         let r_det = 1.0 / det;
@@ -349,21 +350,92 @@ impl<Src, Dest> Mat2x2<RealToReal<2, Src, Dest>> {
     #[must_use]
     pub const fn inverse(&self) -> Mat2x2<RealToReal<2, Dest, Src>> {
         self.checked_inverse()
-            .expect("matrix must be invertible")
+            .expect("matrix cannot be singular or near-singular")
     }
 }
 
 impl<Src, Dest> Mat3x3<RealToReal<2, Src, Dest>> {
     /// Returns the determinant of `self`.
-    pub fn determinant(&self) -> f32 {
-        #[rustfmt::skip]
-        let [[a, b, c],
-             [d, e, f],
-             [g, h, i]] = self.0;
+    pub const fn determinant(&self) -> f32 {
+        let [a, b, c] = self.0[0];
+
         // assert!(g == 0.0 && h == 0.0 && i == 1.0);
         // TODO If affine (as should be), reduces to:
         // a * e - b * d
-        a * (e * i - f * h) - b * (d * i - f * g) + c * (d * h - e * g)
+
+        a * self.cofactor(0, 0)
+            + b * self.cofactor(0, 1)
+            + c * self.cofactor(0, 2)
+    }
+
+    /// Returns the cofactor of the element at the given row and column.
+    ///
+    /// Cofactors are used to compute the inverse of a matrix. A cofactor is
+    /// calculated as follows:
+    ///
+    /// 1. Remove the given row and column from `self` to get a 2x2 submatrix;
+    /// 2. Compute its determinant;
+    /// 3. If exactly one of `row` and `col` is even, multiply by -1.
+    ///
+    /// # Examples
+    /// ```
+    /// use retrofire_core::{mat, math::Mat3x3, math::mat::RealToReal};
+    ///
+    /// let mat: Mat3x3<RealToReal<2>> = mat![
+    ///     1.0, 2.0, 3.0;
+    ///     4.0, 5.0, 6.0;
+    ///     7.0, 8.0, 9.0
+    /// ];
+    /// // Remove row 0 and col 1, giving [[4.0, 6.0], [7.0, 9.0]].
+    /// // The determinant of this submatrix is 4.0 * 7.0 - 6.0 * 9.0.
+    /// // Multiply by -1 because row is even and col is odd.
+    /// assert_eq!(mat.cofactor(0, 1), 6.0 * 7.0 - 4.0 * 9.0);
+    /// ```
+    #[inline]
+    pub const fn cofactor(&self, row: usize, col: usize) -> f32 {
+        // This automatically takes care of the negation
+        let r1 = (row + 1) % 3;
+        let r2 = (row + 2) % 3;
+        let c1 = (col + 1) % 3;
+        let c2 = (col + 2) % 3;
+        self.0[r1][c1] * self.0[r2][c2] - self.0[r1][c2] * self.0[r2][c1]
+    }
+
+    /// Returns the inverse of `self`, or `None` if `self` is singular.
+    #[must_use]
+    pub fn checked_inverse(&self) -> Option<Mat3x3<RealToReal<2, Dest, Src>>> {
+        let det = self.determinant();
+        if det.abs() < 1e-6 {
+            return None;
+        }
+
+        // Compute cofactors
+        let c_a = self.cofactor(0, 0); // = e
+        let c_b = self.cofactor(0, 1); // = d
+        let c_c = self.cofactor(0, 2); // = 0
+        let c_d = self.cofactor(1, 0); // = b
+        let c_e = self.cofactor(1, 1); // = a
+        let c_f = self.cofactor(1, 2); // = 0
+        let c_g = self.cofactor(2, 0); // = b * f - c * e
+        let c_h = self.cofactor(2, 1); // = a * f - c * d
+        let c_i = self.cofactor(2, 2); // = a * e - b * d
+
+        let r_det = 1.0 / det;
+        // Inverse is transpose of cofactor matrix, divided by determinant
+        let abc = r_det * vec3(c_a, c_d, c_g);
+        let def = r_det * vec3(c_b, c_e, c_h);
+        let ghi = r_det * vec3(c_c, c_f, c_i);
+
+        Some(Mat3x3::from_rows(abc, def, ghi))
+    }
+
+    pub fn inverse(&self) -> Mat3x3<RealToReal<2, Dest, Src>> {
+        self.checked_inverse()
+            .expect("matrix cannot be singular or near-singular")
+    }
+
+    const fn from_rows(i: Vec3<Src>, j: Vec3<Src>, k: Vec3<Src>) -> Self {
+        Self::new([i.0, j.0, k.0])
     }
 }
 
@@ -1112,6 +1184,39 @@ mod tests {
         }
 
         #[test]
+        fn inverse_of_identity_is_identity() {
+            let i = Mat3x3::<RealToReal<_>>::identity();
+            assert_eq!(i.inverse(), i);
+        }
+        #[test]
+        fn inverse_of_scale_is_reciprocal_scale() {
+            let scale: Mat3x3<Map<2>> = mat![
+                2.0, 0.0,  0.0;
+                0.0, -3.0,  0.0;
+                0.0,  0.0,  4.0;
+            ];
+            assert_eq!(
+                scale.inverse(),
+                mat![
+                    1.0/2.0, 0.0,  0.0;
+                    0.0, -1.0/3.0, 0.0;
+                    0.0,  0.0,  1.0/4.0
+                ]
+            );
+        }
+        #[test]
+        fn matrix_composed_with_inverse_is_identity() {
+            let (sin, cos) = degs(45.0).sin_cos();
+            let mat: Mat3x3<Map<2>> = mat![
+                cos, -sin,  2.0;
+                sin,  cos, -3.0;
+                0.0,  0.0,  1.0;
+            ];
+            let composed = mat.compose(&mat.inverse());
+            assert_approx_eq!(composed, Mat3x3::identity());
+        }
+
+        #[test]
         fn matrix_debug() {
             assert_eq!(
                 alloc::format!("{MAT:?}"),
@@ -1357,7 +1462,7 @@ mod tests {
 
     #[cfg(feature = "fp")]
     #[test]
-    fn mat_times_mat_inverse_is_identity() {
+    fn matrix_composed_with_inverse_is_identity() {
         let m = translate3(1.0e3, -2.0e2, 0.0)
             .then(&scale3(0.5, 100.0, 42.0))
             .to::<Map>();
