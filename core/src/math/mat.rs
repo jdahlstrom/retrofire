@@ -355,7 +355,7 @@ impl<Src, Dest> Mat2x2<RealToReal<2, Src, Dest>> {
 
 impl<Src, Dest> Mat3x3<RealToReal<2, Src, Dest>> {
     /// Returns the determinant of `self`.
-    pub fn determinant(&self) -> f32 {
+    pub const fn determinant(&self) -> f32 {
         #[rustfmt::skip]
         let [[a, b, c],
              [d, e, f],
@@ -363,7 +363,75 @@ impl<Src, Dest> Mat3x3<RealToReal<2, Src, Dest>> {
         // assert!(g == 0.0 && h == 0.0 && i == 1.0);
         // TODO If affine (as should be), reduces to:
         // a * e - b * d
-        a * (e * i - f * h) - b * (d * i - f * g) + c * (d * h - e * g)
+
+        let d1 =
+            a * (e * i - f * h) - b * (d * i - f * g) + c * (d * h - e * g);
+
+        let d2 =
+            a * self.minor(0, 0) - b * self.minor(0, 1) + c * self.minor(0, 2);
+
+        assert!(d1 == d2);
+
+        d1
+    }
+
+    pub const fn minor(&self, row: usize, col: usize) -> f32 {
+        let r1 = (row + 1) % 3;
+        let r2 = (row + 2) % 3;
+        let c1 = (col + 1) % 3;
+        let c2 = (col + 2) % 3;
+
+        self.0[r1][c1] * self.0[r2][c2] - self.0[r1][c2] * self.0[r1][c2]
+    }
+
+    /// Returns the inverse of `self`, or `None` if `self` is singular.
+    #[must_use]
+    pub fn checked_inverse(&self) -> Option<Mat3x3<RealToReal<2, Dest, Src>>> {
+        let det = self.determinant();
+        if det.approx_eq(&0.0) {
+            return None;
+        }
+
+        /*let [
+            [a, b, c], //
+            [d, e, f], //
+            [g, h, i],
+        ] = self.0;
+
+        // TODO if affine (as should be), [g, h, i] = [0, 0, 1]
+        let a_ = e * i - f * h; // = e
+        let b_ = d * i - f * g; // = d
+        let c_ = d * h - e * g; // = 0
+        let d_ = b * i - c * h; // = b
+        let e_ = a * i - c * g; // = a
+        let f_ = a * h - b * g; // = 0
+        let g_ = b * f - c * e; // = b * f - c * e
+        let h_ = a * f - c * d; // = a * f - c * d
+        let i_ = a * e - b * d; // = a * e - b * d*/
+
+        let a_ = self.minor(0, 0); // = e
+        let b_ = self.minor(0, 1); // = d
+        let c_ = self.minor(0, 2); // = 0
+        let d_ = self.minor(1, 0); // = b
+        let e_ = self.minor(1, 1); // = a
+        let f_ = self.minor(1, 2); // = 0
+        let g_ = self.minor(2, 0); // = b * f - c * e
+        let h_ = self.minor(2, 1); // = a * f - c * d
+        let i_ = self.minor(2, 2); // = a * e - b * d
+
+        let r_det = 1.0 / det;
+        // Transpose
+        let abc = r_det * vec3(a_, -d_, g_);
+        let def = r_det * vec3(-b_, e_, -h_);
+        let ghi = r_det * vec3(c_, -f_, i_);
+
+        let inv = Mat3x3::from_rows(abc, def, ghi);
+        assert_approx_eq!(self.then(&inv).0, Self::identity().0);
+        Some(inv)
+    }
+
+    fn from_rows(i: Vec3<Src>, j: Vec3<Src>, k: Vec3<Src>) -> Self {
+        Self::new([i.0, j.0, k.0])
     }
 }
 
