@@ -23,20 +23,27 @@ fn main() {
     let tex_data = *include_bytes!("../../assets/crate.ppm");
     let tex = Texture::from(read_pnm(&tex_data[..]).expect("data exists"));
 
+    let light_dir = vec3(-2.0, 1.0, -4.0).normalize();
+
     let floor_shader = shader::new(
         |v: Vertex3<_>, mvp: &Mat4x4<ModelToProj>| {
             vertex(mvp.apply(&v.pos), v.attrib)
         },
         |frag: Frag<Vec2>| {
             let even_odd = (frag.var.x() > 0.5) ^ (frag.var.y() > 0.5);
-            gray(if even_odd { 0.9 } else { 0.2 }).to_color4()
+            gray(if even_odd { 0.8 } else { 0.1 }).to_color4()
         },
     );
     let crate_shader = shader::new(
-        |v: Vertex3<TexCoord>, mvp: &Mat4x4<ModelToProj>| {
+        |v: Vertex3<(Normal3, TexCoord)>, mvp: &Mat4x4<ModelToProj>| {
             vertex(mvp.apply(&v.pos), v.attrib)
         },
-        |frag: Frag<TexCoord>| SamplerClamp.sample(&tex, frag.var).to_rgba(),
+        |frag: Frag<(Normal3, TexCoord)>| {
+            let (n, uv) = frag.var;
+            let kd = lerp(n.dot(&light_dir).max(0.0), 0.4, 1.0);
+            let col = SamplerClamp.sample(&tex, uv);
+            (col.to_color3f() * kd).to_color4()
+        },
     );
 
     let (w, h) = win.dims;
@@ -135,7 +142,7 @@ fn main() {
     .expect("should run")
 }
 
-fn crates() -> Vec<Obj<TexCoord>> {
+fn crates() -> Vec<Obj<(Normal3, TexCoord)>> {
     let obj = Obj::new(Cube { side_len: 2.0 }.build());
 
     let mut res = vec![];
