@@ -108,6 +108,10 @@ impl Color3<Rgb> {
         rgba(r, g, b, 0xFF)
     }
 
+    pub fn to_color3f(self) -> Color3f {
+        self.0.map(|c| c as f32 / 255.0).into()
+    }
+
     /// Returns the HSL color equivalent to `self`.
     ///
     /// # Examples
@@ -157,6 +161,10 @@ impl Color4<Rgba> {
     pub fn to_rgb(self) -> Color3<Rgb> {
         let [r, g, b, _] = self.0;
         rgb(r, g, b)
+    }
+
+    pub fn to_color4f(self) -> Color4f {
+        self.0.map(|c| c as f32 / 255.0).into()
     }
 
     /// Returns the HSLA color equivalent to `self`.
