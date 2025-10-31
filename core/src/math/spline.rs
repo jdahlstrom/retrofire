@@ -86,12 +86,14 @@ where
     /// Directly evaluates the cubic. Faster but possibly less numerically
     /// stable than [`Self::eval`].
     pub fn fast_eval(&self, t: f32) -> T {
-        let [p0, .., p3] = &self.0;
+        let points @ [p0, .., p3] = &self.0;
         step(t, p0, p3, |t| {
             // Add a linear combination of the three coefficients
             // to `p0` to get the result
-            let [co3, co2, co1] = self.coefficients();
-            p0.add(&co3.mul(t).add(&co2).mul(t).add(&co1).mul(t))
+            //let [co3, co2, co1] = self.coefficients();
+            //p0.add(&co3.mul(t).add(&co2).mul(t).add(&co1).mul(t))
+            let weights = &bernstein(t);
+            Affine::combine(weights, points)
         })
     }
 
@@ -131,7 +133,7 @@ where
     ///
     /// = (((co3 * t) + co2 * t) + co1 * t) + p0.
     /// ```
-    fn coefficients(&self) -> [T::Diff; 3] {
+    fn _coefficients(&self) -> [T::Diff; 3] {
         let [p0, p1, p2, p3] = &self.0;
 
         // Rewrite the parametric equation into a form where three of the
@@ -330,6 +332,48 @@ where
             self.do_approx(mid, b, max_dep - 1, halt, accum);
         }
     }
+}
+
+fn bernstein(t: f32) -> [f32; 4] {
+    let u = 1.0 - t;
+    let _t2 = t * t;
+    let u2 = u * u;
+
+    /*
+    let b1 = t * t * t;
+
+    let b2 = 3 * t * (1.0 - t) ^ 2;
+    let b2 = 3 * t * (1.0 - 2 * t + t * t);
+    let b2 = 3 * t - 6 * t * t + 3 * t * t * t;
+
+    let b3 = 3 * t * t * (1.0 - t);
+    let b3 = 3 * t * t - 3 * t * t * t;
+
+    let b4 = (1.0 - t) * (1.0 - t) ^ 2;
+    let b4 = (1.0 - t) ^ 2 - t * (1.0 - t) ^ 2;
+    let b4 = (1.0 - t) ^ 2 - t * (1.0 - t) * (1.0 - t);
+
+    let b4 = (1.0 - 2 * t + t ^ 2) - (t - t * t) * (1.0 - t);
+    let b4 = 1.0 - 2 * t + t * t - (t - t * t) + (t * t - t * t * t);
+    let b4 = 1.0 - 2 * t + t * t - t + t * t + t * t - t * t * t;
+    let b4 = 1.0 - 3.0 * t + 3 * t * t - t * t * t;
+    */
+
+    let t2 = t * t;
+    let t3 = t * t2;
+
+    let b1 = 1.0 * t3;
+    let b2 = 3.0 * (t - 2.0 * t2 + t3);
+    let b3 = 3.0 * (t2 - t3);
+    let b4 = 1.0 - 3.0 * (t - t2) - t3;
+
+    let _a = [u2 * u, 3.0 * t * u2, 3.0 * t2 * u, t2 * t];
+
+    let b = [b4, b2, b3, b1];
+
+    //assert_approx_eq!(a, b);
+
+    b
 }
 
 impl<T> Parametric<T> for CubicBezier<T>
