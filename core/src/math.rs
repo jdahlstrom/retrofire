@@ -65,6 +65,7 @@ pub mod approx;
 pub mod color;
 pub mod float;
 pub mod mat;
+pub mod noise;
 pub mod param;
 pub mod point;
 pub mod rand;
@@ -189,5 +190,11 @@ impl Lerp for () {
 impl<U: Lerp, V: Lerp> Lerp for (U, V) {
     fn lerp(&self, (u, v): &Self, t: f32) -> Self {
         (self.0.lerp(u, t), self.1.lerp(v, t))
+    }
+}
+
+impl<T: Lerp, const N: usize> Lerp for [T; N] {
+    fn lerp(&self, other: &Self, t: f32) -> Self {
+        core::array::from_fn(|i| self[i].lerp(&other[i], t))
     }
 }
