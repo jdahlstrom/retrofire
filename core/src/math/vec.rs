@@ -515,6 +515,8 @@ impl<B> Vec3<B> {
 
     /// Unit vector codirectional with the positive z-axis.
     pub const Z: Self = vec3(0.0, 0.0, 1.0);
+
+    pub const BASES: [Self; 3] = [Self::X, Self::Y, Self::Z];
 }
 
 impl<Sc: Copy> Vector<[Sc; 4], Proj3> {

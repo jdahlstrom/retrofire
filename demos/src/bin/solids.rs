@@ -10,6 +10,7 @@ use re::core::render::cam::Fov;
 
 use re::front::{Frame, minifb::Window};
 use re::geom::{io::parse_obj, solids::*};
+use re::prelude::debug::DbgBatch;
 
 // Carousel animation for switching between objects.
 #[derive(Default)]
@@ -83,7 +84,7 @@ fn main() {
 
     let objects = objects(8);
 
-    let translate = translate(-4.0 * Vec3::Z);
+    let translate = translate(-3.0 * Vec3::Z);
     let mut carousel = Carousel::default();
     let mut debug: u8 = 0;
 
@@ -122,29 +123,29 @@ fn main() {
             .target(&mut frame.buf)
             .render();
 
-        if debug > 0 {
-            let bbox = debug::bbox(&object.verts);
-            bbox.uniform(&mvp)
+        let mut render = |b: DbgBatch<_>| {
+            b.uniform(&mvp)
                 .viewport(cam.viewport)
                 .context(&*frame.ctx)
                 .target(&mut frame.buf)
                 .render();
+        };
+
+        if debug > 0 {
+            render(debug::bbox(&object.verts));
+
+            /*let m2w = rotate_x(degs(90.0)).then(&translate).to();
+            render(
+                debug::grid::<World>(10)
+                    .uniform(&m2w.then(&cam.world_to_project())),
+            )*/
         }
         if debug > 1 {
-            debug::sphere::<Model>(pt3(0.0, 0.0, 0.0), 1.0)
-                .uniform(&mvp)
-                .viewport(cam.viewport)
-                .context(&*frame.ctx)
-                .target(&mut frame.buf)
-                .render();
+            render(debug::sphere::<Model>(pt3(0.0, 0.0, 0.0), 1.0));
+            render(debug::cylinder(1.1))
         }
         if debug > 2 {
-            debug::frame::<Model, Model>(Mat4::identity())
-                .uniform(&mvp)
-                .viewport(cam.viewport)
-                .context(&*frame.ctx)
-                .target(&mut frame.buf)
-                .render();
+            render(debug::frame::<Model, Model>(Mat4::identity()))
         }
         if debug > 3 {
             // Wireframe faces
@@ -182,7 +183,7 @@ fn main() {
                 .faces
                 .iter()
                 .map(|Tri(vs)| {
-                    debug::face_normal(vs.map(|i| object.verts[i].pos))
+                    debug::face_normal(vs.map(|i| object.verts[i].pos), 0.3)
                 })
                 .reduce(|mut a, b| {
                     a.append(b);
@@ -195,8 +196,9 @@ fn main() {
                 .context(&*frame.ctx)
                 .target(&mut frame.buf)
                 .render();
-
-            /*let norms: Vec<_> = object
+        }
+        /* if debug > 5 { vertex normals
+            let norms: Vec<_> = object
                 .verts
                 .iter()
                 .map(|v| (v.pos, v.attrib))
@@ -209,8 +211,8 @@ fn main() {
                     .context(&*frame.ctx)
                     .target(&mut frame.buf)
                     .render();
-            }*/
-        }
+            }
+        }*/
         Continue(())
     });
 }

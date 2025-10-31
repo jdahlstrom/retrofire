@@ -15,7 +15,7 @@ pub use mesh::Mesh;
 pub mod mesh;
 
 /// Vertex with a position and arbitrary other attributes.
-#[derive(Copy, Clone, Debug, Eq, PartialEq)]
+#[derive(Copy, Clone, Debug, Default, Eq, PartialEq)]
 pub struct Vertex<P, A> {
     pub pos: P,
     pub attrib: A,
