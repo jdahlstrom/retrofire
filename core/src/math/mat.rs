@@ -626,7 +626,7 @@ impl<Src, Dest> Apply<Vec2<Src>> for Mat2x2<RealToReal<2, Src, Dest>> {
     ///         ⎝ M10 M11 ⎠ ⎝ v1 ⎠     ⎝ v1' ⎠
     /// ```
     fn apply(&self, v: &Vec2<Src>) -> Vec2<Dest> {
-        vec2(self.row_vec(0).dot(&v), self.row_vec(1).dot(&v))
+        vec2(self.row_vec(0).dot(v), self.row_vec(1).dot(v))
     }
 }
 
@@ -701,9 +701,9 @@ impl<Src, Dest> Apply<Vec3<Src>> for Mat3x3<RealToReal<3, Src, Dest>> {
     /// ```
     fn apply(&self, v: &Vec3<Src>) -> Vec3<Dest> {
         vec3(
-            self.row_vec(0).dot(&v),
-            self.row_vec(1).dot(&v),
-            self.row_vec(2).dot(&v),
+            self.row_vec(0).dot(v),
+            self.row_vec(1).dot(v),
+            self.row_vec(2).dot(v),
         )
     }
 }
