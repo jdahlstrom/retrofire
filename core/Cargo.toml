@@ -34,3 +34,6 @@ fp = []
 [dependencies]
 libm = { version = "0.2", optional = true }
 micromath = { version = "2.1", optional = true }
+
+[lints]
+workspace = true

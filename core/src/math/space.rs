@@ -50,7 +50,7 @@ pub trait Affine: Sized {
 
         let p0 = &points[0]; // ok, asserted N > 0
         zip(&weights[1..], &points[1..])
-            .fold(p0.clone(), |res, (w, q)| res.add(&q.sub(&p0).mul(*w)))
+            .fold(p0.clone(), |res, (w, q)| res.add(&q.sub(p0).mul(*w)))
     }
 }
 

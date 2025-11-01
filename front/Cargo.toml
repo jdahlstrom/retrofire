@@ -43,3 +43,6 @@ features = [
     "CanvasRenderingContext2d",
     "ImageData",
 ]
+
+[lints]
+workspace = true

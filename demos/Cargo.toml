@@ -42,3 +42,6 @@ default-features = false
 [[bin]]
 name = "curses"
 required-features = ["pancurses"]
+
+[lints]
+workspace = true

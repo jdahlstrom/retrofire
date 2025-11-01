@@ -49,7 +49,7 @@ use std::{
     path::Path,
 };
 
-use re::geom::{Mesh, Normal3, Tri, mesh::Builder, tri, vertex};
+use re::geom::{Mesh, Normal3, Tri, mesh::Builder, vertex};
 use re::math::{Point3, Vec3, vec3};
 use re::render::{Model, TexCoord, uv};
 
@@ -371,7 +371,7 @@ impl Display for Error {
             Io(e) => write!(f, "I/O error: {e}"),
             UnsupportedItem(item) => {
                 f.write_str("unsupported item type: '")?;
-                f.write_str(String::from_utf8_lossy(&item).as_ref())
+                f.write_str(String::from_utf8_lossy(item).as_ref())
             }
             UnexpectedEnd => f.write_str("unexpected end of input"),
             InvalidValue => f.write_str("invalid numeric value"),
