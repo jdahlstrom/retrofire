@@ -8,7 +8,7 @@ use crate::math::{
 };
 use crate::math::{
     Apply, Lerp, Mat4x4, Point3, SphericalVec, Vary, mat::RealToReal,
-    orthographic, perspective, pt2, viewport,
+    orthographic, perspective, pt2, pt3, viewport,
 };
 use crate::util::{Dims, rect::Rect};
 
@@ -21,6 +21,26 @@ use super::{
 pub trait Transform {
     /// Returns the current world-to-view matrix.
     fn world_to_view(&self) -> Mat4x4<WorldToView>;
+}
+
+/// Type to manage the world-to-viewport transformation.
+///
+/// The responsibility of a camera is to manage three transforms:
+/// * From world space to view (also camera or eye) space;
+/// * From view space to clip space (projection); and
+/// * From NDC[^1] space to screen space (pixel coordinates).
+///
+/// [^1]: Normalized Device Coordinates
+#[derive(Copy, Clone, Debug, Default)]
+pub struct Camera<Tf> {
+    /// World-to-view transform.
+    pub transform: Tf,
+    /// Viewport width and height.
+    pub dims: Dims,
+    /// Projection matrix.
+    pub project: Mat4x4<ViewToProj>,
+    /// Viewport matrix.
+    pub viewport: Mat4x4<NdcToScreen>,
 }
 
 /// Camera field of view.
@@ -53,19 +73,6 @@ pub enum Fov {
     Diagonal(Angle),
 }
 
-/// Type to manage the world-to-viewport transformation.
-#[derive(Copy, Clone, Debug, Default)]
-pub struct Camera<Tf> {
-    /// World-to-view transform.
-    pub transform: Tf,
-    /// Viewport width and height.
-    pub dims: Dims,
-    /// Projection matrix.
-    pub project: Mat4x4<ViewToProj>,
-    /// Viewport matrix.
-    pub viewport: Mat4x4<NdcToScreen>,
-}
-
 /// First-person camera transform.
 ///
 /// This is the familiar "FPS" movement mode, based on camera
@@ -87,14 +94,14 @@ fn az_alt<B>(az: Angle, alt: Angle) -> SphericalVec<B> {
 }
 /// Orbiting camera transform.
 ///
-/// Keeps the camera centered on a **world-space** point, and allows free
+/// Keeps the camera centered on a world-space point, and allows free
 /// 360°/180° azimuth/altitude rotation around that point as well as setting
 /// the distance from the point.
 #[derive(Copy, Clone, Debug)]
 pub struct Orbit {
-    /// The camera's target point in **world** space.
+    /// The camera's target point in world space.
     pub target: Point3<World>,
-    /// The camera's direction in **world** space.
+    /// The camera's direction in world space.
     pub dir: SphericalVec<World>,
 }
 
@@ -131,11 +138,19 @@ impl Fov {
 }
 
 impl Camera<()> {
-    /// Creates a camera with the given resolution.
-    pub fn new(dims: Dims) -> Self {
+    /// Creates a camera with the given screen-space dimensions.
+    ///
+    /// By default, sets up orthographic projection with the same dimensions,
+    /// so that one unit in view space is one pixel in screen space. The near
+    /// and far planes are set to -1 and +1, respectively.
+    pub fn new(dims @ (w, h): Dims) -> Self {
         Self {
             dims,
-            viewport: viewport(pt2(0, 0)..pt2(dims.0, dims.1)),
+            viewport: viewport(pt2(0, 0)..pt2(w, h)),
+            project: orthographic(
+                pt3(0.0, 0.0, -1.0),
+                pt3(w as f32, h as f32, 1.0),
+            ),
             ..Self::default()
         }
     }
@@ -243,7 +258,7 @@ impl FirstPerson {
         }
     }
 
-    /// Rotates the camera to center the view on a **world-space** point.
+    /// Rotates the camera to center the view on a world-space point.
     pub fn look_at(&mut self, pt: Point3<World>) {
         let head = (pt - self.pos).to_spherical();
         self.rotate_to(head.az(), head.alt());
@@ -255,8 +270,8 @@ impl FirstPerson {
         self.rotate_to(head.az() + delta_az, head.alt() + delta_alt);
     }
 
-    /// Rotates the camera to an absolute orientation in **world** space.
-    // TODO may confuse camera and world space
+    /// Rotates the camera to an absolute orientation in world space.
+    // TODO may confuse camera and world space, change to use "dir" type
     pub fn rotate_to(&mut self, az: Angle, alt: Angle) {
         self.heading = az_alt(
             az.wrap(turns(-0.5), turns(0.5)),
@@ -264,8 +279,9 @@ impl FirstPerson {
         );
     }
 
-    /// Translates the camera by a relative offset in **view** space.
-    // TODO Explain that up/down is actually in world space (dir of gravity)
+    /// Translates the camera by a relative offset in view space.
+    // TODO Explain that up/down is actually in world space (dir of gravity);
+    //      this is actually in "character space". Also make "up" changeable
     pub fn translate(&mut self, delta: Vec3<View>) {
         // Zero azimuth means parallel to the x-axis
         let fwd = az_alt(self.heading.az(), turns(0.0)).to_cart();
@@ -279,7 +295,7 @@ impl FirstPerson {
 
 #[cfg(feature = "fp")]
 impl Orbit {
-    /// Adds the azimuth and altitude to the camera's current direction.
+    /// Rotates the camera around the target by relative azimuth and altitude.
     ///
     /// Wraps the resulting azimuth to [-180°, 180°) and clamps the altitude to [-90°, 90°].
     pub fn rotate(&mut self, az_delta: Angle, alt_delta: Angle) {
@@ -289,6 +305,7 @@ impl Orbit {
     /// Rotates the camera to the **world**-space azimuth and altitude given.
     ///
     /// Wraps the azimuth to [-180°, 180°) and clamps the altitude to [-90°, 90°].
+    // Todo can confuse world and view, use "dir" type instead
     pub fn rotate_to(&mut self, az: Angle, alt: Angle) {
         self.dir = spherical(
             self.dir.r(),
@@ -297,7 +314,7 @@ impl Orbit {
         );
     }
 
-    /// Translates the camera's target point in **world** space.
+    /// Translates the camera's target point in world space.
     pub fn translate(&mut self, delta: Vec3<World>) {
         self.target += delta;
     }
