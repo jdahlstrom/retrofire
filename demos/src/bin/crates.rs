@@ -9,8 +9,8 @@ use re::render::{
     tex::SamplerClamp,
 };
 // Try also Rgb565 or Rgba4444
+use re::util::pnm::parse_pbm_or_pgm;
 use re::util::{pixfmt::Rgba8888, pnm::read_pnm};
-
 use re_front::sdl2::Window;
 use re_geom::solids::{Build, Cube};
 
@@ -61,6 +61,7 @@ fn main() {
     let floor = floor();
     let crates = crates();
 
+    let mut last_dt = 0.0;
     win.run(|frame| {
         let t_secs = frame.t.as_secs_f32();
         let dt_secs = frame.dt.as_secs_f32();
@@ -147,23 +148,24 @@ fn main() {
         // UI
         let (w, h) = frame.win.dims;
 
-        let mut fps = Text::new(font.clone());
-        _ = write!(fps, "{:.2}", dt_secs.recip());
+        let mean_dt = last_dt.lerp(&dt_secs, 0.1);
+        let mut fps_counter = Text::new(&font);
+        _ = write!(fps_counter, "{:.1}", mean_dt.recip());
+        last_dt = mean_dt;
 
-        let ui = Camera::new(frame.win.dims)
-            .transform(Mat4x4::identity())
-            .orthographic(pt3(0.0, 0.0, -1.0)..pt3(w as f32, h as f32, 1.0));
+        let ui = Camera::new(frame.win.dims).transform(Mat4x4::identity());
 
         ui.render(
-            &fps.geom.faces,
-            &fps.geom.verts,
+            &fps_counter.geom.faces,
+            &fps_counter.geom.verts,
             &Mat4x4::identity(),
             &shader::new(
                 |v: Vertex3<_>, (m2v, ()): (&Mat4x4<ModelToProj>, ())| {
                     vertex(m2v.apply(&v.pos), v.attrib)
                 },
                 |f: Frag<_>| {
-                    (fps.sample(f.var).r() > 0).then_some(gray(0xff).to_rgba())
+                    (fps_counter.sample(f.var).r() > 0)
+                        .then_some(gray(0xff).to_rgba())
                 },
             ),
             (),

@@ -1,18 +1,18 @@
-use core::fmt;
-use core::fmt::Arguments;
+use core::{borrow::Borrow, fmt, fmt::Arguments};
 #[cfg(feature = "std")]
 use std::io;
 
 use crate::geom::{Mesh, tri, vertex};
+use crate::math::color::gray;
 use crate::math::{Color3, Point2, Vec2, pt2, vec2, vec3};
 use crate::util::buf::Buf2;
 
-use super::tex::{Atlas, Layout, SamplerClamp, TexCoord};
+use super::tex::{Atlas, Layout::*, SamplerClamp, TexCoord};
 
 /// Text represented as texture-mapped geometry, one quad per glyph.
 #[derive(Clone)]
-pub struct Text {
-    pub font: Atlas<Color3>,
+pub struct Text<F> {
+    pub font: F,
     pub geom: Mesh<TexCoord>,
     // TODO Private until fixed
     _anchor: Vec2,
@@ -23,9 +23,9 @@ pub struct Text {
 // Inherent impls
 //
 
-impl Text {
+impl<F: Borrow<Atlas<Color3>>> Text<F> {
     /// Creates a new empty text object with the given font.
-    pub fn new(font: Atlas<Color3>) -> Self {
+    pub fn new(font: F) -> Self {
         Self {
             font,
             geom: Mesh::default(),
@@ -59,7 +59,7 @@ impl Text {
     /// Samples the font at `uv`.
     pub fn sample(&self, uv: TexCoord) -> Color3 {
         // TODO Figure out why coords go out of bounds -> SamplerOnce panics
-        SamplerClamp.sample(&self.font.texture, uv)
+        SamplerClamp.sample(&self.font.borrow().texture, uv)
     }
 
     pub fn write_fmt(&mut self, args: Arguments<'_>) -> fmt::Result {
@@ -69,10 +69,10 @@ impl Text {
     fn write_char(&mut self, idx: u32) {
         let Self { font, geom, cursor, .. } = self;
 
-        let Layout::Grid { sub_dims: (gw, gh) } = font.layout;
+        let Grid { sub_dims: (gw, gh) } = (*font).borrow().layout;
         let (glyph_w, glyph_h) = (gw as f32, gh as f32);
 
-        let [tl, tr, bl, br] = font.coords(idx);
+        let [tl, tr, bl, br] = (*font).borrow().coords(idx);
         // TODO doesn't work when the text is written in several pieces,
         //      such as when writing a formatted string. Total row and col
         //      counts are only known when everything is written.
@@ -95,6 +95,10 @@ impl Text {
 
         *cursor += vec2(glyph_w, 0.0);
     }
+
+    fn font(&self) -> &Atlas<Color3> {
+        self.font.borrow()
+    }
 }
 
 //
@@ -102,7 +106,7 @@ impl Text {
 //
 
 #[cfg(feature = "std")]
-impl io::Write for Text {
+impl<F: Borrow<Atlas<Color3>>> io::Write for Text<F> {
     /// Creates geometry to represent the bytes in `buf`.
     ///
     /// This method uses each byte in `buf` as an index to the font. Only up to
@@ -121,7 +125,7 @@ impl io::Write for Text {
         if rows == 0 || cols == 0 {
             return Ok(0);
         }*/
-        let Layout::Grid { sub_dims } = self.font.layout;
+        let Grid { sub_dims } = self.font.borrow().layout;
         let glyph_h = sub_dims.1 as f32;
 
         for &b in buf {
@@ -138,7 +142,7 @@ impl io::Write for Text {
     }
 }
 
-impl fmt::Write for Text {
+impl<F: Borrow<Atlas<Color3>>> fmt::Write for Text<F> {
     /// Creates geometry to represent the characters in `s`.
     ///
     /// This method iterates over the `char`s of the string, and uses the value
@@ -153,13 +157,13 @@ impl fmt::Write for Text {
         if rows == 0 || cols == 0 {
             return Ok(());
         }*/
-        let Layout::Grid { sub_dims } = self.font.layout;
+        let Grid { sub_dims } = self.font.borrow().layout;
         let glyph_h = sub_dims.1 as f32;
 
         for c in s.chars() {
             match c {
                 '\n' => self.cursor = pt2(0.0, self.cursor.y() + glyph_h),
-                _ => self.write_char(c.into()),
+                _ => self.write_char(c as u32),
             }
         }
         Ok(())
@@ -182,7 +186,7 @@ where
         return Buf2::new((0, 0));
     }
 
-    let Layout::Grid { sub_dims: (gw, gh) } = font.layout;
+    let Grid { sub_dims: (gw, gh) } = font.layout;
     let mut buf = Buf2::new((num_cols * gw, num_rows * gh));
 
     let (mut x, mut y) = (0, 0);

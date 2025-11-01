@@ -185,6 +185,8 @@ impl<C> Atlas<C> {
     }
 }
 
+impl Layout {}
+
 //
 // Trait impls
 //

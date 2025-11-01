@@ -34,6 +34,7 @@ use super::{
     pixfmt::{IntoPixel, Rgb888},
 };
 
+use crate::math::color::gray;
 use Error::*;
 use Format::*;
 
@@ -98,6 +99,8 @@ pub enum Error {
     Io(io::ErrorKind),
     /// Unsupported magic number.
     Unsupported([u8; 2]),
+    /// Unexpected magic number.
+    Unexpected(Format),
     /// Unexpected end of input while decoding.
     UnexpectedEnd,
     /// Invalid numeric value encountered.
@@ -117,8 +120,11 @@ impl Display for Error {
             Unsupported([c, d]) => {
                 write!(f, "unsupported magic number {}{}", c as char, d as char)
             }
-            UnexpectedEnd => write!(f, "unexpected end of input"),
-            InvalidNumber => write!(f, "invalid numeric value"),
+            Unexpected(fmt) => {
+                write!(f, "unexpected format {fmt}")
+            }
+            UnexpectedEnd => f.write_str("unexpected end of input"),
+            InvalidNumber => f.write_str("invalid numeric value"),
         }
     }
 }
@@ -197,6 +203,38 @@ pub fn read_pnm(input: impl Read) -> Result<Buf2<Color3>> {
     parse_pnm(input.bytes().map_while(io::Result::ok))
 }
 
+fn parse_binary_bitmap(
+    it: &mut impl Iterator<Item = u8>,
+) -> impl Iterator<Item = bool> {
+    it.flat_map(|byte| {
+        (0..8) //
+            .rev()
+            .map(move |i| ((byte >> i) & 1) != 0)
+    })
+}
+fn parse_binary_pixmap(
+    it: &mut impl Iterator<Item = u8>,
+) -> impl Iterator<Item = [u8; 3]> {
+    let mut col = [0u8; 3];
+    it.zip((0..3).cycle()).flat_map(move |(c, i)| {
+        col[i] = c;
+        (i == 2).then(|| col.into())
+    })
+}
+fn parse_text_pixmap<'a>(
+    it: &'a mut impl Iterator<Item = u8>,
+) -> impl Iterator<Item = Result<[u8; 3]>> + 'a {
+    let mut col = [0u8; 3];
+    //let it = &it;
+    (0..3).cycle().flat_map(move |i| {
+        col[i] = match parse_num(it) {
+            Ok(c) => c,
+            Err(e) => return Some(Err(e)),
+        };
+        (i == 2).then(|| Ok(col))
+    })
+}
+
 /// Attempts to decode a PNM image from an iterator of bytes.
 ///
 /// Currently supported PNM formats are P2, P3, P4, P5, and P6.
@@ -210,48 +248,32 @@ pub fn parse_pnm(input: impl IntoIterator<Item = u8>) -> Result<Buf2<Color3>> {
 
     let count = h.dims.0 * h.dims.1;
     let data: Vec<Color3> = match h.format {
-        BinaryPixmap => {
-            let mut col = [0u8; 3];
-            it.zip((0..3).cycle())
-                .flat_map(|(c, i)| {
-                    col[i] = c;
-                    (i == 2).then(|| col.into())
-                })
-                .take(count as usize)
-                .collect()
-        }
+        BinaryPixmap => parse_binary_pixmap(&mut it)
+            .take(count as usize)
+            .map(Into::into)
+            .collect(),
         BinaryGraymap => it //
             .map(|c| rgb(c, c, c))
+            .take(count as usize)
             .collect(),
-        BinaryBitmap => it
-            .flat_map(|byte| (0..8).rev().map(move |i| (byte >> i) & 1))
-            .map(|bit| {
-                // Conventionally in PBM 0 is white, 1 is black
-                let ch = (1 - bit) * 0xFF;
-                rgb(ch, ch, ch)
-            })
+        BinaryBitmap => parse_binary_bitmap(&mut it)
+            // Conventionally in PBM 0 is white, 1 is black
+            .map(|bit| gray(if bit { 0x00 } else { 0xFF }))
+            .take(count as usize)
             .collect(),
-        TextPixmap => {
-            let mut col = [0u8; 3];
-            (0..3)
-                .cycle()
-                .flat_map(|i| {
-                    col[i] = match parse_num(&mut it) {
-                        Ok(c) => c,
-                        Err(e) => return Some(Err(e)),
-                    };
-                    (i == 2).then(|| Ok(col.into()))
-                })
-                .take(count as usize)
-                .collect::<Result<Vec<_>>>()?
-        }
+        TextPixmap => parse_text_pixmap(&mut it)
+            .map(|res| res.map(Into::into))
+            .take(count as usize)
+            .collect::<Result<Vec<_>>>()?,
         TextGraymap => (0..count)
             .map(|_| {
                 let val = parse_num(&mut it)?;
                 Ok(rgb(val, val, val))
             })
+            .take(count as usize)
             .collect::<Result<Vec<_>>>()?,
-        _ => return Err(Unsupported((h.format as u16).to_be_bytes())),
+        // TODO just support TextBitmap too, even though it's pretty useless
+        _ => unreachable!("caught by the header parser"),
     };
 
     if data.len() < count as usize {
@@ -259,6 +281,25 @@ pub fn parse_pnm(input: impl IntoIterator<Item = u8>) -> Result<Buf2<Color3>> {
     } else {
         Ok(Buf2::new_from(h.dims, data))
     }
+}
+
+pub fn parse_pbm_or_pgm(
+    input: impl IntoIterator<Item = u8>,
+) -> Result<Buf2<u8>> {
+    let mut it = input.into_iter();
+    let h = Header::parse(&mut it)?;
+    let data = match h.format {
+        BinaryGraymap => it.collect(),
+        BinaryBitmap => parse_binary_bitmap(&mut it)
+            // Conventionally in PBM 0 is white, 1 is black
+            .map(|bit| if bit { 0x00 } else { 0xFF })
+            .collect(),
+        TextGraymap => (0..h.dims.0 * h.dims.1)
+            .map(|_| parse_num(&mut it))
+            .collect::<Result<Vec<_>>>()?,
+        f => return Err(Unexpected(f)),
+    };
+    Ok(Buf2::new_from(h.dims, data))
 }
 
 /// Writes an image to a file in PPM format, P6 sub-format
@@ -311,7 +352,7 @@ where
 }
 
 /// Parses a numeric value from `src`, skipping whitespace and comments.
-fn parse_num<T>(src: impl IntoIterator<Item = u8>) -> Result<T>
+fn parse_num<T>(src: &mut impl Iterator<Item = u8>) -> Result<T>
 where
     T: FromStr,
     Error: From<T::Err>,
@@ -331,7 +372,6 @@ where
         }
     };
     let str = src
-        .into_iter()
         .skip_while(whitespace_or_comment)
         .take_while(|b| !whitespace_or_comment(b))
         .map(char::from)
