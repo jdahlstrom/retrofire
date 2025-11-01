@@ -1,4 +1,5 @@
 use core::fmt;
+use core::fmt::Arguments;
 #[cfg(feature = "std")]
 use std::io;
 
@@ -59,6 +60,10 @@ impl Text {
     pub fn sample(&self, uv: TexCoord) -> Color3 {
         // TODO Figure out why coords go out of bounds -> SamplerOnce panics
         SamplerClamp.sample(&self.font.texture, uv)
+    }
+
+    pub fn write_fmt(&mut self, args: Arguments<'_>) -> fmt::Result {
+        fmt::Write::write_fmt(self, args)
     }
 
     fn write_char(&mut self, idx: u32) {

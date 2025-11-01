@@ -3,6 +3,7 @@ use core::ops::ControlFlow::*;
 use re::prelude::*;
 
 use re::math::color::gray;
+use re::render::tex::{Atlas, Layout, SamplerOnce};
 use re::render::{
     ModelToProj, cam::FirstPerson, cam::Fov, clip::Status::*, scene::Obj,
     tex::SamplerClamp,
@@ -17,11 +18,16 @@ fn main() {
     let mut win = Window::builder()
         .title("retrofire//crates")
         .pixel_fmt(Rgba8888)
+        .vsync(false)
         .build()
         .expect("should create window");
 
-    let tex_data = *include_bytes!("../../assets/crate.ppm");
-    let tex = Texture::from(read_pnm(&tex_data[..]).expect("data exists"));
+    static FONT: &[u8] = include_bytes!("../../assets/font_8x12.pbm");
+    let font = read_pnm(FONT).expect("valid pnm");
+    let font = Atlas::new(Layout::Grid { sub_dims: (8, 12) }, font.into());
+
+    static CRATE: &[u8] = include_bytes!("../../assets/crate.ppm");
+    let crate_tex = Texture::from(read_pnm(CRATE).expect("data exists"));
 
     let light_dir = vec3(-2.0, 1.0, -4.0).normalize();
 
@@ -41,7 +47,7 @@ fn main() {
         |frag: Frag<(Normal3, TexCoord)>| {
             let (n, uv) = frag.var;
             let kd = lerp(n.dot(&light_dir).max(0.0), 0.4, 1.0);
-            let col = SamplerClamp.sample(&tex, uv);
+            let col = SamplerClamp.sample(&crate_tex, uv);
             (col.to_color3f() * kd).to_color4()
         },
     );
@@ -56,6 +62,8 @@ fn main() {
     let crates = crates();
 
     win.run(|frame| {
+        let t_secs = frame.t.as_secs_f32();
+        let dt_secs = frame.dt.as_secs_f32();
         //
         // Camera
         //
@@ -80,8 +88,7 @@ fn main() {
             turns(ms.x() as f32) * -0.001,
             turns(ms.y() as f32) * -0.001,
         );
-        cam.transform
-            .translate(cam_vel.mul(frame.dt.as_secs_f32()));
+        cam.transform.translate(cam_vel.mul(dt_secs));
 
         //
         // Render
@@ -136,6 +143,33 @@ fn main() {
 
             frame.ctx.stats.borrow_mut().objs.o += 1;
         }
+
+        // UI
+        let (w, h) = frame.win.dims;
+
+        let mut fps = Text::new(font.clone());
+        _ = write!(fps, "{:.2}", dt_secs.recip());
+
+        let ui = Camera::new(frame.win.dims)
+            .transform(Mat4x4::identity())
+            .orthographic(pt3(0.0, 0.0, -1.0)..pt3(w as f32, h as f32, 1.0));
+
+        ui.render(
+            &fps.geom.faces,
+            &fps.geom.verts,
+            &Mat4x4::identity(),
+            &shader::new(
+                |v: Vertex3<_>, (m2v, ()): (&Mat4x4<ModelToProj>, ())| {
+                    vertex(m2v.apply(&v.pos), v.attrib)
+                },
+                |f: Frag<_>| {
+                    (fps.sample(f.var).r() > 0).then_some(gray(0xff).to_rgba())
+                },
+            ),
+            (),
+            &mut frame.buf,
+            &Default::default(),
+        );
 
         Continue(())
     })
