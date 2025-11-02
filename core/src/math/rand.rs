@@ -217,7 +217,7 @@ impl Default for Xorshift64 {
 // Local trait impls
 //
 
-/// Uniformly distributed integers.
+/// Uniformly distributed signed integers.
 impl Distrib for Uniform<i32> {
     type Sample = i32;
 
@@ -228,14 +228,66 @@ impl Distrib for Uniform<i32> {
     /// use retrofire_core::math::rand::*;
     /// let rng = &mut DefaultRng::default();
     ///
-    /// // Simulate rolling a six-sided die
-    /// let mut iter = Uniform(1..7).samples(rng);
-    /// assert_eq!(iter.next(), Some(3));
-    /// assert_eq!(iter.next(), Some(2));
+    ///
+    /// let mut iter = Uniform(-5i32..6).samples(rng);
+    /// assert_eq!(iter.next(), Some(0));
     /// assert_eq!(iter.next(), Some(4));
+    /// assert_eq!(iter.next(), Some(5));
     /// ```
     fn sample(&self, rng: &mut DefaultRng) -> i32 {
         let bits = rng.next_bits() as i32;
+        // TODO rem introduces slight bias
+        bits.rem_euclid(self.0.end - self.0.start) + self.0.start
+    }
+}
+/// Uniformly distributed unsigned integers.
+impl Distrib for Uniform<u32> {
+    type Sample = u32;
+
+    /// Returns a uniformly distributed `u32` in the range.
+    ///
+    /// # Examples
+    /// ```
+    /// use retrofire_core::math::rand::*;
+    /// let rng = &mut DefaultRng::from_seed(1234);
+    ///
+    /// // Simulate rolling a six-sided die
+    /// let mut rolls: Vec<_>  = Uniform(1u32..7)
+    ///     .samples(rng)
+    ///     .take(6)
+    ///     .collect();
+    /// assert_eq!(rolls, [2, 4, 6, 6, 3, 1]);
+    /// ```
+    fn sample(&self, rng: &mut DefaultRng) -> u32 {
+        let bits = rng.next_bits() as u32;
+        // TODO rem introduces slight bias
+        bits.rem_euclid(self.0.end - self.0.start) + self.0.start
+    }
+}
+
+/// Uniformly distributed indices.
+impl Distrib for Uniform<usize> {
+    type Sample = usize;
+
+    /// Returns a uniformly distributed `usize` in the range.
+    ///
+    /// # Examples
+    /// ```
+    /// use retrofire_core::math::rand::*;
+    /// let rng = &mut DefaultRng::default();
+    ///
+    /// // Randomly sample elements from a list (with replacement)
+    /// let beverages = ["water", "tea", "coffee", "Coke", "Red Bull"];
+    /// let mut x: Vec<_> = Uniform(0..beverages.len())
+    ///     .samples(rng)
+    ///     .take(3)
+    ///     .map(|i| beverages[i])
+    ///     .collect();
+    ///
+    /// assert_eq!(x, ["water", "tea", "Red Bull"]);
+    /// ```
+    fn sample(&self, rng: &mut DefaultRng) -> usize {
+        let bits = rng.next_bits() as usize;
         // TODO rem introduces slight bias
         bits.rem_euclid(self.0.end - self.0.start) + self.0.start
     }
@@ -491,7 +543,7 @@ mod tests {
 
     #[test]
     fn uniform_i32() {
-        let dist = Uniform(-123..456);
+        let dist = Uniform(-123i32..456);
         for r in dist.samples(&mut rng()).take(COUNT) {
             assert!(-123 <= r && r < 456);
         }
