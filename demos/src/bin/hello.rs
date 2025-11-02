@@ -1,11 +1,12 @@
 use std::{env, fmt::Write, ops::ControlFlow::Continue};
 
 use re::prelude::*;
-use re::render::{
+
+use re::core::render::{
     Text,
     tex::{Atlas, Layout},
 };
-use re::util::pnm::parse_pnm;
+use re::core::util::pnm::parse_pnm;
 
 use re_front::{Frame, dims::SVGA_800_600, minifb::Window};
 

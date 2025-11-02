@@ -4,12 +4,12 @@ use minifb::{Key, KeyRepeat};
 
 use re::prelude::*;
 
-use re::geom::Polyline;
-use re::math::{Apply, color::gray, mat::RealToReal, vec::ProjVec3};
-use re::render::cam::Fov;
+use re::core::geom::Polyline;
+use re::core::math::{color::gray, mat::RealToReal, vec::ProjVec3};
+use re::core::render::cam::Fov;
 
-use re_front::{Frame, minifb::Window};
-use re_geom::{io::parse_obj, solids::*};
+use re::front::{Frame, minifb::Window};
+use re::geom::{io::parse_obj, solids::*};
 
 // Carousel animation for switching between objects.
 #[derive(Default)]

@@ -2,16 +2,16 @@ use core::ops::ControlFlow::*;
 
 use re::prelude::*;
 
-use re::math::color::gray;
-use re::render::{
+use re::core::math::color::gray;
+use re::core::render::{
     ModelToProj, cam::FirstPerson, cam::Fov, clip::Status::*, scene::Obj,
     tex::SamplerClamp,
 };
 // Try also Rgb565 or Rgba4444
-use re::util::{pixfmt::Rgba8888, pnm::read_pnm};
+use re::core::util::{pixfmt::Rgba8888, pnm::read_pnm};
 
-use re_front::sdl2::Window;
-use re_geom::solids::{Build, Cube};
+use re::front::sdl2::Window;
+use re::geom::solids::{Build, Cube};
 
 fn main() {
     let mut win = Window::builder()

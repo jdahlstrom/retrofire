@@ -2,9 +2,9 @@ use core::{array::from_fn, ops::ControlFlow::Continue};
 
 use re::prelude::*;
 
-use re::math::color::gray;
-use re::math::rand::{Distrib, PointsInUnitBall, Xorshift64};
-use re::render::{Model, ModelToView, ViewToProj, cam::*, render};
+use re::core::math::color::gray;
+use re::core::math::rand::{Distrib, PointsInUnitBall, Xorshift64};
+use re::core::render::{Model, ModelToView, ViewToProj, cam::*, render};
 
 use re_front::minifb::Window;
 
