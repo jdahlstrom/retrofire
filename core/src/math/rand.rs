@@ -2,7 +2,7 @@
 
 use core::{array, fmt::Debug, ops::Range};
 
-use super::{Point, Point2, Point3, Vec2, Vec3, Vector};
+use super::{Color, Point, Point2, Point3, Vec2, Vec3, Vector};
 
 //
 // Traits and types
@@ -369,6 +369,22 @@ where
 impl<Sc, Sp, const DIM: usize> Distrib for Uniform<Point<[Sc; DIM], Sp>>
 where
     Sc: Copy,
+    Uniform<[Sc; DIM]>: Distrib<Sample = [Sc; DIM]>,
+{
+    type Sample = Point<[Sc; DIM], Sp>;
+
+    /// Returns a point uniformly sampled from the rectangular volume
+    /// bounded by `self.0`.
+    fn sample(&self, rng: &mut DefaultRng) -> Self::Sample {
+        Uniform(self.0.start.0..self.0.end.0)
+            .sample(rng)
+            .into()
+    }
+}
+impl<Sc, Sp, const DIM: usize> Distrib for Uniform<Color<[Sc; DIM], Sp>>
+where
+    Sc: Copy,
+    Sp: Clone, // TODO Color needs manual Clone etc impls like Vector
     Uniform<[Sc; DIM]>: Distrib<Sample = [Sc; DIM]>,
 {
     type Sample = Point<[Sc; DIM], Sp>;
