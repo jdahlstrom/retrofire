@@ -33,7 +33,7 @@ resolver = "2"
 
 [workspace.package]
 edition = "2024"
-version = "0.4.0-pre3"
+version = "0.4.0-pre4"
 authors = ["Johannes 'Sharlin' Dahlström <johannes.dahlstrom@gmail.com>"]
 license = "MIT OR Apache-2.0"
 repository = "https://github.com/jdahlstrom/retrofire"
@@ -45,9 +45,9 @@ manual_range_contains = "allow"
 collapsible_if = "allow"
 
 [dependencies]
-retrofire-core = { version = "0.4.0-pre3", path = "core" }
-retrofire-front = { version = "0.4.0-pre3", path = "front" }
-retrofire-geom = { version = "0.4.0-pre3", path = "geom" }
+retrofire-core = { version = "0.4.0-pre4", path = "core" }
+retrofire-front = { version = "0.4.0-pre4", path = "front" }
+retrofire-geom = { version = "0.4.0-pre4", path = "geom" }
 
 [profile.release]
 opt-level = 2
