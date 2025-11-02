@@ -4,11 +4,10 @@ use pancurses::*;
 
 use re::prelude::*;
 
-use re::render::{
+use re::core::render::{
     ctx::DepthSort::BackToFront, raster::Scanline, stats::Throughput,
 };
-
-use re_geom::solids::{Build, Torus};
+use re::geom::solids::{Build, Torus};
 
 struct Win(Window);
 
