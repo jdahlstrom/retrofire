@@ -2,10 +2,10 @@ use core::ops::ControlFlow::Continue;
 
 use re::prelude::*;
 
-use re::geom::{Edge, Ray};
-use re::math::rand::{Distrib, Uniform, VectorsOnUnitDisk, Xorshift64};
-use re::render::raster::line;
-use re_front::{Frame, dims, minifb::Window};
+use re::core::geom::{Edge, Ray};
+use re::core::math::rand::{Distrib, Uniform, VectorsOnUnitDisk, Xorshift64};
+use re::core::render::raster::line;
+use re::front::{Frame, dims, minifb::Window};
 
 fn main() {
     let dims @ (w, h) = dims::SVGA_800_600;

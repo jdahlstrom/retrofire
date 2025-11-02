@@ -1,9 +1,9 @@
 use std::ops::ControlFlow::*;
 
 use re::prelude::*;
-use re::render::tex::SamplerClamp;
 
-use re_front::minifb::Window;
+use re::core::render::tex::SamplerClamp;
+use re::front::minifb::Window;
 
 fn main() {
     // Vertices of a square
