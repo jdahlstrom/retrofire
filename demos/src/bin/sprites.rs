@@ -72,7 +72,7 @@ fn main() {
             &shader,
             (&modelview, &cam.project),
             cam.viewport,
-            &mut frame.buf,
+            frame.buf.borrow_mut(),
             frame.ctx,
         );
         Continue(())
