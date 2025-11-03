@@ -23,6 +23,9 @@ pub struct Rgb888;
 #[derive(Copy, Clone, Default)]
 pub struct Rgb565;
 
+#[derive(Copy, Clone, Default)]
+pub struct Rgba5551;
+
 /// Eight-bit channels in X,R,G,B order, where X is unused.
 #[derive(Copy, Clone, Default)]
 pub struct Xrgb8888;
@@ -40,6 +43,12 @@ pub struct Bgra8888;
 #[derive(Copy, Clone, Default)]
 pub struct Rgba4444;
 
+#[derive(Copy, Clone, Default)]
+pub struct Rgb332;
+
+#[derive(Copy, Clone, Default)]
+pub struct Lum8;
+
 // Impls for Color3
 
 impl IntoPixel<u32, Rgb888> for Color3 {
@@ -56,6 +65,7 @@ impl IntoPixel<[u8; 3], Rgb888> for Color3 {
 }
 
 impl IntoPixel<u16, Rgb565> for Color3 {
+    /// Packs `self` into a `u16` in `0bRRRRR_GGGGGG_BBBBB` format.
     fn into_pixel(self) -> u16 {
         let [r, g, b] = self.0;
         (r as u16 >> 3 & 0x1F) << 11
@@ -65,9 +75,19 @@ impl IntoPixel<u16, Rgb565> for Color3 {
 }
 
 impl IntoPixel<[u8; 2], Rgb565> for Color3 {
+    /// Packs `self` into two bytes in `[0bGGG_BBBBB, 0bRRRRR_GGG]` format.
+    // TODO is this correct?
     fn into_pixel(self) -> [u8; 2] {
         let c: u16 = self.into_pixel();
         c.to_ne_bytes()
+    }
+}
+
+impl IntoPixel<u8, Rgb332> for Color3 {
+    /// Packs `self` into a single byte in `0bRRR_GGG_BB` format.
+    fn into_pixel(self) -> u8 {
+        let [r, g, b] = self.0;
+        (r >> 5 & 0b111) << 5 | (g >> 5 & 0b111) << 2 | b & 0b11
     }
 }
 
@@ -136,6 +156,24 @@ impl IntoPixel<[u8; 2], Rgb565> for Color4 {
         c.to_ne_bytes()
     }
 }
+impl IntoPixel<u16, Rgba5551> for Color4 {
+    /// Packs `self` into a `u16` in a 0bRRRRR_GGGGG_BBBBB_A format.
+    /// An alpha value of `0xFF` is considered opaque, any other value
+    /// fully transparent.
+    fn into_pixel(self) -> u16 {
+        let [r, g, b, a] = self.0;
+        (r as u16 >> 3 & 0x1F) << 11
+            | (g as u16 >> 3 & 0x1F) << 6
+            | (b as u16 >> 3 & 0x1F) << 1
+            | (a == 0xFF) as u16
+    }
+}
+impl IntoPixel<[u8; 2], Rgba5551> for Color4 {
+    fn into_pixel(self) -> [u8; 2] {
+        let c: u16 = self.into_pixel_fmt(Rgba5551);
+        c.to_ne_bytes()
+    }
+}
 
 #[cfg(test)]
 mod tests {
@@ -158,6 +196,15 @@ mod tests {
 
         let pix: [u8; 2] = rgb(0x40u8, 0x20, 0x10).into_pixel_fmt(Rgb565);
         assert_eq!(pix, [0b000_00010, 0b01000_001]);
+    }
+
+    #[test]
+    fn color3_to_rgb332() {
+        let pix: u8 = rgb(0xFF, 0x00, 0xFF).into_pixel();
+        assert_eq!(pix, 0b111_000_11, "bits: {pix:b}");
+
+        let pix: u8 = rgb(0x00, 0x0FF, 0x00).into_pixel();
+        assert_eq!(pix, 0b000_111_00, "bits: {pix:b}");
     }
 
     #[test]
@@ -198,5 +245,24 @@ mod tests {
 
         let pix: u16 = COL4.into_pixel_fmt(Rgba4444);
         assert_eq!(pix, 0x1234);
+    }
+
+    #[test]
+    fn color4_to_rgba5551_u16() {
+        let pix: u16 = rgba(0x40u8, 0x20, 0x10, 0).into_pixel_fmt(Rgba5551);
+        assert_eq!(pix, 0b01000_00100_00010_0_u16, "bits: {pix:b}");
+        let pix: u16 = rgba(0x40u8, 0x20, 0x10, 0x80).into_pixel_fmt(Rgba5551);
+        assert_eq!(pix, 0b01000_00100_00010_0_u16, "bits: {pix:b}");
+        let pix: u16 = rgba(0x40u8, 0x20, 0x10, 0xFF).into_pixel_fmt(Rgba5551);
+        assert_eq!(pix, 0b01000_00100_00010_1_u16, "bits: {pix:b}");
+    }
+
+    #[test]
+    fn color4_to_rgba5551_2u8() {
+        let pix: [u8; 2] = rgba(0x40u8, 0x20, 0x10, 0).into_pixel_fmt(Rgba5551);
+        assert_eq!(pix, [0b00_00010_0, 0b01000_001]);
+        let pix: [u8; 2] =
+            rgba(0x40u8, 0x20, 0x10, 0xFF).into_pixel_fmt(Rgba5551);
+        assert_eq!(pix, [0b00_00010_1, 0b01000_001]);
     }
 }
