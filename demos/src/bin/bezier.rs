@@ -31,6 +31,7 @@ fn main() {
     win.ctx.depth_clear = None;
 
     win.run(|Frame { dt, buf, .. }| {
+        let mut buf = buf.borrow_mut();
         // Fade out previous frame a bit
         buf.color_buf
             .buf

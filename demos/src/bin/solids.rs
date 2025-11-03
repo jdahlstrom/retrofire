@@ -113,7 +113,7 @@ fn main() {
             .uniform((&model_view_project, &spin))
             .shader(shader)
             .viewport(cam.viewport)
-            .target(&mut *frame.buf.borrow_mut())
+            .target(frame.buf)
             .context(&*frame.ctx)
             .render();
 

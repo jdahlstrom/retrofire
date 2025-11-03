@@ -11,6 +11,7 @@ use sdl2::{
     video::{FullscreenType, Window as SdlWindow, WindowBuildError},
 };
 
+use super::{Frame, dims};
 use retrofire_core::math::{Color4, Vary};
 use retrofire_core::render::{
     Colorbuf, Context, FragmentShader, Target, raster::Scanline,
@@ -19,10 +20,8 @@ use retrofire_core::render::{
 use retrofire_core::util::{
     Dims,
     buf::{AsMutSlice2, Buf2, MutSlice2},
-    pixfmt::{IntoPixel, Rgb565, Rgba4444, Rgba8888},
+    pixfmt::*,
 };
-
-use super::{Frame, dims};
 
 /// Helper trait to support different pixel format types.
 pub trait PixelFmt: Copy + Default {
@@ -264,6 +263,14 @@ impl PixelFmt for Rgb565 {
 impl PixelFmt for Rgba4444 {
     type Pixel = [u8; 2];
     const SDL_FMT: PixelFormatEnum = PixelFormatEnum::RGBA4444;
+}
+impl PixelFmt for Rgba5551 {
+    type Pixel = [u8; 2];
+    const SDL_FMT: PixelFormatEnum = PixelFormatEnum::RGBA5551;
+}
+impl PixelFmt for Rgb332 {
+    type Pixel = [u8; 1];
+    const SDL_FMT: PixelFormatEnum = PixelFormatEnum::RGB332;
 }
 
 impl<'a, PF, const N: usize> Target for Framebuf<'a, PF>

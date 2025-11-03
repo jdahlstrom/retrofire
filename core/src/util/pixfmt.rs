@@ -87,12 +87,12 @@ impl IntoPixel<u8, Rgb332> for Color3 {
     /// Packs `self` into a single byte in `0bRRR_GGG_BB` format.
     fn into_pixel(self) -> u8 {
         let [r, g, b] = self.0;
-        (r >> 5 & 0b111) << 5 | (g >> 5 & 0b111) << 2 | b & 0b11
+        (r & 0b111_000_00) | (g >> 3 & 0b000_111_00) | (b >> 6)
     }
 }
 
 // Impls for Color4
-
+/*
 impl<F> IntoPixel<u32, F> for Color4
 where
     Self: IntoPixel<[u8; 4], F>,
@@ -100,6 +100,15 @@ where
     fn into_pixel(self) -> u32 {
         // From [0xAA, 0xBB, 0xCC, 0xDD] to 0xAA_BB_CC_DD -> big-endian!
         u32::from_be_bytes(self.into_pixel())
+    }
+}*/
+
+impl<T, F> IntoPixel<T, F> for Color4
+where
+    Color3: IntoPixel<T, F>,
+{
+    fn into_pixel(self) -> T {
+        self.to_rgb().into_pixel()
     }
 }
 
@@ -127,11 +136,11 @@ impl IntoPixel<[u8; 4], Bgra8888> for Color4 {
         [b, g, r, a]
     }
 }
-impl IntoPixel<[u8; 3], Rgb888> for Color4 {
+/*impl IntoPixel<[u8; 3], Rgb888> for Color4 {
     fn into_pixel(self) -> [u8; 3] {
         [self.r(), self.g(), self.b()]
     }
-}
+}*/
 impl IntoPixel<[u8; 2], Rgba4444> for Color4 {
     fn into_pixel(self) -> [u8; 2] {
         let c: u16 = self.into_pixel_fmt(Rgba4444);
@@ -145,7 +154,7 @@ impl IntoPixel<u16, Rgba4444> for Color4 {
         r << 12 | g << 8 | b << 4 | a
     }
 }
-impl IntoPixel<u16, Rgb565> for Color4 {
+/*impl IntoPixel<u16, Rgb565> for Color4 {
     fn into_pixel(self) -> u16 {
         self.to_rgb().into_pixel()
     }
@@ -155,10 +164,10 @@ impl IntoPixel<[u8; 2], Rgb565> for Color4 {
         let c: u16 = self.into_pixel_fmt(Rgb565);
         c.to_ne_bytes()
     }
-}
+}*/
 impl IntoPixel<u16, Rgba5551> for Color4 {
-    /// Packs `self` into a `u16` in a 0bRRRRR_GGGGG_BBBBB_A format.
-    /// An alpha value of `0xFF` is considered opaque, any other value
+    /// Packs `self` into a `u16` in a `0bRRRRR_GGGGG_BBBBB_A` format.
+    /// The alpha value `0xFF` is considered opaque, any other value
     /// fully transparent.
     fn into_pixel(self) -> u16 {
         let [r, g, b, a] = self.0;
@@ -172,6 +181,13 @@ impl IntoPixel<[u8; 2], Rgba5551> for Color4 {
     fn into_pixel(self) -> [u8; 2] {
         let c: u16 = self.into_pixel_fmt(Rgba5551);
         c.to_ne_bytes()
+    }
+}
+
+impl IntoPixel<[u8; 1], Rgb332> for Color4 {
+    /// Packs `self` into a single byte in `0bRRR_GGG_BB` format.
+    fn into_pixel(self) -> [u8; 1] {
+        [self.to_rgb().into_pixel()]
     }
 }
 

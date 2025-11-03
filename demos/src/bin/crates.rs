@@ -9,16 +9,16 @@ use re::core::render::{
     scene::Obj,
     tex::SamplerClamp,
 };
-// Try also Rgb565 or Rgba4444
-use re::core::util::{pixfmt::Rgba8888, pnm::read_pnm};
-
+// Try also Rgb565, Rgba4444, or Rgb332
+use re::core::util::pixfmt::Rgb565;
+use re::core::util::{pixfmt::Rgb332, pnm::read_pnm};
 use re::front::sdl2::Window;
 use re::geom::solids::{Build, Cube};
 
 fn main() {
     let mut win = Window::builder()
         .title("retrofire//crates")
-        .pixel_fmt(Rgba8888)
+        .pixel_fmt(Rgb565)
         .build()
         .expect("should create window");
 
