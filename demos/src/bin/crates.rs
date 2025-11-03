@@ -9,9 +9,8 @@ use re::core::render::{
     scene::Obj,
     tex::SamplerClamp,
 };
-// Try also Rgb565 or Rgba4444
+// Try also Rgb565, Rgba4444, or Rgb332
 use re::core::util::{pixfmt::Rgba8888, pnm::read_pnm};
-
 use re::front::sdl2::Window;
 use re::geom::solids::{Build, Cube};
 
