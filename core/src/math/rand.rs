@@ -11,7 +11,7 @@ use super::{Color, Point, Point2, Point3, Vec2, Vec3, Vector};
 pub type DefaultRng = Xorshift64;
 
 /// Trait for generating values sampled from a probability distribution.
-pub trait Distrib: Clone {
+pub trait Distrib {
     /// The type of the elements of the sample space of `Self`, also called
     /// "outcomes".
     type Sample;
@@ -43,11 +43,11 @@ pub trait Distrib: Clone {
     /// assert_eq!(iter.next(), Some(2));
     /// assert_eq!(iter.next(), Some(4));
     /// ```
-    fn samples(
-        &self,
-        rng: &mut DefaultRng,
-    ) -> impl Iterator<Item = Self::Sample> {
-        Iter(self.clone(), rng)
+    fn samples<'a>(
+        &'a self,
+        rng: &'a mut DefaultRng,
+    ) -> impl Iterator<Item = Self::Sample> + 'a {
+        Samples(self, rng)
     }
 }
 
@@ -103,9 +103,11 @@ pub struct PointsInUnitBall;
 #[derive(Copy, Clone, Debug)]
 pub struct Bernoulli(pub f32);
 
-/// Iterator returned by the [`Distrib::samples()`] method.
+/// An infinite iterator of pseudorandom values sampled from a distribution.
+///
+/// This type is returned by [`Distrib::samples`].
 #[derive(Copy, Clone, Debug)]
-struct Iter<D, R>(D, R);
+struct Samples<D, R>(D, R);
 
 //
 // Inherent impls
@@ -127,10 +129,10 @@ impl Xorshift64 {
     /// ```
     /// use retrofire_core::math::rand::Xorshift64;
     ///
-    /// let mut g = Xorshift64::from_seed(123);
-    /// assert_eq!(g.next_bits(), 133101616827);
-    /// assert_eq!(g.next_bits(), 12690785413091508870);
-    /// assert_eq!(g.next_bits(), 7516749944291143043);
+    /// let mut g = Xorshift64::from_seed(11223344556677889900);
+    /// assert_eq!(g.next_bits(), 7782624861773764242);
+    /// assert_eq!(g.next_bits(), 6203733934162558527);
+    /// assert_eq!(g.next_bits(), 13009646309496342147);
     /// ```
     ///
     /// # Panics
@@ -183,10 +185,7 @@ impl Xorshift64 {
 // Foreign trait impls
 //
 
-/// An infinite iterator of pseudorandom values sampled from a distribution.
-///
-/// This type is returned by [`Distrib::samples`].
-impl<D: Distrib> Iterator for Iter<D, &'_ mut DefaultRng> {
+impl<D: Distrib> Iterator for Samples<D, &'_ mut DefaultRng> {
     type Item = D::Sample;
 
     /// Returns the next pseudorandom sample from this iterator.
@@ -217,6 +216,14 @@ impl Default for Xorshift64 {
 // Local trait impls
 //
 
+impl<D: Distrib + ?Sized> Distrib for &D {
+    type Sample = D::Sample;
+
+    fn sample(&self, rng: &mut DefaultRng) -> Self::Sample {
+        (*self).sample(rng)
+    }
+}
+
 /// Uniformly distributed signed integers.
 impl Distrib for Uniform<i32> {
     type Sample = i32;
@@ -228,8 +235,7 @@ impl Distrib for Uniform<i32> {
     /// use retrofire_core::math::rand::*;
     /// let rng = &mut DefaultRng::default();
     ///
-    ///
-    /// let mut iter = Uniform(-5i32..6).samples(rng);
+    /// let mut iter = (-5i32..6).samples(rng);
     /// assert_eq!(iter.next(), Some(0));
     /// assert_eq!(iter.next(), Some(4));
     /// assert_eq!(iter.next(), Some(5));
@@ -317,6 +323,39 @@ impl Distrib for Uniform<f32> {
         let (exp, mantissa) = (127 << 23, rng.next_bits() >> 41);
         let unit = f32::from_bits(exp | mantissa as u32) - 1.0;
         unit * (end - start) + start
+    }
+}
+
+impl<T: Clone, S> Distrib for Range<T>
+where
+    Uniform<T>: Distrib<Sample = S>,
+{
+    type Sample = S;
+
+    fn sample(&self, rng: &mut DefaultRng) -> Self::Sample {
+        Uniform(self.clone()).sample(rng)
+    }
+}
+
+impl<T: Clone> Distrib for [T] {
+    type Sample = T;
+
+    /// Returns a random element from the slice *with replacement*.
+    ///
+    /// That is, the elements returned are not removed from the slice and may
+    /// be returned again by another call to this method.
+    ///
+    /// # Examples
+    /// ```
+    /// use retrofire_core::math::rand::{DefaultRng, Distrib};
+    ///
+    /// let pets = ["cat", "dog", "bird", "fish", "turtle"];
+    /// let rng = &mut DefaultRng::default();
+    ///
+    /// assert_eq!(pets.sample(rng), "cat");
+    /// ```
+    fn sample(&self, rng: &mut DefaultRng) -> Self::Sample {
+        self[Uniform(0..self.len()).sample(rng)].clone()
     }
 }
 
