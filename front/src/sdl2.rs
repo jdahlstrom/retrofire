@@ -5,24 +5,25 @@ use std::{fmt, mem::replace, ops::ControlFlow, time::Instant};
 use sdl2::{
     EventPump, IntegerOrSdlError, Sdl,
     event::Event,
-    keyboard::Keycode,
+    keyboard::{Keycode, Scancode},
     pixels::PixelFormatEnum,
     render::{Texture, TextureValueError, WindowCanvas},
     video::{FullscreenType, Window as SdlWindow, WindowBuildError},
 };
 
-use retrofire_core::math::{Color4, Vary};
+use super::{Frame, dims};
+use retrofire_core::math::{Color4, Vary, rgb};
+use retrofire_core::prelude::Color3;
 use retrofire_core::render::{
     Colorbuf, Context, FragmentShader, Target, raster::Scanline,
     stats::Throughput, target::rasterize_fb,
 };
+use retrofire_core::util::pnm::save_ppm;
 use retrofire_core::util::{
     Dims,
     buf::{AsMutSlice2, Buf2, MutSlice2},
     pixfmt::{IntoPixel, Rgb565, Rgba4444, Rgba8888},
 };
-
-use super::{Frame, dims};
 
 /// Helper trait to support different pixel format types.
 pub trait PixelFmt: Copy + Default {
@@ -234,7 +235,23 @@ impl<PF: PixelFmt<Pixel = [u8; N]>, const N: usize> Window<PF> {
                     win: self,
                     ctx: &mut ctx,
                 };
-                frame_fn(frame)
+                let res = frame_fn(frame);
+
+                if frame
+                    .win
+                    .ev_pump
+                    .keyboard_state()
+                    .is_scancode_pressed(Scancode::P)
+                {
+                    let data = frame.buf.color_buf.buf.data();
+                    let img = Buf2::new_from(
+                        frame.win.dims,
+                        data.iter().map(|c| rgb(c[0], c[1], c[2])),
+                    );
+                    save_ppm("sdl2_screenshot.ppm", img).unwrap();
+                }
+
+                res
             })?;
 
             self.present(&tex)?;

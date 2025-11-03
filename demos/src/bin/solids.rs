@@ -9,6 +9,7 @@ use re::core::math::{color::gray, mat::RealToReal, vec::ProjVec3};
 use re::core::render::cam::Fov;
 
 use re::front::{Frame, minifb::Window};
+use re::geom::io::read_obj;
 use re::geom::{io::parse_obj, solids::*};
 
 // Carousel animation for switching between objects.
@@ -84,7 +85,7 @@ fn main() {
 
     let objects = objects(8);
 
-    let translate = translate(-4.0 * Vec3::Z);
+    let translate = translate(-3.0 * Vec3::Z);
     let mut carousel = Carousel::default();
 
     win.run(|frame| {
@@ -170,22 +171,26 @@ fn lathe(secs: u32) -> Mesh<Normal3> {
 
 // Loads the Utah teapot model.
 fn teapot() -> Mesh<Normal3> {
-    parse_obj::<()>(*include_bytes!("../../assets/teapot.obj"))
+    static TEAPOT: &[u8] = include_bytes!("../../teapot.obj");
+    let center_and_scale = scale(splat(0.4)).then(&translate(-0.5 * Vec3::Y));
+    read_obj::<()>(TEAPOT)
         .unwrap()
-        .transform(
-            &scale(splat(0.4))
-                .then(&translate(-0.5 * Vec3::Y))
-                .to(),
-        )
+        .transform(&center_and_scale.to())
         .with_vertex_normals()
         .build()
 }
 
 // Loads the Stanford bunny model.
 fn bunny() -> Mesh<Normal3> {
-    parse_obj::<()>(*include_bytes!("../../assets/bunny.obj"))
-        .unwrap()
-        .transform(&scale(splat(0.15)).then(&translate(-Vec3::Y)).to())
+    static BUNNY: &[u8] = include_bytes!("../../assets/bunny.obj");
+    let bunny = read_obj(BUNNY).unwrap();
+    let verts = &bunny.mesh.verts;
+    let centroid: Vec3<_> = verts.iter().map(|v| v.pos.to_vec()).sum();
+    let center_and_scale = translate(-centroid.to() / verts.len() as f32)
+        .then(&scale(splat(0.15)));
+
+    bunny
+        .transform(&center_and_scale.to())
         .with_vertex_normals()
         .build()
 }

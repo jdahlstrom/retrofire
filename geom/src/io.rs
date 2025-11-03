@@ -101,7 +101,7 @@ enum Face {
 /// # Errors
 /// Returns [`Error`] if I/O or OBJ parsing fails.
 #[cfg(feature = "std")]
-pub fn load_obj(path: impl AsRef<Path>) -> Result<Builder<()>> {
+pub fn load_obj<A>(path: impl AsRef<Path>) -> Result<Builder<A>> {
     read_obj(File::open(path)?)
 }
 
@@ -110,7 +110,7 @@ pub fn load_obj(path: impl AsRef<Path>) -> Result<Builder<()>> {
 /// # Errors
 /// Returns [`Error`] if I/O or OBJ parsing fails.
 #[cfg(feature = "std")]
-pub fn read_obj(input: impl Read) -> Result<Builder<()>> {
+pub fn read_obj<A>(input: impl Read) -> Result<Builder<A>> {
     let input = BufReader::new(input);
     let mut io_res: Result<()> = Ok(());
     let res = parse_obj(input.bytes().map_while(|r| match r {
