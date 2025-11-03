@@ -1,16 +1,17 @@
 //! Frontend using the `minifb` crate for window creation and event handling.
 
 use std::ops::ControlFlow::{self, Break};
-use std::time::Instant;
+use std::time::{Instant, SystemTime, UNIX_EPOCH};
 
 use minifb::{Key, WindowOptions};
 
+use super::{Frame, dims};
+use retrofire_core::math::rgb;
+use retrofire_core::util::pnm::save_ppm;
 use retrofire_core::{
     render::{Colorbuf, Context, target},
     util::{Dims, buf::Buf2, buf::MutSlice2, pixfmt::Xrgb8888},
 };
-
-use super::{Frame, dims};
 
 /// A lightweight wrapper of a `minibuf` window.
 pub struct Window {
@@ -139,6 +140,20 @@ impl Window {
                 break;
             }
             self.present(cbuf.data_mut());
+
+            if self.imp.is_key_released(Key::P) {
+                // TODO there should be a map method in bufs...
+                let shot = Buf2::new_from(
+                    cbuf.dims(),
+                    cbuf.data().iter().map(|c| {
+                        let [_, r, g, b] = c.to_be_bytes();
+                        rgb(r, g, b)
+                    }),
+                );
+                let now = UNIX_EPOCH.elapsed().unwrap().as_millis()
+                    - 1_735_682_400_000; // Jan 1, 2025
+                save_ppm(format!("screenshot-{now}.ppm"), shot).unwrap()
+            }
 
             ctx.stats.borrow_mut().frames += 1.0;
         }
