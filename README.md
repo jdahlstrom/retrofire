@@ -14,7 +14,8 @@
 
 *Note: This document is best viewed on an 80-column VGA terminal.*
 
-Retrofire is a software 3D rendering library
+Retrofire is a software 3D rendering library focusing on performance,
+correctness, and pedagogical value.
 
 The Retrofire project began as a shamelessly nostalgic effort to explore
 the state of graphics programming as it was in the mid-to-late 90s in
@@ -88,10 +89,11 @@ for custom allocators is planned in order to make `alloc` optional as well.
 
 Retrofire is split into several packages:
 
-* core:  math, renderer, utilities; no-std compatible
-* geom:  geometric shapes, mesh builders, model loading
-* front: frontends for writing simple graphical applications
-* demos: binaries showcasing retrofire features
+* retrofire: a metapackage that just re-exports core, geom, and front
+* retrofire-core:  math, renderer, utilities; no-std compatible
+* retrofire-geom:  geometric shapes, mesh builders, model loading
+* retrofire-front: frontends for writing simple graphical applications
+* retrofire-demos: binaries showcasing retrofire features.
 
 # Dependencies
 
@@ -103,13 +105,25 @@ functions, the package is not fully functional unless either the `std`,
 `libm`, or `mm` feature is enabled. Activating `std` additionally enables
 APIs that do I/O.
 
-The `front` package depends on either `sdl2`, `minifb`, or `wasm-bindgen`
-and `web-sys`, depending on enabled features.
+The `retrofire-front` package depends on either `sdl2`, `minifb`, or
+`wasm-bindgen` and `web-sys`, depending on enabled features.
 
-The `geom` package has no external dependencies. It only requires `alloc`;
-activating the optional feature `std` enables APIs that do I/O.
+The `retrofire-geom` package has no external dependencies. It only requires
+`alloc`; activating the optional feature `std` enables APIs that do I/O.
 
-The `retrofire-demos` package depends on `retrofire-front`.
+The `retrofire-demos` package depends on `retrofire`.
+
+# Screenshots
+
+The classic Stanford bunny.
+![The classic Stanford bunny 3D model.](docs/bunny.jpg)
+
+A first-person mouse-and-keyboard scene with many "Rust crates" strewn on a
+checkered floor.
+![Many wooden crates on a plane, each with the Rust logo](docs/crates.jpg)
+
+Ten thousand spherical particles positioned randomly in a sphere.
+![Ten thousand spherical particles in random positions.](docs/sprites.jpg)
 
 # License
 
