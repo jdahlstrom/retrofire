@@ -198,14 +198,14 @@ impl<T> Buf2<T> {
     }
 
     /// Returns a view of the backing data of `self`.
-    pub fn data(&self) -> &[T] {
+    /*pub fn data(&self) -> &[T] {
         self.0.data()
     }
 
     /// Returns a mutable view of the backing data of `self`.
     pub fn data_mut(&mut self) -> &mut [T] {
         self.0.data_mut()
-    }
+    }*/
 
     /// Reinterprets `self` as a buffer of different dimensions but same area.
     ///
@@ -521,7 +521,7 @@ pub mod inner {
         }
 
         /// Returns the data of `self` as a linear slice.
-        pub(super) fn data(&self) -> &[T] {
+        pub fn data(&self) -> &[T] {
             &self.data
         }
 
@@ -576,7 +576,7 @@ pub mod inner {
         }
 
         /// Returns the data of `self` as a single mutable slice.
-        pub(super) fn data_mut(&mut self) -> &mut [T] {
+        pub fn data_mut(&mut self) -> &mut [T] {
             &mut self.data
         }
 
