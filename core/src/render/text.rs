@@ -1,4 +1,3 @@
-use alloc::vec::Vec;
 use core::fmt;
 #[cfg(feature = "std")]
 use std::io;

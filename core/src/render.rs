@@ -145,7 +145,7 @@ pub fn render<Prim, Vtx: Clone, Var, Uni: Copy, Shd, Tgt>(
     shader: &Shd,
     uniform: Uni,
     to_screen: Mat4<Ndc, Screen>,
-    mut target: impl DerefMut<Target = Tgt>,
+    target: impl DerefMut<Target = Tgt>,
     ctx: &Context,
 ) where
     Prim: Render<Var> + Clone,
