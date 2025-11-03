@@ -12,7 +12,9 @@
 
 # Retrofire-demos
 
-Simple demo programs showcasing Retrofire features.
+Simple demo programs showcasing [`retrofire`][1] features.
+
+[1]: https://crates.io/crates/retrofire
 
 ## Demo binaries
 

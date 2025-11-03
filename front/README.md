@@ -12,23 +12,23 @@
 
 # Retrofire-front
 
-Simple frontends for Retrofire.
+Simple frontends for [`retrofire`][1].
+
+[1]: https://crates.io/crates/retrofire
 
 ## Crate features
 
-* `minifb`:
-  Enables a frontend using the [`minifb`](https://crates.io/crates/minifb)
-  library.
-
-* `sdl2`:
-  Enables a frontend using the [`sdl2`](https://crates.io/crates/sdl2)
-  library.
-
-* `wasm`
-  Enables a frontend using WebAssembly and
-  [`wasm-bindgen`](https://crates.io/crates/wasm-bindgen).
+* `minifb`: Enables a frontend using the [`minifb`][2] library.
+* `sdl2`:   Enables a frontend using the [`sdl2`][3] library.
+* `wasm`    Enables a frontend using WebAssembly and [`wasm-bindgen`][4].
 
 All features are disabled by default.
+
+[2]: https://crates.io/crates/minifb
+
+[3]: https://crates.io/crates/sdl2
+
+[4]: https://crates.io/crates/wasm-bindgen
 
 ## License
 
