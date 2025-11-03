@@ -139,19 +139,20 @@ impl<S, Vtx, Var, Uni> Shader<Vtx, Var, Uni> for S where
 }
 
 /// Renders the given primitives into `target`.
-pub fn render<Prim, Vtx: Clone, Var, Uni: Copy, Shd>(
+pub fn render<Prim, Vtx: Clone, Var, Uni: Copy, Shd, Tgt>(
     prims: impl AsRef<[Prim]>,
     verts: impl AsRef<[Vtx]>,
     shader: &Shd,
     uniform: Uni,
     to_screen: Mat4<Ndc, Screen>,
-    target: &mut impl Target,
+    mut target: impl DerefMut<Target = Tgt>,
     ctx: &Context,
 ) where
     Prim: Render<Var> + Clone,
     [<Prim>::Clip]: Clip<Item = Prim::Clip>,
     Var: Vary,
     Shd: Shader<Vtx, Var, Uni>,
+    Tgt: Target,
 {
     // 0. Setup
     let prims = prims.as_ref();
@@ -177,7 +178,7 @@ pub fn render<Prim, Vtx: Clone, Var, Uni: Copy, Shd>(
 
     // 4. Rasterize: Turn visible primitives to fragments
     #[allow(unused_variables)]
-    let (prims_out, verts_out) = rasterize::<Prim, _, _, _>(
+    let (prims_out, verts_out) = rasterize::<Prim, _, _, _, _>(
         clipped, shader, uniform, to_screen, target, ctx,
     );
 
@@ -187,12 +188,12 @@ pub fn render<Prim, Vtx: Clone, Var, Uni: Copy, Shd>(
     }
 }
 
-fn rasterize<Prim, Shd, Var, Uni>(
+fn rasterize<Prim, Shd, Var, Uni, Tgt>(
     clipped: Vec<Prim::Clip>,
     shader: &Shd,
     uniform: Uni,
     to_screen: Mat4<Ndc, Screen>,
-    mut target: &mut impl Target,
+    mut target: impl DerefMut<Target = Tgt>,
     ctx: &Context,
 ) -> (usize, usize)
 where
@@ -200,6 +201,7 @@ where
     Shd: FragmentShader<Var, Uni>,
     Var: Vary,
     Uni: Copy,
+    Tgt: Target,
 {
     let mut out = (0, 0);
     for prim in clipped {

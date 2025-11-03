@@ -73,7 +73,7 @@ impl<T: Target> Target for &RefCell<T> {
         uni: U,
         ctx: &Context,
     ) {
-        RefCell::borrow_mut(self).rasterize(sl, fs, uni, ctx)
+        (*self).rasterize(sl, fs, uni, ctx)
     }
 }
 

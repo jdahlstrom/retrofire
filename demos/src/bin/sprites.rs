@@ -73,7 +73,7 @@ fn main() {
             &shader,
             &uniform,
             cam.viewport,
-            &mut frame.buf,
+            frame.buf.borrow_mut(),
             frame.ctx,
         );
         Continue(())

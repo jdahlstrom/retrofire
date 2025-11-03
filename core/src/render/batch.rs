@@ -1,7 +1,7 @@
 //! Builder for setting up geometry for rendering.
 
 use alloc::vec::Vec;
-use core::borrow::Borrow;
+use core::{borrow::Borrow, cell::RefCell};
 
 use crate::geom::{Edge, Mesh, Tri, Vertex3};
 use crate::math::{Mat4, Vary};
@@ -28,9 +28,9 @@ use super::{Clip, Context, Ndc, Render, Screen, Shader, Target};
 // using the same configuration, or several [instances] of the same geometry.
 // [instances]: https://en.wikipedia.org/wiki/Geometry_instancing
 #[derive(Clone, Debug, Default)]
-pub struct Batch<Prim, Vtx, Uni, Shd, Tgt, Ctx> {
-    pub prims: Vec<Prim>,
-    pub verts: Vec<Vtx>,
+pub struct Batch<Prims, Verts, Uni, Shd, Tgt, Ctx> {
+    pub prims: Prims,
+    pub verts: Verts,
     pub uniform: Uni,
     pub shader: Shd,
     pub viewport: Mat4<Ndc, Screen>,
@@ -51,15 +51,15 @@ impl Batch<(), (), (), (), (), Context> {
     }
 }
 
-impl<Prim, Vtx, Uni, Shd, Tgt, Ctx> Batch<Prim, Vtx, Uni, Shd, Tgt, Ctx> {
+impl<Ps, Vs, Uni, Shd, Tgt, Ctx> Batch<Ps, Vs, Uni, Shd, Tgt, Ctx> {
     /// Sets the primitives to be rendered.
     ///
     /// The primitives are copied into the batch.
-    pub fn primitives<P: Clone>(
+    pub fn primitives<P, Ps2: AsRef<[P]>>(
         self,
-        prims: impl AsRef<[P]>,
-    ) -> Batch<P, Vtx, Uni, Shd, Tgt, Ctx> {
-        let prims = prims.as_ref().to_vec();
+        prims: Ps2,
+    ) -> Batch<Ps2, Vs, Uni, Shd, Tgt, Ctx> {
+        //let prims = prims.as_ref().to_vec();
         update!(prims; self verts uniform shader viewport target ctx)
     }
 
@@ -67,11 +67,11 @@ impl<Prim, Vtx, Uni, Shd, Tgt, Ctx> Batch<Prim, Vtx, Uni, Shd, Tgt, Ctx> {
     ///
     /// The vertices are cloned into the batch.
     // TODO: Allow taking by reference to make cloning Batch cheap
-    pub fn vertices<V: Clone>(
+    pub fn vertices<V, Vs2: AsRef<[V]>>(
         self,
-        verts: impl AsRef<[V]>,
-    ) -> Batch<Prim, V, Uni, Shd, Tgt, Ctx> {
-        let verts = verts.as_ref().to_vec();
+        verts: Vs2,
+    ) -> Batch<Ps, Vs2, Uni, Shd, Tgt, Ctx> {
+        //let verts = verts.as_ref().to_vec();
         update!(verts; self prims uniform shader viewport target ctx)
     }
 
@@ -79,9 +79,9 @@ impl<Prim, Vtx, Uni, Shd, Tgt, Ctx> Batch<Prim, Vtx, Uni, Shd, Tgt, Ctx> {
     pub fn mesh<A: Clone>(
         self,
         mesh: &Mesh<A>,
-    ) -> Batch<Tri<usize>, Vertex3<A>, Uni, Shd, Tgt, Ctx> {
-        let prims = mesh.faces.clone();
-        let verts = mesh.verts.clone();
+    ) -> Batch<&[Tri<usize>], &[Vertex3<A>], Uni, Shd, Tgt, Ctx> {
+        let prims = &mesh.faces; //.clone();
+        let verts = &mesh.verts; //.clone();
         update!(verts prims; self uniform shader viewport target ctx)
     }
 
@@ -89,15 +89,18 @@ impl<Prim, Vtx, Uni, Shd, Tgt, Ctx> Batch<Prim, Vtx, Uni, Shd, Tgt, Ctx> {
     pub fn uniform<U: Copy>(
         self,
         uniform: U,
-    ) -> Batch<Prim, Vtx, U, Shd, Tgt, Ctx> {
+    ) -> Batch<Ps, Vs, U, Shd, Tgt, Ctx> {
         update!(uniform; self verts prims shader viewport target ctx)
     }
 
     /// Sets the combined vertex and fragment shader.
-    pub fn shader<V: Vary, U, S: Shader<Vtx, V, U>>(
+    pub fn shader<Vtx, V: Vary, U, S: Shader<Vtx, V, U>>(
         self,
         shader: S,
-    ) -> Batch<Prim, Vtx, Uni, S, Tgt, Ctx> {
+    ) -> Batch<Ps, Vs, Uni, S, Tgt, Ctx>
+    where
+        Vs: AsRef<[Vtx]>,
+    {
         update!(shader; self verts prims uniform viewport target ctx)
     }
 
@@ -108,7 +111,7 @@ impl<Prim, Vtx, Uni, Shd, Tgt, Ctx> Batch<Prim, Vtx, Uni, Shd, Tgt, Ctx> {
 
     /// Sets the render target.
     // TODO what bound for T?
-    pub fn target<T>(self, target: T) -> Batch<Prim, Vtx, Uni, Shd, T, Ctx> {
+    pub fn target<T>(self, target: T) -> Batch<Ps, Vs, Uni, Shd, T, Ctx> {
         update!(target; self verts prims uniform shader viewport ctx)
     }
 
@@ -116,21 +119,23 @@ impl<Prim, Vtx, Uni, Shd, Tgt, Ctx> Batch<Prim, Vtx, Uni, Shd, Tgt, Ctx> {
     pub fn context(
         self,
         ctx: &Context,
-    ) -> Batch<Prim, Vtx, Uni, Shd, Tgt, &Context> {
+    ) -> Batch<Ps, Vs, Uni, Shd, Tgt, &Context> {
         update!(ctx; self verts prims uniform shader viewport target)
     }
 }
 
-impl<Prim, Vtx, Uni, Shd, Tgt, Ctx> Batch<Prim, Vtx, Uni, Shd, Tgt, Ctx> {
+impl<Prims, Verts, Uni, Shd, Tgt, Ctx> Batch<Prims, Verts, Uni, Shd, Tgt, Ctx> {
     /// Renders this batch of geometry.
     #[rustfmt::skip]
-    pub fn render<Var>(&mut self)
+    pub fn render<Prim, Vtx, Var>(&mut self)
     where
         Var: Vary,
         Prim: Render<Var> + Clone,
         Vtx: Clone,
         Uni: Copy,
-        [<Prim>::Clip]: Clip<Item= Prim::Clip>,
+        [<Prim>::Clip]: Clip<Item = Prim::Clip>,
+        Prims: AsRef<[Prim]>,
+        Verts: AsRef<[Vtx]>,
         Shd: Shader<Vtx, Var, Uni>,
         Tgt: Target,
         Ctx: Borrow<Context>
@@ -146,7 +151,9 @@ impl<Prim, Vtx, Uni, Shd, Tgt, Ctx> Batch<Prim, Vtx, Uni, Shd, Tgt, Ctx> {
     }
 }
 
-impl<Vtx, Uni, Shd, Tgt, Ctx> Batch<Edge<usize>, Vtx, Uni, Shd, Tgt, Ctx> {
+impl<Vtx, Uni, Shd, Tgt, Ctx>
+    Batch<Vec<Edge<usize>>, Vec<Vtx>, Uni, Shd, Tgt, Ctx>
+{
     pub fn append(&mut self, other: Self) {
         let Batch { prims, verts, .. } = other;
         let n = self.verts.len();
@@ -157,7 +164,9 @@ impl<Vtx, Uni, Shd, Tgt, Ctx> Batch<Edge<usize>, Vtx, Uni, Shd, Tgt, Ctx> {
     }
 }
 
-impl<Vtx, Uni, Shd, Tgt, Ctx> Batch<Tri<usize>, Vtx, Uni, Shd, Tgt, Ctx> {
+impl<Vtx, Uni, Shd, Tgt, Ctx>
+    Batch<Vec<Tri<usize>>, Vec<Vtx>, Uni, Shd, Tgt, Ctx>
+{
     pub fn append(&mut self, other: Self) {
         let Batch { prims, verts, .. } = other;
         let n = self.verts.len();

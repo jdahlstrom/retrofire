@@ -40,8 +40,14 @@ impl<'a, B> FragmentShader<Color4f, &'a ProjMat3<B>> for Shader {
     }
 }
 
-pub type DbgBatch<B> =
-    super::Batch<Edge<usize>, Vertex3<Color4f, B>, (), Shader, (), Context>;
+pub type DbgBatch<B> = super::Batch<
+    Vec<Edge<usize>>,
+    Vec<Vertex3<Color4f, B>>,
+    (),
+    Shader,
+    (),
+    Context,
+>;
 
 /// Returns a color visualizing the direction of a vector.
 ///
@@ -192,8 +198,8 @@ pub fn sphere<B>(o: Point3<B>, r: f32) -> DbgBatch<B> {
 impl<B> DbgBatch<B> {
     fn new(prims: &[Edge<usize>], verts: &[Vertex3<Color4f, B>]) -> Self {
         DbgBatch::<B>::default()
-            .primitives(prims)
-            .vertices(verts)
+            .primitives(prims.to_vec())
+            .vertices(verts.to_vec())
             .shader(Shader)
     }
 }
