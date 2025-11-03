@@ -35,8 +35,12 @@ fn main() {
     win.ctx.depth_clear = None;
 
     win.run(|Frame { dt, buf, .. }| {
+<<<<<<< HEAD
         let buf = &mut buf.borrow_mut().color_buf.buf;
 
+=======
+        let mut buf = buf.borrow_mut();
+>>>>>>> 85a527e2 (WIP more pixelformats, testing a generic impl)
         // Fade out previous frame a bit
         buf.iter_mut()
             .for_each(|c| *c = c.saturating_sub(0x08_08_02));
