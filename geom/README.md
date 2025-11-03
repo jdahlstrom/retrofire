@@ -12,13 +12,13 @@
 
 # Retrofire-geom
 
-Additional geometry types and routines for Retrofire.
+Additional geometry types and routines for [`retrofire`][1].
+
+[1]: https://crates.io/crates/retrofire
 
 ## Crate features
 
-* `std`: Enables file I/O.
-
-All features are disabled by default.
+* `std`: Enables file I/O. Disabled by default.
 
 ## License
 

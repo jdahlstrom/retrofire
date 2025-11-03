@@ -12,11 +12,13 @@
 
 # Retrofire-core
 
-Core functionality of the `retrofire` project.
+Core functionality of the [`retrofire`][1] project.
 
 Includes a math library with strongly typed points, vectors, matrices,
 colors, and angles; basic geometry primitives; a software 3D renderer with
 customizable shaders; with more to come.
+
+[1]: https://crates.io/crates/retrofire
 
 ## Crate features
 
