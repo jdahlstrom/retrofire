@@ -22,6 +22,8 @@ use super::{Frame, font_6x10};
 
 #[cfg(feature = "stats")]
 use retrofire_core::render::Stats;
+use retrofire_core::util::pixfmt::{Rgb332, Rgba5551};
+
 #[cfg(not(feature = "stats"))]
 pub type Stats = ();
 
@@ -280,13 +282,22 @@ impl PixelFmt for Rgba8888 {
     type Pixel = [u8; 4];
     const SDL_FMT: PixelFormatEnum = PixelFormatEnum::RGBA32;
 }
-impl PixelFmt for Rgb565 {
+impl PixelFmt for Rgba5551 {
     type Pixel = [u8; 2];
-    const SDL_FMT: PixelFormatEnum = PixelFormatEnum::RGB565;
+    const SDL_FMT: PixelFormatEnum = PixelFormatEnum::RGBA5551;
 }
 impl PixelFmt for Rgba4444 {
     type Pixel = [u8; 2];
     const SDL_FMT: PixelFormatEnum = PixelFormatEnum::RGBA4444;
+}
+
+impl PixelFmt for Rgb565 {
+    type Pixel = [u8; 2];
+    const SDL_FMT: PixelFormatEnum = PixelFormatEnum::RGB565;
+}
+impl PixelFmt for Rgb332 {
+    type Pixel = [u8; 1];
+    const SDL_FMT: PixelFormatEnum = PixelFormatEnum::RGB332;
 }
 
 impl<PF: PixelFmt> Default for Builder<'_, PF> {
