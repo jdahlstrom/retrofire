@@ -181,8 +181,8 @@ impl<Sc: Copy, const N: usize, const DIM: usize, S, D>
     ///
     /// let m: Mat2 = mat![1.0, 2.0;
     ///                    3.0, 4.0];
-    /// assert_eq!(m.transpose(), mat![1.0 3.0;
-    ///                                2.0 4.0]);
+    /// assert_eq!(m.transpose(), mat![1.0, 3.0;
+    ///                                2.0, 4.0]);
     #[must_use]
     pub fn transpose(self) -> Matrix<[[Sc; N]; N], RealToReal<DIM, D, S>> {
         const { assert!(N >= DIM, "map dimension >= matrix dimension") }
@@ -913,7 +913,7 @@ pub const fn scale3(x: f32, y: f32, z: f32) -> Mat4 {
 ///
 /// # Examples
 /// ```
-/// use retrofire_core::math::{pt3, vec3, translate};
+/// use retrofire_core::math::{Apply, pt3, vec3, translate};
 ///
 /// let m = translate(vec3(1.0, -2.0, 3.0));
 ///
@@ -1008,10 +1008,10 @@ fn orient(new_y: Vec3, new_z: Vec3) -> Mat4 {
 pub fn rotate_x(a: Angle) -> Mat4 {
     let (sin, cos) = a.sin_cos();
     mat![
-        1.0,  0.0, 0.0, 0.0;
-        0.0,  cos, sin, 0.0;
-        0.0, -sin, cos, 0.0;
-        0.0,  0.0, 0.0, 1.0;
+        1.0,  0.0,  0.0,  0.0;
+        0.0,  cos, -sin,  0.0;
+        0.0,  sin,  cos,  0.0;
+        0.0,  0.0,  0.0,  1.0;
     ]
 }
 /// Returns a matrix applying a 3D rotation about the y-axis (on the xz plane).
@@ -1028,10 +1028,10 @@ pub fn rotate_x(a: Angle) -> Mat4 {
 pub fn rotate_y(a: Angle) -> Mat4 {
     let (sin, cos) = a.sin_cos();
     mat![
-        cos, 0.0, -sin, 0.0;
-        0.0, 1.0,  0.0, 0.0;
-        sin, 0.0,  cos, 0.0;
-        0.0, 0.0,  0.0, 1.0;
+        cos,  0.0,  sin, 0.0;
+        0.0,  1.0,  0.0, 0.0;
+       -sin,  0.0,  cos, 0.0;
+        0.0,  0.0,  0.0, 1.0;
     ]
 }
 /// Returns a matrix applying a 3D rotation about the z axis (on the xy plane).
@@ -1046,10 +1046,10 @@ pub fn rotate_y(a: Angle) -> Mat4 {
 pub fn rotate_z(a: Angle) -> Mat4 {
     let (sin, cos) = a.sin_cos();
     mat![
-         cos, sin, 0.0, 0.0;
-        -sin, cos, 0.0, 0.0;
-         0.0, 0.0, 1.0, 0.0;
-         0.0, 0.0, 0.0, 1.0;
+        cos, -sin,  0.0,  0.0;
+        sin,  cos,  0.0,  0.0;
+        0.0,  0.0,  1.0,  0.0;
+        0.0,  0.0,  0.0,  1.0;
     ]
 }
 
@@ -1067,8 +1067,6 @@ pub fn rotate2(a: Angle) -> Mat3 {
 /// Returns a matrix applying a 3D rotation about an arbitrary axis.
 #[cfg(feature = "fp")]
 pub fn rotate(axis: Vec3, a: Angle) -> Mat4 {
-    use crate::math::approx::ApproxEq;
-
     // 1. Change of basis such that `axis` is mapped to the z-axis,
     // 2. Rotation about the z-axis
     // 3. Change of basis back to the original
@@ -1398,10 +1396,23 @@ mod tests {
 
             assert_eq!(m.apply(&O), O);
 
-            assert_approx_eq!(m.apply(&Z), Y);
+            // Rotates counter-clockwise on the YZ-plane as seen
+            // from the direction of the positive X-axis:
+            //
+            //           +y
+            //            ^
+            //            |  <--__
+            //            |       \
+            //            |       |
+            //            O-------+---> -z
+            //          /
+            //        v
+            //      +x
+            //
+            assert_approx_eq!(m.apply(&Y), Z);
             assert_approx_eq!(
-                m.apply(&pt3(0.0, -2.0, 0.0)),
-                pt3(0.0, 0.0, 2.0)
+                m.apply(&pt3(0.0, 0.0, 2.0)),
+                pt3(0.0, -2.0, 0.0)
             );
         }
 
@@ -1412,10 +1423,23 @@ mod tests {
 
             assert_eq!(m.apply(&O), O);
 
-            assert_approx_eq!(m.apply(&X), Z);
+            // Rotates counter-clockwise on the ZX-plane as seen
+            // from the direction of the positive Y-axis
+            //
+            //           +x
+            //            ^
+            //            |  <--__
+            //            |       \
+            //            |       |
+            //            O-------+---> +z
+            //          /
+            //        v
+            //     +y
+            //
+            assert_approx_eq!(m.apply(&Z), X);
             assert_approx_eq!(
-                m.apply(&pt3(0.0, 0.0, -2.0)),
-                pt3(2.0, 0.0, 0.0)
+                m.apply(&pt3(2.0, 0.0, 0.0)),
+                pt3(0.0, 0.0, -2.0)
             );
         }
 
@@ -1426,10 +1450,23 @@ mod tests {
 
             assert_eq!(m.apply(&O), O);
 
-            assert_approx_eq!(m.apply(&Y), X);
+            // Rotates counter-clockwise on the XY-plane as seen
+            // from the direction of the positive Z-axis
+            //
+            //          +y
+            //           ^
+            //           |  <--__
+            //           |       \
+            //           |       |
+            //           O-------+---> +x
+            //         /
+            //       v
+            //     +z
+            //
+            assert_approx_eq!(m.apply(&X), Y);
             assert_approx_eq!(
-                m.apply(&(pt3(-2.0, 0.0, 0.0))),
-                pt3(0.0, 2.0, 0.0)
+                m.apply(&(pt3(0.0, 2.0, 0.0))),
+                pt3(-2.0, 0.0, 0.0)
             );
         }
 
