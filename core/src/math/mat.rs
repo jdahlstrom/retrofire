@@ -131,7 +131,7 @@ impl<Repr, Map> Matrix<Repr, Map> {
 
 impl<Sc, const N: usize, const M: usize, Map> Matrix<[[Sc; N]; M], Map>
 where
-    Sc: Copy,
+    Sc: Linear<Scalar = Sc> + Copy,
     Map: LinearMap,
 {
     /// Returns the row vector of `self` with index `i`.
@@ -140,16 +140,31 @@ where
     ///
     /// # Panics
     /// If `i >= M`.
+    ///
+    /// # Examples
+    /// ```
+    /// use retrofire_core::{mat, math::{vec2, Mat2}};
+    ///
+    /// let m: Mat2 = mat![1.0, 2.0; 3.0, 4.0];
+    /// assert_eq!(m.row_vec(0), vec2(1.0, 2.0));
     #[inline]
     pub fn row_vec(&self, i: usize) -> Vector<[Sc; N], Map::Source> {
         Vector::new(self.0[i])
     }
+
     /// Returns the column vector of `self` with index `i`.
     ///
     /// The returned vector is in space `Map::Dest`.
     ///
     /// # Panics
     /// If `i >= N`.
+    ///
+    /// # Examples
+    /// ```
+    /// use retrofire_core::{mat, math::{vec2, Mat2}};
+    ///
+    /// let m: Mat2 = mat![1.0, 2.0; 3.0, 4.0];
+    /// assert_eq!(m.col_vec(1), vec2(2.0, 4.0));
     #[inline]
     pub fn col_vec(&self, i: usize) -> Vector<[Sc; M], Map::Dest> {
         Vector::new(self.0.map(|row| row[i]))
@@ -159,6 +174,16 @@ impl<Sc: Copy, const N: usize, const DIM: usize, S, D>
     Matrix<[[Sc; N]; N], RealToReal<DIM, S, D>>
 {
     /// Returns `self` with its rows and columns swapped.
+    ///
+    /// # Examples
+    /// ```
+    /// use retrofire_core::{mat, math::{vec2, Mat2}};
+    ///
+    /// let m: Mat2 = mat![1.0, 2.0;
+    ///                    3.0, 4.0];
+    /// assert_eq!(m.transpose(), mat![1.0 3.0;
+    ///                                2.0 4.0]);
+    #[must_use]
     pub fn transpose(self) -> Matrix<[[Sc; N]; N], RealToReal<DIM, D, S>> {
         const { assert!(N >= DIM, "map dimension >= matrix dimension") }
         array::from_fn(|j| array::from_fn(|i| self.0[i][j])).into()
@@ -179,8 +204,9 @@ impl<const N: usize, Map> Matrix<[[f32; N]; N], Map> {
     /// It is the neutral element of matrix multiplication:
     /// **A · I** = **I · A** = **A**, as well as matrix-vector
     /// multiplication: **I·v** = **v**.
-
     pub const fn identity() -> Self {
+        // Needs const traits to be more generic;
+        // const array::map/from_fn for a nicer impl
         let mut els = [[0.0; N]; N];
         let mut i = 0;
         while i < N {
@@ -223,7 +249,7 @@ impl Mat4 {
             i[0], j[0], k[0], o[0];
             i[1], j[1], k[1], o[1];
             i[2], j[2], k[2], o[2];
-            0.0, 0.0, 0.0, 1.0
+             0.0,  0.0,  0.0,  1.0
         ]
     }
 }
@@ -285,6 +311,7 @@ impl<Src, Dest> Mat2<Src, Dest> {
     /// let singular: Mat2 = [[1.0, 0.0], [2.0, 0.0]].into();
     /// assert_eq!(singular.determinant(), 0.0);
     /// ```
+    #[inline]
     pub const fn determinant(&self) -> f32 {
         let [[a, b], [c, d]] = self.0;
         a * d - b * c
@@ -317,6 +344,7 @@ impl<Src, Dest> Mat2<Src, Dest> {
         }
         let r_det = 1.0 / det;
         let [[a, b], [c, d]] = self.0;
+        // Inverse is transpose of cofactor matrix divided by determinant
         Some(mat![
             r_det * d, r_det * -b;
             r_det * -c, r_det * a
@@ -329,7 +357,7 @@ impl<Src, Dest> Mat2<Src, Dest> {
     /// is nonzero. A non-invertible matrix is also called singular.
     ///
     /// # Panics
-    /// If `self` has no inverse.
+    /// If `self` is singular or near-singular.
     ///
     /// # Examples
     /// ```
@@ -379,23 +407,8 @@ impl<Src, Dest> Mat3<Src, Dest, 2> {
     /// 1. Remove the given row and column from `self` to get a 2x2 submatrix;
     /// 2. Compute its determinant;
     /// 3. If exactly one of `row` and `col` is even, multiply by -1.
-    ///
-    /// # Examples
-    /// ```
-    /// use retrofire_core::{mat, math::Mat3, math::mat::RealToReal};
-    ///
-    /// let mat: Mat3<RealToReal<2>> = mat![
-    ///     1.0, 2.0, 3.0;
-    ///     4.0, 5.0, 6.0;
-    ///     7.0, 8.0, 9.0
-    /// ];
-    /// // Remove row 0 and col 1, giving [[4.0, 6.0], [7.0, 9.0]].
-    /// // The determinant of this submatrix is 4.0 * 7.0 - 6.0 * 9.0.
-    /// // Multiply by -1 because row is even and col is odd.
-    /// assert_eq!(mat.cofactor(0, 1), 6.0 * 7.0 - 4.0 * 9.0);
-    /// ```
     #[inline]
-    pub const fn cofactor(&self, row: usize, col: usize) -> f32 {
+    const fn cofactor(&self, row: usize, col: usize) -> f32 {
         // This automatically takes care of the negation
         let r1 = (row + 1) % 3;
         let r2 = (row + 2) % 3;
@@ -405,15 +418,40 @@ impl<Src, Dest> Mat3<Src, Dest, 2> {
     }
 
     /// Returns the inverse of `self`, or `None` if `self` is singular.
+    ///
+    /// # Examples
+    /// ```
+    /// use retrofire_core::{mat, math::Mat3};
+    ///
+    /// let mat: Mat3 = mat![
+    ///     2.0, 0.0, 1.0;
+    ///     0.0, 4.0, 2.0;
+    ///     0.0, 0.0, 1.0
+    /// ];
+    /// assert_eq!(mat.checked_inverse(), Some(mat![
+    ///     0.5,  0.0,  -0.5;
+    ///     0.0,  0.25, -0.5;
+    ///     0.0,  0.0,   1.0
+    /// ]));
+    /// ```
     #[must_use]
-    pub fn checked_inverse(&self) -> Option<Mat3<Dest, Src, 2>> {
+    pub const fn checked_inverse(&self) -> Option<Mat3<Dest, Src, 2>> {
         let det = self.determinant();
         if det.abs() < 1e-6 {
             return None;
         }
 
-        // Compute cofactors
-        let c_a = self.cofactor(0, 0); // = e
+        // Inverse is transpose of cofactor matrix divided by determinant
+        let mut res = [[0.0; 3]; 3];
+        let r_det = 1.0 / det;
+        let mut i = 0;
+        while i < 3 {
+            res[i][0] = r_det * self.cofactor(0, i);
+            res[i][1] = r_det * self.cofactor(1, i);
+            res[i][2] = r_det * self.cofactor(2, i);
+            i += 1;
+        }
+        /*let c_a = self.cofactor(0, 0); // = e
         let c_b = self.cofactor(0, 1); // = d
         let c_c = self.cofactor(0, 2); // = 0
         let c_d = self.cofactor(1, 0); // = b
@@ -421,24 +459,14 @@ impl<Src, Dest> Mat3<Src, Dest, 2> {
         let c_f = self.cofactor(1, 2); // = 0
         let c_g = self.cofactor(2, 0); // = b * f - c * e
         let c_h = self.cofactor(2, 1); // = a * f - c * d
-        let c_i = self.cofactor(2, 2); // = a * e - b * d
+        let c_i = self.cofactor(2, 2); // = a * e - b * d*/
 
-        let r_det = 1.0 / det;
-        // Inverse is transpose of cofactor matrix, divided by determinant
-        let abc = r_det * vec3(c_a, c_d, c_g);
-        let def = r_det * vec3(c_b, c_e, c_h);
-        let ghi = r_det * vec3(c_c, c_f, c_i);
-
-        Some(Mat3::from_rows(abc, def, ghi))
+        Some(Mat3::new(res))
     }
 
     pub fn inverse(&self) -> Mat3<Dest, Src> {
         self.checked_inverse()
             .expect("matrix cannot be singular or near-singular")
-    }
-
-    const fn from_rows(i: Vec3<Src>, j: Vec3<Src>, k: Vec3<Src>) -> Self {
-        Self::new([i.0, j.0, k.0])
     }
 }
 
@@ -452,15 +480,17 @@ impl<Src, Dst> Mat4<Src, Dst> {
     ///         ⎜ i  j  k  l ⎟
     ///         ⎝ m  n  o  p ⎠
     /// ```
-    /// its determinant can be computed by recursively computing the determinants
-    /// of sub-matrices on rows 1..4 and multiplying them by the elements on row 0:
+    /// its determinant can be computed by multiplying each element *e* on row 0
+    /// with its *minors*: the determinant of the submatrix obtained by removing
+    /// the row and column of *e*:
     /// ```text
     ///              ⎜ f g h ⎜       ⎜ e g h ⎜
-    /// det(M) = a · ⎜ j k l ⎜ - b · ⎜ i k l ⎜  + - ···
+    /// det(M) = a · ⎜ j k l ⎜ - b · ⎜ i k l ⎜  + c * ··· - d * ···
     ///              ⎜ n o p ⎜       ⎜ m o p ⎜
     /// ```
     pub fn determinant(&self) -> f32 {
         let [[a, b, c, d], r, s, t] = self.0;
+
         let det2 = |m, n| s[m] * t[n] - s[n] * t[m];
         let det3 =
             |j, k, l| r[j] * det2(k, l) - r[k] * det2(j, l) + r[l] * det2(j, k);
@@ -469,17 +499,22 @@ impl<Src, Dst> Mat4<Src, Dst> {
             - d * det3(0, 1, 2)
     }
 
+    #[must_use]
+    pub fn checked_inverse(&self) -> Option<Mat4<Dst, Src>> {
+        (!self.determinant().approx_eq(&0.0)).then(|| self.inverse())
+    }
+
     /// Returns the inverse matrix of `self`.
     ///
-    /// The inverse 𝝡<sup>-1</sup> of matrix 𝝡 is a matrix that, when
-    /// composed with 𝝡, results in the [identity](Self::identity) matrix:
+    /// The inverse **M**<sup>-1</sup> of matrix **M** is a matrix that, when
+    /// composed with **M**, results in the [identity](Self::identity) matrix:
     ///
-    /// 𝝡 ∘ 𝝡<sup>-1</sup> = 𝝡<sup>-1</sup> ∘ 𝝡 = 𝐈
+    /// **M** ∘ **M**<sup>-1</sup> = **M**<sup>-1</sup> ∘ **M** = **I**
     ///
-    /// In other words, it applies the transform of 𝝡 in reverse.
-    /// Given vectors 𝘃 and 𝘂,
+    /// In other words, it applies the transform of **M** in reverse.
+    /// Given vectors **v** and **u**,
     ///
-    /// 𝝡𝘃 = 𝘂 ⇔ 𝝡<sup>-1</sup> 𝘂 = 𝘃.
+    /// **Mv** = **u** ⇔ **M**<sup>-1</sup> **u** = **v**.
     ///
     /// Only matrices with a nonzero determinant have a defined inverse.
     /// A matrix without an inverse is said to be singular.
@@ -488,9 +523,10 @@ impl<Src, Dst> Mat4<Src, Dst> {
     /// suffer from imprecision or numerical instability in certain cases.
     ///
     /// # Panics
-    /// If debug assertions are enabled, panics if `self` is singular or near-singular.
-    /// If not enabled, the return value is unspecified and may contain non-finite
-    /// values (infinities and NaNs).
+    /// If debug assertions are enabled, panics if `self` is singular or
+    /// near-singular. If not enabled, the return value is unspecified and
+    /// may contain non-finite values (infinities and NaNs).
+    // TODO example
     #[must_use]
     pub fn inverse(&self) -> Mat4<Dst, Src> {
         use super::float::f32;
@@ -515,7 +551,7 @@ impl<Src, Dst> Mat4<Src, Dst> {
         }
 
         // Elementary row operation swapping two rows
-        fn swap_rows(m: &mut Mat4, r: usize, s: usize) {
+        const fn swap_rows(m: &mut Mat4, r: usize, s: usize) {
             m.0.swap(r, s);
         }
 
@@ -621,7 +657,7 @@ impl<Src, Dest> Apply<Vec2<Src>> for Mat2<Src, Dest> {
 
     /// Maps a real 2-vector from basis `Src` to basis `Dst`.
     ///
-    /// Computes the matrix–vector multiplication **MV** where **v** is
+    /// Computes the matrix–vector multiplication **Mv** where **v** is
     /// interpreted as a column vector:
     ///
     /// ```text
@@ -636,7 +672,7 @@ impl<Src, Dest> Apply<Vec2<Src>> for Mat2<Src, Dest> {
 impl<Src, Dest> Apply<Point2<Src>> for Mat2<Src, Dest> {
     type Output = Point2<Dest>;
 
-    /// Maps a real 2-vector from basis `Src` to basis `Dst`.
+    /// Maps a real 2-point from basis `Src` to basis `Dst`.
     ///
     /// Computes the matrix–point multiplication **M***p* where *p* is
     /// interpreted as a column vector:
@@ -655,8 +691,9 @@ impl<Src, Dest> Apply<Vec2<Src>> for Mat3<Src, Dest, 2> {
 
     /// Maps a real 2-vector from basis `Src` to basis `Dst`.
     ///
-    /// Computes the matrix–vector multiplication 𝝡𝘃 where 𝘃 is interpreted as
-    /// a column vector with an implicit 𝘃<sub>2</sub> component with value 0:
+    /// Computes the affine matrix–vector multiplication **Mv**, where
+    /// **v** is interpreted as a homogeneous column vector with an implicit
+    /// *v*<sub>2</sub> component with value 0:
     ///
     /// ```text
     ///         ⎛ M00 ·  ·  ⎞ ⎛ v0 ⎞     ⎛ v0' ⎞
@@ -675,8 +712,9 @@ impl<Src, Dest> Apply<Point2<Src>> for Mat3<Src, Dest, 2> {
 
     /// Maps a real 2-point from basis `Src` to basis `Dst`.
     ///
-    /// Computes the affine matrix–point multiplication 𝝡*p* where *p* is interpreted
-    /// as a column vector with an implicit *p*<sub>2</sub> component with value 1:
+    /// Computes the affine matrix–point multiplication **M***p*, where
+    /// *p* is interpreted as a homogeneous column vector with an implicit
+    /// *p*<sub>2</sub> component with value 1:
     ///
     /// ```text
     ///         ⎛ M00 ·  ·  ⎞ ⎛ p0 ⎞     ⎛ p0' ⎞
@@ -734,8 +772,9 @@ impl<Src, Dst> Apply<Vec3<Src>> for Mat4<Src, Dst, 3> {
 
     /// Maps a real 3-vector from basis `Src` to basis `Dst`.
     ///
-    /// Computes the matrix–vector multiplication **Mv** where **v** is interpreted
-    /// as a column vector with an implicit **v**<sub>3</sub> component with value 0:
+    /// Computes the affine matrix–vector multiplication **Mv**, where
+    /// **v** is interpreted as a homogeneous column vector with an implicit
+    /// *v*<sub>3</sub> component with value 0:
     ///
     /// ```text
     ///         ⎛ M00 ·  ·  ·  ⎞ ⎛ v0 ⎞     ⎛ v0' ⎞
@@ -754,8 +793,9 @@ impl<Src, Dst> Apply<Point3<Src>> for Mat4<Src, Dst, 3> {
 
     /// Maps a real 3-point from basis `Src` to basis `Dst`.
     ///
-    /// Computes the affine matrix–point multiplication 𝝡*p* where *p* is interpreted
-    /// as a column vector with an implicit *p*<sub>3</sub> component with value 1:
+    /// Computes the affine matrix–point multiplication **M***p* where *p*
+    /// is interpreted as a homogeneous column vector with an implicit
+    /// *p*<sub>3</sub> component with value 1:
     ///
     /// ```text
     ///         ⎛ M00 ·  ·  ·  ⎞ ⎛ p0 ⎞     ⎛ p0' ⎞
@@ -774,8 +814,9 @@ impl<Src> Apply<Point3<Src>> for ProjMat3<Src> {
 
     /// Maps the real 3-point *p* from basis B to the projective 3-space.
     ///
-    /// Computes the matrix–point multiplication **M***p* where *p* is interpreted
-    /// as a column vector with an implicit *p*<sub>3</sub> component with value 1:
+    /// Computes the matrix–point multiplication **M***p*, where *p*
+    /// is interpreted as a homogeneous column vector with an implicit
+    /// *p*<sub>3</sub> component with value 1:
     ///
     /// ```text
     ///         ⎛ M00  ·  · ⎞ ⎛ p0 ⎞     ⎛ p0' ⎞
@@ -838,20 +879,25 @@ impl<Repr, M> From<Repr> for Matrix<Repr, M> {
 // Free functions
 //
 
-/// Returns a matrix applying a scaling by `s`.
+/// Returns a matrix applying a scaling by a vector of factors.
 ///
+/// # Examples
 /// Tip: use [`splat`][super::vec::splat] to scale uniformly:
 /// ```
-/// use retrofire_core::math::{scale, splat};
+/// use retrofire_core::math::{Apply, scale, splat, vec3};
+///
 /// let m = scale(splat(2.0));
-/// assert_eq!(m.0[0][0], 2.0);
-/// assert_eq!(m.0[1][1], 2.0);
-/// assert_eq!(m.0[2][2], 2.0);
+/// let scaled = m.apply(&vec3(1.0, -2.0, 3.0));
+/// assert_eq!(scaled, vec3(2.0, -4.0, 6.0))
 /// ```
 pub const fn scale(s: Vec3) -> Mat4 {
     scale3(s.0[0], s.0[1], s.0[2])
 }
 
+/// Returns a matrix applying a scaling by the given factors.
+///
+/// # Examples
+/// See the [`scale`] method for an example.
 pub const fn scale3(x: f32, y: f32, z: f32) -> Mat4 {
     mat![
          x,  0.0, 0.0, 0.0;
@@ -861,11 +907,32 @@ pub const fn scale3(x: f32, y: f32, z: f32) -> Mat4 {
     ]
 }
 
-/// Returns a matrix applying a translation by `t`.
+/// Returns a matrix applying a translation vector to points.
+///
+/// Vectors have no defined position and are unaffected by translation.
+///
+/// # Examples
+/// ```
+/// use retrofire_core::math::{pt3, vec3, translate};
+///
+/// let m = translate(vec3(1.0, -2.0, 3.0));
+///
+/// // Points are moved
+/// assert_eq!(m.apply(&pt3(1.0, 1.0, 1.0)), pt3(2.0, -1.0, 4.0));
+///
+/// // Vectors are unaffected
+/// assert_eq!(m.apply(&vec3(1.0, 1.0, 1.0)), vec3(1.0, 1.0, 1.0));
+///```
 pub const fn translate(t: Vec3) -> Mat4 {
     translate3(t.0[0], t.0[1], t.0[2])
 }
 
+/// Returns a matrix applying a translation to *points*.
+///
+/// Vectors have no defined position and are unaffected by translation.
+///
+/// # Examples
+/// See the [`translate`] function for an example.
 pub const fn translate3(x: f32, y: f32, z: f32) -> Mat4 {
     mat![
         1.0, 0.0, 0.0,  x ;
@@ -907,7 +974,7 @@ pub fn orient_z(new_z: Vec3, x: Vec3) -> Mat4 {
     orient(new_z.cross(&x).normalize(), new_z)
 }
 
-/// Constructs a change-of-basis matrix given y and z basis vectors.
+/// Constructs a basis matrix given y and z basis vectors.
 ///
 /// The third basis vector is the cross product of `new_y` and `new_z`.
 /// If the inputs are orthogonal, the resulting basis is orthogonal.
@@ -928,7 +995,16 @@ fn orient(new_y: Vec3, new_z: Vec3) -> Mat4 {
 
 // TODO constify rotate_* functions once we have const trig functions
 
-/// Returns a matrix applying a 3D rotation about the x-axis.
+/// Returns a matrix applying a 3D rotation about the x-axis (on the yz plane).
+///
+/// # Example
+/// ```
+/// use retrofire_core::assert_approx_eq;
+/// use retrofire_core::math::{Apply, degs, rotate_x, vec3};
+///
+/// let m = rotate_x(degs(90.0));
+/// assert_approx_eq!(m.apply(&vec3(0.0, 1.0, 0.0)), vec3(0.0, 0.0, 1.0));
+/// ```
 #[cfg(feature = "fp")]
 pub fn rotate_x(a: Angle) -> Mat4 {
     let (sin, cos) = a.sin_cos();
@@ -939,7 +1015,16 @@ pub fn rotate_x(a: Angle) -> Mat4 {
         0.0,  0.0, 0.0, 1.0;
     ]
 }
-/// Returns a matrix applying a 3D rotation about the y-axis.
+/// Returns a matrix applying a 3D rotation about the y-axis (on the xz plane).
+///
+/// # Example
+/// ```
+/// use retrofire_core::assert_approx_eq;
+/// use retrofire_core::math::{Apply, degs, rotate_y, vec3};
+///
+/// let m = rotate_y(degs(90.0));
+/// assert_approx_eq!(m.apply(&vec3(1.0, 0.0, 0.0)), vec3(0.0, 0.0, -1.0));
+///```
 #[cfg(feature = "fp")]
 pub fn rotate_y(a: Angle) -> Mat4 {
     let (sin, cos) = a.sin_cos();
@@ -950,7 +1035,14 @@ pub fn rotate_y(a: Angle) -> Mat4 {
         0.0, 0.0,  0.0, 1.0;
     ]
 }
-/// Returns a matrix applying a 3D rotation about the z axis.
+/// Returns a matrix applying a 3D rotation about the z axis (on the xy plane).
+/// # Example
+/// ```
+/// use retrofire_core::assert_approx_eq;
+/// use retrofire_core::math::{Apply, degs, rotate_z, vec3};
+///
+/// let m = rotate_z(degs(90.0));
+/// assert_approx_eq!(m.apply(&vec3(1.0, 0.0, 0.0)), vec3(0.0, 1.0, 0.0));
 #[cfg(feature = "fp")]
 pub fn rotate_z(a: Angle) -> Mat4 {
     let (sin, cos) = a.sin_cos();
