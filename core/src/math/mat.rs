@@ -223,37 +223,6 @@ impl<const N: usize, Map> Matrix<[[f32; N]; N], Map> {
     }
 }
 
-impl Mat4 {
-    /// Constructs a matrix from a linear basis.
-    ///
-    /// The basis does not have to be orthonormal.
-    pub const fn from_linear<S, D>(
-        i: Vec3<D>,
-        j: Vec3<D>,
-        k: Vec3<D>,
-    ) -> Mat4<S, D> {
-        Self::from_affine(i, j, k, Point3::origin())
-    }
-
-    /// Constructs a matrix from an affine basis, or frame.
-    ///
-    /// The basis does not have to be orthonormal.
-    pub const fn from_affine<S, D>(
-        i: Vec3<D>,
-        j: Vec3<D>,
-        k: Vec3<D>,
-        o: Point3<D>,
-    ) -> Mat4<S, D> {
-        let (o, i, j, k) = (o.0, i.0, j.0, k.0);
-        mat![
-            i[0], j[0], k[0], o[0];
-            i[1], j[1], k[1], o[1];
-            i[2], j[2], k[2], o[2];
-             0.0,  0.0,  0.0,  1.0
-        ]
-    }
-}
-
 impl<Sc, const N: usize, Map> Matrix<[[Sc; N]; N], Map>
 where
     Sc: Linear<Scalar = Sc> + Copy,
@@ -386,6 +355,60 @@ impl<Src, Dest> Mat2<Src, Dest> {
 }
 
 impl<Src, Dest> Mat3<Src, Dest, 2> {
+    /// Constructs a matrix from a linear basis.
+    ///
+    /// The basis does not have to be orthonormal.
+    pub const fn from_linear(i: Vec2<Dest>, j: Vec2<Dest>) -> Self {
+        Self::from_affine(i, j, Point2::origin())
+    }
+
+    /// Constructs a matrix from an affine basis, or frame.
+    ///
+    /// The basis does not have to be orthonormal.
+    pub const fn from_affine(
+        i: Vec2<Dest>,
+        j: Vec2<Dest>,
+        o: Point2<Dest>,
+    ) -> Self {
+        let (i, j, o) = (i.0, j.0, o.0);
+        mat![
+            i[0], j[0], o[0];
+            i[1], j[1], o[1];
+             0.0,  0.0,  1.0;
+        ]
+    }
+
+    /// Returns the linear 2x2 submatrix of `self`.
+    ///
+    /// # Examples
+    /// ```
+    /// use retrofire_core::assert_approx_eq;
+    /// use retrofire_core::math::*;
+    ///
+    /// // TODO translate2 does not exist (yet)
+    /// /*let m = rotate2(degs(90.0)).then(&translate3(1.0, 2.0, 3.0));
+    /// let lin = m.linear();
+    /// assert_approx_eq!(lin.apply(&pt2(1.0, 0.0, 0.0)), pt2(0.0, 0.0, -1.0));*/
+    pub const fn linear(&self) -> Mat2<Src, Dest> {
+        let [r, s, _] = self.0;
+        mat![r[0], r[1]; s[0], s[1]]
+    }
+
+    /// Returns the translation column vector of `self`.
+    ///
+    /// # Example
+    /// ```
+    /// use retrofire_core::math::*;
+    ///
+    /// // TODO translate2 does not exist (yet)
+    /// /*let trans = vec2(1.0, 2.0);
+    /// let m = rotate2(degs(45.0)).then(&translate(trans));
+    /// assert_eq!(m.translation(), trans);*/
+    pub const fn translation(&self) -> Vec2<Dest> {
+        let [r, s, _] = self.0;
+        vec2(r[2], s[2])
+    }
+
     /// Returns the determinant of `self`.
     pub const fn determinant(&self) -> f32 {
         let [a, b, c] = self.0[0];
@@ -471,6 +494,66 @@ impl<Src, Dest> Mat3<Src, Dest, 2> {
 }
 
 impl<Src, Dst> Mat4<Src, Dst> {
+    /// Constructs a matrix from a linear basis.
+    ///
+    /// The basis does not have to be orthonormal.
+    pub const fn from_linear(i: Vec3<Dst>, j: Vec3<Dst>, k: Vec3<Dst>) -> Self {
+        Self::from_affine(i, j, k, Point3::origin())
+    }
+
+    /// Constructs a matrix from an affine basis, or frame.
+    ///
+    /// A frame consists of three vectors defining a linear basis, plus a point
+    /// specifying the origin point of the frame.
+    ///
+    /// The basis does not have to be orthonormal.
+    pub const fn from_affine(
+        i: Vec3<Dst>,
+        j: Vec3<Dst>,
+        k: Vec3<Dst>,
+        o: Point3<Dst>,
+    ) -> Self {
+        let (o, i, j, k) = (o.0, i.0, j.0, k.0);
+        mat![
+            i[0], j[0], k[0], o[0];
+            i[1], j[1], k[1], o[1];
+            i[2], j[2], k[2], o[2];
+             0.0,  0.0,  0.0,  1.0
+        ]
+    }
+
+    /// Returns the linear 3x3 submatrix of `self`.
+    ///
+    /// # Examples
+    /// ```
+    /// use retrofire_core::assert_approx_eq;
+    /// use retrofire_core::math::*;
+    ///
+    /// let m = rotate_y(degs(90.0)).then(&translate3(1.0, 2.0, 3.0));
+    /// let lin = m.linear();
+    /// assert_approx_eq!(lin.apply(&pt3(1.0, 0.0, 0.0)), pt3(0.0, 0.0, -1.0));
+    pub const fn linear(&self) -> Mat3<Src, Dst, 3> {
+        let [r, s, t, _] = self.0;
+        mat![
+            r[0], r[1], r[2];
+            s[0], r[1], r[2];
+            t[0], r[1], r[2];
+        ]
+    }
+
+    /// Returns the translation column vector of `self`.
+    ///
+    /// # Example
+    /// ```
+    /// use retrofire_core::math::*;
+    ///
+    /// let trans = vec3(1.0, 2.0, 3.0);
+    /// let m = rotate_y(degs(45.0)).then(&translate(trans));
+    /// assert_eq!(m.translation(), trans);
+    pub const fn translation(&self) -> Vec3<Dst> {
+        vec3(self.0[0][3], self.0[1][3], self.0[2][3])
+    }
+
     /// Returns the determinant of `self`.
     ///
     /// Given a matrix M,
