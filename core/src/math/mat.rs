@@ -181,8 +181,8 @@ impl<Sc: Copy, const N: usize, const DIM: usize, S, D>
     ///
     /// let m: Mat2 = mat![1.0, 2.0;
     ///                    3.0, 4.0];
-    /// assert_eq!(m.transpose(), mat![1.0 3.0;
-    ///                                2.0 4.0]);
+    /// assert_eq!(m.transpose(), mat![1.0, 3.0;
+    ///                                2.0, 4.0]);
     #[must_use]
     pub fn transpose(self) -> Matrix<[[Sc; N]; N], RealToReal<DIM, D, S>> {
         const { assert!(N >= DIM, "map dimension >= matrix dimension") }
@@ -913,7 +913,7 @@ pub const fn scale3(x: f32, y: f32, z: f32) -> Mat4 {
 ///
 /// # Examples
 /// ```
-/// use retrofire_core::math::{pt3, vec3, translate};
+/// use retrofire_core::math::{Apply, pt3, vec3, translate};
 ///
 /// let m = translate(vec3(1.0, -2.0, 3.0));
 ///
@@ -1067,8 +1067,6 @@ pub fn rotate2(a: Angle) -> Mat3 {
 /// Returns a matrix applying a 3D rotation about an arbitrary axis.
 #[cfg(feature = "fp")]
 pub fn rotate(axis: Vec3, a: Angle) -> Mat4 {
-    use crate::math::approx::ApproxEq;
-
     // 1. Change of basis such that `axis` is mapped to the z-axis,
     // 2. Rotation about the z-axis
     // 3. Change of basis back to the original
