@@ -20,13 +20,13 @@ console_error_panic_hook = "0.1.7"
 
 [dependencies.re]
 package = "retrofire-core"
-version = "0.4.0-pre4"
+version = "0.4.0"
 path = "../../core"
 features = ["mm"]
 
 [dependencies.re-front]
 package = "retrofire-front"
-version = "0.4.0-pre4"
+version = "0.4.0"
 path = "../../front"
 features = ["wasm-dev"]
 default-features = false
