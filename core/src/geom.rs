@@ -865,8 +865,8 @@ mod tests {
 
     #[test]
     fn singleton_polyline_eval() {
-        let pl = Polyline(vec![3.14]);
-        assert_eq!(pl.eval(0.0), 3.14);
-        assert_eq!(pl.eval(1.0), 3.14);
+        let pl = Polyline(vec![1.23]);
+        assert_eq!(pl.eval(0.0), 1.23);
+        assert_eq!(pl.eval(1.0), 1.23);
     }
 }
