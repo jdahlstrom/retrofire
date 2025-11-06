@@ -945,26 +945,25 @@ pub const fn translate3(x: f32, y: f32, z: f32) -> Mat4 {
 #[cfg(feature = "fp")]
 use super::Angle;
 
-/// Returns a matrix applying a rotation such that the original y-axis
-/// is now parallel with `new_y` and the new z axis is orthogonal to
-/// both `x` and `new_y`.
+/// Returns a matrix applying a rotation that sends the y-axis to the given vector.
 ///
+/// The new y-axis is chosen so that it's orthogonal to both `new_z` and `x`.
 /// Returns an orthogonal basis. If `new_y` and `x` are unit vectors,
 /// the basis is orthonormal.
 ///
 /// # Panics
 /// If `x` is approximately parallel to `new_y` and the basis would be
 /// degenerate.
+// TODO example
 #[cfg(feature = "fp")]
 pub fn orient_y(new_y: Vec3, x: Vec3) -> Mat4 {
     orient(new_y, x.cross(&new_y).normalize())
 }
-/// Returns a matrix applying a rotation such that the original z axis
-/// is now parallel with `new_z` and the new y-axis is orthogonal to
-/// both `new_z` and `x`.
+/// Returns a matrix applying a rotation that sends the z-axis to the given vector.
 ///
-/// Returns an orthogonal basis. If `new_z` and `x` are unit vectors,
-/// the basis is orthonormal.
+/// The new y-axis is chosen so that it's orthogonal to both `new_z` and `x`.
+/// This function returns an orthogonal basis. If `new_z` and `x` are unit
+/// vectors, the basis is orthonormal.
 ///
 /// # Panics
 /// If `x` is approximately parallel to `new_z` and the basis would be
@@ -974,7 +973,7 @@ pub fn orient_z(new_z: Vec3, x: Vec3) -> Mat4 {
     orient(new_z.cross(&x).normalize(), new_z)
 }
 
-/// Constructs a basis matrix given y and z basis vectors.
+/// Constructs a linear basis, given the y and z basis vectors.
 ///
 /// The third basis vector is the cross product of `new_y` and `new_z`.
 /// If the inputs are orthogonal, the resulting basis is orthogonal.
@@ -1074,7 +1073,7 @@ pub fn rotate(axis: Vec3, a: Angle) -> Mat4 {
     // 2. Rotation about the z-axis
     // 3. Change of basis back to the original
     let mut other = Vec3::X;
-    if axis.cross(&other).len_sqr().approx_eq(&0.0) {
+    if axis.cross(&other).len_sqr() < 0.25 {
         // Avoid degeneracy
         other = Vec3::Y;
     }
@@ -1143,8 +1142,8 @@ pub fn orthographic(lbn: Point3, rtf: Point3) -> ProjMat3<View> {
 /// Creates a viewport transform matrix with the given pixel space bounds.
 ///
 /// A viewport matrix is used to transform points from the NDC space to
-/// screen space for rasterization. NDC coordinates (-1, -1, z) are mapped
-/// to `bounds.start` and NDC coordinates (1, 1, z) to `bounds.end`.
+/// screen space for rasterization. NDC coordinates (-1, -1, _) are mapped
+/// to `bounds.start` and NDC coordinates (1, 1, _) to `bounds.end`.
 pub fn viewport(bounds: Range<Point2u>) -> Mat4<Ndc, Screen> {
     let s = bounds.start.map(|c| c as f32);
     let e = bounds.end.map(|c| c as f32);
@@ -1288,7 +1287,7 @@ mod tests {
         #[test]
         fn inverse_of_scale_is_reciprocal_scale() {
             let scale: Mat3 = mat![
-                2.0, 0.0,  0.0;
+                2.0,  0.0,  0.0;
                 0.0, -3.0,  0.0;
                 0.0,  0.0,  4.0;
             ];
@@ -1297,7 +1296,7 @@ mod tests {
                 mat![
                     1.0/2.0, 0.0,  0.0;
                     0.0, -1.0/3.0, 0.0;
-                    0.0,  0.0,  1.0/4.0
+                    0.0,  0.0, 1.0/4.0;
                 ]
             );
         }
@@ -1356,18 +1355,18 @@ mod tests {
 
         #[test]
         fn composition() {
-            let t = translate3(1.0, 2.0, 3.0).to::<Map>();
-            let s = scale3(3.0, 2.0, 1.0).to::<InvMap>();
+            let tr = translate3(1.0, 2.0, 3.0).to::<Map>();
+            let sc = scale3(3.0, 2.0, 1.0).to::<InvMap>();
 
-            let ts = t.then(&s);
-            let st = s.then(&t);
+            let tr_sc = tr.then(&sc);
+            let sc_tr = sc.then(&tr);
 
-            assert_eq!(ts, s.compose(&t));
-            assert_eq!(st, t.compose(&s));
+            assert_eq!(tr_sc, sc.compose(&tr));
+            assert_eq!(sc_tr, tr.compose(&sc));
 
             let o = <Point3>::origin();
-            assert_eq!(ts.apply(&o.to()), pt3::<_, B1>(3.0, 4.0, 3.0));
-            assert_eq!(st.apply(&o.to()), pt3::<_, B2>(1.0, 2.0, 3.0));
+            assert_eq!(tr_sc.apply(&o.to()), pt3::<_, B1>(3.0, 4.0, 3.0));
+            assert_eq!(sc_tr.apply(&o.to()), pt3::<_, B2>(1.0, 2.0, 3.0));
         }
 
         #[test]
@@ -1610,13 +1609,13 @@ mod tests {
 
     #[test]
     fn determinant_of_identity_is_one() {
-        let id: Mat4<Map> = Mat4::identity();
+        let id: Mat4 = Mat4::identity();
         assert_eq!(id.determinant(), 1.0);
     }
 
     #[test]
     fn determinant_of_scaling_is_product_of_diagonal() {
-        let scale: Mat4<_> = scale3(2.0, 3.0, 4.0);
+        let scale: Mat4 = scale3(2.0, 3.0, 4.0);
         assert_eq!(scale.determinant(), 24.0);
     }
 
