@@ -79,12 +79,7 @@ impl<A, B> Mesh<A, B> {
         let faces: Vec<_> = faces.into_iter().collect();
         let verts: Vec<_> = verts.into_iter().collect();
 
-        for (i, Tri(vs)) in faces.iter().enumerate() {
-            assert!(
-                vs.iter().all(|&j| j < verts.len()),
-                "vertex index out of bounds at faces[{i}]: {vs:?}"
-            )
-        }
+        assert_indices_in_bounds(&faces, verts.len());
         Self { faces, verts }
     }
 
@@ -106,6 +101,16 @@ impl<A, B> Mesh<A, B> {
                 .map(|Tri(ixs)| Tri(ixs.map(|i| n + i))),
         );
         self
+    }
+}
+
+#[inline(never)]
+fn assert_indices_in_bounds(faces: &[Tri<usize>], len: usize) {
+    for (Tri(vs), i) in zip(faces.iter(), 0..) {
+        assert!(
+            vs.iter().all(|&j| j < len),
+            "vertex index out of bounds at faces[{i}]: {vs:?}"
+        )
     }
 }
 

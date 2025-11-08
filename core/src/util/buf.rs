@@ -433,13 +433,12 @@ pub mod inner {
         /// or panics if either x or y is out of bounds.
         #[inline]
         fn to_index_strict(&self, x: u32, y: u32) -> usize {
-            self.to_index_checked(x, y).unwrap_or_else(|| {
-                let (w, h) = self.dims;
-                panic!(
-                    "position (x={x}, y={y}) out of bounds (0..{w}, 0..{h})",
-                )
-            })
+            match self.to_index_checked(x, y) {
+                Some(i) => i,
+                None => out_of_bounds(self.dims, x, y),
+            }
         }
+
         /// Returns the linear index corresponding to the coordinates,
         /// or `None` if x or y is out of bounds.
         #[inline]
@@ -497,26 +496,19 @@ pub mod inner {
         }
     }
 
+    #[cold]
+    #[track_caller]
+    #[inline(never)]
+    fn out_of_bounds((w, h): Dims, x: u32, y: u32) -> ! {
+        panic!("position (x={x}, y={y}) out of bounds (0..{w}, 0..{h})",)
+    }
+
     impl<T, D: Deref<Target = [T]>> Inner<T, D> {
         /// # Panics
         /// if `stride < w` or if the slice would overflow `data`.
         #[rustfmt::skip]
-        pub(super) fn new(dims @ (w, h): Dims, stride: u32, data: D) -> Self {
-            assert!(w <= stride, "width ({w}) > stride ({stride})");
-
-            let len = data.len();
-            assert!(
-                h <= 1 || stride as usize <= len,
-                "stride ({stride}) > data length ({len})"
-            );
-            assert!(h as usize <= len, "height ({h}) > data length ({len})");
-            if h > 0 {
-                let size = (h - 1) * stride + w;
-                assert!(
-                    size as usize <= len,
-                    "required size ({size}) > data length ({len})"
-                );
-            }
+        pub(super) fn new(dims: Dims, stride: u32, data: D) -> Self {
+            check_preconditions(dims, stride, data.len());
             Self { dims, stride, data, _pd: PhantomData }
         }
 
@@ -563,6 +555,22 @@ pub mod inner {
         /// the elements on row 1, and so on.
         pub fn iter(&self) -> impl Iterator<Item = &'_ T> {
             self.rows().flatten()
+        }
+    }
+
+    fn check_preconditions((w, h): Dims, stride: u32, len: usize) {
+        assert!(w <= stride, "width ({w}) > stride ({stride})");
+        assert!(
+            h <= 1 || stride as usize <= len,
+            "stride ({stride}) > data length ({len})"
+        );
+        assert!(h as usize <= len, "height ({h}) > data length ({len})");
+        if h > 0 {
+            let size = (h - 1) * stride + w;
+            assert!(
+                size as usize <= len,
+                "required size ({size}) > data length ({len})"
+            );
         }
     }
 
