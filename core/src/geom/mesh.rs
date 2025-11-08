@@ -7,7 +7,7 @@ use core::{
 };
 
 use crate::{
-    math::{Apply, Linear, Mat4, Point3},
+    math::{Linear, Mat4, Point3},
     render::Model,
 };
 

@@ -1,7 +1,7 @@
 //! Render impls for primitives and related items.
 
 use crate::geom::{Edge, Tri, Vertex, Winding};
-use crate::math::{Apply, Mat4, Vary, pt3, vary::ZDiv};
+use crate::math::{Mat4, Vary, pt3, vary::ZDiv};
 
 use super::{
     Ndc, Render, Screen,
