@@ -66,25 +66,32 @@ pub type Color3f<Space = Rgb> = Color<[f32; 3], Space>;
 pub type Color4f<Space = Rgba> = Color<[f32; 4], Space>;
 
 /// Returns a new RGB color with the given color channels.
+#[inline]
 pub const fn rgb<Ch>(r: Ch, g: Ch, b: Ch) -> Color<[Ch; 3], Rgb> {
-    Color([r, g, b], PhantomData)
+    Color::new([r, g, b])
 }
 /// Returns a new RGBA color with the given color channels.
+#[inline]
 pub const fn rgba<Ch>(r: Ch, g: Ch, b: Ch, a: Ch) -> Color<[Ch; 4], Rgba> {
-    Color([r, g, b, a], PhantomData)
+    Color::new([r, g, b, a])
 }
 /// Returns a new RGB color with all channels set to the same value.
+///
+/// This is the color equivalent to [`splat`][super::vec::splat].
+#[inline]
 pub const fn gray<Ch: Copy>(lum: Ch) -> Color<[Ch; 3], Rgb> {
-    rgb(lum, lum, lum)
+    Color::new([lum; 3])
 }
 
 /// Returns a new HSL color with the given color channels.
+#[inline]
 pub const fn hsl<Ch>(h: Ch, s: Ch, l: Ch) -> Color<[Ch; 3], Hsl> {
-    Color([h, s, l], PhantomData)
+    Color::new([h, s, l])
 }
 /// Returns a new HSLA color with the given color channels.
+#[inline]
 pub const fn hsla<Ch>(h: Ch, s: Ch, l: Ch, a: Ch) -> Color<[Ch; 4], Hsla> {
-    Color([h, s, l, a], PhantomData)
+    Color::new([h, s, l, a])
 }
 
 /// Exponent for gamma conversion [from sRGB to linear sRGB][1].
@@ -100,6 +107,23 @@ pub const INV_GAMMA: f32 = 1.0 / GAMMA;
 // Inherent impls
 //
 
+impl<Ch, Sp, const N: usize> Color<[Ch; N], Sp> {
+    /// Returns a new `Color` with the given channels.
+    #[inline]
+    pub const fn new(chs: [Ch; N]) -> Self {
+        Self(chs, PhantomData)
+    }
+
+    /// Returns `self` with each channel mapped with the given function.
+    #[inline]
+    pub fn map<C>(&self, f: impl FnMut(Ch) -> C) -> Color<[C; N], Sp>
+    where
+        Ch: Copy,
+    {
+        Color::new(self.0.map(f))
+    }
+}
+
 impl Color3<Rgb> {
     /// Returns `self` as RGBA, with alpha set to 0xFF (fully opaque).
     #[inline]
@@ -109,7 +133,7 @@ impl Color3<Rgb> {
     }
 
     pub fn to_color3f(self) -> Color3f {
-        self.0.map(|c| c as f32 / 255.0).into()
+        self.map(|c| c as f32 / 255.0)
     }
 
     /// Returns the HSL color equivalent to `self`.
@@ -158,7 +182,7 @@ impl Color3<Rgb> {
 impl Color4<Rgba> {
     /// Returns `self` as RGB, discarding the alpha channel.
     #[inline]
-    pub fn to_rgb(self) -> Color3<Rgb> {
+    pub const fn to_rgb(self) -> Color3<Rgb> {
         let [r, g, b, _] = self.0;
         rgb(r, g, b)
     }
@@ -169,9 +193,9 @@ impl Color4<Rgba> {
 
     /// Returns the HSLA color equivalent to `self`.
     pub fn to_hsla(self) -> Color4<Hsla> {
-        let [r, g, b, _] = self.0;
+        let [r, g, b, a] = self.0;
         let [h, s, l] = rgb(r, g, b).to_hsl().0;
-        [h, s, l, self.a()].into()
+        hsla(h, s, l, a)
     }
 }
 
@@ -266,7 +290,7 @@ impl Color3f<Rgb> {
 
 impl Color4f<Rgba> {
     /// Returns `self` as RGB, discarding the alpha channel.
-    pub fn to_rgb(self) -> Color3f<Rgb> {
+    pub const fn to_rgb(self) -> Color3f<Rgb> {
         let [r, g, b, _] = self.0;
         rgb(r, g, b)
     }
@@ -283,6 +307,7 @@ impl Color4f<Rgba> {
     pub fn to_color4(self) -> Color4 {
         self.to_u8().into()
     }
+
     #[inline]
     fn to_u8(self) -> [u8; 4] {
         self.0.map(|c| (c.clamp(0.0, 1.0) * 255.0) as u8)
@@ -290,9 +315,9 @@ impl Color4f<Rgba> {
 
     /// Returns the HSLA color equivalent to `self`.
     pub fn to_hsla(self) -> Color4f<Hsla> {
-        let [r, g, b, _] = self.0;
+        let [r, g, b, a] = self.0;
         let [h, s, l] = rgb(r, g, b).to_hsl().0;
-        [h, s, l, self.a()].into()
+        hsla(h, s, l, a)
     }
 }
 
@@ -397,7 +422,7 @@ fn hcx_to_rgb<T: Display>(h: i32, c: T, x: T, z: T) -> [T; 3] {
 
 impl Color4<Hsla> {
     /// Returns `self` as HSL, discarding the alpha channel.
-    pub fn to_hsl(self) -> Color3<Hsl> {
+    pub const fn to_hsl(self) -> Color3<Hsl> {
         let [h, s, l, _] = self.0;
         hsl(h, s, l)
     }
@@ -420,86 +445,73 @@ impl Color4f<Hsla> {
     }
 }
 
-impl<R, Sc> Color<R, Rgb>
-where
-    R: Index<usize, Output = Sc>,
-    Sc: Copy,
-{
+impl<Ch: Copy, const N: usize> Color<[Ch; N], Rgb> {
     /// Returns the red component of `self`.
-    pub fn r(&self) -> Sc {
+    pub const fn r(&self) -> Ch {
         self.0[0]
     }
     /// Returns the green component of `self`.
-    pub fn g(&self) -> Sc {
+    pub const fn g(&self) -> Ch {
         self.0[1]
     }
     /// Returns the blue component of `self`.
-    pub fn b(&self) -> Sc {
+    pub const fn b(&self) -> Ch {
         self.0[2]
     }
 }
 
-impl<R, Sc> Color<R, Rgba>
-where
-    R: Index<usize, Output = Sc>,
-    Sc: Copy,
-{
+impl<Ch: Copy, const N: usize> Color<[Ch; N], Rgba> {
     /// Returns the red component of `self`.
-    pub fn r(&self) -> Sc {
+    pub const fn r(&self) -> Ch {
         self.0[0]
     }
     /// Returns the green component of `self`.
-    pub fn g(&self) -> Sc {
+    pub const fn g(&self) -> Ch {
         self.0[1]
     }
     /// Returns the blue component of `self`.
-    pub fn b(&self) -> Sc {
+    pub const fn b(&self) -> Ch {
         self.0[2]
     }
     /// Returns the alpha component of `self`.
-    pub fn a(&self) -> Sc {
+    pub const fn a(&self) -> Ch {
         self.0[3]
     }
 }
 
-impl<R, Sc> Color<R, Hsl>
-where
-    R: Index<usize, Output = Sc>,
-    Sc: Copy,
-{
+impl<Ch: Copy, const N: usize> Color<[Ch; N], Hsl> {
     /// Returns the hue component of `self`.
-    pub fn h(&self) -> Sc {
+    pub const fn h(&self) -> Ch {
         self.0[0]
     }
     /// Returns the saturation component of `self`.
-    pub fn s(&self) -> Sc {
+    pub const fn s(&self) -> Ch {
         self.0[1]
     }
     /// Returns the luminance component of `self`.
-    pub fn l(&self) -> Sc {
+    pub const fn l(&self) -> Ch {
         self.0[2]
     }
 }
 
-impl<R, Sc> Color<R, Hsla>
+impl<Ch: Copy, const N: usize> Color<[Ch; N], Hsla>
 where
-    R: Index<usize, Output = Sc>,
-    Sc: Copy,
+    Ch: Copy,
 {
     /// Returns the hue component of `self`.
-    pub fn h(&self) -> Sc {
+    pub const fn h(&self) -> Ch {
         self.0[0]
     }
     /// Returns the saturation component of `self`.
-    pub fn s(&self) -> Sc {
+    pub const fn s(&self) -> Ch {
         self.0[1]
     }
     /// Returns the luminance component of `self`.
-    pub fn l(&self) -> Sc {
+    pub const fn l(&self) -> Ch {
         self.0[2]
     }
     /// Returns the alpha component of `self`.
-    pub fn a(&self) -> Sc {
+    pub const fn a(&self) -> Ch {
         self.0[3]
     }
 }
