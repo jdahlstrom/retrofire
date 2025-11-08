@@ -184,10 +184,12 @@ fn create_verts<A>(
     }
 }
 
-fn make_cap<A, F>(m: &mut Mesh<A>, f: &mut F, rg: Range<usize>, n: Normal3)
-where
-    F: FnMut(Point3, Normal3, TexCoord) -> Vertex3<A>,
-{
+fn make_cap<A>(
+    m: &mut Mesh<A>,
+    f: &mut dyn FnMut(Point3, Normal3, TexCoord) -> Vertex3<A>,
+    rg: Range<usize>,
+    n: Normal3,
+) {
     let verts = &mut m.verts;
     let secs = rg.len();
     let l = verts.len();

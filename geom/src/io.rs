@@ -133,13 +133,17 @@ pub fn parse_obj<A>(src: impl IntoIterator<Item = u8>) -> Result<Builder<A>>
 where
     Builder<A>: TryFrom<Obj, Error = Error>,
 {
+    do_parse_obj(&mut src.into_iter())?.try_into()
+}
+
+fn do_parse_obj(src: &mut dyn Iterator<Item = u8>) -> Result<Obj> {
     let mut obj = Obj::default();
     let Obj { faces, coords, norms, texcs } = &mut obj;
 
     let mut max_i = Indices::default();
     let mut line = String::new();
 
-    let mut it = src.into_iter().peekable();
+    let mut it = src.peekable();
     while it.peek().is_some() {
         // Reuse allocation
         line.clear();
@@ -215,7 +219,7 @@ where
     {
         return Err(IndexOutOfBounds("normal", n));
     }
-    obj.try_into()
+    Ok(obj)
 }
 
 impl TryFrom<Obj> for Builder<()> {
