@@ -49,9 +49,11 @@ use std::{
     path::Path,
 };
 
-use re::geom::{Mesh, Normal3, Tri, mesh::Builder, vertex};
-use re::math::{Point3, Vec3, vec3};
-use re::render::{Model, TexCoord, uv};
+use retrofire_core::{
+    geom::{Mesh, Normal3, Tri, mesh::Builder, vertex},
+    math::{Point3, Vec3, vec3},
+    render::{Model, TexCoord, uv},
+};
 
 use Error::*;
 
@@ -416,8 +418,10 @@ impl From<ParseIntError> for Error {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use re::geom::Vertex;
-    use re::{geom::Tri, math::point::pt3};
+    use retrofire_core::{
+        geom::{Tri, Vertex},
+        math::point::pt3,
+    };
 
     #[test]
     fn input_with_whitespace_and_comments() {

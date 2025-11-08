@@ -3,9 +3,11 @@
 
 use core::{array::from_fn, f32::consts::SQRT_2, iter::zip};
 
-use re::geom::{Mesh, Normal3, Vertex3, vertex};
-use re::math::{Lerp, Point3, Vec3, pt3, vec3};
-use re::render::{Model, TexCoord, uv};
+use retrofire_core::{
+    geom::{Mesh, Normal3, Vertex3, vertex},
+    math::{Lerp, Point3, Vec3, pt3, vec3},
+    render::{Model, TexCoord, uv},
+};
 
 use super::Build;
 
