@@ -177,6 +177,7 @@ where
     /// let p1 = pt2(-5.0, 0.0);
     /// assert_eq!(p0.lerp(&p1, 0.4),pt2(-8.0, 3.0));
     /// ```
+    #[inline]
     fn lerp(&self, other: &Self, t: f32) -> Self {
         self.add(&other.sub(self).mul(t))
     }
@@ -187,6 +188,7 @@ impl Lerp for () {
 }
 
 impl<U: Lerp, V: Lerp> Lerp for (U, V) {
+    #[inline]
     fn lerp(&self, (u, v): &Self, t: f32) -> Self {
         (self.0.lerp(u, t), self.1.lerp(v, t))
     }

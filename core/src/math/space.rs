@@ -188,6 +188,7 @@ where
         Iter { val: self, step, n }
     }
 
+    #[inline]
     fn dv_dt(&self, other: &Self, recip_dt: f32) -> Self::Diff {
         other.sub(self).mul(recip_dt)
     }

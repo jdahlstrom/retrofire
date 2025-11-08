@@ -236,6 +236,7 @@ pub mod view_frustum {
     /// is inside the plane, and 1 otherwise. It is used to determine whether
     /// a primitive is fully inside, partially inside, or fully outside the
     /// frustum.
+    #[inline]
     pub fn outcode(pt: &ClipVec) -> u8 {
         PLANES.iter().map(|p| p.outcode(pt)).sum()
     }
@@ -300,6 +301,7 @@ pub fn clip_simple_polygon<'a, A: Lerp + Clone>(
 }
 
 impl<V> ClipVert<V> {
+    #[inline]
     pub fn new(Vertex { pos, attrib }: Vertex<ClipVec, V>) -> Self {
         let outcode = outcode(&pos);
         Self { pos, attrib, outcode }
