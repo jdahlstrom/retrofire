@@ -1,6 +1,6 @@
 use crate::{
     geom::{Mesh, vertex},
-    math::{Apply, Mat4, Point3, mat::ProjMat3, pt3, splat},
+    math::{Mat4, Point3, mat::ProjMat3, pt3, splat},
 };
 
 use super::{
