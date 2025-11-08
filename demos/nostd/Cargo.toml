@@ -1,0 +1,27 @@
+[package]
+name = "retrofire-no-std-demo"
+edition = "2024"
+version = "0.1.0"
+license = "MIT"
+authors = ["Johannes 'Sharlin' Dahlström"]
+repository = "https://github.com/jdahlstrom/retrofire"
+
+[workspace]
+
+[dependencies.libc]
+version = "0.2.177"
+default-features = false
+
+[dependencies.re]
+package = "retrofire-core"
+version = "0.4.0-pre4"
+path = "../../core"
+default-features = false
+
+[profile.release]
+opt-level = 3
+codegen-units = 1
+lto = "fat"
+debug = 0
+panic = "abort"
+strip = true

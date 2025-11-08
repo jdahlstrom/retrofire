@@ -28,7 +28,7 @@ members = [
     "geom",
     "front",
     "demos",
-    "demos/wasm"
+    "demos/wasm",
 ]
 resolver = "2"
 
