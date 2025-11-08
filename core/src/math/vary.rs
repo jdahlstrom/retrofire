@@ -107,26 +107,33 @@ impl<T: Vary, U: Vary> Vary for (T, U) {
     type Iter = Iter<Self>;
     type Diff = (T::Diff, U::Diff);
 
+    #[inline]
     fn vary(self, step: Self::Diff, n: Option<u32>) -> Self::Iter {
         Iter { val: self, step, n }
     }
+
+    #[inline]
     fn dv_dt(&self, other: &Self, recip_dt: f32) -> Self::Diff {
         (
             self.0.dv_dt(&other.0, recip_dt),
             self.1.dv_dt(&other.1, recip_dt),
         )
     }
+
+    #[inline]
     fn step(&self, (d0, d1): &Self::Diff) -> Self {
         (self.0.step(d0), self.1.step(d1))
     }
 }
 impl<T: ZDiv, U: ZDiv> ZDiv for (T, U) {
+    #[inline]
     fn z_div(self, z: f32) -> Self {
         (self.0.z_div(z), self.1.z_div(z))
     }
 }
 
 impl ZDiv for f32 {
+    #[inline]
     fn z_div(self, z: f32) -> Self {
         self / z
     }
