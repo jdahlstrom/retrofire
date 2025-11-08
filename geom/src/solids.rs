@@ -4,7 +4,7 @@
 mod lathe;
 mod platonic;
 
-use re::geom::{Mesh, mesh::Builder};
+use retrofire_core::geom::{Mesh, mesh::Builder};
 
 #[cfg(feature = "std")]
 pub use lathe::*;

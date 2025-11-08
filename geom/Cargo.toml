@@ -21,10 +21,10 @@ categories.workspace = true
 repository.workspace = true
 
 [dependencies]
-re = { version = "0.4.0", path = "../core", package = "retrofire-core", default-features = false }
+retrofire-core = { version = "0.4.0", path = "../core", default-features = false }
 
 [features]
-std = ["re/std"]
+std = ["retrofire-core/std"]
 
 [lints]
 workspace = true
