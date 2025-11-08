@@ -5,7 +5,7 @@
 use core::{
     array,
     fmt::{Debug, Formatter},
-    iter::Sum,
+    iter::{Sum, zip},
     marker::PhantomData as Pd,
     ops::{Add, Div, Index, IndexMut, Mul, Neg, Sub},
     ops::{AddAssign, DivAssign, MulAssign, SubAssign},
@@ -71,12 +71,20 @@ pub const fn vec3<Sc, B>(x: Sc, y: Sc, z: Sc) -> Vector<[Sc; 3], Real<3, B>> {
 ///
 /// # Examples
 /// ```
-/// use retrofire_core::math::{vec3, Vec3, splat};
+/// use retrofire_core::math::{Vec3, vec3, splat};
 /// let v: Vec3 = splat(1.23);
 /// assert_eq!(v, vec3(1.23, 1.23, 1.23));
+///
+/// // You can also use from/into:
+/// let v: Vec3 = 2.34.into();
+/// assert_eq!(v, vec3(2.34, 2.34, 2.34));
+/// ```
 #[inline]
-pub fn splat<Sp, Sc: Clone, const DIM: usize>(s: Sc) -> Vector<[Sc; DIM], Sp> {
-    array::from_fn(|_| s.clone()).into() // Use array::repeat once stable
+pub const fn splat<Sp, Sc: Copy, const DIM: usize>(
+    s: Sc,
+) -> Vector<[Sc; DIM], Sp> {
+    // TODO once array::repeat is stable, loosen Sc: Copy to Clone if needed
+    Vector::new([s; DIM])
 }
 
 //
@@ -96,16 +104,20 @@ impl<R, Sp> Vector<R, Sp> {
     /// to another in order to make types match. One use case is
     /// to cast a "generic" vector returned by one of the constructor
     /// functions to a more specific space.
-    // TODO Cannot be const (yet?) due to E0493 :(
     #[inline]
-    pub fn to<S>(self) -> Vector<R, S> {
+    pub const fn to<S>(self) -> Vector<R, S>
+    where
+        R: Copy, // Required for now due to E0493
+    {
         Vector::new(self.0)
     }
 
     /// Returns the affine point equivalent to `self`.
-    // TODO Cannot be const (yet?) due to E0493 :(
     #[inline]
-    pub fn to_pt(self) -> Point<R, Sp> {
+    pub const fn to_pt(self) -> Point<R, Sp>
+    where
+        R: Copy, // Required for now due to E0493
+    {
         Point::new(self.0)
     }
 }
@@ -186,8 +198,8 @@ where
 {
     /// Returns the length of `self`, squared.
     ///
-    /// This avoids taking the square root in cases it's not needed and works with scalars for
-    /// which a square root is not defined.
+    /// This avoids taking the square root in cases it's not needed,
+    /// and works with scalars for which a square root is not defined.
     #[inline]
     pub fn len_sqr(&self) -> Sc {
         self.dot(self)
@@ -196,9 +208,7 @@ where
     /// Returns the dot product of `self` and `other`.
     #[inline]
     pub fn dot(&self, other: &Self) -> Sc {
-        self.0
-            .iter()
-            .zip(&other.0)
+        zip(&self.0, &other.0)
             .map(|(a, b)| a.mul(*b))
             .fold(Sc::zero(), |acc, x| acc.add(&x))
     }
@@ -233,7 +243,7 @@ where
         other.mul(self.scalar_project(other))
     }
 
-    /// Reflects `self` across a line.
+    /// Reflects `self` across an axis.
     ///
     /// # Examples
     /// ```
@@ -244,12 +254,12 @@ where
     ///
     /// assert_eq!(v.reflect(axis), vec3(2.0, 3.0, 1.0));
     /// ```
-    pub fn reflect(self, other: Self) -> Self
+    pub fn reflect(self, axis: Self) -> Self
     where
         Sc: Div<Sc, Output = Sc>,
     {
-        let proj_on_other = self.vector_project(&other);
-        proj_on_other + proj_on_other - self
+        let proj_on_axis = self.vector_project(&axis);
+        proj_on_axis + proj_on_axis - self
     }
 }
 
@@ -291,24 +301,20 @@ impl<Sc: Copy, Sp, const N: usize> Vector<[Sc; N], Sp> {
     }
 }
 
-impl<R, Sc, B> Vector<R, Real<2, B>>
-where
-    R: Index<usize, Output = Sc>,
-    Sc: Copy,
-{
+impl<Sc: Copy, B> Vector<[Sc; 2], Real<2, B>> {
     /// Returns the x component of `self`.
     #[inline]
-    pub fn x(&self) -> Sc {
+    pub const fn x(&self) -> Sc {
         self.0[0]
     }
     /// Returns the y component of `self`.
     #[inline]
-    pub fn y(&self) -> Sc {
+    pub const fn y(&self) -> Sc {
         self.0[1]
     }
 }
 
-// TODO Make more general - requires a "Scalar::one()" method
+// TODO These should be also impl'd for Vec2i...
 impl<B> Vec2<B> {
     /// Unit vector codirectional with the positive x-axis.
     pub const X: Self = vec2(1.0, 0.0);
@@ -316,8 +322,8 @@ impl<B> Vec2<B> {
     /// Unit vector codirectional with the positive y-axis.
     pub const Y: Self = vec2(0.0, 1.0);
 
-    /// Converts `self` into a `Vec3`, with z set to 0.
-    pub fn to_vec3(self) -> Vec3<B> {
+    /// Converts `self` to a `Vec3`, with z set to 0.
+    pub const fn to_vec3(self) -> Vec3<B> {
         vec3(self.x(), self.y(), 0.0)
     }
 
@@ -331,7 +337,7 @@ impl<B> Vec2<B> {
     /// assert_eq!(<Vec2>::Y.perp(), -Vec2::X);
     /// ```
     #[inline]
-    pub fn perp(self) -> Self {
+    pub const fn perp(self) -> Self {
         vec2(-self.y(), self.x())
     }
 
@@ -373,24 +379,23 @@ impl<B> Vec2<B> {
     }
 }
 
-impl<R, Sc, B> Vector<R, Real<3, B>>
+impl<Sc, B> Vector<[Sc; 3], Real<3, B>>
 where
-    R: Index<usize, Output = Sc>,
     Sc: Copy,
 {
     /// Returns the x component of `self`.
     #[inline]
-    pub fn x(&self) -> Sc {
+    pub const fn x(&self) -> Sc {
         self.0[0]
     }
     /// Returns the y component of `self`.
     #[inline]
-    pub fn y(&self) -> Sc {
+    pub const fn y(&self) -> Sc {
         self.0[1]
     }
     /// Returns the z component of `self`.
     #[inline]
-    pub fn z(&self) -> Sc {
+    pub const fn z(&self) -> Sc {
         self.0[2]
     }
 
@@ -423,7 +428,6 @@ where
     pub fn cross(&self, other: &Self) -> Self
     where
         Sc: Linear<Scalar = Sc>,
-        [Sc; 3]: Into<Self>,
     {
         let (s, o) = (self, other);
         [
@@ -435,7 +439,7 @@ where
     }
 }
 
-// TODO Make more general - requires a "Scalar::one()" method
+// TODO These should be also impl'd for Vec3i...
 impl<B> Vec3<B> {
     /// Unit vector codirectional with the positive x-axis.
     pub const X: Self = vec3(1.0, 0.0, 0.0);
@@ -447,29 +451,25 @@ impl<B> Vec3<B> {
     pub const Z: Self = vec3(0.0, 0.0, 1.0);
 }
 
-impl<R, Sc> Vector<R, Proj3>
-where
-    R: Index<usize, Output = Sc>,
-    Sc: Copy,
-{
+impl<Sc: Copy> Vector<[Sc; 4], Proj3> {
     /// Returns the x component of `self`.
     #[inline]
-    pub fn x(&self) -> Sc {
+    pub const fn x(&self) -> Sc {
         self.0[0]
     }
     /// Returns the y component of `self`.
     #[inline]
-    pub fn y(&self) -> Sc {
+    pub const fn y(&self) -> Sc {
         self.0[1]
     }
     /// Returns the z component of `self`.
     #[inline]
-    pub fn z(&self) -> Sc {
+    pub const fn z(&self) -> Sc {
         self.0[2]
     }
     /// Returns the w component of `self`.
     #[inline]
-    pub fn w(&self) -> Sc {
+    pub const fn w(&self) -> Sc {
         self.0[3]
     }
 }
@@ -490,12 +490,12 @@ where
 
     #[inline]
     fn add(&self, other: &Self) -> Self {
-        // TODO Profile performance of array::from_fn
-        Self(array::from_fn(|i| self.0[i].add(&other.0[i])), Pd)
+        // TODO Profile performance of zip_map
+        self.zip_map(*other, |a, b| a.add(&b))
     }
     #[inline]
     fn sub(&self, other: &Self) -> Self {
-        Self(array::from_fn(|i| self.0[i].sub(&other.0[i])), Pd)
+        self.zip_map(*other, |a, b| a.sub(&b))
     }
 }
 
@@ -553,7 +553,7 @@ impl<R: Clone, S> Clone for Vector<R, S> {
 
 impl<R: Default, B, const DIM: usize> Default for Vector<R, Real<DIM, B>> {
     fn default() -> Self {
-        Self(R::default(), Pd)
+        Self::new(R::default())
     }
 }
 
@@ -575,11 +575,11 @@ impl<R: Debug, Sp: Debug + Default> Debug for Vector<R, Sp> {
 impl<R, Sp> From<R> for Vector<R, Sp> {
     #[inline]
     fn from(repr: R) -> Self {
-        Self(repr, Pd)
+        Self::new(repr)
     }
 }
 
-impl<Sp, Sc: Clone, const DIM: usize> From<Sc> for Vector<[Sc; DIM], Sp> {
+impl<Sp, Sc: Copy, const DIM: usize> From<Sc> for Vector<[Sc; DIM], Sp> {
     /// Returns a vector with all components equal to `scalar`.
     ///
     /// This operation is also called "splat" or "broadcast".
@@ -764,13 +764,13 @@ mod tests {
 
     use super::*;
 
-    pub const fn vec2<S>(x: S, y: S) -> Vector<[S; 2], Real<2>> {
+    const fn vec2<S>(x: S, y: S) -> Vector<[S; 2], Real<2>> {
         super::vec2(x, y)
     }
-    pub const fn vec3<S>(x: S, y: S, z: S) -> Vector<[S; 3], Real<3>> {
+    const fn vec3<S>(x: S, y: S, z: S) -> Vector<[S; 3], Real<3>> {
         super::vec3(x, y, z)
     }
-    pub const fn vec4<S>(x: S, y: S, z: S, w: S) -> Vector<[S; 4], Real<4>> {
+    const fn vec4<S>(x: S, y: S, z: S, w: S) -> Vector<[S; 4], Real<4>> {
         Vector::new([x, y, z, w])
     }
 
