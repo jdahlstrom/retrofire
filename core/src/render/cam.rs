@@ -4,8 +4,7 @@ use core::ops::Range;
 
 #[cfg(feature = "fp")]
 use crate::math::{
-    Angle, Apply, Vec3, orient_z, rotate_x, rotate_y, spherical, translate,
-    turns,
+    Angle, Vec3, orient_z, rotate_x, rotate_y, spherical, translate, turns,
 };
 use crate::math::{
     Lerp, Mat4, Point3, SphericalVec, Vary, mat::ProjMat3, mat::RealToReal,

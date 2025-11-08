@@ -4,7 +4,7 @@ use re::prelude::*;
 
 use re::core::math::{
     color::gray,
-    mat::{Apply, ProjMat3},
+    mat::ProjMat3,
     rand::{Distrib, PointsInUnitBall, Xorshift64},
 };
 use re::core::render::{Model, cam::*, render};

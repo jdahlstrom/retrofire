@@ -5,7 +5,7 @@ use minifb::{Key, KeyRepeat};
 use re::prelude::*;
 
 use re::core::geom::Polyline;
-use re::core::math::{Apply, color::gray, mat::ProjMat3, vec::ProjVec3};
+use re::core::math::{color::gray, mat::ProjMat3, vec::ProjVec3};
 use re::core::render::cam::Fov;
 
 use re::front::{Frame, minifb::Window};

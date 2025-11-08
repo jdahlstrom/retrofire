@@ -127,6 +127,13 @@ impl<Repr, Map> Matrix<Repr, Map> {
     {
         Matrix(self.0.clone(), Pd)
     }
+
+    pub fn apply<T>(&self, t: &T) -> <Self as Apply<T>>::Output
+    where
+        Self: Apply<T>,
+    {
+        Apply::apply(self, t)
+    }
 }
 
 impl<Sc, const N: usize, const M: usize, Map> Matrix<[[Sc; N]; M], Map>
