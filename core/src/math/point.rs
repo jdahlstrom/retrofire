@@ -34,16 +34,21 @@ impl<R, Sp> Point<R, Sp> {
     }
 
     /// Returns a point with value equal to `self` but in space `S`.
-    // TODO Cannot be const (yet?) due to E0493 :(
     #[inline]
-    pub fn to<S>(self) -> Point<R, S> {
-        Point(self.0, Pd)
+    pub const fn to<S>(self) -> Point<R, S>
+    where
+        R: Copy, // TODO Needed for now due to E0493
+    {
+        Point::new(self.0)
     }
 
     /// Returns the vector equivalent to `self`.
-    // TODO Cannot be const (yet?) due to E0493 :(
+
     #[inline]
-    pub fn to_vec(self) -> Vector<R, Sp> {
+    pub const fn to_vec(self) -> Vector<R, Sp>
+    where
+        R: Copy, // TODO Needed for now due to E0493
+    {
         Vector::new(self.0)
     }
 }
@@ -154,48 +159,41 @@ impl<const N: usize, B> Point<[f32; N], Real<N, B>> {
     }
 }
 
-impl<R, B, Sc> Point<R, Real<2, B>>
-where
-    R: Index<usize, Output = Sc>,
-    Sc: Copy,
-{
+impl<Sc: Copy, B> Point<[Sc; 2], Real<2, B>> {
     /// Returns the x component of `self`.
     #[inline]
-    pub fn x(&self) -> Sc {
+    pub const fn x(&self) -> Sc {
         self.0[0]
     }
     /// Returns the y component of `self`.
     #[inline]
-    pub fn y(&self) -> Sc {
+    pub const fn y(&self) -> Sc {
         self.0[1]
     }
 }
 
 impl Point2 {
     /// Converts `self` into a `Point3`, with z equal to 0.
-    pub fn to_pt3(self) -> Point3 {
+    #[inline]
+    pub const fn to_pt3(self) -> Point3 {
         pt3(self.x(), self.y(), 0.0)
     }
 }
 
-impl<R, Sc, B> Point<R, Real<3, B>>
-where
-    R: Index<usize, Output = Sc>,
-    Sc: Copy,
-{
+impl<Sc: Copy, B> Point<[Sc; 3], Real<3, B>> {
     /// Returns the x component of `self`.
     #[inline]
-    pub fn x(&self) -> Sc {
+    pub const fn x(&self) -> Sc {
         self.0[0]
     }
     /// Returns the y component of `self`.
     #[inline]
-    pub fn y(&self) -> Sc {
+    pub const fn y(&self) -> Sc {
         self.0[1]
     }
     /// Returns the z component of `self`.
     #[inline]
-    pub fn z(&self) -> Sc {
+    pub const fn z(&self) -> Sc {
         self.0[2]
     }
 }
