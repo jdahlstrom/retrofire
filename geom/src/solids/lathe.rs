@@ -3,15 +3,15 @@
 use alloc::vec::Vec;
 use core::ops::Range;
 
-use re::geom::{
+use retrofire_core::geom::{
     Mesh, Normal2, Normal3, Polyline, Tri, Vertex, Vertex2, Vertex3, tri,
     vertex,
 };
-use re::math::{
-    Angle, Apply, Lerp, Parametric, Point3, Vary, Vec3, polar, pt2, rotate_y,
-    turns, vec2,
+use retrofire_core::math::{
+    Angle, Lerp, Parametric, Point3, Vary, Vec3, polar, pt2, rotate_y, turns,
+    vec2,
 };
-use re::render::{TexCoord, uv};
+use retrofire_core::render::{TexCoord, uv};
 
 use super::Build;
 
