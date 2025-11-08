@@ -1,12 +1,11 @@
 //! Colors and color spaces.
 
-use core::ops::{
-    Add, AddAssign, Div, DivAssign, Index, Mul, MulAssign, Neg, Sub, SubAssign,
-};
 use core::{
     array,
     fmt::{self, Debug, Display, Formatter},
     marker::PhantomData,
+    ops::{Add, Div, Index, IndexMut, Mul, Neg, Sub},
+    ops::{AddAssign, DivAssign, MulAssign, SubAssign},
 };
 
 use super::{Affine, Linear, Vector, vary::ZDiv};
@@ -65,12 +64,12 @@ pub type Color3f<Space = Rgb> = Color<[f32; 3], Space>;
 /// outside the range can be useful as intermediate results in calculations.
 pub type Color4f<Space = Rgba> = Color<[f32; 4], Space>;
 
-/// Returns a new RGB color with the given color channels.
+/// Returns a new RGB color with the given channels.
 #[inline]
 pub const fn rgb<Ch>(r: Ch, g: Ch, b: Ch) -> Color<[Ch; 3], Rgb> {
     Color::new([r, g, b])
 }
-/// Returns a new RGBA color with the given color channels.
+/// Returns a new RGBA color with the given channels.
 #[inline]
 pub const fn rgba<Ch>(r: Ch, g: Ch, b: Ch, a: Ch) -> Color<[Ch; 4], Rgba> {
     Color::new([r, g, b, a])
@@ -83,12 +82,12 @@ pub const fn gray<Ch: Copy>(lum: Ch) -> Color<[Ch; 3], Rgb> {
     Color::new([lum; 3])
 }
 
-/// Returns a new HSL color with the given color channels.
+/// Returns a new HSL color with the given channels.
 #[inline]
 pub const fn hsl<Ch>(h: Ch, s: Ch, l: Ch) -> Color<[Ch; 3], Hsl> {
     Color::new([h, s, l])
 }
-/// Returns a new HSLA color with the given color channels.
+/// Returns a new HSLA color with the given channels.
 #[inline]
 pub const fn hsla<Ch>(h: Ch, s: Ch, l: Ch, a: Ch) -> Color<[Ch; 4], Hsla> {
     Color::new([h, s, l, a])
@@ -584,6 +583,20 @@ impl<R, Sp> From<R> for Color<R, Sp> {
     #[inline]
     fn from(els: R) -> Self {
         Self(els, PhantomData)
+    }
+}
+
+impl<R: Index<usize>, Sp> Index<usize> for Color<R, Sp> {
+    type Output = R::Output;
+
+    fn index(&self, i: usize) -> &Self::Output {
+        &self.0[i]
+    }
+}
+
+impl<R: IndexMut<usize>, Sp> IndexMut<usize> for Color<R, Sp> {
+    fn index_mut(&mut self, i: usize) -> &mut Self::Output {
+        &mut self.0[i]
     }
 }
 
