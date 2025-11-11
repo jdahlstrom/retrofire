@@ -371,7 +371,7 @@ impl Build<Normal3> for Dodecahedron {
 
 impl Icosahedron {
     #[rustfmt::skip]
-    const COORDS: [Vec3; 12] = [
+    pub(crate) const COORDS: [Vec3; 12] = [
         vec3(-PHI, 0.0, -1.0), vec3(-PHI, 0.0, 1.0), // -X
         vec3( PHI, 0.0, -1.0), vec3( PHI, 0.0, 1.0), // +X
 
@@ -382,7 +382,7 @@ impl Icosahedron {
         vec3(0.0, -1.0,  PHI), vec3(0.0, 1.0,  PHI), // +Z
     ];
     #[rustfmt::skip]
-    const FACES: [[usize; 3]; 20] = [
+    pub(crate) const FACES: [[usize; 3]; 20] = [
         [0,  4,  1], [0,  1,  6], // -X
         [2,  3,  5], [2,  7,  3], // +X
         [4,  8,  5], [4,  5, 10], // -Y
