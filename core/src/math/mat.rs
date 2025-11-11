@@ -1186,7 +1186,7 @@ pub fn rotate(axis: Vec3, a: Angle) -> Mat4 {
 /// # Panics
 /// * If any parameter value is nonpositive.
 /// * If `near_far` is an empty range.
-pub fn perspective(
+pub const fn perspective(
     focal_ratio: f32,
     aspect_ratio: f32,
     near_far: Range<f32>,
@@ -1215,10 +1215,13 @@ pub fn perspective(
 /// # Parameters
 /// * `lbn`: The left-bottom-near corner of the projection box.
 /// * `rtf`: The right-bottom-far corner of the projection box.
-pub fn orthographic(lbn: Point3, rtf: Point3) -> ProjMat3<View> {
-    let half_d = (rtf - lbn) / 2.0;
-    let [cx, cy, cz] = (lbn + half_d).0;
-    let [idx, idy, idz] = half_d.map(f32::recip).0;
+pub const fn orthographic(lbn: Point3, rtf: Point3) -> ProjMat3<View> {
+    // Done manually due until const traits are stable
+    let [x0, y0, z0] = lbn.0;
+    let [x1, y1, z1] = rtf.0;
+    let [dx, dy, dz] = [(x1 - x0) / 2.0, (y1 - y0) / 2.0, (z1 - z0) / 2.0];
+    let [cx, cy, cz] = [x0 + dx, y0 + dy, z0 + dz];
+    let [idx, idy, idz] = [1.0 / dx, 1.0 / dy, 1.0 / dz];
     mat![
         idx, 0.0, 0.0, -cx * idx;
         0.0, idy, 0.0, -cy * idy;
@@ -1232,15 +1235,14 @@ pub fn orthographic(lbn: Point3, rtf: Point3) -> ProjMat3<View> {
 /// A viewport matrix is used to transform points from the NDC space to
 /// screen space for rasterization. NDC coordinates (-1, -1, _) are mapped
 /// to `bounds.start` and NDC coordinates (1, 1, _) to `bounds.end`.
-pub fn viewport(bounds: Range<Point2u>) -> Mat4<Ndc, Screen> {
-    let s = bounds.start.map(|c| c as f32);
-    let e = bounds.end.map(|c| c as f32);
-    let half_d = (e - s) / 2.0;
-    let [dx, dy] = half_d.0;
-    let [cx, cy] = (s + half_d).0;
+pub const fn viewport(bounds: Range<Point2u>) -> Mat4<Ndc, Screen> {
+    let Range { start, end } = bounds;
+    let [x0, y0] = [start.x() as f32, start.y() as f32];
+    let [x1, y1] = [end.x() as f32, end.y() as f32];
+    let [dx, dy] = [(x1 - x0) / 2.0 as f32, (y1 - y0) / 2.0 as f32];
     mat![
-         dx, 0.0, 0.0,  cx;
-        0.0,  dy, 0.0,  cy;
+         dx, 0.0, 0.0, x0 + dx;
+        0.0,  dy, 0.0, y0 + dy;
         0.0, 0.0, 1.0, 0.0;
         0.0, 0.0, 0.0, 1.0;
     ]
