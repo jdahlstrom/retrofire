@@ -37,6 +37,7 @@ pub mod batch;
 pub mod cam;
 pub mod clip;
 pub mod ctx;
+pub mod debug;
 pub mod prim;
 pub mod raster;
 pub mod scene;

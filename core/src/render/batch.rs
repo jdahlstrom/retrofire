@@ -3,10 +3,8 @@
 use alloc::vec::Vec;
 use core::borrow::Borrow;
 
-use crate::{
-    geom::{Mesh, Tri, Vertex3},
-    math::{Mat4, Vary},
-};
+use crate::geom::{Edge, Mesh, Tri, Vertex3};
+use crate::math::{Mat4, Vary};
 
 use super::{Clip, Context, Ndc, Render, Screen, Shader, Target};
 
@@ -29,11 +27,11 @@ use super::{Clip, Context, Ndc, Render, Screen, Shader, Target};
 // A batch can be freely reused, for example to render several chunks of geometry
 // using the same configuration, or several [instances] of the same geometry.
 // [instances]: https://en.wikipedia.org/wiki/Geometry_instancing
-#[derive(Clone, Debug, Default)]
+#[derive(Clone, Debug)]
 pub struct Batch<Prim, Vtx, Uni, Shd, Tgt, Ctx> {
-    prims: Vec<Prim>,
-    verts: Vec<Vtx>,
-    uniform: Uni,
+    pub prims: Vec<Prim>,
+    pub verts: Vec<Vtx>,
+    pub uniform: Uni,
     shader: Shd,
     viewport: Mat4<Ndc, Screen>,
     target: Tgt,
@@ -50,6 +48,26 @@ macro_rules! update {
 impl Batch<(), (), (), (), (), Context> {
     pub fn new() -> Self {
         Self::default()
+    }
+}
+
+impl<P, V, Uni, Shd, Tgt, Ctx> Default for Batch<P, V, Uni, Shd, Tgt, Ctx>
+where
+    Uni: Default,
+    Shd: Default,
+    Tgt: Default,
+    Ctx: Default,
+{
+    fn default() -> Self {
+        Self {
+            prims: Default::default(),
+            verts: Default::default(),
+            uniform: Default::default(),
+            shader: Default::default(),
+            viewport: Default::default(),
+            target: Default::default(),
+            ctx: Default::default(),
+        }
     }
 }
 
@@ -145,5 +163,30 @@ impl<Prim, Vtx, Uni, Shd, Tgt, Ctx> Batch<Prim, Vtx, Uni, Shd, &mut Tgt, Ctx> {
             prims, verts, shader, *uniform, *viewport, *target,
             (*ctx).borrow(),
         );
+    }
+}
+
+impl<Vtx, Uni, Shd, Tgt, Ctx> Batch<Edge<usize>, Vtx, Uni, Shd, Tgt, Ctx> {
+    pub fn append(&mut self, mut other: Self) {
+        let l = self.verts.len();
+        self.verts.extend(other.verts);
+        for edge in &mut other.prims {
+            edge.0 += l;
+            edge.1 += l;
+        }
+        self.prims.extend(other.prims);
+    }
+}
+
+impl<Vtx, Uni, Shd, Tgt, Ctx> Batch<Tri<usize>, Vtx, Uni, Shd, Tgt, Ctx> {
+    pub fn append(&mut self, mut other: Self) {
+        let l = self.verts.len();
+        self.verts.extend(other.verts);
+        for Tri([a, b, c]) in &mut other.prims {
+            *a += l;
+            *b += l;
+            *c += l;
+        }
+        self.prims.extend(other.prims);
     }
 }

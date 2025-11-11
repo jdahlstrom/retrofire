@@ -2,9 +2,11 @@
 //!
 //! TODO
 
-use core::fmt::{Debug, Formatter};
-use core::iter::zip;
-use core::marker::PhantomData;
+use core::{
+    fmt::{Debug, Formatter},
+    iter::zip,
+    marker::PhantomData,
+};
 
 use crate::math::vary::{Iter, Vary, ZDiv};
 
