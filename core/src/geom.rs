@@ -137,6 +137,17 @@ impl<P: Affine, A> Tri<Vertex<P, A>> {
         let [a, b, c] = &self.0;
         [b.pos.sub(&a.pos), c.pos.sub(&a.pos)]
     }
+
+    /// Returns the geometric center, or "balance point", of `self`.
+    ///
+    /// The centroid is simply the average of the three vertex positions.
+    pub fn centroid(&self) -> P
+    where
+        P::Diff: Linear<Scalar = f32>,
+    {
+        let [ab, ac] = self.tangents();
+        self.0[0].pos.add(&ab.add(&ac).mul(1.0 / 3.0))
+    }
 }
 
 impl<A, B> Tri<Vertex2<A, B>> {
@@ -209,7 +220,8 @@ impl<A, B> Tri<Vertex2<A, B>> {
 impl<A, B> Tri<Vertex3<A, B>> {
     /// Returns the normal vector of `self`.
     ///
-    /// The result is normalized to unit length.
+    /// The result is normalized to unit length. If self is degenerate and
+    /// has no normal, returns a zero vector.
     ///
     /// # Examples
     /// ```
@@ -228,7 +240,7 @@ impl<A, B> Tri<Vertex3<A, B>> {
     pub fn normal(&self) -> Normal3 {
         let [t, u] = self.tangents();
         // TODO normal with basis
-        t.cross(&u).normalize().to()
+        t.cross(&u).normalize_or_zero().to()
     }
 
     /// Returns the plane that `self` lies on.

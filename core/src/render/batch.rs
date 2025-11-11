@@ -3,10 +3,8 @@
 use alloc::vec::Vec;
 use core::borrow::Borrow;
 
-use crate::{
-    geom::{Mesh, Tri, Vertex3},
-    math::{Mat4, Vary},
-};
+use crate::geom::{Edge, Mesh, Tri, Vertex3};
+use crate::math::{Mat4, Vary};
 
 use super::{Clip, Context, Ndc, Render, Screen, Shader, Target};
 
@@ -145,5 +143,30 @@ impl<Prim, Vtx, Uni, Shd, Tgt, Ctx> Batch<Prim, Vtx, Uni, Shd, Tgt, Ctx> {
             prims, verts, shader, *uniform, *viewport,
             target, (*ctx).borrow(),
         );
+    }
+}
+
+impl<Vtx, Uni, Shd, Tgt, Ctx> Batch<Edge<usize>, Vtx, Uni, Shd, Tgt, Ctx> {
+    pub fn append(&mut self, mut other: Self) {
+        let l = self.verts.len();
+        self.verts.extend(other.verts);
+        for edge in &mut other.prims {
+            edge.0 += l;
+            edge.1 += l;
+        }
+        self.prims.extend(other.prims);
+    }
+}
+
+impl<Vtx, Uni, Shd, Tgt, Ctx> Batch<Tri<usize>, Vtx, Uni, Shd, Tgt, Ctx> {
+    pub fn append(&mut self, mut other: Self) {
+        let l = self.verts.len();
+        self.verts.extend(other.verts);
+        for Tri([a, b, c]) in &mut other.prims {
+            *a += l;
+            *b += l;
+            *c += l;
+        }
+        self.prims.extend(other.prims);
     }
 }
