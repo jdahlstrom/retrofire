@@ -122,6 +122,28 @@ impl<Ch, Sp, const N: usize> Color<[Ch; N], Sp> {
         Color::new(self.0.map(f))
     }
 }
+impl<Sp, const N: usize> Color<[f32; N], Sp> {
+    /// Returns `self` clamped channel-wise to the given range.
+    ///
+    /// In other words, for each channel `self[i]`, the result `r` has
+    /// `r[i]` equal to `self[i].clamp(min[i], max[i])`.
+    ///
+    /// # Examples
+    /// ```
+    /// use retrofire_core::math::color::{Color3, gray, rgb};
+    /// let c: Color3 = rgb(0.2, 0.5, 1.0);
+    ///
+    /// let clamped = c.clamp(&gray(0.0), &gray(0.5));
+    /// assert_eq!(clamped, vec3(0.2, 0.5, 0.5));
+    // TODO f32 and f64 have inherent clamp methods because they're not Ord.
+    //      A generic clamp for Sc: Ord would conflict with this one. There is
+    //      currently no clean way to support both floats and impl Ord types.
+    //      However, ColorX should have its own inherent impls.
+    #[must_use]
+    pub fn clamp(&self, min: &Self, max: &Self) -> Self {
+        array::from_fn(|i| self[i].clamp(min[i], max[i])).into()
+    }
+}
 
 impl Color3<Rgb> {
     /// Returns `self` as RGBA, with alpha set to 0xFF (fully opaque).
