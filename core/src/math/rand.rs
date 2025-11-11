@@ -2,7 +2,7 @@
 
 use core::{array, fmt::Debug, ops::Range};
 
-use super::{Color, Point, Point2, Point3, Vec2, Vec3, Vector};
+use super::{Angle, Color, Point, Point2, Point3, Vec2, Vec3, Vector, rads};
 
 //
 // Traits and types
@@ -323,6 +323,30 @@ impl Distrib for Uniform<f32> {
         let (exp, mantissa) = (127 << 23, rng.next_bits() >> 41);
         let unit = f32::from_bits(exp | mantissa as u32) - 1.0;
         unit * (end - start) + start
+    }
+}
+
+/// Uniformly distributed angles.
+impl Distrib for Uniform<Angle> {
+    type Sample = Angle;
+
+    /// Returns a uniformly distributed `Angle` in the range.
+    ///
+    /// # Examples
+    /// ```
+    /// use retrofire_core::math::{degs, rand::*};
+    /// let rng = &mut DefaultRng::default();
+    ///
+    /// // Angles in the interval [45°, 90°]
+    /// let range = Uniform(degs(45.0)..degs(90.0));
+    /// let mut iter = range.samples(rng);
+    /// assert_eq!(iter.next(), Some(degs(71.9309)));
+    /// assert_eq!(iter.next(), Some(degs(50.205833)));
+    /// assert_eq!(iter.next(), Some(degs(88.19318)));
+    /// ```
+    fn sample(&self, rng: &mut DefaultRng) -> Angle {
+        let Range { start, end } = self.0;
+        rads((start.to_rads()..end.to_rads()).sample(rng))
     }
 }
 
