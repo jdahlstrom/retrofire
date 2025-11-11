@@ -550,9 +550,10 @@ impl<Src, Dst> Mat4<Src, Dst> {
     /// use retrofire_core::assert_approx_eq;
     /// use retrofire_core::math::*;
     ///
-    /// let m = rotate_y(degs(90.0)).then(&translate3(1.0, 2.0, 3.0));
-    /// let lin = m.linear();
-    /// assert_approx_eq!(lin.apply(&pt3(1.0, 0.0, 0.0)), pt3(0.0, 0.0, -1.0));
+    /// let m = scale(splat(5.0)).then(&translate3(1.0, 2.0, 3.0));
+    /// let pt = pt3(1.0, 0.0, 0.0);
+    ///
+    /// assert_approx_eq!(m.linear().apply(&pt), pt3(5.0, 0.0, 0.0));
     pub const fn linear(&self) -> Mat3<Src, Dst, 3> {
         let [r, s, t, _] = self.0;
         mat![
@@ -569,10 +570,23 @@ impl<Src, Dst> Mat4<Src, Dst> {
     /// use retrofire_core::math::*;
     ///
     /// let trans = vec3(1.0, 2.0, 3.0);
-    /// let m = rotate_y(degs(45.0)).then(&translate(trans));
+    /// let m = scale(splat(5.0)).then(&translate(trans));
     /// assert_eq!(m.translation(), trans);
     pub const fn translation(&self) -> Vec3<Dst> {
         vec3(self.0[0][3], self.0[1][3], self.0[2][3])
+    }
+
+    /// Returns the translation column vector of `self` as a point.
+    ///
+    /// # Example
+    /// ```
+    /// use retrofire_core::math::*;
+    ///
+    /// let trans = vec3(1.0, 2.0, 3.0);
+    /// let m = scale(splat(5.0)).then(&translate(trans));
+    /// assert_eq!(m.origin(), pt3(1.0, 2.0, 3.0));
+    pub const fn origin(&self) -> Point3<Dst> {
+        self.translation().to_pt()
     }
 
     /// Returns the determinant of `self`.
