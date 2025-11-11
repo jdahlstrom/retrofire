@@ -1,5 +1,6 @@
 //! Frontend using the `minifb` crate for window creation and event handling.
 
+use std::mem::replace;
 use std::ops::ControlFlow::{self, Break};
 use std::time::Instant;
 
@@ -124,7 +125,7 @@ impl Window {
             }
             let frame = &mut Frame {
                 t: start.elapsed(),
-                dt: last.elapsed(),
+                dt: replace(&mut last, Instant::now()).elapsed(),
                 buf: Framebuf {
                     color_buf: Colorbuf::new(cbuf.as_mut_slice2()),
                     depth_buf: zbuf.as_mut_slice2(),
@@ -134,7 +135,6 @@ impl Window {
             };
             frame.clear();
 
-            last = Instant::now();
             if let Break(_) = frame_fn(frame) {
                 break;
             }
