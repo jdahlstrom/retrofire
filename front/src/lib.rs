@@ -36,6 +36,7 @@ pub struct Frame<'a, Win, Buf> {
     pub ctx: &'a mut Context,
 }
 
+#[allow(non_upper_case_globals)]
 pub mod dims {
     // Source for the names:
     // https://commons.wikimedia.org/wiki/File:Vector_Video_Standards8.svg
@@ -43,11 +44,13 @@ pub mod dims {
     use retrofire_core::util::Dims;
 
     // 5:4
+    pub const qSXGA_640_512: Dims = (640, 512);
     pub const SXGA_1280_1024: Dims = (1280, 1024);
 
     // 4:3
-    #[allow(non_upper_case_globals)]
     pub const qVGA_320_240: Dims = (320, 240);
+    pub const qSVGA_400_300: Dims = (400, 300);
+    pub const qXGA_512_384: Dims = (512, 384);
     pub const VGA_640_480: Dims = (640, 480);
     pub const SVGA_800_600: Dims = (800, 600);
     pub const XGA_1024_768: Dims = (1024, 768);
@@ -56,12 +59,21 @@ pub mod dims {
     pub const QXGA_2048_1536: Dims = (2048, 1536);
 
     // 16:10
+    pub const CGA_320_200: Dims = (320, 200);
+    pub const MODE_13H: Dims = CGA_320_200;
+    pub const QCGA_640_400: Dims = (640, 400);
+    pub const qWXGA_640_400: Dims = (640, 640);
+    pub const WXGA_1280_800: Dims = (1280, 800);
+    pub const WXGAP_1440_900: Dims = (1440, 900);
     pub const WSXGAP_1680_1050: Dims = (1680, 1050);
     pub const WUXGA_1920_1200: Dims = (1920, 1200);
     pub const WQXGA_2560_1600: Dims = (2560, 1600);
 
     // 16:9
-    pub const HD_1280_720: Dims = (720, 480);
+    // 640x360 = "qHD"?
+    // 800x450 = qWSXGA?
+    // 960x540 = qFHD
+    pub const HD_1280_720: Dims = (1280, 720);
     pub const WSXGA_1600_900: Dims = (1600, 900);
     pub const FHD_1920_1080: Dims = (1920, 1080);
     pub const QHD_2560_1440: Dims = (2560, 1440);
@@ -70,6 +82,11 @@ pub mod dims {
     // DCI ~17:9
     pub const DCI_2K_2048_1080: Dims = (2048, 1080);
     pub const DCI_4K_4096_2160: Dims = (4096, 2160);
+
+    // ~21:9
+    pub const qUWFHD_1280_540: Dims = (1280, 540);
+    pub const UWFHD_2560_1080: Dims = (2560, 1080);
+    pub const UWQHD_3440_1440: Dims = (3440, 1440);
 }
 
 impl<W, C: AsMutSlice2<u32>, F: Copy, Z: AsMutSlice2<f32>>
