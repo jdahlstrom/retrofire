@@ -149,7 +149,7 @@ impl<Sp, const N: usize> Vector<[f32; N], Sp> {
     /// ```
     ///
     /// # Panics
-    /// Panics in dev mode if `self` is a zero vector.
+    /// Panics if the length of `self` is approximately zero.
     #[inline]
     #[must_use]
     pub fn normalize(&self) -> Self {
@@ -163,6 +163,34 @@ impl<Sp, const N: usize> Vector<[f32; N], Sp> {
             self.0
         );
         *self * f32::recip_sqrt(len_sqr)
+    }
+
+    /// Returns `self` normalized to unit length, or a zero vector if the
+    /// length of  `self` is approximately zero.
+    ///
+    /// # Examples
+    /// ```
+    /// use retrofire_core::assert_approx_eq;
+    /// use retrofire_core::math::{vec2, Vec2};
+    ///
+    /// let normalized: Vec2 = vec2(3.0, 4.0).normalize_or_zero();
+    /// assert_approx_eq!(normalized, vec2(0.6, 0.8), eps=1e-2);
+    ///
+    /// let zero: Vec2 = vec2(0.0, 0.0).normalize_or_zero();
+    /// assert_eq!(zero, vec2(0.0, 0.0));
+    /// ```
+    #[inline]
+    #[must_use]
+    pub fn normalize_or_zero(&self) -> Self {
+        #[cfg(feature = "std")]
+        use super::float::RecipSqrt;
+        use super::float::f32;
+        let len_sqr = self.len_sqr();
+        if len_sqr.approx_eq_eps(&0.0, &1e-12) {
+            Vector::zero()
+        } else {
+            *self * f32::recip_sqrt(len_sqr)
+        }
     }
 
     /// Returns `self` clamped component-wise to the given range.
