@@ -45,17 +45,17 @@ pub type SphericalVec<B = ()> = Vector<[f32; 3], Spherical<B>>;
 //
 
 /// Returns an angle of `a` radians.
-pub fn rads(a: f32) -> Angle {
+pub const fn rads(a: f32) -> Angle {
     Angle(a)
 }
 
 /// Returns an angle of `a` degrees.
-pub fn degs(a: f32) -> Angle {
+pub const fn degs(a: f32) -> Angle {
     Angle(a * RADS_PER_DEG)
 }
 
 /// Returns an angle of `a` turns.
-pub fn turns(a: f32) -> Angle {
+pub const fn turns(a: f32) -> Angle {
     Angle(a * RADS_PER_TURN)
 }
 
@@ -543,6 +543,14 @@ impl Rem for Angle {
     type Output = Self;
     fn rem(self, rhs: Self) -> Self {
         Self(self.0 % rhs.0)
+    }
+}
+
+impl Mul<Angle> for f32 {
+    type Output = Angle;
+
+    fn mul(self, rhs: Angle) -> Self::Output {
+        rhs * self
     }
 }
 
