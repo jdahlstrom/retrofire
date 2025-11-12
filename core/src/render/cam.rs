@@ -101,7 +101,7 @@ pub struct Orbit {
 
 impl Fov {
     /// TODO
-    pub fn focal_ratio(self, aspect_ratio: f32) -> f32 {
+    pub fn focal_ratio(self, #[allow(unused)] aspect_ratio: f32) -> f32 {
         use Fov::*;
         #[cfg(feature = "fp")]
         fn ratio(a: Angle) -> f32 {
