@@ -121,11 +121,11 @@ impl<Repr, Map> Matrix<Repr, Map> {
     /// This method can be used to coerce a matrix to a different
     /// mapping in case it is needed to make types match.
     #[inline]
-    pub fn to<M>(&self) -> Matrix<Repr, M>
+    pub const fn to<M>(&self) -> Matrix<Repr, M>
     where
-        Repr: Clone,
+        Repr: Copy,
     {
-        Matrix(self.0.clone(), Pd)
+        Matrix::new(self.0)
     }
 
     pub fn apply<T>(&self, t: &T) -> <Self as Apply<T>>::Output
@@ -191,9 +191,23 @@ impl<Sc: Copy, const N: usize, const DIM: usize, S, D>
     /// assert_eq!(m.transpose(), mat![1.0, 3.0;
     ///                                2.0, 4.0]);
     #[must_use]
-    pub fn transpose(self) -> Matrix<[[Sc; N]; N], RealToReal<DIM, D, S>> {
+    pub const fn transpose(
+        mut self,
+    ) -> Matrix<[[Sc; N]; N], RealToReal<DIM, D, S>> {
         const { assert!(N >= DIM, "map dimension >= matrix dimension") }
-        array::from_fn(|j| array::from_fn(|i| self.0[i][j])).into()
+        // Old-fashioned loop for now for constness
+        let mut i = 0;
+        while i < N {
+            let mut j = i + 1;
+            while j < N {
+                let tmp = self.0[i][j];
+                self.0[i][j] = self.0[j][i];
+                self.0[j][i] = tmp;
+                j += 1
+            }
+            i += 1
+        }
+        self.to()
     }
 }
 
@@ -924,7 +938,7 @@ impl<Src> Apply<Point3<Src>> for ProjMat3<Src> {
 // Foreign trait impls
 //
 
-impl<R: Clone, M> Clone for Matrix<R, M> {
+impl<R: Copy + Clone, M> Clone for Matrix<R, M> {
     fn clone(&self) -> Self {
         self.to()
     }
