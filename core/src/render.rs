@@ -6,7 +6,7 @@
 //! geometric shapes such as triangles.
 
 use alloc::vec::Vec;
-use core::fmt::Debug;
+use core::{fmt::Debug, ops::DerefMut};
 
 use crate::geom::Vertex;
 use crate::math::{
@@ -133,7 +133,7 @@ pub fn render<Prim, Vtx: Clone, Var, Uni: Copy, Shd>(
     shader: &Shd,
     uniform: Uni,
     to_screen: Mat4<Ndc, Screen>,
-    target: &mut impl Target,
+    mut target: &mut impl Target,
     ctx: &Context,
 ) where
     Prim: Render<Var> + Clone,
@@ -194,7 +194,9 @@ pub fn render<Prim, Vtx: Clone, Var, Uni: Copy, Shd>(
         // 4. Fragment shader and rasterization
         Prim::rasterize(prim, |scanline| {
             // Convert to fragments, shade, and draw to target
-            stats.frags += target.rasterize(scanline, shader, ctx);
+            stats.frags += target
+                .deref_mut()
+                .rasterize(scanline, shader, ctx);
         });
     }
     *ctx.stats.borrow_mut() += stats.finish();

@@ -3,7 +3,7 @@
 extern crate alloc;
 extern crate core;
 
-use core::time::Duration;
+use core::{cell::RefCell, time::Duration};
 
 use retrofire_core::{
     math::Color4,
@@ -90,23 +90,30 @@ pub mod dims {
 }
 
 impl<W, C: AsMutSlice2<u32>, F: Copy, Z: AsMutSlice2<f32>>
-    Frame<'_, W, Framebuf<Colorbuf<C, F>, Z>>
+    Frame<'_, W, &RefCell<Framebuf<Colorbuf<C, F>, Z>>>
 where
     Color4: IntoPixel<u32, F>,
 {
+    /// Clears the color buffer if [color clearing][Context::color_clear]
+    /// is enabled and the depth buffer if [depth clearing][Context::depth_clear]
+    /// is enabled.
     pub fn clear(&mut self) {
         if let Some(c) = self.ctx.color_clear {
             // TODO Assumes pixel format
             self.buf
+                .borrow_mut()
                 .color_buf
-                .buf
                 .as_mut_slice2()
                 .fill(c.into_pixel());
         }
         if let Some(z) = self.ctx.depth_clear {
             // Depth buffer contains reciprocal depth values
             // TODO Assumes depth format
-            self.buf.depth_buf.as_mut_slice2().fill(z.recip());
+            self.buf
+                .borrow_mut()
+                .depth_buf
+                .as_mut_slice2()
+                .fill(z.recip());
         }
     }
 }

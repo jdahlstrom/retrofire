@@ -31,10 +31,10 @@ fn main() {
     win.ctx.depth_clear = None;
 
     win.run(|Frame { dt, buf, .. }| {
+        let buf = &mut buf.borrow_mut().color_buf.buf;
+
         // Fade out previous frame a bit
-        buf.color_buf
-            .buf
-            .iter_mut()
+        buf.iter_mut()
             .for_each(|c| *c = c.saturating_sub(0x08_08_02));
 
         let rays: Vec<Ray<_>> = pos_vels
@@ -49,12 +49,12 @@ fn main() {
         for Edge(p0, p1) in approx.edges() {
             let vs = [p0, p1].map(|p| vertex(p.to_pt3().to(), ()));
             line(vs, |sl| {
-                buf.color_buf.buf[sl.y][sl.xs].fill(0xFF_FF_FF);
+                buf[sl.y][sl.xs].fill(0xFF_FF_FF);
             })
         }
 
         let dt = dt.as_secs_f32();
-        for (pos, vel) in pos_vels.iter_mut() {
+        for (pos, vel) in &mut pos_vels {
             *pos = (*pos + 80.0 * *vel * dt).clamp(&min, &max);
             let [dx, dy] = &mut vel.0;
             if pos.x() == min.x() || pos.x() == max.x() {
