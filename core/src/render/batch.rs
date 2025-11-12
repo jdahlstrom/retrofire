@@ -1,7 +1,7 @@
 //! Builder for setting up geometry for rendering.
 
 use alloc::vec::Vec;
-use core::borrow::Borrow;
+use core::{borrow::Borrow, cell::RefCell, ops::DerefMut};
 
 use crate::{
     geom::{Mesh, Tri, Vertex3},
@@ -123,7 +123,9 @@ impl<Prim, Vtx, Uni, Shd, Tgt, Ctx> Batch<Prim, Vtx, Uni, Shd, Tgt, Ctx> {
     }
 }
 
-impl<Prim, Vtx, Uni, Shd, Tgt, Ctx> Batch<Prim, Vtx, Uni, Shd, &mut Tgt, Ctx> {
+impl<Prim, Vtx, Uni, Shd, Tgt, Ctx>
+    Batch<Prim, Vtx, Uni, Shd, &RefCell<Tgt>, Ctx>
+{
     /// Renders this batch of geometry.
     #[rustfmt::skip]
     pub fn render<Var>(&mut self)
@@ -142,8 +144,8 @@ impl<Prim, Vtx, Uni, Shd, Tgt, Ctx> Batch<Prim, Vtx, Uni, Shd, &mut Tgt, Ctx> {
         } = self;
 
         super::render(
-            prims, verts, shader, *uniform, *viewport, *target,
-            (*ctx).borrow(),
+            prims, verts, shader, *uniform, *viewport,
+            target.borrow_mut().deref_mut(), (*ctx).borrow(),
         );
     }
 }

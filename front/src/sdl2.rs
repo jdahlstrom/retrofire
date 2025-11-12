@@ -1,6 +1,6 @@
 //! Frontend using the `sdl2` crate for window creation and event handling.
-
-use std::{fmt, mem::replace, ops::ControlFlow, time::Instant};
+use core::{cell::RefCell, fmt, mem::replace, ops::ControlFlow};
+use std::time::Instant;
 
 use sdl2::{
     EventPump, IntegerOrSdlError, Sdl,
@@ -11,6 +11,7 @@ use sdl2::{
     video::{FullscreenType, Window as SdlWindow, WindowBuildError},
 };
 
+use super::{Frame, dims};
 use retrofire_core::math::{Color4, Vary};
 use retrofire_core::render::{
     Colorbuf, Context, FragmentShader, Target, raster::Scanline,
@@ -19,10 +20,8 @@ use retrofire_core::render::{
 use retrofire_core::util::{
     Dims,
     buf::{AsMutSlice2, Buf2, MutSlice2},
-    pixfmt::{IntoPixel, Rgb565, Rgba4444, Rgba8888},
+    pixfmt::*,
 };
-
-use super::{Frame, dims};
 
 /// Helper trait to support different pixel format types.
 pub trait PixelFmt: Copy + Default {
@@ -55,7 +54,7 @@ pub struct Window<PF> {
 
 /// Builder for creating `Window`s.
 pub struct Builder<'title, PF> {
-    pub dims: (u32, u32),
+    pub dims: Dims,
     pub title: &'title str,
     pub vsync: bool,
     pub hidpi: bool,
@@ -74,8 +73,8 @@ pub struct Framebuf<'a, PF: PixelFmt> {
 
 impl<'t, PF: PixelFmt> Builder<'t, PF> {
     /// Sets the width and height of the window, in pixels.
-    pub fn dims(mut self, w: u32, h: u32) -> Self {
-        self.dims = (w, h);
+    pub fn dims(mut self, dims: Dims) -> Self {
+        self.dims = dims;
         self
     }
     /// Sets the title of the window.
@@ -104,7 +103,12 @@ impl<'t, PF: PixelFmt> Builder<'t, PF> {
     }
     /// Sets the framebuffer pixel format.
     ///
-    /// Supported formats are [`Rgba8888`], [`Rgb565`], and [`Rgba4444`].
+    /// Currently supported formats are
+    /// * [`Rgba8888`],
+    /// * [`Rgba5551`],
+    /// * [`Rgba4444`],
+    /// * [`Rgb565`], and
+    /// * [`Rgb332`].
     pub fn pixel_fmt(mut self, fmt: PF) -> Self {
         self.pixfmt = fmt;
         self
@@ -183,7 +187,7 @@ impl<PF: PixelFmt<Pixel = [u8; N]>, const N: usize> Window<PF> {
     /// * the callback returns [`ControlFlow::Break`][ControlFlow].
     pub fn run<F>(&mut self, mut frame_fn: F) -> Result<(), Error>
     where
-        F: FnMut(&mut Frame<Self, Framebuf<PF>>) -> ControlFlow<()>,
+        F: FnMut(&mut Frame<Self, &RefCell<Framebuf<PF>>>) -> ControlFlow<()>,
         Color4: IntoPixel<PF::Pixel, PF>,
     {
         let dims @ (w, h) = self.canvas.window().drawable_size();
@@ -230,7 +234,7 @@ impl<PF: PixelFmt<Pixel = [u8; N]>, const N: usize> Window<PF> {
                 let frame = &mut Frame {
                     t: start.elapsed(),
                     dt: replace(&mut last, Instant::now()).elapsed(),
-                    buf,
+                    buf: &RefCell::new(buf),
                     win: self,
                     ctx: &mut ctx,
                 };
@@ -264,6 +268,14 @@ impl PixelFmt for Rgb565 {
 impl PixelFmt for Rgba4444 {
     type Pixel = [u8; 2];
     const SDL_FMT: PixelFormatEnum = PixelFormatEnum::RGBA4444;
+}
+impl PixelFmt for Rgba5551 {
+    type Pixel = [u8; 2];
+    const SDL_FMT: PixelFormatEnum = PixelFormatEnum::RGBA5551;
+}
+impl PixelFmt for Rgb332 {
+    type Pixel = [u8; 1];
+    const SDL_FMT: PixelFormatEnum = PixelFormatEnum::RGB332;
 }
 
 impl<'a, PF, const N: usize> Target for Framebuf<'a, PF>

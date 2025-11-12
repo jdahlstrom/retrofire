@@ -16,32 +16,71 @@ pub trait IntoPixel<T, F>: Sized {
     }
 }
 
-/// Eight-bit channels in R,G,B order.
+/// Three eight-bit channels in R,G,B order.
+///
+/// Each channel has 2^8 = 256 distinct values, and each pixel takes three
+/// bytes of memory.
 #[derive(Copy, Clone, Default)]
 pub struct Rgb888;
-/// 5,6,5-bit channels in R,G,B order.
+/// Three channels with 5 bits for R, 6 bits for G, and 5 bits for B.
 #[derive(Copy, Clone, Default)]
 pub struct Rgb565;
+/// Three 5-bit channels plus one-bit alpha (1 = opaque, 0 = transparent).
+///
+/// Each color channel has 2^5 = 32 distinct values, and each pixel takes
+/// two bytes of memory.
+#[derive(Copy, Clone, Default)]
+pub struct Rgba5551;
 
-/// Eight-bit channels in X,R,G,B order, where X is unused.
+/// Three eight-bit channels in x,R,G,B order, where x is unused.
+///
+/// Each channel has 2^8 = 256 distinct values, and each pixel takes
+/// four bytes of memory.
 #[derive(Copy, Clone, Default)]
 pub struct Xrgb8888;
-/// Eight-bit channels in R,G,B,A order.
+
+/// Four eight-bit channels in R,G,B,A order.
+///
+/// Each channel has 2^8 = 256 distinct values, and each pixel takes
+/// four bytes of memory.
 #[derive(Copy, Clone, Default)]
 pub struct Rgba8888;
-/// Eight-bit channels in A,R,G,B order.
+
+/// Four eight-bit channels in A,R,G,B order.
+///
+/// Each channel has 2^8 = 256 distinct values, and each pixel takes
+/// four bytes of memory.
 #[derive(Copy, Clone, Default)]
 pub struct Argb8888;
-/// Eight-bit channels in B,G,R,A order.
+
+/// Four eight-bit channels in B,G,R,A order.
+///
+/// Each channel has 2^8 = 256 distinct values, and each pixel takes
+/// four bytes of memory.
 #[derive(Copy, Clone, Default)]
 pub struct Bgra8888;
 
-/// Four-bit channels in R,G,B,A order.
+/// Four four-bit channels in R,G,B,A order.
+///
+/// Each channel has 2^4 = 16 distinct values, and the number of different
+/// RGB values is 2^12 = 4096. Each pixel takes two bytes.
 #[derive(Copy, Clone, Default)]
 pub struct Rgba4444;
 
+/// Three channels with 3 bits for R and g and 2 bits for B.
+///
+/// Red and green have 2^3 = 8 and blue 2^2 = 4 distinct values. The number of
+/// different RGB values is 256, and each pixel takes a single byte.
+#[derive(Copy, Clone, Default)]
+pub struct Rgb332;
+
+/// A single 8-bit luminance channel.
+#[derive(Copy, Clone, Default)]
+pub struct Lum8;
+
 // Impls for Color3
 
+// Rgb888
 impl IntoPixel<u32, Rgb888> for Color3 {
     fn into_pixel(self) -> u32 {
         let [r, g, b] = self.0;
@@ -55,7 +94,9 @@ impl IntoPixel<[u8; 3], Rgb888> for Color3 {
     }
 }
 
+// Rgb565
 impl IntoPixel<u16, Rgb565> for Color3 {
+    /// Packs `self` into a `u16` in `0bRRRRR_GGGGGG_BBBBB` format.
     fn into_pixel(self) -> u16 {
         let [r, g, b] = self.0;
         (r as u16 >> 3 & 0x1F) << 11
@@ -63,11 +104,21 @@ impl IntoPixel<u16, Rgb565> for Color3 {
             | (b as u16 >> 3 & 0x1F)
     }
 }
-
 impl IntoPixel<[u8; 2], Rgb565> for Color3 {
+    /// Packs `self` into two bytes in `[0bGGG_BBBBB, 0bRRRRR_GGG]` format.
+    // TODO is this correct?
     fn into_pixel(self) -> [u8; 2] {
         let c: u16 = self.into_pixel();
         c.to_ne_bytes()
+    }
+}
+
+// Rgb332
+impl IntoPixel<u8, Rgb332> for Color3 {
+    /// Packs `self` into a single byte in `0bRRR_GGG_BB` format.
+    fn into_pixel(self) -> u8 {
+        let [r, g, b] = self.0;
+        (r & 0b111_000_00) | (g >> 3 & 0b000_111_00) | (b >> 6)
     }
 }
 
@@ -83,6 +134,17 @@ where
     }
 }
 
+/*
+impl<T, F> IntoPixel<T, F> for Color4
+where
+    Color3: IntoPixel<T, F>,
+{
+    fn into_pixel(self) -> T {
+        self.to_rgb().into_pixel()
+    }
+}*/
+
+// Xrgb8888
 impl IntoPixel<u32, Xrgb8888> for Color4 {
     fn into_pixel(self) -> u32 {
         let [r, g, b, _] = self.0;
@@ -90,6 +152,8 @@ impl IntoPixel<u32, Xrgb8888> for Color4 {
         u32::from_be_bytes([0, r, g, b])
     }
 }
+
+// Rgba8888 and permutations
 impl IntoPixel<[u8; 4], Rgba8888> for Color4 {
     fn into_pixel(self) -> [u8; 4] {
         self.0
@@ -107,11 +171,8 @@ impl IntoPixel<[u8; 4], Bgra8888> for Color4 {
         [b, g, r, a]
     }
 }
-impl IntoPixel<[u8; 3], Rgb888> for Color4 {
-    fn into_pixel(self) -> [u8; 3] {
-        [self.r(), self.g(), self.b()]
-    }
-}
+
+// Rgba4444
 impl IntoPixel<[u8; 2], Rgba4444> for Color4 {
     fn into_pixel(self) -> [u8; 2] {
         let c: u16 = self.into_pixel_fmt(Rgba4444);
@@ -125,15 +186,38 @@ impl IntoPixel<u16, Rgba4444> for Color4 {
         r << 12 | g << 8 | b << 4 | a
     }
 }
-impl IntoPixel<u16, Rgb565> for Color4 {
+
+// Rgba 5551
+impl IntoPixel<u16, Rgba5551> for Color4 {
+    /// Packs `self` into a `u16` in a `0bRRRRR_GGGGG_BBBBB_A` format.
+    /// The alpha value `0xFF` is considered opaque, any other value
+    /// fully transparent.
     fn into_pixel(self) -> u16 {
+        let [r, g, b, a] = self.0;
+        (r as u16 >> 3 & 0x1F) << 11
+            | (g as u16 >> 3 & 0x1F) << 6
+            | (b as u16 >> 3 & 0x1F) << 1
+            | (a == 0xFF) as u16
+    }
+}
+impl IntoPixel<[u8; 2], Rgba5551> for Color4 {
+    fn into_pixel(self) -> [u8; 2] {
+        let c: u16 = self.into_pixel_fmt(Rgba5551);
+        c.to_ne_bytes()
+    }
+}
+
+// Rgb332
+impl IntoPixel<u8, Rgb332> for Color4 {
+    /// Packs `self` into a single byte in `0bRRR_GGG_BB` format.
+    fn into_pixel(self) -> u8 {
         self.to_rgb().into_pixel()
     }
 }
-impl IntoPixel<[u8; 2], Rgb565> for Color4 {
-    fn into_pixel(self) -> [u8; 2] {
-        let c: u16 = self.into_pixel_fmt(Rgb565);
-        c.to_ne_bytes()
+impl IntoPixel<[u8; 1], Rgb332> for Color4 {
+    /// Packs `self` into a single byte in `0bRRR_GGG_BB` format.
+    fn into_pixel(self) -> [u8; 1] {
+        [self.into_pixel()]
     }
 }
 
@@ -158,6 +242,15 @@ mod tests {
 
         let pix: [u8; 2] = rgb(0x40u8, 0x20, 0x10).into_pixel_fmt(Rgb565);
         assert_eq!(pix, [0b000_00010, 0b01000_001]);
+    }
+
+    #[test]
+    fn color3_to_rgb332() {
+        let pix: u8 = rgb(0xFF, 0x00, 0xFF).into_pixel();
+        assert_eq!(pix, 0b111_000_11, "bits: {pix:b}");
+
+        let pix: u8 = rgb(0x00, 0x0FF, 0x00).into_pixel();
+        assert_eq!(pix, 0b000_111_00, "bits: {pix:b}");
     }
 
     #[test]
@@ -198,5 +291,24 @@ mod tests {
 
         let pix: u16 = COL4.into_pixel_fmt(Rgba4444);
         assert_eq!(pix, 0x1234);
+    }
+
+    #[test]
+    fn color4_to_rgba5551_u16() {
+        let pix: u16 = rgba(0x40u8, 0x20, 0x10, 0).into_pixel_fmt(Rgba5551);
+        assert_eq!(pix, 0b01000_00100_00010_0_u16, "bits: {pix:b}");
+        let pix: u16 = rgba(0x40u8, 0x20, 0x10, 0x80).into_pixel_fmt(Rgba5551);
+        assert_eq!(pix, 0b01000_00100_00010_0_u16, "bits: {pix:b}");
+        let pix: u16 = rgba(0x40u8, 0x20, 0x10, 0xFF).into_pixel_fmt(Rgba5551);
+        assert_eq!(pix, 0b01000_00100_00010_1_u16, "bits: {pix:b}");
+    }
+
+    #[test]
+    fn color4_to_rgba5551_2u8() {
+        let pix: [u8; 2] = rgba(0x40u8, 0x20, 0x10, 0).into_pixel_fmt(Rgba5551);
+        assert_eq!(pix, [0b00_00010_0, 0b01000_001]);
+        let pix: [u8; 2] =
+            rgba(0x40u8, 0x20, 0x10, 0xFF).into_pixel_fmt(Rgba5551);
+        assert_eq!(pix, [0b00_00010_1, 0b01000_001]);
     }
 }
