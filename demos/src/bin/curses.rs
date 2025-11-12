@@ -131,7 +131,7 @@ impl Target for Win {
                 | (b / 85 & 0b000_000_11);
 
             // Avoid the eight standard colors
-            self.0.addch(COLOR_PAIR(col.max(8)));
+            self.0.addch(COLOR_PAIR(col.max(8) as chtype));
         }
         Throughput { i: w, o: w }
     }
