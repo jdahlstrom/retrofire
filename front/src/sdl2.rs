@@ -55,7 +55,7 @@ pub struct Window<PF> {
 
 /// Builder for creating `Window`s.
 pub struct Builder<'title, PF> {
-    pub dims: (u32, u32),
+    pub dims: Dims,
     pub title: &'title str,
     pub vsync: bool,
     pub hidpi: bool,
@@ -74,8 +74,8 @@ pub struct Framebuf<'a, PF: PixelFmt> {
 
 impl<'t, PF: PixelFmt> Builder<'t, PF> {
     /// Sets the width and height of the window, in pixels.
-    pub fn dims(mut self, w: u32, h: u32) -> Self {
-        self.dims = (w, h);
+    pub fn dims(mut self, dims: Dims) -> Self {
+        self.dims = dims;
         self
     }
     /// Sets the title of the window.
