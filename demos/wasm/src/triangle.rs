@@ -28,7 +28,7 @@ pub fn start() {
     let proj = perspective(1.0, 4.0 / 3.0, 0.1..1000.0);
     let vp = viewport(pt2(8, 8)..pt2(DIMS.0 - 8, DIMS.1 - 8));
 
-    win.run(move |frame| {
+    win.run(move |mut frame| {
         let t = frame.t.as_secs_f32();
 
         let mv = rotate_z(rads(t))
@@ -41,15 +41,7 @@ pub fn start() {
             |f: Frag<Color4f>| f.var.to_color4(),
         );
 
-        render(
-            [tri(0, 1, 2)], //
-            vs,
-            &sh,
-            (),
-            vp,
-            &mut frame.buf,
-            frame.ctx,
-        );
+        render([tri(0, 1, 2)], vs, &sh, (), vp, &mut frame.buf, frame.ctx);
         Continue(())
     });
 }
