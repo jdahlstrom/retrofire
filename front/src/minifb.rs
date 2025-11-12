@@ -1,7 +1,10 @@
 //! Frontend using the `minifb` crate for window creation and event handling.
 
-use std::mem::replace;
-use std::ops::ControlFlow::{self, Break};
+use core::{
+    cell::RefCell,
+    mem::replace,
+    ops::ControlFlow::{self, *},
+};
 use std::time::Instant;
 
 use minifb::{Key, WindowOptions};
@@ -110,7 +113,7 @@ impl Window {
     /// * the callback returns `ControlFlow::Break`.
     pub fn run<F>(&mut self, mut frame_fn: F)
     where
-        F: FnMut(&mut Frame<Self, Framebuf>) -> ControlFlow<()>,
+        F: FnMut(&mut Frame<Self, &RefCell<Framebuf>>) -> ControlFlow<()>,
     {
         let (w, h) = self.dims;
         let mut cbuf = Buf2::new((w, h));
@@ -123,13 +126,14 @@ impl Window {
             if self.should_quit() {
                 break;
             }
+            let buf = Framebuf {
+                color_buf: Colorbuf::new(cbuf.as_mut_slice2()),
+                depth_buf: zbuf.as_mut_slice2(),
+            };
             let frame = &mut Frame {
                 t: start.elapsed(),
                 dt: replace(&mut last, Instant::now()).elapsed(),
-                buf: Framebuf {
-                    color_buf: Colorbuf::new(cbuf.as_mut_slice2()),
-                    depth_buf: zbuf.as_mut_slice2(),
-                },
+                buf: &RefCell::new(buf),
                 win: self,
                 ctx: &mut ctx,
             };
