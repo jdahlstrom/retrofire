@@ -91,20 +91,20 @@ fn main() {
 
         let batch = Batch::new()
             .viewport(cam.viewport)
+            .target(frame.buf)
             .context(frame.ctx);
 
         // Floor
         {
-            let Obj { geom, bbox, tf } = &floor;
+            let Obj { bbox, tf, geom } = &floor;
             let model_to_project = tf.then(&world_to_project);
             if bbox.visibility(&model_to_project) != Hidden {
-                batch
+                let mut b = batch
                     .clone()
                     .mesh(geom)
-                    .uniform(&model_to_project)
                     .shader(floor_shader)
-                    .target(&mut frame.buf)
-                    .render();
+                    .uniform(&model_to_project);
+                b.render();
             }
         }
 
@@ -131,7 +131,6 @@ fn main() {
                 //      pass to render() instead. OTOH then a Frame::batch
                 //      helper wouldn't be as useful. Maybe just wrap the
                 //      target in a RefCell?
-                .target(&mut frame.buf)
                 .render();
 
             frame.ctx.stats.borrow_mut().objs.o += 1;

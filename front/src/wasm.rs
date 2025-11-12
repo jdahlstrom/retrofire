@@ -93,7 +93,7 @@ impl Window {
 
     pub fn run<F>(mut self, mut frame_fn: F)
     where
-        F: FnMut(&mut Frame<Self, Framebuf>) -> ControlFlow<()> + 'static,
+        F: FnMut(Frame<Self, &RefCell<Framebuf>>) -> ControlFlow<()> + 'static,
     {
         let mut ctx = self.ctx.clone();
 
@@ -116,13 +116,13 @@ impl Window {
                 let mut frame = Frame {
                     t,
                     dt,
-                    buf,
+                    buf: &RefCell::new(buf),
                     ctx: &mut ctx,
                     win: &mut self,
                 };
                 frame.clear();
 
-                if let Continue(_) = frame_fn(&mut frame) {
+                if let Continue(_) = frame_fn(frame) {
                     requestAnimationFrame(inner.borrow().as_ref().unwrap());
                 } else {
                     let _ = inner.borrow_mut().take();

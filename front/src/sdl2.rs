@@ -1,6 +1,6 @@
 //! Frontend using the `sdl2` crate for window creation and event handling.
-
-use std::{fmt, mem::replace, ops::ControlFlow, time::Instant};
+use core::{cell::RefCell, fmt, mem::replace, ops::ControlFlow};
+use std::time::Instant;
 
 use sdl2::{
     EventPump, IntegerOrSdlError, Sdl,
@@ -183,7 +183,7 @@ impl<PF: PixelFmt<Pixel = [u8; N]>, const N: usize> Window<PF> {
     /// * the callback returns [`ControlFlow::Break`][ControlFlow].
     pub fn run<F>(&mut self, mut frame_fn: F) -> Result<(), Error>
     where
-        F: FnMut(&mut Frame<Self, Framebuf<PF>>) -> ControlFlow<()>,
+        F: FnMut(&mut Frame<Self, &RefCell<Framebuf<PF>>>) -> ControlFlow<()>,
         Color4: IntoPixel<PF::Pixel, PF>,
     {
         let dims @ (w, h) = self.canvas.window().drawable_size();
@@ -230,7 +230,7 @@ impl<PF: PixelFmt<Pixel = [u8; N]>, const N: usize> Window<PF> {
                 let frame = &mut Frame {
                     t: start.elapsed(),
                     dt: replace(&mut last, Instant::now()).elapsed(),
-                    buf,
+                    buf: &RefCell::new(buf),
                     win: self,
                     ctx: &mut ctx,
                 };
