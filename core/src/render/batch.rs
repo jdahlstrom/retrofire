@@ -123,7 +123,7 @@ impl<Prim, Vtx, Uni, Shd, Tgt, Ctx> Batch<Prim, Vtx, Uni, Shd, Tgt, Ctx> {
     }
 }
 
-impl<Prim, Vtx, Uni, Shd, Tgt, Ctx> Batch<Prim, Vtx, Uni, Shd, &mut Tgt, Ctx> {
+impl<Prim, Vtx, Uni, Shd, Tgt, Ctx> Batch<Prim, Vtx, Uni, Shd, Tgt, Ctx> {
     /// Renders this batch of geometry.
     #[rustfmt::skip]
     pub fn render<Var>(&mut self)
@@ -142,8 +142,8 @@ impl<Prim, Vtx, Uni, Shd, Tgt, Ctx> Batch<Prim, Vtx, Uni, Shd, &mut Tgt, Ctx> {
         } = self;
 
         super::render(
-            prims, verts, shader, *uniform, *viewport, *target,
-            (*ctx).borrow(),
+            prims, verts, shader, *uniform, *viewport,
+            target, (*ctx).borrow(),
         );
     }
 }

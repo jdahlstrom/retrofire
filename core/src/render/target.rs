@@ -4,6 +4,8 @@
 //! and possible auxiliary buffers. Special render targets can be used,
 //! for example, for visibility or occlusion computations.
 
+use core::cell::RefCell;
+
 use crate::math::{Color3, Color4, Vary};
 use crate::util::{
     buf::{AsMutSlice2, Buf2, MutSlice2},
@@ -53,6 +55,27 @@ impl<T, B: AsMutSlice2<T>, F> AsMutSlice2<T> for Colorbuf<B, F> {
     }
 }
 
+impl<T: Target> Target for &mut T {
+    fn rasterize<V: Vary, Fs: FragmentShader<V>>(
+        &mut self,
+        sl: Scanline<V>,
+        fs: &Fs,
+        ctx: &Context,
+    ) -> Throughput {
+        (*self).rasterize(sl, fs, ctx)
+    }
+}
+impl<T: Target> Target for &RefCell<T> {
+    fn rasterize<V: Vary, Fs: FragmentShader<V>>(
+        &mut self,
+        sl: Scanline<V>,
+        fs: &Fs,
+        ctx: &Context,
+    ) -> Throughput {
+        RefCell::borrow_mut(self).rasterize(sl, fs, ctx)
+    }
+}
+
 impl<Col, Fmt, Dep> Target for Framebuf<Colorbuf<Col, Fmt>, Dep>
 where
     Col: AsMutSlice2<u32>,
@@ -66,14 +89,8 @@ where
         fs: &Fs,
         ctx: &Context,
     ) -> Throughput {
-        rasterize_fb(
-            &mut self.color_buf,
-            &mut self.depth_buf,
-            sl,
-            fs,
-            Color4::into_pixel,
-            ctx,
-        )
+        let Self { color_buf, depth_buf } = self;
+        rasterize_fb(color_buf, depth_buf, sl, fs, Color4::into_pixel, ctx)
     }
 }
 
