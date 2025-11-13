@@ -382,8 +382,6 @@ impl<B> Plane3<B> {
     /// ```
     pub fn from_point_and_normal(pt: Point3<B>, n: Normal3) -> Self {
         let n = n.normalize();
-        // For example, if pt = (0, 1, 0) and n = (0, 1, 0), d has to be 1
-        // to satisfy the plane equation n_x + n_y + n_z = d
         let d = pt.to_vec().dot(&n.to());
         Plane::new(n.x(), n.y(), n.z(), d)
     }

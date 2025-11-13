@@ -134,7 +134,7 @@ where
 /// Parses an OBJ format mesh from an iterator.
 ///
 /// # Errors
-/// Returns [`self::Error`] if OBJ parsing fails.
+/// Returns [`self::Error`][Error] if OBJ parsing fails.
 pub fn parse_obj<A>(src: impl IntoIterator<Item = u8>) -> Result<Builder<A>>
 where
     Builder<A>: TryFrom<Obj, Error = Error>,
