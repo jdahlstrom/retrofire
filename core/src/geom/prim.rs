@@ -3,11 +3,10 @@
 //! Includes vertices, polygons, planes, rays, and more.
 
 use alloc::vec::Vec;
-use core::fmt::Debug;
 
 use crate::math::{
-    Affine, Lerp, Linear, Mat4, Parametric, Point, Point2, Point3, Vec2, Vec3,
-    Vector, space::Real, vec3,
+    Affine, ApproxEq, Lerp, Linear, Mat3, Mat4, Parametric, Point, Point2,
+    Point3, Vec2, Vec3, Vector, space::Real, vec2, vec3,
 };
 
 use crate::render::Model;
@@ -59,6 +58,12 @@ pub struct Polygon<T>(pub Vec<T>);
 /// A line segment between two vertices.
 #[derive(Copy, Clone, Debug, Eq, PartialEq)]
 pub struct Edge<T>(pub T, pub T);
+
+// TODO Line3?
+// TODO invariant nonzero
+// TODO decide if normalized form
+#[derive(Copy, Clone, PartialEq)]
+pub struct Line2<B>(pub Vec3<B>);
 
 /// A surface normal in 3D.
 // TODO Use distinct type rather than alias
@@ -659,6 +664,120 @@ impl<T> Polygon<T> {
     }
 }
 
+impl<B> Line2<B> {
+    /// Two-dimensional line, given by the line equation ax + by = c.
+    pub fn new(a: f32, b: f32, c: f32) -> Self {
+        // Normalize
+        let (a, b, c) = if c != 0.0 {
+            if a != 0.0 && b != 0.0 {
+                // General affine: does not cross the origin
+                //   a·x + b·y = c  | div by c
+                //   a'·x + b'·y = 1
+                //   (y = -a'·x/b' + 1/b')
+                (a / c, b / c, -1.0)
+            } else if a != 0.0 && b == 0.0 {
+                // b = 0: vertical
+                //   a·x + 0·y = c
+                //   a'·x = 1
+                //   (x = 1/a')
+                (a / c, 0.0, -1.0)
+            } else if a == 0.0 && b != 0.0 {
+                // a = 0: horizontal
+                //   0·x + b·y = c
+                //   b'·y = 1
+                //   y = b'
+                (0.0, b / c, -1.0)
+            } else {
+                panic!("degenerate line (0, 0, {c})")
+            }
+        } else {
+            // c = 0
+            if a != 0.0 && b != 0.0 {
+                // General linear: crosses the origin
+                //   a·x + b·y = 0  | div by b
+                //   a'·x + y = 0
+                //   (y = -a'·x)
+                (a / b, 1.0, 0.0)
+            } else if a != 0.0 && b == 0.0 {
+                // b = 0: coincident with x-axis
+                //   a·x + 0·y = 0
+                //   x = 0
+                (1.0, 0.0, 0.0)
+            } else if a == 0.0 && b != 0.0 {
+                // a = 0: coincident with y-axis
+                //   0·x + b·y = 0
+                //   b·y = 0
+                //   y = 0
+                (0.0, 1.0, 0.0)
+            } else {
+                panic!("degenerate line (0, 0, 0)")
+            }
+        };
+        Self(vec3(a, b, c))
+    }
+
+    /// Returns the unique line that crosses the given points.
+    ///
+    /// # Panics
+    /// If the points coincide.
+    pub fn from_points(p: Point2<B>, q: Point2<B>) -> Self {
+        Edge(p, q).into()
+    }
+
+    /// Returns the slope and y-intercept of `self` if `self` is not vertical.
+    ///
+    /// # Examples
+    /// ```
+    /// use retrofire_core::{geom::Line2, math::pt2};
+    ///
+    /// let line = Line2::<()>::from_points(pt2(-1.0, 1.0), pt2(1.0, 2.0));
+    /// assert_eq!(line.slope_intercept(), Some((0.5, 1.5)));
+    /// ```
+    pub fn slope_intercept(&self) -> Option<(f32, f32)> {
+        let [a, b, c] = self.0.0;
+
+        (b != 0.0).then(|| {
+            // by = -ax + c  <=>  y = -a/b x + c/b
+            let m = -a / b; // slope
+            let y0 = c / b; // y intercept
+            (m, y0)
+        })
+    }
+
+    /// Returns
+    pub fn normal(&self) -> Vec2<B> {
+        vec2(self.0.x(), self.0.y()).normalize()
+    }
+    /// Returns the signed distance of `self` from the origin.
+    pub fn offset(&self) -> f32 {
+        self.0.z()
+    }
+    /// Returns the point on `self` closest to the given point.
+    pub fn project(&self, _pt: Point2<B>) -> Vec2<B> {
+        todo!()
+    }
+    pub fn signed_dist(&self, _pt: Point2<B>) -> Vec2<B> {
+        todo!()
+    }
+    /// Returns an orthonormal frame defined by `self`.
+    ///
+    /// The x-axis of the frame is parallel with `self`, the y-axis is
+    /// parallel with `self.normal()`, and the origin is the point on `self`
+    /// closest to the origin of `B`.
+    /// ```text
+    ///        y
+    ///        ^    C
+    ///        |
+    /// <------o---->x------->
+    ///
+    ///        O
+    ///
+    /// ´``
+    pub fn frame<C>(&self) -> Mat3<B, C> {
+        todo!()
+    }
+}
+
 //
 // Local trait impls
 //
@@ -729,6 +848,78 @@ impl<P: Lerp, A: Lerp> Lerp for Vertex<P, A> {
             // TODO Normals shouldn't be lerped
             self.attrib.lerp(&other.attrib, t),
         )
+    }
+}
+
+//
+// Foreign trait impls
+//
+use core::fmt;
+
+impl<B> fmt::Debug for Line2<B> {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        // ax + by = c
+        let [a, b, c] = self.0.0;
+
+        f.write_str("Line(")?;
+        if b != 0.0 {
+            // by = -ax + c  <=>  y = -a/b x + c/b
+            let ab = -a / b; // slope
+            let cb = c / b; // y intersect
+            let pm = if cb >= 0.0 { '+' } else { '-' };
+            if ab == 0.0 {
+                write!(f, "y =")?;
+            } else if ab == 1.0 {
+                write!(f, "y = x {pm}")?;
+            } else if ab == -1.0 {
+                write!(f, "y = -x {pm}")?;
+            } else {
+                write!(f, "y = {ab}·x {pm}")?;
+            }
+            write!(f, " {}", cb.abs())?;
+        } else if a != 0.0 {
+            // ax = -by + c  <=> x = c/a
+            write!(f, "x = {}", c / a)?;
+        } else {
+            f.write_str("<degenerate>")?;
+        }
+        f.write_str(")")
+    }
+}
+
+impl<B> From<Ray<Point2<B>>> for Line2<B> {
+    /// Returns the line coincident with the given ray.
+    ///
+    /// # Panics
+    /// If the ray is zero-length.
+    ///
+    /// # Examples
+    /// ```
+    /// use retrofire_core::{
+    ///     geom::Ray, math::{pt2, vec2, vec3}
+    /// };
+    /// use retrofire_geom::isect::Line2;
+    ///
+    /// let line = Line2::<()>::from(Ray(pt2(0.0, 0.0), vec2(1.0, 1.0)));
+    /// assert_eq!(line.0, vec3(-1.0, 1.0, 0.0));
+    /// ```
+    fn from(Ray(pt, dir): Ray<Point2<B>>) -> Self {
+        assert!(!dir.approx_eq(&Vec2::zero())); // TODO vec::zero() and point::origin()?
+
+        let n = dir.perp();
+        let [a, b] = n.0;
+        let c = pt.to_vec().dot(&n);
+
+        // At least one of a, b != 0, if n != *0*
+        // If c = 0, line crosses the origin
+        Self::new(a, b, -c)
+    }
+}
+
+impl<B> From<Edge<Point2<B>>> for Line2<B> {
+    /// Returns the line coincident with the given edge.
+    fn from(Edge(p, q): Edge<Point2<B>>) -> Self {
+        Ray(p, q - p).into()
     }
 }
 
