@@ -2,7 +2,10 @@ use core::ops::ControlFlow::*;
 
 use re::prelude::*;
 
-use re::core::math::color::gray;
+use re::core::math::{
+    color::gray,
+    grad::{Gradient2, Shape},
+};
 use re::core::render::{
     cam::{FirstPerson, Fov},
     clip::Status::*,
@@ -33,6 +36,7 @@ fn main() {
             let even_odd = (frag.var.x() > 0.5) ^ (frag.var.y() > 0.5);
             gray(if even_odd { 0.8 } else { 0.1 }).to_color4()
         },
+        //|frag: Frag<Color3f<_>>| frag.var.to_color4(),
     );
     let crate_shader = shader::new(
         |v: Vertex3<(Normal3, TexCoord)>, mvp: &ProjMat3<_>| {
@@ -158,6 +162,16 @@ fn crates() -> Vec<Obj<(Normal3, TexCoord)>> {
 }
 fn floor() -> Obj<Vec2> {
     let mut bld = Mesh::builder();
+
+    let mut grad = Gradient2::new(
+        Shape::Conical(pt2(0.0, 0.0)),
+        [
+            (0.0, rgb(1.0f32, 0.0, 0.0).to_linear()),
+            (0.8, rgb(0.0, 0.0, 1.0).to_linear()),
+            (1.0, rgb(1.0f32, 0.0, 0.0).to_linear()),
+        ],
+    );
+    grad.frequency = 10.0;
 
     let size = 50;
     for j in -size..=size {
