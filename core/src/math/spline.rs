@@ -60,7 +60,7 @@ where
 
 impl<T> CubicBezier<T>
 where
-    T: Affine<Diff: Linear<Scalar = f32>> + Clone,
+    T: Affine<Diff: Linear<Scalar = f32>> + Clone + Debug,
 {
     /// Evaluates the value of `self` at `t`.
     ///
@@ -164,7 +164,7 @@ pub struct BezierSpline<T>(Vec<T>);
 
 impl<T> BezierSpline<T>
 where
-    T: Affine<Diff: Linear<Scalar = f32> + Clone> + Clone,
+    T: Affine<Diff: Linear<Scalar = f32> + Clone> + Clone + Debug,
 {
     /// Creates a Bézier spline from the given control points. The number of
     /// elements in `pts` must be 3n + 1 for some positive integer n.
@@ -337,7 +337,7 @@ where
 
 impl<T> Parametric<T> for CubicBezier<T>
 where
-    T: Affine<Diff: Linear<Scalar = f32> + Clone> + Clone,
+    T: Affine<Diff: Linear<Scalar = f32> + Clone> + Clone + Debug,
 {
     fn eval(&self, t: f32) -> T {
         self.fast_eval(t)
@@ -346,7 +346,7 @@ where
 
 impl<T> Parametric<T> for BezierSpline<T>
 where
-    T: Affine<Diff: Linear<Scalar = f32> + Clone> + Clone,
+    T: Affine<Diff: Linear<Scalar = f32> + Clone> + Clone + Debug,
 {
     fn eval(&self, t: f32) -> T {
         self.eval(t)

@@ -7,8 +7,8 @@ use crate::math::{
     Angle, Vec3, orient_z, rotate_x, rotate_y, spherical, translate, turns,
 };
 use crate::math::{
-    Lerp, Mat4, Point3, ProjMat3, SphericalVec, Vary, mat::RealToReal,
-    orthographic, perspective, pt2, viewport,
+    Mat4, Point3, ProjMat3, SphericalVec, Vary, mat::RealToReal, orthographic,
+    perspective, pt2, viewport,
 };
 use crate::util::{Dims, rect::Rect};
 
@@ -201,7 +201,7 @@ impl<T: Transform> Camera<T> {
     }
 
     /// Renders the given geometry from the viewpoint of this camera.
-    pub fn render<B, Prim, Vtx: Clone, Var: Lerp + Vary, Uni: Copy, Shd>(
+    pub fn render<B, Prim, Vtx: Clone, Var: Vary, Uni: Copy, Shd>(
         &self,
         prims: impl AsRef<[Prim]>,
         verts: impl AsRef<[Vtx]>,

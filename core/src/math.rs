@@ -17,6 +17,8 @@
 //! to matching vectors. Angles are strongly typed as well, to allow working
 //! with different angular units without confusion.
 
+use core::fmt::Debug;
+
 pub use {
     angle::{
         Angle, PolarVec, SphericalVec, degs, polar, rads, spherical, turns,
@@ -34,6 +36,7 @@ pub use {
     vary::Vary,
     vec::{ProjVec3, Vec2, Vec2i, Vec3, Vec3i, Vector, splat, vec2, vec3},
 };
+
 #[cfg(feature = "fp")]
 pub use {
     angle::{acos, asin, atan2},
@@ -75,7 +78,7 @@ pub mod vary;
 pub mod vec;
 
 /// Trait for linear interpolation between two values.
-pub trait Lerp: Sized {
+pub trait Lerp: Clone + Debug + Sized {
     /// Linearly interpolates between `self` and `other`.
     ///
     /// if `t` = 0, returns `self`; if `t` = 1, returns `other`.
@@ -144,7 +147,7 @@ pub fn inv_lerp(t: f32, min: f32, max: f32) -> f32 {
 
 impl<T> Lerp for T
 where
-    T: Affine<Diff: Linear<Scalar = f32>>,
+    T: Affine<Diff: Linear<Scalar = f32>> + Clone + Debug,
 {
     /// Linearly interpolates between `self` and `other`.
     ///

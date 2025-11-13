@@ -1,5 +1,4 @@
 use alloc::vec::Vec;
-use core::fmt::Debug;
 
 use super::{Lerp, Parametric, Point2, inv_lerp};
 
@@ -18,7 +17,7 @@ pub enum Shape {
 pub struct Stops<T>(Vec<(f32, T)>);
 
 /// Two-dimensional gradient.
-impl<T: Lerp + Clone + Debug> Gradient2<T> {
+impl<T: Lerp> Gradient2<T> {
     pub fn new(
         shape: Shape,
         stops: impl IntoIterator<Item = (f32, T)>,
@@ -76,6 +75,7 @@ impl<T: Lerp> Parametric<T> for Stops<T> {
     }
 }
 
+#[cfg(test)]
 mod tests {
     use alloc::vec;
 
