@@ -105,9 +105,20 @@ impl<E, T: ApproxEq<E>> ApproxEq<E> for Option<T> {
             (None, None) => true,
         }
     }
-
     fn relative_epsilon() -> E {
         T::relative_epsilon()
+    }
+}
+
+impl<E: PartialOrd, T: ApproxEq<E>, U: ApproxEq<E>> ApproxEq<E> for (T, U) {
+    fn approx_eq_eps(&self, other: &Self, rel_eps: &E) -> bool {
+        self.0.approx_eq_eps(&other.0, rel_eps)
+            && self.1.approx_eq_eps(&other.1, rel_eps)
+    }
+    fn relative_epsilon() -> E {
+        let t_e = T::relative_epsilon();
+        let u_e = U::relative_epsilon();
+        if t_e < u_e { t_e } else { u_e }
     }
 }
 
