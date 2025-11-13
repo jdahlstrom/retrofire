@@ -64,7 +64,7 @@ fn main() {
         let modelview = rotate_x(theta * 0.2)
             .then(&rotate_z(theta * 0.14))
             .to()
-            .then(&cam.transform.world_to_view());
+            .then(&cam.world_to_view());
 
         render(
             &tris,
