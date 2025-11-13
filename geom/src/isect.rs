@@ -1,5 +1,3 @@
-use core::ops::RangeBounds;
-
 use retrofire_core::{
     geom::{Plane3, Ray},
     math::{ApproxEq, Point3, Vec3},
@@ -44,7 +42,7 @@ impl<B> Intersect<Plane3<B>> for Ray<Point3<B>> {
         }
 
         let t = -num / denom;
-        if t < 0.0 {
+        if t.approx_le(&0.0) {
             // Ray points away from the plane, intersection "behind" it
             return None;
         }
@@ -63,13 +61,14 @@ impl<B: Default> Intersect<BBox<B>> for Ray<Point3<B>> {
     /// `point` is the intersection point and  `t` is the ray parameter value
     /// such that `self.orig + t * self.dir == point`.
     fn intersect(&self, bbox @ &BBox(l, u): &BBox<B>) -> Self::Result {
-        #[rustfmt::skip]
         let planes: [Plane3<B>; 6] = [
-            (l, -Vec3::X), (u, Vec3::X),
-            (l, -Vec3::Y), (u, Vec3::Y),
-            (l, -Vec3::Z), (u, Vec3::Z),
-        ]
-        .map(|(p, n)| Plane3::from_point_and_normal(p, n));
+            Plane3::new(1.0, 0.0, 0.0, l.x()),
+            Plane3::new(1.0, 0.0, 0.0, u.x()),
+            Plane3::new(0.0, 1.0, 0.0, l.y()),
+            Plane3::new(0.0, 1.0, 0.0, u.y()),
+            Plane3::new(0.0, 0.0, 1.0, l.z()),
+            Plane3::new(0.0, 0.0, 1.0, u.z()),
+        ];
 
         // TODO only need to consider planes "on the same side" as self.orig,
         //      in which case the first intersection found is the closest one
@@ -88,71 +87,165 @@ impl<B: Default> Intersect<BBox<B>> for Ray<Point3<B>> {
 
 #[cfg(test)]
 mod tests {
-    use retrofire_core::assert_approx_eq;
     use retrofire_core::math::{Linear, pt3, vec3};
 
     use super::*;
 
-    fn plane() -> Plane3 {
-        Plane3::from_point_and_normal(pt3(1.0, 2.0, 3.0), vec3(0.0, 1.0, 0.0))
+    mod ray_plane {
+        use super::*;
+
+        const PLANE: Plane3<()> = Plane3::new(0.0, 1.0, 0.0, 2.0);
+
+        #[test]
+        fn ray_towards_plane_has_intersection() {
+            // Outside
+            let r = Ray(pt3(0.0, 3.0, 0.0), vec3(1.0, -1.0, 1.0));
+            assert_eq!(r.intersect(&PLANE), Some((1.0, pt3(1.0, 2.0, 1.0))));
+
+            // Inside
+            let r = Ray(pt3(0.0, 1.0, 0.0), vec3(1.0, 1.0, 1.0));
+            assert_eq!(r.intersect(&PLANE), Some((1.0, pt3(1.0, 2.0, 1.0))));
+        }
+        #[test]
+        fn ray_origin_on_plane_has_intersection() {
+            let r = Ray(pt3(0.0, 2.0, 0.0), vec3(1.0, -1.0, 1.0));
+            assert_eq!(r.intersect(&PLANE), Some((0.0, pt3(0.0, 2.0, 0.0))));
+        }
+        #[test]
+        fn ray_coincident_with_plane_has_intersection() {
+            let r = Ray(pt3(0.0, 2.0, 0.0), vec3(1.0, 0.0, 1.0));
+            assert_eq!(r.intersect(&PLANE), Some((0.0, pt3(0.0, 2.0, 0.0))));
+        }
+        #[test]
+        fn ray_parallel_with_plane_no_intersection() {
+            let r = Ray(pt3(0.0, 3.0, 0.0), vec3(1.0, 0.0, 1.0));
+            assert_eq!(r.intersect(&PLANE), None);
+        }
+        #[test]
+        fn ray_points_away_from_plane_no_intersection() {
+            // Outside
+            let r = Ray(pt3(0.0, 3.0, 0.0), vec3(1.0, 1.0, 1.0));
+            assert_eq!(r.intersect(&PLANE), None);
+
+            // Inside
+            let r = Ray(pt3(0.0, 1.0, 0.0), vec3(1.0, -1.0, 1.0));
+            assert_eq!(r.intersect(&PLANE), None);
+        }
+        #[test]
+        fn degenerate_ray_only_intersects_if_coincident() {
+            let r = Ray(pt3(0.0, 3.0, 0.0), Vec3::zero());
+            assert_eq!(r.intersect(&PLANE), None);
+
+            let r = Ray(pt3(0.0, 1.0, 0.0), Vec3::zero());
+            assert_eq!(r.intersect(&PLANE), None);
+
+            let r = Ray(pt3(0.0, 2.0, 0.0), Vec3::zero());
+            assert_eq!(r.intersect(&PLANE), Some((0.0, pt3(0.0, 2.0, 0.0))));
+        }
     }
 
-    #[test]
-    fn ray_towards_plane_has_intersection() {
-        let p = plane();
+    mod ray_bbox {
+        use super::*;
 
-        // Outside
-        let r = Ray(pt3(0.0, 3.0, 0.0), vec3(1.0, -1.0, 1.0));
-        assert_approx_eq!(r.intersect(&p), Some((1.0, pt3(1.0, 2.0, 1.0))));
+        const BBOX: BBox<()> = BBox(pt3(-1.0, -1.0, -1.0), pt3(1.0, 1.0, 1.0));
 
-        // Inside
-        let r = Ray(pt3(0.0, 1.0, 0.0), vec3(1.0, 1.0, 1.0));
-        assert_eq!(r.intersect(&p), Some((1.0, pt3(1.0, 2.0, 1.0))));
-    }
-    #[test]
-    fn ray_origin_coincident_with_plane_has_intersection() {
-        let p = plane();
-        let r = Ray(pt3(0.0, 2.0, 0.0), vec3(1.0, -1.0, 1.0));
+        #[test]
+        fn parallel_simple() {
+            //      +----+
+            // x--> |    |
+            //      +----+
+            let ray = Ray(pt3(0.0, 0.0, -2.0), vec3(0.0, 0.0, 1.0));
+            assert_eq!(ray.intersect(&BBOX), Some((1.0, pt3(0.0, 0.0, -1.0))));
+        }
+        #[test]
+        fn diagonal_simple() {
+            //
+            //      +----+
+            //     ^|    |
+            //    / +----+
+            //   x
+            let ray = Ray(pt3(-1.5, 0.0, -2.0), vec3(1.0, 0.0, 1.0));
+            assert_eq!(ray.intersect(&BBOX), Some((1.0, pt3(-0.5, 0.0, -1.0))));
+        }
+        #[test]
+        fn parallel_intersect_at_vertex() {
+            // x--> +----+
+            //      |    |
+            //      +----+
+            let ray = Ray(pt3(0.0, 0.0, -2.0), vec3(1.0, 1.0, 1.0));
+            assert_eq!(ray.intersect(&BBOX), Some((1.0, pt3(1.0, 1.0, -1.0))));
+        }
+        #[test]
+        fn parallel_intersect_at_edge() {
+            //        ,_____.
+            //  x--> /     /|
+            //      /_____/ |
+            //      |     | /
+            //      |_____|/
+            //
+            let ray = Ray(pt3(0.0, 0.0, -2.0), vec3(-1.0, 0.0, 1.0));
+            assert_eq!(ray.intersect(&BBOX), Some((1.0, pt3(-1.0, 0.0, -1.0))));
+        }
+        #[test]
+        fn ray_starts_inside() {
+            //  +--^----+
+            //  |  |    |
+            //  |  x    |
+            //  +-------+
+            let ray = Ray(pt3(0.0, 0.0, -0.5), vec3(0.0, 1.0, 0.0));
+            assert_eq!(ray.intersect(&BBOX), Some((1.0, pt3(0.0, 1.0, -0.5))));
+        }
+        #[test]
+        fn ray_starts_on_side_plane() {
+            // Points away
+            //    +-----+
+            // <--x     |
+            //    +-----+
+            let ray = Ray(pt3(0.0, 0.0, -1.0), vec3(0.0, 0.0, -1.0));
+            assert_eq!(ray.intersect(&BBOX), Some((0.0, pt3(0.0, 0.0, -1.0))));
+            // Points inside
+            //    +-----+
+            //    x-->  |
+            //    +-----+
+            let ray = Ray(pt3(0.0, 0.0, -1.0), vec3(0.0, 0.0, 1.0));
+            assert_eq!(ray.intersect(&BBOX), Some((0.0, pt3(0.0, 0.0, -1.0))));
+        }
+        #[test]
+        fn no_intersection() {
+            // Diagonal ray
+            //   ^
+            //  / +----+
+            // x  |    |
+            //    +----+
+            let ray = Ray(pt3(0.0, 0.0, -2.5), vec3(0.0, 1.0, 1.0));
+            assert_eq!(ray.intersect(&BBOX), None);
 
-        assert_eq!(r.intersect(&p), Some((0.0, pt3(0.0, 2.0, 0.0))));
-    }
-    #[test]
-    fn ray_coincident_with_plane_has_intersection() {
-        let p = plane();
-        let r = Ray(pt3(0.0, 2.0, 0.0), vec3(1.0, 0.0, 1.0));
-
-        assert_eq!(r.intersect(&p), Some((0.0, pt3(0.0, 2.0, 0.0))));
-    }
-    #[test]
-    fn ray_parallel_with_plane_no_intersection() {
-        let p = plane();
-        let r = Ray(pt3(0.0, 3.0, 0.0), vec3(1.0, 0.0, 1.0));
-
-        assert_eq!(r.intersect(&p), None);
-    }
-    #[test]
-    fn ray_points_away_from_plane_no_intersection() {
-        let p = plane();
-
-        // Outside
-        let r = Ray(pt3(0.0, 3.0, 0.0), vec3(1.0, 1.0, 1.0));
-        assert_eq!(r.intersect(&p), None);
-
-        // Inside
-        let r = Ray(pt3(0.0, 1.0, 0.0), vec3(1.0, -1.0, 1.0));
-        assert_eq!(r.intersect(&p), None);
-    }
-    #[test]
-    fn degenerate_ray_only_intersects_if_coincident() {
-        let p = plane();
-
-        let r = Ray(pt3(0.0, 3.0, 0.0), Vec3::zero());
-        assert_eq!(r.intersect(&p), None);
-
-        let r = Ray(pt3(0.0, 1.0, 0.0), Vec3::zero());
-        assert_eq!(r.intersect(&p), None);
-
-        let r = Ray(pt3(0.0, 2.0, 0.0), Vec3::zero());
-        assert_eq!(r.intersect(&p), Some((0.0, pt3(0.0, 2.0, 0.0))));
+            // Parallel but offset ray
+            // x--->
+            //    +----+
+            //    |    |
+            //    +----+
+            let ray = Ray(pt3(0.0, 1.5, -2.0), vec3(0.0, 0.0, 1.0));
+            assert_eq!(ray.intersect(&BBOX), None);
+        }
+        #[test]
+        fn opposite_direction() {
+            //  +----+
+            //  |    |  x--->
+            //  +----+
+            let ray = Ray(pt3(0.0, 0.0, 2.0), vec3(0.0, 0.0, 1.0));
+            assert_eq!(ray.intersect(&BBOX), None);
+        }
+        #[test]
+        fn zero_length_ray() {
+            let ray = Ray(pt3(0.0, 0.0, -2.0), vec3(0.0, 0.0, 0.0));
+            assert_eq!(ray.intersect(&BBOX), None);
+        }
+        #[test]
+        fn empty_box() {
+            let empty = BBox::<()>(pt3(-1.0, -1.0, 1.0), pt3(1.0, 1.0, -1.0));
+            let ray = Ray(pt3(0.0, 0.0, -2.0), vec3(0.0, 0.0, 1.0));
+            assert_eq!(ray.intersect(&empty), None);
+        }
     }
 }
