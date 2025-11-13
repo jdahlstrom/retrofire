@@ -357,12 +357,15 @@ impl<Sc: Copy, Sp, const N: usize> Vector<[Sc; N], Sp> {
         array::from_fn(|i| f(self.0[i], other.0[i])).into()
     }
 
+    #[inline]
     pub fn max(&self) -> Sc
     where
         Sc: PartialOrd,
     {
         self.0[self.argmax()]
     }
+
+    #[inline]
     pub fn min(&self) -> Sc
     where
         Sc: PartialOrd,
@@ -374,9 +377,7 @@ impl<Sc: Copy, Sp, const N: usize> Vector<[Sc; N], Sp> {
     where
         Sc: PartialOrd,
     {
-        const {
-            assert!(N > 0);
-        }
+        const { assert!(N > 0, "0D vectors have no maximum") }
         zip(self.0, 0..)
             .max_by(|a, b| a.partial_cmp(b).unwrap())
             .expect("N cannot be 0")
@@ -386,9 +387,7 @@ impl<Sc: Copy, Sp, const N: usize> Vector<[Sc; N], Sp> {
     where
         Sc: PartialOrd,
     {
-        const {
-            assert!(N > 0);
-        }
+        const { assert!(N > 0, "0D vectors have no minimum") }
         zip(self.0, 0..)
             .min_by(|a, b| a.partial_cmp(b).unwrap())
             .expect("N cannot be 0")
