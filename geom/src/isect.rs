@@ -1,14 +1,16 @@
-use core::fmt::Debug;
+use core::fmt::{Debug, Formatter};
 
-#[cfg(feature = "std")]
-use retrofire_core::geom::Sphere;
 use retrofire_core::{
-    geom::{Plane3, Ray, Ray3},
-    math::{Point3, vec3},
+    geom::{Edge, Line2, Plane3, Ray, Ray2, Ray3},
+    mat,
+    math::{ApproxEq, Mat2, Point2, Point3, pt2, vec3},
     render::scene::BBox,
 };
 
-/// Trait for calculating whether and at which points two objects intersect.
+#[cfg(feature = "std")]
+use retrofire_core::geom::Sphere;
+
+/// Trait for finding intersection points of geometric objects.
 pub trait Intersect<T> {
     /// The result of an intersection test.
     type Result;
@@ -20,7 +22,48 @@ pub trait Intersect<T> {
     fn intersect(&self, other: &T) -> Self::Result;
 }
 
-type RayIntersect3<B> = Option<(f32, Point3<B>)>;
+pub type RayIntersect3<B> = Option<(f32, Point3<B>)>;
+pub type RayIntersect2<B> = Option<(f32, Point2<B>)>;
+
+#[derive(Copy, Clone, PartialEq)]
+pub enum LineIntersect<B> {
+    /// Unique intersection point.
+    Point(Point2<B>),
+    /// Line is coincident with the intersecting object.
+    Coincident,
+}
+
+//
+// Inherent impls
+//
+
+impl<B> LineIntersect<B> {
+    /// Returns the intersection point if `self` is a `LineIntersect::Point`,
+    /// `None` otherwise.
+    pub fn point(&self) -> Option<Point2<B>> {
+        match self {
+            LineIntersect::Point(p) => Some(*p),
+            LineIntersect::Coincident => None,
+        }
+    }
+}
+
+//
+// Trait impls
+//
+
+impl<B: Debug + Default> Debug for LineIntersect<B> {
+    fn fmt(&self, f: &mut Formatter<'_>) -> core::fmt::Result {
+        match self {
+            Self::Point(p) => write!(f, "Point({:?})", p),
+            Self::Coincident => f.write_str("Coincident"),
+        }
+    }
+}
+
+//
+// 3D Intersect impls
+//
 
 impl<B> Intersect<Plane3<B>> for Ray3<B> {
     type Result = RayIntersect3<B>;
@@ -243,6 +286,215 @@ impl<B> Intersect<Sphere<B>> for Ray3<B> {
     }
 }
 
+//
+// 2D intersection
+//
+
+impl<B> Intersect<Self> for Line2<B> {
+    type Result = Option<LineIntersect<B>>;
+
+    /// Computes the intersection point of `self` and another 2-line.
+    ///
+    /// If the lines are parallel but not coincident, returns `None`. Otherwise,
+    /// if the lines are coincident, returns `Some(LineIntersect::Coincident)`.
+    /// Otherwise, returns `Some(LineIntersect::Point(p))`, where `p` is the
+    /// unique intersection point.
+    ///
+    /// # Examples
+    /// ```
+    /// use retrofire_core::{
+    ///     assert_approx_eq, geom::{Ray, Line2}, math::{pt2, vec2},
+    /// };
+    /// use retrofire_geom::{Intersect, isect::LineIntersect::*};
+    ///
+    /// let horiz = Line2::<()>::from(Ray(pt2(0.0, 2.0), vec2(1.0, 0.0)));
+    /// let vert = Line2::<()>::from(Ray(pt2(3.0, 0.0), vec2(0.0, 1.0)));
+    /// assert_eq!(horiz.intersect(&vert), Some(Point(pt2(3.0, 2.0))));
+    ///
+    /// let horiz2 = Line2::<()>::from(Ray(pt2(0.0, 3.0), vec2(1.0, 0.0)));
+    /// assert_eq!(horiz.intersect(&horiz2), None);
+    ///
+    /// assert_eq!(horiz.intersect(&horiz), Some(Coincident));
+    ///
+    ///
+    /// ```
+    fn intersect(&self, other: &Self) -> Self::Result {
+        let [a, b, c] = self.coeffs();
+        let [d, e, f] = other.coeffs();
+
+        // Solve the system of equations for x and y:
+        //    ax + by = c     // self
+        //    dx + ey = f     // other
+        //
+        // Write in matrix form and solve:
+        //    (a b) (x) = (c)
+        //    (d e) (y)   (f)
+        //
+        //               -1
+        //    (x) = (a b)   (c)
+        //    (y)   (d e)   (f)
+        let abde: Mat2<B> = mat![
+            a, b;
+            d, e;
+        ];
+        match abde.checked_inverse() {
+            Some(inv) => {
+                let res = inv.apply(&pt2(c, f));
+                Some(LineIntersect::Point(res))
+            }
+            None if [a, b, c].approx_eq(&[d, e, f]) => {
+                Some(LineIntersect::Coincident)
+            }
+            None => None,
+        }
+    }
+}
+
+impl<B> Intersect<Line2<B>> for Ray2<B> {
+    type Result = RayIntersect2<B>;
+
+    // Returns the intersection point of self and a line.
+    fn intersect(&self, line: &Line2<B>) -> Self::Result {
+        // TODO if degenerate ray, could return if ray origin on edge
+
+        // First find intersection of lines
+        let ray_line = Line2::from(*self);
+        let isect = ray_line.intersect(line)?;
+
+        let Self(orig, dir) = self;
+        match isect {
+            LineIntersect::Point(pt) => {
+                // Check if the point lies in the correct half-line
+                let t = (pt - *orig).dot(dir);
+                (t >= 0.0).then_some((t / dir.len_sqr(), pt))
+            }
+            LineIntersect::Coincident => {
+                // Ray lies on the line, the closest common point
+                // is simply the origin point
+                Some((0.0, *orig))
+            }
+        }
+    }
+}
+
+impl<B> Intersect<Edge<Point2<B>>> for Ray2<B> {
+    type Result = RayIntersect2<B>;
+
+    /// Returns the intersection of `self` and an edge, or `None` if there is
+    /// no intersection point.
+    ///
+    /// # Examples
+    /// ```
+    /// use retrofire_core::{
+    ///     assert_approx_eq, geom::{Edge, Ray}, math::{pt2, vec2, Point2},
+    /// };
+    /// use retrofire_geom::isect::Intersect;
+    ///
+    /// //      ^
+    /// //      3    O
+    /// //      |     \
+    /// //      |      v
+    /// //   E==1=======X==E
+    /// //      |
+    /// // <----+-------------->
+    /// let ray: Ray<Point2> = Ray(pt2(2.0, 3.0), vec2(1.0, -2.0));
+    /// let edge = Edge(pt2(-1.0, 1.0), pt2(4.0, 1.0));
+    ///
+    /// let (t, point) = ray.intersect(&edge).unwrap();
+    /// assert_eq!(t, 1.0);
+    /// assert_approx_eq!(point, pt2(3.0, 1.0));
+    ///
+    /// //     O
+    /// //       \
+    /// // E=====E v
+    /// //
+    /// let edge = Edge(pt2(-1.0, 1.0), pt2(2.0, 1.0));
+    /// assert_eq!(ray.intersect(&edge), None);
+    /// ```
+    // // TODO check that these are handled by actual unit tests
+    // // E=====E  <---O
+    // let ray: Ray<Point2> = Ray(pt2(4.0, 1.0), vec2(-1.0, 0.0));
+    // assert_eq!(ray.intersect(&edge), Some((2.0, pt2(2.0, 1.0))));
+    //
+    // // E==O--E-->
+    // let ray: Ray<Point2> = Ray(pt2(1.0, 1.0), vec2(1.0, 0.0));
+    // assert_eq!(ray.intersect(&edge), Some((0.0, pt2(1.0, 1.0))));
+    //
+    // // E=====E  O--->
+    // let ray: Ray<Point2> = Ray(pt2(4.0, 1.0), vec2(1.0, 0.0));
+    // assert_eq!(ray.intersect(&edge), None);
+    fn intersect(&self, edge: &Edge<Point2<B>>) -> Self::Result {
+        // Compute ray-line intersection
+        let (t, pt) = self.intersect(&Line2::from(*edge))?;
+
+        // Ray intersects the line of edge, but still have to check
+        // whether the point is between edge endpoints
+        let e01 = edge.1 - edge.0;
+        let u = (pt - edge.0).dot(&e01);
+        if u.approx_in(0.0..e01.len_sqr()) {
+            return Some((t, pt));
+        }
+
+        // If ray is coincident with the edge, ray-line gives ray.0 as the
+        // intersection point. If ray.0 is outside the edge, there are two cases:
+        //   e-----e   r--->
+        // where there is no intersection, and
+        //   e-----e   <---r
+        // where the intersection point is the closest edge endpoint.
+        if !self.0.approx_eq(&pt) {
+            return None;
+        }
+        let t0 = (edge.0 - pt).dot(&self.1);
+        if t0.approx_le(&0.0) {
+            return None;
+        }
+        let t1 = (edge.1 - pt).dot(&self.1);
+        if t0 <= t1 {
+            Some((t0 / self.1.len_sqr(), edge.0))
+        } else {
+            Some((t1 / self.1.len_sqr(), edge.1))
+        }
+    }
+}
+
+impl<B> Intersect<Self> for Edge<Point2<B>> {
+    type Result = Option<Point2<B>>;
+
+    /// Returns the intersection point of `self` and another edge, or `None`
+    /// if the edges do not intersect.
+    ///
+    /// # Examples
+    /// ```
+    /// use retrofire_core::{
+    ///     assert_approx_eq,
+    ///     geom::Edge,
+    ///     math::{pt2, Point2}
+    /// };
+    /// use retrofire_geom::isect::Intersect;
+    ///
+    /// //
+    /// // O1
+    /// //   \
+    /// //    \
+    /// //     \
+    /// // E1---X----E2
+    /// //       \
+    /// //        O2
+    /// let edge: Edge<Point2> = Edge(pt2(0.0, 1.0), pt2(4.0, 1.0));
+    /// let other = Edge(pt2(0.0, 3.0), pt2(3.0, 0.0));
+    ///
+    /// assert_approx_eq!(edge.intersect(&other), Some(pt2(2.0, 1.0)));
+    ///
+    /// ```
+    fn intersect(&self, edge: &Self) -> Self::Result {
+        let ray = Ray(self.0, self.1 - self.0);
+        match ray.intersect(edge) {
+            Some((t, pt)) if t <= 1.0 => Some(pt),
+            _ => None,
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use retrofire_core::math::{Linear, Vec3, pt3};
@@ -453,4 +705,5 @@ mod tests {
             assert_eq!(ray.intersect(&SPHERE), None);
         }
     }
+    // TODO 2D tests from stash
 }
