@@ -8,7 +8,7 @@ use core::fmt::{self, Debug, Formatter};
 
 use crate::math::{
     Affine, ApproxEq, Lerp, Linear, Mat3, Mat4, Parametric, Point, Point2,
-    Point3, Vec2, Vec3, Vector, space::Real, vec2, vec3,
+    Point3, Vec2, Vec3, Vector, pt3, space::Real, vec2, vec3,
 };
 use crate::render::Model;
 
@@ -42,6 +42,7 @@ pub type Plane3<B = ()> = Plane<Vector<[f32; 4], Real<3, B>>>;
 #[derive(Copy, Clone, Debug, Eq, PartialEq)]
 pub struct Ray<T: Affine>(pub T, pub T::Diff);
 
+pub type Ray2<B = ()> = Ray<Point2<B>>;
 pub type Ray3<B = ()> = Ray<Point3<B>>;
 
 /// A curve composed of a chain of line segments.
@@ -913,10 +914,10 @@ impl<B> Default for Sphere<B> {
 impl<B> Debug for Line2<B> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         // ax + by = c
-        let [a, b, c] = self.0.0;
+        let [a, _, c] = self.0.0;
 
         f.write_str("Line(")?;
-        if let Some( (m, y0)) = self.slope_intercept() {
+        if let Some((m, y0)) = self.slope_intercept() {
             let pm = if y0 >= 0.0 { '+' } else { '-' };
             if m == 0.0 {
                 write!(f, "y =")?;
@@ -947,19 +948,18 @@ impl<B> From<Ray<Point2<B>>> for Line2<B> {
     /// # Examples
     /// ```
     /// use retrofire_core::{
-    ///     geom::Ray, math::{pt2, vec2, vec3}
+    ///     geom::{Line2, Ray}, math::{pt2, vec2, vec3}
     /// };
-    /// use retrofire_geom::isect::Line2;
     ///
     /// let line = Line2::<()>::from(Ray(pt2(0.0, 0.0), vec2(1.0, 1.0)));
     /// assert_eq!(line.0, vec3(-1.0, 1.0, 0.0));
     /// ```
-    fn from(Ray(pt, dir): Ray<Point2<B>>) -> Self {
+    fn from(Ray(orig, dir): Ray<Point2<B>>) -> Self {
         assert!(!dir.approx_eq(&Vec2::zero())); // TODO vec::zero() and point::origin()?
 
         let n = dir.perp();
         let [a, b] = n.0;
-        let c = pt.to_vec().dot(&n);
+        let c = orig.to_vec().dot(&n);
 
         // At least one of a, b != 0, if n != *0*
         // If c = 0, line crosses the origin
