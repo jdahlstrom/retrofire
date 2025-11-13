@@ -1,7 +1,7 @@
 use core::ops::ControlFlow::*;
-
 use re::prelude::*;
 
+use re::core::geom::Ray;
 use re::core::math::color::gray;
 use re::core::render::{
     cam::{FirstPerson, Fov},
@@ -13,7 +13,10 @@ use re::core::render::{
 use re::core::util::{pixfmt::Rgba8888, pnm::read_pnm};
 
 use re::front::sdl2::Window;
-use re::geom::solids::{Build, Cube};
+use re::geom::{
+    Intersect,
+    solids::{Build, Cube},
+};
 
 fn main() {
     let mut win = Window::builder()
@@ -35,20 +38,24 @@ fn main() {
         },
     );
     let crate_shader = shader::new(
-        |v: Vertex3<(Normal3, TexCoord)>, mvp: &ProjMat3<_>| {
-            vertex(mvp.apply(&v.pos), v.attrib)
+        |v: Vertex3<(Normal3, TexCoord)>, (mvp, hit): (&ProjMat3<_>, f32)| {
+            vertex(mvp.apply(&v.pos), (v.attrib, hit))
         },
-        |frag: Frag<(Normal3, TexCoord)>| {
-            let (n, uv) = frag.var;
-            let kd = lerp(n.dot(&light_dir).max(0.0), 0.4, 1.0);
+        |frag: Frag<((Normal3, TexCoord), f32)>| {
+            let ((n, uv), hit) = frag.var;
+            let kd = lerp(n.dot(&light_dir).max(0.0), 0.4, 1.0) + 0.8 * hit;
             let col = SamplerClamp.sample(&tex, uv);
+
             (col.to_color3f() * kd).to_color4()
         },
     );
 
     let (w, h) = win.dims;
     let mut cam = Camera::new(win.dims)
-        .transform(FirstPerson::default())
+        .transform(FirstPerson {
+            pos: pt3(-2.0, 0.0, 0.0),
+            heading: Vec3::Z.to_spherical(),
+        })
         .viewport((10..w - 10, h - 10..10))
         .perspective(Fov::Diagonal(degs(90.0)), 0.1..1000.0);
 
@@ -80,8 +87,7 @@ fn main() {
             turns(ms.x() as f32) * -0.001,
             turns(ms.y() as f32) * -0.001,
         );
-        cam.transform
-            .translate(cam_vel.mul(frame.dt.as_secs_f32()));
+        let mut cam_ds = cam_vel.mul(frame.dt.as_secs_f32());
 
         //
         // Render
@@ -120,11 +126,32 @@ fn main() {
                 continue;
             }
 
+            // collision detection
+
+            let view_to_model = tf.then(&cam.world_to_view()).inverse();
+
+            let ray = Ray(
+                view_to_model.apply(&Point3::origin()),
+                view_to_model.apply(&Vec3::Z),
+            );
+
+            let mut hit = 0.0;
+            //if let Some((t, _pt)) = ray.intersect(bbox)
+            //&& t < 0.5
+
+            for tri in geom.faces() {
+                let tri = Tri(tri.0.map(|v| *v));
+                if let Some((_t, _pt)) = ray.intersect(&tri) {
+                    hit = 1.0;
+                    break;
+                }
+            }
+
             batch
                 // TODO Try to get rid of clone
                 .clone()
                 .mesh(geom)
-                .uniform(&model_to_project)
+                .uniform((&model_to_project, hit))
                 // TODO Allow setting shader before uniform
                 .shader(crate_shader)
                 // TODO storing &mut target makes Batch not Clone, maybe
@@ -135,6 +162,8 @@ fn main() {
 
             frame.ctx.stats.borrow_mut().objs.o += 1;
         }
+
+        cam.transform.translate(cam_ds);
 
         Continue(())
     })
