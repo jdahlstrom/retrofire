@@ -1,7 +1,7 @@
 use core::ops::ControlFlow::*;
-
 use re::prelude::*;
 
+use re::core::geom::Ray;
 use re::core::math::color::gray;
 use re::core::render::{
     cam::{FirstPerson, Fov},
@@ -13,7 +13,10 @@ use re::core::render::{
 use re::core::util::{pixfmt::Rgba8888, pnm::read_pnm};
 
 use re::front::sdl2::Window;
-use re::geom::solids::{Build, Cube};
+use re::geom::{
+    Intersect,
+    solids::{Build, Cube},
+};
 
 fn main() {
     let mut win = Window::builder()
@@ -35,20 +38,25 @@ fn main() {
         },
     );
     let crate_shader = shader::new(
-        |v: Vertex3<(Normal3, TexCoord)>, mvp: &ProjMat3<_>| {
-            vertex(mvp.apply(&v.pos), v.attrib)
+        |v: Vertex3<(Normal3, TexCoord)>, (mvp, hit): (&ProjMat3<_>, f32)| {
+            vertex(mvp.apply(&v.pos), (v.attrib, hit))
         },
-        |frag: Frag<(Normal3, TexCoord)>| {
-            let (n, uv) = frag.var;
-            let kd = lerp(n.dot(&light_dir).max(0.0), 0.4, 1.0);
+        |frag: Frag<((Normal3, TexCoord), f32)>| {
+            let ((n, uv), hit) = frag.var;
+            let kd = lerp(n.dot(&light_dir).max(0.0), 0.4, 1.0)
+                + if hit < 1000.0 { 1.0 } else { 0.0 };
             let col = SamplerClamp.sample(&tex, uv);
+
             (col.to_color3f() * kd).to_color4()
         },
     );
 
     let (w, h) = win.dims;
     let mut cam = Camera::new(win.dims)
-        .transform(FirstPerson::default())
+        .transform(FirstPerson {
+            pos: pt3(-2.0, 0.0, 0.0),
+            heading: Vec3::Z.to_spherical(),
+        })
         .viewport((10..w - 10, h - 10..10))
         .perspective(Fov::Diagonal(degs(90.0)), 0.1..1000.0);
 
@@ -80,8 +88,7 @@ fn main() {
             turns(ms.x() as f32) * -0.001,
             turns(ms.y() as f32) * -0.001,
         );
-        cam.transform
-            .translate(cam_vel.mul(frame.dt.as_secs_f32()));
+        let cam_ds = cam_vel.mul(frame.dt.as_secs_f32());
 
         //
         // Render
@@ -113,11 +120,24 @@ fn main() {
         for Obj { geom, bbox, tf } in &crates {
             frame.ctx.stats.borrow_mut().objs.i += 1;
 
-            let model_to_project = tf.then(&world_to_project);
+            let view_to_model = tf.then(&cam.world_to_view()).inverse();
+            let model_to_project = tf.then(&cam.world_to_project());
 
             // TODO Also if `Visible`, no further clipping or culling needed
             if bbox.visibility(&model_to_project) == Hidden {
                 continue;
+            }
+
+            // collision detection
+
+            let ray = Ray(
+                view_to_model.apply(&Point3::origin()),
+                view_to_model.apply(&Vec3::Z),
+            );
+
+            let mut hit = f32::MAX;
+            if let Some((t, _)) = ray.intersect(bbox) {
+                hit = t;
             }
 
             batch
@@ -125,11 +145,23 @@ fn main() {
                 .clone()
                 .mesh(geom)
                 .shader(crate_shader)
-                .uniform(&model_to_project)
+                .uniform((&model_to_project, hit))
                 .render();
 
             frame.ctx.stats.borrow_mut().objs.o += 1;
         }
+
+        for i in -4..=4 {
+            let buf = &mut frame.buf.borrow_mut().color_buf.buf;
+
+            let pix = &mut buf[h as usize / 2][(w as i32 / 2 + i) as usize];
+            *pix = pix.map(|b| b ^ 0xFF);
+
+            let pix = &mut buf[(h as i32 / 2 + i) as usize][w as usize / 2];
+            *pix = pix.map(|b| b ^ 0xFF);
+        }
+
+        cam.transform.translate(cam_ds);
 
         Continue(())
     })
