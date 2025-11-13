@@ -88,7 +88,8 @@ where
     /// stable than [`Self::eval`].
     pub fn fast_eval(&self, t: f32) -> T {
         let [p0, .., p3] = &self.0;
-        step(t, p0, p3, |t| {
+
+        step(t, p0, p3, |_t| {
             // Add a linear combination of the three coefficients
             // to `p0` to get the result
             let [co3, co2, co1] = self.coefficients();
