@@ -45,6 +45,7 @@ pub type Plane3<B = ()> = Plane<Vector<[f32; 4], Hom<3, B>>>;
 #[derive(Copy, Clone, Debug, Eq, PartialEq)]
 pub struct Ray<T: Affine>(pub T, pub T::Diff);
 
+pub type Ray2<B = ()> = Ray<Point2<B>>;
 pub type Ray3<B = ()> = Ray<Point3<B>>;
 
 /// A curve composed of a chain of line segments.
@@ -1094,7 +1095,7 @@ mod tests {
         assert_eq!(format!("{:?}", l), "Line(x = 2)");
 
         l = Line2::new(0.0, 1.0, 0.0); // y = 0
-        //assert_eq!(format!("{:?}", l), "Line(y = 0)");
+        assert_eq!(format!("{:?}", l), "Line(y = 0)");
 
         l = Line2::from_points(pt2(0.0, -3.0), pt2(1.0, -3.0)); // y = -3
         assert_eq!(l.slope_intercept(), Some((0.0, -3.0)));
