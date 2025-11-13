@@ -3,11 +3,15 @@
 //! Includes vertices, polygons, planes, rays, and more.
 
 use alloc::vec::Vec;
+
 use core::fmt::{self, Debug, Formatter};
 
 use crate::math::{
     Affine, ApproxEq, Lerp, Linear, Mat4, Parametric, Point, Point2, Point3,
-    Vec2, Vec3, Vector, pt3, space::Real, vec::dot, vec2, vec3,
+    Vec2, Vec3, Vector,
+    space::{Hom, Real},
+    vec::dot,
+    vec2, vec3,
 };
 use crate::render::Model;
 
@@ -35,7 +39,7 @@ pub struct Tri<V>(pub [V; 3]);
 pub struct Plane<V>(pub(crate) V);
 
 /// Plane embedded in 3D space, splitting the space into two half-spaces.
-pub type Plane3<B = ()> = Plane<Vector<[f32; 4], Real<3, B>>>;
+pub type Plane3<B = ()> = Plane<Vector<[f32; 4], Hom<3, B>>>;
 
 /// A ray, or a half line, composed of an initial point and a direction vector.
 #[derive(Copy, Clone, Debug, Eq, PartialEq)]
@@ -63,6 +67,10 @@ pub struct Edge<T>(pub T, pub T);
 
 #[derive(Copy, Clone, PartialEq)]
 pub struct Sphere<B = ()>(pub Point3<B>, pub f32);
+
+// TODO Line3?
+#[derive(Copy, Clone, PartialEq)]
+pub struct Line2<B = ()>(Vector<[f32; 3], Hom<2, B>>);
 
 /// A surface normal in 3D.
 // TODO Use distinct type rather than alias
@@ -588,9 +596,7 @@ impl<T> Polyline<T> {
     pub fn edges(&self) -> impl Iterator<Item = Edge<&T>> + '_ {
         self.0.windows(2).map(|e| Edge(&e[0], &e[1]))
     }
-}
 
-impl<T> Polyline<T> {
     /// Returns the sum of the lengths of the edges using a custom metric.
     ///
     /// The function passed can be arbitrary; this method does not assume any
@@ -671,6 +677,63 @@ impl<T> Polygon<T> {
             .windows(2)
             .map(|e| Edge(&e[0], &e[1]))
             .chain(last_first)
+    }
+}
+
+impl<B> Line2<B> {
+    /// Two-dimensional line, given by the line equation ax + by = c.
+    ///
+    /// # Panics
+    /// If the vector (a, b) is not unit-length.
+    pub const fn new(a: f32, b: f32, c: f32) -> Self {
+        // TODO This method can't itself normalize because const
+        assert!((a * a + b * b - 1.0).abs() < 1e-6, "non-unit normal");
+        Self(Vector::new([a, b, -c]))
+    }
+
+    /// Returns the unique line that crosses the given points.
+    ///
+    /// # Panics
+    /// If the points coincide.
+    pub fn from_points(p: Point2<B>, q: Point2<B>) -> Self {
+        Edge(p, q).into()
+    }
+
+    /// Returns the slope and y-intercept of `self` if `self` is not vertical.
+    ///
+    /// # Examples
+    /// ```
+    /// use retrofire_core::{assert_approx_eq, geom::Line2, math::pt2};
+    ///
+    /// let line = <Line2>::from_points(pt2(-1.0, 1.0), pt2(1.0, 2.0));
+    /// let (slope, y_intercept) = line.slope_intercept().unwrap();
+    /// assert_approx_eq!(slope, 0.5);
+    /// assert_approx_eq!(y_intercept, 1.5);
+    /// ```
+    pub fn slope_intercept(&self) -> Option<(f32, f32)> {
+        // ax + by + c = 0
+        let [a, b, c] = self.coeffs();
+
+        (b != 0.0).then(|| {
+            // by = -ax - c  <=>  y = -a/b x - c/b
+            let m = -a / b; // slope
+            let y0 = -c / b; // y intercept
+            (m, y0)
+        })
+    }
+
+    /// Returns
+    pub fn normal(&self) -> Vec2<B> {
+        vec2(self.0[0], self.0[1]).normalize()
+    }
+    /// Returns the signed distance of `self` from the origin.
+    pub fn offset(&self) -> f32 {
+        -self.0[2]
+    }
+
+    /// Returns the coefficients [a, b, c] of the line equation ax + by = c.
+    pub const fn coeffs(&self) -> [f32; 3] {
+        return self.0.0;
     }
 }
 
@@ -770,13 +833,76 @@ impl<B: Debug + Default> Debug for Sphere<B> {
 impl<B> Default for Sphere<B> {
     /// Returns a unit sphere, with the center at the origin and radius 1.
     fn default() -> Self {
-        Self(pt3(0.0, 0.0, 0.0), 1.0)
+        Self(Point3::origin(), 1.0)
+    }
+}
+
+impl<B> Debug for Line2<B> {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        // ax + by + c = 0
+        let [a, _, c] = self.coeffs();
+
+        f.write_str("Line(")?;
+        match self.slope_intercept() {
+            Some((m, y0)) => {
+                let pm = if y0 >= 0.0 { '+' } else { '-' };
+                let ay0 = y0.abs();
+                if m == 0.0 {
+                    write!(f, "y = {y0}")
+                } else if m == 1.0 {
+                    write!(f, "y = x {pm} {ay0}")
+                } else if m == -1.0 {
+                    write!(f, "y = -x {pm} {ay0}")
+                } else {
+                    write!(f, "y = {m}·x {pm} {ay0}")
+                }?;
+            }
+            None if a != 0.0 => write!(f, "x = {}", -c / a)?,
+            None => unreachable!("invariant: a*a + b*b = 1"),
+        }
+        f.write_str(")")
+    }
+}
+
+impl<B> From<Ray<Point2<B>>> for Line2<B> {
+    /// Returns the line coincident with the given ray.
+    ///
+    /// # Panics
+    /// If the ray is zero-length or approximately so.
+    ///
+    /// # Examples
+    /// ```
+    /// use retrofire_core::geom::{Line2, Ray};
+    /// use retrofire_core::math::{pt2, vec2, vec3};
+    ///
+    /// //     ^
+    /// //     |
+    /// // ----2----O——————>-------
+    /// //     |
+    /// //     1
+    /// //     |
+    /// // <---+----1----2----3--->
+    /// let line = <Line2>::from(Ray(pt2(1.0, 2.0), vec2(1.5, 0.0)));
+    ///
+    /// assert_eq!(line.normal(), vec2(0.0, 1.0));
+    /// assert_eq!(line.offset(), 2.0);
+    /// ```
+    fn from(Ray(orig, dir): Ray<Point2<B>>) -> Self {
+        let n = dir.perp().normalize();
+        Self::new(n.x(), n.y(), dot(&orig.0, &n.0))
+    }
+}
+
+impl<B> From<Edge<Point2<B>>> for Line2<B> {
+    /// Returns the line coincident with the given edge.
+    fn from(Edge(p, q): Edge<Point2<B>>) -> Self {
+        Ray(p, q - p).into()
     }
 }
 
 #[cfg(test)]
 mod tests {
-    use alloc::vec;
+    use alloc::{format, vec};
     use core::f32::consts::*;
 
     use crate::math::*;
@@ -951,6 +1077,31 @@ mod tests {
                 0.0, 0.0, 0.0, 1.0;
             ]
         );
+    }
+
+    #[test]
+    fn line_debug() {
+        let mut l: Line2;
+
+        l = Line2::new(1.0, 0.0, 0.0); // x = 0
+        assert_eq!(format!("{:?}", l), "Line(x = 0)");
+
+        l = Line2::from_points(pt2(2.0, 0.0), pt2(2.0, -1.0));
+        assert_eq!(l.coeffs(), [1.0, 0.0, -2.0]);
+        assert_eq!(format!("{:?}", l), "Line(x = 2)");
+
+        l = Line2::new(1.0, 0.0, 2.0); // x = 2
+        assert_eq!(format!("{:?}", l), "Line(x = 2)");
+
+        l = Line2::new(0.0, 1.0, 0.0); // y = 0
+        //assert_eq!(format!("{:?}", l), "Line(y = 0)");
+
+        l = Line2::from_points(pt2(0.0, -3.0), pt2(1.0, -3.0)); // y = -3
+        assert_eq!(l.slope_intercept(), Some((0.0, -3.0)));
+        assert_eq!(format!("{:?}", l), "Line(y = -3)");
+
+        l = Line2::new(0.0, 1.0, -3.0); // y = -3
+        assert_eq!(format!("{:?}", l), "Line(y = -3)");
     }
 
     #[test]
