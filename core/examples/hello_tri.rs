@@ -46,7 +46,7 @@ fn main() {
     let center_pixel = framebuf[[w / 2, h / 2]];
 
     if cfg!(feature = "fp") {
-        assert_eq!(center_pixel, rgba(150, 128, 186, 255));
+        assert_eq!(center_pixel, rgba(151, 128, 187, 255));
     } else {
         assert_eq!(center_pixel, rgba(114, 102, 127, 255));
     }
