@@ -706,7 +706,7 @@ where
     /// Note that `Self::DIM` can be less than the number of elements in `R`.
     #[inline]
     fn index(&self, i: usize) -> &Self::Output {
-        assert!(i < Self::DIM, "index {i} out of bounds ({})", Self::DIM);
+        debug_assert!(i < Self::DIM, "index {i} out of bounds ({})", Self::DIM);
         &self.0[i]
     }
 }
@@ -723,7 +723,7 @@ where
     /// Note that `Self::DIM` can be less than the number of elements in `R`.
     #[inline]
     fn index_mut(&mut self, i: usize) -> &mut Self::Output {
-        assert!(i < Self::DIM, "index {i} out of bounds ({})", Self::DIM);
+        debug_assert!(i < Self::DIM, "index {i} out of bounds ({})", Self::DIM);
         &mut self.0[i]
     }
 }
