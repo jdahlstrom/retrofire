@@ -1,7 +1,9 @@
 use core::fmt::Debug;
 
+#[cfg(feature = "std")] // TODO separate fp feature for geom
+use retrofire_core::geom::Sphere;
 use retrofire_core::{
-    geom::{Plane3, Ray},
+    geom::{Plane3, Ray, Ray3},
     math::{ApproxEq, Point3, vec3},
     render::scene::BBox,
 };
@@ -18,8 +20,10 @@ pub trait Intersect<T> {
     fn intersect(&self, other: &T) -> Self::Result;
 }
 
-impl<B> Intersect<Plane3<B>> for Ray<Point3<B>> {
-    type Result = Option<(f32, Point3<B>)>;
+type RayIntersect3<B> = Option<(f32, Point3<B>)>;
+
+impl<B> Intersect<Plane3<B>> for Ray3<B> {
+    type Result = RayIntersect3<B>;
 
     /// Returns the unique intersection point of `self` and a plane,
     /// or `None` if they do not intersect.
@@ -52,8 +56,8 @@ impl<B> Intersect<Plane3<B>> for Ray<Point3<B>> {
     }
 }
 
-impl<B: Debug + Default> Intersect<BBox<B>> for Ray<Point3<B>> {
-    type Result = Option<(f32, Point3<B>)>; // Only closest for now
+impl<B: Debug + Default> Intersect<BBox<B>> for Ray3<B> {
+    type Result = RayIntersect3<B>; // Only closest for now
 
     /// Returns the nearest intersection point of `self` and a box,
     /// or `None` if they do not intersect.
@@ -116,6 +120,93 @@ impl<B: Debug + Default> Intersect<BBox<B>> for Ray<Point3<B>> {
             // ---min---0---max---> (inside the box, unlikely)
             far_t
         };
+        Some((t, orig + t * dir))
+    }
+}
+
+#[cfg(feature = "std")]
+impl<B> Intersect<Sphere<B>> for Ray3<B> {
+    type Result = RayIntersect3<B>; // Only closest for now
+
+    /// Returns the intersection point of `self` and a sphere closest to the
+    /// origin of `self`, or `None` if they do not intersect.
+    ///
+    /// # Examples
+    /// ```
+    /// ```
+    fn intersect(&self, &Sphere(center, r): &Sphere<B>) -> Self::Result {
+        let &Ray(orig, dir) = self;
+
+        //             > r, no intersection
+        // If |C - C'| = r, one    -"-
+        //             < r, two    -"-
+        //           _______
+        //          /       \
+        //         /         \
+        //        |     C--r--|
+        //         \    |    /
+        //          \___|___/
+        //             _|
+        //   O--------+-C'----> d
+        //
+        // Find point P = (x, y, z) given sphere (C, r) and ray (O, d)
+        //
+        // Sphere equation:
+        //   (x - c_x)² + (y - c_y)² + (z - c_z)² = r²
+        // or in vector form
+        //   (P - C) · (P - C) = r²
+        //
+        // Ray equation:
+        //   P = O + t·d
+        //
+        // Intersection:
+        //
+        //   Substitute ray equation to sphere equation:
+        //   (o + t·d - c) · (o + t·d - c) = r²
+        //
+        //   Multiply out
+        //   o (o + td - c) + t·d (o + td - c) - c (o + td - c) = r²
+        //
+        //   Distribute
+        //   o·o + o·td - o·c + o·td + td·td - td·c - c·o - c·td + c·c = r²
+        //
+        //   Reorder
+        //   td·td + o·td + o·td - td·c + o·o - o·c - c·o + c·c - r² = 0
+        //
+        //   Factor out t's
+        //   (d·d) t² + (o·d + o·d - c·d) t + o·o - 2o·c + c·c - r² = 0
+        //
+        // Solve quadratic equation:
+        //   (d·d) t²  +  2(o - c)·d t  +  (o - c)² - r²  =  0
+        //
+        //   t = (-b ± √(b² - 4ac)) / 2a
+
+        let c_to_o = orig - center;
+        let a = dir.len_sqr(); // >= 0
+        let b = 2.0 * c_to_o.dot(&dir);
+        let c = c_to_o.len_sqr() - r * r;
+
+        let discriminant = b * b - 4.0 * a * c;
+        if discriminant < 0.0 {
+            // the line of the ray does not hit the sphere
+            return None;
+        }
+
+        use retrofire_core::math::float::f32;
+        let sqrt = f32::sqrt(discriminant);
+        // sqrt >= 0.0, thus t0 <= t1 always
+        let (t0, t1) = (-b - sqrt, -b + sqrt);
+        let t = if t0 >= 0.0 {
+            // ray hits both points
+            t0
+        } else if t1 >= 0.0 {
+            // ray origin is inside sphere
+            t1
+        } else {
+            // sphere is behind ray
+            return None;
+        };
+        let t = t / (2.0 * a);
         Some((t, orig + t * dir))
     }
 }
@@ -297,6 +388,49 @@ mod tests {
             let empty = BBox::<()>(pt3(-1.0, -1.0, 1.0), pt3(1.0, 1.0, -1.0));
             let ray = Ray(pt3(0.0, 0.0, -2.0), vec3(0.0, 0.0, 1.0));
             assert_eq!(ray.intersect(&empty), None);
+        }
+    }
+
+    // TODO until sqrt has a fallback
+    #[cfg(feature = "std")]
+    mod ray_sphere {
+        use super::*;
+
+        const SPHERE: Sphere = Sphere(pt3(0.0, 0.0, 1.0), 2.0);
+
+        #[test]
+        fn ray_passes_through_sphere() {
+            let ray: Ray3 = Ray(pt3(0.0, 0.0, -3.0), vec3(0.0, 0.0, 2.0));
+            assert_eq!(
+                ray.intersect(&SPHERE),
+                Some((1.0, pt3(0.0, 0.0, -1.0)))
+            );
+        }
+        #[test]
+        fn ray_tangent_to_sphere() {
+            let ray: Ray3 = Ray(pt3(0.0, 2.0, -3.0), vec3(0.0, 0.0, 2.0));
+            assert_eq!(ray.intersect(&SPHERE), Some((2.0, pt3(0.0, 2.0, 1.0))));
+        }
+
+        #[test]
+        fn ray_origin_inside_sphere() {
+            let ray: Ray3 = Ray(pt3(0.0, 0.0, 0.0), vec3(0.0, 0.0, 2.0));
+            assert_eq!(ray.intersect(&SPHERE), Some((1.5, pt3(0.0, 0.0, 3.0))));
+
+            let ray: Ray3 = Ray(pt3(0.0, 0.0, 2.0), vec3(0.0, 0.0, 2.0));
+            assert_eq!(ray.intersect(&SPHERE), Some((0.5, pt3(0.0, 0.0, 3.0))));
+        }
+
+        #[test]
+        fn sphere_behind_ray() {
+            let ray: Ray3 = Ray(pt3(0.0, 0.0, -3.0), vec3(0.0, 0.0, -1.0));
+            assert_eq!(ray.intersect(&SPHERE), None);
+        }
+
+        #[test]
+        fn ray_misses_sphere() {
+            let ray: Ray3 = Ray(pt3(0.0, 0.0, -3.0), vec3(0.0, 1.0, 1.0));
+            assert_eq!(ray.intersect(&SPHERE), None);
         }
     }
 }
