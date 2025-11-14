@@ -1,6 +1,6 @@
 use retrofire_core::{
     geom::{Plane3, Ray},
-    math::{ApproxEq, Point3, Vec3},
+    math::{ApproxEq, Point3},
     render::scene::BBox,
 };
 
@@ -28,13 +28,15 @@ impl<B> Intersect<Plane3<B>> for Ray<Point3<B>> {
     fn intersect(&self, p: &Plane3<B>) -> Self::Result {
         let Self(orig, dir) = self;
 
+        // TODO checking two very unlikely conditions
+
+        let denom = dir.dot(&p.normal().to());
         let num = p.signed_dist(*orig);
         if num.approx_eq(&0.0) {
             // Origin point coincident with the plane
             return Some((0.0, *orig));
         }
 
-        let denom = dir.dot(&p.normal().to());
         if denom.approx_eq(&0.0) {
             // Ray parallel with but not coincident with the plane
             // (or dir is a zero vector) -> no intersection
@@ -84,24 +86,88 @@ impl<B: Default> Intersect<BBox<B>> for Ray<Point3<B>> {
             Plane3::new(0.0, 0.0, 1.0, u.z()),
         ];
 
-        // TODO only need to consider planes "on the same side" as self.orig,
-        //      in which case the first intersection found is the closest one
         let mut res = None;
-        for plane in &planes {
-            if let pt @ Some((t, p)) = self.intersect(plane)
-                && bbox.contains(&p)
-                && res.is_none_or(|(u, _)| t < u)
-            {
-                res = pt;
-            }
+
+        // for (p, a, b) in [
+        //     (0, 1, 2),
+        //     (1, 1, 2),
+        //     (2, 0, 2),
+        //     (3, 0, 2),
+        //     (4, 0, 1),
+        //     (5, 0, 1),
+        // ] {
+        //     if let pt @ Some((t, p)) = self.intersect(&planes[p])
+        //         && (l[a]..=u[a]).contains(&p[a])
+        //         && (l[b]..=u[b]).contains(&p[b])
+        //         && res.is_none_or(|(u, _)| t < u)
+        //     {
+        //         res = pt;
+        //     }
+        // }
+        // res
+
+        // X planes
+        if let pt @ Some((_, p)) = self.intersect(&planes[0])
+            && (l[1]..=u[1]).contains(&p[1])
+            && (l[2]..=u[2]).contains(&p[2])
+        {
+            res = pt;
+        }
+        if let pt @ Some((t, p)) = self.intersect(&planes[1])
+            && (l[1]..=u[1]).contains(&p[1])
+            && (l[2]..=u[2]).contains(&p[2])
+            && res.is_none_or(|(u, _)| t < u)
+        {
+            res = pt;
+        }
+
+        // Y planes
+        if let pt @ Some((t, p)) = self.intersect(&planes[2])
+            && (l[0]..=u[0]).contains(&p[0])
+            && (l[2]..=u[2]).contains(&p[2])
+            && res.is_none_or(|(u, _)| t < u)
+        {
+            res = pt;
+        }
+        if let pt @ Some((t, p)) = self.intersect(&planes[3])
+            && (l[0]..=u[0]).contains(&p[0])
+            && (l[2]..=u[2]).contains(&p[2])
+            && res.is_none_or(|(u, _)| t < u)
+        {
+            res = pt;
+        }
+
+        // Z planes
+        if let pt @ Some((t, p)) = self.intersect(&planes[4])
+            && (l[1]..u[1]).contains(&p[1])
+            && (l[0]..u[0]).contains(&p[0])
+            && res.is_none_or(|(u, _)| t < u)
+        {
+            res = pt;
+        }
+        if let pt @ Some((t, p)) = self.intersect(&planes[5])
+            && (l[1]..=u[1]).contains(&p[1])
+            && (l[0]..=u[0]).contains(&p[0])
+            && res.is_none_or(|(u, _)| t < u)
+        {
+            res = pt;
         }
         res
+        // for plane in &planes {
+        //     if let pt @ Some((t, p)) = self.intersect(plane)
+        //         && bbox.contains(&p)
+        //         && res.is_none_or(|(u, _)| t < u)
+        //     {
+        //         res = pt;
+        //     }
+        // }
+        // res
     }
 }
 
 #[cfg(test)]
 mod tests {
-    use retrofire_core::math::{Linear, pt3, vec3};
+    use retrofire_core::math::{Linear, Vec3, pt3, vec3};
 
     use super::*;
 
@@ -109,6 +175,18 @@ mod tests {
         use super::*;
 
         const PLANE: Plane3<()> = Plane3::new(0.0, 1.0, 0.0, 2.0);
+
+        #[test]
+        #[ignore]
+        fn ray_plane_xxx() {
+            let r = Ray::<Point3>(
+                pt3(-3.308549, 6.2584567, -3.351655),
+                vec3(3.308549, -6.2584567, 3.351655),
+            );
+            let bbox = BBox(pt3(-1.0, -1.0, -1.0), pt3(1.0, 1.0, 1.0));
+
+            assert_eq!(r.intersect(&bbox), Some((0.0, pt3(0.0, 0.0, 0.0))));
+        }
 
         #[test]
         fn ray_towards_plane_has_intersection() {
