@@ -131,8 +131,12 @@ impl Color3<Rgb> {
         rgba(r, g, b, 0xFF)
     }
 
+    /// Returns `self` as floating-point RGB, with channels normalized
+    /// to the range [0, 1].
+    #[inline]
     pub fn to_color3f(self) -> Color3f {
-        self.map(|c| c as f32 / 255.0)
+        let [r, g, b] = self.0;
+        rgb(r as f32 / 256.0, g as f32 / 256.0, b as f32 / 256.0)
     }
 
     /// Returns the HSL color equivalent to `self`.
@@ -186,11 +190,19 @@ impl Color4<Rgba> {
         rgb(r, g, b)
     }
 
-    pub fn to_color4f(self) -> Color4f {
-        self.0.map(|c| c as f32 / 255.0).into()
+    #[inline]
+    pub const fn to_color4f(self) -> Color4f {
+        let [r, g, b, a] = self.0;
+        rgba(
+            r as f32 / 256.0,
+            g as f32 / 256.0,
+            b as f32 / 256.0,
+            a as f32 / 256.0,
+        )
     }
 
     /// Returns the HSLA color equivalent to `self`.
+    #[inline]
     pub fn to_hsla(self) -> Color4<Hsla> {
         let [r, g, b, a] = self.0;
         let [h, s, l] = rgb(r, g, b).to_hsl().0;
@@ -209,21 +221,23 @@ impl Color3f<Rgb> {
     /// Returns a `Color3` with the components of `self` mapped to `u8`
     /// with `(c.clamp(0.0, 1.0) * 255.0) as u8`.
     #[inline]
-    pub fn to_color3(self) -> Color3 {
-        self.to_u8().into()
+    pub const fn to_color3(self) -> Color3 {
+        Color3::new(self.to_u8())
     }
 
     /// Returns a `Color4` with alpha 0xFF and the components of `self`
     /// mapped to `u8` with `(c.clamp(0.0, 1.0) * 255.0) as u8`.
     #[inline]
-    pub fn to_color4(self) -> Color4 {
+    pub const fn to_color4(self) -> Color4 {
         let [r, g, b] = self.to_u8();
         rgba(r, g, b, 0xFF)
     }
 
     #[inline]
-    fn to_u8(self) -> [u8; 3] {
-        self.0.map(|c| (c.clamp(0.0, 1.0) * 255.0) as u8)
+    const fn to_u8(self) -> [u8; 3] {
+        let [r, g, b] = self.0;
+        // `as` clamps to u8 min/max
+        [(256.0 * r) as u8, (256.0 * g) as u8, (256.0 * b) as u8]
     }
 
     /// Returns `self` gamma-converted to linear RGB space.
@@ -240,7 +254,12 @@ impl Color3f<Rgb> {
     #[inline]
     pub fn to_linear(self) -> Color3f<LinRgb> {
         use super::float::f32;
-        self.0.map(|c| f32::powf(c, GAMMA)).into()
+        let [r, g, b] = self.0;
+        Color::new([
+            f32::powf(r, GAMMA),
+            f32::powf(g, GAMMA),
+            f32::powf(b, GAMMA),
+        ])
     }
 
     /// Returns the HSL color equivalent to `self`.
@@ -296,20 +315,26 @@ impl Color4f<Rgba> {
     /// Returns a `Color3` with the components of `self` mapped to `u8`
     /// with `(c.clamp(0.0, 1.0) * 255.0) as u8`, discarding alpha.
     #[inline]
-    pub fn to_color3(self) -> Color3 {
+    pub const fn to_color3(self) -> Color3 {
         let [r, g, b, _] = self.to_u8();
-        [r, g, b].into()
+        rgb(r, g, b)
     }
     /// Returns a `Color4` with the components of `self` mapped
     /// to `u8` with `(c.clamp(0.0, 1.0) * 255.0) as u8`.
     #[inline]
-    pub fn to_color4(self) -> Color4 {
-        self.to_u8().into()
+    pub const fn to_color4(self) -> Color4 {
+        Color4::new(self.to_u8())
     }
 
     #[inline]
-    fn to_u8(self) -> [u8; 4] {
-        self.0.map(|c| (c.clamp(0.0, 1.0) * 255.0) as u8)
+    const fn to_u8(self) -> [u8; 4] {
+        let [r, g, b, a] = self.0;
+        [
+            (256.0 * r) as u8, // `as` clamps to u8 min/max
+            (256.0 * g) as u8,
+            (256.0 * b) as u8,
+            (256.0 * a) as u8,
+        ]
     }
 
     /// Returns the HSLA color equivalent to `self`.
@@ -335,7 +360,12 @@ impl Color3f<LinRgb> {
     #[inline]
     pub fn to_srgb(self) -> Color3f<Rgb> {
         use super::float::f32;
-        self.0.map(|c| f32::powf(c, INV_GAMMA)).into()
+        let [r, g, b] = self.0;
+        Color::new([
+            f32::powf(r, INV_GAMMA),
+            f32::powf(g, INV_GAMMA),
+            f32::powf(b, INV_GAMMA),
+        ])
     }
 }
 
