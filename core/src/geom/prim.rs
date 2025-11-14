@@ -3,11 +3,11 @@
 //! Includes vertices, polygons, planes, rays, and more.
 
 use alloc::vec::Vec;
-use core::fmt::Debug;
+use core::fmt::{self, Debug, Formatter};
 
 use crate::math::{
     Affine, Lerp, Linear, Mat4, Parametric, Point, Point2, Point3, Vec2, Vec3,
-    Vector, space::Real, vec2, vec3,
+    Vector, pt3, space::Real, vec2, vec3,
 };
 
 use crate::render::Model;
@@ -42,6 +42,8 @@ pub type Plane3<B = ()> = Plane<Vector<[f32; 4], Real<3, B>>>;
 #[derive(Copy, Clone, Debug, Eq, PartialEq)]
 pub struct Ray<T: Affine>(pub T, pub T::Diff);
 
+pub type Ray3<B = ()> = Ray<Point3<B>>;
+
 /// A curve composed of a chain of line segments.
 ///
 /// The polyline is represented as a list of points, or vertices, with each
@@ -59,6 +61,9 @@ pub struct Polygon<T>(pub Vec<T>);
 /// A line segment between two vertices.
 #[derive(Copy, Clone, Debug, Default, Eq, PartialEq)]
 pub struct Edge<T>(pub T, pub T);
+
+#[derive(Copy, Clone, PartialEq)]
+pub struct Sphere<B = ()>(pub Point3<B>, pub f32);
 
 /// A surface normal in 3D.
 // TODO Use distinct type rather than alias
@@ -755,6 +760,22 @@ impl<B> Default for Plane3<B> {
     /// Returns the XZ coordinate plane.
     fn default() -> Self {
         Plane3::XZ
+    }
+}
+
+impl<B> Default for Sphere<B> {
+    /// Returns a unit sphere, with the center at the origin and radius 1.
+    fn default() -> Self {
+        Self(pt3(0.0, 0.0, 0.0), 1.0)
+    }
+}
+
+impl<B: Debug + Default> Debug for Sphere<B> {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        f.debug_tuple("Sphere")
+            .field(&self.0)
+            .field(&self.1)
+            .finish()
     }
 }
 
