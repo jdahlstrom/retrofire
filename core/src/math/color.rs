@@ -209,21 +209,22 @@ impl Color3f<Rgb> {
     /// Returns a `Color3` with the components of `self` mapped to `u8`
     /// with `(c.clamp(0.0, 1.0) * 255.0) as u8`.
     #[inline]
-    pub fn to_color3(self) -> Color3 {
-        self.to_u8().into()
+    pub const fn to_color3(self) -> Color3 {
+        Color3::new(self.to_u8())
     }
 
     /// Returns a `Color4` with alpha 0xFF and the components of `self`
     /// mapped to `u8` with `(c.clamp(0.0, 1.0) * 255.0) as u8`.
     #[inline]
-    pub fn to_color4(self) -> Color4 {
+    pub const fn to_color4(self) -> Color4 {
         let [r, g, b] = self.to_u8();
         rgba(r, g, b, 0xFF)
     }
 
     #[inline]
-    fn to_u8(self) -> [u8; 3] {
-        self.0.map(|c| (c.clamp(0.0, 1.0) * 255.0) as u8)
+    const fn to_u8(self) -> [u8; 3] {
+        let [r, g, b] = self.0;
+        [(256.0 * r) as u8, (256.0 * g) as u8, (256.0 * b) as u8]
     }
 
     /// Returns `self` gamma-converted to linear RGB space.
@@ -296,20 +297,26 @@ impl Color4f<Rgba> {
     /// Returns a `Color3` with the components of `self` mapped to `u8`
     /// with `(c.clamp(0.0, 1.0) * 255.0) as u8`, discarding alpha.
     #[inline]
-    pub fn to_color3(self) -> Color3 {
+    pub const fn to_color3(self) -> Color3 {
         let [r, g, b, _] = self.to_u8();
-        [r, g, b].into()
+        Color3::new([r, g, b])
     }
     /// Returns a `Color4` with the components of `self` mapped
     /// to `u8` with `(c.clamp(0.0, 1.0) * 255.0) as u8`.
     #[inline]
-    pub fn to_color4(self) -> Color4 {
-        self.to_u8().into()
+    pub const fn to_color4(self) -> Color4 {
+        Color4::new(self.to_u8())
     }
 
     #[inline]
-    fn to_u8(self) -> [u8; 4] {
-        self.0.map(|c| (c.clamp(0.0, 1.0) * 255.0) as u8)
+    const fn to_u8(self) -> [u8; 4] {
+        let [r, g, b, a] = self.0;
+        [
+            (256.0 * r) as u8,
+            (256.0 * g) as u8,
+            (256.0 * b) as u8,
+            (256.0 * a) as u8,
+        ]
     }
 
     /// Returns the HSLA color equivalent to `self`.
