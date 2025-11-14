@@ -714,34 +714,35 @@ where
 //
 
 /// The vector += vector operator.
-impl<R, Sp> AddAssign<<Self as Affine>::Diff> for Vector<R, Sp>
+impl<R, Sp, Diff> AddAssign<Diff> for Vector<R, Sp>
 where
-    Self: Affine,
+    Self: Affine<Diff = Diff>,
 {
     #[inline]
-    fn add_assign(&mut self, rhs: <Self as Affine>::Diff) {
+    fn add_assign(&mut self, rhs: Diff) {
         *self = Affine::add(&*self, &rhs);
     }
 }
 
 /// The vector -= vector operator.
-impl<R, Sp> SubAssign<<Self as Affine>::Diff> for Vector<R, Sp>
+impl<R, Sp, Diff> SubAssign<Diff> for Vector<R, Sp>
 where
-    Self: Affine,
+    Self: Affine<Diff = Diff>,
+    Diff: Linear,
 {
     #[inline]
-    fn sub_assign(&mut self, rhs: <Self as Affine>::Diff) {
+    fn sub_assign(&mut self, rhs: Diff) {
         *self = Affine::add(&*self, &rhs.neg());
     }
 }
 
 // The vector *= scalar operator.
-impl<R, Sp> MulAssign<<Self as Linear>::Scalar> for Vector<R, Sp>
+impl<R, Sp, Sc> MulAssign<Sc> for Vector<R, Sp>
 where
-    Self: Linear,
+    Self: Linear<Scalar = Sc>,
 {
     #[inline]
-    fn mul_assign(&mut self, rhs: <Self as Linear>::Scalar) {
+    fn mul_assign(&mut self, rhs: Sc) {
         *self = Linear::mul(&*self, rhs);
     }
 }
@@ -758,6 +759,34 @@ where
     }
 }
 
+// The componentwise vector *= vector operator.
+// This is strictly speaking not a linear operation,
+// but useful enough to be included.
+impl<Sc, Sp, const N: usize> MulAssign for Vector<[Sc; N], Sp>
+where
+    Self: Linear<Scalar = Sc>,
+    Sc: Linear<Scalar = Sc> + Copy,
+{
+    /// Multiplies `self` by a vector componentwise.
+    #[inline]
+    fn mul_assign(&mut self, rhs: Self) {
+        *self = self.zip_map(rhs, |a, b| a.mul(b));
+    }
+}
+// The componentwise vector /= vector operator.
+// This is strictly speaking not a linear operation,
+// but useful enough to be included.
+impl<Sp, const N: usize> DivAssign for Vector<[f32; N], Sp>
+where
+    Self: Linear<Scalar = f32>,
+{
+    /// Multiplies `self` by a vector componentwise.
+    #[inline]
+    fn div_assign(&mut self, rhs: Self) {
+        *self = self.zip_map(rhs, Div::div);
+    }
+}
+
 /// The vector negation operator.
 impl<R, Sp> Neg for Vector<R, Sp>
 where
@@ -771,6 +800,9 @@ where
     }
 }
 
+// The following impls cannot be more generic due to orphan rules
+
+// Scalar * Vector for f32
 impl<R, Sp> Mul<Vector<R, Sp>> for f32
 where
     Vector<R, Sp>: Linear<Scalar = f32>,
@@ -782,6 +814,7 @@ where
         rhs * self
     }
 }
+// Scalar * Vector for i32
 impl<R, Sp> Mul<Vector<R, Sp>> for i32
 where
     Vector<R, Sp>: Linear<Scalar = i32>,
@@ -793,6 +826,7 @@ where
         rhs * self
     }
 }
+// Scalar * Vector for u32
 impl<R, Sp> Mul<Vector<R, Sp>> for u32
 where
     Vector<R, Sp>: Linear<Scalar = u32>,
@@ -809,10 +843,16 @@ where
 impl_op!(Add::add, Vector, <Self as Affine>::Diff, +=, bound=Affine);
 // The vector - vector operator.
 impl_op!(Sub::sub, Vector, <Self as Affine>::Diff, -=, bound=Affine);
+
 // The vector * scalar operator.
 impl_op!(Mul::mul, Vector, <Self as Linear>::Scalar, *=);
 // The vector / scalar operator.
 impl_op!(Div::div, Vector, f32, /=, bound=Linear<Scalar = f32>);
+
+// The vector * vector operator.
+impl_op!(Mul::mul, Vector, Self, *=, bound=MulAssign<Self>);
+// The vector / vector operator.
+impl_op!(Div::div, Vector, Self, /=, bound=DivAssign<Self>);
 
 //
 // Unit tests
