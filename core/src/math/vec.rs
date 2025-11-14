@@ -714,24 +714,25 @@ where
 //
 
 /// The vector += vector operator.
-impl<R, Sp, Diff> AddAssign<Diff> for Vector<R, Sp>
+impl<R, Sp> AddAssign for Vector<R, Sp>
 where
-    Self: Affine<Diff = Diff>,
+    Self: Linear,
 {
+    /// Adds a vector to `self`.
     #[inline]
-    fn add_assign(&mut self, rhs: Diff) {
+    fn add_assign(&mut self, rhs: Self) {
         *self = Affine::add(&*self, &rhs);
     }
 }
 
 /// The vector -= vector operator.
-impl<R, Sp, Diff> SubAssign<Diff> for Vector<R, Sp>
+impl<R, Sp> SubAssign for Vector<R, Sp>
 where
-    Self: Affine<Diff = Diff>,
-    Diff: Linear,
+    Self: Linear,
 {
+    /// Subtracts a vector from `self`.
     #[inline]
-    fn sub_assign(&mut self, rhs: Diff) {
+    fn sub_assign(&mut self, rhs: Self) {
         *self = Affine::add(&*self, &rhs.neg());
     }
 }
@@ -741,6 +742,7 @@ impl<R, Sp, Sc> MulAssign<Sc> for Vector<R, Sp>
 where
     Self: Linear<Scalar = Sc>,
 {
+    /// Multiplies `self` by a scalar componentwise.
     #[inline]
     fn mul_assign(&mut self, rhs: Sc) {
         *self = Linear::mul(&*self, rhs);
@@ -752,6 +754,7 @@ impl<R, Sp> DivAssign<f32> for Vector<R, Sp>
 where
     Self: Linear<Scalar = f32>,
 {
+    /// Divides `self` by a scalar componentwise.
     #[inline]
     fn div_assign(&mut self, rhs: f32) {
         debug_assert!(!rhs.approx_eq(&0.0), "divisor {rhs} < epsilon");
@@ -767,7 +770,7 @@ where
     Self: Linear<Scalar = Sc>,
     Sc: Linear<Scalar = Sc> + Copy,
 {
-    /// Multiplies `self` by a vector componentwise.
+    /// Multiplies `self` by another vector componentwise.
     #[inline]
     fn mul_assign(&mut self, rhs: Self) {
         *self = self.zip_map(rhs, |a, b| a.mul(b));
@@ -780,7 +783,7 @@ impl<Sp, const N: usize> DivAssign for Vector<[f32; N], Sp>
 where
     Self: Linear<Scalar = f32>,
 {
-    /// Multiplies `self` by a vector componentwise.
+    /// Divides `self` by another vector componentwise.
     #[inline]
     fn div_assign(&mut self, rhs: Self) {
         *self = self.zip_map(rhs, Div::div);
@@ -800,49 +803,10 @@ where
     }
 }
 
-// The following impls cannot be more generic due to orphan rules
-
-// Scalar * Vector for f32
-impl<R, Sp> Mul<Vector<R, Sp>> for f32
-where
-    Vector<R, Sp>: Linear<Scalar = f32>,
-{
-    type Output = Vector<R, Sp>;
-
-    #[inline]
-    fn mul(self, rhs: Vector<R, Sp>) -> Self::Output {
-        rhs * self
-    }
-}
-// Scalar * Vector for i32
-impl<R, Sp> Mul<Vector<R, Sp>> for i32
-where
-    Vector<R, Sp>: Linear<Scalar = i32>,
-{
-    type Output = Vector<R, Sp>;
-
-    #[inline]
-    fn mul(self, rhs: Vector<R, Sp>) -> Self::Output {
-        rhs * self
-    }
-}
-// Scalar * Vector for u32
-impl<R, Sp> Mul<Vector<R, Sp>> for u32
-where
-    Vector<R, Sp>: Linear<Scalar = u32>,
-{
-    type Output = Vector<R, Sp>;
-
-    #[inline]
-    fn mul(self, rhs: Vector<R, Sp>) -> Self::Output {
-        rhs * self
-    }
-}
-
 // The vector + vector operator.
-impl_op!(Add::add, Vector, <Self as Affine>::Diff, +=, bound=Affine);
+impl_op!(Add::add, Vector, Self, +=);
 // The vector - vector operator.
-impl_op!(Sub::sub, Vector, <Self as Affine>::Diff, -=, bound=Affine);
+impl_op!(Sub::sub, Vector, Self, -=);
 
 // The vector * scalar operator.
 impl_op!(Mul::mul, Vector, <Self as Linear>::Scalar, *=);
@@ -853,6 +817,28 @@ impl_op!(Div::div, Vector, f32, /=, bound=Linear<Scalar = f32>);
 impl_op!(Mul::mul, Vector, Self, *=, bound=MulAssign<Self>);
 // The vector / vector operator.
 impl_op!(Div::div, Vector, Self, /=, bound=DivAssign<Self>);
+
+// Scalar * vector impls cannot be more generic due to orphan rules
+macro_rules! impl_mul {
+    ($self:ty) => {
+        impl<R, Sp> Mul<Vector<R, Sp>> for $self
+        where
+            Vector<R, Sp>: Linear<Scalar = $self>,
+        {
+            type Output = Vector<R, Sp>;
+            #[inline]
+            fn mul(self, rhs: Vector<R, Sp>) -> Self::Output {
+                rhs * self
+            }
+        }
+    };
+}
+// Scalar * vector for f32
+impl_mul!(f32);
+// Scalar * vector for i32
+impl_mul!(i32);
+// Scalar * vector for u32
+impl_mul!(u32);
 
 //
 // Unit tests
