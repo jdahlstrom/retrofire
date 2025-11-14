@@ -3,7 +3,7 @@
 //! Includes vertices, polygons, planes, rays, and more.
 
 use alloc::vec::Vec;
-use core::fmt::Debug;
+use core::fmt::{self, Debug, Formatter};
 
 use crate::math::{
     Affine, Lerp, Linear, Mat4, Parametric, Point, Point2, Point3, Vec2, Vec3,
@@ -42,6 +42,8 @@ pub type Plane3<B = ()> = Plane<Vector<[f32; 4], Real<3, B>>>;
 #[derive(Copy, Clone, Debug, Eq, PartialEq)]
 pub struct Ray<T: Affine>(pub T, pub T::Diff);
 
+pub type Ray3<B = ()> = Ray<Point3<B>>;
+
 /// A curve composed of a chain of line segments.
 ///
 /// The polyline is represented as a list of points, or vertices, with each
@@ -59,6 +61,9 @@ pub struct Polygon<T>(pub Vec<T>);
 /// A line segment between two vertices.
 #[derive(Copy, Clone, Debug, Eq, PartialEq)]
 pub struct Edge<T>(pub T, pub T);
+
+#[derive(Copy, Clone, PartialEq)]
+pub struct Sphere<B = ()>(pub Point3<B>, pub f32);
 
 /// A surface normal in 3D.
 // TODO Use distinct type rather than alias
@@ -732,6 +737,19 @@ impl<P: Lerp, A: Lerp> Lerp for Vertex<P, A> {
             // TODO Normals shouldn't be lerped
             self.attrib.lerp(&other.attrib, t),
         )
+    }
+}
+
+//
+// Foreign trait impls
+//
+
+impl<B: Debug + Default> Debug for Sphere<B> {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        f.debug_tuple("Sphere")
+            .field(&self.0)
+            .field(&self.1)
+            .finish()
     }
 }
 
