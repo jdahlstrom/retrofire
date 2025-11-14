@@ -10,6 +10,8 @@ use super::{Angle, Color, Point, Point2, Point3, Vec2, Vec3, Vector, rads};
 
 pub type DefaultRng = Xorshift64;
 
+pub const DEFAULT_RNG: DefaultRng = Xorshift64(Xorshift64::DEFAULT_SEED);
+
 /// Trait for generating values sampled from a probability distribution.
 pub trait Distrib {
     /// The type of the elements of the sample space of `Self`, also called
@@ -138,8 +140,8 @@ impl Xorshift64 {
     /// # Panics
     ///
     /// If `seed` equals 0.
-    pub fn from_seed(seed: u64) -> Self {
-        assert_ne!(seed, 0, "xorshift seed cannot be zero");
+    pub const fn from_seed(seed: u64) -> Self {
+        assert!(seed != 0, "xorshift seed cannot be zero");
         Self(seed)
     }
 
@@ -172,7 +174,7 @@ impl Xorshift64 {
     /// Successive calls to this function (with the same `self`) will yield
     /// every value in the interval [1, 2<sup>64</sup>) exactly once before
     /// starting to repeat the sequence.
-    pub fn next_bits(&mut self) -> u64 {
+    pub const fn next_bits(&mut self) -> u64 {
         let Self(x) = self;
         *x ^= *x << 13;
         *x ^= *x >> 7;
@@ -207,8 +209,7 @@ impl Default for Xorshift64 {
     /// assert_eq!(g.next_bits(), 11039719294064252060);
     /// ```
     fn default() -> Self {
-        // Random 64-bit prime
-        Self::from_seed(Self::DEFAULT_SEED)
+        DEFAULT_RNG
     }
 }
 
