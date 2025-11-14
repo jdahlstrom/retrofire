@@ -300,12 +300,14 @@ impl<B> From<Point2<B>> for HomVec2<B> {
 impl<R: Index<usize>, Sp> Index<usize> for Point<R, Sp> {
     type Output = R::Output;
 
+    #[inline]
     fn index(&self, i: usize) -> &Self::Output {
         self.0.index(i)
     }
 }
 
 impl<R: IndexMut<usize>, Sp> IndexMut<usize> for Point<R, Sp> {
+    #[inline]
     fn index_mut(&mut self, i: usize) -> &mut R::Output {
         self.0.index_mut(i)
     }
@@ -470,7 +472,7 @@ mod tests {
     mod u32 {
         use super::*;
 
-        const pt2: fn(u32, u32) -> Point2u = super::super::pt2;
+        const pt2: fn(u32, u32) -> Point2u = super::pt2;
 
         #[test]
         fn vector_addition() {
