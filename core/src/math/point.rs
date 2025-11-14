@@ -2,7 +2,8 @@ use core::{
     array,
     fmt::{Debug, Formatter},
     marker::PhantomData as Pd,
-    ops::{Add, AddAssign, Index, IndexMut, Sub, SubAssign},
+    ops::{Add, Div, Index, IndexMut, Mul, Sub},
+    ops::{AddAssign, DivAssign, MulAssign, SubAssign},
 };
 
 use super::{Affine, ApproxEq, Linear, Vector, space::Real, vary::ZDiv};
@@ -303,12 +304,13 @@ impl<B> From<Point2<B>> for HomVec2<B> {
 impl<R: Index<usize>, Sp> Index<usize> for Point<R, Sp> {
     type Output = R::Output;
 
+    #[inline]
     fn index(&self, i: usize) -> &Self::Output {
         self.0.index(i)
     }
 }
-
 impl<R: IndexMut<usize>, Sp> IndexMut<usize> for Point<R, Sp> {
+    #[inline]
     fn index_mut(&mut self, i: usize) -> &mut R::Output {
         self.0.index_mut(i)
     }
@@ -320,15 +322,16 @@ where
 {
     type Output = Self;
 
+    #[inline]
     fn add(self, other: <Self as Affine>::Diff) -> Self {
         Affine::add(&self, &other)
     }
 }
-
 impl<R, Sp> AddAssign<<Self as Affine>::Diff> for Point<R, Sp>
 where
     Self: Affine,
 {
+    #[inline]
     fn add_assign(&mut self, other: <Self as Affine>::Diff) {
         *self = Affine::add(self, &other);
     }
@@ -340,28 +343,88 @@ where
 {
     type Output = Self;
 
+    #[inline]
     fn sub(self, other: <Self as Affine>::Diff) -> Self {
         Affine::add(&self, &other.neg())
     }
 }
-
 impl<R, Sp> SubAssign<<Self as Affine>::Diff> for Point<R, Sp>
 where
     Self: Affine,
 {
+    #[inline]
     fn sub_assign(&mut self, other: <Self as Affine>::Diff) {
         *self = Affine::add(self, &other.neg());
     }
 }
 
-impl<R, Sp> Sub for Point<R, Sp>
+impl<R, Sp, Diff> Sub for Point<R, Sp>
 where
-    Self: Affine,
+    Self: Affine<Diff = Diff>,
 {
-    type Output = <Self as Affine>::Diff;
+    type Output = Diff;
 
-    fn sub(self, other: Self) -> Self::Output {
+    #[inline]
+    fn sub(self, other: Self) -> Diff {
         Affine::sub(&self, &other)
+    }
+}
+
+impl<R: Copy, Sp, Sc> Mul<Sc> for Point<R, Sp>
+where
+    Self: Affine<Diff = Vector<R, Sp>>,
+    Vector<R, Sp>: Linear<Scalar = Sc>,
+{
+    type Output = Self;
+
+    #[inline]
+    fn mul(self, rhs: Sc) -> Self {
+        self.to_vec().mul(rhs).to_pt()
+    }
+}
+impl<R: Copy, Sp> Mul<Point<R, Sp>> for f32
+where
+    Point<R, Sp>: Affine<Diff = Vector<R, Sp>>,
+    Vector<R, Sp>: Linear<Scalar = f32>,
+{
+    type Output = Point<R, Sp>;
+
+    #[inline]
+    fn mul(self, rhs: Point<R, Sp>) -> Point<R, Sp> {
+        rhs * self
+    }
+}
+impl<R: Copy, Sp, Sc> MulAssign<Sc> for Point<R, Sp>
+where
+    Self: Affine<Diff = Vector<R, Sp>>,
+    Vector<R, Sp>: Linear<Scalar = Sc>,
+{
+    #[inline]
+    fn mul_assign(&mut self, rhs: Sc) {
+        *self = *self * rhs;
+    }
+}
+
+impl<R: Copy, Sp> Div<f32> for Point<R, Sp>
+where
+    Self: Affine<Diff = Vector<R, Sp>>,
+    Vector<R, Sp>: Linear<Scalar = f32>,
+{
+    type Output = Self;
+
+    #[inline]
+    fn div(self, rhs: f32) -> Self {
+        self * rhs.recip()
+    }
+}
+impl<R: Copy, Sp> DivAssign<f32> for Point<R, Sp>
+where
+    Self: Affine<Diff = Vector<R, Sp>>,
+    Vector<R, Sp>: Linear<Scalar = f32>,
+{
+    #[inline]
+    fn div_assign(&mut self, rhs: f32) {
+        *self = *self / rhs;
     }
 }
 
@@ -399,6 +462,19 @@ mod tests {
                 pt3(1.0, 2.0, 3.0) - pt3(-2.0, 3.0, 1.0),
                 vec3(3.0, -1.0, 2.0)
             )
+        }
+        #[test]
+        fn scalar_multiplication() {
+            assert_eq!(pt2(1.0, -2.0) * 3.0, pt2(3.0, -6.0));
+            assert_eq!(pt3(1.0, -2.0, 3.0) * 0.5, pt3(0.5, -1.0, 1.5));
+
+            assert_eq!(3.0 * pt2(1.0, -2.0), pt2(3.0, -6.0));
+            assert_eq!(0.5 * pt3(1.0, -2.0, 3.0), pt3(0.5, -1.0, 1.5));
+        }
+        #[test]
+        fn scalar_division() {
+            assert_eq!(pt2(1.0, -2.0) / 0.5, pt2(2.0, -4.0));
+            assert_eq!(pt3(1.0, -2.0, 3.0) / 2.0, pt3(0.5, -1.0, 1.5));
         }
         #[test]
         fn point_point_distance_sqr() {
