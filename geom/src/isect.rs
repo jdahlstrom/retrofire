@@ -61,6 +61,20 @@ impl<B: Default> Intersect<BBox<B>> for Ray<Point3<B>> {
     /// `point` is the intersection point and  `t` is the ray parameter value
     /// such that `self.orig + t * self.dir == point`.
     fn intersect(&self, bbox @ &BBox(l, u): &BBox<B>) -> Self::Result {
+        let Ray(o, d) = self;
+
+        // Fast path for clearly nonintersecting cases
+        if (o.x() < l.x() && d.x() < 0.0)
+            || (o.x() > u.x() && d.x() > 0.0)
+            || (o.y() < l.y() && d.y() < 0.0)
+            || (o.y() > u.y() && d.y() > 0.0)
+            || (o.z() < l.z() && d.z() < 0.0)
+            || (o.z() > u.z() && d.z() > 0.0)
+            || bbox.is_empty()
+        {
+            return None;
+        }
+
         let planes: [Plane3<B>; 6] = [
             Plane3::new(1.0, 0.0, 0.0, l.x()),
             Plane3::new(1.0, 0.0, 0.0, u.x()),
@@ -169,10 +183,12 @@ mod tests {
         }
         #[test]
         fn parallel_intersect_at_vertex() {
-            // x--> +----+
-            //      |    |
-            //      +----+
-            let ray = Ray(pt3(0.0, 0.0, -2.0), vec3(1.0, 1.0, 1.0));
+            //   x--> ,_____.
+            //       /     /|
+            //      /_____/ |
+            //      |     | /
+            //      |_____|/
+            let ray = Ray(pt3(1.0, 1.0, -2.0), vec3(0.0, 0.0, 1.0));
             assert_eq!(ray.intersect(&BBOX), Some((1.0, pt3(1.0, 1.0, -1.0))));
         }
         #[test]
@@ -183,8 +199,8 @@ mod tests {
             //      |     | /
             //      |_____|/
             //
-            let ray = Ray(pt3(0.0, 0.0, -2.0), vec3(-1.0, 0.0, 1.0));
-            assert_eq!(ray.intersect(&BBOX), Some((1.0, pt3(-1.0, 0.0, -1.0))));
+            let ray = Ray(pt3(0.0, 1.0, -2.0), vec3(0.0, 0.0, 1.0));
+            assert_eq!(ray.intersect(&BBOX), Some((1.0, pt3(0.0, 1.0, -1.0))));
         }
         #[test]
         fn ray_starts_inside() {
