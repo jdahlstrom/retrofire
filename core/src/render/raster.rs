@@ -189,11 +189,13 @@ where
 {
     // Sort by y coordinate, start from the top
     verts.sort_by(|a, b| a.pos.y().total_cmp(&b.pos.y()));
-    let [top, mid0, bot] = verts.map(|v| (v.pos, v.attrib));
+    let [a, b, c] = verts;
+    let [top, mid0, bot] =
+        [(a.pos, a.attrib), (b.pos, b.attrib), (c.pos, c.attrib)];
 
-    let [top_y, mid_y, bot_y] = [top.0.y(), mid0.0.y(), bot.0.y()];
+    let [top_y, mid_y, bot_y] = [a.pos.y(), b.pos.y(), c.pos.y()];
 
-    // Interpolate a point on the "long" edge at the same y as `mid0`
+    // Find the point on the "long" edge at the same line as `mid0`
     let mid1 = top.lerp(&bot, (mid_y - top_y) / (bot_y - top_y));
 
     let (left, right) = if mid0.0.x() < mid1.0.x() {
