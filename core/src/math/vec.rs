@@ -568,7 +568,11 @@ where
     }
     #[inline]
     fn mul(&self, scalar: Sc) -> Self {
-        self.map(|c| c.mul(scalar))
+        let mut res = *self;
+        for c in &mut res.0 {
+            *c = c.mul(scalar);
+        }
+        res
     }
 }
 
@@ -576,8 +580,12 @@ impl<Sc, Sp, const N: usize> ZDiv for Vector<[Sc; N], Sp>
 where
     Sc: ZDiv + Copy,
 {
-    fn z_div(self, z: f32) -> Self {
-        self.map(|c| c.z_div(z))
+    #[inline]
+    fn z_div(mut self, z: f32) -> Self {
+        for c in &mut self.0 {
+            *c = c.z_div(z);
+        }
+        self
     }
 }
 
