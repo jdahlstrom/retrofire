@@ -25,7 +25,7 @@ use std::{
     path::Path,
 };
 
-use crate::math::{Color3, rgb};
+use crate::math::{Color3, color::gray};
 
 use super::{Dims, buf::Buf2};
 #[cfg(feature = "std")]
@@ -221,15 +221,12 @@ pub fn parse_pnm(input: impl IntoIterator<Item = u8>) -> Result<Buf2<Color3>> {
                 .collect()
         }
         BinaryGraymap => it //
-            .map(|c| rgb(c, c, c))
+            .map(gray)
             .collect(),
         BinaryBitmap => it
             .flat_map(|byte| (0..8).rev().map(move |i| (byte >> i) & 1))
-            .map(|bit| {
-                // Conventionally in PBM 0 is white, 1 is black
-                let ch = (1 - bit) * 0xFF;
-                rgb(ch, ch, ch)
-            })
+            // Conventionally in PBM 0 is white, 1 is black
+            .map(|bit| gray((1 - bit) * 0xFF))
             .collect(),
         TextPixmap => {
             let mut col = [0u8; 3];
@@ -246,10 +243,7 @@ pub fn parse_pnm(input: impl IntoIterator<Item = u8>) -> Result<Buf2<Color3>> {
                 .collect::<Result<Vec<_>>>()?
         }
         TextGraymap => (0..count)
-            .map(|_| {
-                let val = parse_num(&mut it)?;
-                Ok(rgb(val, val, val))
-            })
+            .map(|_| Ok(gray(parse_num(&mut it)?)))
             .collect::<Result<Vec<_>>>()?,
         _ => return Err(Unsupported((h.format as u16).to_be_bytes())),
     };
@@ -342,6 +336,8 @@ where
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    use crate::math::rgb;
 
     #[test]
     fn parse_value_int() {

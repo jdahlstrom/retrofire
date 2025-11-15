@@ -120,9 +120,13 @@ impl IntoPixel<[u8; 2], Rgba4444> for Color4 {
 }
 impl IntoPixel<u16, Rgba4444> for Color4 {
     fn into_pixel(self) -> u16 {
-        let [r, g, b, a] = self.0.map(|c| c as u16 >> 4);
+        let [r, g, b, a] = self.0;
+
         // [0xBA, 0xRG] in little-endian
-        r << 12 | g << 8 | b << 4 | a
+        (r as u16 >> 4) << 12
+            | (g as u16 >> 4) << 8
+            | (b as u16 >> 4) << 4
+            | (a as u16 >> 4)
     }
 }
 impl IntoPixel<u16, Rgb565> for Color4 {
