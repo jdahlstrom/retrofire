@@ -247,8 +247,9 @@ impl<A, B> Tri<Vertex3<A, B>> {
     /// assert_eq!(tri.plane().offset(), 2.0);
     /// ```
     pub fn plane(&self) -> Plane3<B> {
-        let [a, b, c] = self.0.each_ref().map(|v| v.pos);
-        Plane::from_points(a, b, c)
+        let [a, b, c] = &self.0;
+        let [p, q, r] = [a.pos, b.pos, c.pos];
+        Plane::from_points(p, q, r)
     }
 
     /// Returns the winding order of `self`, as projected to the XY plane.

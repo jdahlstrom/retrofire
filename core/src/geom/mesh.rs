@@ -98,7 +98,7 @@ impl<A, B> Mesh<A, B> {
         self.faces.extend(
             faces
                 .into_iter()
-                .map(|Tri(ixs)| Tri(ixs.map(|i| n + i))),
+                .map(|Tri([i, j, k])| Tri([n + i, n + j, n + k])),
         );
         self
     }

@@ -589,12 +589,14 @@ impl<R, Sp> From<R> for Color<R, Sp> {
 impl<R: Index<usize>, Sp> Index<usize> for Color<R, Sp> {
     type Output = R::Output;
 
+    #[inline]
     fn index(&self, i: usize) -> &Self::Output {
         &self.0[i]
     }
 }
 
 impl<R: IndexMut<usize>, Sp> IndexMut<usize> for Color<R, Sp> {
+    #[inline]
     fn index_mut(&mut self, i: usize) -> &mut Self::Output {
         &mut self.0[i]
     }
