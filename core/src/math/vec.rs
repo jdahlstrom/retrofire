@@ -184,8 +184,7 @@ impl<Sp, const N: usize> Vector<[f32; N], Sp> {
         array::from_fn(|i| self[i].clamp(min[i], max[i])).into()
     }
 
-    /// Returns `true` if every component of `self` is finite,
-    /// `false` otherwise.
+    /// Returns `true` if every component of `self` is finite, `false` otherwise.
     ///
     /// See [`f32::is_finite()`].
     pub fn is_finite(&self) -> bool {
@@ -200,7 +199,7 @@ where
 {
     /// Returns the length of `self`, squared.
     ///
-    /// This avoids taking the square root in cases it's not needed,
+    /// This avoids taking the square root in cases where it's not needed,
     /// and works with scalars for which a square root is not defined.
     #[inline]
     pub fn len_sqr(&self) -> Sc {
@@ -208,6 +207,8 @@ where
     }
 
     /// Returns the dot product of `self` and `other`.
+    ///
+    /// TODO docs
     #[inline]
     pub fn dot(&self, other: &Self) -> Sc {
         zip(&self.0, &other.0)
@@ -331,8 +332,8 @@ impl<Sc: Copy, Sp, const N: usize> Vector<[Sc; N], Sp> {
     /// ```
     #[inline]
     #[must_use]
-    pub fn map<T>(self, mut f: impl FnMut(Sc) -> T) -> Vector<[T; N], Sp> {
-        array::from_fn(|i| f(self.0[i])).into()
+    pub fn map<T>(self, f: impl FnMut(Sc) -> T) -> Vector<[T; N], Sp> {
+        self.0.map(f).into()
     }
     /// Returns a vector of the same dimension as `self` by applying `f`
     /// component-wise to `self` and `other`.
@@ -354,6 +355,43 @@ impl<Sc: Copy, Sp, const N: usize> Vector<[Sc; N], Sp> {
         mut f: impl FnMut(Sc, T) -> U,
     ) -> Vector<[U; N], Sp> {
         array::from_fn(|i| f(self.0[i], other.0[i])).into()
+    }
+
+    #[inline]
+    pub fn max(&self) -> Sc
+    where
+        Sc: PartialOrd,
+    {
+        self.0[self.argmax()]
+    }
+
+    #[inline]
+    pub fn min(&self) -> Sc
+    where
+        Sc: PartialOrd,
+    {
+        self.0[self.argmin()]
+    }
+
+    pub fn argmax(&self) -> usize
+    where
+        Sc: PartialOrd,
+    {
+        const { assert!(N > 0, "0D vectors have no maximum") }
+        zip(self.0, 0..)
+            .max_by(|a, b| a.partial_cmp(b).unwrap())
+            .expect("N cannot be 0")
+            .1
+    }
+    pub fn argmin(&self) -> usize
+    where
+        Sc: PartialOrd,
+    {
+        const { assert!(N > 0, "0D vectors have no minimum") }
+        zip(self.0, 0..)
+            .min_by(|a, b| a.partial_cmp(b).unwrap())
+            .expect("N cannot be 0")
+            .1
     }
 }
 
@@ -406,17 +444,17 @@ impl<B> Vec2<B> {
     ///
     /// where *θ* is the (signed) angle between **a** and **b**. In particular,
     /// the result is zero if **a** and **b** are parallel (or either is zero),
-    /// positive if the angle from **a** to **b** is positive, and negative if
-    /// the angle is negative:
+    /// negative if the angle from **a** to **b** is negative (clockwise), and
+    /// positive if the angle is positive (counter-clockwise)
     ///
     /// ```text
-    ///       ^ b               ^ a
-    ///      /           ^ b   /        ^ a
-    ///     ^ a           \   /          \
-    ///    /               \ /            \
-    ///   O                 O              O-----> b
+    ///       ^ b
+    ///      /                 a ^        ^ a
+    ///     ^ a                 /          \
+    ///    /                   /            \
+    ///   O           b <-----O              O-----> b
     ///
-    ///  a⟂·b = 0        a⟂·b > 0       a⟂·b < 0
+    ///  a⟂·b = 0        a⟂·b > 0         a⟂·b < 0
     /// ```
     ///
     /// # Examples
@@ -461,15 +499,13 @@ where
     /// proportional to the area of the parallelogram formed by the vectors.
     /// Specifically, the length is given by the identity:
     ///
-    /// ```text
-    ///     |𝗮 × 𝗯| = |𝗮| |𝗯| sin 𝜽
-    /// ```
+    /// |**a** × **b**| = |**a**| |**b**| sin *θ*,
     ///
     /// where |·| denotes the length of a vector and 𝜽 equals the angle
-    /// between 𝗮 and 𝗯. Specifically, the result has unit length if 𝗮 and 𝗯
-    /// are orthogonal and |𝗮| = |𝗯| = 1. The cross product can be used to
-    /// produce an *orthonormal basis* from any two non-parallel non-zero
-    /// 3-vectors.
+    /// between **a** and **b**. Specifically, the result has unit length if
+    /// **a** and **b** are orthogonal and |**a**| = |**b**| = 1. The cross
+    /// product can be used to produce an *orthonormal basis* from any two
+    /// non-parallel non-zero 3-vectors.
     ///
     /// ```text
     ///        ^
@@ -706,34 +742,37 @@ where
 //
 
 /// The vector += vector operator.
-impl<R, Sp> AddAssign<<Self as Affine>::Diff> for Vector<R, Sp>
+impl<R, Sp> AddAssign for Vector<R, Sp>
 where
-    Self: Affine,
+    Self: Linear,
 {
+    /// Adds a vector to `self`.
     #[inline]
-    fn add_assign(&mut self, rhs: <Self as Affine>::Diff) {
+    fn add_assign(&mut self, rhs: Self) {
         *self = Affine::add(&*self, &rhs);
     }
 }
 
 /// The vector -= vector operator.
-impl<R, Sp> SubAssign<<Self as Affine>::Diff> for Vector<R, Sp>
+impl<R, Sp> SubAssign for Vector<R, Sp>
 where
-    Self: Affine,
+    Self: Linear,
 {
+    /// Subtracts a vector from `self`.
     #[inline]
-    fn sub_assign(&mut self, rhs: <Self as Affine>::Diff) {
+    fn sub_assign(&mut self, rhs: Self) {
         *self = Affine::add(&*self, &rhs.neg());
     }
 }
 
 // The vector *= scalar operator.
-impl<R, Sp> MulAssign<<Self as Linear>::Scalar> for Vector<R, Sp>
+impl<R, Sp, Sc> MulAssign<Sc> for Vector<R, Sp>
 where
-    Self: Linear,
+    Self: Linear<Scalar = Sc>,
 {
+    /// Multiplies `self` by a scalar componentwise.
     #[inline]
-    fn mul_assign(&mut self, rhs: <Self as Linear>::Scalar) {
+    fn mul_assign(&mut self, rhs: Sc) {
         *self = Linear::mul(&*self, rhs);
     }
 }
@@ -743,10 +782,39 @@ impl<R, Sp> DivAssign<f32> for Vector<R, Sp>
 where
     Self: Linear<Scalar = f32>,
 {
+    /// Divides `self` by a scalar componentwise.
     #[inline]
     fn div_assign(&mut self, rhs: f32) {
         debug_assert!(!rhs.approx_eq(&0.0), "divisor {rhs} < epsilon");
         *self = Linear::mul(&*self, rhs.recip());
+    }
+}
+
+// The componentwise vector *= vector operator.
+// This is strictly speaking not a linear operation,
+// but useful enough to be included.
+impl<Sc, Sp, const N: usize> MulAssign for Vector<[Sc; N], Sp>
+where
+    Self: Linear<Scalar = Sc>,
+    Sc: Linear<Scalar = Sc> + Copy,
+{
+    /// Multiplies `self` by another vector componentwise.
+    #[inline]
+    fn mul_assign(&mut self, rhs: Self) {
+        *self = self.zip_map(rhs, |a, b| a.mul(b));
+    }
+}
+// The componentwise vector /= vector operator.
+// This is strictly speaking not a linear operation,
+// but useful enough to be included.
+impl<Sp, const N: usize> DivAssign for Vector<[f32; N], Sp>
+where
+    Self: Linear<Scalar = f32>,
+{
+    /// Divides `self` by another vector componentwise.
+    #[inline]
+    fn div_assign(&mut self, rhs: Self) {
+        *self = self.zip_map(rhs, Div::div);
     }
 }
 
@@ -763,48 +831,42 @@ where
     }
 }
 
-impl<R, Sp> Mul<Vector<R, Sp>> for f32
-where
-    Vector<R, Sp>: Linear<Scalar = f32>,
-{
-    type Output = Vector<R, Sp>;
-
-    #[inline]
-    fn mul(self, rhs: Vector<R, Sp>) -> Self::Output {
-        rhs * self
-    }
-}
-impl<R, Sp> Mul<Vector<R, Sp>> for i32
-where
-    Vector<R, Sp>: Linear<Scalar = i32>,
-{
-    type Output = Vector<R, Sp>;
-
-    #[inline]
-    fn mul(self, rhs: Vector<R, Sp>) -> Self::Output {
-        rhs * self
-    }
-}
-impl<R, Sp> Mul<Vector<R, Sp>> for u32
-where
-    Vector<R, Sp>: Linear<Scalar = u32>,
-{
-    type Output = Vector<R, Sp>;
-
-    #[inline]
-    fn mul(self, rhs: Vector<R, Sp>) -> Self::Output {
-        rhs * self
-    }
-}
-
 // The vector + vector operator.
-impl_op!(Add::add, Vector, <Self as Affine>::Diff, +=, bound=Affine);
+impl_op!(Add::add, Vector, Self, +=);
 // The vector - vector operator.
-impl_op!(Sub::sub, Vector, <Self as Affine>::Diff, -=, bound=Affine);
+impl_op!(Sub::sub, Vector, Self, -=);
+
 // The vector * scalar operator.
 impl_op!(Mul::mul, Vector, <Self as Linear>::Scalar, *=);
 // The vector / scalar operator.
 impl_op!(Div::div, Vector, f32, /=, bound=Linear<Scalar = f32>);
+
+// The vector * vector operator.
+impl_op!(Mul::mul, Vector, Self, *=, bound=MulAssign<Self>);
+// The vector / vector operator.
+impl_op!(Div::div, Vector, Self, /=, bound=DivAssign<Self>);
+
+// Scalar * vector impls cannot be more generic due to orphan rules
+macro_rules! impl_mul {
+    ($self:ty) => {
+        impl<R, Sp> Mul<Vector<R, Sp>> for $self
+        where
+            Vector<R, Sp>: Linear<Scalar = $self>,
+        {
+            type Output = Vector<R, Sp>;
+            #[inline]
+            fn mul(self, rhs: Vector<R, Sp>) -> Self::Output {
+                rhs * self
+            }
+        }
+    };
+}
+// Scalar * vector for f32
+impl_mul!(f32);
+// Scalar * vector for i32
+impl_mul!(i32);
+// Scalar * vector for u32
+impl_mul!(u32);
 
 //
 // Unit tests
@@ -958,8 +1020,8 @@ mod tests {
 
         #[test]
         fn perp() {
-            assert_eq!(Vec2::<()>::zero().perp(), Vec2::zero());
-            assert_eq!(Vec2::<()>::X.perp(), Vec2::Y);
+            assert_eq!(<Vec2>::zero().perp(), <Vec2>::zero());
+            assert_eq!(<Vec2>::X.perp(), Vec2::Y);
             assert_eq!(vec2(-0.2, -1.5).perp(), vec2(1.5, -0.2));
         }
 
