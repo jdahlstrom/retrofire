@@ -6,8 +6,8 @@ use alloc::vec::Vec;
 use core::fmt::{self, Debug, Formatter};
 
 use crate::math::{
-    Affine, Lerp, Linear, Mat4, Parametric, Point, Point2, Point3, Vec2, Vec3,
-    Vector, space::Real, vec2, vec3,
+    Affine, ApproxEq, Lerp, Linear, Mat4, Parametric, Point, Point2, Point3,
+    Vec2, Vec3, Vector, space::Real, vec2, vec3,
 };
 
 use crate::render::Model;
@@ -238,8 +238,13 @@ impl<A, B> Tri<Vertex3<A, B>> {
     /// ```
     pub fn normal(&self) -> Normal3 {
         let [t, u] = self.tangents();
-        // TODO normal with basis
-        t.cross(&u).normalize().to()
+        let v = t.cross(&u);
+        if v.len_sqr().approx_eq_eps(&0.0, &1e-12) {
+            // Degenerate triangle
+            Normal3::zero()
+        } else {
+            v.normalize().to()
+        }
     }
 
     /// Returns the plane that `self` lies on.
