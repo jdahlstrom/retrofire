@@ -124,16 +124,16 @@ impl TexCoord {
 impl<D> Texture<D> {
     /// Returns the width of `self` as `f32`.
     #[inline]
-    pub fn width(&self) -> f32 {
+    pub const fn width(&self) -> f32 {
         self.w
     }
     /// Returns the height of `self` as `f32`.
     #[inline]
-    pub fn height(&self) -> f32 {
+    pub const fn height(&self) -> f32 {
         self.h
     }
     /// Returns the pixel data of `self`.
-    pub fn data(&self) -> &D {
+    pub const fn data(&self) -> &D {
         &self.data
     }
 }
@@ -236,6 +236,7 @@ impl SamplerRepeatPot {
     /// coordinates outside `0.0..1.0` are wrapped to the valid range.
     ///
     /// Uses nearest neighbor sampling.
+    #[inline]
     pub fn sample<C: Copy>(
         &self,
         tex: &Texture<impl AsSlice2<C>>,
@@ -250,6 +251,7 @@ impl SamplerRepeatPot {
     /// wrapped to the valid range.
     ///
     /// Uses nearest neighbor sampling.
+    #[inline]
     pub fn sample_abs<C: Copy>(
         &self,
         tex: &Texture<impl AsSlice2<C>>,
@@ -274,6 +276,7 @@ impl SamplerClamp {
     /// the range `0.0..1.0` are clamped to the range endpoints.
     ///
     /// Uses nearest neighbor sampling.
+    #[inline]
     pub fn sample<C: Copy>(
         &self,
         tex: &Texture<impl AsSlice2<C>>,
@@ -287,6 +290,7 @@ impl SamplerClamp {
     /// clamped to the range endpoints.
     ///
     /// Uses nearest neighbor sampling.
+    #[inline]
     pub fn sample_abs<C: Copy>(
         &self,
         tex: &Texture<impl AsSlice2<C>>,
@@ -317,6 +321,7 @@ impl SamplerOnce {
     ///
     /// # Panics
     /// May panic if `tc` is not in the valid range.
+    #[inline]
     pub fn sample<C: Copy>(
         &self,
         tex: &Texture<impl AsSlice2<C>>,
@@ -334,6 +339,7 @@ impl SamplerOnce {
     ///
     /// # Panics
     /// May panic if `tc` is not in the valid range.
+    #[inline]
     pub fn sample_abs<C: Copy>(
         &self,
         tex: &Texture<impl AsSlice2<C>>,

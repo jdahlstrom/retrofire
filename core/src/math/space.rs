@@ -72,6 +72,7 @@ pub trait Linear: Affine<Diff = Self> {
     fn zero() -> Self;
 
     /// Returns the additive inverse of `self`.
+    #[inline]
     fn neg(&self) -> Self {
         Self::zero().sub(self)
     }
@@ -112,9 +113,11 @@ impl Affine for f32 {
     type Diff = Self;
     const DIM: usize = 1;
 
+    #[inline]
     fn add(&self, other: &f32) -> f32 {
         self + other
     }
+    #[inline]
     fn sub(&self, other: &f32) -> f32 {
         self - other
     }
@@ -123,9 +126,11 @@ impl Affine for f32 {
 impl Linear for f32 {
     type Scalar = f32;
 
+    #[inline]
     fn zero() -> f32 {
         0.0
     }
+    #[inline]
     fn mul(&self, rhs: f32) -> f32 {
         self * rhs
     }
@@ -136,9 +141,11 @@ impl Affine for i32 {
     type Diff = Self;
     const DIM: usize = 1;
 
+    #[inline]
     fn add(&self, rhs: &i32) -> i32 {
         self + rhs
     }
+    #[inline]
     fn sub(&self, rhs: &i32) -> i32 {
         self - rhs
     }
@@ -147,9 +154,11 @@ impl Affine for i32 {
 impl Linear for i32 {
     type Scalar = Self;
 
+    #[inline]
     fn zero() -> i32 {
         0
     }
+    #[inline]
     fn mul(&self, rhs: i32) -> i32 {
         self * rhs
     }
@@ -160,12 +169,14 @@ impl Affine for u32 {
     type Diff = i32;
     const DIM: usize = 1;
 
+    #[inline]
     fn add(&self, rhs: &i32) -> u32 {
         let (res, o) = self.overflowing_add_signed(*rhs);
         debug_assert!(!o, "overflow adding {rhs}_i32 to {self}_u32");
         res
     }
 
+    #[inline]
     fn sub(&self, rhs: &u32) -> i32 {
         let diff = *self as i64 - *rhs as i64;
         debug_assert!(
