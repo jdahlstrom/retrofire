@@ -1,7 +1,7 @@
 use core::ops::ControlFlow::*;
 use re::prelude::*;
 
-use re::core::geom::Ray;
+use re::core::geom::{Ray, Ray3};
 use re::core::math::color::gray;
 use re::core::render::{
     cam::{FirstPerson, Fov},
@@ -17,6 +17,7 @@ use re::geom::{
     Intersect,
     solids::{Build, Cube},
 };
+use re::prelude::scene::BBox;
 
 fn main() {
     let mut win = Window::builder()
@@ -87,7 +88,7 @@ fn main() {
             turns(ms.x() as f32) * -0.001,
             turns(ms.y() as f32) * -0.001,
         );
-        let mut cam_ds = cam_vel.mul(frame.dt.as_secs_f32());
+        let cam_ds = cam_vel.mul(frame.dt.as_secs_f32());
 
         //
         // Render
@@ -119,7 +120,8 @@ fn main() {
         for Obj { geom, bbox, tf } in &crates {
             frame.ctx.stats.borrow_mut().objs.i += 1;
 
-            let model_to_project = tf.then(&world_to_project);
+            let view_to_model = tf.then(&cam.world_to_view()).inverse();
+            let model_to_project = tf.then(&cam.world_to_project());
 
             // TODO Also if `Visible`, no further clipping or culling needed
             if bbox.visibility(&model_to_project) == Hidden {
@@ -128,24 +130,23 @@ fn main() {
 
             // collision detection
 
-            let view_to_model = tf.then(&cam.world_to_view()).inverse();
-
             let ray = Ray(
                 view_to_model.apply(&Point3::origin()),
                 view_to_model.apply(&Vec3::Z),
             );
 
             let mut hit = 0.0;
-            //if let Some((t, _pt)) = ray.intersect(bbox)
-            //&& t < 0.5
-
-            for tri in geom.faces() {
-                let tri = Tri(tri.0.map(|v| *v));
-                if let Some((_t, _pt)) = ray.intersect(&tri) {
-                    hit = 1.0;
-                    break;
-                }
+            if let Some(_) = ray.intersect(bbox) {
+                hit = 1.0;
             }
+
+            // for tri in geom.faces() {
+            //     let tri = Tri(tri.0.map(|v| *v));
+            //     if let Some((_t, _pt)) = ray.intersect(&tri) {
+            //         hit = 1.0;
+            //         break;
+            //     }
+            // }
 
             batch
                 // TODO Try to get rid of clone
@@ -161,6 +162,16 @@ fn main() {
                 .render();
 
             frame.ctx.stats.borrow_mut().objs.o += 1;
+        }
+
+        for i in -4..=4 {
+            let buf = &mut frame.buf.borrow_mut().color_buf.buf;
+
+            let pix = &mut buf[h as usize / 2][(w as i32 / 2 + i) as usize];
+            *pix = pix.map(|b| b ^ 0xFF);
+
+            let pix = &mut buf[(h as i32 / 2 + i) as usize][w as usize / 2];
+            *pix = pix.map(|b| b ^ 0xFF);
         }
 
         cam.transform.translate(cam_ds);
