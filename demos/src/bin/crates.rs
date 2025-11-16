@@ -15,6 +15,7 @@ use re::core::util::{pixfmt::Rgba8888, pnm::read_pnm};
 
 use re::front::sdl2::Window;
 use re::geom::solids::{Build, Cube};
+use re::prelude::cam::PitchYawRoll;
 
 struct Uniform {
     pub mv: Mat4<Model, View>,
@@ -101,7 +102,7 @@ fn main() {
 
     let (w, h) = win.dims;
     let mut cam = Camera::new(win.dims)
-        .transform(FirstPerson::default())
+        .transform(PitchYawRoll::default())
         .viewport((0..w, h..0))
         .perspective(Fov::Diagonal(degs(90.0)), 0.1..1000.0);
 
@@ -119,6 +120,8 @@ fn main() {
     let crates = crates();
 
     win.run(|frame| {
+        let dt = frame.dt.as_secs_f32();
+
         //
         // Camera
         //
@@ -127,27 +130,38 @@ fn main() {
 
         let ep = &frame.win.ev_pump;
 
+        let (mut p, mut y, mut r) = (degs(0.0), degs(0.0), degs(0.0));
+
+        let rv = degs(2.0);
         for key in ep.keyboard_state().pressed_scancodes() {
             use sdl2::keyboard::Scancode as Sc;
             match key {
                 Sc::W => cam_vel[2] += 4.0,
-                Sc::S => cam_vel[2] -= 2.0,
-                Sc::D => cam_vel[0] += 3.0,
-                Sc::A => cam_vel[0] -= 3.0,
+                Sc::S => cam_vel[2] -= 4.0,
+                Sc::A => r += rv,
+                Sc::D => r -= rv,
+
+                Sc::Up => p += rv,
+                Sc::Down => p -= rv,
+
+                Sc::Left => y -= rv,
+                Sc::Right => y += rv,
                 _ => {}
             }
         }
 
         let ms = ep.relative_mouse_state();
-        cam.transform.rotate(
+        /*cam.transform.rotate(
             turns(ms.x() as f32) * -0.001,
             turns(ms.y() as f32) * -0.001,
-        );
-        cam.transform
-            .translate(cam_vel.mul(frame.dt.as_secs_f32()));
+        );*/
+
+        cam.transform.rotate(p, y, r);
+
+        cam.transform.translate(cam_vel * dt);
 
         let light_to_view = translate(4.0 * Vec3::X)
-            .then(&rotate_y(turns(frame.t.as_secs_f32() * 0.1)))
+            .then(&rotate_y(turns(0.1 * dt)))
             .to()
             .then(&cam.world_to_view());
 
