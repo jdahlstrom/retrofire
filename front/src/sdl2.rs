@@ -271,9 +271,10 @@ where
     PF: PixelFmt<Pixel = [u8; N]>,
     Color4: IntoPixel<PF::Pixel, PF>,
 {
-    fn rasterize<V: Vary, Fs: FragmentShader<V>>(
+    fn rasterize<V: Vary, U: Copy, Fs: FragmentShader<V, U>>(
         &mut self,
         sl: Scanline<V>,
+        uni: U,
         fs: &Fs,
         ctx: &Context,
     ) -> Throughput {
@@ -281,6 +282,7 @@ where
             &mut self.color_buf,
             &mut self.depth_buf,
             sl,
+            uni,
             fs,
             |c| c.into_pixel(),
             ctx,
