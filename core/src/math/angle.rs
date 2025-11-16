@@ -5,10 +5,10 @@ use core::{
     fmt::{self, Debug, Display},
     marker::PhantomData,
     ops::{Add, Div, Mul, Neg, Rem, Sub},
+    ops::{AddAssign, DivAssign, MulAssign, SubAssign},
 };
 
 use crate::math::{Affine, ApproxEq, Linear, Vector, vary::ZDiv};
-
 #[cfg(feature = "fp")]
 use crate::math::{Vec2, Vec3, float::f32, vec2, vec3};
 
@@ -543,6 +543,30 @@ impl Rem for Angle {
     type Output = Self;
     fn rem(self, rhs: Self) -> Self {
         Self(self.0 % rhs.0)
+    }
+}
+
+impl AddAssign for Angle {
+    fn add_assign(&mut self, rhs: Self) {
+        self.0 += rhs.0;
+    }
+}
+
+impl SubAssign for Angle {
+    fn sub_assign(&mut self, rhs: Self) {
+        self.0 -= rhs.0;
+    }
+}
+
+impl MulAssign<f32> for Angle {
+    fn mul_assign(&mut self, rhs: f32) {
+        self.0 *= rhs;
+    }
+}
+
+impl DivAssign<f32> for Angle {
+    fn div_assign(&mut self, rhs: f32) {
+        self.0 /= rhs;
     }
 }
 
