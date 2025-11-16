@@ -8,8 +8,8 @@ use retrofire_core::geom::{
     vertex,
 };
 use retrofire_core::math::{
-    Angle, Lerp, Parametric, Point3, Vary, Vec3, polar, pt2, rotate_y, turns,
-    vec2,
+    Angle, Lerp, Parametric, Point3, Vary, Vec3, polar, pt2, pt3, rotate2,
+    turns, vec2, vec3,
 };
 use retrofire_core::render::{TexCoord, uv};
 
@@ -144,11 +144,11 @@ fn create_faces(secs: usize, verts_per_sec: usize, out: &mut Vec<Tri<usize>>) {
             let s = j * n + i;
             // TODO could alternate direction of diagonal
             //    - or support quads
-            // _____       _____
-            // |/|/|  ->   |\|/|
-            // |/|/|       |/|\|
-            out.push(tri(p, s, q));
-            out.push(tri(p, r, s));
+            // r _____ s       _____
+            //   |/|/|    ->   |\|/|
+            // p |/|/| q       |/|\|
+            out.push(tri(p, q, s));
+            out.push(tri(p, s, r));
         }
     }
 }
@@ -163,23 +163,25 @@ fn create_verts<A>(
     out: &mut Vec<Vertex3<A>>,
 ) {
     let Range { start, end } = az_range;
-    let rot = rotate_y((end - start) / secs as f32);
-    let start = rotate_y(start);
+    let rot = rotate2((end - start) / secs as f32);
+    let start = rotate2(start);
 
     // Create vertices
     for (v, Vertex { pos, attrib: n }) in 0.0
         .vary_to(1.0, verts_per_sec as u32)
         .map(|t| (t, pts.eval(t)))
     {
-        let mut pos = start.apply(&pos.to_pt3());
-        let mut norm = start.apply(&n.to_vec3());
+        let mut pos_xz = start.apply(&pt2(pos.x(), 0.0));
+        let mut n_xz = start.apply(&vec2(n.x(), 0.0));
 
         for u in 0..=secs {
-            let v = f(pos.to(), norm, uv(u as f32 / secs as f32, v));
+            let pos = pt3(pos_xz.x(), pos.y(), pos_xz.y());
+            let norm = vec3(n_xz.x(), n.y(), n_xz.y());
+            let v = f(pos, norm, uv(u as f32 / secs as f32, v));
             out.push(v);
 
-            pos = rot.apply(&pos);
-            norm = rot.apply(&norm);
+            pos_xz = rot.apply(&pos_xz);
+            n_xz = rot.apply(&n_xz);
         }
     }
 }
@@ -202,7 +204,7 @@ fn make_cap<A>(
     }
 
     // Adjust winding depending on whether top or bottom
-    let (j, k) = if n.y() < 0.0 { (0, 1) } else { (1, 0) };
+    let (j, k) = if n.y() < 0.0 { (1, 0) } else { (0, 1) };
     for i in 1..secs - 1 {
         m.faces.push(tri(l, l + i + j, l + i + k));
     }
