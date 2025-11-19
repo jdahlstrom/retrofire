@@ -79,6 +79,18 @@ pub const fn uv(u: f32, v: f32) -> TexCoord {
 ///     |      |      |      |
 ///   1 +------+------+------+
 ///
+///
+///            +-------+
+///            |       |
+///            |  +y   |
+///    +-------11     01-------+-------+
+///    |  +z      +x       -z     -x   |
+///    |                               |
+///    +-------10     00-------+-------+
+///            |  -y   |
+///            |       |
+///            +-------+
+///
 /// ```
 pub fn cube_map(pos: Vec3, dir: Normal3) -> TexCoord {
     // -1.0..1.0 -> 0.0..1.0
@@ -91,7 +103,7 @@ pub fn cube_map(pos: Vec3, dir: Normal3) -> TexCoord {
     // TODO implement vec::argmax
     let (max_i, mut u, mut v) = if az > ax && az > ay {
         // xy plane
-        (2, x, y)
+        (2, x, 1.0 - y)
     } else if ay > ax && ay > az {
         // xz plane left-handed - mirror x
         (1, 1.0 - x, z)
@@ -99,6 +111,7 @@ pub fn cube_map(pos: Vec3, dir: Normal3) -> TexCoord {
         // zy plane left-handed - mirror z
         (0, 1.0 - z, y)
     };
+    v = 1.0 - v; // +v is down in texture space but +y up in world space
     if dir[max_i] < 0.0 {
         u = 1.0 - u;
         v += 1.0;

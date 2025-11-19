@@ -14,6 +14,7 @@ use re::core::util::{pixfmt::Rgba8888, pnm::read_pnm};
 
 use re::front::sdl2::Window;
 use re::geom::solids::{Build, Cube};
+use re::prelude::tex::cube_map;
 
 fn main() {
     let mut win = Window::builder()
@@ -50,10 +51,14 @@ fn main() {
     let mut cam = Camera::new(win.dims)
         .transform(FirstPerson::default())
         .viewport((10..w - 10, h - 10..10))
-        .perspective(Fov::Diagonal(degs(90.0)), 0.1..1000.0);
+        .perspective(Fov::Diagonal(degs(90.0)), 0.1..2e3);
 
     let floor = floor();
     let crates = crates();
+    let sky: Mesh<Normal3> = Cube { side_len: 2e3 }.build();
+
+    static SKY_TEX: &[u8] = include_bytes!("../../assets/cubemap.ppm");
+    let sky_tex = Texture::from(read_pnm(&SKY_TEX[..]).expect("image exists"));
 
     win.run(|frame| {
         //
@@ -135,6 +140,36 @@ fn main() {
 
             frame.ctx.stats.borrow_mut().objs.o += 1;
         }
+
+        // Sky
+
+        Batch::new()
+            .mesh(&sky)
+            .shader(shader::new(
+                |v: Vertex3<_>, _| {
+                    vertex(cam.world_to_project().apply(&v.pos.to()), v.pos)
+                },
+                |f: Frag<Point3<_>>| {
+                    let sky_dir = f.var.to_vec().to() / 1e3;
+
+                    let col = SamplerClamp
+                        .sample(&sky_tex, cube_map(sky_dir, sky_dir));
+
+                    col.to_rgba()
+
+                    /*rgb(0.8, 0.8, 1.0)
+                    .lerp(&rgb(0.1, 0.1, 0.6), sky_dir.normalize().y())
+                    .to_color4()*/
+                },
+            ))
+            .uniform(&cam.world_to_project())
+            .viewport(cam.viewport)
+            .target(frame.buf)
+            .context(&mut Context {
+                face_cull: None,
+                ..frame.ctx.clone()
+            })
+            .render();
 
         Continue(())
     })
