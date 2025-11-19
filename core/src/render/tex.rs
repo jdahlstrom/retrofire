@@ -1,10 +1,10 @@
 //! Textures and texture samplers.
 
-use crate::geom::Normal3;
-use crate::math::{
-    Color3, Point2u, Vec2, Vec3, Vector, lerp, pt2, splat, vec2,
+use crate::{
+    geom::Normal3,
+    math::{Color3, Point2u, Point3, Vec2, Vector, inv_lerp, lerp, pt2, vec2},
+    util::{AsSlice2, Buf2, Dims, Slice2},
 };
-use crate::util::{AsSlice2, Buf2, Dims, Slice2};
 
 pub trait Sample<D: AsSlice2>: Sized {
     /// Returns the color in `tex` at `tc` in relative coordinates.
@@ -39,14 +39,14 @@ pub type TexCoord = Vec2<Tex>;
 ///
 /// * TODO Mipmapping
 /// * TODO Bilinear filtering sampler
-#[derive(Copy, Clone)]
+#[derive(Copy, Clone, Debug)]
 pub struct Texture<D> {
     w: f32,
     h: f32,
     data: D,
 }
 
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub struct Atlas<C> {
     pub layout: Layout,
     pub texture: Texture<Buf2<C>>,
@@ -78,42 +78,76 @@ pub const fn uv(u: f32, v: f32) -> TexCoord {
 ///
 /// ```text
 ///     u
-///     0     1/3    2/3     1
-/// v 0 +------+------+------+
-///     |      |      |      |
-///     |  +x  |  +y  |  +z  |
-///   1 |      |      |      |
-///   / +--zy--+--xz--+--xy--+
-///   2 |      |      |      |
-///     |  -x  |  -y  |  -z  |
-///     |      |      |      |
-///   1 +------+------+------+
+///     0       1/3      2/3       1
+/// v 0 +--------+--------+--------+
+///     | y   +x | z   +y | +z   y |
+///     | ^      | ^      |      ^ |
+///   1 | + -> z | + -> x | x <- + |
+///   / +---zy---+---xz---+---xy---+
+///   2 | -x   y | + -> x | y   -z |
+///     |      ^ | v      | ^      |
+///     | z <- + | z   -y | + -> x |
+///   1 +--------+--------+--------+
+///
+///
+///
+///  +-- u       +--------+
+///  |           | z   +y |
+///  v           | ^      |
+///              | + -> x |
+///     +--------+--------+--------+--------+
+///     | -x   y | y   -z | y   +x | +z   y |
+///     |      ^ | ^      | ^      |      ^ |
+///     | z <- + | + -> x | + -> z | x <- + |
+///     +--------+--------+--------+--------+
+///              | + -> x |
+///              | v      |
+///              | z   -y |
+///              +--------+
+///
+///
 ///
 /// ```
-pub fn cube_map(pos: Vec3, dir: Normal3) -> TexCoord {
-    // -1.0..1.0 -> 0.0..1.0
-    let [x, y, z] = (0.5 * pos + splat(0.5))
-        .clamp(&splat(0.0), &splat(1.0))
+pub fn cube_map(pos: Point3, dir: Normal3) -> TexCoord {
+    // ..-1.0..1.0.. -> 0.0..1.0
+    let [x, y, z] = pos
+        .map(|x| inv_lerp(x, -1.0, 1.0).clamp(0.0, 1.0))
         .0;
-    // TODO implement vec::abs
     let [ax, ay, az] = dir.map(f32::abs).0;
 
-    // TODO implement vec::argmax
-    let (max_i, mut u, mut v) = if az > ax && az > ay {
-        // xy plane
-        (2, x, y)
-    } else if ay > ax && ay > az {
-        // xz plane left-handed - mirror x
-        (1, 1.0 - x, z)
+    let axis; // 0=x, 1=y, 2=z
+    let sign; // 0=+, 1=-
+
+    let tc = if ax > ay && ax > az {
+        axis = 0.0;
+        if x > 0.5 {
+            sign = 0.0;
+            (z, 1.0 - y)
+        } else {
+            sign = 1.0;
+            (1.0 - z, 1.0 - y)
+        }
+    } else if ay > az {
+        axis = 1.0;
+        if y > 0.5 {
+            sign = 0.0;
+            (x, 1.0 - z)
+        } else {
+            sign = 1.0;
+            (x, z)
+        }
     } else {
-        // zy plane left-handed - mirror z
-        (0, 1.0 - z, y)
+        axis = 2.0;
+        if z > 0.5 {
+            sign = 1.0;
+            (1.0 - x, 1.0 - y)
+        } else {
+            sign = 0.0;
+            (x, 1.0 - y)
+        }
     };
-    if dir[max_i] < 0.0 {
-        u = 1.0 - u;
-        v += 1.0;
-    }
-    uv((u + max_i as f32) / 3.0, v / 2.0)
+
+    (uv(axis, sign) + tc.into()) / uv(3.0, 2.0)
 }
 
 //

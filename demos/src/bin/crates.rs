@@ -6,6 +6,7 @@ use re::core::math::color::gray;
 use re::core::render::{
     cam::{FirstPerson, Fov},
     clip::Status::*,
+    ctx::FaceCull,
     scene::Obj,
     shader,
     tex::{Sample, SamplerClamp},
@@ -14,7 +15,7 @@ use re::core::render::{
 use re::core::util::{pixfmt::Rgba8888, pnm::read_pnm};
 
 use re::front::sdl2::Window;
-use re::geom::solids::{Build, Cube};
+use re::geom::solids::{Build, Cube, Skybox};
 
 static CRATE_TEX: &[u8] = include_bytes!("../../assets/crate.ppm");
 
@@ -56,6 +57,10 @@ fn main() {
 
     let floor = floor();
     let crates = crates();
+    let skybox = Skybox::new({
+        static SKY_TEX: &[u8] = include_bytes!("../../assets/basilica.ppm");
+        read_pnm(SKY_TEX).expect("image exists")
+    });
 
     win.run(|frame| {
         //
@@ -89,12 +94,29 @@ fn main() {
         // Render
         //
 
-        let world_to_project = &cam.world_to_project();
-
         let batch = Batch::new()
             .viewport(cam.viewport)
             .target(frame.buf)
             .context(frame.ctx);
+
+        batch
+            .clone()
+            .mesh(&skybox.0)
+            .shader(skybox.shader())
+            .uniform(
+                &cam.world_to_view()
+                    .orientation()
+                    .then(&cam.project),
+            )
+            .context(&Context {
+                depth_test: None,
+                depth_write: false,
+                face_cull: Some(FaceCull::Front),
+                ..batch.ctx.clone()
+            })
+            .render();
+
+        let world_to_project = &cam.world_to_project();
 
         // Floor
         {
@@ -148,7 +170,7 @@ fn crates() -> Vec<Obj<(Normal3, TexCoord)>> {
     let obj = Obj::new(Cube { side_len: 2.0 }.build());
 
     let mut res = vec![];
-    let n = 30;
+    let n = 3;
     for i in (-n..=n).step_by(5) {
         for j in (-n..=n).step_by(5) {
             res.push(Obj {
@@ -163,7 +185,7 @@ fn crates() -> Vec<Obj<(Normal3, TexCoord)>> {
 fn floor() -> Obj<Vec2> {
     let mut bld = Mesh::builder();
 
-    let size = 50;
+    let size = 10;
     for j in -size..=size {
         for i in -size..=size {
             let i_odd = i & 1;
