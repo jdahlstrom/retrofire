@@ -15,12 +15,12 @@ use super::{Clip, Context, Ndc, Render, Screen, Shader, Target};
 /// Several values must be assigned before the [`render`][Batch::render]
 /// method can be called:
 /// * [primitives][Batch::primitives]: A list of primitives, each a tuple
-///       of indices into the list of vertices (TODO: handling oob)
+///   of indices into the list of vertices (TODO: handling oob)
 /// * [vertices][Batch::vertices]: A list of vertices
 /// * [shader][Batch::shader]: The combined vertex and fragment shader used
 /// * [target][Batch::target]: The render target to render into
 /// * [context][Batch::context]: The rendering context and settings used.
-///       (TODO: optional?)
+///   (TODO: optional?)
 ///
 /// Additionally, setting the following values is optional:
 /// * [uniform][Batch::uniform]: The uniform value passed to the vertex shader
