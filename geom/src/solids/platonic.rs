@@ -5,7 +5,7 @@ use core::{array::from_fn, f32::consts::SQRT_2, iter::zip};
 
 use retrofire_core::{
     geom::{Mesh, Normal3, Vertex3, vertex},
-    math::{Lerp, Point3, Vec3, pt3, vec3},
+    math::{Lerp, Point3, SQRT_3, Vec3, pt3, vec3},
     render::{Model, TexCoord, uv},
 };
 
@@ -96,8 +96,6 @@ pub struct Dodecahedron;
 /// where φ ≈ 1.618 is the golden ratio constant.
 #[derive(Copy, Clone, Debug, Default)]
 pub struct Icosahedron;
-
-const SQRT_3: f32 = 1.7320508_f32;
 
 impl Tetrahedron {
     const FACES: [[usize; 3]; 4] = [[0, 2, 1], [0, 3, 2], [0, 1, 3], [1, 2, 3]];

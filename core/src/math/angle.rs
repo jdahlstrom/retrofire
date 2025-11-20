@@ -601,12 +601,13 @@ mod tests {
 
     use crate::{
         assert_approx_eq,
-        math::{self, Lerp, Vary, Vec2, Vec3},
+        math::{self, Lerp, SQRT_3, Vary, Vec2, Vec3},
     };
 
     use super::*;
 
-    const SQRT_3: f32 = 1.7320508;
+    const vec2: fn(f32, f32) -> Vec2 = math::vec2;
+    const vec3: fn(f32, f32, f32) -> Vec3 = math::vec3;
 
     #[test]
     fn rads_to_degs() {
@@ -717,9 +718,6 @@ mod tests {
         assert_approx_eq!(i.next(), Some(degs(90.0)));
         assert_approx_eq!(i.next(), None);
     }
-
-    const vec2: fn(f32, f32) -> Vec2 = math::vec2;
-    const vec3: fn(f32, f32, f32) -> Vec3 = math::vec3;
 
     #[cfg(feature = "fp")]
     #[test]
