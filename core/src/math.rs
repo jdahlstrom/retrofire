@@ -141,6 +141,9 @@ pub fn inv_lerp(t: f32, min: f32, max: f32) -> f32 {
     (t - min) / (max - min)
 }
 
+/// The square root of three.
+pub const SQRT_3: f32 = 1.7320508;
+
 impl<T> Lerp for T
 where
     T: Affine<Diff: Linear<Scalar = f32>>,

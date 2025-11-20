@@ -411,9 +411,8 @@ mod tests {
     #[cfg(feature = "fp")]
     #[test]
     fn angle_of_view_focal_ratio_with_unit_aspect_ratio() {
-        use crate::math::degs;
+        use crate::math::{SQRT_3, degs};
         use core::f32::consts::SQRT_2;
-        const SQRT_3: f32 = 1.7320509;
 
         assert_eq!(Horizontal(degs(60.0)).focal_ratio(1.0), SQRT_3);
         assert_eq!(Vertical(degs(60.0)).focal_ratio(1.0), SQRT_3);
@@ -423,8 +422,7 @@ mod tests {
     #[cfg(feature = "fp")]
     #[test]
     fn angle_of_view_focal_ratio_with_other_aspect_ratio() {
-        use crate::math::degs;
-        const SQRT_3: f32 = 1.7320509;
+        use crate::math::{SQRT_3, degs};
 
         assert_eq!(Horizontal(degs(60.0)).focal_ratio(SQRT_3), SQRT_3);
         assert_eq!(Vertical(degs(60.0)).focal_ratio(SQRT_3), 1.0);

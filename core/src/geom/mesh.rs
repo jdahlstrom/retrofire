@@ -277,7 +277,7 @@ mod tests {
 
     use crate::{
         geom::vertex,
-        math::{pt3, splat, vec3},
+        math::{SQRT_3, pt3, splat, vec3},
     };
 
     use super::*;
@@ -322,8 +322,6 @@ mod tests {
         ]);
         let b = b.with_vertex_normals();
 
-        const SQRT_3: f32 = 1.7320508076;
-
         let expected = [
             splat(-1.0 / SQRT_3),
             vec3(0.0, -FRAC_1_SQRT_2, -FRAC_1_SQRT_2),
@@ -331,8 +329,8 @@ mod tests {
             vec3(-FRAC_1_SQRT_2, -FRAC_1_SQRT_2, 0.0),
         ];
 
-        for i in 0..4 {
-            crate::assert_approx_eq!(b.mesh.verts[i].attrib, expected[i]);
+        for (a, e) in zip(b.mesh.verts, expected) {
+            crate::assert_approx_eq!(a.attrib, e);
         }
     }
 }

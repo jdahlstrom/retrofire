@@ -43,7 +43,6 @@ impl<R, Sp> Point<R, Sp> {
     }
 
     /// Returns the vector equivalent to `self`.
-
     #[inline]
     pub const fn to_vec(self) -> Vector<R, Sp>
     where
