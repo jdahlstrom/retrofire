@@ -171,10 +171,10 @@ impl<Sc: Copy, B> Point<[Sc; 2], Real<2, B>> {
     }
 }
 
-impl Point2 {
+impl<B> Point2<B> {
     /// Converts `self` into a `Point3`, with z equal to 0.
     #[inline]
-    pub const fn to_pt3(self) -> Point3 {
+    pub const fn to_pt3(self) -> Point3<B> {
         pt3(self.x(), self.y(), 0.0)
     }
 }
