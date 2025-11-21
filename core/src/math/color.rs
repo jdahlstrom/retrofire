@@ -3,6 +3,7 @@
 use core::{
     array,
     fmt::{self, Debug, Display, Formatter},
+    iter::zip,
     marker::PhantomData,
     ops::{Add, Div, Index, IndexMut, Mul, Neg, Sub},
     ops::{AddAssign, DivAssign, MulAssign, SubAssign},
@@ -632,13 +633,7 @@ impl<R: IndexMut<usize>, Sp> IndexMut<usize> for Color<R, Sp> {
     }
 }
 
-//
-// Arithmetic trait impls
-//
-
-//
 // Arithmetic traits
-//
 
 /// The color += color operator.
 impl<R, D, Sp> AddAssign<D> for Color<R, Sp>
@@ -663,7 +658,7 @@ where
     }
 }
 
-// The color *= scalar operator.
+/// The color *= scalar operator.
 impl<R, Sc, Sp> MulAssign<Sc> for Color<R, Sp>
 where
     Self: Linear<Scalar = Sc>,
@@ -673,8 +668,20 @@ where
         *self = Linear::mul(&*self, rhs);
     }
 }
-
-// The color /= scalar operator.
+/// The color *= color operator.
+impl<Sc, Sp, const N: usize> MulAssign for Color<[Sc; N], Sp>
+where
+    Self: Linear<Scalar = Sc>,
+    Sc: Linear<Scalar = Sc>,
+{
+    #[inline]
+    fn mul_assign(&mut self, rhs: Self) {
+        for (a, b) in zip(&mut self.0, rhs.0) {
+            *a = (&*a).mul(b)
+        }
+    }
+}
+/// The color /= scalar operator.
 impl<R, Sp> DivAssign<f32> for Color<R, Sp>
 where
     Self: Linear<Scalar = f32>,
@@ -700,6 +707,20 @@ where
     }
 }
 
+/// The color * color operator.
+impl<Sc, Sp, const N: usize> Mul for Color<[Sc; N], Sp>
+where
+    Self: Linear<Scalar = Sc>,
+    Sc: Linear<Scalar = Sc>,
+{
+    type Output = Self;
+
+    #[inline]
+    fn mul(mut self, rhs: Self) -> Self {
+        self *= rhs;
+        self
+    }
+}
 /// The scalar * color operator.
 impl<R, Sp> Mul<Color<R, Sp>> for <Color<R, Sp> as Linear>::Scalar
 where
@@ -757,10 +778,12 @@ mod tests {
 
         assert_eq!(lhs + rhs, rgb(0.625, 0.875, 1.125));
         assert_eq!(lhs - rhs, rgb(0.375, 0.375, 0.375));
+        assert_eq!(-lhs, rgb(-0.5, -0.625, -0.75));
+
+        assert_eq!(lhs * rhs, rgb(0.0625, 0.15625, 0.28125));
         assert_eq!(lhs * 0.5, rgb(0.25, 0.3125, 0.375));
         assert_eq!(0.5 * lhs, rgb(0.25, 0.3125, 0.375));
         assert_eq!(lhs / 2.0, rgb(0.25, 0.3125, 0.375));
-        assert_eq!(-lhs, rgb(-0.5, -0.625, -0.75));
     }
 
     #[test]
