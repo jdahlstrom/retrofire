@@ -124,13 +124,8 @@ fn main() {
                 // TODO Try to get rid of clone
                 .clone()
                 .mesh(geom)
-                .uniform(&model_to_project)
-                // TODO Allow setting shader before uniform
                 .shader(crate_shader)
-                // TODO storing &mut target makes Batch not Clone, maybe
-                //      pass to render() instead. OTOH then a Frame::batch
-                //      helper wouldn't be as useful. Maybe just wrap the
-                //      target in a RefCell?
+                .uniform(&model_to_project)
                 .render();
 
             frame.ctx.stats.borrow_mut().objs.o += 1;
@@ -150,6 +145,7 @@ fn crates() -> Vec<Obj<(Normal3, TexCoord)>> {
         for j in (-n..=n).step_by(5) {
             res.push(Obj {
                 tf: translate3(i as f32, 0.0, j as f32).to(),
+                // TODO Same geometry cloned many times
                 ..obj.clone()
             });
         }
