@@ -10,7 +10,7 @@ use std::time::Instant;
 use minifb::{Key, WindowOptions};
 
 use retrofire_core::{
-    render::{Colorbuf, Context, target},
+    render::{Colorbuf, Context, Stats, target},
     util::{Dims, buf::Buf2, buf::MutSlice2, pixfmt::Xrgb8888},
 };
 
@@ -111,9 +111,9 @@ impl Window {
     /// * the user closes the window via the GUI (e.g. titlebar close button);
     /// * the Esc key is pressed; or
     /// * the callback returns `ControlFlow::Break`.
-    pub fn run<F>(&mut self, mut frame_fn: F)
+    pub fn run<F>(&mut self, mut frame_fn: F) -> Stats
     where
-        F: FnMut(&mut Frame<Self, &RefCell<Framebuf>>) -> ControlFlow<()>,
+        F: FnMut(&mut Frame<Window, &RefCell<Framebuf>>) -> ControlFlow<()>,
     {
         let (w, h) = self.dims;
         let mut cbuf = Buf2::new((w, h));
@@ -146,7 +146,9 @@ impl Window {
 
             ctx.stats.borrow_mut().frames += 1.0;
         }
-        println!("{}", ctx.stats.borrow());
+        let stats = ctx.stats.into_inner();
+        println!("{stats}");
+        stats
     }
 
     fn should_quit(&self) -> bool {

@@ -138,7 +138,7 @@ fn main() {
 
         Continue(())
     })
-    .expect("should run")
+    .expect("should run");
 }
 
 fn crates() -> Vec<Obj<(Normal3, TexCoord)>> {
