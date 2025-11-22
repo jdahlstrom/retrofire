@@ -31,13 +31,13 @@ use super::{Clip, Context, Ndc, Render, Screen, Shader, Target};
 // [instances]: https://en.wikipedia.org/wiki/Geometry_instancing
 #[derive(Clone, Debug, Default)]
 pub struct Batch<Prim, Vtx, Uni, Shd, Tgt, Ctx> {
-    prims: Vec<Prim>,
-    verts: Vec<Vtx>,
-    uniform: Uni,
-    shader: Shd,
-    viewport: Mat4<Ndc, Screen>,
-    target: Tgt,
-    ctx: Ctx,
+    pub prims: Vec<Prim>,
+    pub verts: Vec<Vtx>,
+    pub uniform: Uni,
+    pub shader: Shd,
+    pub viewport: Mat4<Ndc, Screen>,
+    pub target: Tgt,
+    pub ctx: Ctx,
 }
 
 macro_rules! update {

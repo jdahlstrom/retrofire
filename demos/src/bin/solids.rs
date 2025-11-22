@@ -108,14 +108,16 @@ fn main() {
 
         let object = &objects[carousel.idx % objects.len()];
 
-        Batch::new()
-            .mesh(object)
-            .uniform((&model_view_project, &spin))
-            .shader(shader)
-            .viewport(cam.viewport)
-            .target(frame.buf)
-            .context(&*frame.ctx)
-            .render();
+        Batch {
+            prims: object.faces.clone(),
+            verts: object.verts.clone(),
+            uniform: (&model_view_project, &spin),
+            shader: shader,
+            viewport: cam.viewport,
+            target: frame.buf,
+            ctx: &*frame.ctx,
+        }
+        .render();
 
         Continue(())
     });
