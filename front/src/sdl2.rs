@@ -13,7 +13,7 @@ use sdl2::{
 
 use retrofire_core::math::{Color4, Vary};
 use retrofire_core::render::{
-    Colorbuf, Context, FragmentShader, Target, raster::Scanline,
+    Colorbuf, Context, FragmentShader, Stats, Target, raster::Scanline,
     stats::Throughput, target::rasterize_fb,
 };
 use retrofire_core::util::{
@@ -181,7 +181,7 @@ impl<PF: PixelFmt<Pixel = [u8; N]>, const N: usize> Window<PF> {
     /// * the user closes the window via the GUI (e.g. a title bar button);
     /// * the Esc key is pressed; or
     /// * the callback returns [`ControlFlow::Break`][ControlFlow].
-    pub fn run<F>(&mut self, mut frame_fn: F) -> Result<(), Error>
+    pub fn run<F>(&mut self, mut frame_fn: F) -> Result<Stats, Error>
     where
         F: FnMut(&mut Frame<Self, &RefCell<Framebuf<PF>>>) -> ControlFlow<()>,
         Color4: IntoPixel<PF::Pixel, PF>,
@@ -244,8 +244,9 @@ impl<PF: PixelFmt<Pixel = [u8; N]>, const N: usize> Window<PF> {
                 break;
             }
         }
-        println!("{}", ctx.stats.borrow());
-        Ok(())
+        let stats = ctx.stats.into_inner();
+        println!("{stats}");
+        Ok(stats)
     }
 }
 
