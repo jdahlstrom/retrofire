@@ -2,7 +2,7 @@
 
 use core::{
     f32::consts::{PI, TAU},
-    fmt::{self, Debug, Display},
+    fmt::{self, Debug, Display, Formatter},
     marker::PhantomData,
     ops::{Add, Div, Mul, Neg, Rem, Sub},
     ops::{AddAssign, DivAssign, MulAssign, SubAssign},
@@ -26,11 +26,11 @@ use crate::math::{Vec2, Vec3, float::f32, vec2, vec3};
 pub struct Angle(f32);
 
 /// Tag type for a polar coordinate space
-#[derive(Copy, Clone, Debug, Default, Eq, PartialEq)]
+#[derive(Copy, Clone, Default, Eq, PartialEq)]
 pub struct Polar<B>(PhantomData<B>);
 
 /// Tag type for a spherical coordinate space.
-#[derive(Copy, Clone, Debug, Default, Eq, PartialEq)]
+#[derive(Copy, Clone, Default, Eq, PartialEq)]
 pub struct Spherical<B>(PhantomData<B>);
 
 /// A polar coordinate vector, with radius and azimuth components.
@@ -491,6 +491,17 @@ impl ZDiv for Angle {}
 //
 // Foreign trait impls
 //
+
+impl<B> Debug for Polar<B> {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        f.write_str("Pol")
+    }
+}
+impl<B> Debug for Spherical<B> {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        f.write_str("Sph")
+    }
+}
 
 impl<B> Default for SphericalVec<B> {
     fn default() -> Self {
