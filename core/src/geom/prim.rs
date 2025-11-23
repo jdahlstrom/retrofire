@@ -235,6 +235,8 @@ impl<A, B> Tri<Vertex3<A, B>> {
     /// # Examples
     /// ```
     /// use core::f32::consts::SQRT_2;
+    ///
+    /// use retrofire_core::assert_approx_eq;
     /// use retrofire_core::geom::{Tri, vertex};
     /// use retrofire_core::math::{pt3, vec3};
     ///
@@ -244,7 +246,7 @@ impl<A, B> Tri<Vertex3<A, B>> {
     ///     vertex(pt3(0.0, 3.0, 3.0), ()),
     ///     vertex(pt3(4.0, 0.0,0.0), ()),
     /// ]);
-    /// assert_eq!(tri.normal(), vec3(0.0, SQRT_2 / 2.0, -SQRT_2 / 2.0));
+    /// assert_approx_eq!(tri.normal(), vec3(0.0, SQRT_2 / 2.0, -SQRT_2 / 2.0));
     /// ```
     pub fn normal(&self) -> Normal3 {
         let [t, u] = self.tangents();
