@@ -79,7 +79,7 @@ fn main() {
 
         let ms = ep.relative_mouse_state();
         cam.transform.rotate(
-            turns(ms.x() as f32) * -0.001,
+            turns(ms.x() as f32) * 0.001,
             turns(ms.y() as f32) * -0.001,
         );
         cam.transform
