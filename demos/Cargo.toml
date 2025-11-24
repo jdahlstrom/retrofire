@@ -38,6 +38,10 @@ name = "crates"
 required-features = ["sdl2"]
 
 [[bin]]
+name = "plane"
+required-features = ["sdl2"]
+
+[[bin]]
 name = "curses"
 required-features = ["pancurses"]
 
