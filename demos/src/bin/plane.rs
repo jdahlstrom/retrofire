@@ -56,6 +56,7 @@ fn main() {
     let floor = floor();
     let crates = crates();
 
+    let mut target_vel_z = 0.0;
     let mut cam_vel = Vec3::zero();
     let (mut p, mut y, mut r) = (degs(0.0), degs(0.0), degs(0.0));
     win.run(|frame| {
@@ -74,8 +75,8 @@ fn main() {
         for key in ep.keyboard_state().pressed_scancodes() {
             use sdl2::keyboard::Scancode as Sc;
             match key {
-                Sc::W => cam_vel[2] += 0.1,
-                Sc::S => cam_vel[2] -= 0.05,
+                Sc::W => target_vel_z += 0.1,
+                Sc::S => target_vel_z -= 0.05,
                 Sc::A => tr = rv,
                 Sc::D => tr = -rv,
 
@@ -88,13 +89,23 @@ fn main() {
             }
         }
 
-        p = p.lerp(&tp, dt);
-        y = y.lerp(&ty, dt);
-        r = r.lerp(&tr, dt);
+        let ra = 4.0;
+        p = p.lerp(&tp, ra * dt);
+        y = y.lerp(&ty, ra * dt);
+        r = r.lerp(&tr, ra * dt);
+
+        let target_vel = cam
+            .transform
+            .view_to_world()
+            .apply(&(target_vel_z * Vec3::Z));
+
+        let acc = 8.0;
+        cam_vel = cam_vel.lerp(&target_vel, acc * dt);
 
         cam.transform.rotate(p, y, r);
 
-        cam.transform.translate(cam_vel * dt);
+        cam.transform
+            .translate_to(cam.transform.pos + cam_vel * dt);
 
         //
         // Render
