@@ -1,6 +1,6 @@
 use core::{array, iter::repeat_with};
 
-use divan::{AllocProfiler, Bencher, counter::ItemsCount};
+use divan::{Bencher, counter::ItemsCount};
 
 use retrofire_core::{
     geom::{Tri, vertex},
@@ -11,7 +11,7 @@ use retrofire_core::{
 
 //#[global_allocator]
 //static ALLOC: AllocProfiler = AllocProfiler::system();
-
+/*
 #[divan::bench(args = [1, 10, 100, 1000, 10_000])]
 fn clip_mixed(b: Bencher, n: usize) {
     let rng = &mut DefaultRng::default();
@@ -34,7 +34,7 @@ fn clip_mixed(b: Bencher, n: usize) {
         view_frustum::clip(tris.as_slice(), &mut out);
         out
     })
-}
+}*/
 
 #[divan::bench(args = [1, 10, 100, 1000, 10_000])]
 fn clip_all_inside(b: Bencher, n: usize) {
