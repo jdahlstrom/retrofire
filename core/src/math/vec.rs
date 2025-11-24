@@ -13,10 +13,9 @@ use core::{
 
 use crate::math::{
     Affine, ApproxEq, Linear, Point,
-    space::{Proj3, Real},
+    space::{Euclidean, Proj3, Real},
     vary::ZDiv,
 };
-
 //
 // Types
 //
@@ -573,6 +572,20 @@ where
             *c = c.mul(scalar);
         }
         res
+    }
+}
+
+impl<B, const N: usize> Euclidean for Vector<[f32; N], Real<N, B>> {
+    fn origin() -> Self {
+        Vector::zero()
+    }
+
+    fn distance(&self, other: &Self) -> f32 {
+        other.sub(self).len()
+    }
+
+    fn approach(&self, other: &Self, d: f32) -> Self {
+        self.to_pt().approach(&other.to_pt(), d).to_vec()
     }
 }
 
