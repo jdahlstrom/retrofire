@@ -37,7 +37,10 @@ pub use {
 #[cfg(feature = "fp")]
 pub use {
     angle::{acos, asin, atan2},
-    mat::{orient_y, orient_z, rotate, rotate_x, rotate_y, rotate_z, rotate2},
+    mat::{
+        orient_y, orient_z, rotate, rotate_pyr, rotate_x, rotate_y, rotate_z,
+        rotate2,
+    },
 };
 
 /// Implements an operator trait in terms of an op-assign trait.

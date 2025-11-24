@@ -4,10 +4,10 @@ use core::ops::Range;
 
 #[cfg(feature = "fp")]
 use crate::math::{
-    Angle, orient_z, rotate_x, rotate_y, rotate_z, spherical, turns,
+    Angle, Vec3, orient_z, rotate_pyr, rotate_x, rotate_y, spherical, turns,
 };
 use crate::math::{
-    Lerp, Mat4, Point3, ProjMat3, SphericalVec, Vary, Vec3, orthographic,
+    Lerp, Mat4, Point3, ProjMat3, SphericalVec, Vary, orthographic,
     perspective, pt2, translate, viewport,
 };
 use crate::util::{Dims, rect::Rect};
@@ -92,11 +92,12 @@ pub struct Orbit {
 ///
 /// The pitch (elevation) angle controls rotation about the local lateral (x)
 /// axis, the yaw (bearing) angle about the local vertical (y) axis, and the
-/// roll (bank) angle about the local longitudinal (z) axis.
+/// roll (bank) angle about the local longitudinal (z) axis. These angles are
+/// also known to as Tait–Bryan angles.
 #[derive(Copy, Clone, Debug, Default)]
 pub struct PitchYawRoll {
     pub rot: Mat4<View, World>,
-    pub trans: Vec3<World>,
+    pub pos: Point3<World>,
 }
 
 /// Creates a unit `SphericalVec` from azimuth and altitude.
@@ -337,44 +338,42 @@ impl Orbit {
 
 #[cfg(feature = "fp")]
 impl PitchYawRoll {
-    /// TODO
+    /// Creates a new pitch/yaw/roll transform, with the initial position
+    /// at the world space origin and facing along the negative z-axis.
     pub fn new() -> Self {
         Self::default()
     }
 
-    /// Moves the camera position in view space.
+    /// Adjusts the camera position in view space (relative to the current
+    /// position, along the current orientation axes).
     pub fn translate(&mut self, v: Vec3<View>) {
-        self.trans += self.view_to_world().apply(&v);
+        self.pos += self.view_to_world().apply(&v);
     }
 
     /// Moves the camera to the given position in world space.
     pub fn translate_to(&mut self, pt: Point3<World>) {
-        self.trans = pt.to_vec();
-    }
-
-    /// Returns the matrix from view to world space.
-    fn view_to_world(&self) -> Mat4<View, World> {
-        let trans: Mat4<World, World> = translate(self.trans.to()).to();
-        let rot = self.rot;
-        rot.then(&trans)
+        self.pos = pt;
     }
 
     /// Adjusts the orientation of the camera by the given delta angles.
     pub fn rotate(&mut self, pitch: Angle, yaw: Angle, roll: Angle) {
-        let p = rotate_x(pitch);
-        let y = rotate_y(yaw);
-        let r = rotate_z(roll);
-        let delta_rot: Mat4<View, View> = p.then(&y).then(&r).to();
-
-        self.rot = self.rot.compose(&delta_rot);
+        self.rot = self
+            .rot
+            .compose(&rotate_pyr(pitch, yaw, roll).to());
     }
 
     /// Sets the orientation of the camera to the given **world-space** angles.
+    ///
+    /// To adjust the camera in view space (that is, relative to the current
+    /// orientation), use [`rotate()`][Self::rotate].
     pub fn rotate_to(&mut self, pitch: Angle, yaw: Angle, roll: Angle) {
-        let p = rotate_x(pitch);
-        let y = rotate_y(yaw);
-        let r = rotate_z(roll);
-        self.rot = p.then(&y).then(&r).to();
+        self.rot = rotate_pyr(pitch, yaw, roll).to();
+    }
+
+    /// Returns the matrix from view to world space.
+    pub fn view_to_world(&self) -> Mat4<View, World> {
+        let trans: Mat4<World, World> = translate(self.pos.to_vec().to()).to();
+        self.rot.then(&trans)
     }
 }
 
@@ -423,7 +422,7 @@ impl Transform for Orbit {
 
 impl Transform for PitchYawRoll {
     fn world_to_view(&self) -> Mat4<World, View> {
-        let trans = translate(-self.trans.to()).to();
+        let trans = translate(-self.pos.to_vec().to()).to();
         let rot = self.rot.transpose();
 
         trans.then(&rot)
@@ -432,9 +431,13 @@ impl Transform for PitchYawRoll {
 
 #[cfg(test)]
 mod tests {
-    use crate::assert_approx_eq;
-
     use super::*;
+
+    #[cfg(feature = "fp")]
+    use crate::{
+        assert_approx_eq,
+        math::{SQRT_3, degs},
+    };
 
     use Fov::*;
 
@@ -455,7 +458,6 @@ mod tests {
     #[cfg(feature = "fp")]
     #[test]
     fn angle_of_view_focal_ratio_with_unit_aspect_ratio() {
-        use crate::math::{SQRT_3, degs};
         use core::f32::consts::SQRT_2;
 
         assert_approx_eq!(Horizontal(degs(60.0)).focal_ratio(1.0), SQRT_3);
@@ -469,8 +471,6 @@ mod tests {
     #[cfg(feature = "fp")]
     #[test]
     fn angle_of_view_focal_ratio_with_other_aspect_ratio() {
-        use crate::math::{SQRT_3, degs};
-
         assert_approx_eq!(Horizontal(degs(60.0)).focal_ratio(SQRT_3), SQRT_3);
         assert_approx_eq!(Vertical(degs(60.0)).focal_ratio(SQRT_3), 1.0);
         assert_approx_eq!(Diagonal(degs(60.0)).focal_ratio(SQRT_3), 2.0);
