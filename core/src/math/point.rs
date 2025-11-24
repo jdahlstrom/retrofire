@@ -157,6 +157,43 @@ impl<const N: usize, B> Point<[f32; N], Real<N, B>> {
     pub fn clamp(&self, min: &Self, max: &Self) -> Self {
         array::from_fn(|i| self.0[i].clamp(min.0[i], max.0[i])).into()
     }
+
+    /// Returns `self`, moved towards another point by an offset.
+    ///
+    /// If the distance to `other` is less than `d`, returns `other`. That is,
+    /// this method never "overshoots" the target. Negative values of `d` result
+    /// in moving away from `other`. If `self` equals `other`, returns `other`
+    /// independent of the value of `d`.
+    ///
+    /// To translate by a *relative* offset instead, use [`lerp`][super::Lerp::lerp].
+    ///
+    /// # Examples
+    /// ```
+    /// use retrofire_core::math::{Point2, pt2};
+    ///
+    /// let a: Point2 = pt2(0.0, 0.0);
+    /// let b: Point2 = pt2(4.0, 3.0);
+    /// // Move two units along the line y = 3x/4:
+    /// assert_eq!(a.approach(&b, 2.0), pt2(1.6, 1.2));
+    /// // Movement is clamped to b:
+    /// assert_eq!(a.approach(&b, 10.0), b);
+    /// // Negative values of `d` move away from b:
+    /// assert_eq!(a.approach(&b, -1.0), pt2(-0.8, -0.6));
+    /// // Approaching the point itself does nothing:
+    /// assert_eq!(a.approach(&a, 1.0), a);
+    /// assert_eq!(a.approach(&a, -1.0), a);
+    /// ```
+    #[cfg(feature = "fp")]
+    #[must_use]
+    pub fn approach(&self, other: &Self, d: f32) -> Self {
+        let v = *other - *self;
+        let l = v.len();
+        if d < l && l != 0.0 {
+            *self + d / l * v
+        } else {
+            *other
+        }
+    }
 }
 
 impl<Sc: Copy, B> Point<[Sc; 2], Real<2, B>> {
