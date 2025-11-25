@@ -4,7 +4,7 @@ use re::prelude::*;
 
 use re::core::math::color::gray;
 use re::core::render::{
-    cam::{FirstPerson, Fov, PitchYawRoll},
+    cam::{Fov, PitchYawRoll},
     clip::Status::*,
     scene::Obj,
     tex::SamplerClamp,
@@ -14,6 +14,7 @@ use re::core::util::{pixfmt::Rgba8888, pnm::read_pnm};
 
 use re::front::sdl2::Window;
 use re::geom::solids::{Build, Cube};
+use re::prelude::rand::{DefaultRng, Distrib, Uniform};
 
 fn main() {
     let mut win = Window::builder()
@@ -25,16 +26,19 @@ fn main() {
     let tex_data = *include_bytes!("../../assets/crate.ppm");
     let tex = Texture::from(read_pnm(&tex_data[..]).expect("data exists"));
 
-    let light_dir = vec3(-2.0, 1.0, -4.0).normalize();
+    let light_dir = vec3(-2.0, 5.0, -4.0).normalize();
 
-    let floor_shader = shader::new(
-        |v: Vertex3<_>, mvp: &ProjMat3<_>| vertex(mvp.apply(&v.pos), v.attrib),
-        |frag: Frag<Vec2>| {
-            let even_odd = (frag.var.x() > 0.5) ^ (frag.var.y() > 0.5);
-            gray(if even_odd { 0.8 } else { 0.1 }).to_color4()
+    let terrain_shader = shader::new(
+        |v: Vertex3<Normal3>, mvp: &ProjMat3<_>| {
+            vertex(mvp.apply(&v.pos), (v.pos, v.attrib))
+        },
+        |frag: Frag<(Point3<Model>, Normal3)>| {
+            let l = frag.var.1.dot(&light_dir).max(0.2);
+            let h = (frag.var.0.y() / 4.0).rem_euclid(1.0);
+            gray(if h > 0.95 { 0.1 } else { l }).to_color4()
         },
     );
-    let crate_shader = shader::new(
+    let _crate_shader = shader::new(
         |v: Vertex3<(Normal3, TexCoord)>, mvp: &ProjMat3<_>| {
             vertex(mvp.apply(&v.pos), v.attrib)
         },
@@ -54,7 +58,6 @@ fn main() {
         .perspective(Fov::Diagonal(degs(90.0)), 0.1..1000.0);
 
     let floor = floor();
-    let crates = crates();
 
     let mut target_vel_z = 0.0;
     let mut cam_vel = Vec3::zero();
@@ -75,8 +78,8 @@ fn main() {
         for key in ep.keyboard_state().pressed_scancodes() {
             use sdl2::keyboard::Scancode as Sc;
             match key {
-                Sc::W => target_vel_z += 0.1,
-                Sc::S => target_vel_z -= 0.05,
+                Sc::W => target_vel_z += 10.0,
+                Sc::S => target_vel_z -= 10.0,
                 Sc::A => tr = rv,
                 Sc::D => tr = -rv,
 
@@ -99,8 +102,8 @@ fn main() {
             .view_to_world()
             .apply(&(target_vel_z * Vec3::Z));
 
-        let acc = 8.0;
-        cam_vel = cam_vel.lerp(&target_vel, acc * dt);
+        let acc = 20.0;
+        cam_vel = cam_vel.lerp(&target_vel, (acc * dt).min(1.0));
 
         cam.transform.rotate(p, y, r);
 
@@ -126,7 +129,7 @@ fn main() {
                 let mut b = batch
                     .clone()
                     .mesh(geom)
-                    .shader(floor_shader)
+                    .shader(terrain_shader)
                     .uniform(&model_to_project);
                 b.render();
             }
@@ -134,7 +137,7 @@ fn main() {
 
         // Crates
 
-        for Obj { geom, bbox, tf } in &crates {
+        /*for Obj { geom, bbox, tf } in &crates {
             frame.ctx.stats.borrow_mut().objs.i += 1;
 
             let model_to_project = tf.then(&world_to_project);
@@ -153,41 +156,170 @@ fn main() {
                 .render();
 
             frame.ctx.stats.borrow_mut().objs.o += 1;
-        }
+        }*/
 
         Continue(())
     })
     .expect("should run");
 }
 
-fn crates() -> Vec<Obj<(Normal3, TexCoord)>> {
-    let obj = Obj::new(Cube { side_len: 2.0 }.build());
+#[inline(never)]
+fn diamond_square(n: u32) -> Buf2<f32> {
+    let mut buf = Buf2::new_with((n + 1, n + 1), |_, _| f32::NAN);
+    let rng = &mut DefaultRng::from_time();
+    let heights = Uniform(-1.0..1.0);
 
-    let mut res = vec![];
-    let n = 30;
-    for i in (-n..=n).step_by(5) {
-        for j in (-n..=n).step_by(5) {
-            res.push(Obj {
-                tf: translate3(i as f32, 0.0, j as f32).to(),
-                // TODO Same geometry cloned many times
-                ..obj.clone()
-            });
+    buf[[0, 0]] = 0.0; //dbg!(heights.sample(rng));
+    buf[[0, n]] = 0.0; //dbg!(heights.sample(rng));
+    buf[[n, 0]] = 0.0; //dbg!(heights.sample(rng));
+    buf[[n, n]] = 0.0; //dbg!(heights.sample(rng));
+    let mut s = n;
+
+    let mut scale = 1.0;
+
+    while s > 0 {
+        // Diamond phase
+        eprintln!("Starting diamond phase {s}...");
+
+        for j in (0..n).step_by(s as usize) {
+            for i in (0..n).step_by(s as usize) {
+                let p0 = pt2(i, j);
+                let p1 = pt2(i + s, j + s);
+                let c = pt2(p0.x().midpoint(p1.x()), p0.y().midpoint(p1.y()));
+
+                let mean = (buf[p0]
+                    + buf[pt2(p1.x(), p0.y())]
+                    + buf[pt2(p0.x(), p1.y())]
+                    + buf[p1])
+                    / 4.0;
+
+                buf[c] = mean + heights.sample(rng) * scale;
+            }
         }
+
+        // eprintln!("After diamond phase {s}:");
+        // for row in buf.rows() {
+        //     for &c in row {
+        //         if c.is_nan() {
+        //             eprint!(" ____");
+        //         } else {
+        //             eprint!(" {c:-4.1}");
+        //         }
+        //     }
+        //     eprintln!();
+        // }
+
+        eprintln!("Starting square phase {s}...");
+        // Square phase
+        for j in (0..n).step_by(s as usize) {
+            for i in (0..n).step_by(s as usize) {
+                //
+                //          / \
+                //        /     \
+                //    (i,j)---(i+s,j)
+                //    / | \     /
+                //  /   |   \ /
+                //  \   |   /
+                //    \ | /
+                //   (i,j+s)
+                //
+
+                let mean_u = if s / 2 <= j {
+                    (buf[[i, j]]
+                        + buf[[i + s, j]]
+                        + buf[[i + s / 2, j - s / 2]]
+                        + buf[[i + s / 2, j + s / 2]])
+                        / 4.0
+                } else {
+                    (buf[[i, j]]
+                        + buf[[i + s, j]]
+                        + buf[[i + s / 2, j + s / 2]])
+                        / 3.0
+                };
+                let mean_d = if j + s + s / 2 <= n {
+                    (buf[[i, j + s]]
+                        + buf[[i + s, j + s]]
+                        + buf[[i + s / 2, j + s / 2]]
+                        + buf[[i + s / 2, j + s + s / 2]])
+                        / 4.0
+                } else {
+                    (buf[[i, j + s]]
+                        + buf[[i + s, j + s]]
+                        + buf[[i + s / 2, j + s / 2]])
+                        / 3.0
+                };
+                let mean_l = if s / 2 <= i {
+                    (buf[[i, j]]
+                        + buf[[i, j + s]]
+                        + buf[[i - s / 2, j + s / 2]]
+                        + buf[[i + s / 2, j + s / 2]])
+                        / 4.0
+                } else {
+                    (buf[[i, j]]
+                        + buf[[i, j + s]]
+                        + buf[[i + s / 2, j + s / 2]])
+                        / 3.0
+                };
+                let mean_r = if i + s + s / 2 <= n {
+                    (buf[[i + s, j]]
+                        + buf[[i + s, j + s]]
+                        + buf[[i + s / 2, j + s / 2]]
+                        + buf[[i + s + s / 2, j + s / 2]])
+                        / 4.0
+                } else {
+                    (buf[[i + s, j]]
+                        + buf[[i + s, j + s]]
+                        + buf[[i + s / 2, j + s / 2]])
+                        / 3.0
+                };
+
+                buf[[i, j + s / 2]] = mean_l + heights.sample(rng) * scale;
+                buf[[i + s / 2, j]] = mean_u + heights.sample(rng) * scale;
+                buf[[i + s, j + s / 2]] = mean_r + heights.sample(rng) * scale;
+                buf[[i + s / 2, j + s]] = mean_d + heights.sample(rng) * scale;
+            }
+        }
+
+        // eprintln!("After square phase {s}:");
+        // for row in buf.rows() {
+        //     for &c in row {
+        //         if c.is_nan() {
+        //             eprint!(" ____");
+        //         } else {
+        //             eprint!(" {c:-4.1}");
+        //         }
+        //     }
+        //     eprintln!();
+        // }
+
+        scale /= 2.0;
+        s /= 2;
     }
-    res
+
+    buf
 }
-fn floor() -> Obj<Vec2> {
+
+#[inline(never)]
+fn floor() -> Obj<Normal3> {
     let mut bld = Mesh::builder();
 
-    let size = 50;
+    let hf = diamond_square(512);
+
+    let size = 256;
     for j in -size..=size {
         for i in -size..=size {
             let i_odd = i & 1;
             let j_odd = j & 1;
 
-            let pos = pt3(i as f32, -1.0, j as f32);
-            let attrib = vec2(i_odd as f32, j_odd as f32);
-            bld.push_vert(pos, attrib);
+            let h = -32.0
+                + 64.0
+                    * smoothstep(smootherstep(
+                        hf[[(i + size) as u32, (j + size) as u32]] * 0.5 + 0.5,
+                    ));
+
+            let pos = pt3(i as f32, -1.0 + h, j as f32);
+            //let attrib = vec2(i_odd as f32, j_odd as f32);
+            bld.push_vert(pos, ());
 
             if j > -size && i > -size {
                 let w = size * 2 + 1;
@@ -211,5 +343,5 @@ fn floor() -> Obj<Vec2> {
             }
         }
     }
-    Obj::new(bld.build())
+    Obj::new(bld.with_vertex_normals().build())
 }
