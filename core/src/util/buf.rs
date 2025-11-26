@@ -431,6 +431,7 @@ pub mod inner {
 
         /// Returns the linear index corresponding to the coordinates,
         /// or panics if either x or y is out of bounds.
+        #[track_caller]
         #[inline]
         fn to_index_strict(&self, x: u32, y: u32) -> usize {
             match self.to_index_checked(x, y) {
