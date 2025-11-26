@@ -24,7 +24,6 @@ use super::{Affine, Linear, Vector, vary::ZDiv};
 ///   Color components are also called *channels*.
 /// * `Space`: the color space that `Self` is an element of.
 #[repr(transparent)]
-#[derive(Copy, Clone, Default, Eq, PartialEq)]
 pub struct Color<Repr, Space>(pub Repr, PhantomData<Space>);
 
 /// The (S)RGB (red, green, blue) color space.
@@ -550,7 +549,7 @@ where
 // Local trait impls
 //
 
-impl<Sp, const DIM: usize> Affine for Color<[u8; DIM], Sp> {
+impl<Sp: Debug + Default, const DIM: usize> Affine for Color<[u8; DIM], Sp> {
     type Space = Sp;
     // Color<i32> is currently not Linear, so use Vector for now
     type Diff = Vector<[i32; DIM], Sp>;
@@ -569,7 +568,10 @@ impl<Sp, const DIM: usize> Affine for Color<[u8; DIM], Sp> {
     }
 }
 
-impl<Sp, const DIM: usize> Affine for Color<[f32; DIM], Sp> {
+impl<Sp, const DIM: usize> Affine for Color<[f32; DIM], Sp>
+where
+    Self: Debug,
+{
     type Space = Sp;
     type Diff = Self;
 
@@ -585,7 +587,10 @@ impl<Sp, const DIM: usize> Affine for Color<[f32; DIM], Sp> {
     }
 }
 
-impl<Sp, const DIM: usize> Linear for Color<[f32; DIM], Sp> {
+impl<Sp, const DIM: usize> Linear for Color<[f32; DIM], Sp>
+where
+    Self: Debug,
+{
     type Scalar = f32;
 
     /// Returns the all-zeroes color (black).
@@ -604,9 +609,33 @@ impl<Sc, Sp, const N: usize> ZDiv for Color<[Sc; N], Sp> where Sc: ZDiv + Copy {
 // Foreign trait impls
 //
 
+// Implemented manually to avoid bound on space
+
+impl<R: Copy, Sp> Copy for Color<R, Sp> {}
+
+impl<R: Clone, Sp> Clone for Color<R, Sp> {
+    fn clone(&self) -> Self {
+        self.0.clone().into()
+    }
+}
+
 impl<R: Debug, Space: Debug + Default> Debug for Color<R, Space> {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         write!(f, "Color<{:?}>{:?}", Space::default(), self.0)
+    }
+}
+
+impl<R: Default, S> Default for Color<R, S> {
+    fn default() -> Self {
+        R::default().into()
+    }
+}
+
+impl<R: Eq, Sp> Eq for Color<R, Sp> {}
+
+impl<R: PartialEq, Sp> PartialEq for Color<R, Sp> {
+    fn eq(&self, other: &Self) -> bool {
+        self.0 == other.0
     }
 }
 

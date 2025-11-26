@@ -187,7 +187,7 @@ impl Affine for u32 {
     }
 }
 
-impl<V: Clone> Vary for V
+impl<V: Clone + Debug> Vary for V
 where
     Self: Affine<Diff: Linear<Scalar = f32> + Clone> + ZDiv,
 {

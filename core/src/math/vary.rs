@@ -20,7 +20,7 @@ pub trait ZDiv: Sized {
 /// This trait is designed particularly for *varyings:* types that are
 /// meant to be interpolated across the face of a polygon when rendering,
 /// but the methods are useful for various purposes.
-pub trait Vary: Lerp + ZDiv + Sized + Clone {
+pub trait Vary: Lerp + ZDiv {
     /// The iterator returned by the [vary][Self::vary] method.
     type Iter: Iterator<Item = Self>;
     /// The difference type of `Self`.
