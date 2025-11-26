@@ -12,7 +12,7 @@ use core::{
 };
 
 use super::{
-    Affine, Angle, ApproxEq, Linear, Point, atan2,
+    Affine, ApproxEq, Linear, Point,
     space::{Proj3, Real},
     vary::ZDiv,
 };
@@ -451,8 +451,8 @@ impl<B> Vec2<B> {
     /// assert_approx_eq!(vec2(0.0, -3.0).atan(), degs(-90.0));
     /// ```
     #[cfg(feature = "fp")]
-    pub fn atan(self) -> Angle {
-        atan2(self.y(), self.x())
+    pub fn atan(self) -> super::Angle {
+        super::atan2(self.y(), self.x())
     }
 }
 
@@ -630,10 +630,11 @@ impl<R: Copy, S> Copy for Vector<R, S> {}
 
 impl<R: Clone, S> Clone for Vector<R, S> {
     fn clone(&self) -> Self {
-        Self(self.0.clone(), Pd)
+        Self::new(self.0.clone())
     }
 }
 
+// Limited to Cartesian vectors because Spherical/PolarVec have own impl
 impl<R: Default, B, const DIM: usize> Default for Vector<R, Real<DIM, B>> {
     fn default() -> Self {
         Self::new(R::default())

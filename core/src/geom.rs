@@ -668,7 +668,7 @@ where
     }
 }
 
-impl<T: Lerp + Clone> Parametric<T> for Polyline<T> {
+impl<T: Lerp> Parametric<T> for Polyline<T> {
     /// Returns the point on `self` at *t*.
     ///
     /// If the number of vertices in `self` is *n* > 1, the vertex at index
