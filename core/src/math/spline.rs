@@ -1,7 +1,7 @@
 //! Bézier curves and splines.
 
 use alloc::vec::Vec;
-use core::array;
+use core::{array, fmt::Debug};
 
 use crate::geom::{Polyline, Ray};
 
@@ -58,10 +58,7 @@ where
     }
 }
 
-impl<T> CubicBezier<T>
-where
-    T: Affine<Diff: Linear<Scalar = f32>> + Clone,
-{
+impl<T: Lerp> CubicBezier<T> {
     /// Evaluates the value of `self` at `t`.
     ///
     /// For t < 0, returns the first control point. For t > 1, returns the last
@@ -77,7 +74,11 @@ where
             p01.lerp(&p12, t).lerp(&p12.lerp(&p23, t), t)
         })
     }
-
+}
+impl<T> CubicBezier<T>
+where
+    T: Affine<Diff: Linear<Scalar = f32>> + Clone,
+{
     /// Evaluates the value of `self` at `t`.
     ///
     /// For t < 0, returns the first control point. For t > 1, returns the last
@@ -164,7 +165,7 @@ pub struct BezierSpline<T>(Vec<T>);
 
 impl<T> BezierSpline<T>
 where
-    T: Affine<Diff: Linear<Scalar = f32> + Clone> + Clone,
+    T: Affine<Diff: Linear<Scalar = f32> + Clone> + Clone + Debug,
 {
     /// Creates a Bézier spline from the given control points. The number of
     /// elements in `pts` must be 3n + 1 for some positive integer n.
@@ -343,7 +344,7 @@ where
 
 impl<T> Parametric<T> for BezierSpline<T>
 where
-    T: Affine<Diff: Linear<Scalar = f32> + Clone> + Clone,
+    T: Affine<Diff: Linear<Scalar = f32> + Clone> + Clone + Debug,
 {
     fn eval(&self, t: f32) -> T {
         self.eval(t)
