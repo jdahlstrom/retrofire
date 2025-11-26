@@ -2,19 +2,21 @@ use core::ops::ControlFlow::*;
 
 use re::prelude::*;
 
-use re::core::math::color::gray;
+use re::core::math::{
+    color::gray,
+    rand::{DefaultRng, Distrib, Uniform},
+};
+
 use re::core::render::{
     cam::{Fov, PitchYawRoll},
     clip::Status::*,
     scene::Obj,
-    tex::SamplerClamp,
 };
 // Try also Rgb565 or Rgba4444
 use re::core::util::{pixfmt::Rgba8888, pnm::read_pnm};
 
 use re::front::sdl2::Window;
-use re::geom::solids::{Build, Cube};
-use re::prelude::rand::{DefaultRng, Distrib, Uniform};
+use re::geom::solids::Build;
 
 fn main() {
     let mut win = Window::builder()
@@ -26,27 +28,26 @@ fn main() {
     let tex_data = *include_bytes!("../../assets/crate.ppm");
     let tex = Texture::from(read_pnm(&tex_data[..]).expect("data exists"));
 
-    let light_dir = vec3(-2.0, 5.0, -4.0).normalize();
+    let light_dir = vec3(-2.0, 3.0, -4.0).normalize();
 
     let terrain_shader = shader::new(
         |v: Vertex3<Normal3>, mvp: &ProjMat3<_>| {
-            vertex(mvp.apply(&v.pos), (v.pos, v.attrib))
+            vertex(mvp.apply(&v.pos), (v.pos.y(), v.attrib))
         },
-        |frag: Frag<(Point3<Model>, Normal3)>| {
-            let l = frag.var.1.dot(&light_dir).max(0.2);
-            let h = (frag.var.0.y() / 4.0).rem_euclid(1.0);
-            gray(if h > 0.95 { 0.1 } else { l }).to_color4()
-        },
-    );
-    let _crate_shader = shader::new(
-        |v: Vertex3<(Normal3, TexCoord)>, mvp: &ProjMat3<_>| {
-            vertex(mvp.apply(&v.pos), v.attrib)
-        },
-        |frag: Frag<(Normal3, TexCoord)>| {
-            let (n, uv) = frag.var;
-            let kd = lerp(n.dot(&light_dir).max(0.0), 0.4, 1.0);
-            let col = SamplerClamp.sample(&tex, uv);
-            (col.to_color3f() * kd).to_color4()
+        |frag: Frag<(f32, Normal3)>| {
+            let l = frag.var.1.dot(&light_dir).max(0.0);
+            let h = inv_lerp(frag.var.0, -32.0, 32.0);
+
+            let c = if h < 0.05 {
+                rgb(0.2, 0.8, 0.2)
+            } else if h < 0.4 {
+                lerp(h * 2.5, rgb(0.2, 0.8, 0.2), rgb(0.0, 0.3, 0.05))
+            } else if h < 0.7 {
+                lerp((h - 0.4) * 3.3, rgb(0.0, 0.3, 0.05), rgb(0.4, 0.4, 0.35))
+            } else {
+                lerp((h - 0.7) * 2.0, rgb(0.4, 0.4, 0.35), gray(1.1))
+            };
+            (l * rgb(1.0, 1.0, 0.8) * c + rgb(0.15, 0.15, 0.3)).to_color4()
         },
     );
 
@@ -169,10 +170,10 @@ fn diamond_square(n: u32) -> Buf2<f32> {
     let rng = &mut DefaultRng::from_time();
     let heights = Uniform(-1.0..1.0);
 
-    buf[[0, 0]] = 0.0; //dbg!(heights.sample(rng));
-    buf[[0, n]] = 0.0; //dbg!(heights.sample(rng));
-    buf[[n, 0]] = 0.0; //dbg!(heights.sample(rng));
-    buf[[n, n]] = 0.0; //dbg!(heights.sample(rng));
+    buf[[0, 0]] = 0.0; //(heights.sample(rng));
+    buf[[0, n]] = 0.0; //(heights.sample(rng));
+    buf[[n, 0]] = 0.0; //(heights.sample(rng));
+    buf[[n, n]] = 0.0; //(heights.sample(rng));
     let mut s = n;
 
     let mut scale = 1.0;
