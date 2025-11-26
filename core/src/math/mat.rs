@@ -1154,6 +1154,23 @@ pub fn rotate_z(a: Angle) -> Mat4 {
     ]
 }
 
+/// Returns a rotation matrix based on three local (intrinsic) angles:
+/// pitch, yaw, and roll.
+///
+/// The pitch (elevation) angle controls rotation about the local lateral (x)
+/// axis, the yaw (bearing) angle about the local vertical (y) axis, and the
+/// roll (bank) angle about the local longitudinal (z) axis. These angles are
+/// also known to as Tait–Bryan angles.
+///
+/// See also: [`cam::PitchYawRoll`][crate::render::cam::PitchYawRoll].
+#[cfg(feature = "fp")]
+pub fn rotate_pyr(pitch: Angle, yaw: Angle, roll: Angle) -> Mat4 {
+    let p = rotate_x(pitch);
+    let y = rotate_y(yaw);
+    let r = rotate_z(roll);
+    p.then(&y).then(&r).to()
+}
+
 /// Returns a matrix applying a 2D rotation by an angle.
 #[cfg(feature = "fp")]
 pub fn rotate2(a: Angle) -> Mat3 {

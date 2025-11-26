@@ -4,11 +4,11 @@ use core::ops::Range;
 
 #[cfg(feature = "fp")]
 use crate::math::{
-    Angle, Vec3, orient_z, rotate_x, rotate_y, spherical, turns,
+    Angle, Vec3, orient_z, rotate_pyr, rotate_x, rotate_y, spherical, turns,
 };
 use crate::math::{
     Mat4, Point3, ProjMat3, SphericalVec, Vary, orthographic, perspective, pt2,
-    rotate_z, translate, viewport,
+    translate, viewport,
 };
 use crate::util::{Dims, rect::Rect};
 
@@ -357,11 +357,7 @@ impl PitchYawRoll {
 
     /// Adjusts the orientation of the camera by the given delta angles.
     pub fn rotate(&mut self, pitch: Angle, yaw: Angle, roll: Angle) {
-        self.rot = rotate_x(pitch)
-            .then(&rotate_y(yaw))
-            .then(&rotate_z(roll))
-            .to()
-            .then(&self.rot);
+        self.rot = rotate_pyr(pitch, yaw, roll).to().then(&self.rot);
     }
 
     /// Sets the orientation of the camera to the given **world-space** angles.
@@ -369,10 +365,7 @@ impl PitchYawRoll {
     /// To adjust the camera in view space (that is, relative to the current
     /// orientation), use [`rotate()`][Self::rotate].
     pub fn rotate_to(&mut self, pitch: Angle, yaw: Angle, roll: Angle) {
-        self.rot = rotate_x(pitch)
-            .then(&rotate_y(yaw))
-            .then(&rotate_z(roll))
-            .to()
+        self.rot = rotate_pyr(pitch, yaw, roll).to();
     }
 
     /// Returns the matrix from view to world space.
