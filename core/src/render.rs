@@ -25,6 +25,7 @@ pub use self::{
     cam::Camera,
     clip::Clip,
     ctx::Context,
+    light::Light,
     raster::Frag,
     shader::{FragmentShader, VertexShader},
     stats::Stats,
@@ -37,6 +38,7 @@ pub mod batch;
 pub mod cam;
 pub mod clip;
 pub mod ctx;
+pub mod light;
 pub mod prim;
 pub mod raster;
 pub mod scene;
@@ -117,12 +119,13 @@ pub type NdcToScreen = RealToReal<3, Ndc, Screen>;
 
 /// Alias for combined vertex+fragment shader types
 pub trait Shader<Vtx, Var, Uni>:
-    VertexShader<Vtx, Uni, Output = Vertex<ProjVec3, Var>> + FragmentShader<Var>
+    VertexShader<Vtx, Uni, Output = Vertex<ProjVec3, Var>>
+    + FragmentShader<Var, Uni>
 {
 }
 impl<S, Vtx, Var, Uni> Shader<Vtx, Var, Uni> for S where
     S: VertexShader<Vtx, Uni, Output = Vertex<ProjVec3, Var>>
-        + FragmentShader<Var>
+        + FragmentShader<Var, Uni>
 {
 }
 
@@ -196,7 +199,7 @@ pub fn render<Prim, Vtx: Clone, Var, Uni: Copy, Shd>(
             // Convert to fragments, shade, and draw to target
             stats.frags += target
                 .deref_mut()
-                .rasterize(scanline, shader, ctx);
+                .rasterize(scanline, uniform, shader, ctx);
         });
     }
     *ctx.stats.borrow_mut() += stats.finish();

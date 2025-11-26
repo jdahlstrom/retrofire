@@ -205,10 +205,17 @@ impl<T> Camera<T> {
     }
 }
 
+// TODO Should probably pass view and projection matrices separately
+pub type CameraUni<'a, B, Uni> = (&'a ProjMat3<B>, Uni);
+
 impl<T: Transform> Camera<T> {
     /// Returns the composed camera and projection matrix.
     pub fn world_to_project(&self) -> ProjMat3<World> {
         self.transform.world_to_view().then(&self.project)
+    }
+    /// Returns the camera (view) matrix.
+    pub fn world_to_view(&self) -> Mat4<World, View> {
+        self.transform.world_to_view()
     }
 
     /// Renders the given geometry from the viewpoint of this camera.
@@ -224,15 +231,14 @@ impl<T: Transform> Camera<T> {
     ) where
         Prim: Render<Var> + Clone,
         [<Prim>::Clip]: Clip<Item = Prim::Clip>,
-        Shd: for<'a> Shader<Vtx, Var, (&'a ProjMat3<B>, Uni)>,
+        Shd: for<'a> Shader<Vtx, Var, CameraUni<'a, B, Uni>>,
     {
-        let tf = to_world.then(&self.world_to_project());
-
+        let to_proj = to_world.then(&self.world_to_project());
         super::render(
             prims.as_ref(),
             verts.as_ref(),
             shader,
-            (&tf, uniform),
+            (&to_proj, uniform),
             self.viewport,
             target,
             ctx,
