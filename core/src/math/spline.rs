@@ -1,6 +1,6 @@
 //! Bézier curves and splines.
 use alloc::vec::Vec;
-use core::{array::from_fn, fmt::Debug};
+use core::fmt::Debug;
 
 use crate::geom::{Polyline, Ray};
 use crate::mat;
@@ -317,8 +317,10 @@ where
     ///
     /// Returns the first point if `t < 0` and the last point if `t > 1`.
     pub fn eval(&self, t: f32) -> T {
-        // invariant self.0.len() != 0 -> last always exists
-        step(t, &self.0[0], self.0.last().unwrap(), |t| {
+        let [first, .., last] = &self.0[..] else {
+            panic!("invariant: self.0.len() >= 4")
+        };
+        step(t, first, last, |t| {
             let (t, seg) = self.segment(t);
             CubicBezier(seg).fast_eval(t)
         })
@@ -333,12 +335,20 @@ where
     }
 
     fn segment(&self, t: f32) -> (f32, [T; 4]) {
-        let segs = ((self.0.len() - 1) / 3) as f32;
-        // TODO use floor and make the code cleaner
-        let seg = ((t * segs) as u32 as f32).min(segs - 1.0);
-        let t2 = t * segs - seg;
+        // The number of Bézier curve segments in this spline
+        let n_segs = ((self.0.len() - 1) / 3) as f32;
+        let t = t * n_segs;
+        // The integral part is the index of the segment we want
+        use super::float::f32;
+        let seg = f32::floor(t).min(n_segs - 1.0);
+        // The fractional part is the local parameter value
+        let u = t - seg;
         let idx = 3 * (seg as usize);
-        (t2, from_fn(|k| self.0[idx + k].clone()))
+        let seg: &[T; 4] = self.0[idx..][..4]
+            .try_into()
+            .expect("idx is guaranteed to be <= len - 4");
+
+        (u, seg.clone())
     }
 
     /// Approximates `self` as a chain of line segments.
@@ -355,6 +365,7 @@ where
     /// );
     /// // Find an approximation with error less than 0.01
     /// let approx = curve.approximate(0.01);
+    ///
     /// // Euclidean length of the polyline approximation
     /// assert_eq!(approx.len(), 1.9969313);
     ///
