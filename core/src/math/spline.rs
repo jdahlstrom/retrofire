@@ -1,11 +1,11 @@
 //! Bézier curves and splines.
-
 use alloc::vec::Vec;
-use core::{array, fmt::Debug};
+use core::{array::from_fn, fmt::Debug};
 
 use crate::geom::{Polyline, Ray};
+use crate::mat;
 
-use super::{Affine, Lerp, Linear, Parametric, Vector};
+use super::{Affine, Lerp, Linear, Mat4, Parametric, Point, Vector};
 
 /// A cubic Bézier curve, defined by four control points.
 ///
@@ -57,6 +57,38 @@ where
         f(t)
     }
 }
+
+/// The characteristic matrix of a cubic Bézier spline.
+const _BEZIER_MAT: Mat4 = mat![
+     1.0,  0.0,  0.0,  0.0;
+    -3.0,  3.0,  0.0,  0.0;
+     3.0, -6.0,  3.0,  0.0;
+    -1.0,  3.0, -3.0,  1.0;
+];
+
+/// The characteristic matrix of a cubic Hermite spline.
+const _HERMITE_MAT: Mat4 = mat![
+     1.0,  0.0,  0.0,  0.0;
+     0.0,  1.0,  0.0,  0.0;
+    -3.0, -2.0,  3.0, -1.0;
+     2.0,  1.0, -2.0,  1.0;
+];
+
+/// The characteristic matrix of a cubic B-spline.
+const _B_SPLINE_MAT: Mat4 = {
+    const F16: f32 = 1.0 / 6.0;
+    const F23: f32 = 2.0 / 3.0;
+    mat![
+        F16,   F23,  F16,  0.0;
+       -0.5,   0.0,  0.5,  0.0;
+        0.5,  -1.0,  0.5,  0.0;
+       -F16,  0.5, -0.5,  F16;
+    ]
+};
+
+//
+// Inherent impls
+//
 
 impl<T: Lerp> CubicBezier<T> {
     /// Evaluates the value of `self` at `t`.
@@ -163,6 +195,74 @@ where
 #[derive(Debug, Clone, Eq, PartialEq)]
 pub struct BezierSpline<T>(Vec<T>);
 
+pub struct HermiteSpline<T: Affine>(Vec<Ray<T>>);
+
+#[derive(Debug, Clone, Eq, PartialEq)]
+pub struct CatmullRomSpline<T>(Vec<T>);
+
+#[derive(Debug, Clone, Eq, PartialEq)]
+pub struct BSpline<T>(Vec<T>);
+
+type Pt<const N: usize, Sp> = Point<[f32; N], Sp>;
+type V<const N: usize, Sp> = Vector<[f32; N], Sp>;
+
+impl<Sp, const N: usize> HermiteSpline<Pt<N, Sp>>
+where
+    Pt<N, Sp>: Affine<Diff = V<N, Sp>> + Lerp,
+{
+    pub fn new(
+        rays: impl IntoIterator<Item = Ray<Point<[f32; N], Sp>>>,
+    ) -> Self {
+        let rays: Vec<_> = rays.into_iter().collect();
+        assert!(rays.len() >= 1);
+        Self(rays)
+    }
+
+    // Precondition: t < self.0.len() - 1
+    fn segment(&self, t: f32) -> (f32, &Ray<Pt<N, Sp>>, &Ray<Pt<N, Sp>>) {
+        let i = t as usize;
+        let u = t - i as f32;
+        (u, &self.0[i], &self.0[i + 1])
+    }
+
+    pub fn eval(&self, t: f32) -> Pt<N, Sp> {
+        if t >= 1.0 {
+            return self.0.last().unwrap().0;
+        } else if t <= 0.0 {
+            return self.0[0].0;
+        }
+        let t = t * (self.0.len() as f32 - 1.0);
+
+        let (t, Ray(p0, d0), Ray(p1, d1)) = self.segment(t);
+        let [_, t1, t2, t3] = [1.0, t, t * t, t * t * t];
+
+        // Characteristic matrix M
+        //  1.0,  0.0,  0.0,  0.0;
+        //  0.0,  1.0,  0.0,  0.0;
+        // -3.0, -2.0,  3.0, -1.0;
+        //  2.0,  1.0, -2.0,  1.0;
+
+        // b = ts * M
+        let _b0 = 1.0 - 3.0 * t2 + 2.0 * t3; // = 1 - b2
+        let b1 = t1 - 2.0 * t2 + t3;
+        let b2 = 3.0 * t2 - 2.0 * t3;
+        let b3 = -t2 + t3;
+
+        // H(t) = b * P
+
+        //   b0 * p0 + b1 * d0 + b2 * p1 + b3 * d1
+        // = b0 * p0 + b2 * p1 // Affine: b0 + b2 = 1: lerp
+        // + b1 * d0 + b3 * d1 // Linear
+
+        //   b0 * p0 + b2 * p1
+        // = (1 - b2) * p0 + b2 * p1
+        // = p0 + b2 * (p1 - p0)
+
+        p0.add(&p1.sub(&p0).mul(b2)) // Affine
+            .add(&d0.mul(b1).add(&d1.mul(b3))) // Linear
+    }
+}
+
 impl<T> BezierSpline<T>
 where
     T: Affine<Diff: Linear<Scalar = f32> + Clone> + Clone + Debug,
@@ -187,7 +287,12 @@ where
         Self(pts.to_vec())
     }
 
-    /// Constructs a Bézier spline
+    /// Constructs a Bézier spline from (position, tangent) pairs.
+    ///
+    /// Specifically, for each pair of consecutive rays (P0, d0) and (P1, d1),
+    /// the result contains one cubic Bézier curve segment with control points
+    /// (P0, P0 + d0, P1 - d1, P1). The next segment, defined by (P1, d1) and
+    /// the next ray (P2, d2), would in turn give (P1, P1 + d1, P2 - d2, P2).
     pub fn from_rays<I>(rays: I) -> Self
     where
         I: IntoIterator<Item = Ray<T>>,
@@ -233,7 +338,7 @@ where
         let seg = ((t * segs) as u32 as f32).min(segs - 1.0);
         let t2 = t * segs - seg;
         let idx = 3 * (seg as usize);
-        (t2, array::from_fn(|k| self.0[idx + k].clone()))
+        (t2, from_fn(|k| self.0[idx + k].clone()))
     }
 
     /// Approximates `self` as a chain of line segments.
@@ -243,12 +348,17 @@ where
     ///
     /// # Examples
     /// ```
-    /// use retrofire_core::math::{BezierSpline, vec2, Vec2};
+    /// use retrofire_core::math::{BezierSpline, Point2, pt2};
     ///
-    /// let curve = BezierSpline::<Vec2>::new(
-    ///     &[vec2(0.0, 0.0), vec2(0.0, 1.0), vec2(1.0, 1.0), vec2(1.0, 0.0)]
+    /// let curve = BezierSpline::<Point2>::new(
+    ///     &[pt2(0.0, 0.0), pt2(0.0, 1.0), pt2(1.0, 1.0), pt2(1.0, 0.0)]
     /// );
+    /// // Find an approximation with error less than 0.01
     /// let approx = curve.approximate(0.01);
+    /// // Euclidean length of the polyline approximation
+    /// assert_eq!(approx.len(), 1.9969313);
+    ///
+    /// // Number of line segments used by the approximation
     /// assert_eq!(approx.0.len(), 17);
     /// ```
     ///
@@ -289,12 +399,17 @@ where
     ///
     /// # Examples
     /// ```
-    /// use retrofire_core::math::{BezierSpline, vec2, Vec2};
+    /// use retrofire_core::math::{BezierSpline, Point2, pt2};
     ///
-    /// let curve = BezierSpline::<Vec2>::new(
-    ///     &[vec2(0.0, 0.0), vec2(0.0, 1.0), vec2(1.0, 1.0), vec2(1.0, 0.0)]
+    /// let curve = BezierSpline::<Point2>::new(
+    ///     &[pt2(0.0, 0.0), pt2(0.0, 1.0), pt2(1.0, 1.0), pt2(1.0, 0.0)]
     /// );
     /// let approx = curve.approximate_with(|err| err.len_sqr() < 0.01 * 0.01);
+    ///
+    /// // Euclidean length of the polyline approximation
+    /// assert_eq!(approx.len(), 1.9969313);
+    ///
+    /// // Number of line segments used by the approximation
     /// assert_eq!(approx.0.len(), 17);
     /// ```
     pub fn approximate_with(
@@ -351,12 +466,22 @@ where
     }
 }
 
+impl<const N: usize, Sp> Parametric<Point<[f32; N], Sp>>
+    for HermiteSpline<Point<[f32; N], Sp>>
+where
+    Pt<N, Sp>: Affine<Diff = Vector<[f32; N], Sp>> + Lerp,
+    Sp: Debug + Default,
+{
+    fn eval(&self, t: f32) -> Pt<N, Sp> {
+        self.eval(t)
+    }
+}
+
 #[cfg(test)]
 mod tests {
-    use alloc::vec;
-
     use crate::assert_approx_eq;
     use crate::math::{Parametric, Point2, Vec2, pt2, vec2};
+    use alloc::vec;
 
     use super::*;
 
@@ -487,5 +612,19 @@ mod tests {
         assert_eq!(c.eval(0.75), 0.6);
         assert_eq!(c.eval(1.0), 0.5);
         assert_eq!(c.eval(2.0), 0.5);
+    }
+
+    #[test]
+    fn hermite_spline() {
+        let h = HermiteSpline::new([
+            Ray(pt2::<_, ()>(0.0, 0.0), vec2(1.0, 0.0)),
+            Ray(pt2(1.0, 1.0), vec2(1.0, 0.0)),
+        ]);
+
+        assert_eq!(h.eval(0.0), pt2(0.0, 0.0));
+        assert_approx_eq!(h.eval(0.2), pt2(0.2, 0.104));
+        assert_eq!(h.eval(0.5), pt2(0.5, 0.5));
+        assert_approx_eq!(h.eval(0.8), pt2(0.8, 0.896));
+        assert_eq!(h.eval(1.0), pt2(1.0, 1.0));
     }
 }
