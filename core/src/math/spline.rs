@@ -206,86 +206,9 @@ pub struct BSpline<T>(Vec<T>);
 type Pt<const N: usize, Sp> = Point<[f32; N], Sp>;
 type V<const N: usize, Sp> = Vector<[f32; N], Sp>;
 
-impl<Sp, const N: usize> HermiteSpline<Pt<N, Sp>>
-where
-    Pt<N, Sp>: Affine<Diff = V<N, Sp>> + Lerp,
-{
-    pub fn new(
-        rays: impl IntoIterator<Item = Ray<Point<[f32; N], Sp>>>,
-    ) -> Self {
-        let rays: Vec<_> = rays.into_iter().collect();
-        assert!(rays.len() >= 1);
-        Self(rays)
-    }
-
-    // Precondition: t < self.0.len() - 1
-    fn segment(&self, t: f32) -> (f32, &Ray<Pt<N, Sp>>, &Ray<Pt<N, Sp>>) {
-        let i = t as usize;
-        let u = t - i as f32;
-        (u, &self.0[i], &self.0[i + 1])
-    }
-
-    pub fn eval(&self, t: f32) -> Pt<N, Sp> {
-        if t >= 1.0 {
-            return self.0.last().unwrap().0;
-        } else if t <= 0.0 {
-            return self.0[0].0;
-        }
-        let t = t * (self.0.len() as f32 - 1.0);
-
-        let (t, Ray(p0, d0), Ray(p1, d1)) = self.segment(t);
-        let [_, t1, t2, t3] = [1.0, t, t * t, t * t * t];
-
-        // Characteristic matrix M
-        //  1.0,  0.0,  0.0,  0.0;
-        //  0.0,  1.0,  0.0,  0.0;
-        // -3.0, -2.0,  3.0, -1.0;
-        //  2.0,  1.0, -2.0,  1.0;
-
-        // b = ts * M
-        let _b0 = 1.0 - 3.0 * t2 + 2.0 * t3; // = 1 - b2
-        let b1 = t1 - 2.0 * t2 + t3;
-        let b2 = 3.0 * t2 - 2.0 * t3;
-        let b3 = -t2 + t3;
-
-        // H(t) = b * P
-
-        //   b0 * p0 + b1 * d0 + b2 * p1 + b3 * d1
-        // = b0 * p0 + b2 * p1 // Affine: b0 + b2 = 1: lerp
-        // + b1 * d0 + b3 * d1 // Linear
-
-        //   b0 * p0 + b2 * p1
-        // = (1 - b2) * p0 + b2 * p1
-        // = p0 + b2 * (p1 - p0)
-
-        p0.add(&p1.sub(&p0).mul(b2)) // Affine
-            .add(&d0.mul(b1).add(&d1.mul(b3))) // Linear
-    }
-
-    pub fn approximate(&self, error: f32) -> Polyline<Pt<N, Sp>>
-    where
-        Pt<N, Sp>: Lerp,
-        Sp: Debug + Default,
-    {
-        assert!(error > 0.0);
-        self.approximate_with(&|e: &V<N, Sp>| e.len_sqr() < error * error)
-    }
-
-    pub fn approximate_with(
-        &self,
-        halt: impl Fn(&V<N, Sp>) -> bool,
-    ) -> Polyline<Pt<N, Sp>>
-    where
-        Pt<N, Sp>: Lerp,
-        Sp: Debug + Default,
-    {
-        let len = self.0.len();
-        let mut res = Vec::with_capacity(3 * len);
-        do_approx(self, 0.0, 1.0, 10 + len.ilog2(), &halt, &mut res);
-        res.push(self.0[len - 1].0);
-        Polyline(res)
-    }
-}
+//
+// Inherent impls
+//
 
 impl<T> BezierSpline<T>
 where
@@ -458,6 +381,89 @@ where
         Polyline(res)
     }
 }
+
+impl<Sp, const N: usize> HermiteSpline<Pt<N, Sp>>
+where
+    Pt<N, Sp>: Affine<Diff = V<N, Sp>> + Lerp,
+{
+    pub fn new(
+        rays: impl IntoIterator<Item = Ray<Point<[f32; N], Sp>>>,
+    ) -> Self {
+        let rays: Vec<_> = rays.into_iter().collect();
+        assert!(rays.len() >= 1);
+        Self(rays)
+    }
+
+    pub fn eval(&self, t: f32) -> Pt<N, Sp> {
+        if t >= 1.0 {
+            return self.0.last().unwrap().0;
+        } else if t <= 0.0 {
+            return self.0[0].0;
+        }
+        let t = t * (self.0.len() as f32 - 1.0);
+
+        let (t, Ray(p0, d0), Ray(p1, d1)) = self.segment(t);
+        let [_, t1, t2, t3] = [1.0, t, t * t, t * t * t];
+
+        // Characteristic matrix M
+        //  1.0,  0.0,  0.0,  0.0;
+        //  0.0,  1.0,  0.0,  0.0;
+        // -3.0, -2.0,  3.0, -1.0;
+        //  2.0,  1.0, -2.0,  1.0;
+
+        // b = ts * M
+        let _b0 = 1.0 - 3.0 * t2 + 2.0 * t3; // = 1 - b2
+        let b1 = t1 - 2.0 * t2 + t3;
+        let b2 = 3.0 * t2 - 2.0 * t3;
+        let b3 = -t2 + t3;
+
+        // H(t) = b * P
+
+        //   b0 * p0 + b1 * d0 + b2 * p1 + b3 * d1
+        // = b0 * p0 + b2 * p1 // Affine: b0 + b2 = 1: lerp
+        // + b1 * d0 + b3 * d1 // Linear
+
+        //   b0 * p0 + b2 * p1
+        // = (1 - b2) * p0 + b2 * p1
+        // = p0 + b2 * (p1 - p0)
+
+        p0.add(&p1.sub(&p0).mul(b2)) // Affine
+            .add(&d0.mul(b1).add(&d1.mul(b3))) // Linear
+    }
+
+    pub fn approximate(&self, error: f32) -> Polyline<Pt<N, Sp>>
+    where
+        Pt<N, Sp>: Lerp,
+        Sp: Debug + Default,
+    {
+        assert!(error > 0.0);
+        self.approximate_with(&|e: &V<N, Sp>| e.len_sqr() < error * error)
+    }
+
+    pub fn approximate_with(
+        &self,
+        halt: impl Fn(&V<N, Sp>) -> bool,
+    ) -> Polyline<Pt<N, Sp>>
+    where
+        Pt<N, Sp>: Lerp,
+        Sp: Debug + Default,
+    {
+        let len = self.0.len();
+        let mut res = Vec::with_capacity(3 * len);
+        do_approx(self, 0.0, 1.0, 10 + len.ilog2(), &halt, &mut res);
+        res.push(self.0[len - 1].0);
+        Polyline(res)
+    }
+
+    // Returns the curve segment corresponding to a global t value.
+    // Precondition: t < self.0.len() - 1
+    fn segment(&self, t: f32) -> (f32, &Ray<Pt<N, Sp>>, &Ray<Pt<N, Sp>>) {
+        let i = t as usize;
+        let u = t - i as f32;
+        (u, &self.0[i], &self.0[i + 1])
+    }
+}
+
 fn do_approx<T: Affine<Diff: Lerp> + Lerp>(
     spline: &impl Parametric<T>,
     a: f32,
@@ -481,6 +487,10 @@ fn do_approx<T: Affine<Diff: Lerp> + Lerp>(
         do_approx(spline, mid, b, max_dep - 1, halt, accum);
     }
 }
+
+//
+// Local trait impls
+//
 
 impl<T> Parametric<T> for CubicBezier<T>
 where
