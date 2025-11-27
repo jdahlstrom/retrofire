@@ -261,11 +261,35 @@ where
         p0.add(&p1.sub(&p0).mul(b2)) // Affine
             .add(&d0.mul(b1).add(&d1.mul(b3))) // Linear
     }
+
+    pub fn approximate(&self, error: f32) -> Polyline<Pt<N, Sp>>
+    where
+        Pt<N, Sp>: Lerp,
+        Sp: Debug + Default,
+    {
+        assert!(error > 0.0);
+        self.approximate_with(&|e: &V<N, Sp>| e.len_sqr() < error * error)
+    }
+
+    pub fn approximate_with(
+        &self,
+        halt: impl Fn(&V<N, Sp>) -> bool,
+    ) -> Polyline<Pt<N, Sp>>
+    where
+        Pt<N, Sp>: Lerp,
+        Sp: Debug + Default,
+    {
+        let len = self.0.len();
+        let mut res = Vec::with_capacity(3 * len);
+        do_approx(self, 0.0, 1.0, 10 + len.ilog2(), &halt, &mut res);
+        res.push(self.0[len - 1].0);
+        Polyline(res)
+    }
 }
 
 impl<T> BezierSpline<T>
 where
-    T: Affine<Diff: Linear<Scalar = f32> + Clone> + Clone + Debug,
+    T: Affine<Diff: Linear<Scalar = f32> + Clone + Debug> + Clone + Debug,
 {
     /// Creates a Bézier spline from the given control points. The number of
     /// elements in `pts` must be 3n + 1 for some positive integer n.
@@ -429,33 +453,32 @@ where
     ) -> Polyline<T> {
         let len = self.0.len();
         let mut res = Vec::with_capacity(3 * len);
-        self.do_approx(0.0, 1.0, 10 + len.ilog2(), &halt, &mut res);
+        do_approx(self, 0.0, 1.0, 10 + len.ilog2(), &halt, &mut res);
         res.push(self.0[len - 1].clone());
         Polyline(res)
     }
+}
+fn do_approx<T: Affine<Diff: Lerp> + Lerp>(
+    spline: &impl Parametric<T>,
+    a: f32,
+    b: f32,
+    max_dep: u32,
+    halt: &impl Fn(&T::Diff) -> bool,
+    accum: &mut Vec<T>,
+) {
+    let mid = a.midpoint(b);
 
-    fn do_approx(
-        &self,
-        a: f32,
-        b: f32,
-        max_dep: u32,
-        halt: &impl Fn(&T::Diff) -> bool,
-        accum: &mut Vec<T>,
-    ) {
-        let mid = a.midpoint(b);
+    let ap = spline.eval(a);
+    let bp = spline.eval(b);
 
-        let ap = self.eval(a);
-        let bp = self.eval(b);
+    let real = spline.eval(mid);
+    let approx = ap.midpoint(&bp);
 
-        let real = self.eval(mid);
-        let approx = ap.midpoint(&bp);
-
-        if max_dep == 0 || halt(&real.sub(&approx)) {
-            accum.push(ap);
-        } else {
-            self.do_approx(a, mid, max_dep - 1, halt, accum);
-            self.do_approx(mid, b, max_dep - 1, halt, accum);
-        }
+    if max_dep == 0 || (halt(&(real.sub(&approx)))) {
+        accum.push(ap);
+    } else {
+        do_approx(spline, a, mid, max_dep - 1, halt, accum);
+        do_approx(spline, mid, b, max_dep - 1, halt, accum);
     }
 }
 
@@ -470,7 +493,8 @@ where
 
 impl<T> Parametric<T> for BezierSpline<T>
 where
-    T: Affine<Diff: Linear<Scalar = f32> + Clone> + Clone + Debug,
+    T: Affine + Clone + Debug,
+    T::Diff: Linear<Scalar = f32> + Clone + Debug,
 {
     fn eval(&self, t: f32) -> T {
         self.eval(t)
