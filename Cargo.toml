@@ -19,6 +19,7 @@ license.workspace = true
 keywords.workspace = true
 categories.workspace = true
 repository.workspace = true
+documentation.workspace = true
 
 [workspace]
 members = [
@@ -36,9 +37,10 @@ edition = "2024"
 version = "0.4.0"
 authors = ["Johannes 'Sharlin' Dahlström <johannes.dahlstrom@gmail.com>"]
 license = "MIT OR Apache-2.0"
-repository = "https://github.com/jdahlstrom/retrofire"
 keywords = ["graphics", "gamedev", "demoscene", "retrocomputing", "rendering"]
 categories = ["graphics", "game-development", "no-std"]
+repository = "https://github.com/jdahlstrom/retrofire"
+documentation = "https://crates.io/crates/retrofire"
 
 [workspace.lints]
 clippy.manual_range_contains = "allow"

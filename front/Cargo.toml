@@ -19,6 +19,7 @@ license.workspace = true
 keywords.workspace = true
 categories.workspace = true
 repository.workspace = true
+documentation.workspace = true
 
 [features]
 wasm = ["dep:wasm-bindgen", "dep:web-sys"]
