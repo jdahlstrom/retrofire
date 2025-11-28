@@ -395,40 +395,27 @@ where
     }
 
     pub fn eval(&self, t: f32) -> Pt<N, Sp> {
-        if t >= 1.0 {
-            return self.0.last().unwrap().0;
-        } else if t <= 0.0 {
-            return self.0[0].0;
-        }
-        let t = t * (self.0.len() as f32 - 1.0);
+        let len = self.0.len();
+        step(t, &self.0[0].0, &self.0[len - 1].0, |t| {
+            let t = t * (len as f32 - 1.0);
 
-        let (t, Ray(p0, d0), Ray(p1, d1)) = self.segment(t);
-        let [_, t1, t2, t3] = [1.0, t, t * t, t * t * t];
+            let (t, Ray(p0, d0), Ray(p1, d1)) = self.segment(t);
+            let ts = [1.0, t, t * t, t * t * t];
+            let [_, b1, b2, b3] = Self::bernstein(ts);
 
-        // Characteristic matrix M
-        //  1.0,  0.0,  0.0,  0.0;
-        //  0.0,  1.0,  0.0,  0.0;
-        // -3.0, -2.0,  3.0, -1.0;
-        //  2.0,  1.0, -2.0,  1.0;
+            // S(t) = b * P
 
-        // b = ts * M
-        let _b0 = 1.0 - 3.0 * t2 + 2.0 * t3; // = 1 - b2
-        let b1 = t1 - 2.0 * t2 + t3;
-        let b2 = 3.0 * t2 - 2.0 * t3;
-        let b3 = -t2 + t3;
+            //   b0 * p0 + b1 * d0 + b2 * p1 + b3 * d1
+            // = b0 * p0 + b2 * p1 // Affine: b0 + b2 = 1: lerp
+            // + b1 * d0 + b3 * d1 // Linear
 
-        // H(t) = b * P
+            //   b0 * p0 + b2 * p1
+            // = (1 - b2) * p0 + b2 * p1
+            // = p0 + b2 * (p1 - p0)
 
-        //   b0 * p0 + b1 * d0 + b2 * p1 + b3 * d1
-        // = b0 * p0 + b2 * p1 // Affine: b0 + b2 = 1: lerp
-        // + b1 * d0 + b3 * d1 // Linear
-
-        //   b0 * p0 + b2 * p1
-        // = (1 - b2) * p0 + b2 * p1
-        // = p0 + b2 * (p1 - p0)
-
-        p0.add(&p1.sub(&p0).mul(b2)) // Affine
-            .add(&d0.mul(b1).add(&d1.mul(b3))) // Linear
+            p0.add(&p1.sub(&p0).mul(b2)) // Affine
+                .add(&d0.mul(b1).add(&d1.mul(b3))) // Linear
+        })
     }
 
     pub fn approximate(&self, error: f32) -> Polyline<Pt<N, Sp>>
@@ -455,9 +442,25 @@ where
         Polyline(res)
     }
 
-    // Returns the curve segment corresponding to a global t value.
-    // Precondition: t < self.0.len() - 1
+    fn bernstein([_0, t1, t2, t3]: [f32; 4]) -> [f32; 4] {
+        // Characteristic matrix M
+        //  1.0,  0.0,  0.0,  0.0;
+        //  0.0,  1.0,  0.0,  0.0;
+        // -3.0, -2.0,  3.0, -1.0;
+        //  2.0,  1.0, -2.0,  1.0;
+
+        // b = ts * M
+        let _0 = 1.0 - 3.0 * t2 + 2.0 * t3; // = 1 - b2
+        let b1 = t1 - 2.0 * t2 + t3;
+        let b2 = 3.0 * t2 - 2.0 * t3;
+        let b3 = -t2 + t3;
+        [1.0 - b2, b1, b2, b3]
+    }
+
+    // Returns the curve segment corresponding to the global t value.
+    // Precondition: 0 <= t < self.0.len() - 1
     fn segment(&self, t: f32) -> (f32, &Ray<Pt<N, Sp>>, &Ray<Pt<N, Sp>>) {
+        debug_assert!(0.0 <= t && t < self.0.len() as f32 - 1.0);
         let i = t as usize;
         let u = t - i as f32;
         (u, &self.0[i], &self.0[i + 1])
