@@ -370,13 +370,12 @@ where
     /// // Number of line segments used by the approximation
     /// assert_eq!(approx.0.len(), 17);
     /// ```
-    pub fn approximate_with(
-        &self,
-        halt: impl Fn(&T::Diff) -> bool,
-    ) -> Polyline<T> {
+    pub fn approximate_with<Pred>(&self, halt: Pred) -> Polyline<T>
+    where
+        Pred: Fn(&T::Diff) -> bool,
+    {
         let len = self.0.len();
-        let mut res = Vec::with_capacity(3 * len);
-        do_approx(self, 0.0, 1.0, 10 + len.ilog2(), &halt, &mut res);
+        let mut res = approx(self, 0.0, 1.0, 10 + len.ilog2(), &halt);
         res.push(self.0[len - 1].clone());
         Polyline(res)
     }
@@ -427,17 +426,14 @@ where
         self.approximate_with(&|e: &V<N, Sp>| e.len_sqr() < error * error)
     }
 
-    pub fn approximate_with(
-        &self,
-        halt: impl Fn(&V<N, Sp>) -> bool,
-    ) -> Polyline<Pt<N, Sp>>
+    pub fn approximate_with<Pred>(&self, halt: Pred) -> Polyline<Pt<N, Sp>>
     where
         Pt<N, Sp>: Lerp,
         Sp: Debug + Default,
+        Pred: Fn(&V<N, Sp>) -> bool,
     {
         let len = self.0.len();
-        let mut res = Vec::with_capacity(3 * len);
-        do_approx(self, 0.0, 1.0, 10 + len.ilog2(), &halt, &mut res);
+        let mut res = approx(self, 0.0, 1.0, 10 + len.ilog2(), &halt);
         res.push(self.0[len - 1].0);
         Polyline(res)
     }
@@ -465,6 +461,18 @@ where
         let u = t - i as f32;
         (u, &self.0[i], &self.0[i + 1])
     }
+}
+
+fn approx<T: Affine<Diff: Lerp> + Lerp>(
+    spline: &impl Parametric<T>,
+    a: f32,
+    b: f32,
+    max_dep: u32,
+    halt: &impl Fn(&T::Diff) -> bool,
+) -> Vec<T> {
+    let mut res = Vec::with_capacity(32);
+    do_approx(spline, a, b, max_dep, halt, &mut res);
+    res
 }
 
 fn do_approx<T: Affine<Diff: Lerp> + Lerp>(
