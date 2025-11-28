@@ -74,6 +74,14 @@ const _HERMITE_MAT: Mat4 = mat![
      2.0,  1.0, -2.0,  1.0;
 ];
 
+/// The characteristic matrix of a cubic Catmull-Rom spline.
+const _CATMULL_ROM_MAT: Mat4 = mat![
+     0.0,  1.0,  0.0,  0.0;
+    -0.5,  0.0,  0.5,  0.0;
+     1.0, -2.5,  2.0, -0.5;
+    -0.5,  1.5, -1.5,  0.5;
+];
+
 /// The characteristic matrix of a cubic B-spline.
 const _B_SPLINE_MAT: Mat4 = {
     const F16: f32 = 1.0 / 6.0;
@@ -463,6 +471,103 @@ where
     }
 }
 
+impl<const N: usize, Sp> CatmullRomSpline<Pt<N, Sp>> {
+    pub fn new(pts: &[Pt<N, Sp>]) -> Self {
+        Self(pts.to_vec())
+    }
+
+    pub fn eval(&self, t: f32) -> Pt<N, Sp> {
+        // Doesn't pass through first and last
+        let [_, second, .., second_last, _] = self.0.as_slice() else {
+            unreachable!("invariant: len >= 4")
+        };
+        step(t, second, second_last, |t| {
+            let t = t * (self.0.len() as f32 - 3.0) + 1.0;
+
+            let (t, pts) = self.segment(t);
+            let ts = [1.0, t, t * t, t * t * t];
+
+            // S(t) = b * P
+            Affine::combine(&Self::bernstein(ts), &pts)
+        })
+    }
+
+    fn bernstein([t0, t1, t2, t3]: [f32; 4]) -> [f32; 4] {
+        // Characteristic matrix M
+        //  0.0,  1.0,  0.0,  0.0;
+        // -0.5,  0.0,  0.5,  0.0;
+        //  1.0, -2.5,  2.0, -0.5;
+        // -0.5,  1.5, -1.5,  0.5;
+
+        // b = ts * M
+        let b0 = (-t1 + 2.0 * t2 - t3) / 2.0;
+        let b1 = (2.0 * t0 - 5.0 * t2 + 3.0 * t3) / 2.0;
+        let b2 = (t1 + 4.0 * t2 - 3.0 * t3) / 2.0;
+        let b3 = (-t2 + t3) / 2.0;
+        [b0, b1, b2, b3]
+    }
+
+    // Returns the curve segment corresponding to the global t value.
+    // Precondition: 1 <= t < self.0.len() - 2
+    fn segment(&self, t: f32) -> (f32, [Pt<N, Sp>; 4]) {
+        debug_assert!(1.0 <= t && t < self.0.len() as f32 - 2.0, "t = {t}");
+        let i = t as usize;
+        let u = t - i as f32;
+        let pts = self.0[i - 1..i + 3]
+            .try_into()
+            .expect("slice has four elements");
+        (u, pts)
+    }
+}
+
+impl<const N: usize, Sp> BSpline<Pt<N, Sp>> {
+    pub fn new(pts: &[Pt<N, Sp>]) -> Self {
+        Self(pts.to_vec())
+    }
+
+    pub fn eval(&self, t: f32) -> Pt<N, Sp> {
+        let [_, second, .., second_last, _] = self.0.as_slice() else {
+            unreachable!("invariant: len >= 4")
+        };
+        step(t, second, second_last, |t| {
+            let t = t * (self.0.len() as f32 - 3.0) + 1.0;
+
+            let (t, pts) = self.segment(t);
+            let ts = [1.0, t, t * t, t * t * t];
+
+            // S(t) = b * P
+            Affine::combine(&Self::bernstein(ts), &pts)
+        })
+    }
+
+    fn bernstein([_0, t1, t2, t3]: [f32; 4]) -> [f32; 4] {
+        // Characteristic matrix M
+        //  1/6,   2/3,  1/6,  0.0;
+        // -0.5,   0.0,  0.5,  0.0;
+        //  0.5,  -1.0,  0.5,  0.0;
+        // -1/6,  0.5, -0.5,   1/6;
+
+        // b = ts * M
+        let b0 = (1.0 - 3.0 * t1 + 3.0 * t2 + t3) / 6.0;
+        let b1 = (4.0 - 6.0 * t2 + 3.0 * t3) / 6.0;
+        let b2 = (1.0 + 3.0 * t1 + 3.0 * t2 - 3.0 * t3) / 6.0;
+        let b3 = t3 / 6.0;
+        [b0, b1, b2, b3]
+    }
+
+    // Returns the curve segment corresponding to the global t value.
+    // Precondition: 1 <= t < self.0.len() - 2
+    fn segment(&self, t: f32) -> (f32, [Pt<N, Sp>; 4]) {
+        debug_assert!(1.0 <= t && t < self.0.len() as f32 - 2.0);
+        let i = t as usize;
+        let u = t - i as f32;
+        let pts = self.0[i - 1..i + 3]
+            .try_into()
+            .expect("slice has four elements");
+        (u, pts)
+    }
+}
+
 fn approx<T: Affine<Diff: Lerp> + Lerp>(
     spline: &impl Parametric<T>,
     a: f32,
@@ -524,6 +629,28 @@ where
 
 impl<const N: usize, Sp> Parametric<Point<[f32; N], Sp>>
     for HermiteSpline<Point<[f32; N], Sp>>
+where
+    Pt<N, Sp>: Affine<Diff = Vector<[f32; N], Sp>> + Lerp,
+    Sp: Debug + Default,
+{
+    fn eval(&self, t: f32) -> Pt<N, Sp> {
+        self.eval(t)
+    }
+}
+
+impl<const N: usize, Sp> Parametric<Point<[f32; N], Sp>>
+    for CatmullRomSpline<Point<[f32; N], Sp>>
+where
+    Pt<N, Sp>: Affine<Diff = Vector<[f32; N], Sp>> + Lerp,
+    Sp: Debug + Default,
+{
+    fn eval(&self, t: f32) -> Pt<N, Sp> {
+        self.eval(t)
+    }
+}
+
+impl<const N: usize, Sp> Parametric<Point<[f32; N], Sp>>
+    for BSpline<Point<[f32; N], Sp>>
 where
     Pt<N, Sp>: Affine<Diff = Vector<[f32; N], Sp>> + Lerp,
     Sp: Debug + Default,
