@@ -55,17 +55,33 @@ retrofire-core = { version = "0.4.0", path = "core" }
 retrofire-front = { version = "0.4.0", path = "front" }
 retrofire-geom = { version = "0.4.0", path = "geom" }
 
+[dev-dependencies]
+divan = "0.1.21"
+
 [profile.release]
 opt-level = 2
-codegen-units = 1
+codegen-units = 4
 lto = "thin"
 debug = 1
 
 [profile.bench]
 opt-level = 3
 codegen-units = 1
-lto = "fat"
+lto = "thin"
 
 [profile.dev]
 opt-level = 1
 split-debuginfo = "unpacked"
+
+
+[[bench]]
+name = "fill"
+harness = false
+
+[[bench]]
+name = "clip"
+harness = false
+
+[[bench]]
+name = "isect"
+harness = false

@@ -586,7 +586,7 @@ mod tests {
     mod u32 {
         use super::*;
 
-        const pt2: fn(u32, u32) -> Point2u = super::super::pt2;
+        const pt2: fn(u32, u32) -> Point2u = super::pt2;
 
         #[test]
         fn vector_addition() {

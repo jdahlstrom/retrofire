@@ -206,6 +206,15 @@ impl<T> Camera<T> {
 }
 
 impl<T: Transform> Camera<T> {
+    /// Returns the camera matrix.
+    pub fn world_to_view(&self) -> Mat4<World, View> {
+        self.transform.world_to_view()
+    }
+    /// Returns the inverse camera matrix.
+    pub fn view_to_world(&self) -> Mat4<View, World> {
+        self.world_to_view().inverse()
+    }
+
     /// Returns the composed camera and projection matrix.
     pub fn world_to_project(&self) -> ProjMat3<World> {
         self.transform.world_to_view().then(&self.project)
