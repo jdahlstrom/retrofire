@@ -6,7 +6,11 @@ use core::{
     ops::{AddAssign, DivAssign, MulAssign, SubAssign},
 };
 
-use super::{Affine, ApproxEq, Linear, Vector, space::Real, vary::ZDiv};
+use super::{
+    Affine, ApproxEq, Linear, Vector,
+    space::{Euclidean, Real},
+    vary::ZDiv,
+};
 
 #[repr(transparent)]
 pub struct Point<Repr, Space = ()>(pub Repr, Pd<Space>);
@@ -256,6 +260,20 @@ where
     #[inline]
     fn sub(&self, other: &Self) -> Self::Diff {
         Vector::new(array::from_fn(|i| self.0[i].sub(&other.0[i])))
+    }
+}
+
+impl<B, const N: usize> Euclidean for Point<[f32; N], Real<N, B>> {
+    fn origin() -> Self {
+        Point::origin()
+    }
+
+    fn distance(&self, other: &Self) -> f32 {
+        other.sub(self).len()
+    }
+
+    fn approach(&self, other: &Self, d: f32) -> Self {
+        self.approach(other, d)
     }
 }
 
