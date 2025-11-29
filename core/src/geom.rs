@@ -15,7 +15,7 @@ pub use mesh::Mesh;
 pub mod mesh;
 
 /// Vertex with a position and arbitrary other attributes.
-#[derive(Copy, Clone, Debug, Eq, PartialEq)]
+#[derive(Copy, Clone, Debug, Default, Eq, PartialEq)]
 pub struct Vertex<P, A> {
     pub pos: P,
     pub attrib: A,
@@ -28,7 +28,7 @@ pub type Vertex2<A, B = Model> = Vertex<Point2<B>, A>;
 pub type Vertex3<A, B = Model> = Vertex<Point3<B>, A>;
 
 /// Triangle, defined by three vertices.
-#[derive(Copy, Clone, Debug, Eq, PartialEq)]
+#[derive(Copy, Clone, Debug, Default, Eq, PartialEq)]
 #[repr(transparent)]
 pub struct Tri<V>(pub [V; 3]);
 
@@ -48,18 +48,18 @@ pub struct Ray<T: Affine>(pub T, pub T::Diff);
 ///
 /// The polyline is represented as a list of points, or vertices, with each
 /// pair of consecutive vertices sharing an edge.
-#[derive(Clone, Debug, Eq, PartialEq)]
+#[derive(Clone, Debug, Default, Eq, PartialEq)]
 pub struct Polyline<T>(pub Vec<T>);
 
 /// A closed curve composed of a chain of line segments.
 ///
 /// The polygon is represented as a list of points, or vertices, with each pair
 /// of consecutive vertices, as well as the first and last vertex, sharing an edge.
-#[derive(Clone, Debug, Eq, PartialEq)]
+#[derive(Clone, Debug, Default, Eq, PartialEq)]
 pub struct Polygon<T>(pub Vec<T>);
 
 /// A line segment between two vertices.
-#[derive(Copy, Clone, Debug, Eq, PartialEq)]
+#[derive(Copy, Clone, Debug, Default, Eq, PartialEq)]
 pub struct Edge<T>(pub T, pub T);
 
 /// A surface normal in 3D.
@@ -737,6 +737,17 @@ impl<P: Lerp, A: Lerp> Lerp for Vertex<P, A> {
             // TODO Normals shouldn't be lerped
             self.attrib.lerp(&other.attrib, t),
         )
+    }
+}
+
+//
+// Foreign trait impls
+//
+
+impl<B> Default for Plane3<B> {
+    /// Returns the XZ coordinate plane.
+    fn default() -> Self {
+        Plane3::XZ
     }
 }
 
