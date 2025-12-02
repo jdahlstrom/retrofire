@@ -38,7 +38,7 @@ pub fn start() {
 
         let sh = Shader::new(
             |v: Vertex3<Color4f>, _| vertex(mvp.apply(&v.pos), v.attrib),
-            |f: Frag<Color4f>| f.var.to_color4(),
+            |f: Frag<Color4f>, _| f.var.to_color4(),
         );
 
         render([tri(0, 1, 2)], vs, &sh, (), vp, &mut frame.buf, frame.ctx);

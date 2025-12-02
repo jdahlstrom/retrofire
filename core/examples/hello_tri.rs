@@ -14,7 +14,7 @@ fn main() {
             // Interpolate vertex colors in linear color space
             vertex(mvp.apply(&v.pos), v.attrib.to_linear())
         },
-        |frag: Frag<Color3f<_>>| frag.var.to_srgb().to_color4(),
+        |frag: Frag<Color3f<_>>, _| frag.var.to_srgb().to_color4(),
     );
     #[cfg(not(feature = "fp"))]
     let shader = shader::new(
@@ -23,7 +23,7 @@ fn main() {
             // Interpolate vertex colors in normal sRGB color space
             vertex(mvp.apply(&v.pos), v.attrib)
         },
-        |frag: Frag<Color3f<_>>| frag.var.to_color4(),
+        |frag: Frag<Color3f<_>>, _| frag.var.to_color4(),
     );
 
     let dims @ (w, h) = (640, 480);
