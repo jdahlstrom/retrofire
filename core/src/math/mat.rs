@@ -551,15 +551,16 @@ impl<Src, Dst> Mat4<Src, Dst> {
     /// use retrofire_core::math::*;
     ///
     /// let m = scale(splat(5.0)).then(&translate3(1.0, 2.0, 3.0));
-    /// let pt = pt3(1.0, 0.0, 0.0);
+    /// let pt = pt3(1.0, -1.0, 0.5);
     ///
-    /// assert_approx_eq!(m.linear().apply(&pt), pt3(5.0, 0.0, 0.0));
+    /// // Only the scale is applied because the translate is not linear
+    /// assert_approx_eq!(m.linear().apply(&pt), pt3(5.0, -5.0, 2.5));
     pub const fn linear(&self) -> Mat3<Src, Dst, 3> {
         let [r, s, t, _] = self.0;
         mat![
             r[0], r[1], r[2];
-            s[0], r[1], r[2];
-            t[0], r[1], r[2];
+            s[0], s[1], s[2];
+            t[0], t[1], t[2];
         ]
     }
 
@@ -1314,7 +1315,7 @@ mod tests {
     #[allow(unused)]
     const O: Vec3 = Vec3::new([0.0; 3]);
 
-    mod mat2x2 {
+    mod mat2 {
         use super::*;
 
         #[test]
@@ -1348,7 +1349,7 @@ mod tests {
         }
     }
 
-    mod mat3x3 {
+    mod mat3 {
         use super::*;
 
         const MAT: Mat3<B1, B2, 3> = mat![
@@ -1483,6 +1484,24 @@ mod tests {
         fn row_col_vecs() {
             assert_eq!(MAT.row_vec(1), [10.0, 11.0, 12.0, 13.0].into());
             assert_eq!(MAT.col_vec(3), [3.0, 13.0, 23.0, 33.0].into());
+        }
+
+        #[test]
+        fn linear_part() {
+            assert_eq!(
+                MAT.linear(),
+                mat![
+                     0.0,  1.0,  2.0;
+                    10.0, 11.0, 12.0;
+                    20.0, 21.0, 22.0;
+                ]
+            );
+        }
+
+        #[test]
+        fn translation_part() {
+            assert_eq!(MAT.translation(), vec3(3.0, 13.0, 23.0));
+            assert_eq!(MAT.origin(), pt3(3.0, 13.0, 23.0));
         }
 
         #[test]
@@ -1637,7 +1656,7 @@ mod tests {
         }
 
         #[test]
-        fn from_basis() {
+        fn from_linear_basis() {
             let m = Mat4::from_linear(Y, 2.0 * Z, -3.0 * X);
 
             assert_eq!(m.apply(&X), Y);
