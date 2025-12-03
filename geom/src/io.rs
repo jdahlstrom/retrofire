@@ -79,7 +79,7 @@ pub enum Error {
 pub struct Obj {
     faces: Vec<Tri<Indices>>,
     coords: Vec<Point3<Model>>,
-    norms: Vec<Normal3>,
+    norms: Vec<Normal3<Model>>,
     texcs: Vec<TexCoord>,
 }
 
@@ -235,7 +235,7 @@ impl TryFrom<Obj> for Builder<()> {
         o.try_into_with(|_| Some(()))
     }
 }
-impl TryFrom<Obj> for Builder<Normal3> {
+impl TryFrom<Obj> for Builder<Normal3<Model>> {
     type Error = Error;
 
     fn try_from(o: Obj) -> Result<Self> {
@@ -255,7 +255,7 @@ impl TryFrom<Obj> for Builder<TexCoord> {
         o.try_into_with(|i| i.uv.map(|ti| o.texcs[ti]))
     }
 }
-impl TryFrom<Obj> for Builder<(Normal3, TexCoord)> {
+impl TryFrom<Obj> for Builder<(Normal3<Model>, TexCoord)> {
     type Error = Error;
 
     fn try_from(o: Obj) -> Result<Self> {
@@ -335,8 +335,10 @@ fn parse_vector<'a>(
     Ok(vec3(x, y, z))
 }
 
-fn parse_normal<'a>(i: &mut impl Iterator<Item = &'a str>) -> Result<Normal3> {
-    Ok(parse_vector(i)?.to())
+fn parse_normal<'a>(
+    i: &mut impl Iterator<Item = &'a str>,
+) -> Result<Normal3<Model>> {
+    Ok(parse_vector(i)?)
 }
 
 fn parse_point<'a>(
@@ -506,7 +508,7 @@ v 0.0 -2.0 0.0
             v 1.0 2.0 3.0
             vn 0.0 0.0 -1.0";
 
-        let m: Mesh<Normal3> = parse_obj(input).unwrap().build();
+        let m: Mesh<Normal3<_>> = parse_obj(input).unwrap().build();
 
         assert_eq!(m.faces.len(), 2);
         assert_eq!(m.verts.len(), 5);
@@ -585,7 +587,7 @@ v 0.0 -2.0 0.0
             vt 0.0 -1.0
             vn 0.0 0.0 1.0";
 
-        let m = &parse_obj::<(Normal3, TexCoord)>(input)
+        let m = &parse_obj::<(Normal3<_>, TexCoord)>(input)
             .unwrap()
             .build();
         assert_eq!(m.faces.len(), 2);

@@ -11,7 +11,7 @@ use retrofire_core::math::{
     Angle, Lerp, Parametric, Point3, Vary, Vec3, polar, pt2, pt3, rotate2,
     turns, vec2, vec3,
 };
-use retrofire_core::render::{TexCoord, uv};
+use retrofire_core::render::{Model, TexCoord, uv};
 
 use super::Build;
 
@@ -96,7 +96,7 @@ impl<P: Parametric<Vertex2<Normal2, ()>>> Lathe<P> {
     /// Builds the lathe mesh.
     pub fn build_with<A, F>(self, mut f: F) -> Mesh<A>
     where
-        F: FnMut(Point3, Normal3, TexCoord) -> Vertex3<A>,
+        F: FnMut(Point3, Normal3<Model>, TexCoord) -> Vertex3<A>,
     {
         let secs = self.sectors as usize;
         let segs = self.segments as usize;
@@ -155,7 +155,7 @@ fn create_faces(secs: usize, verts_per_sec: usize, out: &mut Vec<Tri<usize>>) {
 
 #[inline(never)]
 fn create_verts<A>(
-    f: &mut dyn FnMut(Point3, Normal3, TexCoord) -> Vertex3<A>,
+    f: &mut dyn FnMut(Point3, Normal3<Model>, TexCoord) -> Vertex3<A>,
     pts: &dyn Parametric<Vertex2<Normal2, ()>>,
     secs: usize,
     verts_per_sec: usize,
@@ -188,9 +188,9 @@ fn create_verts<A>(
 
 fn make_cap<A>(
     m: &mut Mesh<A>,
-    f: &mut dyn FnMut(Point3, Normal3, TexCoord) -> Vertex3<A>,
+    f: &mut dyn FnMut(Point3, Normal3<Model>, TexCoord) -> Vertex3<A>,
     rg: Range<usize>,
-    n: Normal3,
+    n: Normal3<Model>,
 ) {
     let verts = &mut m.verts;
     let secs = rg.len();
@@ -214,8 +214,8 @@ fn make_cap<A>(
 // Local trait impls
 //
 
-impl<P: Parametric<Vertex2<Normal2, ()>>> Build<Normal3> for Lathe<P> {
-    fn build(self) -> Mesh<Normal3> {
+impl<P: Parametric<Vertex2<Normal2, ()>>> Build<Normal3<Model>> for Lathe<P> {
+    fn build(self) -> Mesh<Normal3<Model>> {
         self.build_with(|p, n, _| vertex(p.to(), n))
     }
 }
@@ -224,10 +224,10 @@ impl<P: Parametric<Vertex2<Normal2, ()>>> Build<TexCoord> for Lathe<P> {
         self.build_with(|p, _, tc| vertex(p.to(), tc))
     }
 }
-impl<P: Parametric<Vertex2<Normal2, ()>>> Build<(Normal3, TexCoord)>
+impl<P: Parametric<Vertex2<Normal2, ()>>> Build<(Normal3<Model>, TexCoord)>
     for Lathe<P>
 {
-    fn build(self) -> Mesh<(Normal3, TexCoord)> {
+    fn build(self) -> Mesh<(Normal3<Model>, TexCoord)> {
         self.build_with(|p, n, tc| vertex(p.to(), (n, tc)))
     }
 }
@@ -244,9 +244,9 @@ impl Sphere {
     }
 }
 
-impl Build<Normal3> for Sphere {
+impl Build<Normal3<Model>> for Sphere {
     /// Builds a spherical mesh with normals.
-    fn build(self) -> Mesh<Normal3> {
+    fn build(self) -> Mesh<Normal3<Model>> {
         self.lathe().build()
     }
 }
@@ -267,9 +267,9 @@ impl Torus {
         Lathe::new(pts, self.major_sectors, self.minor_sectors)
     }
 }
-impl Build<Normal3> for Torus {
+impl Build<Normal3<Model>> for Torus {
     /// Builds the toroidal mesh.
-    fn build(self) -> Mesh<Normal3> {
+    fn build(self) -> Mesh<Normal3<Model>> {
         self.lathe().build()
     }
 }
@@ -280,9 +280,9 @@ impl Build<TexCoord> for Torus {
     }
 }
 
-impl Build<Normal3> for Cylinder {
+impl Build<Normal3<Model>> for Cylinder {
     /// Builds the cylindrical mesh.
-    fn build(self) -> Mesh<Normal3> {
+    fn build(self) -> Mesh<Normal3<Model>> {
         #[rustfmt::skip]
         let Self { sectors, segments, capped, radius } = self;
         Cone {
@@ -326,9 +326,9 @@ impl Cone {
         Lathe::new(pts, self.sectors, self.segments).capped(self.capped)
     }
 }
-impl Build<Normal3> for Cone {
+impl Build<Normal3<Model>> for Cone {
     /// Builds the conical mesh.
-    fn build(self) -> Mesh<Normal3> {
+    fn build(self) -> Mesh<Normal3<Model>> {
         self.lathe().build()
     }
 }
@@ -377,9 +377,9 @@ impl Capsule {
     }
 }
 
-impl Build<Normal3> for Capsule {
+impl Build<Normal3<Model>> for Capsule {
     /// Builds the capsule mesh.
-    fn build(self) -> Mesh<Normal3> {
+    fn build(self) -> Mesh<Normal3<Model>> {
         self.lathe().build()
     }
 }
@@ -394,7 +394,7 @@ impl Build<TexCoord> for Capsule {
 mod tests {
     use super::*;
 
-    type Mesh = super::Mesh<Normal3>;
+    type Mesh = super::Mesh<Normal3<Model>>;
 
     #[test]
     fn sphere_verts_faces() {

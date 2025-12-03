@@ -50,7 +50,7 @@ fn main() {
         |v: Vertex3<_>, mvp: &ProjMat3<Model>| {
             vertex(mvp.apply(&v.pos), v.attrib)
         },
-        |frag: Frag<Normal3>| {
+        |frag: Frag<Normal3<Model>>| {
             let [x, y, z] = (frag.var / 2.0 + splat(0.5)).0;
             rgb(x, y, z).to_color4()
         },

@@ -41,7 +41,7 @@ impl<B> Intersect<Plane3<B>> for Ray3<B> {
             // Origin point coincident with the plane
             return Some((0.0, *orig));
         }
-        let denom = dir.dot(&p.normal().to());
+        let denom = dir.dot(&p.normal());
         if denom.approx_eq(&0.0) {
             // Ray parallel with but not coincident with the plane
             // (or dir is a zero vector) -> no intersection
