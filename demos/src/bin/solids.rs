@@ -4,9 +4,9 @@ use minifb::{Key, KeyRepeat};
 
 use re::prelude::*;
 
-use re::core::geom::Polyline;
+use re::core::geom::{Edge, Polyline, Ray};
 use re::core::math::{ProjMat3, ProjVec3, color::gray};
-use re::core::render::cam::Fov;
+use re::core::render::{cam::Fov, debug::DbgBatch};
 
 use re::front::{Frame, minifb::Window};
 use re::geom::{io::parse_obj, solids::*};
@@ -62,7 +62,7 @@ fn main() {
         .viewport(pt2(10, h - 10)..pt2(w - 10, 10));
 
     type VertexIn = Vertex3<Normal3>;
-    type VertexOut = Vertex<ProjVec3, Color3f>;
+    type VertexOut = Vertex<ProjVec3, Color4f>;
     type Uniform<'a> = (&'a ProjMat3<Model>, &'a Mat4);
 
     fn vtx_shader(v: VertexIn, (mvp, spin): Uniform) -> VertexOut {
@@ -71,12 +71,11 @@ fn main() {
         // Calculate diffuse shading
         let diffuse = (norm.z() + 0.2).max(0.2) * 0.8;
         // Visualize normal by mapping to RGB values
-        let [r, g, b] = (0.45 * (v.attrib + splat(1.1))).0;
-        let col = diffuse * rgb(r, g, b);
+        let col = diffuse * debug::dir_to_rgb(norm);
         vertex(mvp.apply(&v.pos), col)
     }
 
-    fn frag_shader(f: Frag<Color3f>) -> Color4 {
+    fn frag_shader(f: Frag<Color4f>) -> Color4 {
         f.var.to_color4()
     }
 
@@ -86,6 +85,8 @@ fn main() {
 
     let translate = translate(-3.0 * Vec3::Z);
     let mut carousel = Carousel::default();
+    let mut debug: u8 = 0;
+    let mut hide_model = false;
 
     win.run(|frame| {
         let Frame { t, dt, win, .. } = frame;
@@ -94,13 +95,19 @@ fn main() {
         if win.imp.is_key_pressed(Key::Space, KeyRepeat::No) {
             carousel.start();
         }
+        if win.imp.is_key_pressed(Key::D, KeyRepeat::No) {
+            debug = (debug + 1) % 6;
+        }
+        if win.imp.is_key_pressed(Key::H, KeyRepeat::No) {
+            hide_model = !hide_model;
+        }
 
         let theta = rads(t.as_secs_f32());
         let spin = rotate_x(theta * 0.37).then(&rotate_y(theta * 0.51));
         let carouse = carousel.update(dt.as_secs_f32());
 
         // Compose transform stack
-        let model_view_project: ProjMat3<Model> = spin
+        let mvp: ProjMat3<Model> = spin
             .then(&translate)
             .then(&carouse)
             .to::<ModelToWorld>()
@@ -108,16 +115,59 @@ fn main() {
 
         let object = &objects[carousel.idx % objects.len()];
 
-        Batch {
-            prims: object.faces.clone(),
-            verts: object.verts.clone(),
-            uniform: (&model_view_project, &spin),
-            shader: shader,
-            viewport: cam.viewport,
-            target: frame.buf,
-            ctx: &*frame.ctx,
+        if !hide_model {
+            Batch {
+                prims: object.faces.clone(),
+                verts: object.verts.clone(),
+                uniform: (&mvp, &spin),
+                shader: shader,
+                viewport: cam.viewport,
+                target: frame.buf,
+                ctx: &*frame.ctx,
+            }
+            .render();
         }
-        .render();
+
+        let mut dbg_batch = DbgBatch::default();
+        if debug > 0 {
+            let bbox = debug::bbox(&object.verts);
+            dbg_batch.append(bbox);
+        }
+        if debug > 1 {
+            let sphere = debug::sphere::<Model>(pt3(0.0, 0.0, 0.0), 1.0);
+            dbg_batch.append(sphere);
+        }
+        if debug > 2 {
+            let basis = debug::basis(Mat4::<_>::identity());
+            dbg_batch.append(basis);
+        }
+        if debug > 3 {
+            // Wireframe faces
+            let edges: Vec<_> = object
+                .faces
+                .iter()
+                .flat_map(|tri| tri.edges().map(|Edge(a, b)| Edge(*a, *b)))
+                .collect();
+            let verts: Vec<_> = object
+                .verts
+                .iter()
+                .map(|v| vertex(v.pos, gray(1.0f32).to_rgba()))
+                .collect();
+
+            dbg_batch.append(DbgBatch::new(&edges, &verts));
+        }
+        if debug > 4 {
+            for Tri(vs) in object.faces() {
+                let norm = debug::face_normal(Tri(vs.map(|&v| v)));
+                dbg_batch.append(norm);
+            }
+        }
+        dbg_batch
+            .uniform(&mvp)
+            .viewport(cam.viewport)
+            .context(&*frame.ctx)
+            .target(&mut frame.buf)
+            .render();
 
         Continue(())
     });
@@ -135,6 +185,7 @@ fn objects_n(res: u32) -> [Mesh<Normal3>; 14] {
     let major_sectors = 3 * res;
     let minor_sectors = 2 * res;
     [
+        lathe(sectors),
         // The five Platonic solids
         Tetrahedron.build(),
         Cube { side_len: 1.25 }.build(),
@@ -143,7 +194,6 @@ fn objects_n(res: u32) -> [Mesh<Normal3>; 14] {
         Icosahedron.build(),
 
         // Surfaces of revolution
-        lathe(sectors),
         Sphere { radius: 1.0, sectors, segments, }.build(),
         Cylinder { radius: 0.8, sectors, segments, capped: true }.build(),
         Cone { base_radius: 1.1, apex_radius: 0.3, sectors, segments, capped: true }.build(),
@@ -159,16 +209,59 @@ fn objects_n(res: u32) -> [Mesh<Normal3>; 14] {
 
 // Creates a Lathe mesh.
 fn lathe(secs: u32) -> Mesh<Normal3> {
-    let pts = [
-        (pt2(0.75, -0.5), vec2(1.0, 1.0)),
-        (pt2(0.55, -0.25), vec2(1.0, 0.5)),
-        (pt2(0.5, 0.0), vec2(1.0, 0.0)),
-        (pt2(0.55, 0.25), vec2(1.0, -0.5)),
-        (pt2(0.75, 0.5), vec2(1.0, -1.0)),
-    ]
-    .map(|(p, n)| vertex(p, n.normalize()));
+    let _pts: [Vertex<Point2, Normal2>; _] = [
+        // _________
+        //         |
+        //        /
+        //   ____/
+        //  /
+        // |
+        // \______
+        // _______\
 
-    Lathe::new(Polyline::new(pts), secs, pts.len() as u32)
+        // Base
+        vertex(pt2(0.5, -0.6), vec2(1.0, 0.0)),
+        vertex(pt2(0.45, -0.55), vec2(0.0, 1.0)),
+        // Neck
+        vertex(pt2(0.15, -0.5), vec2(1.0, 1.0)),
+        vertex(pt2(0.1, -0.45), vec2(1.0, 0.0)),
+        vertex(pt2(0.1, 0.0), vec2(1.0, 0.0)),
+        vertex(pt2(0.15, 0.05), vec2(1.0, -1.0)),
+        // Bowl outer
+        vertex(pt2(0.4, 0.1), vec2(1.0, -0.5)),
+        vertex(pt2(0.5, 0.2), vec2(1.0, 0.0)),
+        vertex(pt2(0.5, 0.3), vec2(1.0, 0.0)),
+        vertex(pt2(0.4, 0.6), vec2(1.0, 0.1)),
+        // Bowl inner
+        vertex(pt2(0.35, 0.6), vec2(-1.0, 0.1)),
+        vertex(pt2(0.4, 0.25), vec2(-1.0, 0.0)),
+        vertex(pt2(0.2, 0.15), vec2(-0.2, 1.0)),
+        vertex(pt2(0.0, 0.1), vec2(0.0, 1.0)),
+    ];
+
+    let curve = BezierSpline::from_rays(
+        [
+            Ray(pt2(0.5, -0.6), vec2(0.0, 0.1)),
+            Ray(pt2(0.4, -0.55), vec2(-0.1, 0.0)),
+            Ray(pt2(0.1, -0.4), vec2(0.0, 0.1)),
+            Ray(pt2(0.1, 0.0), vec2(0.0, 0.1)),
+            Ray(pt2(0.3, 0.2), vec2(0.1, 0.0)),
+            Ray(pt2(0.5, 0.4), vec2(0.0, 0.1)),
+            Ray(pt2(0.4, 1.0), vec2(-0.1, 0.0)),
+            Ray(pt2(0.48, 0.4), vec2(0.0, -0.1)),
+            Ray(pt2(0.0, 0.05), vec2(-0.1, 0.0)),
+        ], //.map(|Ray(pos, dir)| Ray(vertex(pos, dir.perp().normalize()))),
+    );
+
+    let curve: Vec<_> = curve
+        .approximate(0.05)
+        .0
+        .into_iter()
+        .map(|p| vertex(p, vec2(1.0, 1.0)))
+        .collect();
+
+    let n = curve.len();
+    Lathe::new(Polyline(curve), secs, 2 * n as u32)
         .capped(true)
         .build()
 }

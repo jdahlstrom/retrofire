@@ -99,14 +99,11 @@ pub fn face_normal<A, B: Debug + Default>(
 /// from the origin point of the basis.
 pub fn basis<S, D>(m: Mat4<S, D>) -> DbgBatch<D> {
     let xyz = m.linear();
-    let x = xyz.col_vec(0);
-    let y = xyz.col_vec(1);
-    let z = xyz.col_vec(2);
     let o = m.origin();
 
-    let mut b = ray(o, x);
-    b.append(ray(o, y));
-    b.append(ray(o, z));
+    let mut b = ray(o, xyz.col_vec(0));
+    b.append(ray(o, xyz.col_vec(1)));
+    b.append(ray(o, xyz.col_vec(2)));
     b
 }
 
@@ -186,7 +183,7 @@ pub fn sphere<B>(o: Point3<B>, r: f32) -> DbgBatch<B> {
 }
 
 impl<B> DbgBatch<B> {
-    fn new(prims: &[Edge<usize>], verts: &[Vertex3<Color4f, B>]) -> Self {
+    pub fn new(prims: &[Edge<usize>], verts: &[Vertex3<Color4f, B>]) -> Self {
         DbgBatch::<B>::default()
             .primitives(prims)
             .vertices(verts)
