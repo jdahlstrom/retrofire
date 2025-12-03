@@ -5,7 +5,8 @@ use pancurses::*;
 use re::prelude::*;
 
 use re::core::render::{
-    ctx::DepthSort::BackToFront, raster::Scanline, stats::Throughput,
+    Model, ctx::DepthSort::BackToFront, raster::Scanline, render, shader,
+    stats::Throughput,
 };
 use re::geom::solids::{Build, Torus};
 

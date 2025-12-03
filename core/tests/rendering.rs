@@ -3,7 +3,7 @@
 use retrofire_core::prelude::*;
 
 use retrofire_core::{
-    render::tex::SamplerClamp,
+    render::{Model, render, shader, tex::SamplerClamp},
     util::{self, pixfmt::Xrgb8888, pnm::parse_pnm},
 };
 

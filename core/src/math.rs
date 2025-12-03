@@ -19,32 +19,37 @@
 
 use core::fmt::Debug;
 
-pub use {
-    angle::{
-        Angle, PolarVec, SphericalVec, degs, polar, rads, spherical, turns,
-    },
-    approx::ApproxEq,
-    color::{Color, Color3, Color3f, Color4, Color4f, rgb, rgba},
-    mat::{
-        Apply, Mat2, Mat3, Mat4, Matrix, ProjMat3, orthographic, perspective,
-        scale, scale3, translate, translate3, viewport,
-    },
-    param::Parametric,
-    point::{Point, Point2, Point2u, Point3, pt2, pt3},
-    space::{Affine, Linear},
-    spline::{BezierSpline, CubicBezier, smootherstep, smoothstep},
-    vary::Vary,
-    vec::{ProjVec3, Vec2, Vec2i, Vec3, Vec3i, Vector, splat, vec2, vec3},
-};
+pub(super) mod re_exports {
+    pub use super::{
+        Lerp,
+        angle::{
+            Angle, PolarVec, SphericalVec, degs, polar, rads, spherical, turns,
+        },
+        approx::ApproxEq,
+        color::{Color, Color3, Color3f, Color4, Color4f, rgb, rgba},
+        lerp,
+        mat::{
+            Apply, Mat2, Mat3, Mat4, Matrix, ProjMat3, orthographic,
+            perspective, scale, scale3, translate, translate3, viewport,
+        },
+        param::Parametric,
+        point::{Point, Point2, Point2u, Point3, pt2, pt3},
+        space::{Affine, Linear},
+        spline::{BezierSpline, CubicBezier, smootherstep, smoothstep},
+        vary::Vary,
+        vec::{ProjVec3, Vec2, Vec2i, Vec3, Vec3i, Vector, splat, vec2, vec3},
+    };
+    #[cfg(feature = "fp")]
+    pub use super::{
+        angle::{acos, asin, atan2},
+        mat::{
+            orient_y, orient_z, rotate, rotate_pyr, rotate_x, rotate_y,
+            rotate_z, rotate2,
+        },
+    };
+}
 
-#[cfg(feature = "fp")]
-pub use {
-    angle::{acos, asin, atan2},
-    mat::{
-        orient_y, orient_z, rotate, rotate_pyr, rotate_x, rotate_y, rotate_z,
-        rotate2,
-    },
-};
+pub use re_exports::*;
 
 /// Implements an operator trait in terms of an op-assign trait.
 macro_rules! impl_op {
