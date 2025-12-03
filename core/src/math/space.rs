@@ -94,6 +94,24 @@ pub trait Linear: Affine<Diff = Self> {
     fn mul(&self, scalar: Self::Scalar) -> Self;
 }
 
+pub trait Euclidean: Affine {
+    /// Returns the canonical origin of this Euclidean space.
+    fn origin() -> Self;
+
+    /// Returns the length of the translation vector between two points.
+    fn distance(&self, other: &Self) -> f32;
+
+    /// Returns `self`, moved towards another point by an offset.
+    ///
+    /// If the distance to `other` is less than `d`, returns `other`. That is,
+    /// this method never "overshoots" the target. Negative values of `d` result
+    /// in moving away from `other`. If `self` equals `other`, returns `other`
+    /// independent of the value of `d`.
+    ///
+    /// To translate by a *relative* offset instead, use [`lerp`][super::Lerp::lerp].
+    fn approach(&self, other: &Self, d: f32) -> Self;
+}
+
 /// Tag type for real vector spaces and Euclidean spaces.
 ///
 /// For example, the type `Real<3>` corresponds to ℝ³.
@@ -135,6 +153,26 @@ impl Linear for f32 {
     #[inline]
     fn mul(&self, rhs: f32) -> f32 {
         self * rhs
+    }
+}
+
+impl Euclidean for f32 {
+    fn origin() -> Self {
+        0.0
+    }
+
+    fn distance(&self, other: &Self) -> f32 {
+        (other - self).abs()
+    }
+
+    fn approach(&self, other: &Self, d: f32) -> Self {
+        let diff = other - self;
+        let dist = diff.abs();
+        if d < dist && dist != 0.0 {
+            self + d * diff.signum()
+        } else {
+            *other
+        }
     }
 }
 
