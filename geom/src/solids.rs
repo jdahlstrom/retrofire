@@ -13,6 +13,7 @@ use retrofire_core::math::{Lerp, Vec3};
 pub use lathe::*;
 
 pub use platonic::*;
+use retrofire_core::render::Model;
 
 pub trait Build<A>: Sized {
     fn build(self) -> Mesh<A>;
@@ -24,8 +25,8 @@ pub trait Build<A>: Sized {
 
 pub struct Icosphere(pub f32, pub u8);
 
-impl Build<Normal3> for Icosphere {
-    fn build(self) -> Mesh<Normal3> {
+impl Build<Normal3<Model>> for Icosphere {
+    fn build(self) -> Mesh<Normal3<Model>> {
         #[derive(Default)]
         struct Tessellator {
             coords: Vec<Vec3>,
@@ -70,7 +71,7 @@ impl Build<Normal3> for Icosphere {
         }
 
         let verts = recurser.coords.iter().map(|&p| {
-            vertex((p.normalize() * self.0).to().to_pt(), p.normalize())
+            vertex((p.normalize() * self.0).to().to_pt(), p.normalize().to())
         });
 
         Mesh::new(recurser.faces, verts)

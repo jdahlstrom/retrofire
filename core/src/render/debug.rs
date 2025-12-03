@@ -90,7 +90,7 @@ pub fn ray<'a, B>(o: Point3<B>, dir: Vec3<B>) -> DbgBatch<B> {
 pub fn face_normal<A, B: Debug + Default>(
     tri: Tri<Vertex3<A, B>>,
 ) -> DbgBatch<B> {
-    ray(tri.centroid(), tri.normal().to())
+    ray(tri.centroid(), tri.normal())
 }
 
 /// Draws a visualization of an affine basis.

@@ -80,7 +80,7 @@ pub const fn uv(u: f32, v: f32) -> TexCoord {
 ///   1 +------+------+------+
 ///
 /// ```
-pub fn cube_map(pos: Vec3, dir: Normal3) -> TexCoord {
+pub fn cube_map(pos: Vec3, dir: Normal3<()>) -> TexCoord {
     // -1.0..1.0 -> 0.0..1.0
     let [x, y, z] = (0.5 * pos + splat(0.5))
         .clamp(&splat(0.0), &splat(1.0))

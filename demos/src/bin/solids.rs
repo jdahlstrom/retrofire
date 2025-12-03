@@ -7,8 +7,8 @@ use re::prelude::*;
 use re::core::{
     geom::Polyline,
     math::{ProjMat3, ProjVec3, color::gray},
-    render::cam::Fov,
-    render::{Model, ModelToWorld, shader},
+    render::cam::{Fov, Transform},
+    render::{Model, ModelToWorld, View, shader},
 };
 use re::front::{Frame, minifb::Window};
 use re::geom::{io::read_obj, solids::*};
@@ -63,15 +63,17 @@ fn main() {
         .perspective(Fov::Equiv35mm(28.0), 0.1..1000.0)
         .viewport(pt2(10, h - 10)..pt2(w - 10, 10));
 
-    type VertexIn = Vertex3<Normal3>;
+    type VertexIn = Vertex3<Normal3<Model>>;
     type VertexOut = Vertex<ProjVec3, Color3f>;
-    type Uniform<'a> = (&'a ProjMat3<Model>, &'a Mat4);
 
-    fn vtx_shader(v: VertexIn, (mvp, spin): Uniform) -> VertexOut {
+    type NormalMat = Mat3<Model, View, 3>;
+    type Uniform<'a> = (&'a ProjMat3<Model>, &'a NormalMat);
+
+    fn vtx_shader(v: VertexIn, (mvp, n): Uniform) -> VertexOut {
         // Transform vertex normal
-        let norm = spin.apply(&v.attrib);
+        let norm = n.apply(&v.attrib);
         // Calculate diffuse shading
-        let diffuse = (norm.z() + 0.2).max(0.2) * 0.8;
+        let diffuse = (-norm.z() + 0.2).max(0.2) * 0.8;
         // Visualize normal by mapping to RGB values
         let [r, g, b] = (0.45 * (v.attrib + splat(1.1))).0;
         let col = diffuse * rgb(r, g, b);
@@ -108,12 +110,17 @@ fn main() {
             .to::<ModelToWorld>()
             .then(&cam.world_to_project());
 
+        let normal: NormalMat = spin
+            .to()
+            .linear()
+            .then(&cam.transform.world_to_view().linear());
+
         let object = &objects[carousel.idx % objects.len()];
 
         Batch {
             prims: object.faces.clone(),
             verts: object.verts.clone(),
-            uniform: (&model_view_project, &spin),
+            uniform: (&model_view_project, &normal),
             shader: shader,
             viewport: cam.viewport,
             target: frame.buf,
@@ -127,7 +134,7 @@ fn main() {
 
 // Creates the 14 objects exhibited.
 #[rustfmt::skip]
-fn objects_n(res: u32) -> [Mesh<Normal3>; 14] {
+fn objects_n(res: u32) -> [Mesh<Normal3<Model>>; 14] {
     let segments = res;
     let sectors = 2 * res;
 
@@ -160,7 +167,7 @@ fn objects_n(res: u32) -> [Mesh<Normal3>; 14] {
 }
 
 // Creates a Lathe mesh.
-fn lathe(secs: u32) -> Mesh<Normal3> {
+fn lathe(secs: u32) -> Mesh<Normal3<Model>> {
     let pts = [
         (pt2(0.75, -0.5), vec2(1.0, 1.0)),
         (pt2(0.55, -0.25), vec2(1.0, 0.5)),
@@ -176,10 +183,10 @@ fn lathe(secs: u32) -> Mesh<Normal3> {
 }
 
 // Loads the Utah teapot model.
-fn teapot() -> Mesh<Normal3> {
+fn teapot() -> Mesh<Normal3<Model>> {
     static TEAPOT: &[u8] = include_bytes!("../../assets/teapot.obj");
     read_obj(TEAPOT)
-        .unwrap()
+        .expect("valid .obj, included in binary")
         .transform(
             &scale(splat(0.4))
                 .then(&translate(-0.5 * Vec3::Y))
@@ -189,20 +196,20 @@ fn teapot() -> Mesh<Normal3> {
 }
 
 // Loads the Stanford bunny model.
-fn bunny() -> Mesh<Normal3> {
+fn bunny() -> Mesh<Normal3<Model>> {
     static BUNNY: &[u8] = include_bytes!("../../assets/bunny.obj");
     read_obj::<()>(BUNNY)
-        .unwrap()
+        .expect("valid .obj, included in binary")
         .transform(&scale(splat(0.12)).then(&translate(-Vec3::Y)).to())
         .with_vertex_normals()
         .build()
 }
 
 // Loads the Stanford dragon model.
-fn dragon() -> Mesh<Normal3> {
+fn dragon() -> Mesh<Normal3<Model>> {
     static DRAGON: &[u8] = include_bytes!("../../assets/dragon.obj");
     read_obj::<()>(DRAGON)
-        .unwrap()
+        .expect("valid .obj, included in binary")
         .with_vertex_normals()
         .transform(
             &scale(splat(0.18))
