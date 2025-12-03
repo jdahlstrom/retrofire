@@ -3,7 +3,7 @@ use std::{env, fmt::Write, ops::ControlFlow::Continue};
 use re::prelude::*;
 
 use re::core::{
-    render::{Text, tex::Atlas, tex::Layout},
+    render::{Model, Text, World, render, shader, tex::Atlas, tex::Layout},
     util::pnm::parse_pnm,
 };
 

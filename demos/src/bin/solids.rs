@@ -4,10 +4,12 @@ use minifb::{Key, KeyRepeat};
 
 use re::prelude::*;
 
-use re::core::geom::Polyline;
-use re::core::math::{ProjMat3, ProjVec3, color::gray};
-use re::core::render::cam::Fov;
-
+use re::core::{
+    geom::Polyline,
+    math::{ProjMat3, ProjVec3, color::gray},
+    render::cam::Fov,
+    render::{Model, ModelToWorld, shader},
+};
 use re::front::{Frame, minifb::Window};
 use re::geom::{io::parse_obj, solids::*};
 
