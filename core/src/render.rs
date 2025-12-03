@@ -20,18 +20,21 @@ use self::{
     raster::Scanline,
 };
 
-pub use self::{
-    batch::Batch,
-    cam::Camera,
-    clip::Clip,
-    ctx::Context,
-    raster::Frag,
-    shader::{FragmentShader, VertexShader},
-    stats::Stats,
-    target::{Colorbuf, Framebuf, Target},
-    tex::{TexCoord, Texture, uv},
-    text::Text,
-};
+pub(super) mod re_exports {
+    pub use super::{
+        batch::Batch,
+        cam::Camera,
+        clip::Clip,
+        ctx::Context,
+        raster::Frag,
+        shader::{FragmentShader, VertexShader},
+        stats::Stats,
+        target::{Colorbuf, Framebuf, Target},
+        tex::{TexCoord, Texture, uv},
+        text::Text,
+    };
+}
+pub use re_exports::*;
 
 pub mod batch;
 pub mod cam;

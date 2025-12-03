@@ -6,7 +6,7 @@ use re::core::math::{
     color::gray,
     rand::{Distrib, PointsInUnitBall, Xorshift64},
 };
-use re::core::render::{Model, cam::*, render};
+use re::core::render::{Model, View, cam::*, render, shader};
 
 use re_front::minifb::Window;
 

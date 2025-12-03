@@ -1,3 +1,4 @@
+use retrofire_core::render::{Model, render, shader};
 use retrofire_core::{prelude::*, util::*};
 
 fn main() {

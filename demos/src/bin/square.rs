@@ -2,7 +2,7 @@ use core::ops::ControlFlow::*;
 
 use re::prelude::*;
 
-use re::core::render::tex::SamplerClamp;
+use re::core::render::{render, shader, tex::SamplerClamp};
 use re::front::minifb::Window;
 
 fn main() {
