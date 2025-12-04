@@ -242,7 +242,6 @@ impl<A, B> Tri<Vertex3<A, B>> {
     /// ```
     pub fn normal(&self) -> Normal3<B> {
         let [t, u] = self.tangents();
-        // TODO normal with basis
         t.cross(&u).normalize_or_zero()
     }
 
