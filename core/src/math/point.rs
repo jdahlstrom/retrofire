@@ -4,7 +4,7 @@ use core::{
     array,
     fmt::{Debug, Formatter},
     marker::PhantomData as Pd,
-    ops::{Add, Div, Index, IndexMut, Mul, Sub},
+    ops::{Add, Div, Index, IndexMut, Mul, Neg, Sub},
     ops::{AddAssign, DivAssign, MulAssign, SubAssign},
 };
 
@@ -421,6 +421,17 @@ where
     #[inline]
     fn sub(self, other: Self) -> Diff {
         Affine::sub(&self, &other)
+    }
+}
+
+impl<R, Sp> Neg for Point<R, Sp>
+where
+    Self: Mul<f32, Output = Self>,
+{
+    type Output = Self;
+
+    fn neg(self) -> Self {
+        self * -1.0
     }
 }
 
