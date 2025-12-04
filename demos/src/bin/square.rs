@@ -1,5 +1,5 @@
 use core::ops::ControlFlow::*;
-
+use re::core::math::grad::{ColorMap, Gradient2, Interp, Kind};
 use re::prelude::*;
 
 use re::core::render::{render, shader, tex::SamplerClamp};
@@ -29,14 +29,34 @@ fn main() {
     };
 
     // Texture with a check pattern
-    let checker = Texture::from(Buf2::new_with((8, 8), |x, y| {
-        let xor = (x ^ y) & 1;
-        rgba(xor as u8 * 255, 128, 255 - xor as u8 * 128, 0)
+    let grad = Gradient2 {
+        //kind: Kind::Linear(pt2(0.0, 0.0), pt2(256.0, 256.0)),
+        //kind: Kind::Radial(pt2(64.0, 64.0), 256.0),
+        kind: Kind::Conical(pt2(96.0, 96.0)),
+        map: ColorMap::new(
+            Interp::Smooth,
+            [
+                (0.1, rgb(0x99, 0x22, 0x11).to_color3f()),
+                (0.3, rgb(0xFF, 0xCC, 0x66).to_color3f()),
+                (0.6, rgb(0x33, 0x55, 0x11).to_color3f()),
+                (1.0, rgb(0x11, 0x22, 0x66).to_color3f()),
+            ],
+        ),
+    };
+    let checker = Texture::from(Buf2::new_with((256, 256), |x, y| {
+        //let xor = (x ^ y) & 1;
+        //rgba(xor as u8 * 255, 128, 255 - xor as u8 * 128, 0)
+
+        grad.eval(pt2(x as f32, y as f32))
     }));
 
     let shader = shader::new(
         |v: Vertex3<_>, mvp: &ProjMat3<_>| vertex(mvp.apply(&v.pos), v.attrib),
-        |frag: Frag<_>| SamplerClamp.sample(&checker, frag.var),
+        |frag: Frag<_>| {
+            SamplerClamp
+                .sample(&checker, frag.var)
+                .to_color4()
+        },
     );
 
     let (w, h) = win.dims;

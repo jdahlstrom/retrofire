@@ -1,7 +1,7 @@
 use alloc::vec::Vec;
 use core::fmt::Debug;
 
-use super::{Lerp, Parametric, Point2, inv_lerp};
+use super::{Lerp, Parametric, Point2, inv_lerp, smoothstep};
 
 /// A position-based color progression that can be used to fill a 2D surface.
 #[derive(Clone, Debug, PartialEq)]
@@ -14,8 +14,8 @@ pub struct Gradient2<T> {
 
 /// The shape of a gradient.
 ///
-/// Maps a point to a *t* value used to look up the respective color
-/// in the color sequence of a gradient.
+/// Maps a point to a *t* value, in the range [0, 1], used to look up the
+/// respective gradient color in a [`ColorMap`].
 #[derive(Copy, Clone, Debug, PartialEq)]
 pub enum Kind<Pt> {
     /// A linear, or axial, gradient between two points.
@@ -31,7 +31,12 @@ pub enum Kind<Pt> {
     /// * *t* = 0 when P = Q, and
     /// * *t* = 1 when |P - Q| >= *r*.
     Radial(Pt, f32),
-    /// TODO
+    /// A conical, or angular, gradient around a point.
+    ///
+    /// Given a center point Q and input point P, maps the azimuthal angle, in
+    /// polar coordinates, of the vector P - Q to *t* values such that *t* = 0
+    /// at zero angle and 1 at full angle (the upper bound is exclusive because
+    /// the angle wraps back to 0).
     #[cfg(feature = "fp")]
     Conical(Pt),
 }
@@ -39,21 +44,61 @@ pub enum Kind<Pt> {
 /// A sequence of (number, color) pairs, mapping t values to colors.
 /// The numbers must be in a *nondecreasing* order.
 #[derive(Clone, Debug, PartialEq)]
-pub struct ColorMap<T>(Vec<(f32, T)>);
+pub struct ColorMap<T>(pub Interp, Vec<(f32, T)>);
 
-impl<T: Lerp> Gradient2<T> {
-    /// Creates a new gradient.
+/// Determines how gradient colors are interpolated between two stops.
+#[derive(Copy, Clone, Debug, Default, Eq, PartialEq)]
+pub enum Interp {
+    /// Rounds down to the nearest stop.
+    Floor,
+    /// Rounds to the nearest stop, either up or down.
+    Nearest,
+    /// Linearly interpolates between stops.
+    #[default]
+    Linear,
+    /// Smoothly interpolates between stops with a cubic curve.
+    Cubic,
+}
+
+impl<T: Lerp + Default> Gradient2<T> {
+    /// Creates a new two-dimensional gradient.
     ///
     /// # Panics
-    /// If there are no stops, or not all the stop values are nondecreasing
-    pub fn new(
-        kind: Kind<Point2>,
-        stops: impl IntoIterator<Item = (f32, T)>,
-    ) -> Self {
-        Self {
-            kind,
-            map: ColorMap::new(stops),
-        }
+    /// If there are no stops, or not all the stop values are nondecreasing.
+    pub fn new<I>(kind: Kind<Point2>, stops: I) -> Self
+    where
+        I: IntoIterator<Item = (f32, T)>,
+    {
+        let map = ColorMap::new(Interp::Linear, stops);
+        Self { kind, map }
+    }
+
+    /// Creates a [linear][`Kind::Linear`] gradient between two points.
+    pub fn linear<I>(a: Point2, b: Point2, stops: I) -> Self
+    where
+        I: IntoIterator<Item = (f32, T)>,
+    {
+        Self::new(Kind::Linear(a, b), stops)
+    }
+    /// Creates a [radial][`Kind::Radial`]  gradient around a point.
+    pub fn radial<I>(center: Point2, radius: f32, stops: I) -> Self
+    where
+        I: IntoIterator<Item = (f32, T)>,
+    {
+        Self::new(Kind::Radial(center, radius), stops)
+    }
+    /// Creates a [conical][`Kind::Conical`]  gradient between two points.
+    pub fn conical<I>(center: Point2, stops: I) -> Self
+    where
+        I: IntoIterator<Item = (f32, T)>,
+    {
+        Self::new(Kind::Conical(center), stops)
+    }
+
+    /// Sets the color interpolation mode of `self`.
+    pub fn interpolate(mut self, i: Interp) -> Self {
+        self.map.0 = i;
+        self
     }
 
     /// Returns the value of `self` at the given point.
@@ -63,10 +108,9 @@ impl<T: Lerp> Gradient2<T> {
             Kind::Radial(p0, r) => p.distance(&p0) / r,
             #[cfg(feature = "fp")]
             Kind::Conical(p0) => {
-                let angle = (p - p0).atan();
-                // map negative angles to positive
-                use super::float::f32;
-                f32::rem_euclid(angle.to_turns(), 1.0)
+                let t = (p - p0).atan().to_turns();
+                // Map negative angles to positive, eg. -30° ≡ -30° + 360° = 330°
+                t + if t < 0.0 { 1.0 } else { 0.0 }
             }
         };
         self.map.eval(t)
@@ -78,7 +122,7 @@ impl<T> ColorMap<T> {
     ///
     /// # Panics
     /// If there are no stops, or not all the stop values are nondecreasing
-    pub fn new(it: impl IntoIterator<Item = (f32, T)>) -> Self {
+    pub fn new(interp: Interp, it: impl IntoIterator<Item = (f32, T)>) -> Self {
         let mut t0 = f32::MIN;
         let stops: Vec<_> = it
             .into_iter()
@@ -88,30 +132,46 @@ impl<T> ColorMap<T> {
             })
             .collect();
         assert!(!stops.is_empty(), "at least one stop is required");
-        Self(stops)
+        Self(interp, stops)
     }
 }
 
 impl<T: Lerp> Parametric<T> for ColorMap<T> {
     fn eval(&self, t: f32) -> T {
-        let v = &self.0[..];
+        let v = &self.1[..];
         debug_assert!(!v.is_empty(), "failed invariant");
         let res = v.binary_search_by(|(u, _)| u.total_cmp(&t));
         match res {
             // t == t_i
             Ok(i) => v[i].1.clone(),
             // t < t_0
-            Err(0) => v[0].1.clone(),
+            Err(0) => v[0].1.clone(), // ok: !v.is_empty()
             // t > t_n
             Err(i) if i == v.len() => v[i - 1].1.clone(),
             // 0 < i < len
             Err(i) => {
+                use super::float::f32;
                 let (t1, v1) = &v[i - 1]; // ok: 0 < i
                 let (t2, v2) = &v[i]; // ok: i < len
                 // Remap t such that t=0 -> v1 and t=1 -> v2
-                v1.lerp(v2, inv_lerp(t, *t1, *t2))
+                let t = inv_lerp(t, *t1, *t2);
+                let t = match self.0 {
+                    Interp::Floor => f32::floor(t),
+                    Interp::Nearest => f32::floor(t + 0.5),
+                    Interp::Linear => t,
+                    Interp::Cubic => smoothstep(t),
+                };
+                v1.lerp(v2, t)
             }
         }
+    }
+}
+
+impl<T: Clone, S: AsRef<[(f32, T)]>> From<S> for ColorMap<T> {
+    /// Creates a color map from a slice of stops, with linear interpolation
+    /// by default.
+    fn from(stops: S) -> Self {
+        Self::new(Interp::Linear, stops.as_ref().iter().cloned())
     }
 }
 
@@ -120,13 +180,12 @@ mod tests {
     use super::*;
     use crate::assert_approx_eq;
     use crate::math::pt2;
-    use alloc::vec;
 
     #[test]
     fn linear_gradient() {
         let p = pt2(-1.0, 0.0);
         let q = pt2(2.0, 1.0);
-        let g = Gradient2::new(Kind::Linear(p, q), [(0.25, 0.9), (0.6, 0.1)]);
+        let g = Gradient2::linear(p, q, [(0.25, 0.9), (0.6, 0.1)]);
         let v = q - p;
 
         // start point, t=0
@@ -161,10 +220,7 @@ mod tests {
     #[cfg(feature = "fp")]
     #[test]
     fn conical_gradient() {
-        let g = Gradient2::new(
-            Kind::Conical(pt2(2.0, -1.0)),
-            [(0.25, 0.9), (0.6, 0.1)],
-        );
+        let g = Gradient2::conical(pt2(2.0, -1.0), [(0.25, 0.9), (0.6, 0.1)]);
 
         // center point and points to its right with same y should be t=0
         assert_eq!(g.eval(pt2(2.0, -1.0)), 0.9);
@@ -186,10 +242,8 @@ mod tests {
 
     #[test]
     fn radial_gradient() {
-        let g = Gradient2::new(
-            Kind::Radial(pt2(2.0, -1.0), 2.0),
-            [(0.25, 0.9), (0.5, 0.1)],
-        );
+        let g =
+            Gradient2::radial(pt2(2.0, -1.0), 2.0, [(0.25, 0.9), (0.5, 0.1)]);
 
         assert_eq!(g.eval(pt2(2.0, -1.0)), 0.9); // t=0.0
 
@@ -208,14 +262,14 @@ mod tests {
 
     #[test]
     fn t_less_than_or_eq_to_min_gives_min() {
-        let g = ColorMap(vec![(0.2, -1.23f32), (0.8, 1.23f32)]);
+        let g = ColorMap::from([(0.2, -1.23f32), (0.8, 1.23f32)]);
         assert_eq!(g.eval(-10.0), -1.23);
         assert_eq!(g.eval(0.0), -1.23);
         assert_eq!(g.eval(0.2), -1.23);
     }
     #[test]
     fn t_greater_than_or_eq_to_max_gives_min() {
-        let g = ColorMap(vec![(0.2, -1.23f32), (0.8, 1.23f32)]);
+        let g = ColorMap::from([(0.2, -1.23f32), (0.8, 1.23f32)]);
         assert_eq!(g.eval(0.8), 1.23);
         assert_eq!(g.eval(1.0), 1.23);
         assert_eq!(g.eval(10.0), 1.23);
@@ -223,7 +277,7 @@ mod tests {
 
     #[test]
     fn t_between_min_max_interpolates() {
-        let g = ColorMap(vec![(0.2, 1.23f32), (0.6, 2.23f32)]);
+        let g = ColorMap::from([(0.2, 1.23f32), (0.6, 2.23f32)]);
 
         assert_eq!(g.eval(0.2), 1.23);
         assert_eq!(g.eval(0.4), 1.73);
@@ -232,7 +286,7 @@ mod tests {
 
     #[test]
     fn nonincreasing_t_gives_sharp_change() {
-        let g = ColorMap(vec![(0.4, -1.23f32), (0.4, 1.23f32)]);
+        let g = ColorMap::from([(0.4, -1.23f32), (0.4, 1.23f32)]);
 
         assert_eq!(g.eval(0.2), -1.23);
         assert_eq!(g.eval(0.4f32.next_down()), -1.23);
@@ -242,7 +296,8 @@ mod tests {
 
     #[test]
     fn single_stop_gradient_has_constant_value() {
-        let g = ColorMap(vec![(0.5, 1.23f32)]);
+        let g = ColorMap::from([(0.5, 1.23f32)]);
+
         assert_eq!(g.eval(10.0), 1.23);
         assert_eq!(g.eval(-1.0), 1.23);
         assert_eq!(g.eval(0.0), 1.23);
@@ -255,12 +310,12 @@ mod tests {
     #[test]
     #[should_panic(expected = "at least one stop is required")]
     fn stops_with_zero_entries_panics() {
-        _ = ColorMap::<()>::new([]);
+        _ = ColorMap::<()>::from([]);
     }
 
     #[test]
     #[should_panic(expected = "t values must be nondecreasing")]
     fn stops_with_nondecreasing_t_panics() {
-        _ = ColorMap::<()>::new([(0.8, ()), (0.2, ())]);
+        _ = ColorMap::<()>::from([(0.8, ()), (0.2, ())]);
     }
 }
