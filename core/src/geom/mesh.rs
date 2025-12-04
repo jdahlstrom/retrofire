@@ -205,7 +205,7 @@ impl<A> Builder<A> {
     /// This is an eager operation, that is, only vertices *currently* added
     /// to the builder are transformed. The attribute type of the result is
     /// `Normal3`; the vertex type it accepts is changed accordingly.
-    pub fn with_vertex_normals(self) -> Builder<Normal3> {
+    pub fn with_vertex_normals(self) -> Builder<Normal3<Model>> {
         let Mesh { verts, faces } = self.mesh;
 
         // Compute weighted face normals...
@@ -213,7 +213,7 @@ impl<A> Builder<A> {
             // TODO If n-gonal faces are supported some day, the cross
             //      product is not proportional to area anymore
             let [a, b, c] = vs.map(|i| verts[i].pos);
-            (b - a).cross(&(c - a)).to()
+            (b - a).cross(&(c - a))
         });
         // ...initialize vertex normals to zero...
         let mut verts: Vec<_> = verts

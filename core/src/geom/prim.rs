@@ -66,7 +66,8 @@ pub struct Sphere<B = ()>(pub Point3<B>, pub f32);
 
 /// A surface normal in 3D.
 // TODO Use distinct type rather than alias
-pub type Normal3 = Vec3;
+pub type Normal3<B> = Vec3<B>;
+
 /// A surface normal in 2D.
 pub type Normal2 = Vec2;
 
@@ -239,10 +240,9 @@ impl<A, B> Tri<Vertex3<A, B>> {
     /// ]);
     /// assert_eq!(tri.normal(), vec3(0.0, SQRT_2 / 2.0, -SQRT_2 / 2.0));
     /// ```
-    pub fn normal(&self) -> Normal3 {
+    pub fn normal(&self) -> Normal3<B> {
         let [t, u] = self.tangents();
-        // TODO normal with basis
-        t.cross(&u).normalize_or_zero().to()
+        t.cross(&u).normalize_or_zero()
     }
 
     /// Returns the plane that `self` lies on.
@@ -363,7 +363,7 @@ impl<B> Plane3<B> {
     ///
     /// ```
     pub fn from_points(a: Point3<B>, b: Point3<B>, c: Point3<B>) -> Self {
-        let n = (b - a).cross(&(c - a)).to();
+        let n = (b - a).cross(&(c - a));
         Self::from_point_and_normal(a, n)
     }
 
@@ -383,9 +383,9 @@ impl<B> Plane3<B> {
     /// assert_eq!(p.offset(), 3.0);
     ///
     /// ```
-    pub fn from_point_and_normal(pt: Point3<B>, n: Normal3) -> Self {
+    pub fn from_point_and_normal(pt: Point3<B>, n: Normal3<B>) -> Self {
         let n = n.normalize();
-        let d = pt.to_vec().dot(&n.to());
+        let d = pt.to_vec().dot(&n);
         Plane::new(n.x(), n.y(), n.z(), d)
     }
 
@@ -400,8 +400,8 @@ impl<B> Plane3<B> {
     /// assert_eq!(<Plane3>::XY.normal(), Vec3::Z);
     /// assert_eq!(<Plane3>::YZ.normal(), Vec3::X);
     #[inline]
-    pub fn normal(&self) -> Normal3 {
-        self.abc().normalize().to()
+    pub fn normal(&self) -> Normal3<B> {
+        self.abc().normalize()
     }
 
     /// Returns the signed distance of `self` from the origin.
@@ -454,7 +454,7 @@ impl<B> Plane3<B> {
         // t = -(plane dot orig) / (plane dot dir)
         // In this case dir is parallel to plane normal
 
-        let dir = self.abc().to();
+        let dir = self.abc();
 
         // TODO add to_homog()/to_real() methods
         let pt_hom = [pt.x(), pt.y(), pt.z(), 1.0].into();
