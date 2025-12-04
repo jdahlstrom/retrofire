@@ -454,7 +454,7 @@ impl<B> Plane3<B> {
         // t = -(plane dot orig) / (plane dot dir)
         // In this case dir is parallel to plane normal
 
-        let dir = self.abc().to();
+        let dir = self.abc();
 
         // TODO add to_homog()/to_real() methods
         let pt_hom = [pt.x(), pt.y(), pt.z(), 1.0].into();

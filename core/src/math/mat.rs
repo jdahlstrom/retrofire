@@ -1183,7 +1183,7 @@ pub fn rotate_pyr(pitch: Angle, yaw: Angle, roll: Angle) -> Mat4 {
     let p = rotate_x(pitch);
     let y = rotate_y(yaw);
     let r = rotate_z(roll);
-    p.then(&y).then(&r).to()
+    p.then(&y).then(&r)
 }
 
 /// Returns a matrix applying a 2D rotation by an angle.
@@ -1515,9 +1515,14 @@ mod tests {
             assert_eq!(tr_sc, sc.compose(&tr));
             assert_eq!(sc_tr, tr.compose(&sc));
 
-            let o = <Point3>::origin();
-            assert_eq!(tr_sc.apply(&o.to()), pt3::<_, B1>(3.0, 4.0, 3.0));
-            assert_eq!(sc_tr.apply(&o.to()), pt3::<_, B2>(1.0, 2.0, 3.0));
+            assert_eq!(
+                tr_sc.apply(&Point3::origin()),
+                pt3::<_, B1>(3.0, 4.0, 3.0)
+            );
+            assert_eq!(
+                sc_tr.apply(&Point3::origin()),
+                pt3::<_, B2>(1.0, 2.0, 3.0)
+            );
         }
 
         #[test]
