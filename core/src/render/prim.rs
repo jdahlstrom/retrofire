@@ -14,11 +14,8 @@ impl<V: Vary> Render<V> for Tri<usize> {
     type Clips = [Tri<ClipVert<V>>];
     type Screen = Tri<Vertex<ScreenPt, V>>;
 
-    fn inline(
-        Tri([i, j, k]): Tri<usize>,
-        vs: &[ClipVert<V>],
-    ) -> Tri<ClipVert<V>> {
-        Tri([vs[i].clone(), vs[j].clone(), vs[k].clone()])
+    fn inline(tri: Self, vs: &[ClipVert<V>]) -> Tri<ClipVert<V>> {
+        tri.map(|i| vs[i].clone())
     }
 
     fn depth(Tri([a, b, c]): &Self::Clip) -> f32 {

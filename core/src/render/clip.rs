@@ -418,7 +418,7 @@ mod tests {
     }
 
     fn tri(a: ClipVec, b: ClipVec, c: ClipVec) -> Tri<ClipVert<f32>> {
-        Tri([a, b, c].map(vtx))
+        Tri([a, b, c]).map(vtx)
     }
 
     #[test]

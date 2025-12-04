@@ -88,25 +88,22 @@ impl<A, B> Mesh<A, B> {
     pub fn faces(&self) -> impl Iterator<Item = Tri<&Vertex3<A, B>>> {
         self.faces
             .iter()
-            .map(|Tri(vs)| Tri(vs.map(|i| &self.verts[i])))
+            .map(|tri| tri.map(|i| &self.verts[i]))
     }
 
     /// Returns a mesh with the faces and vertices of both `self` and `other`.
     pub fn merge(mut self, Self { faces, verts }: Self) -> Self {
         let n = self.verts.len();
         self.verts.extend(verts);
-        self.faces.extend(
-            faces
-                .into_iter()
-                .map(|Tri([i, j, k])| Tri([n + i, n + j, n + k])),
-        );
+        self.faces
+            .extend(faces.into_iter().map(|tri| tri.map(|i| i + n)));
         self
     }
 }
 
 #[inline(never)]
 fn assert_indices_in_bounds(faces: &[Tri<usize>], len: usize) {
-    for (Tri(vs), i) in zip(faces.iter(), 0..) {
+    for (Tri(vs), i) in zip(faces, 0..) {
         assert!(
             vs.iter().all(|&j| j < len),
             "vertex index out of bounds at faces[{i}]: {vs:?}"
@@ -209,10 +206,10 @@ impl<A> Builder<A> {
         let Mesh { verts, faces } = self.mesh;
 
         // Compute weighted face normals...
-        let face_normals = faces.iter().map(|Tri(vs)| {
+        let face_normals = faces.iter().map(|tri| {
             // TODO If n-gonal faces are supported some day, the cross
             //      product is not proportional to area anymore
-            let [a, b, c] = vs.map(|i| verts[i].pos);
+            let [a, b, c] = tri.map(|i| verts[i].pos).0;
             (b - a).cross(&(c - a)).to()
         });
         // ...initialize vertex normals to zero...

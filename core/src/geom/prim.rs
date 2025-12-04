@@ -130,6 +130,13 @@ impl<V> Tri<V> {
         let [a, b, c] = &self.0;
         [Edge(a, b), Edge(b, c), Edge(c, a)]
     }
+
+    /// Returns `self` with each vertex mapped with a function.
+    #[inline]
+    pub fn map<U>(self, mut f: impl FnMut(V) -> U) -> Tri<U> {
+        let [a, b, c] = self.0;
+        Tri([f(a), f(b), f(c)])
+    }
 }
 
 impl<P: Affine, A> Tri<Vertex<P, A>> {
@@ -783,7 +790,7 @@ mod tests {
         b: Pt<N>,
         c: Pt<N>,
     ) -> Tri<Vertex<Pt<N>, ()>> {
-        Tri([a, b, c].map(|p| vertex(p, ())))
+        Tri([a, b, c]).map(|p| vertex(p, ()))
     }
 
     #[test]

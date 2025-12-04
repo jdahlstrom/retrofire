@@ -147,26 +147,23 @@ impl<Prim, Vtx, Uni, Shd, Tgt, Ctx> Batch<Prim, Vtx, Uni, Shd, Tgt, Ctx> {
 }
 
 impl<Vtx, Uni, Shd, Tgt, Ctx> Batch<Edge<usize>, Vtx, Uni, Shd, Tgt, Ctx> {
-    pub fn append(&mut self, mut other: Self) {
-        let l = self.verts.len();
-        self.verts.extend(other.verts);
-        for edge in &mut other.prims {
-            edge.0 += l;
-            edge.1 += l;
-        }
-        self.prims.extend(other.prims);
+    pub fn append(&mut self, other: Self) {
+        let Batch { prims, verts, .. } = other;
+        let n = self.verts.len();
+        let prims = prims.into_iter().map(|e| Edge(e.0 + n, e.1 + n));
+
+        self.verts.extend(verts);
+        self.prims.extend(prims)
     }
 }
 
 impl<Vtx, Uni, Shd, Tgt, Ctx> Batch<Tri<usize>, Vtx, Uni, Shd, Tgt, Ctx> {
-    pub fn append(&mut self, mut other: Self) {
-        let l = self.verts.len();
-        self.verts.extend(other.verts);
-        for Tri([a, b, c]) in &mut other.prims {
-            *a += l;
-            *b += l;
-            *c += l;
-        }
-        self.prims.extend(other.prims);
+    pub fn append(&mut self, other: Self) {
+        let Batch { prims, verts, .. } = other;
+        let n = self.verts.len();
+        let prims = prims.into_iter().map(|tri| tri.map(|i| i + n));
+
+        self.verts.extend(verts);
+        self.prims.extend(prims);
     }
 }
