@@ -11,7 +11,7 @@ use re::core::{
     render::{Model, ModelToWorld, shader},
 };
 use re::front::{Frame, minifb::Window};
-use re::geom::{io::parse_obj, solids::*};
+use re::geom::{io::read_obj, solids::*};
 
 // Carousel animation for switching between objects.
 #[derive(Default)]
@@ -177,20 +177,21 @@ fn lathe(secs: u32) -> Mesh<Normal3> {
 
 // Loads the Utah teapot model.
 fn teapot() -> Mesh<Normal3> {
-    parse_obj(*include_bytes!("../../assets/teapot.obj"))
+    static TEAPOT: &[u8] = include_bytes!("../../assets/teapot.obj");
+    read_obj(TEAPOT)
         .unwrap()
         .transform(
             &scale(splat(0.4))
                 .then(&translate(-0.5 * Vec3::Y))
                 .to(),
         )
-        //.with_vertex_normals()
         .build()
 }
 
 // Loads the Stanford bunny model.
 fn bunny() -> Mesh<Normal3> {
-    parse_obj::<()>(*include_bytes!("../../assets/bunny.obj"))
+    static BUNNY: &[u8] = include_bytes!("../../assets/bunny.obj");
+    read_obj::<()>(BUNNY)
         .unwrap()
         .transform(&scale(splat(0.12)).then(&translate(-Vec3::Y)).to())
         .with_vertex_normals()
@@ -200,7 +201,7 @@ fn bunny() -> Mesh<Normal3> {
 // Loads the Stanford dragon model.
 fn dragon() -> Mesh<Normal3> {
     static DRAGON: &[u8] = include_bytes!("../../assets/dragon.obj");
-    parse_obj::<()>(DRAGON.iter().copied())
+    read_obj::<()>(DRAGON)
         .unwrap()
         .with_vertex_normals()
         .transform(
