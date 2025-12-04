@@ -1,7 +1,7 @@
 use alloc::vec::Vec;
 use core::fmt::Debug;
 
-use super::{Lerp, Parametric, Point2, inv_lerp};
+use super::{Lerp, Parametric, Point2, inv_lerp, smoothstep};
 
 /// A position-based color progression that can be used to fill a 2D surface.
 #[derive(Clone, Debug, PartialEq)]
@@ -40,7 +40,21 @@ pub enum Kind<Pt> {
 /// A sequence of (number, color) pairs, mapping t values to colors.
 /// The numbers must be in a *nondecreasing* order.
 #[derive(Clone, Debug, PartialEq)]
-pub struct ColorMap<T>(Vec<(f32, T)>);
+pub struct ColorMap<T>(Vec<(f32, T)>, pub Interp);
+
+/// Determines how gradient colors are interpolated between two stops.
+#[derive(Copy, Clone, Debug, Default, Eq, PartialEq)]
+pub enum Interp {
+    /// Rounds down to the nearest stop.
+    Floor,
+    /// Rounds to the nearest stop, whether up or down.
+    Nearest,
+    /// Linearly interpolates between stops.
+    #[default]
+    Linear,
+    /// Interpolates between stops with a smooth cubic curve.
+    Smooth,
+}
 
 impl<T: Lerp> Gradient2<T> {
     /// Creates a new gradient.
@@ -49,11 +63,12 @@ impl<T: Lerp> Gradient2<T> {
     /// If there are no stops, or not all the stop values are nondecreasing
     pub fn new(
         kind: Kind<Point2>,
+        interp: Interp,
         stops: impl IntoIterator<Item = (f32, T)>,
     ) -> Self {
         Self {
             kind,
-            map: ColorMap::new(stops),
+            map: ColorMap::new(interp, stops),
         }
     }
 
@@ -80,7 +95,7 @@ impl<T> ColorMap<T> {
     ///
     /// # Panics
     /// If there are no stops, or not all the stop values are nondecreasing
-    pub fn new(it: impl IntoIterator<Item = (f32, T)>) -> Self {
+    pub fn new(interp: Interp, it: impl IntoIterator<Item = (f32, T)>) -> Self {
         let mut t0 = f32::MIN;
         let stops: Vec<_> = it
             .into_iter()
@@ -90,7 +105,7 @@ impl<T> ColorMap<T> {
             })
             .collect();
         assert!(!stops.is_empty(), "at least one stop is required");
-        Self(stops)
+        Self(stops, interp)
     }
 }
 
@@ -103,15 +118,23 @@ impl<T: Lerp> Parametric<T> for ColorMap<T> {
             // t == t_i
             Ok(i) => v[i].1.clone(),
             // t < t_0
-            Err(0) => v[0].1.clone(),
+            Err(0) => v[0].1.clone(), // ok: !v.is_empty()
             // t > t_n
             Err(i) if i == v.len() => v[i - 1].1.clone(),
             // 0 < i < len
             Err(i) => {
+                use super::float::f32;
                 let (t1, v1) = &v[i - 1]; // ok: 0 < i
                 let (t2, v2) = &v[i]; // ok: i < len
                 // Remap t such that t=0 -> v1 and t=1 -> v2
-                v1.lerp(v2, inv_lerp(t, *t1, *t2))
+                let t = inv_lerp(t, *t1, *t2);
+                let t = match self.1 {
+                    Interp::Floor => f32::floor(t),
+                    Interp::Nearest => f32::floor(t + 0.5),
+                    Interp::Linear => t,
+                    Interp::Smooth => smoothstep(t),
+                };
+                v1.lerp(v2, t)
             }
         }
     }
