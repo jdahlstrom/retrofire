@@ -20,7 +20,7 @@ fn main() {
     let count = 10000;
     let rng = &mut Xorshift64::default();
 
-    let verts: Vec<Vertex3<Vec2<_>>> = PointsInUnitBall
+    let verts: Vec<Vertex3<Vec2<Model>>> = PointsInUnitBall
         .samples(rng)
         .take(count)
         .flat_map(|pos| verts.map(|v| vertex(pos.to(), v)))
@@ -39,7 +39,7 @@ fn main() {
     let shader = shader::new(
         |v: Vertex3<Vec2<_>>,
          (mv, proj): (&Mat4<Model, View>, &ProjMat3<View>)| {
-            let vertex_pos = 0.008 * v.attrib.to_vec3().to();
+            let vertex_pos = 0.008 * v.attrib.to_vec3().to(); // Model->View
             let view_pos = mv.apply(&v.pos) + vertex_pos;
             vertex(proj.apply(&view_pos), v.attrib)
         },
