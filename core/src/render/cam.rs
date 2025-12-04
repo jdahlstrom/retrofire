@@ -96,14 +96,19 @@ pub struct Orbit {
 /// also known to as Tait–Bryan angles.
 #[derive(Copy, Clone, Debug, Default)]
 pub struct PitchYawRoll {
-    pub rot: Mat4<View, World>,
-    pub pos: Point3<World>,
+    pub orient: Mat4<View, World>,
+    pub position: Point3<World>,
 }
 
 /// Creates a unit `SphericalVec` from azimuth and altitude.
 #[cfg(feature = "fp")]
 fn az_alt<B>(az: Angle, alt: Angle) -> SphericalVec<B> {
     spherical(1.0, az, alt)
+}
+
+/// Helper to create a translation from a point
+fn origin<S, D>(o: Point3<D>) -> Mat4<S, D> {
+    translate(o.to().to_vec()).to()
 }
 
 //
@@ -356,17 +361,19 @@ impl PitchYawRoll {
     /// Adjusts the camera position in view space (relative to the current
     /// position, along the current orientation axes).
     pub fn translate(&mut self, v: Vec3<View>) {
-        self.pos += self.view_to_world().apply(&v);
+        self.position += self.view_to_world().apply(&v);
     }
 
     /// Moves the camera to the given position in world space.
     pub fn translate_to(&mut self, pt: Point3<World>) {
-        self.pos = pt;
+        self.position = pt;
     }
 
     /// Adjusts the orientation of the camera by the given delta angles.
     pub fn rotate(&mut self, pitch: Angle, yaw: Angle, roll: Angle) {
-        self.rot = rotate_pyr(pitch, yaw, roll).to().then(&self.rot);
+        self.orient = self
+            .orient
+            .compose(&rotate_pyr(pitch, yaw, roll).to())
     }
 
     /// Sets the orientation of the camera to the given **world-space** angles.
@@ -374,13 +381,12 @@ impl PitchYawRoll {
     /// To adjust the camera in view space (that is, relative to the current
     /// orientation), use [`rotate()`][Self::rotate].
     pub fn rotate_to(&mut self, pitch: Angle, yaw: Angle, roll: Angle) {
-        self.rot = rotate_pyr(pitch, yaw, roll).to();
+        self.orient = rotate_pyr(pitch, yaw, roll).to();
     }
 
     /// Returns the matrix from view to world space.
     pub fn view_to_world(&self) -> Mat4<View, World> {
-        let trans: Mat4<World, World> = translate(self.pos.to_vec().to()).to();
-        self.rot.then(&trans)
+        self.orient.then(&origin(self.position))
     }
 }
 
@@ -403,10 +409,11 @@ impl Transform for FirstPerson {
         let right = Vec3::Y.cross(&fwd_move);
 
         // World-to-view is inverse of camera's world transform
-        let transl = translate(-pos.to_vec().to());
-        let orient = orient_z(fwd.to(), right).transpose();
+        let inv_origin: Mat4<World> = origin(-pos.to());
+        let inv_orient: Mat4<_, View> =
+            orient_z(fwd.to(), right).transpose().to();
 
-        transl.then(&orient).to()
+        inv_origin.then(&inv_orient)
     }
 }
 
@@ -419,7 +426,7 @@ impl Transform for Orbit {
 
         // TODO Work out how and whether this is the correct inverse
         //      of the view-to-world transform
-        translate(self.target.to_vec().to()) // to world-space target
+        origin::<(), ()>(self.target.to())
             .then(&rotate_y(self.dir.az())) // to world-space az
             .then(&rotate_x(self.dir.alt())) // to world-space alt
             .then(&translate(self.dir.r() * Vec3::Z)) // view space
@@ -429,10 +436,9 @@ impl Transform for Orbit {
 
 impl Transform for PitchYawRoll {
     fn world_to_view(&self) -> Mat4<World, View> {
-        let trans = translate(-self.pos.to_vec().to()).to();
-        let rot = self.rot.transpose();
-
-        trans.then(&rot)
+        let inv_origin = origin(-self.position);
+        let inv_orient = self.orient.transpose();
+        inv_origin.then(&inv_orient)
     }
 }
 
