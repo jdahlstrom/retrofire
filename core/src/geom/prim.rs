@@ -234,7 +234,7 @@ impl<A, B> Tri<Vertex3<A, B>> {
     ///
     /// # Examples
     /// ```
-    /// use core::f32::consts::SQRT_2;
+    /// use core::f32::consts::FRAC_1_SQRT_2;
     ///
     /// use retrofire_core::assert_approx_eq;
     /// use retrofire_core::geom::{Tri, vertex};
@@ -246,11 +246,11 @@ impl<A, B> Tri<Vertex3<A, B>> {
     ///     vertex(pt3(0.0, 3.0, 3.0), ()),
     ///     vertex(pt3(4.0, 0.0,0.0), ()),
     /// ]);
-    /// assert_approx_eq!(tri.normal(), vec3(0.0, SQRT_2 / 2.0, -SQRT_2 / 2.0));
+    /// assert_approx_eq!(tri.normal(), vec3(0.0, FRAC_1_SQRT_2, -FRAC_1_SQRT_2));
     /// ```
     pub fn normal(&self) -> Normal3 {
         let [t, u] = self.tangents();
-        // TODO normal with basis
+        // TODO add basis parameter to normals
         t.cross(&u).normalize_or_zero().to()
     }
 
