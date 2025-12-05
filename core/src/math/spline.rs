@@ -5,7 +5,10 @@ use core::{array::from_fn, fmt::Debug, marker::PhantomData};
 use crate::geom::{Polyline, Ray};
 use crate::mat;
 
-use super::{Affine, Lerp, Linear, Mat4, Parametric, Vector};
+use super::{
+    Affine, Lerp, Linear, Mat4, Parametric, Point, Vary, Vector, inv_lerp,
+    space::Real,
+};
 
 /// A cubic Bézier curve, defined by four control points.
 ///
@@ -71,6 +74,10 @@ pub struct CatmullRomSpline<T>(Vec<T>);
 /// A piecewise curve composed of concatenated cubic curves.
 #[derive(Debug, Clone, Eq, PartialEq)]
 pub struct BSpline<T>(Vec<T>);
+
+/// Euclidean (arc-length) parameterization for splines.
+#[cfg(feature = "fp")]
+pub struct Euclidean<Spl>(Spl, Vec<(f32, f32)>);
 
 /// Interpolates smoothly from 0.0 to 1.0 as `t` goes from 0.0 to 1.0.
 ///
@@ -705,6 +712,48 @@ fn crb_segment<T: Clone>(pts: &[T], t: f32) -> (f32, &[T; 4]) {
     (u, pts)
 }
 
+#[cfg(feature = "fp")]
+impl<Spl> Euclidean<Spl> {
+    pub fn new<B, const N: usize>(spline: Spl) -> Self
+    where
+        Spl: Parametric<Point<[f32; N], Real<N, B>>>,
+    {
+        let mut lut = Vec::new();
+        let mut s = 0.0;
+        let mut p0 = spline.eval(0.0);
+
+        for t in 0.0.vary_to(1.0, 256) {
+            lut.push((s, t));
+            let p1 = spline.eval(t);
+            s += p1.distance(&p0);
+            p0 = p1;
+        }
+        Self(spline, lut)
+    }
+
+    /// Returns the approximate arc length of the spline.
+    pub fn len(&self) -> f32 {
+        self.1.last().map_or(0.0, |m| m.0)
+    }
+
+    /// Returns the approximate *t* value for the given *s*.
+    fn t(&self, s: f32) -> f32 {
+        let lut = &self.1;
+        let i = lut.binary_search_by(|x| x.0.total_cmp(&s));
+        match i {
+            Ok(i) => lut[i].1,
+            Err(0) => lut[0].1,
+            Err(i) if i == lut.len() => lut[lut.len() - 1].1,
+            Err(i) => {
+                let (s0, t0) = lut[i - 1]; // Ok: 0 < i
+                let (s1, t1) = lut[i]; // Ok: i < lut.len()
+                // Interpolate t in [t0, t1] given s in [s0, s1]
+                t0.lerp(&t1, inv_lerp(s, s0, s1))
+            }
+        }
+    }
+}
+
 //
 // Local trait impls
 //
@@ -751,6 +800,16 @@ where
 {
     fn eval(&self, t: f32) -> T {
         self.eval(t)
+    }
+}
+
+#[cfg(feature = "fp")]
+impl<T, Spl> Parametric<T> for Euclidean<Spl>
+where
+    Spl: Parametric<T>,
+{
+    fn eval(&self, s: f32) -> T {
+        self.0.eval(self.t(s))
     }
 }
 
