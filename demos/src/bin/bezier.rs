@@ -2,10 +2,12 @@ use core::ops::ControlFlow::Continue;
 
 use re::prelude::*;
 
-use re::core::geom::{Edge, Ray};
-use re::core::math::rand::{Distrib, Uniform, VectorsOnUnitDisk, Xorshift64};
-use re::core::math::spline::approximate;
-use re::core::render::raster::line;
+use re::core::{
+    geom::{Edge, Ray},
+    math::rand::{Distrib, Uniform, VectorsOnUnitDisk, Xorshift64},
+    math::spline::approximate,
+    render::raster::line,
+};
 use re::front::{Frame, dims, minifb::Window};
 
 fn main() {
