@@ -1,5 +1,4 @@
 //! Bézier curves and splines.
-
 use alloc::vec::Vec;
 use core::{array::from_fn, fmt::Debug};
 
@@ -25,6 +24,10 @@ use super::{Affine, Lerp, Linear, Parametric, Vector};
 /// ```
 #[derive(Debug, Clone, Eq, PartialEq)]
 pub struct CubicBezier<T>(pub [T; 4]);
+
+/// A piecewise curve composed of concatenated [cubic Bézier curves][CubicBezier].
+#[derive(Debug, Clone, Eq, PartialEq)]
+pub struct BezierSpline<T>(Vec<T>);
 
 /// Interpolates smoothly from 0.0 to 1.0 as `t` goes from 0.0 to 1.0.
 ///
@@ -57,6 +60,10 @@ where
         f(t)
     }
 }
+
+//
+// Inherent impls
+//
 
 impl<T: Lerp> CubicBezier<T> {
     /// Evaluates the value of `self` at `t`.
@@ -159,14 +166,9 @@ where
     }
 }
 
-/// A curve composed of one or more concatenated
-/// [cubic Bézier curves][CubicBezier].
-#[derive(Debug, Clone, Eq, PartialEq)]
-pub struct BezierSpline<T>(Vec<T>);
-
 impl<T> BezierSpline<T>
 where
-    T: Affine<Diff: Linear<Scalar = f32> + Clone> + Clone + Debug,
+    T: Affine<Diff: Linear<Scalar = f32> + Clone> + Clone,
 {
     /// Creates a Bézier spline from the given control points. The number of
     /// elements in `pts` must be 3n + 1 for some positive integer n.
@@ -188,11 +190,12 @@ where
         Self(pts.to_vec())
     }
 
-    /// Constructs a Bézier spline
-    pub fn from_rays<I>(rays: I) -> Self
-    where
-        I: IntoIterator<Item = Ray<T>>,
-    {
+    /// Constructs a Bézier spline from (position, tangent) pairs.
+    ///
+    /// For each pair of consecutive rays (P, **v**) and (Q, **u**), the result
+    /// contains one cubic Bézier curve segment with control points (P, P +
+    /// **v**, Q - **u**, Q).
+    pub fn from_rays(rays: impl IntoIterator<Item = Ray<T>>) -> Self {
         let mut rays = rays.into_iter().peekable();
         let mut first = true;
         let mut pts = Vec::with_capacity(2 * rays.size_hint().0);
@@ -209,35 +212,53 @@ where
         Self::new(&pts)
     }
 
-    /// Evaluates `self` at position `t`.
+    /// Evaluates `self` at the given *t* value.
     ///
-    /// Returns the first point if `t < 0` and the last point if `t > 1`.
+    /// Returns the first point if *t* < 0 and the last point if *t* > 1.
     pub fn eval(&self, t: f32) -> T {
-        // invariant self.0.len() != 0 -> first and last always exist
-        step(t, &self.0[0], self.0.last().unwrap(), |t| {
-            let (seg, u) = self.segment(t);
+        let [first, .., last] = self.0.as_slice() else {
+            panic!("invariant failure: self.0.len() < 4")
+        };
+        step(t, first, last, |t| {
+            let (u, seg) = self.segment(t);
             seg.fast_eval(u)
         })
     }
 
-    /// Returns the tangent of `self` at `t`.
+    /// Returns the tangent of `self` at the given *t* value.
     ///
-    /// Clamps `t` to the range [0, 1].
+    /// Clamps *t* to the range [0, 1].
     pub fn tangent(&self, t: f32) -> T::Diff {
-        let (seg, u) = self.segment(t);
+        let (u, seg) = self.segment(t.clamp(0.0, 1.0));
         seg.tangent(u)
     }
 
-    /// Returns the spline segment and local *t* corresponding to given *t*.
-    fn segment(&self, t: f32) -> (CubicBezier<T>, f32) {
-        use super::float::f32;
-
+    /// Returns the spline segment and local *t* value corresponding to
+    /// the given global *t* value.
+    ///
+    /// Precondition: 0 ≤ *t* ≤ 1
+    fn segment(&self, t: f32) -> (f32, CubicBezier<T>) {
+        // Consecutive segments share an endpoint:
+        // [B0  B1  B2  B3]
+        //             [B3  B4  B5  B6]
+        //                         [B6  B7  B8  B9]
+        //                                     [B9 ...
+        // If the number of segs is n, the number of control points is 3n + 1,
+        // thus if the number of points is l, the number of segs is (l - 1) / 3.
         let num_segs = ((self.0.len() - 1) / 3) as f32;
-        let seg_idx = f32::floor(t * num_segs).min(num_segs - 1.0);
+        // Rescale t to [0, num_segs]
+        let t = t * num_segs;
+        use super::float::f32;
+        // Integral part is the segment index.
+        // The case t = num_segs is special: it should map to u = 1 of the last
+        // segment, not u = 0 of the nonexistent (last+1)th segment!
+        let seg_idx = f32::floor(t).min(num_segs - 1.0);
+        // Fractional part is the local t value
+        let u = t - seg_idx;
+        // Index of the first control point of the segment
         let idx = 3 * (seg_idx as usize);
         let seg = from_fn(|i| self.0[idx..][i].clone());
-        let u = t * num_segs - seg_idx;
-        (CubicBezier(seg), u)
+        (u, CubicBezier(seg))
     }
 
     /// Approximates `self` as a chain of line segments.
@@ -247,12 +268,18 @@ where
     ///
     /// # Examples
     /// ```
-    /// use retrofire_core::math::{BezierSpline, vec2, Vec2};
+    /// use retrofire_core::math::{BezierSpline, Point2, pt2};
     ///
-    /// let curve = BezierSpline::<Vec2>::new(
-    ///     &[vec2(0.0, 0.0), vec2(0.0, 1.0), vec2(1.0, 1.0), vec2(1.0, 0.0)]
+    /// let curve = BezierSpline::<Point2>::new(
+    ///     &[pt2(0.0, 0.0), pt2(0.0, 1.0), pt2(1.0, 1.0), pt2(1.0, 0.0)]
     /// );
+    /// // Find an approximation with error less than 0.01
     /// let approx = curve.approximate(0.01);
+    ///
+    /// // Euclidean length of the polyline approximation
+    /// assert_eq!(approx.len(), 1.9969313);
+    ///
+    /// // Number of line segments used by the approximation
     /// assert_eq!(approx.0.len(), 17);
     /// ```
     ///
@@ -293,12 +320,18 @@ where
     ///
     /// # Examples
     /// ```
-    /// use retrofire_core::math::{BezierSpline, vec2, Vec2};
+    /// use retrofire_core::math::{BezierSpline, Point2, pt2};
     ///
-    /// let curve = BezierSpline::<Vec2>::new(
-    ///     &[vec2(0.0, 0.0), vec2(0.0, 1.0), vec2(1.0, 1.0), vec2(1.0, 0.0)]
+    /// let curve = BezierSpline::<Point2>::new(
+    ///     &[pt2(0.0, 0.0), pt2(0.0, 1.0), pt2(1.0, 1.0), pt2(1.0, 0.0)]
     /// );
+    /// // Find an approximation with error less than 0.01
     /// let approx = curve.approximate_with(|err| err.len_sqr() < 0.01 * 0.01);
+    ///
+    /// // Euclidean length of the polyline approximation
+    /// assert_eq!(approx.len(), 1.9969313);
+    ///
+    /// // Number of line segments used by the approximation
     /// assert_eq!(approx.0.len(), 17);
     /// ```
     pub fn approximate_with(
@@ -326,7 +359,7 @@ where
         let bp = self.eval(b);
 
         let real = self.eval(mid);
-        let approx = ap.midpoint(&bp);
+        let approx = ap.add(&bp.sub(&ap).mul(0.5));
 
         if max_dep == 0 || halt(&real.sub(&approx)) {
             accum.push(ap);
@@ -348,7 +381,7 @@ where
 
 impl<T> Parametric<T> for BezierSpline<T>
 where
-    T: Affine<Diff: Linear<Scalar = f32> + Clone> + Clone + Debug,
+    T: Affine<Diff: Linear<Scalar = f32> + Clone> + Clone,
 {
     fn eval(&self, t: f32) -> T {
         self.eval(t)
@@ -395,9 +428,9 @@ mod tests {
     }
 
     #[test]
-    fn bezier_spline_eval_eq_fast_eval() {
-        let b: CubicBezier<Vec2> = CubicBezier(
-            [[0.0, 0.0], [0.0, 2.0], [1.0, -1.0], [1.0, 1.0]].map(Vec2::from),
+    fn cubic_bezier_eval_eq_fast_eval() {
+        let b = CubicBezier(
+            [[0.0, 0.0], [0.0, 2.0], [1.0, -1.0], [1.0, 1.0]].map(<Vec2>::from),
         );
         for i in 0..11 {
             let t = i as f32 / 10.0;
@@ -408,7 +441,7 @@ mod tests {
     }
 
     #[test]
-    fn bezier_spline_eval_1d() {
+    fn cubic_bezier_f32_eval() {
         let b = CubicBezier([0.0, 2.0, -1.0, 1.0]);
 
         assert_eq!(b.eval(-1.0), 0.0);
@@ -421,10 +454,9 @@ mod tests {
     }
 
     #[test]
-    fn bezier_spline_eval_2d_vec() {
+    fn cubic_bezier_vec3_eval() {
         let b = CubicBezier(
-            [[0.0, 0.0], [0.0, 2.0], [1.0, -1.0], [1.0, 1.0]]
-                .map(Vec2::<()>::from),
+            [[0.0, 0.0], [0.0, 2.0], [1.0, -1.0], [1.0, 1.0]].map(<Vec2>::from),
         );
 
         assert_eq!(b.eval(-1.0), vec2(0.0, 0.0));
@@ -437,10 +469,10 @@ mod tests {
     }
 
     #[test]
-    fn bezier_spline_eval_2d_point() {
+    fn cubic_bezier_point2_eval() {
         let b = CubicBezier(
             [[0.0, 0.0], [0.0, 2.0], [1.0, -1.0], [1.0, 1.0]]
-                .map(Point2::<()>::from),
+                .map(<Point2>::from),
         );
 
         assert_eq!(b.eval(-1.0), pt2(0.0, 0.0));
@@ -453,7 +485,7 @@ mod tests {
     }
 
     #[test]
-    fn bezier_spline_tangent_1d() {
+    fn cubic_bezier_f32_tangent() {
         let b = CubicBezier([0.0, 2.0, -1.0, 1.0]);
 
         assert_eq!(b.tangent(-1.0), 6.0);
@@ -466,10 +498,10 @@ mod tests {
     }
 
     #[test]
-    fn bezier_spline_tangent_2d() {
+    fn cubic_bezier_point2_tangent() {
         let b = CubicBezier(
             [[0.0, 0.0], [0.0, 1.0], [1.0, 0.0], [1.0, 1.0]]
-                .map(Point2::<()>::from),
+                .map(<Point2>::from),
         );
 
         assert_eq!(b.tangent(-1.0), vec2(0.0, 3.0),);
@@ -482,7 +514,7 @@ mod tests {
     }
 
     #[test]
-    fn bezier_spline_eval() {
+    fn bezier_spline_f32_eval() {
         let c = BezierSpline(vec![0.0, 0.8, 0.9, 1.0, 0.6, 0.5, 0.5]);
         assert_eq!(c.eval(-1.0), 0.0);
         assert_eq!(c.eval(0.0), 0.0);
@@ -491,5 +523,38 @@ mod tests {
         assert_eq!(c.eval(0.75), 0.6);
         assert_eq!(c.eval(1.0), 0.5);
         assert_eq!(c.eval(2.0), 0.5);
+    }
+
+    #[test]
+    fn bezier_spline_point2_from_rays() {
+        // The same curve as in `bezier_spline_eval_2d_point`
+        let b = BezierSpline::<Point2>::from_rays([
+            Ray(pt2(0.0, 0.0), vec2(0.0, 2.0)),
+            Ray(pt2(1.0, 1.0), vec2(0.0, 2.0)),
+        ]);
+
+        assert_eq!(b.eval(-1.0), pt2(0.0, 0.0));
+        assert_eq!(b.eval(0.00), pt2(0.0, 0.0));
+        assert_eq!(b.eval(0.25), pt2(0.15625, 0.71875));
+        assert_eq!(b.eval(0.50), pt2(0.5, 0.5));
+        assert_eq!(b.eval(0.75), pt2(0.84375, 0.281250));
+        assert_eq!(b.eval(1.00), pt2(1.0, 1.0));
+        assert_eq!(b.eval(2.00), pt2(1.0, 1.0));
+    }
+
+    #[test]
+    fn bezier_spline_point2_tangent() {
+        let b = BezierSpline::new(
+            &[[0.0, 0.0], [0.0, 1.0], [1.0, 0.0], [1.0, 1.0]]
+                .map(<Point2>::from),
+        );
+
+        assert_eq!(b.tangent(-1.0), vec2(0.0, 3.0),);
+        assert_eq!(b.tangent(0.0), vec2(0.0, 3.0),);
+        assert_eq!(b.tangent(0.25), vec2(1.125, 0.75),);
+        assert_eq!(b.tangent(0.5), vec2(1.5, 0.0),);
+        assert_eq!(b.tangent(0.75), vec2(1.125, 0.75),);
+        assert_eq!(b.tangent(1.0), vec2(0.0, 3.0),);
+        assert_eq!(b.tangent(2.0), vec2(0.0, 3.0),);
     }
 }
