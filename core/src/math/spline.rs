@@ -170,24 +170,25 @@ impl<T> BezierSpline<T>
 where
     T: Affine<Diff: Linear<Scalar = f32> + Clone> + Clone,
 {
-    /// Creates a Bézier spline from the given control points. The number of
-    /// elements in `pts` must be 3n + 1 for some positive integer n.
+    /// Creates a Bézier spline from the given control points.
     ///
-    /// Consecutive points in `pts` make up Bézier curves such that:
-    /// * `pts[0..=3]` define the first curve,
-    /// * `pts[3..=6]` define the second curve,
+    /// The number of elements in `pts` must be 3*n* + 1 for some positive integer
+    /// *n*. Consecutive points in `pts` make up Bézier curves such that:
+    /// * (p0, p1, p2, p3) define the first curve,
+    /// * (p3, p4, p5, p6) define the second curve,
     ///
     /// and so on.
     ///
     /// # Panics
-    /// If `pts.len() < 4` or if `pts.len() % 3 != 1`.
-    pub fn new(pts: &[T]) -> Self {
+    /// If the number of points *n* < 4 or if *n* ≠ 1 (mod 3).
+    pub fn new(pts: impl IntoIterator<Item = T>) -> Self {
+        let pts = pts.into_iter().collect::<Vec<_>>();
+        let len = pts.len();
         assert!(
-            pts.len() >= 4 && pts.len() % 3 == 1,
-            "length must be 3n+1 for some integer n > 0, was {}",
-            pts.len()
+            len >= 4 && len % 3 == 1,
+            "length must be 3n+1 for some integer n > 0, was {len}",
         );
-        Self(pts.to_vec())
+        Self(pts)
     }
 
     /// Constructs a Bézier spline from (position, tangent) pairs.
@@ -195,21 +196,15 @@ where
     /// For each pair of consecutive rays (P, **v**) and (Q, **u**), the result
     /// contains one cubic Bézier curve segment with control points (P, P +
     /// **v**, Q - **u**, Q).
+    ///
+    /// # Panics
+    /// If the number of rays < 2.
     pub fn from_rays(rays: impl IntoIterator<Item = Ray<T>>) -> Self {
-        let mut rays = rays.into_iter().peekable();
-        let mut first = true;
-        let mut pts = Vec::with_capacity(2 * rays.size_hint().0);
-        while let Some(ray) = rays.next() {
-            if !first {
-                pts.push(ray.eval(-1.0));
-            }
-            first = false;
-            pts.push(ray.0.clone());
-            if rays.peek().is_some() {
-                pts.push(ray.eval(1.0));
-            }
-        }
-        Self::new(&pts)
+        let pts: Vec<_> = rays
+            .into_iter()
+            .flat_map(|Ray(p, d)| [p.add(&d.neg()), p.clone(), p.add(&d)])
+            .collect();
+        Self::new(pts[1..pts.len() - 1].into_iter().cloned())
     }
 
     /// Evaluates `self` at the given *t* value.
@@ -271,7 +266,7 @@ where
     /// use retrofire_core::math::{BezierSpline, Point2, pt2};
     ///
     /// let curve = BezierSpline::<Point2>::new(
-    ///     &[pt2(0.0, 0.0), pt2(0.0, 1.0), pt2(1.0, 1.0), pt2(1.0, 0.0)]
+    ///     [pt2(0.0, 0.0), pt2(0.0, 1.0), pt2(1.0, 1.0), pt2(1.0, 0.0)]
     /// );
     /// // Find an approximation with error less than 0.01
     /// let approx = curve.approximate(0.01);
@@ -323,7 +318,7 @@ where
     /// use retrofire_core::math::{BezierSpline, Point2, pt2};
     ///
     /// let curve = BezierSpline::<Point2>::new(
-    ///     &[pt2(0.0, 0.0), pt2(0.0, 1.0), pt2(1.0, 1.0), pt2(1.0, 0.0)]
+    ///     [pt2(0.0, 0.0), pt2(0.0, 1.0), pt2(1.0, 1.0), pt2(1.0, 0.0)]
     /// );
     /// // Find an approximation with error less than 0.01
     /// let approx = curve.approximate_with(|err| err.len_sqr() < 0.01 * 0.01);
@@ -545,7 +540,7 @@ mod tests {
     #[test]
     fn bezier_spline_point2_tangent() {
         let b = BezierSpline::new(
-            &[[0.0, 0.0], [0.0, 1.0], [1.0, 0.0], [1.0, 1.0]]
+            [[0.0, 0.0], [0.0, 1.0], [1.0, 0.0], [1.0, 1.0]]
                 .map(<Point2>::from),
         );
 
