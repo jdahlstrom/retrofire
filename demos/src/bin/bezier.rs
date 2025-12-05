@@ -2,10 +2,12 @@ use core::ops::ControlFlow::Continue;
 
 use re::prelude::*;
 
-use re::core::geom::{Edge, Ray};
-use re::core::math::rand::{Distrib, Uniform, VectorsOnUnitDisk, Xorshift64};
-use re::core::math::spline::approximate;
-use re::core::render::raster::line;
+use re::core::{
+    geom::{Edge, Ray},
+    math::rand::{Distrib, Uniform, VectorsOnUnitDisk, Xorshift64},
+    math::spline::{Euclidean, approximate},
+    render::raster::line,
+};
 use re::front::{Frame, dims, minifb::Window};
 
 fn main() {
@@ -25,18 +27,18 @@ fn main() {
     let vel = VectorsOnUnitDisk;
 
     let mut pos_vels: Vec<(Point2, Vec2)> =
-        (pos, vel).samples(rng).take(32).collect();
+        (pos, vel).samples(rng).take(16).collect();
 
     // Disable some unneeded things
     win.ctx.color_clear = None;
     win.ctx.depth_clear = None;
 
-    win.run(|Frame { dt, buf, .. }| {
+    win.run(|Frame { t, dt, buf, .. }| {
         let buf = &mut buf.borrow_mut().color_buf.buf;
 
         // Fade out previous frame a bit
         buf.iter_mut()
-            .for_each(|c| *c = c.saturating_sub(0x08_08_02));
+            .for_each(|c| *c = c.saturating_sub(0xFF_FF_FF));
 
         let rays: Vec<Ray<_>> = pos_vels
             .chunks(2)
@@ -50,8 +52,19 @@ fn main() {
         for Edge(p0, p1) in approx.edges() {
             let vs = [p0, p1].map(|p| vertex(p.to_pt3().to(), ()));
             line(vs, |sl| {
-                buf[sl.y][sl.xs].fill(0xFF_FF_FF);
+                buf[sl.y][sl.xs].fill(0x33_00_00);
             })
+        }
+
+        let euc = Euclidean::new(b);
+        for s in 0.0.vary_to(euc.len(), 32) {
+            let p = euc.eval((s + 40.0 * t.as_secs_f32()) % euc.len());
+            let x = p.x() as usize;
+            let y = p.y() as usize;
+            buf[y - 1][x] = 0xFF_FF_FF;
+            buf[y][x - 1] = 0xFF_FF_FF;
+            buf[y + 1][x] = 0xFF_FF_FF;
+            buf[y][x + 1] = 0xFF_FF_FF;
         }
 
         let dt = dt.as_secs_f32();
