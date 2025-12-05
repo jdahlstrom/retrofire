@@ -4,6 +4,7 @@ use super::Lerp;
 
 /// Represents a single-variable parametric curve.
 // TODO More documentation
+// TODO Associated type instead of parameter?
 pub trait Parametric<T> {
     /// Returns the value of `self` at `t`.
     ///
