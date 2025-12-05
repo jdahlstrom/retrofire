@@ -1,6 +1,6 @@
 //! Bézier curves and splines.
 use alloc::vec::Vec;
-use core::{array::from_fn, fmt::Debug};
+use core::{array::from_fn, fmt::Debug, marker::PhantomData};
 
 use crate::geom::{Polyline, Ray};
 
@@ -28,6 +28,12 @@ pub struct CubicBezier<T>(pub [T; 4]);
 /// A piecewise curve composed of concatenated [cubic Bézier curves][CubicBezier].
 #[derive(Debug, Clone, Eq, PartialEq)]
 pub struct BezierSpline<T>(Vec<T>);
+
+/// A piecewise curve composed of concatenated cubic Hermite curves.
+#[derive(Debug, Clone, Eq, PartialEq)]
+// HACK: The PhantomData field only exists to force the derive impls
+//       to include the correct `T::Diff: Trait` bounds
+pub struct HermiteSpline<T: Affine>(Vec<Ray<T>>, PhantomData<T::Diff>);
 
 /// Interpolates smoothly from 0.0 to 1.0 as `t` goes from 0.0 to 1.0.
 ///
@@ -365,6 +371,85 @@ where
     }
 }
 
+impl<T> HermiteSpline<T>
+where
+    T: Affine<Diff: Linear<Scalar = f32>> + Clone,
+{
+    /// Creates a new Hermite spline from a sequence of rays.
+    ///
+    /// Each ray (P<sub>i</sub>, **v**<sub>i</sub>) makes up a point
+    /// P<sub>i</sub> on the curve and the gradient (velocity) vector
+    /// **v**<sub>i</sub> of the curve at that point. Thus,
+    /// the ray lies tangent to the curve at point P<sub>i</sub>.
+    ///
+    /// # Panics
+    /// If `rays` is empty.
+    pub fn new(rays: impl IntoIterator<Item = Ray<T>>) -> Self {
+        let rays: Vec<_> = rays.into_iter().collect();
+        assert!(!rays.is_empty());
+        Self(rays, PhantomData)
+    }
+
+    // Returns the subsegment and local *t* value corresponding to the given
+    // global *t* value. Precondition: t < 1
+    fn segment(&self, t: f32) -> (f32, &Ray<T>, &Ray<T>) {
+        debug_assert!(t < 1.0 && !self.0.is_empty());
+        // Scale to range [0, self.0.len() - 1)
+        let t = t * (self.0.len() - 1) as f32;
+        // Integral part is the index of the subsegment
+        let i = t as usize;
+        // Fractional part is the local t value
+        let u = t - i as f32;
+        // Ok: i + 1 < self.0.len()
+        (u, &self.0[i], &self.0[i + 1])
+    }
+
+    /// Evaluates `self` at the given *t* value.
+    ///
+    /// If t < 0, returns the first control point. If t > 1, returns the last
+    /// control point.
+    pub fn eval(&self, t: f32) -> T {
+        if t >= 1.0 {
+            // Invariant: !self.0.is_empty()
+            return self.0[self.0.len() - 1].0.clone();
+        } else if t <= 0.0 {
+            // Invariant: !self.0.is_empty()
+            return self.0[0].0.clone();
+        }
+        let (t, Ray(p0, d0), Ray(p1, d1)) = self.segment(t);
+        let [_0, t1, t2, t3] = [1.0, t, t * t, t * t * t];
+
+        // Characteristic matrix M
+        //  1.0,  0.0,  0.0,  0.0;
+        //  0.0,  1.0,  0.0,  0.0;
+        // -3.0, -2.0,  3.0, -1.0;
+        //  2.0,  1.0, -2.0,  1.0;
+
+        // b = ts * M
+        let _0 = 1.0 - 3.0 * t2 + 2.0 * t3; // = 1 - b2
+        let b1 = t1 - 2.0 * t2 + t3;
+        let b2 = 3.0 * t2 - 2.0 * t3;
+        let b3 = -t2 + t3;
+
+        // H(t) = b * P
+
+        //   b0 * p0 + b1 * d0 + b2 * p1 + b3 * d1
+        // = b0 * p0 + b2 * p1 // Affine: b0 + b2 = 1: lerp
+        // + b1 * d0 + b3 * d1 // Linear
+
+        //   b0 * p0 + b2 * p1
+        // = (1 - b2) * p0 + b2 * p1
+        // = p0 + b2 * (p1 - p0)
+
+        p0.add(&p1.sub(&p0).mul(b2)) // Affine
+            .add(&d0.mul(b1).add(&d1.mul(b3))) // Linear
+    }
+}
+
+//
+// Local trait impls
+//
+
 impl<T> Parametric<T> for CubicBezier<T>
 where
     T: Affine<Diff: Linear<Scalar = f32> + Clone> + Clone,
@@ -377,6 +462,15 @@ where
 impl<T> Parametric<T> for BezierSpline<T>
 where
     T: Affine<Diff: Linear<Scalar = f32> + Clone> + Clone,
+{
+    fn eval(&self, t: f32) -> T {
+        self.eval(t)
+    }
+}
+
+impl<T> Parametric<T> for HermiteSpline<T>
+where
+    T: Affine<Diff: Linear<Scalar = f32>> + Lerp,
 {
     fn eval(&self, t: f32) -> T {
         self.eval(t)
@@ -551,5 +645,19 @@ mod tests {
         assert_eq!(b.tangent(0.75), vec2(1.125, 0.75),);
         assert_eq!(b.tangent(1.0), vec2(0.0, 3.0),);
         assert_eq!(b.tangent(2.0), vec2(0.0, 3.0),);
+    }
+
+    #[test]
+    fn hermite_spline() {
+        let h = HermiteSpline::new([
+            Ray(pt2::<_, ()>(0.0, 0.0), vec2(1.0, 0.0)),
+            Ray(pt2(1.0, 1.0), vec2(1.0, 0.0)),
+        ]);
+
+        assert_eq!(h.eval(0.0), pt2(0.0, 0.0));
+        assert_approx_eq!(h.eval(0.2), pt2(0.2, 0.104));
+        assert_eq!(h.eval(0.5), pt2(0.5, 0.5));
+        assert_approx_eq!(h.eval(0.8), pt2(0.8, 0.896));
+        assert_eq!(h.eval(1.0), pt2(1.0, 1.0));
     }
 }
