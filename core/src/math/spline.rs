@@ -1,5 +1,4 @@
 //! Bézier curves and splines.
-
 use alloc::vec::Vec;
 use core::{array::from_fn, fmt::Debug};
 
@@ -25,6 +24,10 @@ use super::{Affine, Lerp, Linear, Parametric, Vector};
 /// ```
 #[derive(Debug, Clone, Eq, PartialEq)]
 pub struct CubicBezier<T>(pub [T; 4]);
+
+/// A piecewise curve composed of concatenated [cubic Bézier curves][CubicBezier].
+#[derive(Debug, Clone, Eq, PartialEq)]
+pub struct BezierSpline<T>(Vec<T>);
 
 /// Interpolates smoothly from 0.0 to 1.0 as `t` goes from 0.0 to 1.0.
 ///
@@ -57,6 +60,10 @@ where
         f(t)
     }
 }
+
+//
+// Inherent impls
+//
 
 impl<T: Lerp> CubicBezier<T> {
     /// Evaluates the value of `self` at `t`.
@@ -159,14 +166,9 @@ where
     }
 }
 
-/// A curve composed of one or more concatenated
-/// [cubic Bézier curves][CubicBezier].
-#[derive(Debug, Clone, Eq, PartialEq)]
-pub struct BezierSpline<T>(Vec<T>);
-
 impl<T> BezierSpline<T>
 where
-    T: Affine<Diff: Linear<Scalar = f32> + Clone> + Clone + Debug,
+    T: Affine<Diff: Linear<Scalar = f32> + Clone> + Clone,
 {
     /// Creates a Bézier spline from the given control points. The number of
     /// elements in `pts` must be 3n + 1 for some positive integer n.
@@ -188,7 +190,12 @@ where
         Self(pts.to_vec())
     }
 
-    /// Constructs a Bézier spline
+    /// Constructs a Bézier spline from (position, tangent) pairs.
+    ///
+    /// Specifically, for each pair of consecutive rays (P0, d0) and (P1, d1),
+    /// the result contains one cubic Bézier curve segment with control points
+    /// (P0, P0 + d0, P1 - d1, P1). The next segment, defined by (P1, d1) and
+    /// the next ray (P2, d2), would in turn give (P1, P1 + d1, P2 - d2, P2).
     pub fn from_rays<I>(rays: I) -> Self
     where
         I: IntoIterator<Item = Ray<T>>,
@@ -247,12 +254,18 @@ where
     ///
     /// # Examples
     /// ```
-    /// use retrofire_core::math::{BezierSpline, vec2, Vec2};
+    /// use retrofire_core::math::{BezierSpline, Point2, pt2};
     ///
-    /// let curve = BezierSpline::<Vec2>::new(
-    ///     &[vec2(0.0, 0.0), vec2(0.0, 1.0), vec2(1.0, 1.0), vec2(1.0, 0.0)]
+    /// let curve = BezierSpline::<Point2>::new(
+    ///     &[pt2(0.0, 0.0), pt2(0.0, 1.0), pt2(1.0, 1.0), pt2(1.0, 0.0)]
     /// );
+    /// // Find an approximation with error less than 0.01
     /// let approx = curve.approximate(0.01);
+    ///
+    /// // Euclidean length of the polyline approximation
+    /// assert_eq!(approx.len(), 1.9969313);
+    ///
+    /// // Number of line segments used by the approximation
     /// assert_eq!(approx.0.len(), 17);
     /// ```
     ///
@@ -293,12 +306,18 @@ where
     ///
     /// # Examples
     /// ```
-    /// use retrofire_core::math::{BezierSpline, vec2, Vec2};
+    /// use retrofire_core::math::{BezierSpline, Point2, pt2};
     ///
-    /// let curve = BezierSpline::<Vec2>::new(
-    ///     &[vec2(0.0, 0.0), vec2(0.0, 1.0), vec2(1.0, 1.0), vec2(1.0, 0.0)]
+    /// let curve = BezierSpline::<Point2>::new(
+    ///     &[pt2(0.0, 0.0), pt2(0.0, 1.0), pt2(1.0, 1.0), pt2(1.0, 0.0)]
     /// );
+    /// // Find an approximation with error less than 0.01
     /// let approx = curve.approximate_with(|err| err.len_sqr() < 0.01 * 0.01);
+    ///
+    /// // Euclidean length of the polyline approximation
+    /// assert_eq!(approx.len(), 1.9969313);
+    ///
+    /// // Number of line segments used by the approximation
     /// assert_eq!(approx.0.len(), 17);
     /// ```
     pub fn approximate_with(
@@ -326,7 +345,7 @@ where
         let bp = self.eval(b);
 
         let real = self.eval(mid);
-        let approx = ap.midpoint(&bp);
+        let approx = ap.add(&bp.sub(&ap).mul(0.5));
 
         if max_dep == 0 || halt(&real.sub(&approx)) {
             accum.push(ap);
@@ -348,7 +367,7 @@ where
 
 impl<T> Parametric<T> for BezierSpline<T>
 where
-    T: Affine<Diff: Linear<Scalar = f32> + Clone> + Clone + Debug,
+    T: Affine<Diff: Linear<Scalar = f32> + Clone> + Clone,
 {
     fn eval(&self, t: f32) -> T {
         self.eval(t)
