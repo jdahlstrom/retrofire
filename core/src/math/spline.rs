@@ -1,11 +1,11 @@
 //! Bézier curves and splines.
 
+use crate::geom::{Polyline, Ray};
 use alloc::vec::Vec;
 use core::{array::from_fn, fmt::Debug};
+use std::dbg;
 
-use crate::geom::{Polyline, Ray};
-
-use super::{Affine, Lerp, Linear, Parametric, Vector};
+use super::{Affine, Lerp, Linear, Parametric, Point2, Vary, Vector, inv_lerp};
 
 /// A cubic Bézier curve, defined by four control points.
 ///
@@ -163,6 +163,53 @@ where
 /// [cubic Bézier curves][CubicBezier].
 #[derive(Debug, Clone, Eq, PartialEq)]
 pub struct BezierSpline<T>(Vec<T>);
+
+pub struct Euclidean<T>(BezierSpline<T>, Vec<(f32, f32)>);
+
+impl<B: Debug + Default> Euclidean<Point2<B>> {
+    pub fn new(spline: BezierSpline<Point2<B>>) -> Self {
+        let mut lut = Vec::new();
+
+        let mut s = 0.0;
+        let mut p0 = spline.0[0];
+        for t in 0.0.vary_to(1.0, 256) {
+            let p = spline.eval(t);
+            let d = p.distance(&p0);
+
+            lut.push((s, t));
+
+            s += d;
+            p0 = p;
+        }
+
+        Self(spline, lut)
+    }
+
+    pub fn len(&self) -> f32 {
+        self.1.last().unwrap_or(&(0.0, 0.0)).0
+    }
+}
+
+impl<B: Debug + Default> Parametric<Point2<B>> for Euclidean<Point2<B>> {
+    fn eval(&self, s: f32) -> Point2<B> {
+        let lut = &self.1;
+        let i = lut.binary_search_by(|x| x.0.total_cmp(&s));
+
+        let t = match i {
+            Ok(i) => lut[i].1,
+            Err(0) => lut[0].1,
+            Err(i) if i == lut.len() => self.1[lut.len() - 1].1,
+
+            // 0 < i < lut.len()
+            Err(i) => {
+                // interpolate t between (s_i, t_i) .. (s_j, t_j) given s
+                let s = inv_lerp(s, lut[i - 1].0, lut[i].0);
+                lut[i - 1].1.lerp(&lut[i].1, s)
+            }
+        };
+        self.0.eval(t)
+    }
+}
 
 impl<T> BezierSpline<T>
 where
