@@ -11,7 +11,6 @@ use super::{Affine, Lerp, Linear, Parametric, Vector};
 /// TODO More info about Béziers
 ///
 /// ```text
-///
 ///  p1
 ///   \         ____
 ///    \     _-´    `--_                      p3
@@ -25,11 +24,40 @@ use super::{Affine, Lerp, Linear, Parametric, Vector};
 #[derive(Debug, Clone, Eq, PartialEq)]
 pub struct CubicBezier<T>(pub [T; 4]);
 
+/// A cubic Hermite curve, defined by two control points and the gradient
+/// vectors at the control points.
+///
+/// Hermite curves are closely related to Bézier curves, via the identity
+///
+/// H(p0, d0, p1, d1) = B(p0, p0 + d0/3, p1 - d1/3, p1),
+///
+/// or, equivalently,
+///
+/// B(p0, p1, p2, p3) = H(p0, 3(p1 - p0), p3, 3(p2 - p3)).
+///
+/// ```text
+///  d0
+///   ^
+///    \
+///     \        ____
+///      \    _-´    `--_                       p1
+///       \  /           `-_                     \
+///        \|               `-_                  |\
+///         \                  `-__             /  \
+///          p0                     `---_____--´    \
+///                                                  \
+///                                                   \
+///                                                    v
+///                                                    d1
+/// ```
+#[derive(Debug, Clone, Eq, PartialEq)]
+pub struct CubicHermite<P, D>(pub [P; 2], pub [D; 2]);
+
 /// A piecewise curve composed of concatenated [cubic Bézier curves][CubicBezier].
 #[derive(Debug, Clone, Eq, PartialEq)]
 pub struct BezierSpline<T>(Vec<T>);
 
-/// A piecewise curve composed of concatenated cubic Hermite curves.
+/// A piecewise curve composed of concatenated [cubic Hermite curves][CubicHermite].
 #[derive(Debug, Clone, Eq, PartialEq)]
 // HACK: The PhantomData field only exists to force the derive impls
 //       to include the correct `T::Diff: Trait` bounds
@@ -88,6 +116,7 @@ impl<T: Lerp> CubicBezier<T> {
         })
     }
 }
+
 impl<T> CubicBezier<T>
 where
     T: Affine<Diff: Linear<Scalar = f32>> + Clone,
@@ -169,6 +198,74 @@ where
         let p1_p0_3 = p1.sub(p0).mul(3.0);
         let p1_p2_3 = p1.sub(p2).mul(3.0);
         [p3_p0.add(&p1_p2_3), p1_p0_3.add(&p1_p2_3).neg(), p1_p0_3]
+    }
+}
+
+impl<P> CubicHermite<P, P::Diff>
+where
+    P: Affine<Diff: Linear<Scalar = f32>> + Clone,
+{
+    // Characteristic matrix M
+    //  1.0,  0.0,  0.0,  0.0;
+    //  0.0,  1.0,  0.0,  0.0;
+    // -3.0, -2.0,  3.0, -1.0;
+    //  2.0,  1.0, -2.0,  1.0;
+
+    /// Returns the point of `self` at the given *t* value.
+    ///
+    /// Values outside the interval [0, 1] are accepted and extrapolate
+    /// the curve beyond the control points.
+    pub fn eval(&self, t: f32) -> P {
+        let Self([p0, p1], [d0, d1]) = self;
+        let [_0, t1, t2, t3] = [1.0, t, t * t, t * t * t];
+
+        // b = ts * M
+        let _0 = 1.0 - 3.0 * t2 + 2.0 * t3; // = 1 - b2
+        let b1 = t1 - 2.0 * t2 + t3;
+        let b2 = 3.0 * t2 - 2.0 * t3;
+        let b3 = -t2 + t3;
+
+        // H(t) = b * P
+
+        //   b0 * p0 + b1 * d0 + b2 * p1 + b3 * d1
+        // = b0 * p0 + b2 * p1 // Affine: b0 + b2 = 1: lerp
+        // + b1 * d0 + b3 * d1 // Linear
+
+        //   b0 * p0 + b2 * p1
+        // = (1 - b2) * p0 + b2 * p1
+        // = p0 + b2 * (p1 - p0)
+
+        p0.add(&p1.sub(&p0).mul(b2)) // Affine part
+            .add(&d0.mul(b1).add(&d1.mul(b3))) // Linear part
+    }
+
+    pub fn gradient(&self, t: f32) -> P::Diff {
+        let Self([p0, p1], [d0, d1]) = self;
+        // Derivatives of the powers of t
+        let [_0, _1, t2, t3] = [0.0, 1.0, 2.0 * t, 3.0 * t * t];
+
+        // b = ts * M
+        let _0 = 0.0 - 3.0 * t2 + 2.0 * t3; // = -b2
+        let b1 = 1.0 - 2.0 * t2 + t3;
+        let b2 = 3.0 * t2 - 2.0 * t3;
+        let b3 = -t2 + t3;
+
+        // H(t) = b * P
+
+        //   b0 * p0 + b1 * d0 + b2 * p1 + b3 * d1
+        // = b0 * p0 + b2 * p1 // b0 = -b2
+        // + b1 * d0 + b3 * d1 // Linear
+
+        //   b0 * p0 + b2 * p1
+        // = -b2 * p0 + b2 * p1
+        // = b2 * p1 - b2 * p0
+        // = b2 * (p1 - p0)
+
+        // Only vectors as expected:
+        // b2·(p1 - p0) + b1·d0 + b3·d1
+        p1.sub(&p0)
+            .mul(b2)
+            .add(&d0.mul(b1).add(&d1.mul(b3)))
     }
 }
 
@@ -373,7 +470,7 @@ where
 
 impl<T> HermiteSpline<T>
 where
-    T: Affine<Diff: Linear<Scalar = f32>> + Clone,
+    T: Affine<Diff: Linear<Scalar = f32> + Clone> + Clone,
 {
     /// Creates a new Hermite spline from a sequence of rays.
     ///
@@ -390,10 +487,10 @@ where
         Self(rays, PhantomData)
     }
 
-    // Returns the subsegment and local *t* value corresponding to the given
-    // global *t* value. Precondition: t < 1
-    fn segment(&self, t: f32) -> (f32, &Ray<T>, &Ray<T>) {
-        debug_assert!(t < 1.0 && !self.0.is_empty());
+    /// Returns the subsegment and local *t* value corresponding to the given
+    /// global *t* value. Clamps *t* to the interval [0, 1] first.
+    fn segment(&self, t: f32) -> (f32, CubicHermite<T, T::Diff>) {
+        let t = t.clamp(0.0, 1.0);
         // Scale to range [0, self.0.len() - 1)
         let t = t * (self.0.len() - 1) as f32;
         // Integral part is the index of the subsegment
@@ -401,48 +498,22 @@ where
         // Fractional part is the local t value
         let u = t - i as f32;
         // Ok: i + 1 < self.0.len()
-        (u, &self.0[i], &self.0[i + 1])
+        let Ray(p0, d0) = self.0[i].clone();
+        let Ray(p1, d1) = self.0[i + 1].clone();
+        (u, CubicHermite([p0, p1], [d0, d1]))
     }
 
-    /// Evaluates `self` at the given *t* value.
-    ///
-    /// If t < 0, returns the first control point. If t > 1, returns the last
-    /// control point.
+    /// Evaluates `self` at the given *t* value, clamped to [0, 1].
     pub fn eval(&self, t: f32) -> T {
-        if t >= 1.0 {
-            // Invariant: !self.0.is_empty()
-            return self.0[self.0.len() - 1].0.clone();
-        } else if t <= 0.0 {
-            // Invariant: !self.0.is_empty()
-            return self.0[0].0.clone();
-        }
-        let (t, Ray(p0, d0), Ray(p1, d1)) = self.segment(t);
-        let [_0, t1, t2, t3] = [1.0, t, t * t, t * t * t];
+        let (u, seg) = self.segment(t);
+        seg.eval(u)
+    }
 
-        // Characteristic matrix M
-        //  1.0,  0.0,  0.0,  0.0;
-        //  0.0,  1.0,  0.0,  0.0;
-        // -3.0, -2.0,  3.0, -1.0;
-        //  2.0,  1.0, -2.0,  1.0;
-
-        // b = ts * M
-        let _0 = 1.0 - 3.0 * t2 + 2.0 * t3; // = 1 - b2
-        let b1 = t1 - 2.0 * t2 + t3;
-        let b2 = 3.0 * t2 - 2.0 * t3;
-        let b3 = -t2 + t3;
-
-        // H(t) = b * P
-
-        //   b0 * p0 + b1 * d0 + b2 * p1 + b3 * d1
-        // = b0 * p0 + b2 * p1 // Affine: b0 + b2 = 1: lerp
-        // + b1 * d0 + b3 * d1 // Linear
-
-        //   b0 * p0 + b2 * p1
-        // = (1 - b2) * p0 + b2 * p1
-        // = p0 + b2 * (p1 - p0)
-
-        p0.add(&p1.sub(&p0).mul(b2)) // Affine
-            .add(&d0.mul(b1).add(&d1.mul(b3))) // Linear
+    /// Returns the gradient (velocity) vector of `self` at the given *t* value,
+    /// clamped to [0, 1].
+    pub fn gradient(&self, t: f32) -> T::Diff {
+        let (u, seg) = self.segment(t);
+        seg.gradient(u)
     }
 }
 
@@ -470,7 +541,7 @@ where
 
 impl<T> Parametric<T> for HermiteSpline<T>
 where
-    T: Affine<Diff: Linear<Scalar = f32>> + Lerp,
+    T: Affine<Diff: Linear<Scalar = f32> + Clone> + Lerp,
 {
     fn eval(&self, t: f32) -> T {
         self.eval(t)
