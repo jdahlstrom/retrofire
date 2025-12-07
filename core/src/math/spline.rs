@@ -3,8 +3,9 @@ use alloc::vec::Vec;
 use core::{array::from_fn, fmt::Debug, marker::PhantomData};
 
 use crate::geom::{Polyline, Ray};
+use crate::mat;
 
-use super::{Affine, Lerp, Linear, Parametric, Vector};
+use super::{Affine, Lerp, Linear, Mat4, Parametric, Vector};
 
 /// A cubic Bézier curve, defined by four control points.
 ///
@@ -62,6 +63,14 @@ pub struct BezierSpline<T>(Vec<T>);
 // HACK: The PhantomData field only exists to force the derive impls
 //       to include the correct `T::Diff: Trait` bounds
 pub struct HermiteSpline<T: Affine>(Vec<Ray<T>>, PhantomData<T::Diff>);
+
+/// A piecewise curve composed of concatenated cubic curves.
+#[derive(Debug, Clone, Eq, PartialEq)]
+pub struct CatmullRomSpline<T>(Vec<T>);
+
+/// A piecewise curve composed of concatenated cubic curves.
+#[derive(Debug, Clone, Eq, PartialEq)]
+pub struct BSpline<T>(Vec<T>);
 
 /// Interpolates smoothly from 0.0 to 1.0 as `t` goes from 0.0 to 1.0.
 ///
@@ -534,6 +543,168 @@ where
     }
 }
 
+impl<T> CatmullRomSpline<T>
+where
+    T: Affine<Diff: Linear<Scalar = f32>> + Clone,
+{
+    const _CHAR_MAT: Mat4 = mat![
+         0.0,  1.0,  0.0,  0.0;
+        -0.5,  0.0,  0.5,  0.0;
+         1.0, -2.5,  2.0, -0.5;
+        -0.5,  1.5, -1.5,  0.5;
+    ];
+
+    pub fn new(pts: impl IntoIterator<Item = T>) -> Self {
+        let pts: Vec<_> = pts.into_iter().collect();
+        assert!(
+            pts.len() >= 4,
+            "a Catmull–Rom spline requires at least four points"
+        );
+        Self(pts)
+    }
+
+    /// Returns the point of `self` at the given *t* value.
+    ///
+    /// Values of *t* outside the interval [0, 1] are accepted and extrapolate
+    /// the curve beyond the control points.
+    pub fn eval(&self, t: f32) -> T {
+        let (t, [p0, p1, p2, p3]) = crb_segment(&self.0, t);
+        let [_0, t1, t2, t3] = [1.0, t, t * t, t * t * t];
+
+        let _0 = (-t1 + 2.0 * t2 - t3) / 2.0;
+        let b1 = (2.0 - 5.0 * t2 + 3.0 * t3) / 2.0;
+        let b2 = (t1 + 4.0 * t2 - 3.0 * t3) / 2.0;
+        let b3 = (-t2 + t3) / 2.0;
+
+        // b0 + b1 + b2 + b3 = 1
+        // b0 = 1 - b1 - b2 - b3
+
+        //    b0·P0 + b1·P1 + b2·P2 + b3·P3
+        // = (1 - b1 - b2 - b3)·P0 + b1·P1 + b2·P2 + b3·P3
+        // = P0 - b1·P0 - b2·P0 - b3·P0 + b1·P1 + b2·P2 + b3·P3
+        // = P0 + b1·(P1 - P0) + b2·(P2 - P0) + b3·(P3 - P0)
+
+        p0.add(&p1.sub(&p0).mul(b1))
+            .add(&p2.sub(&p0).mul(b2))
+            .add(&p3.sub(&p0).mul(b3))
+    }
+
+    /// Returns the gradient, or velocity, vector of `self` at the given *t*
+    /// value.
+    ///
+    /// Values of *t* outside the interval [0, 1] are accepted and extrapolate
+    /// the curve beyond the control points.
+    pub fn gradient(&self, t: f32) -> T::Diff {
+        let (t, [p0, p1, p2, p3]) = crb_segment(&self.0, t);
+        let [_0, _1, t2, t3] = [0.0, 1.0, 2.0 * t, 3.0 * t * t];
+
+        // ⎛ b0 ⎞        ⎛ -1 + 2·t2 -   t3 ⎞
+        // ⎜ b1 ⎟ =  1/2 ⎜    - 5·t2 + 3·t3 ⎟
+        // ⎜ b2 ⎟        ⎜  1 + 4·t2 - 3·t3 ⎟
+        // ⎝ b3 ⎠        ⎝    -   t2 +   t3 ⎠
+
+        let b1 = -2.5 * t2 + 1.5 * t3;
+        let b2 = 0.5 + 2.0 * t2 - 1.5 * t3;
+        let b3 = -0.5 * t2 + 0.5 * t3;
+
+        // b0 + b1 + b2 + b3 = 0 <=> b0 = -(b1 + b2 + b3)
+        //
+        //    b0·P0 + b1·P1 + b2·P2 + b3·P3
+        // = -(b1 + b2 + b3)·P0 + b1·P1 + b2·P2 + b3·P3
+        // = b1·P1 + b2·P2 + b3·P3 - b1·P0 - b2·P0 - b3·P0
+        // = b1·(P1 - P0) + b2·(P2 - P0) + b3·(P3 - P0)
+
+        p1.sub(&p0)
+            .mul(b1)
+            .add(&p2.sub(&p0).mul(b2))
+            .add(&p3.sub(&p0).mul(b3))
+    }
+}
+
+impl<T> BSpline<T>
+where
+    T: Affine<Diff: Linear<Scalar = f32>> + Clone,
+{
+    const _CHAR_MAT: Mat4 = {
+        const _1_6: f32 = 1.0 / 6.0;
+        const _2_3: f32 = 2.0 / 3.0;
+        mat![
+            _1_6, _2_3, _1_6,  0.0;
+            -0.5,  0.0,  0.5,  0.0;
+             0.5, -1.0,  0.5,  0.0;
+           -_1_6,  0.5, -0.5, _1_6;
+        ]
+    };
+
+    pub fn new(pts: impl IntoIterator<Item = T>) -> Self {
+        let pts: Vec<_> = pts.into_iter().collect();
+        assert!(pts.len() >= 4, "a B-spline requires at least four points");
+        Self(pts)
+    }
+
+    /// Returns the point of `self` at the given *t* value.
+    ///
+    /// Values of *t* outside the interval [0, 1] are accepted and extrapolate
+    /// the curve beyond the control points.
+    pub fn eval(&self, t: f32) -> T {
+        let (t, [p0, p1, p2, p3]) = crb_segment(&self.0, t);
+        let [_0, t1, t2, t3] = [1.0, t, t * t, t * t * t];
+
+        let _0 = (1.0 - 3.0 * t1 + 3.0 * t2 + t3) / 6.0;
+        let b1 = (4.0 - 6.0 * t2 + 3.0 * t3) / 6.0;
+        let b2 = (1.0 + 3.0 * t1 + 3.0 * t2 - 3.0 * t3) / 6.0;
+        let b3 = t3 / 6.0;
+
+        p0.add(&p1.sub(&p0).mul(b1))
+            .add(&p2.sub(&p0).mul(b2))
+            .add(&p3.sub(&p0).mul(b3))
+    }
+
+    /// Returns the gradient, or velocity, vector of `self` at the given *t*
+    /// value.
+    ///
+    /// Values of *t* outside the interval [0, 1] are accepted and extrapolate
+    /// the curve beyond the control points.
+    pub fn gradient(&self, t: f32) -> T::Diff {
+        let (t, [p0, p1, p2, p3]) = crb_segment(&self.0, t);
+        let [_0, _1, t2, t3] = [0.0, 1.0, 2.0 * t, 3.0 * t * t];
+
+        // ⎛ b0 ⎞        ⎛ -3 + 3·t2 -   t3 ⎞
+        // ⎜ b1 ⎟ = 1/6  ⎜    - 6·t2 + 3·t3 ⎟
+        // ⎜ b2 ⎟        ⎜  3 + 3·t2 - 3·t3 ⎟
+        // ⎝ b3 ⎠        ⎝               t3 ⎠
+
+        let b1 = -t2 + 0.5 * t3;
+        let b2 = 0.5 + 0.5 * t2 - 0.5 * t3;
+        let b3 = t3 / 6.0;
+
+        // b0 + b1 + b2 + b3 = 0 <=> b0 = -(b1 + b2 + b3)
+        //
+        //   b0·P0 + b1·P1 + b2·P2 + b3·P3
+        // = -(b1 + b2 + b3)·P0 + b1·P1 + b2·P2 + b3·P3
+        // = b1·P1 + b2·P2 + b3·P3 - b1·P0 - b2·P0 - b3·P0
+        // = b1·(P1 - P0) + b2·(P2 - P0) + b3·(P3 - P0)
+
+        p1.sub(&p0)
+            .mul(b1)
+            .add(&p2.sub(&p0).mul(b2))
+            .add(&p3.sub(&p0).mul(b3))
+    }
+}
+
+/// Returns the curve segment and local *t* value corresponding to
+/// the global *t* value of a Catmull–Rom or B-spline.
+fn crb_segment<T: Clone>(pts: &[T], t: f32) -> (f32, &[T; 4]) {
+    let t = 1.0 + t * (pts.len() as f32 - 3.0);
+
+    let i = (t as usize).clamp(1, pts.len() - 3);
+    let u = t - i as f32;
+    let pts = pts[i - 1..i + 3] // OK: 1 <= i < len - 3
+        .try_into()
+        .expect("3 - (-1) = 4");
+    (u, pts)
+}
+
 //
 // Local trait impls
 //
@@ -558,7 +729,25 @@ where
 
 impl<T> Parametric<T> for HermiteSpline<T>
 where
-    T: Affine<Diff: Linear<Scalar = f32> + Clone> + Lerp,
+    T: Affine<Diff: Linear<Scalar = f32> + Clone> + Clone,
+{
+    fn eval(&self, t: f32) -> T {
+        self.eval(t)
+    }
+}
+
+impl<T> Parametric<T> for CatmullRomSpline<T>
+where
+    T: Affine<Diff: Linear<Scalar = f32> + Clone> + Clone,
+{
+    fn eval(&self, t: f32) -> T {
+        self.eval(t)
+    }
+}
+
+impl<T> Parametric<T> for BSpline<T>
+where
+    T: Affine<Diff: Linear<Scalar = f32> + Clone> + Clone,
 {
     fn eval(&self, t: f32) -> T {
         self.eval(t)
@@ -829,6 +1018,78 @@ mod tests {
             [1.0, 1.125], [1.0, 0.0], [1.0, -12.0]
         ];
         let actual = TEST_T_VALS.map(|t| h.velocity(t).0);
+
+        assert_eq!(expected, actual);
+    }
+
+    #[test]
+    fn catmull_rom_spline_point2_eval() {
+        #[rustfmt::skip]
+        let c = CatmullRomSpline::<Point2>::new([
+            pt2(-1.0, 0.0), pt2(0.0, 0.0), pt2(1.0, 0.0),
+            pt2(0.0, 1.0), pt2(1.0, 1.0), pt2(2.0, 1.0),
+        ]);
+
+        #[rustfmt::skip]
+        let expected = [
+            [33.0, -18.0], [0.0, 0.0], [0.890625, -0.0703125], [0.5, 0.5],
+            [0.109375, 1.0703125], [1.0, 1.0], [-32.0, 19.0]
+        ];
+        let actual = TEST_T_VALS.map(|t| c.eval(t).0);
+
+        assert_eq!(expected, actual);
+    }
+
+    #[test]
+    fn catmull_rom_spline_point2_gradient() {
+        #[rustfmt::skip]
+        let c = CatmullRomSpline::<Point2>::new([
+            pt2(-1.0, 0.0), pt2(0.0, 0.0), pt2(1.0, 0.0),
+            pt2(0.0, 1.0), pt2(1.0, 1.0), pt2(2.0, 1.0),
+        ]);
+
+        #[rustfmt::skip]
+        let expected = [
+            [-32.0, 16.5], [1.0, 0.0], [0.8125, 0.09375], [-1.5, 1.25],
+            [0.8125, 0.09375], [1.0, 0.0], [-32.0, 16.5]
+        ];
+        let actual = TEST_T_VALS.map(|t| c.gradient(t).0);
+
+        assert_eq!(expected, actual);
+    }
+
+    #[test]
+    fn b_spline_point2_eval() {
+        #[rustfmt::skip]
+        let b = BSpline::<Point2>::new([
+            pt2(-1.0, 0.0), pt2(0.0, 0.0), pt2(1.0, 0.0),
+            pt2(0.0, 1.0), pt2(1.0, 1.0), pt2(2.0, 1.0),
+        ]);
+
+        #[rustfmt::skip]
+        let expected = [
+            [6.0, -4.5], [0.0, 0.0], [0.609375, 0.0703125], [0.5, 0.5],
+            [0.39062497, 0.92968756], [1.0, 1.0], [-5.0, 5.5]
+        ];
+        let actual = TEST_T_VALS.map(|t| b.eval(t).0);
+
+        assert_approx_eq!(expected, actual);
+    }
+
+    #[test]
+    fn b_spline_point2_gradient() {
+        #[rustfmt::skip]
+        let b = BSpline::<Point2>::new([
+            pt2(-1.0, 0.0), pt2(0.0, 0.0), pt2(1.0, 0.0),
+            pt2(0.0, 1.0), pt2(1.0, 1.0), pt2(2.0, 1.0),
+        ]);
+
+        #[rustfmt::skip]
+        let expected = [
+            [-8.0, 4.5], [1.0, 0.0], [0.4375, 0.28125], [-0.5, 0.75],
+            [0.4375, 0.28125], [1.0, 0.0], [-8.0, 4.5]
+        ];
+        let actual = TEST_T_VALS.map(|t| b.gradient(t).0);
 
         assert_eq!(expected, actual);
     }
