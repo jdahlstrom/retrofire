@@ -95,6 +95,118 @@ where
     }
 }
 
+/// Approximates a curve as a chain of line segments.
+///
+/// Recursively subdivides the curve into two half-curves, stopping once
+/// the approximation error is less than `error`.
+///
+/// # Examples
+/// ```
+/// use retrofire_core::math::{BezierSpline, Point2, pt2};
+/// use retrofire_core::math::spline::approximate;
+///
+/// let curve = BezierSpline::<Point2>::new(
+///     [pt2(0.0, 0.0), pt2(0.0, 1.0), pt2(1.0, 1.0), pt2(1.0, 0.0)]
+/// );
+/// // Find an approximation with error less than 0.01
+/// let approx = approximate(&curve, 0.01);
+///
+/// // Euclidean length of the polyline approximation
+/// assert_eq!(approx.len(), 1.9969313);
+///
+/// // Number of line segments used by the approximation
+/// assert_eq!(approx.0.len(), 17);
+/// ```
+///
+/// # Panics
+/// If `err` ≤ 0.
+pub fn approximate<T, Sp, const DIM: usize>(
+    curve: &impl Parametric<T>,
+    error: f32,
+) -> Polyline<T>
+where
+    T: Affine<Diff = Vector<[f32; DIM], Sp>>,
+{
+    assert!(error > 0.0);
+    approximate_with(curve, &|e: &T::Diff| e.len_sqr() < error * error)
+}
+
+/// Approximates a curve as a chain of line segments.
+///
+/// Recursively subdivides the curve into two half-curves, stopping once
+/// the approximation error is small enough, as determined by the `halt`
+/// function.
+///
+/// Given a curve segment between some points `p` and `r`, the parameter
+/// passed to `halt` is the distance to the real midpoint `q` from its
+/// linear approximation `q'`. If `halt` returns `true`, the line segment
+/// `pr` is returned as the approximation of this curve segment, otherwise
+/// the bisection continues.
+///
+/// Note that this heuristic does not work well in certain edge cases
+/// (consider, for example, an S-shaped curve where `q'` is very close
+/// to `q`, yet a straight line would be a poor approximation). However,
+/// in practice it tends to give reasonable results.
+///
+/// ```text
+///                 ___--- q ---___
+///             _--´       |       `--_
+///         _--´           |           `--_
+///      _-p ------------- q' ------------ r-_
+///   _-´                                     `-_
+/// ```
+///
+/// # Examples
+/// ```
+/// use retrofire_core::math::{BezierSpline, Point2, pt2};
+/// use retrofire_core::math::spline::approximate_with;
+///
+/// let curve = BezierSpline::<Point2>::new(
+///     [pt2(0.0, 0.0), pt2(0.0, 1.0), pt2(1.0, 1.0), pt2(1.0, 0.0)]
+/// );
+/// // Find an approximation with error less than 0.01
+/// let approx = approximate_with(&curve, |err| err.len_sqr() < 0.01 * 0.01);
+///
+/// // Euclidean length of the polyline approximation
+/// assert_eq!(approx.len(), 1.9969313);
+///
+/// // Number of line segments used by the approximation
+/// assert_eq!(approx.0.len(), 17);
+/// ```
+pub fn approximate_with<T: Affine<Diff: Linear<Scalar = f32>>>(
+    curve: &impl Parametric<T>,
+    halt: impl Fn(&T::Diff) -> bool,
+) -> Polyline<T> {
+    let mut res = Vec::new();
+    do_approx(curve, 0.0, 1.0, 10, &halt, &mut res);
+    res.push(curve.eval(1.0));
+    Polyline(res)
+}
+
+fn do_approx<T: Affine<Diff: Linear<Scalar = f32>>>(
+    c: &impl Parametric<T>,
+    a: f32,
+    b: f32,
+    max_dep: u32,
+    halt: &impl Fn(&T::Diff) -> bool,
+    accum: &mut Vec<T>,
+) {
+    let mid = a.midpoint(b);
+
+    let ap = c.eval(a);
+    let bp = c.eval(b);
+
+    let real = c.eval(mid);
+    let approx = ap.add(&bp.sub(&ap).mul(0.5));
+
+    if max_dep == 0 || halt(&real.sub(&approx)) {
+        accum.push(ap);
+    } else {
+        do_approx(c, a, mid, max_dep - 1, halt, accum);
+        do_approx(c, mid, b, max_dep - 1, halt, accum);
+    }
+}
+
 //
 // Inherent impls
 //
@@ -354,114 +466,6 @@ where
         let i = 3 * seg_i;
         let seg = from_fn(|j| self.0[i + j].clone());
         (u, CubicBezier(seg))
-    }
-
-    /// Approximates `self` as a chain of line segments.
-    ///
-    /// Recursively subdivides the curve into two half-curves, stopping once
-    /// the approximation error is less than `error`.
-    ///
-    /// # Examples
-    /// ```
-    /// use retrofire_core::math::{BezierSpline, Point2, pt2};
-    ///
-    /// let curve = BezierSpline::<Point2>::new(
-    ///     [pt2(0.0, 0.0), pt2(0.0, 1.0), pt2(1.0, 1.0), pt2(1.0, 0.0)]
-    /// );
-    /// // Find an approximation with error less than 0.01
-    /// let approx = curve.approximate(0.01);
-    ///
-    /// // Euclidean length of the polyline approximation
-    /// assert_eq!(approx.len(), 1.9969313);
-    ///
-    /// // Number of line segments used by the approximation
-    /// assert_eq!(approx.0.len(), 17);
-    /// ```
-    ///
-    /// # Panics
-    /// If `err` ≤ 0.
-    pub fn approximate<Sp, const DIM: usize>(&self, error: f32) -> Polyline<T>
-    where
-        T: Affine<Diff = Vector<[f32; DIM], Sp>>,
-    {
-        assert!(error > 0.0);
-        self.approximate_with(&|e: &T::Diff| e.len_sqr() < error * error)
-    }
-
-    /// Approximates `self` as a chain of line segments.
-    ///
-    /// Recursively subdivides the curve into two half-curves, stopping once
-    /// the approximation error is small enough, as determined by the `halt`
-    /// function.
-    ///
-    /// Given a curve segment between some points `p` and `r`, the parameter
-    /// passed to `halt` is the distance to the real midpoint `q` from its
-    /// linear approximation `q'`. If `halt` returns `true`, the line segment
-    /// `pr` is returned as the approximation of this curve segment, otherwise
-    /// the bisection continues.
-    ///
-    /// Note that this heuristic does not work well in certain edge cases
-    /// (consider, for example, an S-shaped curve where `q'` is very close
-    /// to `q`, yet a straight line would be a poor approximation). However,
-    /// in practice it tends to give reasonable results.
-    ///
-    /// ```text
-    ///                 ___--- q ---___
-    ///             _--´       |       `--_
-    ///         _--´           |           `--_
-    ///      _-p ------------- q' ------------ r-_
-    ///   _-´                                     `-_
-    /// ```
-    ///
-    /// # Examples
-    /// ```
-    /// use retrofire_core::math::{BezierSpline, Point2, pt2};
-    ///
-    /// let curve = BezierSpline::<Point2>::new(
-    ///     [pt2(0.0, 0.0), pt2(0.0, 1.0), pt2(1.0, 1.0), pt2(1.0, 0.0)]
-    /// );
-    /// // Find an approximation with error less than 0.01
-    /// let approx = curve.approximate_with(|err| err.len_sqr() < 0.01 * 0.01);
-    ///
-    /// // Euclidean length of the polyline approximation
-    /// assert_eq!(approx.len(), 1.9969313);
-    ///
-    /// // Number of line segments used by the approximation
-    /// assert_eq!(approx.0.len(), 17);
-    /// ```
-    pub fn approximate_with(
-        &self,
-        halt: impl Fn(&T::Diff) -> bool,
-    ) -> Polyline<T> {
-        let len = self.0.len();
-        let mut res = Vec::with_capacity(3 * len);
-        self.do_approx(0.0, 1.0, 10 + len.ilog2(), &halt, &mut res);
-        res.push(self.0[len - 1].clone());
-        Polyline(res)
-    }
-
-    fn do_approx(
-        &self,
-        a: f32,
-        b: f32,
-        max_dep: u32,
-        halt: &impl Fn(&T::Diff) -> bool,
-        accum: &mut Vec<T>,
-    ) {
-        let mid = a.midpoint(b);
-
-        let ap = self.eval(a);
-        let bp = self.eval(b);
-
-        let real = self.eval(mid);
-        let approx = ap.add(&bp.sub(&ap).mul(0.5));
-
-        if max_dep == 0 || halt(&real.sub(&approx)) {
-            accum.push(ap);
-        } else {
-            self.do_approx(a, mid, max_dep - 1, halt, accum);
-            self.do_approx(mid, b, max_dep - 1, halt, accum);
-        }
     }
 }
 
