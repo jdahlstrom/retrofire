@@ -54,13 +54,13 @@ for custom allocators is planned in order to make `alloc` optional as well.
 * Type-tagged affine and linear transforms and projections
 * Perspective-correct texture mapping
 * Triangle mesh data structure and a library of shapes
+* Cubic Bézier, Hermite, Catmull–Rom, and B-splines
+* Simple random number generation and distributions
 * Simple text rendering with bitmap fonts
 * Fully customizable rasterization stage
 * Collecting rendering performance data
 * Reading and writing pnm image files
 * Reading and writing Wavefront .obj files
-* Cubic Bezier curves and splines
-* Simple random number generation and distributions
 * Minifb, SDL2, and Wasm frontends
 * Forever emoji-free README and docs
 * Forever LLM-free code
