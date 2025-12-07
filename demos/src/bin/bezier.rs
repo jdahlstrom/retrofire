@@ -4,6 +4,7 @@ use re::prelude::*;
 
 use re::core::geom::{Edge, Ray};
 use re::core::math::rand::{Distrib, Uniform, VectorsOnUnitDisk, Xorshift64};
+use re::core::math::spline::approximate;
 use re::core::render::raster::line;
 use re::front::{Frame, dims, minifb::Window};
 
@@ -44,7 +45,7 @@ fn main() {
 
         let b = BezierSpline::from_rays(rays);
         // Stop once error is less than one pixel
-        let approx = b.approximate(1.0);
+        let approx = approximate(&b, 1.0);
 
         for Edge(p0, p1) in approx.edges() {
             let vs = [p0, p1].map(|p| vertex(p.to_pt3().to(), ()));
