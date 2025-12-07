@@ -21,7 +21,7 @@ use super::{Affine, Lerp, Linear, Parametric, Vector};
 ///        p0                                      \
 ///                                                 p2
 /// ```
-#[derive(Debug, Clone, Eq, PartialEq)]
+#[derive(Debug, Copy, Clone, Eq, PartialEq)]
 pub struct CubicBezier<T>(pub [T; 4]);
 
 /// A cubic Hermite curve, defined by two control points and the gradient
@@ -50,7 +50,7 @@ pub struct CubicBezier<T>(pub [T; 4]);
 ///                                                    v
 ///                                                    d1
 /// ```
-#[derive(Debug, Clone, Eq, PartialEq)]
+#[derive(Debug, Copy, Clone, Eq, PartialEq)]
 pub struct CubicHermite<P, D>(pub [P; 2], pub [D; 2]);
 
 /// A piecewise curve composed of concatenated [cubic Bézier curves][CubicBezier].
@@ -100,20 +100,19 @@ where
 //
 
 impl<T: Lerp> CubicBezier<T> {
-    /// Evaluates the value of `self` at `t`.
+    /// Returns the point of `self` at the given *t* value. Uses
+    /// [De Casteljau's algorithm][1].
     ///
-    /// For t < 0, returns the first control point. For t > 1, returns the last
-    /// control point. Uses [De Casteljau's algorithm][1].
+    /// Values of *t* outside the interval [0, 1] are accepted and extrapolate
+    /// the curve beyond the control points.
     ///
     /// [1]: https://en.wikipedia.org/wiki/De_Casteljau%27s_algorithm
     pub fn eval(&self, t: f32) -> T {
         let [p0, p1, p2, p3] = &self.0;
-        step(t, p0, p3, |t| {
-            let p01 = p0.lerp(p1, t);
-            let p12 = p1.lerp(p2, t);
-            let p23 = p2.lerp(p3, t);
-            p01.lerp(&p12, t).lerp(&p12.lerp(&p23, t), t)
-        })
+        let p01 = p0.lerp(p1, t);
+        let p12 = p1.lerp(p2, t);
+        let p23 = p2.lerp(p3, t);
+        p01.lerp(&p12, t).lerp(&p12.lerp(&p23, t), t)
     }
 }
 
@@ -121,30 +120,27 @@ impl<T> CubicBezier<T>
 where
     T: Affine<Diff: Linear<Scalar = f32>> + Clone,
 {
-    /// Evaluates the value of `self` at `t`.
+    /// Returns the point of `self` at the given *t* value.
     ///
-    /// For t < 0, returns the first control point. For t > 1, returns the last
-    /// control point.
-    ///
-    /// Directly evaluates the cubic. Faster but possibly less numerically
-    /// stable than [`Self::eval`].
+    /// Directly evaluates the cubic polynomial. Faster but possibly less
+    /// numerically stable than [`Self::eval`].  Values of *t* outside the
+    /// interval [0, 1] are accepted and extrapolate the curve beyond the
+    /// control points.
     pub fn fast_eval(&self, t: f32) -> T {
-        let [p0, .., p3] = &self.0;
-
-        step(t, p0, p3, |_t| {
-            // Add a linear combination of the three coefficients
-            // to `p0` to get the result
-            let [co3, co2, co1] = self.coefficients();
-            p0.add(&co3.mul(t).add(&co2).mul(t).add(&co1).mul(t))
-        })
+        // Add a linear combination of the three coefficients
+        // to `p0` to get the result
+        let p0 = &self.0[0];
+        let [co3, co2, co1] = self.coefficients();
+        p0.add(&co3.mul(t).add(&co2).mul(t).add(&co1).mul(t))
     }
 
-    /// Returns the tangent, or direction vector, of `self` at `t`.
+    /// Returns the gradient, or velocity, vector of `self` at the given *t*
+    /// value.
     ///
-    /// Clamps `t` to the range [0, 1].
-    pub fn tangent(&self, t: f32) -> T::Diff {
+    /// Values of *t* outside the interval [0, 1] are accepted and extrapolate
+    /// the curve beyond the control points.
+    pub fn gradient(&self, t: f32) -> T::Diff {
         let [p0, p1, p2, p3] = &self.0;
-        let t = t.clamp(0.0, 1.0);
 
         //   3 (3 (p1 - p2) + (p3 - p0)) * t^2
         // + 6 ((p0 - p1 + p2 - p1) * t
@@ -213,7 +209,7 @@ where
 
     /// Returns the point of `self` at the given *t* value.
     ///
-    /// Values outside the interval [0, 1] are accepted and extrapolate
+    /// Values of *t* outside the interval [0, 1] are accepted and extrapolate
     /// the curve beyond the control points.
     pub fn eval(&self, t: f32) -> P {
         let Self([p0, p1], [d0, d1]) = self;
@@ -310,31 +306,31 @@ where
         Self::new(pts[1..pts.len() - 1].into_iter().cloned())
     }
 
-    /// Evaluates `self` at the given *t* value.
+    /// Returns the point of `self` at the given *t* value.
     ///
-    /// Returns the first point if *t* < 0 and the last point if *t* > 1.
+    /// Values of *t* outside the interval [0, 1] are accepted and extrapolate
+    /// the curve beyond the control points.
     pub fn eval(&self, t: f32) -> T {
-        let [first, .., last] = self.0.as_slice() else {
-            panic!("invariant failure: self.0.len() < 4")
-        };
-        step(t, first, last, |t| {
-            let (u, seg) = self.segment(t);
-            seg.fast_eval(u)
-        })
+        let (u, seg) = self.segment(t);
+        seg.fast_eval(u)
     }
 
-    /// Returns the tangent of `self` at the given *t* value.
+    /// Returns the gradient, or velocity, vector of `self` at the given *t* value.
     ///
-    /// Clamps *t* to the range [0, 1].
-    pub fn tangent(&self, t: f32) -> T::Diff {
-        let (u, seg) = self.segment(t.clamp(0.0, 1.0));
-        seg.tangent(u)
+    /// Values of *t* outside the interval [0, 1] are accepted and extrapolate
+    /// the curve beyond the control points.
+    pub fn gradient(&self, t: f32) -> T::Diff {
+        let (u, seg) = self.segment(t);
+        seg.gradient(u)
+    }
+
+    pub fn control_points(&self) -> &[T] {
+        &self.0
     }
 
     /// Returns the spline segment and local *t* value corresponding to
     /// the given global *t* value.
     ///
-    /// Precondition: 0 ≤ *t* ≤ 1
     fn segment(&self, t: f32) -> (f32, CubicBezier<T>) {
         // Consecutive segments share an endpoint:
         // [B0  B1  B2  B3]
@@ -343,19 +339,20 @@ where
         //                                     [B9 ...
         // If the number of segs is n, the number of control points is 3n + 1,
         // thus if the number of points is l, the number of segs is (l - 1) / 3.
-        let num_segs = ((self.0.len() - 1) / 3) as f32;
-        // Rescale t to [0, num_segs]
-        let t = t * num_segs;
+        let num_segs = (self.0.len() - 1) / 3;
+        // Rescale from [0, 1] to [0, num_segs]
+        let t = t * num_segs as f32;
         use super::float::f32;
-        // Integral part is the segment index.
-        // The case t = num_segs is special: it should map to u = 1 of the last
-        // segment, not u = 0 of the nonexistent (last+1)th segment!
-        let seg_idx = f32::floor(t).min(num_segs - 1.0);
-        // Fractional part is the local t value
-        let u = t - seg_idx;
+        // Calculate the segment index.
+        let seg_i = (t as usize).min(num_segs - 1);
+        // The leftover part is the local t value. This is the fractional part
+        // for 0 <= t < segs. t = segs maps to u = 1 of the last subsegment.
+        // Values of t < 0 or t > segs result in u < 0 or u > 1 and extrapolate
+        // beyond the first or last subsegment, respectively.
+        let u = t - seg_i as f32;
         // Index of the first control point of the segment
-        let idx = 3 * (seg_idx as usize);
-        let seg = from_fn(|i| self.0[idx..][i].clone());
+        let i = 3 * seg_i;
+        let seg = from_fn(|j| self.0[i + j].clone());
         (u, CubicBezier(seg))
     }
 
@@ -480,37 +477,48 @@ where
     /// the ray lies tangent to the curve at point P<sub>i</sub>.
     ///
     /// # Panics
-    /// If `rays` is empty.
+    /// If `rays` has fewer than two items.
     pub fn new(rays: impl IntoIterator<Item = Ray<T>>) -> Self {
         let rays: Vec<_> = rays.into_iter().collect();
-        assert!(!rays.is_empty());
+        assert!(
+            rays.len() >= 2,
+            "a Hermite spline requires at least two points and two vectors"
+        );
         Self(rays, PhantomData)
     }
 
     /// Returns the subsegment and local *t* value corresponding to the given
-    /// global *t* value. Clamps *t* to the interval [0, 1] first.
+    /// global *t* value.
     fn segment(&self, t: f32) -> (f32, CubicHermite<T, T::Diff>) {
-        let t = t.clamp(0.0, 1.0);
-        // Scale to range [0, self.0.len() - 1)
+        // Scale from [0, 1] to [0, len-1]
         let t = t * (self.0.len() - 1) as f32;
-        // Integral part is the index of the subsegment
-        let i = t as usize;
-        // Fractional part is the local t value
+        // Calculate the index of the subsegment. There are len-1 subsegments:
+        // (0, 1), (1,2), ..., (len-2, len-1).
+        let i = (t as usize).min(self.0.len() - 2);
+        // The leftover part is the local t value. This is the fractional part
+        // for 0 <= t < len-1. t = len-1 maps to u = 1 of the last subsegment.
+        // Values of t < 0 or t > len-1 result in u < 0 or u > 1 and extrapolate
+        // beyond the first or last subsegment, respectively.
         let u = t - i as f32;
-        // Ok: i + 1 < self.0.len()
+        // Ok: i <= self.0.len() - 2
         let Ray(p0, d0) = self.0[i].clone();
         let Ray(p1, d1) = self.0[i + 1].clone();
         (u, CubicHermite([p0, p1], [d0, d1]))
     }
 
-    /// Evaluates `self` at the given *t* value, clamped to [0, 1].
+    /// Returns the point of `self` at the given *t* value.
+    ///
+    /// Values of *t* outside the interval [0, 1] are accepted and extrapolate
+    /// the curve beyond the control points.
     pub fn eval(&self, t: f32) -> T {
         let (u, seg) = self.segment(t);
         seg.eval(u)
     }
 
-    /// Returns the gradient (velocity) vector of `self` at the given *t* value,
-    /// clamped to [0, 1].
+    /// Returns the gradient, or velocity, vector of `self` at the given *t* value.
+    ///
+    /// Values of *t* outside the interval [0, 1] are accepted and extrapolate
+    /// the curve beyond the control points.
     pub fn gradient(&self, t: f32) -> T::Diff {
         let (u, seg) = self.segment(t);
         seg.gradient(u)
@@ -550,8 +558,6 @@ where
 
 #[cfg(test)]
 mod tests {
-    use alloc::vec;
-
     use crate::assert_approx_eq;
     use crate::math::{Parametric, Point2, Vec2, pt2, vec2};
 
@@ -606,7 +612,7 @@ mod tests {
     fn cubic_bezier_f32_eval() {
         let b = CubicBezier([0.0, 2.0, -1.0, 1.0]);
 
-        let expected = [0.0, 0.0, 0.71875, 0.5, 0.28125, 1.0, 1.0];
+        let expected = [-31.0, 0.0, 0.71875, 0.5, 0.28125, 1.0, 32.0];
         let actual = TEST_T_VALS.map(|t| b.eval(t));
 
         assert_eq!(expected, actual);
@@ -623,8 +629,8 @@ mod tests {
 
         #[rustfmt::skip]
         let expected = [
-            [0.0, 0.0], [0.0, 0.0], [0.15625, 0.71875], [0.5, 0.5],
-            [0.84375, 0.281250], [1.0, 1.0], [1.0, 1.0],
+            [5.0, -31.0], [0.0, 0.0], [0.15625, 0.71875], [0.5, 0.5],
+            [0.84375, 0.281250], [1.0, 1.0], [-4.0, 32.0],
         ];
         let actual = TEST_T_VALS.map(|t| b.eval(t).0);
 
@@ -642,8 +648,8 @@ mod tests {
 
         #[rustfmt::skip]
         let expected = [
-            [0.0, 0.0], [0.0, 0.0], [0.15625, 0.71875], [0.5, 0.5],
-            [0.84375, 0.281250], [1.0, 1.0], [1.0, 1.0],
+            [5.0, -31.0], [0.0, 0.0], [0.15625, 0.71875], [0.5, 0.5],
+            [0.84375, 0.281250], [1.0, 1.0], [-4.0, 32.0],
         ];
         let actual = TEST_T_VALS.map(|t| b.eval(t).0);
 
@@ -654,8 +660,8 @@ mod tests {
     fn cubic_bezier_f32_tangent() {
         let b = CubicBezier([0.0, 2.0, -1.0, 1.0]);
 
-        let expected = [6.0, 6.0, 0.375, -1.5, 0.375, 6.0, 6.0];
-        let actual = TEST_T_VALS.map(|t| b.tangent(t));
+        let expected = [66.0, 6.0, 0.375, -1.5, 0.375, 6.0, 66.0];
+        let actual = TEST_T_VALS.map(|t| b.gradient(t));
 
         assert_eq!(expected, actual);
     }
@@ -669,10 +675,10 @@ mod tests {
 
         #[rustfmt::skip]
         let expected = [
-            [0.0, 3.0],  [0.0, 3.0], [1.125, 0.75], [1.5, 0.0],
-            [1.125, 0.75], [0.0, 3.0], [0.0, 3.0],
+            [-12.0, 27.0],  [0.0, 3.0], [1.125, 0.75], [1.5, 0.0],
+            [1.125, 0.75], [0.0, 3.0], [-12.0, 27.0],
         ];
-        let actual = TEST_T_VALS.map(|t| b.tangent(t).0);
+        let actual = TEST_T_VALS.map(|t| b.gradient(t).0);
 
         assert_eq!(expected, actual);
     }
@@ -706,36 +712,51 @@ mod tests {
             [p0, p3],
             [3.0 * (p1 - p0), 3.0 * (p3 - p2)],
         );
-        let t_vals = [0.0, 0.25, 0.5, 0.75, 1.0];
-        assert_eq!(t_vals.map(|t| b.eval(t).0), t_vals.map(|t| h.eval(t).0));
+        assert_eq!(
+            TEST_T_VALS.map(|t| b.eval(t).0),
+            TEST_T_VALS.map(|t| h.eval(t).0)
+        );
+    }
+
+    #[test]
+    fn bezier_spline_segment() {
+        let b = BezierSpline::new([0.0, 0.2, 0.4, 0.5, 0.6, 0.8, 1.0]);
+
+        let first = CubicBezier([0.0, 0.2, 0.4, 0.5]);
+        let second = CubicBezier([0.5, 0.6, 0.8, 1.0]);
+
+        assert_eq!(b.segment(-1.0), (-2.0, first));
+        assert_eq!(b.segment(0.0), (0.0, first));
+        assert_eq!(b.segment(0.5), (0.0, second));
+        assert_eq!(b.segment(1.0), (1.0, second));
+        assert_eq!(b.segment(2.0), (3.0, second));
     }
 
     #[test]
     fn bezier_spline_f32_eval() {
-        let c = BezierSpline(vec![0.0, 0.8, 0.9, 1.0, 0.6, 0.5, 0.5]);
+        let b = BezierSpline::new([0.0, 0.8, 0.9, 1.0, 0.6, 0.5, 0.5]);
 
-        let expected = [0.0, 0.0, 0.7625, 1.0, 0.6, 0.5, 0.5];
-        let actual = TEST_T_VALS.map(|t| c.eval(t));
+        let expected = [-18.8, 0.0, 0.7625, 1.0, 0.6, 0.5, 0.1];
+        let actual = TEST_T_VALS.map(|t| b.eval(t));
 
         assert_approx_eq!(expected, actual);
     }
 
     #[test]
     fn bezier_spline_point2_from_rays() {
-        // The same curve as in `bezier_spline_eval_2d_point`
-        let b = BezierSpline::<Point2>::from_rays([
+        #[rustfmt::skip]
+        let expected = BezierSpline::<Point2>::new([
+            pt2(0.0, 0.0),pt2(0.0, 2.0),pt2(1.0, -1.0),pt2(1.0, 1.0)
+        ]);
+        let actual = BezierSpline::<Point2>::from_rays([
             Ray(pt2(0.0, 0.0), vec2(0.0, 2.0)),
             Ray(pt2(1.0, 1.0), vec2(0.0, 2.0)),
         ]);
 
-        #[rustfmt::skip]
-        let expected = [
-            [0.0, 0.0], [0.0, 0.0], [0.15625, 0.71875], [0.5, 0.5],
-            [0.84375, 0.281250], [1.0, 1.0], [1.0, 1.0],
-        ];
-        let actual = TEST_T_VALS.map(|t| b.eval(t).0);
-
-        assert_eq!(expected, actual);
+        assert_eq!(
+            TEST_T_VALS.map(|t| expected.eval(t)),
+            TEST_T_VALS.map(|t| actual.eval(t))
+        );
     }
 
     #[test]
@@ -746,16 +767,31 @@ mod tests {
         ]);
         #[rustfmt::skip]
         let expected = [
-            vec2(0.0, 3.0), vec2(0.0, 3.0), vec2(1.125, 0.75), vec2(1.5, 0.0),
-            vec2(1.125, 0.75), vec2(0.0, 3.0), vec2(0.0, 3.0),
+            vec2(-12.0, 27.0), vec2(0.0, 3.0), vec2(1.125, 0.75), vec2(1.5, 0.0),
+            vec2(1.125, 0.75), vec2(0.0, 3.0), vec2(-12.0, 27.0),
         ];
-        let actual = TEST_T_VALS.map(|t| b.tangent(t));
+        let actual = TEST_T_VALS.map(|t| b.gradient(t));
 
         assert_eq!(expected, actual);
     }
 
     #[test]
-    fn hermite_spline_pt2_eval() {
+    fn hermite_spline_segment() {
+        let b =
+            HermiteSpline::new([Ray(0.0, 0.4), Ray(0.5, 0.1), Ray(1.0, 0.6)]);
+
+        let first = CubicHermite([0.0, 0.5], [0.4, 0.1]);
+        let second = CubicHermite([0.5, 1.0], [0.1, 0.6]);
+
+        assert_eq!(b.segment(-1.0), (-2.0, first));
+        assert_eq!(b.segment(0.0), (0.0, first));
+        assert_eq!(b.segment(0.5), (0.0, second));
+        assert_eq!(b.segment(1.0), (1.0, second));
+        assert_eq!(b.segment(2.0), (3.0, second));
+    }
+
+    #[test]
+    fn hermite_spline_point2_eval() {
         let h = HermiteSpline::<Point2>::new([
             Ray(pt2(0.0, 0.0), vec2(1.0, 0.0)),
             Ray(pt2(1.0, 1.0), vec2(1.0, 0.0)),
@@ -763,8 +799,8 @@ mod tests {
 
         #[rustfmt::skip]
         let expected = [
-            [0.0, 0.0], [0.0, 0.0], [0.25, 0.15625], [0.5, 0.5],
-            [0.75, 0.84375], [1.0, 1.0], [1.0, 1.0]
+            [-1.0, 5.0], [0.0, 0.0], [0.25, 0.15625], [0.5, 0.5],
+            [0.75, 0.84375], [1.0, 1.0], [2.0, -4.0]
         ];
         let actual = TEST_T_VALS.map(|t| h.eval(t).0);
 
@@ -772,7 +808,7 @@ mod tests {
     }
 
     #[test]
-    fn hermite_spline_pt2_tangent() {
+    fn hermite_spline_point2_tangent() {
         let h = HermiteSpline::<Point2>::new([
             Ray(pt2(0.0, 0.0), vec2(1.0, 0.0)),
             Ray(pt2(1.0, 1.0), vec2(1.0, 0.0)),
@@ -780,8 +816,8 @@ mod tests {
 
         #[rustfmt::skip]
         let expected = [
-            [0.0, 0.0], [0.0, 0.0], [0.25, 0.15625], [0.5, 0.5],
-            [0.75, 0.84375], [1.0, 1.0], [1.0, 1.0]
+            [1.0, -12.0], [1.0, 0.0], [1.0, 1.125], [1.0, 1.5],
+            [1.0, 1.125], [1.0, 0.0], [1.0, -12.0]
         ];
         let actual = TEST_T_VALS.map(|t| h.gradient(t).0);
 
