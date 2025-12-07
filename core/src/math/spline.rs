@@ -557,6 +557,8 @@ mod tests {
 
     use super::*;
 
+    const TEST_T_VALS: [f32; 7] = [-1.0, 0.0, 0.25, 0.5, 0.75, 1.0, 2.0];
+
     #[test]
     fn smoothstep_test() {
         assert_eq!(0.0, smoothstep(-10.0));
@@ -604,85 +606,118 @@ mod tests {
     fn cubic_bezier_f32_eval() {
         let b = CubicBezier([0.0, 2.0, -1.0, 1.0]);
 
-        assert_eq!(b.eval(-1.0), 0.0);
-        assert_eq!(b.eval(0.00), 0.0);
-        assert_eq!(b.eval(0.25), 0.71875);
-        assert_eq!(b.eval(0.50), 0.5);
-        assert_eq!(b.eval(0.75), 0.28125);
-        assert_eq!(b.eval(1.00), 1.0);
-        assert_eq!(b.eval(2.00), 1.0);
+        let expected = [0.0, 0.0, 0.71875, 0.5, 0.28125, 1.0, 1.0];
+        let actual = TEST_T_VALS.map(|t| b.eval(t));
+
+        assert_eq!(expected, actual);
     }
 
     #[test]
-    fn cubic_bezier_vec3_eval() {
-        let b = CubicBezier(
-            [[0.0, 0.0], [0.0, 2.0], [1.0, -1.0], [1.0, 1.0]].map(<Vec2>::from),
-        );
+    fn cubic_bezier_vec2_eval() {
+        let b = CubicBezier::<Vec2>([
+            vec2(0.0, 0.0),
+            vec2(0.0, 2.0),
+            vec2(1.0, -1.0),
+            vec2(1.0, 1.0),
+        ]);
 
-        assert_eq!(b.eval(-1.0), vec2(0.0, 0.0));
-        assert_eq!(b.eval(0.00), vec2(0.0, 0.0));
-        assert_eq!(b.eval(0.25), vec2(0.15625, 0.71875));
-        assert_eq!(b.eval(0.50), vec2(0.5, 0.5));
-        assert_eq!(b.eval(0.75), vec2(0.84375, 0.281250));
-        assert_eq!(b.eval(1.00), vec2(1.0, 1.0));
-        assert_eq!(b.eval(2.00), vec2(1.0, 1.0));
+        #[rustfmt::skip]
+        let expected = [
+            [0.0, 0.0], [0.0, 0.0], [0.15625, 0.71875], [0.5, 0.5],
+            [0.84375, 0.281250], [1.0, 1.0], [1.0, 1.0],
+        ];
+        let actual = TEST_T_VALS.map(|t| b.eval(t).0);
+
+        assert_eq!(expected, actual);
     }
 
     #[test]
     fn cubic_bezier_point2_eval() {
-        let b = CubicBezier(
-            [[0.0, 0.0], [0.0, 2.0], [1.0, -1.0], [1.0, 1.0]]
-                .map(<Point2>::from),
-        );
+        let b = CubicBezier::<Point2>([
+            pt2(0.0, 0.0),
+            pt2(0.0, 2.0),
+            pt2(1.0, -1.0),
+            pt2(1.0, 1.0),
+        ]);
 
-        assert_eq!(b.eval(-1.0), pt2(0.0, 0.0));
-        assert_eq!(b.eval(0.00), pt2(0.0, 0.0));
-        assert_eq!(b.eval(0.25), pt2(0.15625, 0.71875));
-        assert_eq!(b.eval(0.50), pt2(0.5, 0.5));
-        assert_eq!(b.eval(0.75), pt2(0.84375, 0.281250));
-        assert_eq!(b.eval(1.00), pt2(1.0, 1.0));
-        assert_eq!(b.eval(2.00), pt2(1.0, 1.0));
+        #[rustfmt::skip]
+        let expected = [
+            [0.0, 0.0], [0.0, 0.0], [0.15625, 0.71875], [0.5, 0.5],
+            [0.84375, 0.281250], [1.0, 1.0], [1.0, 1.0],
+        ];
+        let actual = TEST_T_VALS.map(|t| b.eval(t).0);
+
+        assert_eq!(expected, actual);
     }
 
     #[test]
     fn cubic_bezier_f32_tangent() {
         let b = CubicBezier([0.0, 2.0, -1.0, 1.0]);
 
-        assert_eq!(b.tangent(-1.0), 6.0);
-        assert_eq!(b.tangent(0.00), 6.0);
-        assert_eq!(b.tangent(0.25), 0.375);
-        assert_eq!(b.tangent(0.50), -1.5);
-        assert_eq!(b.tangent(0.75), 0.375);
-        assert_eq!(b.tangent(1.00), 6.0);
-        assert_eq!(b.tangent(2.00), 6.0);
+        let expected = [6.0, 6.0, 0.375, -1.5, 0.375, 6.0, 6.0];
+        let actual = TEST_T_VALS.map(|t| b.tangent(t));
+
+        assert_eq!(expected, actual);
     }
 
     #[test]
     fn cubic_bezier_point2_tangent() {
-        let b = CubicBezier(
-            [[0.0, 0.0], [0.0, 1.0], [1.0, 0.0], [1.0, 1.0]]
-                .map(<Point2>::from),
-        );
+        #[rustfmt::skip]
+        let b = CubicBezier::<Point2>([
+            pt2(0.0, 0.0), pt2(0.0, 1.0), pt2(1.0, 0.0), pt2(1.0, 1.0),
+        ]);
 
-        assert_eq!(b.tangent(-1.0), vec2(0.0, 3.0),);
-        assert_eq!(b.tangent(0.0), vec2(0.0, 3.0),);
-        assert_eq!(b.tangent(0.25), vec2(1.125, 0.75),);
-        assert_eq!(b.tangent(0.5), vec2(1.5, 0.0),);
-        assert_eq!(b.tangent(0.75), vec2(1.125, 0.75),);
-        assert_eq!(b.tangent(1.0), vec2(0.0, 3.0),);
-        assert_eq!(b.tangent(2.0), vec2(0.0, 3.0),);
+        #[rustfmt::skip]
+        let expected = [
+            [0.0, 3.0],  [0.0, 3.0], [1.125, 0.75], [1.5, 0.0],
+            [1.125, 0.75], [0.0, 3.0], [0.0, 3.0],
+        ];
+        let actual = TEST_T_VALS.map(|t| b.tangent(t).0);
+
+        assert_eq!(expected, actual);
+    }
+
+    #[test]
+    fn cubic_hermite_f32_eval() {
+        let h = CubicHermite([0.0, 0.0], [2.0, -2.0]);
+
+        let expected = [-4.0, 0.0, 0.375, 0.5, 0.375, 0.0, -4.0];
+        let actual = TEST_T_VALS.map(|t| h.eval(t));
+
+        assert_eq!(expected, actual);
+    }
+
+    #[test]
+    fn cubic_hermite_f32_tangent() {
+        let h = CubicHermite([0.0, 0.0], [1.0, -1.0]);
+
+        let expected = [3.0, 1.0, 0.5, 0.0, -0.5, -1.0, -3.0];
+        let actual = TEST_T_VALS.map(|t| h.gradient(t));
+
+        assert_eq!(expected, actual);
+    }
+
+    #[test]
+    fn bezier_hermite_equivalence() {
+        let [p0, p1, p2, p3] =
+            [pt2(0.0, 0.0), pt2(0.0, 1.0), pt2(1.0, 0.0), pt2(1.0, 1.0)];
+        let b = CubicBezier::<Point2>([p0, p1, p2, p3]);
+        let h = CubicHermite::<Point2, _>(
+            [p0, p3],
+            [3.0 * (p1 - p0), 3.0 * (p3 - p2)],
+        );
+        let t_vals = [0.0, 0.25, 0.5, 0.75, 1.0];
+        assert_eq!(t_vals.map(|t| b.eval(t).0), t_vals.map(|t| h.eval(t).0));
     }
 
     #[test]
     fn bezier_spline_f32_eval() {
         let c = BezierSpline(vec![0.0, 0.8, 0.9, 1.0, 0.6, 0.5, 0.5]);
-        assert_eq!(c.eval(-1.0), 0.0);
-        assert_eq!(c.eval(0.0), 0.0);
-        assert_approx_eq!(c.eval(0.25), 0.7625);
-        assert_eq!(c.eval(0.5), 1.0);
-        assert_eq!(c.eval(0.75), 0.6);
-        assert_eq!(c.eval(1.0), 0.5);
-        assert_eq!(c.eval(2.0), 0.5);
+
+        let expected = [0.0, 0.0, 0.7625, 1.0, 0.6, 0.5, 0.5];
+        let actual = TEST_T_VALS.map(|t| c.eval(t));
+
+        assert_approx_eq!(expected, actual);
     }
 
     #[test]
@@ -693,42 +728,63 @@ mod tests {
             Ray(pt2(1.0, 1.0), vec2(0.0, 2.0)),
         ]);
 
-        assert_eq!(b.eval(-1.0), pt2(0.0, 0.0));
-        assert_eq!(b.eval(0.00), pt2(0.0, 0.0));
-        assert_eq!(b.eval(0.25), pt2(0.15625, 0.71875));
-        assert_eq!(b.eval(0.50), pt2(0.5, 0.5));
-        assert_eq!(b.eval(0.75), pt2(0.84375, 0.281250));
-        assert_eq!(b.eval(1.00), pt2(1.0, 1.0));
-        assert_eq!(b.eval(2.00), pt2(1.0, 1.0));
+        #[rustfmt::skip]
+        let expected = [
+            [0.0, 0.0], [0.0, 0.0], [0.15625, 0.71875], [0.5, 0.5],
+            [0.84375, 0.281250], [1.0, 1.0], [1.0, 1.0],
+        ];
+        let actual = TEST_T_VALS.map(|t| b.eval(t).0);
+
+        assert_eq!(expected, actual);
     }
 
     #[test]
     fn bezier_spline_point2_tangent() {
-        let b = BezierSpline::new(
-            [[0.0, 0.0], [0.0, 1.0], [1.0, 0.0], [1.0, 1.0]]
-                .map(<Point2>::from),
-        );
+        #[rustfmt::skip]
+        let b = BezierSpline::<Point2>::new([
+            pt2(0.0, 0.0), pt2(0.0, 1.0), pt2(1.0, 0.0), pt2(1.0, 1.0),
+        ]);
+        #[rustfmt::skip]
+        let expected = [
+            vec2(0.0, 3.0), vec2(0.0, 3.0), vec2(1.125, 0.75), vec2(1.5, 0.0),
+            vec2(1.125, 0.75), vec2(0.0, 3.0), vec2(0.0, 3.0),
+        ];
+        let actual = TEST_T_VALS.map(|t| b.tangent(t));
 
-        assert_eq!(b.tangent(-1.0), vec2(0.0, 3.0),);
-        assert_eq!(b.tangent(0.0), vec2(0.0, 3.0),);
-        assert_eq!(b.tangent(0.25), vec2(1.125, 0.75),);
-        assert_eq!(b.tangent(0.5), vec2(1.5, 0.0),);
-        assert_eq!(b.tangent(0.75), vec2(1.125, 0.75),);
-        assert_eq!(b.tangent(1.0), vec2(0.0, 3.0),);
-        assert_eq!(b.tangent(2.0), vec2(0.0, 3.0),);
+        assert_eq!(expected, actual);
     }
 
     #[test]
-    fn hermite_spline() {
-        let h = HermiteSpline::new([
-            Ray(pt2::<_, ()>(0.0, 0.0), vec2(1.0, 0.0)),
+    fn hermite_spline_pt2_eval() {
+        let h = HermiteSpline::<Point2>::new([
+            Ray(pt2(0.0, 0.0), vec2(1.0, 0.0)),
             Ray(pt2(1.0, 1.0), vec2(1.0, 0.0)),
         ]);
 
-        assert_eq!(h.eval(0.0), pt2(0.0, 0.0));
-        assert_approx_eq!(h.eval(0.2), pt2(0.2, 0.104));
-        assert_eq!(h.eval(0.5), pt2(0.5, 0.5));
-        assert_approx_eq!(h.eval(0.8), pt2(0.8, 0.896));
-        assert_eq!(h.eval(1.0), pt2(1.0, 1.0));
+        #[rustfmt::skip]
+        let expected = [
+            [0.0, 0.0], [0.0, 0.0], [0.25, 0.15625], [0.5, 0.5],
+            [0.75, 0.84375], [1.0, 1.0], [1.0, 1.0]
+        ];
+        let actual = TEST_T_VALS.map(|t| h.eval(t).0);
+
+        assert_eq!(expected, actual);
+    }
+
+    #[test]
+    fn hermite_spline_pt2_tangent() {
+        let h = HermiteSpline::<Point2>::new([
+            Ray(pt2(0.0, 0.0), vec2(1.0, 0.0)),
+            Ray(pt2(1.0, 1.0), vec2(1.0, 0.0)),
+        ]);
+
+        #[rustfmt::skip]
+        let expected = [
+            [0.0, 0.0], [0.0, 0.0], [0.25, 0.15625], [0.5, 0.5],
+            [0.75, 0.84375], [1.0, 1.0], [1.0, 1.0]
+        ];
+        let actual = TEST_T_VALS.map(|t| h.gradient(t).0);
+
+        assert_eq!(expected, actual);
     }
 }
