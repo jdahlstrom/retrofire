@@ -199,6 +199,22 @@ impl Angle {
     pub fn clamp(self, min: Self, max: Self) -> Self {
         Self(self.0.clamp(min.0, max.0))
     }
+
+    /// Returns `self` "wrapped around" to the range `min..max`.
+    ///
+    /// # Examples
+    /// ```
+    /// use retrofire_core::assert_approx_eq;
+    /// use retrofire_core::math::{degs, turns};
+    ///
+    /// // 400 (mod 360) = 40
+    /// assert_approx_eq!(degs(400.0).wrap(turns(0.0), turns(1.0)), degs(40.0))
+    /// ```
+    #[must_use]
+    pub fn wrap(self, min: Self, max: Self) -> Self {
+        use super::float::f32;
+        Self(min.0 + f32::rem_euclid(self.0 - min.0, max.0 - min.0))
+    }
 }
 
 #[cfg(feature = "fp")]
@@ -246,21 +262,6 @@ impl Angle {
     /// ```
     pub fn tan(self) -> f32 {
         f32::tan(self.0)
-    }
-
-    /// Returns `self` "wrapped around" to the range `min..max`.
-    ///
-    /// # Examples
-    /// ```
-    /// use retrofire_core::assert_approx_eq;
-    /// use retrofire_core::math::{degs, turns};
-    ///
-    /// // 400 (mod 360) = 40
-    /// assert_approx_eq!(degs(400.0).wrap(turns(0.0), turns(1.0)), degs(40.0))
-    /// ```
-    #[must_use]
-    pub fn wrap(self, min: Self, max: Self) -> Self {
-        Self(min.0 + f32::rem_euclid(self.0 - min.0, max.0 - min.0))
     }
 }
 
@@ -710,7 +711,6 @@ mod tests {
         assert_approx_eq!(atan2(-1.0, 1.0), degs(-45.0));
     }
 
-    #[cfg(feature = "fp")]
     #[test]
     fn wrapping() {
         use crate::assert_approx_eq;
