@@ -130,7 +130,6 @@ impl<R, Sp> Vector<R, Sp> {
 // TODO Many of these functions could be more generic
 impl<Sp, const N: usize> Vector<[f32; N], Sp> {
     /// Returns the length (magnitude) of `self`.
-    #[cfg(feature = "fp")]
     #[inline]
     pub fn len(&self) -> f32 {
         super::float::f32::sqrt(self.dot(self))
@@ -916,7 +915,6 @@ mod tests {
     mod f32 {
         use super::*;
 
-        #[cfg(feature = "fp")]
         #[test]
         fn length() {
             assert_approx_eq!(vec2(1.0, 1.0).len(), SQRT_2);

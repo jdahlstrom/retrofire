@@ -1691,7 +1691,7 @@ mod tests {
         fn orientation_no_op() {
             let m = orient_y(Y, X);
 
-            assert_eq!(m.apply(&X), X);
+            assert_approx_eq!(m.apply(&X), X);
             assert_eq!(m.apply(&X.to_pt()), X.to_pt());
 
             assert_eq!(m.apply(&Y), Y);
@@ -1705,7 +1705,7 @@ mod tests {
         fn orientation_y_to_z() {
             let m = orient_y(Z, X);
 
-            assert_eq!(m.apply(&X), X);
+            assert_approx_eq!(m.apply(&X), X);
             assert_eq!(m.apply(&X.to_pt()), X.to_pt());
 
             assert_eq!(m.apply(&Y), Z);
@@ -1719,7 +1719,7 @@ mod tests {
         fn orientation_z_to_y() {
             let m = orient_z(Y, X);
 
-            assert_eq!(m.apply(&X), X);
+            assert_approx_eq!(m.apply(&X), X);
             assert_eq!(m.apply(&X.to_pt()), X.to_pt());
 
             assert_eq!(m.apply(&Y), -Z);
