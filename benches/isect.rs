@@ -5,12 +5,59 @@ use core::hint::black_box;
 use divan::{Bencher, counter::ItemsCount};
 
 use retrofire::core::{
-    geom::{Ray, Sphere},
+    geom::{Plane3, Ray, Sphere},
     math::rand::*,
-    math::{Point3, degs, pt3, spherical},
+    math::{Point3, degs, pt3, spherical, vec3},
     render::scene::BBox,
 };
 use retrofire::geom::Intersect;
+use retrofire_core::math::splat;
+
+#[divan::bench]
+fn ray_plane_hit(b: Bencher) {
+    let mut rng = DefaultRng::default();
+    let plane = <Plane3>::from_point_and_normal(
+        pt3(0.0, 1.0, 0.0),
+        vec3(1.0, 1.0, 1.0),
+    );
+
+    b.with_inputs(|| {
+        let v = (splat(-1.0)..splat(0.0)).sample(&mut rng);
+        Ray(pt3(0.0, 10.0, 0.0), 100.0 * (v - vec3(1.0, 1.0, 1.0)))
+    })
+    .counter(ItemsCount::new(1usize))
+    .bench_local_values(|ray| ray.intersect(&black_box(plane)));
+}
+#[divan::bench]
+fn ray_plane_miss(b: Bencher) {
+    let mut rng = DefaultRng::default();
+    let plane = <Plane3>::from_point_and_normal(
+        pt3(0.0, 1.0, 0.0),
+        vec3(1.0, 1.0, 1.0),
+    );
+
+    b.with_inputs(|| {
+        let v = (splat(0.0)..splat(1.0)).sample(&mut rng);
+        Ray(pt3(0.0, 10.0, 0.0), 100.0 * v)
+    })
+    .counter(ItemsCount::new(1usize))
+    .bench_local_values(|ray| ray.intersect(&black_box(plane)));
+}
+#[divan::bench]
+fn ray_plane_mixed(b: Bencher) {
+    let mut rng = DefaultRng::default();
+    let plane = <Plane3>::from_point_and_normal(
+        pt3(0.0, 1.0, 0.0),
+        vec3(1.0, 1.0, 1.0),
+    );
+
+    b.with_inputs(|| {
+        let v = VectorsInUnitBall.sample(&mut rng);
+        Ray(pt3(0.0, 10.0, 0.0), 100.0 * v)
+    })
+    .counter(ItemsCount::new(1usize))
+    .bench_local_values(|ray| ray.intersect(&black_box(plane)));
+}
 
 #[divan::bench]
 fn ray_bbox_hit(b: Bencher) {
@@ -18,8 +65,8 @@ fn ray_bbox_hit(b: Bencher) {
     let bbox = BBox::<()>(pt3(-1.0, -1.0, -1.0), pt3(1.0, 1.0, 1.0));
 
     b.with_inputs(|| {
-        let v = 100.0 * UnitSphere.sample(&mut rng);
-        Ray(v.to_pt(), -v * (0.0..10.0).sample(&mut rng))
+        let v = VectorsInUnitBall.sample(&mut rng);
+        Ray(v.to_pt(), 100.0 * v)
     })
     .counter(ItemsCount::new(1usize))
     .bench_local_values(|ray| {
@@ -63,11 +110,10 @@ fn ray_bbox_miss(b: Bencher) {
     let mut rng = DefaultRng::default();
     let bbox = BBox::<()>(pt3(-1.0, -1.0, -1.0), pt3(1.0, 1.0, 1.0));
 
+    let min = spherical(0.0, degs(-180.0), degs(-45.0));
+    let max = spherical(10.0, degs(180.0), degs(90.0));
     b.with_inputs(|| {
-        let v = (spherical(0.0, degs(-180.0), degs(-45.0))
-            ..spherical(10.0, degs(180.0), degs(90.0)))
-            .sample(&mut rng);
-
+        let v = (min..max).sample(&mut rng);
         Ray(pt3(0.0, 3.0, 0.0), v.to_cart())
     })
     .counter(ItemsCount::new(1usize))

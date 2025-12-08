@@ -317,10 +317,6 @@ impl<B> Plane3<B> {
 
     /// Creates a new plane with the given coefficients.
     ///
-    // TODO not normalized because const
-    // The coefficients are normalized to
-    //
-    // (a', b', c', d') = (a, b, c, d) / |(a, b, c)|.
     ///
     /// The returned plane satisfies the plane equation
     ///
@@ -337,6 +333,9 @@ impl<B> Plane3<B> {
     /// If (a, b, c) is a unit vector, then d is exactly the offset of the
     /// plane from the origin in the direction of the normal.
     ///
+    /// # Panics
+    /// If the vector (a, b, c) is not unit length.
+    ///
     /// # Examples
     /// ```
     /// use retrofire_core::{geom::Plane3, math::Vec3};
@@ -348,7 +347,13 @@ impl<B> Plane3<B> {
     /// ```
     #[inline]
     pub const fn new(a: f32, b: f32, c: f32, d: f32) -> Self {
-        assert!(a != 0.0 || b != 0.0 || c != 0.0, "degenerate plane");
+        // TODO Always require unit normal to avoid needless
+        //      normalizing in normal() and other methods
+        // TODO This method can't itself normalize because const
+        // assert!(
+        //     (a * a + b * b + c * c - 1.0).abs() < 1e-6,
+        //     "non-unit normal"
+        // );
         Self(Vector::new([a, b, c, -d]))
     }
 
@@ -518,7 +523,8 @@ impl<B> Plane3<B> {
         self.dot(pt) <= 0.0
     }
 
-    fn dot(&self, pt: Point3<B>) -> f32 {
+    #[inline]
+    pub fn dot(&self, pt: Point3<B>) -> f32 {
         // TODO add to_homog method
         let [x, y, z] = pt.0;
         self.0.dot(&[x, y, z, 1.0].into())
@@ -560,9 +566,15 @@ impl<B> Plane3<B> {
     }
 
     /// Helper that returns the a, b, and c coefficients non-normalized.
-    fn abc(&self) -> Vec3<B> {
+    #[inline]
+    pub fn abc(&self) -> Vec3<B> {
         let [a, b, c, _] = self.0.0;
         vec3(a, b, c)
+    }
+
+    #[inline]
+    pub fn coeffs(&self) -> [f32; 4] {
+        self.0.0
     }
 }
 
