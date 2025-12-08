@@ -56,11 +56,10 @@ fn main() {
             })
         }
 
-        let euc = Euclidean::new(b);
-        for s in 0.0.vary_to(euc.len(), 32) {
-            let p = euc.eval((s + 40.0 * t.as_secs_f32()) % euc.len());
-            let x = p.x() as usize;
-            let y = p.y() as usize;
+        let b = Euclidean::new(b);
+        for pt in b.iter_n(50) {
+            let x = pt.x() as usize;
+            let y = pt.y() as usize;
             buf[y - 1][x] = 0xFF_FF_FF;
             buf[y][x - 1] = 0xFF_FF_FF;
             buf[y + 1][x] = 0xFF_FF_FF;

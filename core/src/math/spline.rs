@@ -2,13 +2,13 @@
 use alloc::vec::Vec;
 use core::{array::from_fn, fmt::Debug, marker::PhantomData};
 
-use crate::geom::{Polyline, Ray};
-use crate::mat;
-
 use super::{
     Affine, Lerp, Linear, Mat4, Parametric, Point, Vary, Vector, inv_lerp,
     space::Real,
 };
+use crate::geom::{Polyline, Ray};
+use crate::mat;
+use crate::math::param::Iter;
 
 /// A cubic Bézier curve, defined by four control points.
 ///
@@ -836,6 +836,20 @@ where
 {
     fn eval(&self, s: f32) -> T {
         self.eval(s)
+    }
+
+    fn iter(&self, step: f32) -> Iter<'_, T, Self> {
+        Iter {
+            param: self,
+            t: 0.0,
+            step,
+            end: self.len(),
+            _pd: PhantomData,
+        }
+    }
+
+    fn iter_n(&self, n: u32) -> Iter<'_, T, Self> {
+        self.iter(self.len() / n as f32)
     }
 }
 
