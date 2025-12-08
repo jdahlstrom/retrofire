@@ -1,10 +1,10 @@
 use core::fmt::Debug;
 
-#[cfg(feature = "std")] // TODO separate fp feature for geom
+#[cfg(feature = "std")]
 use retrofire_core::geom::Sphere;
 use retrofire_core::{
     geom::{Plane3, Ray, Ray3},
-    math::{ApproxEq, Point3, vec3},
+    math::{Point3, vec3},
     render::scene::BBox,
 };
 
@@ -32,27 +32,59 @@ impl<B> Intersect<Plane3<B>> for Ray3<B> {
     /// `point` is the intersection point and  `t` is the ray parameter value
     /// such that `self.orig + t * self.dir == point`.
     fn intersect(&self, p: &Plane3<B>) -> Self::Result {
-        let Self(orig, dir) = self;
+        let &Self(orig, dir) = self;
 
-        // TODO checking two very unlikely conditions
+        // Plane equation:
+        //   ax + by + cz = d
+        //   let n = (a, b, c), P = (x, y, z)
+        //   n·P = d
+        //
+        // Ray equation:
+        //   P = O + t·v
+        //
+        // Substitute ray eqn to plane eqn
+        //   n·(O + t·v) = d
+        //   n·O + t·n·v = d
+        //   t·n·v = d - n·O  // divide by n·v (a scalar)
+        //   t = (d - n·O) / n·v
+        //     = (-n·O + d) / n·v
+        //     = - (n·O - d) / n·v
+        //
+        // Or in homogeneous coordinates:
+        //   let n = (a, b, c, -d), O = (o_x, o_y, o_z, 1)
+        //   t = - n·O / n·v
+        //
+        // Length of n does not matter, normalization would cancel out anyway.
+        // n·O is positive if the point is outside the plane, negative if inside.
+        // n·v is positive if pointing towards the same hemisphere as the plane
+        // normal, negative otherwise.
+        //
+        // Cases where an intersection exists:
+        // * if n·O = 0, the ray origin lies on the plane.
+        // * if n·O < 0 and n·v > 0, the ray is inside and points towards the plane.
+        // * if n·O > 0 and n·v < 0, the ray is outside and points towards the plane.
+        //
+        // Cases where it does not exist:
+        // * if n·O != 0 and n·v = 0, the ray is parallel but not coincident with the plane.
+        // * if n·O < 0 and n·v < 0, the ray is inside and points away from the plane.
+        // * if n·O > 0 and n·v > 0, the ray is outside and points away from the plane.
 
-        let num = p.signed_dist(*orig);
-        if num.approx_eq(&0.0) {
-            // Origin point coincident with the plane
-            return Some((0.0, *orig));
+        let [a, b, c, d] = p.coeffs();
+        let n = vec3(a, b, c);
+
+        let num = orig.to_vec().dot(&n) + d;
+        let denom = dir.dot(&n);
+
+        if num >= 0.0 && denom < 0.0 || num <= 0.0 && denom > 0.0 {
+            // Ray points towards the plane or origin lies on the plane
+            let t = -num / denom;
+            Some((t, orig + t * dir))
+        } else if num == 0.0 && denom == 0.0 {
+            // Ray coincident with the plane, unlikely
+            Some((0.0, orig))
+        } else {
+            None
         }
-        let denom = dir.dot(&p.normal().to());
-        if denom.approx_eq(&0.0) {
-            // Ray parallel with but not coincident with the plane
-            // (or dir is a zero vector) -> no intersection
-            return None;
-        }
-        let t = -num / denom;
-        if t.approx_le(&0.0) {
-            // Ray points away from the plane, intersection "behind" it
-            return None;
-        }
-        Some((t, *orig + t * *dir))
     }
 }
 
@@ -70,23 +102,23 @@ impl<B: Debug + Default> Intersect<BBox<B>> for Ray3<B> {
         let Ray(orig, dir) = *self;
 
         // Ray equation:
-        // p(t) = O + d·t
+        //   p(t) = O + d·t
         //   x(t) = Ox + dx·t
         //   y(t) = Oy + dy·t
         //   z(t) = Oz + dz·t
         //
         // Plane equations:
-        // x = lx, x = ux
-        // y = ly, x = uy
-        // z = lz, x = uz
+        //   x = lx, x = ux
+        //   y = ly, x = uy
+        //   z = lz, x = uz
         //
         // For each slab, ie. pair of parallel planes:
-        // Substitute eg.
-        // x_l = Ox + x_d·t0
-        // x_u = Ox + x_d·t1
+        //   Substitute eg.
+        //   x_l = Ox + x_d·t0
+        //   x_u = Ox + x_d·t1
         //
-        // t0 = (x_l - x_O) / x_d    | x_d=0 iff ray parallel with planes
-        // t1 = (x_u - x_O) / x_d
+        //   t0 = (x_l - x_O) / x_d    | x_d=0 iff ray parallel with planes
+        //   t1 = (x_u - x_O) / x_d
         //
         // Same for y and z slabs
 
@@ -221,18 +253,6 @@ mod tests {
         use super::*;
 
         const PLANE: Plane3<()> = Plane3::new(0.0, 1.0, 0.0, 2.0);
-
-        #[test]
-        #[ignore]
-        fn ray_plane_xxx() {
-            let r = Ray::<Point3>(
-                pt3(-3.308549, 6.2584567, -3.351655),
-                vec3(3.308549, -6.2584567, 3.351655),
-            );
-            let bbox = BBox(pt3(-1.0, -1.0, -1.0), pt3(1.0, 1.0, 1.0));
-
-            assert_eq!(r.intersect(&bbox), Some((0.0, pt3(0.0, 0.0, 0.0))));
-        }
 
         #[test]
         fn ray_towards_plane_has_intersection() {
