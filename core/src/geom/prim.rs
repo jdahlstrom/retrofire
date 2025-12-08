@@ -543,13 +543,14 @@ impl<B> Plane3<B> {
         let up = self.abc();
 
         let right: Vec3<B> =
-            if up.x().abs() < up.y().abs() && up.x().abs() < up.z().abs() {
+            if up.x().abs() <= up.y().abs() && up.x().abs() <= up.z().abs() {
                 Vec3::X
             } else {
                 Vec3::Z
             };
         let fwd = right.cross(&up).normalize();
-        let right = up.normalize().cross(&fwd);
+        let up = up.normalize();
+        let right = up.cross(&fwd);
 
         let origin = self.offset() * up;
 
@@ -776,9 +777,11 @@ impl<B> Default for Sphere<B> {
 
 #[cfg(test)]
 mod tests {
-    use crate::assert_approx_eq;
-    use crate::math::*;
     use alloc::vec;
+    use core::f32::consts::FRAC_1_SQRT_2;
+
+    use crate::math::*;
+    use crate::{assert_approx_eq, mat};
 
     use super::*;
 
@@ -931,6 +934,23 @@ mod tests {
         assert_approx_eq!(
             p.project(pt3(5.0, -10.0, -3.0)),
             pt3(5.0, 2.0, -3.0)
+        );
+    }
+
+    #[test]
+    fn plane_basis() {
+        let p = <Plane3>::new(0.0, 2.0, 2.0, 4.0);
+
+        let m = p.basis::<Plane3>();
+
+        assert_approx_eq!(
+            m,
+            mat![
+                1.0, 0.0, 0.0, 0.0;
+                0.0, FRAC_1_SQRT_2, -FRAC_1_SQRT_2, 1.0;
+                0.0, FRAC_1_SQRT_2, FRAC_1_SQRT_2, 1.0;
+                0.0, 0.0, 0.0, 1.0;
+            ]
         );
     }
 
