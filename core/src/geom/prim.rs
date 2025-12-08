@@ -494,9 +494,7 @@ impl<B> Plane3<B> {
     /// ```
     #[inline]
     pub fn signed_dist(&self, pt: Point3<B>) -> f32 {
-        // TODO use to_homog once committed
-        let pt = [pt.x(), pt.y(), pt.z(), 1.0].into();
-        self.0.dot(&pt) / self.abc().len()
+        self.dot(pt) / self.abc().len()
     }
 
     /// Returns whether a point is in the half-space that the normal of `self`
@@ -515,7 +513,13 @@ impl<B> Plane3<B> {
     // TODO "plane.is_inside(point)" reads wrong
     #[inline]
     pub fn is_inside(&self, pt: Point3<B>) -> bool {
-        self.signed_dist(pt) <= 0.0
+        self.dot(pt) <= 0.0
+    }
+
+    fn dot(&self, pt: Point3<B>) -> f32 {
+        // TODO add to_homog method
+        let [x, y, z] = pt.0;
+        self.0.dot(&[x, y, z, 1.0].into())
     }
 
     /// Returns an orthonormal affine basis on `self`.
