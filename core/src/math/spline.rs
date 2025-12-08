@@ -76,6 +76,15 @@ pub struct CatmullRomSpline<T>(Vec<T>);
 pub struct BSpline<T>(Vec<T>);
 
 /// Euclidean (arc-length) parameterization for splines.
+///
+/// Instead of *t* ∈ [0, 1], a `Euclidean` spline is parameterized by *s*,
+/// the actual Euclidean distance travelled along the curve. This makes it easy,
+/// for example, to position objects along the spline at regular intervals, or
+/// to travel along the spline at a desired speed.
+///
+/// Because arc-length parameterization is not generally possible in closed form,
+/// this implementation uses a look-up table to map *s* values to *t* values,
+/// interpolating linearly between entries.
 pub struct Euclidean<Spl>(Spl, Vec<(f32, f32)>);
 
 /// Interpolates smoothly from 0.0 to 1.0 as `t` goes from 0.0 to 1.0.
@@ -712,6 +721,7 @@ fn crb_segment<T: Clone>(pts: &[T], t: f32) -> (f32, &[T; 4]) {
 }
 
 impl<Spl> Euclidean<Spl> {
+    /// Creates a new `Euclidean` wrapper of the given spline.
     pub fn new<B, const N: usize>(spline: Spl) -> Self
     where
         Spl: Parametric<Point<[f32; N], Real<N, B>>>,
@@ -720,6 +730,7 @@ impl<Spl> Euclidean<Spl> {
         let mut s = 0.0;
         let mut p0 = spline.eval(0.0);
 
+        // TODO smarter sampling
         for t in 0.0.vary_to(1.0, 256) {
             lut.push((s, t));
             let p1 = spline.eval(t);
@@ -727,6 +738,15 @@ impl<Spl> Euclidean<Spl> {
             p0 = p1;
         }
         Self(spline, lut)
+    }
+
+    /// Returns the point of `self` at distance *s* from the start,
+    /// as measured along the curve.
+    pub fn eval<T>(&self, s: f32) -> T
+    where
+        Spl: Parametric<T>,
+    {
+        self.0.eval(self.t(s))
     }
 
     /// Returns the approximate arc length of the spline.
@@ -815,7 +835,7 @@ where
     Spl: Parametric<T>,
 {
     fn eval(&self, s: f32) -> T {
-        self.0.eval(self.t(s))
+        self.eval(s)
     }
 }
 
