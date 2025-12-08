@@ -109,7 +109,6 @@ impl<const N: usize, B> Point<[f32; N], Real<N, B>> {
     /// let y4 = pt2(0.0, 4.0);
     /// assert_eq!(x3.distance(&y4), 5.0);
     /// ```
-    #[cfg(feature = "fp")]
     #[inline]
     pub fn distance(&self, other: &Self) -> f32 {
         self.sub(other).len()
@@ -183,7 +182,6 @@ impl<const N: usize, B> Point<[f32; N], Real<N, B>> {
     /// assert_eq!(a.approach(&a, 1.0), a);
     /// assert_eq!(a.approach(&a, -1.0), a);
     /// ```
-    #[cfg(feature = "fp")]
     #[must_use]
     pub fn approach(&self, other: &Self, d: f32) -> Self {
         let v = *other - *self;
@@ -473,6 +471,7 @@ mod tests {
 
     mod f32 {
         use super::*;
+        use crate::assert_approx_eq;
 
         const pt2: fn(f32, f32) -> Point2 = super::pt2;
         const pt3: fn(f32, f32, f32) -> Point3 = super::pt3;
@@ -522,10 +521,12 @@ mod tests {
             );
         }
         #[test]
-        #[cfg(feature = "fp")]
         fn point_point_distance() {
-            assert_eq!(pt2(1.0, -1.0).distance(&pt2(-2.0, 3.0)), 5.0);
-            assert_eq!(pt3(1.0, -3.0, 2.0).distance(&pt3(-2.0, 3.0, 4.0)), 7.0);
+            assert_approx_eq!(pt2(1.0, -1.0).distance(&pt2(-2.0, 3.0)), 5.0);
+            assert_approx_eq!(
+                pt3(1.0, -3.0, 2.0).distance(&pt3(-2.0, 3.0, 4.0)),
+                7.0
+            );
         }
         #[test]
         fn point2_clamp() {

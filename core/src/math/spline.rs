@@ -76,7 +76,6 @@ pub struct CatmullRomSpline<T>(Vec<T>);
 pub struct BSpline<T>(Vec<T>);
 
 /// Euclidean (arc-length) parameterization for splines.
-#[cfg(feature = "fp")]
 pub struct Euclidean<Spl>(Spl, Vec<(f32, f32)>);
 
 /// Interpolates smoothly from 0.0 to 1.0 as `t` goes from 0.0 to 1.0.
@@ -712,7 +711,6 @@ fn crb_segment<T: Clone>(pts: &[T], t: f32) -> (f32, &[T; 4]) {
     (u, pts)
 }
 
-#[cfg(feature = "fp")]
 impl<Spl> Euclidean<Spl> {
     pub fn new<B, const N: usize>(spline: Spl) -> Self
     where
@@ -803,7 +801,6 @@ where
     }
 }
 
-#[cfg(feature = "fp")]
 impl<T, Spl> Parametric<T> for Euclidean<Spl>
 where
     Spl: Parametric<T>,

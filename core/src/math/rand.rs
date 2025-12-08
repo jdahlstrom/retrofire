@@ -462,7 +462,6 @@ where
     }
 }
 
-#[cfg(feature = "fp")]
 impl Distrib for UnitCircle {
     type Sample = Vec2;
 
@@ -494,7 +493,7 @@ impl Distrib for VectorsOnUnitDisk {
     /// let rng = &mut DefaultRng::default();
     ///
     /// let vec = VectorsOnUnitDisk.sample(rng);
-    /// assert!(vec.len_sqr() <= 1.0);
+    /// assert!(vec.len() <= 1.0);
     /// ```
     fn sample(&self, rng: &mut DefaultRng) -> Vec2 {
         let d = Uniform([-1.0f32; 2]..[1.0; 2]);
@@ -508,7 +507,6 @@ impl Distrib for VectorsOnUnitDisk {
     }
 }
 
-#[cfg(feature = "fp")]
 impl Distrib for UnitSphere {
     type Sample = Vec3;
 
@@ -521,7 +519,7 @@ impl Distrib for UnitSphere {
     /// let rng = &mut DefaultRng::default();
     ///
     /// let vec = UnitSphere.sample(rng);
-    /// assert_approx_eq!(vec.len_sqr(), 1.0);
+    /// assert_approx_eq!(vec.len(), 1.0);
     /// ```
     fn sample(&self, rng: &mut DefaultRng) -> Vec3 {
         let d = Uniform([-1.0; 3]..[1.0; 3]);
@@ -680,7 +678,6 @@ mod tests {
         assert_eq!(approx_100, 82);
     }
 
-    #[cfg(feature = "fp")]
     #[test]
     fn unit_circle() {
         use crate::assert_approx_eq;
@@ -696,7 +693,6 @@ mod tests {
         }
     }
 
-    #[cfg(feature = "fp")]
     #[test]
     fn unit_sphere() {
         use crate::assert_approx_eq;
