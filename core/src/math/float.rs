@@ -26,8 +26,9 @@ pub mod libm {
 
     pub use super::fallback::rem_euclid;
 
+    #[inline]
     pub fn recip_sqrt(x: f32) -> f32 {
-        powf(x, -0.5)
+        1.0 / sqrt(x)
     }
 }
 
@@ -47,7 +48,8 @@ pub mod mm {
     #[inline]
     pub fn sqrt(x: f32) -> f32 {
         let y = mm::sqrt(x);
-        // One round of Newton's method
+        // Two rounds of Newton's method
+        let y = 0.5 * (y + (x / y));
         0.5 * (y + (x / y))
     }
     /// Returns the approximate reciprocal of the square root of `x`.
@@ -61,6 +63,7 @@ pub mod mm {
     pub fn powf(x: f32, y: f32) -> f32 {
         mm::powf(x, y)
     }
+
     #[inline]
     pub fn sin(x: f32) -> f32 {
         mm::sin(x)
@@ -90,26 +93,44 @@ pub mod mm {
         }
         mm::atan2(y, x)
     }
+
+    #[inline]
+    pub fn exp(x: f32) -> f32 {
+        mm::exp(x)
+    }
+    #[inline]
+    pub fn log2(x: f32) -> f32 {
+        mm::log2(x)
+    }
 }
 
 pub mod fallback {
     /// Returns the largest integer less than or equal to `x`.
     #[inline]
     pub fn floor(x: f32) -> f32 {
-        (x as i64 - x.is_sign_negative() as i64) as f32
+        (x as i64 - (x < 0.0) as i64) as f32
     }
-    // Returns the least non-negative remainder of `x` (mod `m`).
+    /// Returns the least non-negative remainder of `x` (mod `m`).
     #[inline]
     pub fn rem_euclid(x: f32, m: f32) -> f32 {
-        x % m + (x.is_sign_negative() as u32 as f32) * m
+        let r = x % m;
+        r + if r < 0.0 { m.abs() } else { 0.0 }
     }
     /// Returns the approximate reciprocal of the square root of `x`.
     #[inline]
     pub fn recip_sqrt(x: f32) -> f32 {
+        if x < 0.0 {
+            return f32::NAN;
+        }
         // https://en.wikipedia.org/wiki/Fast_inverse_square_root
         let y = f32::from_bits(0x5f37_5a86 - (x.to_bits() >> 1));
-        // A round of Newton's method
+        // Two rounds of Newton's method
+        let y = y * (1.5 - 0.5 * x * y * y);
         y * (1.5 - 0.5 * x * y * y)
+    }
+    #[inline]
+    pub fn sqrt(x: f32) -> f32 {
+        1.0 / recip_sqrt(x)
     }
 }
 
@@ -141,59 +162,134 @@ pub use fallback as f32;
 #[cfg(test)]
 #[allow(unused_imports)]
 mod tests {
+    use core::f32::consts::*;
 
+    use super::{RecipSqrt, f32, *};
     use crate::assert_approx_eq;
 
     #[cfg(feature = "libm")]
     #[test]
     fn libm_functions() {
-        use super::libm;
-        use core::f32::consts::PI;
-        assert_eq!(libm::cos(PI), -1.0);
+        assert_eq!(libm::floor(1.5), 1.0);
+        assert_eq!(libm::floor(0.99), 0.0);
+        assert_eq!(libm::floor(-0.0), 0.0);
+        assert_eq!(libm::floor(-1.1), -2.0);
+
+        assert_approx_eq!(libm::rem_euclid(1.6, 0.5), 0.1);
+        assert_approx_eq!(libm::rem_euclid(-1.6, 0.5), 0.4);
+        assert_approx_eq!(libm::rem_euclid(1.6, -0.5), 0.1);
+        assert_approx_eq!(libm::rem_euclid(-1.6, -0.5), 0.4);
+
         assert_eq!(libm::sqrt(9.0), 3.0);
+        assert_eq!(libm::sqrt(16.0), 4.0);
+        assert!(libm::sqrt(-1.0).is_nan());
+        assert_eq!(libm::recip_sqrt(9.0), 1.0 / 3.0);
+        assert_eq!(libm::recip_sqrt(0.0), f32::INFINITY);
+        assert!(libm::recip_sqrt(-1.0).is_nan());
+
+        assert_eq!(libm::powf(3.0, 2.0), 9.0);
+        assert_eq!(libm::powf(-3.0, 2.0), 9.0);
+        assert_eq!(libm::powf(3.0, -2.0), 1.0 / 9.0);
+        assert_eq!(libm::powf(-3.0, 3.0), -27.0);
+
+        assert_approx_eq!(libm::sin(FRAC_PI_6), 0.5);
+        assert_eq!(libm::cos(PI), -1.0);
+
+        assert_eq!(libm::exp(1.0), E);
+        assert_approx_eq!(libm::exp(2.0), E * E);
+        assert_eq!(libm::log2(8.0), 3.0);
+        assert!(libm::log2(-1.0).is_nan());
     }
 
     #[cfg(feature = "mm")]
     #[test]
     fn mm_functions() {
-        use core::f32::consts::*;
+        assert_eq!(mm::floor(1.5), 1.0);
+        assert_eq!(mm::floor(0.99), 0.0);
+        assert_eq!(mm::floor(-0.0), 0.0);
+        assert_eq!(mm::floor(-1.1), -2.0);
 
-        use super::f32;
+        assert_approx_eq!(mm::rem_euclid(1.6, 0.5), 0.1);
+        assert_approx_eq!(mm::rem_euclid(-1.6, 0.5), 0.4);
+        assert_approx_eq!(mm::rem_euclid(1.6, -0.5), 0.1);
+        assert_approx_eq!(mm::rem_euclid(-1.6, -0.5), 0.4);
 
-        assert_approx_eq!(f32::sin(FRAC_PI_6), 0.5);
-        assert_eq!(f32::cos(PI), -1.0);
-        assert_eq!(f32::sqrt(16.0), 4.0);
-        assert_approx_eq!(f32::sqrt(9.0), 3.0, eps = 1e-3);
+        assert_approx_eq!(mm::sqrt(9.0), 3.0);
+        assert_eq!(mm::sqrt(16.0), 4.0);
+        assert!(mm::sqrt(-1.0).is_nan());
+        assert_approx_eq!(mm::recip_sqrt(9.0), 1.0 / 3.0);
+        // mm doesn't check for zero, just gives a big number
+        assert_approx_eq!(mm::recip_sqrt(0.0), 1.9818e19);
+        // mm doesn't check for negative, panics due to sub overflow
+        //assert!(mm::recip_sqrt(-1.0).is_nan());
+
+        assert_approx_eq!(mm::powf(3.0, 2.0), 9.0);
+        assert_approx_eq!(mm::powf(-3.0, 2.0), 9.0);
+        assert_approx_eq!(mm::powf(3.0, -2.0), 1.0 / 9.0);
+        assert_approx_eq!(mm::powf(-3.0, 3.0), -27.0);
+
+        assert_approx_eq!(mm::sin(FRAC_PI_6), 0.5);
+        assert_eq!(mm::cos(PI), -1.0);
+
+        assert_eq!(mm::exp(1.0), E);
+        assert_approx_eq!(mm::exp(2.0), E * E);
+        assert_approx_eq!(mm::log2(8.0), 3.0);
+        // mm doesn't check for negative, panics due to sub overflow
+        //assert!(mm::log2(-1.0).is_nan());
     }
 
     #[cfg(feature = "std")]
     #[test]
     fn std_functions() {
-        use super::f32;
-        use core::f32::consts::PI;
-        assert_eq!(f32::cos(PI), -1.0);
+        assert_eq!(f32::floor(-0.0), 0.0);
+
+        assert_approx_eq!(f32::rem_euclid(1.6, 0.5), 0.1);
+        assert_approx_eq!(f32::rem_euclid(-1.6, 0.5), 0.4);
+        assert_approx_eq!(f32::rem_euclid(1.6, -0.5), 0.1);
+        assert_approx_eq!(f32::rem_euclid(-1.6, -0.5), 0.4);
+
         assert_eq!(f32::sqrt(9.0), 3.0);
+        assert!(f32::sqrt(-1.0).is_nan());
+        assert_eq!(f32::recip_sqrt(9.0), 1.0 / 3.0);
+        assert_eq!(f32::recip_sqrt(0.0), f32::INFINITY);
+        assert!(f32::recip_sqrt(-1.0).is_nan());
+
+        assert_eq!(f32::cos(PI), -1.0);
     }
 
     #[cfg(not(feature = "fp"))]
     #[test]
     fn fallback_functions() {
-        use super::{RecipSqrt, f32};
+        use fallback as fb;
+        assert_eq!(fb::floor(1.5), 1.0);
+        assert_eq!(fb::floor(0.99), 0.0);
+        assert_eq!(fb::floor(-0.0), 0.0);
+        assert_eq!(fb::floor(-1.1), -2.0);
 
-        assert_eq!(f32::floor(1.23), 1.0);
-        assert_eq!(f32::floor(0.0), 0.0);
-        assert_eq!(f32::floor(-1.23), -2.0);
+        assert_approx_eq!(fb::rem_euclid(1.6, 0.5), 0.1);
+        assert_approx_eq!(fb::rem_euclid(-1.6, 0.5), 0.4);
+        assert_approx_eq!(fb::rem_euclid(1.6, -0.5), 0.1);
+        assert_approx_eq!(fb::rem_euclid(-1.6, -0.5), 0.4);
 
-        assert_approx_eq!(f32::rem_euclid(1.23, 4.0), 1.23);
-        assert_approx_eq!(f32::rem_euclid(4.0, 4.0), 0.0);
-        assert_approx_eq!(f32::rem_euclid(5.67, 4.0), 1.67);
-        assert_approx_eq!(f32::rem_euclid(-1.23, 4.0), 2.77);
-    }
+        assert_approx_eq!(fb::sqrt(9.0), 3.0);
+        assert_approx_eq!(fb::sqrt(16.0), 4.0);
+        assert!(fb::sqrt(-1.0).is_nan());
+        assert_approx_eq!(fb::recip_sqrt(9.0), 1.0 / 3.0);
+        // doesn't check for infinity, just returns a big number
+        assert_approx_eq!(fb::recip_sqrt(0.0), 2.9727e19);
+        assert!(fb::recip_sqrt(-1.0).is_nan());
 
-    #[test]
-    fn recip_sqrt() {
-        use super::{RecipSqrt, f32};
-        assert_approx_eq!(f32::recip_sqrt(2.0), f32::sqrt(0.5), eps = 1e-2);
-        assert_approx_eq!(f32::recip_sqrt(9.0), 1.0 / 3.0, eps = 1e-3);
+        // assert_eq!(fb::powf(3.0, 2.0), 9.0);
+        // assert_eq!(fb::powf(-3.0, 2.0), 9.0);
+        // assert_eq!(fb::powf(3.0, -2.0), 1.0 / 9.0);
+        // assert_eq!(fb::powf(-3.0, 3.0), -27.0);
+        //
+        // assert_approx_eq!(libm::sin(FRAC_PI_6), 0.5);
+        // assert_eq!(libm::cos(PI), -1.0);
+        //
+        // assert_eq!(libm::exp(1.0), E);
+        // assert_approx_eq!(libm::exp(2.0), E * E);
+        // assert_eq!(libm::log2(8.0), 3.0);
+        // assert!(libm::log2(-1.0).is_nan());
     }
 }
