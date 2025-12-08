@@ -44,8 +44,8 @@ fn textured_quad() {
     assert_eq!(framebuf[255][0], rgb(0x7F, 0, 0));
     assert_eq!(framebuf[0][255], rgb(0x7F, 0, 0));
 
-    let comp = *include_bytes!("textured_quad.ppm");
-    let comp = parse_pnm(comp).expect("should be a valid ppm");
+    static COMP: &[u8] = include_bytes!("textured_quad.ppm");
+    let comp = parse_pnm(COMP.iter().copied()).expect("should be a valid ppm");
 
     assert_eq!(framebuf, comp);
 
