@@ -765,6 +765,15 @@ where
     }
 }
 
+impl<T> Parametric<T> for CubicHermite<T, T::Diff>
+where
+    T: Affine<Diff: Linear<Scalar = f32> + Clone> + Clone,
+{
+    fn eval(&self, t: f32) -> T {
+        self.eval(t)
+    }
+}
+
 impl<T> Parametric<T> for BezierSpline<T>
 where
     T: Affine<Diff: Linear<Scalar = f32> + Clone> + Clone,
