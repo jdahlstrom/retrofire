@@ -19,9 +19,9 @@
 //! # Crate features
 //!
 //! * `std`:
-//!   Makes available items requiring I/O, timekeeping, or any floating-point
-//!   functions not included in `core`. In particular this means trigonometric
-//!   and transcendental functions.
+//!   Enabled by default. Makes available items requiring I/O, timekeeping, or
+//!   any floating-point functions not included in `core`. In particular, this
+//!   means trigonometric and transcendental functions.
 //!
 //!   If this feature is disabled, the crate only depends on `alloc`.
 //!
@@ -33,7 +33,10 @@
 //!   Provides fast approximate implementations of floating-point functions
 //!   via the [micromath](https://crates.io/crates/micromath) crate.
 //!
-//! All features are disabled by default.
+//! If none of the above features is enabled, fallback implementations of
+//! a critical subset of floating-point functions are used. However, all APIs
+//! whose implementation relies on trigonometric or transcendental functions
+//! are disabled.
 //!
 //! # Example
 //!

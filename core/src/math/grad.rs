@@ -30,7 +30,6 @@ pub enum Kind<Pt> {
     /// |P - Q| to *t* values such that:
     /// * *t* = 0 when P = Q, and
     /// * *t* = 1 when |P - Q| >= *r*.
-    #[cfg(feature = "fp")]
     Radial(Pt, f32),
     /// TODO
     #[cfg(feature = "fp")]
@@ -61,8 +60,7 @@ impl<T: Lerp> Gradient2<T> {
     pub fn eval(&self, p: Point2) -> T {
         let t = match self.kind {
             Kind::Linear(p0, p1) => (p - p0).scalar_project(&(p1 - p0)),
-            #[cfg(feature = "fp")]
-            Kind::Radial(p0, r) => (p - p0).len() / r,
+            Kind::Radial(p0, r) => p.distance(&p0) / r,
             #[cfg(feature = "fp")]
             Kind::Conical(p0) => {
                 let angle = (p - p0).atan();
@@ -186,7 +184,6 @@ mod tests {
         assert_eq!(g.eval(pt2(2.0, -100.0)), 0.1);
     }
 
-    #[cfg(feature = "fp")]
     #[test]
     fn radial_gradient() {
         let g = Gradient2::new(
@@ -196,11 +193,11 @@ mod tests {
 
         assert_eq!(g.eval(pt2(2.0, -1.0)), 0.9); // t=0.0
 
-        assert_eq!(g.eval(pt2(2.0, -1.5)), 0.9); // t=0.25
-        assert_eq!(g.eval(pt2(1.5, -1.0)), 0.9); // t=0.25
+        assert_approx_eq!(g.eval(pt2(2.0, -1.5)), 0.9); // t=0.25
+        assert_approx_eq!(g.eval(pt2(1.5, -1.0)), 0.9); // t=0.25
 
-        assert_eq!(g.eval(pt2(2.0, -1.75)), 0.5); // t=0.375
-        assert_eq!(g.eval(pt2(1.25, -1.0)), 0.5); // t=0.375
+        assert_approx_eq!(g.eval(pt2(2.0, -1.75)), 0.5); // t=0.375
+        assert_approx_eq!(g.eval(pt2(1.25, -1.0)), 0.5); // t=0.375
 
         assert_eq!(g.eval(pt2(2.0, -3.0)), 0.1); // t=0.5
         assert_eq!(g.eval(pt2(0.0, -1.0)), 0.1); // t=0.5

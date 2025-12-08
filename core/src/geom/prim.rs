@@ -297,7 +297,6 @@ impl<A, B> Tri<Vertex3<A, B>> {
     /// );
     /// assert_eq!(tri.area(), 6.0);
     /// ```
-    #[cfg(feature = "fp")]
     pub fn area(&self) -> f32 {
         let [t, u] = self.tangents();
         t.cross(&u).len() / 2.0
@@ -495,11 +494,9 @@ impl<B> Plane3<B> {
     /// ```
     #[inline]
     pub fn signed_dist(&self, pt: Point3<B>) -> f32 {
-        use crate::math::float::*;
-        let len_sqr = self.abc().len_sqr();
         // TODO use to_homog once committed
         let pt = [pt.x(), pt.y(), pt.z(), 1.0].into();
-        self.0.dot(&pt) * f32::recip_sqrt(len_sqr)
+        self.0.dot(&pt) / self.abc().len()
     }
 
     /// Returns whether a point is in the half-space that the normal of `self`
@@ -516,7 +513,6 @@ impl<B> Plane3<B> {
     /// assert!(<Plane3>::XY.is_inside(pt));
     /// ```
     // TODO "plane.is_inside(point)" reads wrong
-    #[cfg(feature = "fp")]
     #[inline]
     pub fn is_inside(&self, pt: Point3<B>) -> bool {
         self.signed_dist(pt) <= 0.0
@@ -630,7 +626,6 @@ impl<const N: usize, B> Polyline<Point<[f32; N], Real<N, B>>> {
     ///
     /// assert_eq!(pline.len(), 4.0);
     /// ```
-    #[cfg(feature = "fp")]
     pub fn len(&self) -> f32 {
         self.len_by(Point::distance)
     }
@@ -821,7 +816,6 @@ mod tests {
         let tri = tri(pt2(-1.0, 0.0), pt2(2.0, 0.0), pt2(2.0, 1.0));
         assert_eq!(tri.area(), 1.5);
     }
-    #[cfg(feature = "fp")]
     #[test]
     fn triangle_area_3() {
         // base = 3, height = 2
@@ -880,7 +874,6 @@ mod tests {
         assert_approx_eq!(p.normal(), vec3(0.0, 0.0, 1.0));
         assert_approx_eq!(p.offset(), -3.0);
     }
-    #[cfg(feature = "fp")]
     #[test]
     fn plane_is_point_inside_xz() {
         let p = <Plane3>::from_point_and_normal(pt3(1.0, 2.0, 3.0), Vec3::Y);
@@ -894,7 +887,6 @@ mod tests {
         assert!(!p.is_inside(pt3(0.0, 3.0, 0.0)));
         assert!(!p.is_inside(pt3(1.0, 3.0, 3.0)));
     }
-    #[cfg(feature = "fp")]
     #[test]
     fn plane_is_point_inside_neg_xz() {
         let p = <Plane3>::from_point_and_normal(pt3(1.0, 2.0, 3.0), -Vec3::Y);
@@ -908,7 +900,6 @@ mod tests {
         assert!(p.is_inside(pt3(0.0, 3.0, 0.0)));
         assert!(p.is_inside(pt3(1.0, 3.0, 3.0)));
     }
-    #[cfg(feature = "fp")]
     #[test]
     fn plane_is_point_inside_diagonal() {
         let p = <Plane3>::from_point_and_normal(pt3(0.0, 1.0, 0.0), splat(1.0));
