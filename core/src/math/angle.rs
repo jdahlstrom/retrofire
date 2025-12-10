@@ -45,16 +45,19 @@ pub type SphericalVec<B = ()> = Vector<[f32; 3], Spherical<B>>;
 //
 
 /// Returns an angle of `a` radians.
+#[inline]
 pub const fn rads(a: f32) -> Angle {
     Angle(a)
 }
 
 /// Returns an angle of `a` degrees.
+#[inline]
 pub const fn degs(a: f32) -> Angle {
     Angle(a * RADS_PER_DEG)
 }
 
 /// Returns an angle of `a` turns.
+#[inline]
 pub const fn turns(a: f32) -> Angle {
     Angle(a * RADS_PER_TURN)
 }
@@ -152,6 +155,7 @@ impl Angle {
     ///
     /// assert_eq!(degs(90.0).to_rads(), f32::consts::FRAC_PI_2);
     /// ```
+    #[inline]
     pub const fn to_rads(self) -> f32 {
         self.0
     }
@@ -161,7 +165,8 @@ impl Angle {
     /// use retrofire_core::math::turns;
     ///
     /// assert_eq!(turns(2.0).to_degs(), 720.0);
-    pub fn to_degs(self) -> f32 {
+    #[inline]
+    pub const fn to_degs(self) -> f32 {
         self.0 / RADS_PER_DEG
     }
     /// Returns the value of `self` in turns.
@@ -171,16 +176,19 @@ impl Angle {
     ///
     /// assert_eq!(degs(180.0).to_turns(), 0.5);
     /// ```
-    pub fn to_turns(self) -> f32 {
+    #[inline]
+    pub const fn to_turns(self) -> f32 {
         self.0 / RADS_PER_TURN
     }
 
     /// Returns the minimum of `self` and `other`.
-    pub fn min(self, other: Self) -> Self {
+    #[inline]
+    pub const fn min(self, other: Self) -> Self {
         Self(self.0.min(other.0))
     }
     /// Returns the maximum of `self` and `other`.
-    pub fn max(self, other: Self) -> Self {
+    #[inline]
+    pub const fn max(self, other: Self) -> Self {
         Self(self.0.max(other.0))
     }
     /// Returns `self` clamped to the range `min..=max`.
@@ -195,8 +203,9 @@ impl Angle {
     /// assert_eq!(degs(30.0).clamp(min, max), degs(30.0));
     /// assert_eq!(degs(-10.0).clamp(min, max), min);
     /// ```
+    #[inline]
     #[must_use]
-    pub fn clamp(self, min: Self, max: Self) -> Self {
+    pub const fn clamp(self, min: Self, max: Self) -> Self {
         Self(self.0.clamp(min.0, max.0))
     }
 
@@ -210,6 +219,7 @@ impl Angle {
     /// // 400 (mod 360) = 40
     /// assert_approx_eq!(degs(400.0).wrap(turns(0.0), turns(1.0)), degs(40.0))
     /// ```
+    #[inline]
     #[must_use]
     pub fn wrap(self, min: Self, max: Self) -> Self {
         use super::float::f32;
@@ -227,6 +237,7 @@ impl Angle {
     ///
     /// assert_approx_eq!(degs(30.0).sin(), 0.5)
     /// ```
+    #[inline]
     pub fn sin(self) -> f32 {
         f32::sin(self.0)
     }
@@ -238,6 +249,7 @@ impl Angle {
     ///
     /// assert_approx_eq!(degs(60.0).cos(), 0.5)
     /// ```
+    #[inline]
     pub fn cos(self) -> f32 {
         f32::cos(self.0)
     }
@@ -251,6 +263,7 @@ impl Angle {
     /// assert_approx_eq!(sin, 1.0);
     /// assert_approx_eq!(cos, 0.0);
     /// ```
+    #[inline]
     pub fn sin_cos(self) -> (f32, f32) {
         (self.sin(), self.cos())
     }
@@ -260,6 +273,7 @@ impl Angle {
     /// use retrofire_core::math::degs;
     /// assert_eq!(degs(45.0).tan(), 1.0)
     /// ```
+    #[inline]
     pub fn tan(self) -> f32 {
         f32::tan(self.0)
     }
@@ -504,11 +518,13 @@ impl<B> Debug for Spherical<B> {
 }
 
 impl<B> Default for SphericalVec<B> {
+    #[inline]
     fn default() -> Self {
         Self::new([1.0, 0.0, 0.0])
     }
 }
 impl<B> Default for PolarVec<B> {
+    #[inline]
     fn default() -> Self {
         Self::new([1.0, 0.0])
     }
@@ -536,36 +552,42 @@ impl Debug for Angle {
 
 impl Add for Angle {
     type Output = Self;
+    #[inline]
     fn add(self, rhs: Self) -> Self {
         Self(self.0 + rhs.0)
     }
 }
 impl Sub for Angle {
     type Output = Self;
+    #[inline]
     fn sub(self, rhs: Self) -> Self {
         Self(self.0 - rhs.0)
     }
 }
 impl Neg for Angle {
     type Output = Self;
+    #[inline]
     fn neg(self) -> Self {
         Self(-self.0)
     }
 }
 impl Mul<f32> for Angle {
     type Output = Self;
+    #[inline]
     fn mul(self, rhs: f32) -> Self {
         Self(self.0 * rhs)
     }
 }
 impl Div<f32> for Angle {
     type Output = Self;
+    #[inline]
     fn div(self, rhs: f32) -> Self {
         Self(self.0 / rhs)
     }
 }
 impl Rem for Angle {
     type Output = Self;
+    #[inline]
     fn rem(self, rhs: Self) -> Self {
         Self(self.0 % rhs.0)
     }
@@ -574,27 +596,32 @@ impl Rem for Angle {
 impl Mul<Angle> for f32 {
     type Output = Angle;
 
+    #[inline]
     fn mul(self, rhs: Angle) -> Self::Output {
         rhs * self
     }
 }
 
 impl AddAssign for Angle {
+    #[inline]
     fn add_assign(&mut self, rhs: Self) {
         self.0 += rhs.0;
     }
 }
 impl SubAssign for Angle {
+    #[inline]
     fn sub_assign(&mut self, rhs: Self) {
         self.0 -= rhs.0;
     }
 }
 impl MulAssign<f32> for Angle {
+    #[inline]
     fn mul_assign(&mut self, rhs: f32) {
         self.0 *= rhs;
     }
 }
 impl DivAssign<f32> for Angle {
+    #[inline]
     fn div_assign(&mut self, rhs: f32) {
         self.0 /= rhs;
     }
@@ -605,6 +632,7 @@ impl<B> From<PolarVec<B>> for Vec2<B> {
     /// Converts a polar vector into the equivalent Cartesian vector.
     ///
     /// See [PolarVec::to_cart] for more information.
+    #[inline]
     fn from(p: PolarVec<B>) -> Self {
         p.to_cart()
     }
@@ -615,6 +643,7 @@ impl<B> From<Vec2<B>> for PolarVec<B> {
     /// Converts a Cartesian 2-vector into the equivalent polar vector.
     ///
     /// See [Vec2::to_polar] for more information.
+    #[inline]
     fn from(v: Vec2<B>) -> Self {
         v.to_polar()
     }
@@ -625,6 +654,7 @@ impl<B> From<SphericalVec<B>> for Vec3<B> {
     /// Converts a spherical coordinate vector to a Euclidean 3-vector.
     ///
     /// See [SphericalVec::to_cart] for more information.
+    #[inline]
     fn from(v: SphericalVec<B>) -> Self {
         v.to_cart()
     }
@@ -635,6 +665,7 @@ impl<B> From<Vec3<B>> for SphericalVec<B> {
     /// Converts a Cartesian 3-vector into the equivalent spherical vector.
     ///
     /// See [Vec3::to_spherical] for more information.
+    #[inline]
     fn from(v: Vec3<B>) -> Self {
         v.to_spherical()
     }
