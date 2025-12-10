@@ -94,10 +94,11 @@ impl<P: Parametric<Vertex2<Normal2, ()>>> Lathe<P> {
     }
 
     /// Builds the lathe mesh.
-    pub fn build_with<A, F>(self, mut f: F) -> Mesh<A>
-    where
-        F: FnMut(Point3, Normal3, TexCoord) -> Vertex3<A>,
-    {
+    #[inline(never)]
+    pub fn build_with<A>(
+        self,
+        f: &mut dyn FnMut(Point3, Normal3, TexCoord) -> Vertex3<A>,
+    ) -> Mesh<A> {
         let secs = self.sectors as usize;
         let segs = self.segments as usize;
         let caps = 2 * self.capped as usize;
@@ -108,12 +109,14 @@ impl<P: Parametric<Vertex2<Normal2, ()>>> Lathe<P> {
         // Precompute capacity
         let n_faces = segs * secs * 2 + (secs - 2) * caps;
         let n_verts = verts_per_sec * (secs + 1) + secs * caps;
-        let mut m =
-            Mesh::new(Vec::with_capacity(n_faces), Vec::with_capacity(n_verts));
+        let mut m = Mesh {
+            faces: Vec::with_capacity(n_faces),
+            verts: Vec::with_capacity(n_verts),
+        };
 
         create_faces(secs, verts_per_sec, &mut m.faces);
         create_verts(
-            &mut f,
+            f,
             &self.points,
             secs,
             verts_per_sec,
@@ -125,9 +128,9 @@ impl<P: Parametric<Vertex2<Normal2, ()>>> Lathe<P> {
         if self.capped && verts_per_sec > 0 {
             let l = m.verts.len();
             // Duplicate the bottom ring of vertices to make the bottom cap...
-            make_cap(&mut m, &mut f, 0..secs, -Vec3::Y);
+            make_cap(&mut m, f, 0..secs, -Vec3::Y);
             // ...and the top vertices to make the top cap
-            make_cap(&mut m, &mut f, l - secs..l, Vec3::Y);
+            make_cap(&mut m, f, l - secs..l, Vec3::Y);
         }
         m
     }
@@ -186,6 +189,7 @@ fn create_verts<A>(
     }
 }
 
+#[inline(never)]
 fn make_cap<A>(
     m: &mut Mesh<A>,
     f: &mut dyn FnMut(Point3, Normal3, TexCoord) -> Vertex3<A>,
@@ -216,19 +220,19 @@ fn make_cap<A>(
 
 impl<P: Parametric<Vertex2<Normal2, ()>>> Build<Normal3> for Lathe<P> {
     fn build(self) -> Mesh<Normal3> {
-        self.build_with(|p, n, _| vertex(p.to(), n))
+        self.build_with(&mut |p, n, _| vertex(p.to(), n))
     }
 }
 impl<P: Parametric<Vertex2<Normal2, ()>>> Build<TexCoord> for Lathe<P> {
     fn build(self) -> Mesh<TexCoord> {
-        self.build_with(|p, _, tc| vertex(p.to(), tc))
+        self.build_with(&mut |p, _, tc| vertex(p.to(), tc))
     }
 }
 impl<P: Parametric<Vertex2<Normal2, ()>>> Build<(Normal3, TexCoord)>
     for Lathe<P>
 {
     fn build(self) -> Mesh<(Normal3, TexCoord)> {
-        self.build_with(|p, n, tc| vertex(p.to(), (n, tc)))
+        self.build_with(&mut |p, n, tc| vertex(p.to(), (n, tc)))
     }
 }
 

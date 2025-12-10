@@ -21,7 +21,7 @@ use core::{
 #[cfg(feature = "std")]
 use std::{
     fs::File,
-    io::{self, BufReader, BufWriter, Read, Write},
+    io::{self, BufReader, BufWriter, Read},
     path::Path,
 };
 
@@ -72,7 +72,10 @@ const fn magic(bytes: &[u8; 2]) -> u16 {
 
 impl Display for Format {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
-        write!(f, "P{}", *self as u8 as char)
+        use fmt::Write;
+        let [p, n] = (*self as u16).to_be_bytes();
+        f.write_char(p as char)?;
+        f.write_char(n as char)
     }
 }
 
@@ -115,20 +118,22 @@ impl Display for Error {
             #[cfg(feature = "std")]
             Io(kind) => write!(f, "i/o error {kind}"),
             Unsupported([c, d]) => {
-                write!(f, "unsupported magic number {}{}", c as char, d as char)
+                use fmt::Write;
+                f.write_str("unsupported magic number ")?;
+                f.write_char(c as char)?;
+                f.write_char(d as char)
             }
-            UnexpectedEnd => write!(f, "unexpected end of input"),
-            InvalidNumber => write!(f, "invalid numeric value"),
+            UnexpectedEnd => f.write_str("unexpected end of input"),
+            InvalidNumber => f.write_str("invalid numeric value"),
         }
     }
 }
 
 impl From<ParseIntError> for Error {
     fn from(e: ParseIntError) -> Self {
-        if *e.kind() == IntErrorKind::Empty {
-            UnexpectedEnd
-        } else {
-            InvalidNumber
+        match e.kind() {
+            IntErrorKind::Empty => UnexpectedEnd,
+            _ => InvalidNumber,
         }
     }
 }
@@ -161,7 +166,7 @@ impl Header {
     /// Writes `self` to `dest` as a valid PNM header,
     /// including a trailing newline.
     #[cfg(feature = "std")]
-    fn write(&self, mut dest: impl Write) -> io::Result<()> {
+    fn write(&self, mut dest: impl io::Write) -> io::Result<()> {
         let Self { format, dims: (w, h), max } = *self;
         let max: &dyn Display = match format {
             TextBitmap | BinaryBitmap => &"",
@@ -258,7 +263,7 @@ pub fn parse_pnm(input: impl IntoIterator<Item = u8>) -> Result<Buf2<Color3>> {
 /// Writes an image to a file in PPM format, P6 sub-format
 /// (binary 8-bits-per-channel RGB).
 ///
-/// Caution: This function overwrites the file if it already exists.
+/// **Caution:** This function overwrites the file if it already exists.
 /// Use [`write_ppm`] for more control over file creation.
 ///
 /// # Errors
@@ -282,7 +287,7 @@ where
 /// Returns [`std::io::Error`] if an error occurs while writing.
 #[cfg(feature = "std")]
 pub fn write_ppm<T>(
-    mut out: impl Write,
+    mut out: impl io::Write,
     data: impl AsSlice2<T>,
 ) -> io::Result<()>
 where
