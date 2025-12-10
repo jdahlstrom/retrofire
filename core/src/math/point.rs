@@ -20,10 +20,12 @@ pub type Point3<Basis = ()> = Point<[f32; 3], Real<3, Basis>>;
 pub type Point2u<Basis = ()> = Point<[u32; 2], Real<2, Basis>>;
 
 /// Returns a real 2-point with `x` and `y` components.
+#[inline]
 pub const fn pt2<Sc, B>(x: Sc, y: Sc) -> Point<[Sc; 2], Real<2, B>> {
     Point([x, y], Pd)
 }
 /// Returns a real 3-point with `x`, `y`, and `z` components.
+#[inline]
 pub const fn pt3<Sc, B>(x: Sc, y: Sc, z: Sc) -> Point<[Sc; 3], Real<3, B>> {
     Point([x, y, z], Pd)
 }
