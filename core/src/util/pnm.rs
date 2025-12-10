@@ -15,8 +15,7 @@
 use alloc::{string::String, vec::Vec};
 use core::{
     fmt::{self, Debug, Display, Formatter},
-    num::{IntErrorKind, ParseIntError},
-    str::FromStr,
+    num::{IntErrorKind, ParseIntError, TryFromIntError},
 };
 #[cfg(feature = "std")]
 use std::{
@@ -137,7 +136,12 @@ impl From<ParseIntError> for Error {
         }
     }
 }
-
+impl From<TryFromIntError> for Error {
+    fn from(_: TryFromIntError) -> Self {
+        // TODO better handling of unexpected values
+        InvalidNumber
+    }
+}
 #[cfg(feature = "std")]
 impl From<io::Error> for Error {
     fn from(e: io::Error) -> Self {
@@ -156,10 +160,10 @@ impl Header {
             it.next().ok_or(UnexpectedEnd)?,
         ];
         let format = magic.try_into()?;
-        let dims = (parse_num(&mut it)?, parse_num(&mut it)?);
+        let dims = (parse_u16(&mut it)?.into(), parse_u16(&mut it)?.into());
         let max: u16 = match &format {
             TextBitmap | BinaryBitmap => 1,
-            _ => parse_num(&mut it)?,
+            _ => parse_u16(&mut it)?,
         };
         Ok(Self { format, dims, max })
     }
@@ -238,9 +242,14 @@ pub fn parse_pnm(input: impl IntoIterator<Item = u8>) -> Result<Buf2<Color3>> {
             (0..3)
                 .cycle()
                 .flat_map(|i| {
-                    col[i] = match parse_num(&mut it) {
-                        Ok(c) => c,
+                    let u16 = match parse_u16(&mut it) {
+                        Ok(u) => u,
                         Err(e) => return Some(Err(e)),
+                    };
+                    // TODO Support >8-bit numbers
+                    col[i] = match u16.try_into() {
+                        Ok(u) => u,
+                        Err(e) => return Some(Err(e.into())),
                     };
                     (i == 2).then(|| Ok(col.into()))
                 })
@@ -248,7 +257,7 @@ pub fn parse_pnm(input: impl IntoIterator<Item = u8>) -> Result<Buf2<Color3>> {
                 .collect::<Result<Vec<_>>>()?
         }
         TextGraymap => (0..count)
-            .map(|_| Ok(gray(parse_num(&mut it)?)))
+            .map(|_| Ok(gray(parse_u16(&mut it)?.try_into()?)))
             .collect::<Result<Vec<_>>>()?,
         _ => return Err(Unsupported((h.format as u16).to_be_bytes())),
     };
@@ -310,11 +319,8 @@ where
 }
 
 /// Parses a numeric value from `src`, skipping whitespace and comments.
-fn parse_num<T>(src: impl IntoIterator<Item = u8>) -> Result<T>
-where
-    T: FromStr,
-    Error: From<T::Err>,
-{
+#[inline]
+fn parse_u16(src: impl IntoIterator<Item = u8>) -> Result<u16> {
     let mut whitespace_or_comment = {
         let mut in_comment = false;
         move |b: &u8| match *b {
@@ -346,28 +352,32 @@ mod tests {
 
     #[test]
     fn parse_value_int() {
-        assert_eq!(parse_num(*b"123"), Ok(123));
-        assert_eq!(parse_num(*b"12345"), Ok(12345));
+        assert_eq!(parse_u16(*b"123"), Ok(123));
+        assert_eq!(parse_u16(*b"12345"), Ok(12345));
     }
 
     #[test]
     fn parse_num_empty() {
-        assert_eq!(parse_num::<i32>(*b""), Err(UnexpectedEnd));
+        assert_eq!(parse_u16(*b""), Err(UnexpectedEnd));
+    }
+    #[test]
+    fn parse_num_too_large() {
+        assert_eq!(parse_u16(*b"123456"), Err(InvalidNumber));
     }
 
     #[test]
     fn parse_num_with_whitespace() {
-        assert_eq!(parse_num(*b" \n\n   42 "), Ok(42));
+        assert_eq!(parse_u16(*b" \n\n   42 "), Ok(42));
     }
 
     #[test]
     fn parse_num_with_comment_before() {
-        assert_eq!(parse_num(*b"# this is a comment\n42"), Ok(42));
+        assert_eq!(parse_u16(*b"# this is a comment\n42"), Ok(42));
     }
 
     #[test]
     fn parse_num_with_comment_after() {
-        assert_eq!(parse_num(*b"42#this is a comment"), Ok(42));
+        assert_eq!(parse_u16(*b"42#this is a comment"), Ok(42));
     }
 
     #[test]
