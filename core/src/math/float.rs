@@ -145,6 +145,7 @@ pub(crate) trait RecipSqrt {
 
 #[cfg(feature = "std")]
 impl RecipSqrt for f32 {
+    #[inline]
     fn recip_sqrt(x: f32) -> f32 {
         x.powf(-0.5)
     }

@@ -127,7 +127,7 @@ impl<Repr, Map> Matrix<Repr, Map> {
     {
         Matrix::new(self.0)
     }
-
+    #[inline]
     pub fn apply<T>(&self, t: &T) -> <Self as Apply<T>>::Output
     where
         Self: Apply<T>,
@@ -195,19 +195,24 @@ impl<Sc: Copy, const N: usize, const DIM: usize, S, D>
         mut self,
     ) -> Matrix<[[Sc; N]; N], RealToReal<DIM, D, S>> {
         const { assert!(N >= DIM, "map dimension >= matrix dimension") }
-        // Old-fashioned loop for now for constness
-        let mut i = 0;
-        while i < N {
-            let mut j = i + 1;
-            while j < N {
-                let tmp = self.0[i][j];
-                self.0[i][j] = self.0[j][i];
-                self.0[j][i] = tmp;
-                j += 1
-            }
-            i += 1
-        }
+        transpose(&mut self.0);
         self.to()
+    }
+}
+
+// Less-generic helper function
+const fn transpose<Sc: Copy, const N: usize>(a: &mut [[Sc; N]; N]) {
+    // Old-fashioned loop for now for constness
+    let mut i = 0;
+    while i < N {
+        let mut j = i + 1;
+        while j < N {
+            let tmp = a[i][j];
+            a[i][j] = a[j][i];
+            a[j][i] = tmp;
+            j += 1
+        }
+        i += 1
     }
 }
 
@@ -258,6 +263,7 @@ where
     /// (𝗠 ∘ 𝗡) 𝘃 = 𝗠(𝗡 𝘃)
     /// ```
     /// for some matrices 𝗠 and 𝗡 and a vector 𝘃.
+    #[inline]
     #[must_use]
     pub fn compose<Inner: LinearMap>(
         &self,
@@ -266,12 +272,23 @@ where
     where
         Map: Compose<Inner>,
     {
-        let cols: [_; N] = array::from_fn(|i| other.col_vec(i));
-        array::from_fn(|j| {
-            let row = self.row_vec(j);
-            array::from_fn(|i| row.dot(&cols[i]))
-        })
-        .into()
+        let mut other = other.0.clone();
+        transpose(&mut other);
+
+        fn do_compose<Sc: Linear<Scalar = Sc> + Copy, const N: usize>(
+            s: &[[Sc; N]; N],
+            o: &[[Sc; N]; N],
+        ) -> [[Sc; N]; N] {
+            array::from_fn(|j| {
+                let row = <Vector<_>>::new(s[j]);
+
+                array::from_fn(|i| {
+                    let col = <Vector<_>>::new(o[i]);
+                    row.dot(&col)
+                })
+            })
+        }
+        do_compose(&self.0, &other).into()
     }
     /// Returns the composite transform of `other` and `self`.
     ///
@@ -280,6 +297,7 @@ where
     /// `other`. The call `self.then(other)` is thus equivalent to
     /// `other.compose(self)`.
     #[must_use]
+    #[inline]
     pub fn then<Outer: Compose<Map>>(
         &self,
         other: &Matrix<[[Sc; N]; N], Outer>,
@@ -783,8 +801,11 @@ impl<Src, Dest> Apply<Vec2<Src>> for Mat2<Src, Dest> {
     ///  Mv  =  ⎛ M00 M01 ⎞ ⎛ v0 ⎞  =  ⎛ v0' ⎞
     ///         ⎝ M10 M11 ⎠ ⎝ v1 ⎠     ⎝ v1' ⎠
     /// ```
+    #[inline]
     fn apply(&self, v: &Vec2<Src>) -> Vec2<Dest> {
-        vec2(self.row_vec(0).dot(v), self.row_vec(1).dot(v))
+        let s = self.to::<()>();
+        let v = &v.to::<()>();
+        vec2(s.row_vec(0).dot(v), s.row_vec(1).dot(v))
     }
 }
 
@@ -800,6 +821,7 @@ impl<Src, Dest> Apply<Point2<Src>> for Mat2<Src, Dest> {
     ///  Mp  =  ⎛ M00 M01 ⎞ ⎛ v0 ⎞  =  ⎛ v0' ⎞
     ///         ⎝ M10 M11 ⎠ ⎝ v1 ⎠     ⎝ v1' ⎠
     /// ```
+    #[inline(always)]
     fn apply(&self, pt: &Point2<Src>) -> Point2<Dest> {
         self.apply(&pt.to_vec()).to_pt()
     }
@@ -819,10 +841,12 @@ impl<Src, Dest> Apply<Vec2<Src>> for Mat3<Src, Dest, 2> {
     ///  Mv  =  ⎜  ·  ·  ·  ⎟ ⎜ v1 ⎟  =  ⎜ v1' ⎟
     ///         ⎝  ·  · M22 ⎠ ⎝  0 ⎠     ⎝  0  ⎠
     /// ```
+    #[inline]
     fn apply(&self, v: &Vec2<Src>) -> Vec2<Dest> {
+        let s = self.to::<()>();
         // TODO can't use vec3, as space has to be Real<2> to match row_vec
-        let v = Vector::new([v.x(), v.y(), 0.0]);
-        vec2(self.row_vec(0).dot(&v), self.row_vec(1).dot(&v))
+        let v = &Vector::new([v.x(), v.y(), 0.0]);
+        vec2(s.row_vec(0).dot(v), s.row_vec(1).dot(v))
     }
 }
 
@@ -840,9 +864,11 @@ impl<Src, Dest> Apply<Point2<Src>> for Mat3<Src, Dest, 2> {
     ///  Mp  =  ⎜  ·  ·  ·  ⎟ ⎜ p1 ⎟  =  ⎜ p1' ⎟
     ///         ⎝  ·  · M22 ⎠ ⎝  1 ⎠     ⎝  1  ⎠
     /// ```
+    #[inline]
     fn apply(&self, p: &Point2<Src>) -> Point2<Dest> {
-        let v = Vector::new([p.x(), p.y(), 1.0]);
-        pt2(self.row_vec(0).dot(&v), self.row_vec(1).dot(&v))
+        let s = self.to::<()>();
+        let v = &Vector::new([p.x(), p.y(), 1.0]);
+        pt2(s.row_vec(0).dot(v), s.row_vec(1).dot(v))
     }
 }
 
@@ -859,11 +885,14 @@ impl<Src, Dest> Apply<Vec3<Src>> for Mat3<Src, Dest, 3> {
     ///  Mv  =  ⎜  ·  ·  ·  ⎟ ⎜ v1 ⎟  =  ⎜ v1' ⎟
     ///         ⎝  ·  · M22 ⎠ ⎝ v2 ⎠     ⎝ v2' ⎠
     /// ```
+    #[inline]
     fn apply(&self, v: &Vec3<Src>) -> Vec3<Dest> {
+        let s = self.to::<()>();
+        let v = &v.to::<()>();
         vec3(
-            self.row_vec(0).dot(v),
-            self.row_vec(1).dot(v),
-            self.row_vec(2).dot(v),
+            s.row_vec(0).dot(v),
+            s.row_vec(1).dot(v),
+            s.row_vec(2).dot(v),
         )
     }
 }
@@ -881,6 +910,7 @@ impl<Src, Dest> Apply<Point3<Src>> for Mat3<Src, Dest, 3> {
     ///  Mp  =  ⎜  ·  ·  ·  ⎟ ⎜ p1 ⎟  =  ⎜ p1' ⎟
     ///         ⎝  ·  · M22 ⎠ ⎝ p2 ⎠     ⎝ p2' ⎠
     /// ```
+    #[inline(always)]
     fn apply(&self, p: &Point3<Src>) -> Point3<Dest> {
         self.apply(&p.to_vec()).to_pt()
     }
@@ -901,9 +931,11 @@ impl<Src, Dst> Apply<Vec3<Src>> for Mat4<Src, Dst, 3> {
     ///         ⎜  ·  ·  ·  ·  ⎟ ⎜ v2 ⎟     ⎜ v2' ⎟
     ///         ⎝  ·  ·  · M33 ⎠ ⎝  0 ⎠     ⎝  0  ⎠
     /// ```
+    #[inline]
     fn apply(&self, v: &Vec3<Src>) -> Vec3<Dst> {
+        let s = self.to::<()>();
         let v = [v.x(), v.y(), v.z(), 0.0].into();
-        array::from_fn(|i| self.row_vec(i).dot(&v)).into()
+        array::from_fn(|i| s.row_vec(i).dot(&v)).into()
     }
 }
 
@@ -922,9 +954,11 @@ impl<Src, Dst> Apply<Point3<Src>> for Mat4<Src, Dst, 3> {
     ///         ⎜  ·  ·  ·  ·  ⎟ ⎜ p2 ⎟     ⎜ p2' ⎟
     ///         ⎝  ·  ·  · M33 ⎠ ⎝  1 ⎠     ⎝  1  ⎠
     /// ```
+    #[inline]
     fn apply(&self, p: &Point3<Src>) -> Point3<Dst> {
+        let s = self.to::<()>();
         let p = [p.x(), p.y(), p.z(), 1.0].into();
-        array::from_fn(|i| self.row_vec(i).dot(&p)).into()
+        array::from_fn(|i| s.row_vec(i).dot(&p)).into()
     }
 }
 
@@ -943,9 +977,11 @@ impl<Src> Apply<Point3<Src>> for ProjMat3<Src> {
     ///         ⎜      ·    ⎟ ⎜ p2 ⎟     ⎜ p2' ⎟
     ///         ⎝ ·  ·  M33 ⎠ ⎝  1 ⎠     ⎝ p3' ⎠
     /// ```
+    #[inline]
     fn apply(&self, p: &Point3<Src>) -> ProjVec3 {
+        let s = self.to::<()>();
         let v = Vector::new([p.x(), p.y(), p.z(), 1.0]);
-        array::from_fn(|i| self.row_vec(i).dot(&v)).into()
+        array::from_fn(|i| s.row_vec(i).dot(&v)).into()
     }
 }
 

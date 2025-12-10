@@ -228,7 +228,8 @@ impl<A> Builder<A> {
             v.attrib = v.attrib.normalize();
         }
 
-        Mesh::new(faces, verts).into_builder()
+        // No need to sanity check again
+        Mesh { faces, verts }.into_builder()
     }
 }
 
