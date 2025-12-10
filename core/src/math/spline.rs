@@ -3,8 +3,8 @@ use alloc::vec::Vec;
 use core::{array::from_fn, fmt::Debug, marker::PhantomData};
 
 use super::{
-    Affine, Lerp, Linear, Mat4, Parametric, Point, Vary, Vector, inv_lerp,
-    space::Real,
+    Affine, Lerp, Linear, Mat4, Parametric, Point, Point3, Vary, Vec3, Vector,
+    inv_lerp, param, space::Real,
 };
 use crate::geom::{Polyline, Ray};
 use crate::mat;
@@ -494,6 +494,41 @@ where
         let i = 3 * seg_i;
         let seg = from_fn(|j| self.0[i + j].clone());
         (u, CubicBezier(seg))
+    }
+}
+
+impl<B> BezierSpline<Point3<B>> {
+    pub fn frame_iter(&self, step: f32) -> impl Iterator<Item = Mat4<B>> {
+        FrameIter {
+            iter: self.iter(step),
+            mat: Default::default(),
+        }
+    }
+}
+
+struct FrameIter<'a, B> {
+    iter: param::Iter<'a, Point3<B>, BezierSpline<Point3<B>>>,
+    mat: Mat4<B>,
+}
+
+impl<B> Iterator for FrameIter<'_, B> {
+    type Item = Mat4<B>;
+
+    fn next(&mut self) -> Option<Mat4<B>> {
+        let t = self.iter.t;
+        let Some(pt) = self.iter.next() else {
+            return None;
+        };
+
+        let acc = self.iter.param.acceleration(t);
+
+        let fwd = self.iter.param.velocity(t).normalize_or_zero();
+        let up = 0.95 * self.mat.linear().col_vec(1) + 0.05 * acc;
+        let right = up.cross(&fwd).normalize_or_zero();
+        let up = fwd.cross(&right);
+
+        self.mat = Mat4::from_affine(right, up, fwd, pt);
+        Some(self.mat.clone())
     }
 }
 

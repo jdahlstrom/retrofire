@@ -1,11 +1,17 @@
-use core::ops::ControlFlow::*;
+use core::ops::{ControlFlow::*, Range};
 
 use re::prelude::*;
 
-use re::core::math::color::gray;
+use re::core::geom::Ray;
+use re::core::math::{
+    color::gray,
+    rand::{DefaultRng, Distrib},
+};
 use re::core::render::{
+    Model, World,
     cam::{FirstPerson, Fov},
     clip::Status::*,
+    debug,
     scene::Obj,
     shader,
     tex::SamplerClamp,
@@ -32,7 +38,7 @@ fn main() {
         |v: Vertex3<_>, mvp: &ProjMat3<_>| vertex(mvp.apply(&v.pos), v.attrib),
         |frag: Frag<Vec2>| {
             let even_odd = (frag.var.x() > 0.5) ^ (frag.var.y() > 0.5);
-            gray(if even_odd { 0.8 } else { 0.1 }).to_color4()
+            gray(if even_odd { 0.3 } else { 0.1 }).to_color4()
         },
     );
     let crate_shader = shader::new(
@@ -50,18 +56,32 @@ fn main() {
     let (w, h) = win.dims;
     let mut cam = Camera::new(win.dims)
         .transform(FirstPerson::default())
+        //.transform(Mat4::identity())
         .viewport((10..w - 10, h - 10..10))
         .perspective(Fov::Diagonal(degs(90.0)), 0.1..1000.0);
 
     let floor = floor();
     let crates = crates();
 
+    let rng = &mut DefaultRng::from_time();
+    let pts: Range<Point3<World>> =
+        pt3(-10.0, 3.0, -10.0)..pt3(10.0, 6.0, 10.0);
+    let dirs = splat(-1.0)..splat(1.0);
+
+    let rays = (pts, dirs);
+    let rays = rays
+        .samples(rng)
+        .map(|(p, d)| Ray(p, 20.0 * d))
+        .take(10);
+    let b = BezierSpline::from_rays(rays);
+    let mut bf = b.frame_iter(0.0001);
+
     win.run(|frame| {
         //
         // Camera
         //
 
-        let mut cam_vel = Vec3::zero();
+        let mut cam_vel: Vec3 = Vec3::zero();
 
         let ep = &frame.win.ev_pump;
 
@@ -81,22 +101,62 @@ fn main() {
             turns(ms.x() as f32) * 0.001,
             turns(ms.y() as f32) * -0.001,
         );
-        cam.transform
-            .translate(cam_vel.mul(frame.dt.as_secs_f32()));
+
+        let mat: Mat4<World> = bf.next().unwrap().to();
+
+        //cam.transform.pos = mat.origin() + 0.2 * Vec3::Y;
+        // cam.transform
+        //     .look_at(cam.transform.pos + mat.linear().col_vec(2));
+
+        //    .translate(cam_vel.mul(frame.dt.as_secs_f32()));
 
         //
         // Render
         //
 
-        let world_to_project = &cam.world_to_project();
+        //let world_to_project = &cam.world_to_project();
+
+        let world_to_project = mat
+            .inverse()
+            .then(&cam.world_to_view())
+            .then(&cam.project);
 
         let batch = Batch::new()
             .viewport(cam.viewport)
             .target(frame.buf)
             .context(frame.ctx);
 
+        // Spline
+        let circle = debug::circle::<Model>(Point3::origin(), 1.0)
+            //debug::sphere(Point3::origin(), 0.1)
+            //debug::basis(m2w)
+            //debug::ray(Point3::origin(), Vec3::Z)
+            .viewport(cam.viewport)
+            .target(frame.buf)
+            .context(frame.ctx);
+        for m2w in b.frame_iter(0.001) {
+            let m2p: ProjMat3<World> = m2w.to().then(&world_to_project);
+
+            circle
+                .clone()
+                .uniform(&scale(0.1.into()).to().then(&m2p))
+                .render();
+
+            // batch
+            //     .clone()
+            //     .mesh(&cb)
+            //     .shader(shader::new(
+            //         |v: Vertex3<_>, m2p: &ProjMat3<_>| {
+            //             vertex(m2p.apply(&v.pos), ())
+            //         },
+            //         |_| rgba(0xFF, 0, 0, 0),
+            //     ))
+            //     .uniform(&m2p)
+            //     .render();
+        }
+
         // Floor
-        {
+        /*{
             let Obj { bbox, tf, geom } = &floor;
             let model_to_project = tf.then(&world_to_project);
             if bbox.visibility(&model_to_project) != Hidden {
@@ -130,7 +190,7 @@ fn main() {
                 .render();
 
             frame.ctx.stats.borrow_mut().objs.o += 1;
-        }
+        }*/
 
         Continue(())
     })
