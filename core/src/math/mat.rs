@@ -836,7 +836,7 @@ impl<Src, Dest> Apply<Vec2<Src>> for Mat3<Src, Dest, 2> {
     #[inline]
     fn apply(&self, v: &Vec2<Src>) -> Vec2<Dest> {
         let [r0, r1, _] = &self.0;
-        let v = &[v.x(), v.y(), 0.0];
+        let v = &v.to_hom().0;
         vec2(dot(r0, v), dot(r1, v))
     }
 }
@@ -858,8 +858,8 @@ impl<Src, Dest> Apply<Point2<Src>> for Mat3<Src, Dest, 2> {
     #[inline]
     fn apply(&self, p: &Point2<Src>) -> Point2<Dest> {
         let [r0, r1, _] = &self.0;
-        let v = &[p.x(), p.y(), 1.0];
-        pt2(dot(r0, v), dot(r1, v))
+        let p = &p.to_hom().0;
+        pt2(dot(r0, p), dot(r1, p))
     }
 }
 
@@ -921,7 +921,7 @@ impl<Src, Dst> Apply<Vec3<Src>> for Mat4<Src, Dst, 3> {
     #[inline]
     fn apply(&self, v: &Vec3<Src>) -> Vec3<Dst> {
         let [r0, r1, r2, _] = &self.0;
-        let v = &[v.x(), v.y(), v.z(), 0.0];
+        let v = &v.to_hom().0;
         vec3(dot(r0, v), dot(r1, v), dot(r2, v))
     }
 }
@@ -944,7 +944,7 @@ impl<Src, Dst> Apply<Point3<Src>> for Mat4<Src, Dst, 3> {
     #[inline]
     fn apply(&self, p: &Point3<Src>) -> Point3<Dst> {
         let [r0, r1, r2, _] = &self.0;
-        let p = &[p.x(), p.y(), p.z(), 1.0];
+        let p = &p.to_hom().0;
         pt3(dot(r0, p), dot(r1, p), dot(r2, p))
     }
 }
@@ -967,7 +967,7 @@ impl<Src> Apply<Point3<Src>> for ProjMat3<Src> {
     #[inline]
     fn apply(&self, p: &Point3<Src>) -> ProjVec3 {
         let [r0, r1, r2, r3] = &self.0;
-        let p = &[p.x(), p.y(), p.z(), 1.0];
+        let p = &p.to_hom().0;
         Vector::new([dot(r0, p), dot(r1, p), dot(r2, p), dot(r3, p)])
     }
 }

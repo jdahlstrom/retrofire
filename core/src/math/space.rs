@@ -107,6 +107,7 @@ pub struct Real<const DIM: usize, Basis = ()>(PhantomData<Basis>);
 #[derive(Copy, Clone, Debug, Default, Eq, PartialEq)]
 pub struct Proj3;
 
+/// Homogeneous coordinate representation.
 #[derive(Copy, Clone, Debug, Default, Eq, PartialEq)]
 pub struct Hom<const DIM: usize, Basis = ()>(PhantomData<Basis>);
 

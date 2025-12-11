@@ -1,3 +1,5 @@
+use super::{Affine, ApproxEq, Linear, Vector, space::Real, vary::ZDiv};
+use crate::math::space::Hom;
 use core::{
     array,
     fmt::{Debug, Formatter},
@@ -5,8 +7,6 @@ use core::{
     ops::{Add, Div, Index, IndexMut, Mul, Sub},
     ops::{AddAssign, DivAssign, MulAssign, SubAssign},
 };
-
-use super::{Affine, ApproxEq, Linear, Vector, space::Real, vary::ZDiv};
 
 #[repr(transparent)]
 pub struct Point<Repr, Space = ()>(pub Repr, Pd<Space>);
@@ -207,13 +207,22 @@ impl<Sc: Copy, B> Point<[Sc; 2], Real<2, B>> {
     pub const fn y(&self) -> Sc {
         self.0[1]
     }
+
+    /// Converts `self` to a `Point3`, with z equal to 0.
+    #[inline]
+    pub fn to_pt3(self) -> Point<[Sc; 3], Real<3, B>>
+    where
+        Sc: Linear,
+    {
+        pt3(self.x(), self.y(), Sc::zero())
+    }
 }
 
 impl<B> Point2<B> {
-    /// Converts `self` into a `Point3`, with z equal to 0.
+    /// Converts `self` to homogeneous representation.
     #[inline]
-    pub const fn to_pt3(self) -> Point3<B> {
-        pt3(self.x(), self.y(), 0.0)
+    pub const fn to_hom(&self) -> Vector<[f32; 3], Hom<2, B>> {
+        Vector::new([self.0[0], self.0[1], 1.0])
     }
 }
 
@@ -232,6 +241,14 @@ impl<Sc: Copy, B> Point<[Sc; 3], Real<3, B>> {
     #[inline]
     pub const fn z(&self) -> Sc {
         self.0[2]
+    }
+}
+
+impl<B> Point3<B> {
+    // Converts `self´ to homogeneous representation.
+    #[inline]
+    pub const fn to_hom(&self) -> Vector<[f32; 4], Hom<3, B>> {
+        Vector::new([self.0[0], self.0[1], self.0[2], 1.0])
     }
 }
 

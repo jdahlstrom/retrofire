@@ -470,12 +470,9 @@ impl<B> Plane3<B> {
 
         let dir = self.abc();
 
-        // TODO add to_homog()/to_real() methods
-        let pt_hom = [pt.x(), pt.y(), pt.z(), 1.0].into();
-
         // Use homogeneous pt to get self · pt = ax + by + cz + d
         // Could also just add d manually to ax + by + cz
-        let plane_dot_orig = self.0.dot(&pt_hom);
+        let plane_dot_orig = self.dot(pt);
 
         // Vector, so w = 0, so dir_hom · dir_hom = dir · dir = |dir|²
         let plane_dot_dir = dir.len_sqr();
@@ -526,9 +523,7 @@ impl<B> Plane3<B> {
 
     #[inline]
     pub fn dot(&self, pt: Point3<B>) -> f32 {
-        // TODO add to_homog method
-        let [x, y, z] = pt.0;
-        self.0.dot(&[x, y, z, 1.0].into())
+        dot(&self.0.0, &pt.to_hom().0)
     }
 
     /// Returns an orthonormal affine basis on `self`.
