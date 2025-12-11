@@ -222,6 +222,24 @@ impl<Sp, const N: usize> Vector<[f32; N], Sp> {
     }
 }
 
+/// Returns the dot product of two arrays interpreted as vectors.
+///
+/// # Examples
+/// ```
+/// use retrofire_core::math::vec::dot;
+///
+/// assert_eq!(dot(&[2.0, 3.0], &[-4.0, 5.0]), 2.0 * -4.0 + 3.0 * 5.0)
+/// ```
+#[inline]
+pub fn dot<Sc, const N: usize>(lhs: &[Sc; N], rhs: &[Sc; N]) -> Sc
+where
+    Sc: Linear<Scalar = Sc> + Copy,
+{
+    zip(lhs, rhs)
+        .map(|(a, b)| a.mul(*b))
+        .fold(Sc::zero(), |acc, x| acc.add(&x))
+}
+
 impl<Sc, Sp, const N: usize> Vector<[Sc; N], Sp>
 where
     Self: Linear<Scalar = Sc>,
@@ -241,9 +259,7 @@ where
     /// TODO docs
     #[inline]
     pub fn dot(&self, other: &Self) -> Sc {
-        zip(&self.0, &other.0)
-            .map(|(a, b)| a.mul(*b))
-            .fold(Sc::zero(), |acc, x| acc.add(&x))
+        dot(&self.0, &other.0)
     }
 
     /// Returns the vector projection of `self` onto a vector.
