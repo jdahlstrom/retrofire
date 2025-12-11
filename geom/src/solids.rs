@@ -7,13 +7,12 @@ mod platonic;
 use alloc::vec::Vec;
 
 use retrofire_core::geom::{Mesh, Normal3, Tri, mesh::Builder, tri, vertex};
-use retrofire_core::math::{BezierSpline, Lerp, Mat4, Point2, Point3, Vec3};
+use retrofire_core::math::{Lerp, Mat4, Point2, Vec3};
 
 #[cfg(feature = "std")]
 pub use lathe::*;
 
 pub use platonic::*;
-use retrofire_core::math::spline::{BSpline, CatmullRomSpline};
 
 pub trait Build<A>: Sized {
     fn build(self) -> Mesh<A>;
