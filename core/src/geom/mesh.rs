@@ -6,12 +6,12 @@ use core::{
     iter::zip,
 };
 
-use super::{Normal3, Tri, Vertex3, tri, vertex};
-use crate::math::Apply;
 use crate::{
-    math::{Linear, Mat4, Point3},
+    math::{Apply, Linear, Point3},
     render::Model,
 };
+
+use super::{Normal3, Tri, Vertex3, tri, vertex};
 
 /// A triangle mesh.
 ///

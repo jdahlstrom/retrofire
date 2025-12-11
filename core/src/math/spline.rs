@@ -501,34 +501,87 @@ impl<B> BezierSpline<Point3<B>> {
     pub fn frame_iter(&self, step: f32) -> impl Iterator<Item = Mat4<B>> {
         FrameIter {
             iter: self.iter(step),
-            mat: Default::default(),
+            mat: Mat4::identity(),
+            _pd: PhantomData,
         }
     }
 }
 
-struct FrameIter<'a, B> {
-    iter: param::Iter<'a, Point3<B>, BezierSpline<Point3<B>>>,
-    mat: Mat4<B>,
+impl<B> CatmullRomSpline<Point3<B>> {
+    pub fn frame_iter(&self, step: f32) -> impl Iterator<Item = Mat4<B>> {
+        FrameIter {
+            iter: self.iter(step),
+            mat: Mat4::identity(),
+            _pd: PhantomData,
+        }
+    }
+}
+impl<B> BSpline<Point3<B>> {
+    pub fn frame_iter(&self, step: f32) -> impl Iterator<Item = Mat4<B>> {
+        FrameIter {
+            iter: self.iter(step),
+            mat: Mat4::identity(),
+            _pd: PhantomData,
+        }
+    }
+}
+struct FrameIter<'a, T, S> {
+    iter: param::Iter<'a, T, S>,
+    mat: Mat4,
+    _pd: PhantomData<T>,
 }
 
-impl<B> Iterator for FrameIter<'_, B> {
+impl<'a, B, S: Parametric<Point3<B>>> FrameIter<'a, Point3<B>, S> {
+    fn next_frame(&mut self, fwd: Vec3<B>) -> Option<Mat4<B>> {
+        let Some(pt) = self.iter.next() else {
+            return None;
+        };
+        let up = 1.0 * self.mat.linear().col_vec(1).to() + 0.0 * Vec3::Y;
+        let right = up.cross(&fwd).normalize_or_zero();
+        let up = fwd.cross(&right);
+
+        let mat = Mat4::from_affine(right, up, fwd, pt);
+        self.mat = mat.to().clone();
+        Some(mat)
+    }
+}
+impl<B> Iterator for FrameIter<'_, Point3<B>, BezierSpline<Point3<B>>> {
     type Item = Mat4<B>;
 
     fn next(&mut self) -> Option<Mat4<B>> {
         let t = self.iter.t;
-        let Some(pt) = self.iter.next() else {
-            return None;
-        };
-
-        let acc = self.iter.param.acceleration(t);
-
         let fwd = self.iter.param.velocity(t).normalize_or_zero();
-        let up = 0.95 * self.mat.linear().col_vec(1) + 0.05 * acc;
-        let right = up.cross(&fwd).normalize_or_zero();
-        let up = fwd.cross(&right);
+        self.next_frame(fwd)
+    }
+}
 
-        self.mat = Mat4::from_affine(right, up, fwd, pt);
-        Some(self.mat.clone())
+impl<B> Iterator for FrameIter<'_, Point3<B>, HermiteSpline<Point3<B>>> {
+    type Item = Mat4<B>;
+
+    fn next(&mut self) -> Option<Mat4<B>> {
+        let t = self.iter.t;
+        let fwd = self.iter.param.velocity(t).normalize_or_zero();
+        self.next_frame(fwd)
+    }
+}
+
+impl<B> Iterator for FrameIter<'_, Point3<B>, CatmullRomSpline<Point3<B>>> {
+    type Item = Mat4<B>;
+
+    fn next(&mut self) -> Option<Mat4<B>> {
+        let t = self.iter.t;
+        let fwd = self.iter.param.velocity(t).normalize_or_zero();
+        self.next_frame(fwd)
+    }
+}
+
+impl<B> Iterator for FrameIter<'_, Point3<B>, BSpline<Point3<B>>> {
+    type Item = Mat4<B>;
+
+    fn next(&mut self) -> Option<Mat4<B>> {
+        let t = self.iter.t;
+        let fwd = self.iter.param.velocity(t).normalize_or_zero();
+        self.next_frame(fwd)
     }
 }
 
