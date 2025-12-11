@@ -16,9 +16,9 @@ use crate::render::{Ndc, Screen, View};
 use super::{
     approx::ApproxEq,
     float::f32,
-    point::{Point2, Point2u, Point3, pt2},
+    point::{Point2, Point2u, Point3, pt2, pt3},
     space::{Linear, Proj3, Real},
-    vec::{ProjVec3, Vec2, Vec3, Vector, vec2, vec3},
+    vec::{ProjVec3, Vec2, Vec3, Vector, dot, vec2, vec3},
 };
 
 /// A linear transform from one space (or basis) to another.
@@ -272,22 +272,15 @@ where
     where
         Map: Compose<Inner>,
     {
+        fn do_compose<Sc: Linear<Scalar = Sc> + Copy, const N: usize>(
+            lhs: &[[Sc; N]; N],
+            rhs: &[[Sc; N]; N],
+        ) -> [[Sc; N]; N] {
+            array::from_fn(|j| array::from_fn(|i| dot(&lhs[j], &rhs[i])))
+        }
+
         let mut other = other.0.clone();
         transpose(&mut other);
-
-        fn do_compose<Sc: Linear<Scalar = Sc> + Copy, const N: usize>(
-            s: &[[Sc; N]; N],
-            o: &[[Sc; N]; N],
-        ) -> [[Sc; N]; N] {
-            array::from_fn(|j| {
-                let row = <Vector<_>>::new(s[j]);
-
-                array::from_fn(|i| {
-                    let col = <Vector<_>>::new(o[i]);
-                    row.dot(&col)
-                })
-            })
-        }
         do_compose(&self.0, &other).into()
     }
     /// Returns the composite transform of `other` and `self`.
@@ -803,9 +796,8 @@ impl<Src, Dest> Apply<Vec2<Src>> for Mat2<Src, Dest> {
     /// ```
     #[inline]
     fn apply(&self, v: &Vec2<Src>) -> Vec2<Dest> {
-        let s = self.to::<()>();
-        let v = &v.to::<()>();
-        vec2(s.row_vec(0).dot(v), s.row_vec(1).dot(v))
+        let [r0, r1] = &self.0;
+        vec2(dot(r0, &v.0), dot(r1, &v.0))
     }
 }
 
@@ -837,16 +829,15 @@ impl<Src, Dest> Apply<Vec2<Src>> for Mat3<Src, Dest, 2> {
     /// *v*<sub>2</sub> component with value 0:
     ///
     /// ```text
-    ///         ⎛ M00 ·  ·  ⎞ ⎛ v0 ⎞     ⎛ v0' ⎞
-    ///  Mv  =  ⎜  ·  ·  ·  ⎟ ⎜ v1 ⎟  =  ⎜ v1' ⎟
-    ///         ⎝  ·  · M22 ⎠ ⎝  0 ⎠     ⎝  0  ⎠
+    ///          ⎛ x0 y0 t0 ⎞ ⎛ v0 ⎞     ⎛ v0' ⎞
+    ///  M·v  =  ⎜ x1 y1 t1 ⎟ ⎜ v1 ⎟  =  ⎜ v1' ⎟
+    ///          ⎝  0  0  1 ⎠ ⎝  0 ⎠     ⎝  0  ⎠
     /// ```
     #[inline]
     fn apply(&self, v: &Vec2<Src>) -> Vec2<Dest> {
-        let s = self.to::<()>();
-        // TODO can't use vec3, as space has to be Real<2> to match row_vec
-        let v = &Vector::new([v.x(), v.y(), 0.0]);
-        vec2(s.row_vec(0).dot(v), s.row_vec(1).dot(v))
+        let [r0, r1, _] = &self.0;
+        let v = &[v.x(), v.y(), 0.0];
+        vec2(dot(r0, v), dot(r1, v))
     }
 }
 
@@ -860,15 +851,15 @@ impl<Src, Dest> Apply<Point2<Src>> for Mat3<Src, Dest, 2> {
     /// *p*<sub>2</sub> component with value 1:
     ///
     /// ```text
-    ///         ⎛ M00 ·  ·  ⎞ ⎛ p0 ⎞     ⎛ p0' ⎞
-    ///  Mp  =  ⎜  ·  ·  ·  ⎟ ⎜ p1 ⎟  =  ⎜ p1' ⎟
-    ///         ⎝  ·  · M22 ⎠ ⎝  1 ⎠     ⎝  1  ⎠
+    ///          ⎛ x0 y0 t0 ⎞ ⎛ v0 ⎞     ⎛ v0' ⎞
+    ///  M·p  =  ⎜ x1 y1 t1 ⎟ ⎜ v1 ⎟  =  ⎜ v1' ⎟
+    ///          ⎝  0  0  1 ⎠ ⎝  1 ⎠     ⎝  1  ⎠
     /// ```
     #[inline]
     fn apply(&self, p: &Point2<Src>) -> Point2<Dest> {
-        let s = self.to::<()>();
-        let v = &Vector::new([p.x(), p.y(), 1.0]);
-        pt2(s.row_vec(0).dot(v), s.row_vec(1).dot(v))
+        let [r0, r1, _] = &self.0;
+        let v = &[p.x(), p.y(), 1.0];
+        pt2(dot(r0, v), dot(r1, v))
     }
 }
 
@@ -877,23 +868,19 @@ impl<Src, Dest> Apply<Vec3<Src>> for Mat3<Src, Dest, 3> {
 
     /// Maps a real 3-vector from basis `Src` to basis `Dst`.
     ///
-    /// Computes the matrix–vector multiplication **Mv** where **v** is
+    /// Computes the matrix–vector multiplication **M·v**, where **v** is
     /// interpreted as a column vector:
     ///
     /// ```text
-    ///         ⎛ M00 ·  ·  ⎞ ⎛ v0 ⎞     ⎛ v0' ⎞
-    ///  Mv  =  ⎜  ·  ·  ·  ⎟ ⎜ v1 ⎟  =  ⎜ v1' ⎟
-    ///         ⎝  ·  · M22 ⎠ ⎝ v2 ⎠     ⎝ v2' ⎠
+    ///          ⎛ x0 y0 z0 ⎞ ⎛ v0 ⎞     ⎛ v0' ⎞
+    ///  M·v  =  ⎜ x1 y1 z1 ⎟ ⎜ v1 ⎟  =  ⎜ v1' ⎟
+    ///          ⎝ x2 y2 z2 ⎠ ⎝ v2 ⎠     ⎝ v2' ⎠
     /// ```
     #[inline]
     fn apply(&self, v: &Vec3<Src>) -> Vec3<Dest> {
-        let s = self.to::<()>();
-        let v = &v.to::<()>();
-        vec3(
-            s.row_vec(0).dot(v),
-            s.row_vec(1).dot(v),
-            s.row_vec(2).dot(v),
-        )
+        let [r0, r1, r2] = &self.0;
+        let v = &v.0;
+        vec3(dot(r0, v), dot(r1, v), dot(r2, v))
     }
 }
 
@@ -902,13 +889,13 @@ impl<Src, Dest> Apply<Point3<Src>> for Mat3<Src, Dest, 3> {
 
     /// Maps a real 3-point from basis `Src` to basis `Dst`.
     ///
-    /// Computes the linear matrix–point multiplication **M***p* where *p* is
-    /// interpreted as a column vector:
+    /// Computes the linear (no translation) matrix–point multiplication
+    /// **M**·*P*, where *P* is interpreted as a column vector:
     ///
     /// ```text
-    ///         ⎛ M00 ·  ·  ⎞ ⎛ p0 ⎞     ⎛ p0' ⎞
-    ///  Mp  =  ⎜  ·  ·  ·  ⎟ ⎜ p1 ⎟  =  ⎜ p1' ⎟
-    ///         ⎝  ·  · M22 ⎠ ⎝ p2 ⎠     ⎝ p2' ⎠
+    ///          ⎛ x0 y0 z0 ⎞ ⎛ p0 ⎞     ⎛ p0' ⎞
+    ///  M·P  =  ⎜ x1 y1 z1 ⎟ ⎜ p1 ⎟  =  ⎜ p1' ⎟
+    ///          ⎝ x2 y2 z2 ⎠ ⎝ p2 ⎠     ⎝ p2' ⎠
     /// ```
     #[inline(always)]
     fn apply(&self, p: &Point3<Src>) -> Point3<Dest> {
@@ -921,21 +908,21 @@ impl<Src, Dst> Apply<Vec3<Src>> for Mat4<Src, Dst, 3> {
 
     /// Maps a real 3-vector from basis `Src` to basis `Dst`.
     ///
-    /// Computes the affine matrix–vector multiplication **Mv**, where
+    /// Computes the affine matrix–vector multiplication **M·v**, where
     /// **v** is interpreted as a homogeneous column vector with an implicit
     /// *v*<sub>3</sub> component with value 0:
     ///
     /// ```text
-    ///         ⎛ M00 ·  ·  ·  ⎞ ⎛ v0 ⎞     ⎛ v0' ⎞
-    ///  Mv  =  ⎜  ·  ·  ·  ·  ⎟ ⎜ v1 ⎟  =  ⎜ v1' ⎟
-    ///         ⎜  ·  ·  ·  ·  ⎟ ⎜ v2 ⎟     ⎜ v2' ⎟
-    ///         ⎝  ·  ·  · M33 ⎠ ⎝  0 ⎠     ⎝  0  ⎠
+    ///          ⎛ x0 y0 z0 t0  ⎞ ⎛ v0 ⎞     ⎛ v0' ⎞
+    ///  M·v  =  ⎜ x1 y1 z1 t1  ⎟ ⎜ v1 ⎟  =  ⎜ v1' ⎟
+    ///          ⎜ x2 y2 z2 t2  ⎟ ⎜ v2 ⎟     ⎜ v2' ⎟
+    ///          ⎝  0  0  0  1  ⎠ ⎝  0 ⎠     ⎝  0  ⎠
     /// ```
     #[inline]
     fn apply(&self, v: &Vec3<Src>) -> Vec3<Dst> {
-        let s = self.to::<()>();
-        let v = [v.x(), v.y(), v.z(), 0.0].into();
-        array::from_fn(|i| s.row_vec(i).dot(&v)).into()
+        let [r0, r1, r2, _] = &self.0;
+        let v = &[v.x(), v.y(), v.z(), 0.0];
+        vec3(dot(r0, v), dot(r1, v), dot(r2, v))
     }
 }
 
@@ -944,21 +931,21 @@ impl<Src, Dst> Apply<Point3<Src>> for Mat4<Src, Dst, 3> {
 
     /// Maps a real 3-point from basis `Src` to basis `Dst`.
     ///
-    /// Computes the affine matrix–point multiplication **M***p* where *p*
+    /// Computes the affine matrix–point multiplication **M**·*P*, where *P*
     /// is interpreted as a homogeneous column vector with an implicit
     /// *p*<sub>3</sub> component with value 1:
     ///
     /// ```text
-    ///         ⎛ M00 ·  ·  ·  ⎞ ⎛ p0 ⎞     ⎛ p0' ⎞
-    ///  Mp  =  ⎜  ·  ·  ·  ·  ⎟ ⎜ p1 ⎟  =  ⎜ p1' ⎟
-    ///         ⎜  ·  ·  ·  ·  ⎟ ⎜ p2 ⎟     ⎜ p2' ⎟
-    ///         ⎝  ·  ·  · M33 ⎠ ⎝  1 ⎠     ⎝  1  ⎠
+    ///          ⎛ x0 y0 z0 t0  ⎞ ⎛ p0 ⎞     ⎛ p0' ⎞
+    ///  M·P  =  ⎜ x1 y1 z1 t1  ⎟ ⎜ p1 ⎟  =  ⎜ p1' ⎟
+    ///          ⎜ x2 y2 z2 t2  ⎟ ⎜ p2 ⎟     ⎜ p2' ⎟
+    ///          ⎝  0  0  0  1  ⎠ ⎝  1 ⎠     ⎝  1  ⎠
     /// ```
     #[inline]
     fn apply(&self, p: &Point3<Src>) -> Point3<Dst> {
-        let s = self.to::<()>();
-        let p = [p.x(), p.y(), p.z(), 1.0].into();
-        array::from_fn(|i| s.row_vec(i).dot(&p)).into()
+        let [r0, r1, r2, _] = &self.0;
+        let p = &[p.x(), p.y(), p.z(), 1.0];
+        pt3(dot(r0, p), dot(r1, p), dot(r2, p))
     }
 }
 
@@ -967,21 +954,21 @@ impl<Src> Apply<Point3<Src>> for ProjMat3<Src> {
 
     /// Maps the real 3-point *p* from basis B to the projective 3-space.
     ///
-    /// Computes the matrix–point multiplication **M***p*, where *p*
+    /// Computes the matrix–point multiplication **M**·*P*, where *P*
     /// is interpreted as a homogeneous column vector with an implicit
     /// *p*<sub>3</sub> component with value 1:
     ///
     /// ```text
-    ///         ⎛ M00  ·  · ⎞ ⎛ p0 ⎞     ⎛ p0' ⎞
-    ///  Mp  =  ⎜    ·      ⎟ ⎜ p1 ⎟  =  ⎜ p1' ⎟
-    ///         ⎜      ·    ⎟ ⎜ p2 ⎟     ⎜ p2' ⎟
-    ///         ⎝ ·  ·  M33 ⎠ ⎝  1 ⎠     ⎝ p3' ⎠
+    ///          ⎛ M00  ·  · ⎞ ⎛ p0 ⎞     ⎛ p0' ⎞
+    ///  M·P  =  ⎜    ·      ⎟ ⎜ p1 ⎟  =  ⎜ p1' ⎟
+    ///          ⎜      ·    ⎟ ⎜ p2 ⎟     ⎜ p2' ⎟
+    ///          ⎝ ·  ·  M33 ⎠ ⎝  1 ⎠     ⎝  w  ⎠
     /// ```
     #[inline]
     fn apply(&self, p: &Point3<Src>) -> ProjVec3 {
-        let s = self.to::<()>();
-        let v = Vector::new([p.x(), p.y(), p.z(), 1.0]);
-        array::from_fn(|i| s.row_vec(i).dot(&v)).into()
+        let [r0, r1, r2, r3] = &self.0;
+        let p = &[p.x(), p.y(), p.z(), 1.0];
+        Vector::new([dot(r0, p), dot(r1, p), dot(r2, p), dot(r3, p)])
     }
 }
 

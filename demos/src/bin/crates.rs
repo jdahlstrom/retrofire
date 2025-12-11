@@ -4,7 +4,6 @@ use re::prelude::*;
 
 use re::core::math::color::gray;
 use re::core::render::{
-    Model,
     cam::{FirstPerson, Fov},
     clip::Status::*,
     scene::Obj,

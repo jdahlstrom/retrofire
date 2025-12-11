@@ -5,6 +5,7 @@
 use alloc::vec::Vec;
 use core::fmt::{self, Debug, Formatter};
 
+use crate::math::vec::dot;
 use crate::math::{
     Affine, Lerp, Linear, Mat4, Parametric, Point, Point2, Point3, Vec2, Vec3,
     Vector, pt3, space::Real, vec2, vec3,
@@ -398,7 +399,7 @@ impl<B> Plane3<B> {
     /// ```
     pub fn from_point_and_normal(pt: Point3<B>, n: Normal3) -> Self {
         let n = n.normalize();
-        let d = pt.to_vec().dot(&n.to());
+        let d = dot(&pt.0, &n.0);
         Plane::new(n.x(), n.y(), n.z(), d)
     }
 
