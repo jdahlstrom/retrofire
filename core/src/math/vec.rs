@@ -2,6 +2,12 @@
 //!
 //! TODO
 
+use super::{
+    Affine, ApproxEq, Linear, Point,
+    space::{Proj3, Real},
+    vary::ZDiv,
+};
+use crate::math::space::Hom;
 use core::{
     array,
     fmt::{Debug, Formatter},
@@ -9,12 +15,6 @@ use core::{
     marker::PhantomData as Pd,
     ops::{Add, Div, Index, IndexMut, Mul, Neg, Sub},
     ops::{AddAssign, DivAssign, MulAssign, SubAssign},
-};
-
-use super::{
-    Affine, ApproxEq, Linear, Point,
-    space::{Proj3, Real},
-    vary::ZDiv,
 };
 
 //
@@ -45,9 +45,6 @@ pub type Vec3<Basis = ()> = Vector<[f32; 3], Real<3, Basis>>;
 
 /// A `f32` 4-vector in the projective 3-space over ℝ, aka P<sub>3</sub>(ℝ).
 pub type ProjVec3 = Vector<[f32; 4], Proj3>;
-
-//pub type HomVec2<B> = Vector<[f32; 3], Hom<2, B>>;
-//pub type HomVec3<B> = Vector<[f32; 4], Hom<3, B>>;
 
 /// A 2-vector with `i32` components.
 pub type Vec2i<Basis = ()> = Vector<[i32; 2], Real<2, Basis>>;
@@ -415,6 +412,14 @@ impl<Sc: Copy, B> Vector<[Sc; 2], Real<2, B>> {
     pub const fn y(&self) -> Sc {
         self.0[1]
     }
+
+    /// Converts `self` to a `Vec3`, with z set to 0.
+    pub fn to_vec3(self) -> Vector<[Sc; 3], Real<3, B>>
+    where
+        Sc: Linear,
+    {
+        vec3(self.x(), self.y(), Sc::zero())
+    }
 }
 
 // TODO These should be also impl'd for Vec2i...
@@ -424,11 +429,6 @@ impl<B> Vec2<B> {
 
     /// Unit vector codirectional with the positive y-axis.
     pub const Y: Self = vec2(0.0, 1.0);
-
-    /// Converts `self` to a `Vec3`, with z set to 0.
-    pub const fn to_vec3(self) -> Vec3<B> {
-        vec3(self.x(), self.y(), 0.0)
-    }
 
     /// Returns `self` rotated 90° counter-clockwise.
     ///
@@ -498,6 +498,12 @@ impl<B> Vec2<B> {
     pub fn atan(self) -> super::Angle {
         super::atan2(self.y(), self.x())
     }
+
+    /// Converts `self` to homogeneous representation.
+    #[inline]
+    pub const fn to_hom(&self) -> Vector<[f32; 3], Hom<2, B>> {
+        Vector::new([self.0[0], self.0[1], 0.0])
+    }
 }
 
 impl<Sc, B> Vector<[Sc; 3], Real<3, B>>
@@ -550,11 +556,12 @@ where
     where
         Sc: Linear<Scalar = Sc>,
     {
-        let (s, o) = (self, other);
+        let [sx, sy, sz] = self.0;
+        let [ox, oy, oz] = other.0;
         [
-            s.y().mul(o.z()).sub(&s.z().mul(o.y())),
-            s.z().mul(o.x()).sub(&s.x().mul(o.z())),
-            s.x().mul(o.y()).sub(&s.y().mul(o.x())),
+            sy.mul(oz).sub(&sz.mul(oy)),
+            sz.mul(ox).sub(&sx.mul(oz)),
+            sx.mul(oy).sub(&sy.mul(ox)),
         ]
         .into()
     }
@@ -570,6 +577,11 @@ impl<B> Vec3<B> {
 
     /// Unit vector codirectional with the positive z-axis.
     pub const Z: Self = vec3(0.0, 0.0, 1.0);
+
+    #[inline]
+    pub const fn to_hom(&self) -> Vector<[f32; 4], Hom<3, B>> {
+        Vector::new([self.0[0], self.0[1], self.0[2], 0.0])
+    }
 }
 
 impl<Sc: Copy> Vector<[Sc; 4], Proj3> {
@@ -592,6 +604,16 @@ impl<Sc: Copy> Vector<[Sc; 4], Proj3> {
     #[inline]
     pub const fn w(&self) -> Sc {
         self.0[3]
+    }
+
+    /// Projects `self` to the real plane by dividing by `w`.
+    #[inline]
+    pub fn to_real<B>(&self) -> Vector<[Sc; 3], Real<3, B>>
+    where
+        Sc: Div<Sc, Output = Sc>,
+    {
+        let [x, y, z, w] = self.0;
+        vec3(x / w, y / w, z / w)
     }
 }
 
@@ -716,20 +738,7 @@ impl<Sp, Sc: Copy, const DIM: usize> From<Sc> for Vector<[Sc; DIM], Sp> {
         splat(scalar)
     }
 }
-/*
-impl<B> From<Vec2<B>> for HomVec2<B> {
-    fn from(v: Vec2<B>) -> Self {
-        let [x, y] = v.0;
-        [x, y, 0.0].into()
-    }
-}
-impl<B> From<Vec3<B>> for HomVec3<B> {
-    fn from(v: Vec3<B>) -> Self {
-        let [x, y, z] = v.0;
-        [x, y, z, 0.0].into()
-    }
-}
-*/
+
 impl<R, Sp> Index<usize> for Vector<R, Sp>
 where
     Self: Affine,
