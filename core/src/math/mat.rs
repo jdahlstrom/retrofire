@@ -1295,7 +1295,7 @@ pub const fn orthographic(lbn: Point3, rtf: Point3) -> ProjMat3<View> {
 /// A viewport matrix is used to transform points from the NDC space to
 /// screen space for rasterization. NDC coordinates (-1, -1, _) are mapped
 /// to `bounds.start` and NDC coordinates (1, 1, _) to `bounds.end`.
-pub const fn viewport(bounds: Range<Point2u>) -> Mat4<Ndc, Screen> {
+pub const fn viewport(bounds: Range<Point2u<Screen>>) -> Mat4<Ndc, Screen> {
     let Range { start, end } = bounds;
     let [x0, y0] = [start.x() as f32, start.y() as f32];
     let [x1, y1] = [end.x() as f32, end.y() as f32];

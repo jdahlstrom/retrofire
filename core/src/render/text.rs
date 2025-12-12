@@ -1,16 +1,19 @@
-use core::fmt;
+use core::fmt::{self, Write};
+use core::ops::Range;
 #[cfg(feature = "std")]
 use std::io;
 
-use crate::geom::{Mesh, Tri, Vertex3, tri, vertex};
+use crate::geom::{Mesh, Tri, Vertex, Vertex3, tri, vertex};
 use crate::math::{
-    Color3, Color4, Point2, ProjMat3, Vec2, color::gray, orthographic, pt2,
-    pt3, vec2, vec3, viewport,
+    Color3, Color4, Point2, Point2u, ProjMat3, ProjVec3, Vec2, color::gray,
+    orthographic, pt2, pt3, vec2, vec3, viewport,
 };
 use crate::util::buf::Buf2;
 
-use super::tex::*;
-use super::{BBox, Context, Frag, Model, Shader, Target, shader};
+use super::{
+    BBox, Batch, Context, Frag, FragmentShader, Model, Screen, Target,
+    VertexShader, tex::*,
+};
 
 /// Text represented as texture-mapped geometry, one quad per glyph.
 #[derive(Clone)]
@@ -37,8 +40,18 @@ pub enum Align {
     BottomRight,
 }
 
-pub type Batch<Shd> =
-    super::Batch<Tri<usize>, Vertex3<TexCoord>, (), Shd, (), Context>;
+pub struct Console {
+    text: Text,
+    left_top: Point2u<Screen>,
+    right_bot: Point2u<Screen>,
+    // Store here to allow passing by ref to shader
+    project: ProjMat3<Model>,
+}
+
+pub struct TextShader<'a>(&'a Text);
+
+pub type TextBatch<'a, Uni> =
+    Batch<Tri<usize>, Vertex3<TexCoord>, Uni, TextShader<'a>, (), Context>;
 
 //
 // Inherent impls
@@ -71,15 +84,8 @@ impl Text {
     }
 
     /// Returns a shader for rendering text.
-    pub fn shader(
-        &self,
-    ) -> impl Shader<Vertex3<TexCoord>, TexCoord, &ProjMat3<Model>> {
-        shader::new(
-            |v: Vertex3<_>, tf: &ProjMat3<_>| {
-                vertex(tf.apply(&v.pos.to()), v.attrib)
-            },
-            |frag: Frag<TexCoord>, _| self.sample(frag.var),
-        )
+    pub fn shader(&self) -> TextShader<'_> {
+        TextShader(self)
     }
 
     /// Renders this text to a render target in 2D.
@@ -120,9 +126,7 @@ impl Text {
     /// Returns a `Batch` with the geometry and shader set to render this text.
     ///
     /// Useful for customized text rendering.
-    pub fn batch(
-        &self,
-    ) -> Batch<impl Shader<Vertex3<TexCoord>, TexCoord, &ProjMat3<Model>>> {
+    pub fn batch(&self) -> TextBatch<'_, ()> {
         super::Batch::new()
             .mesh(&self.geom)
             .shader(self.shader())
@@ -138,17 +142,10 @@ impl Text {
     fn write_char(&mut self, idx: u32) {
         let Self { font, geom, cursor, .. } = self;
 
-        let Layout::Grid { sub_dims: (gw, gh) } = font.layout;
+        let (gw, gh) = font.dims(idx);
         let (glyph_w, glyph_h) = (gw as f32, gh as f32);
 
         let [tl, tr, bl, br] = font.coords(idx);
-        // TODO doesn't work when the text is written in several pieces,
-        //      such as when writing a formatted string. Total row and col
-        //      counts are only known when everything is written.
-        /*let offset = vec2(
-            anchor.x() * glyph_w * cols as f32,
-            anchor.y() * glyph_h * rows as f32,
-        );*/
         let offset = vec2(0.0, 0.0);
         let pos = (*cursor - offset).to_pt3().to();
         let l = geom.verts.len();
@@ -164,11 +161,91 @@ impl Text {
 
         *cursor += vec2(glyph_w, 0.0);
     }
+
+    fn newline(&mut self) {
+        let Layout::Grid { sub_dims: (_, h) } = self.font.layout;
+        // TODO variable line height support
+        self.cursor = pt2(0.0, self.cursor.y() + h as f32)
+    }
+}
+
+impl Console {
+    pub fn new(font: Atlas<Color3>, bounds: Range<Point2u<Screen>>) -> Self {
+        let dims = bounds.end - bounds.start;
+        Self {
+            text: Text::new(font),
+            left_top: bounds.start,
+            right_bot: bounds.end,
+            project: orthographic(
+                pt3(0.0, 0.0, 0.0),
+                pt3(dims.x() as f32, dims.y() as f32, 0.0),
+            )
+            .to(),
+        }
+    }
+
+    pub fn print(&mut self, s: &str) {
+        _ = self.text.write_str(s);
+    }
+    pub fn println(&mut self, s: &str) {
+        self.print(s);
+        self.print("\n");
+    }
+
+    pub fn write_fmt(&mut self, args: fmt::Arguments) {
+        _ = self.text.write_fmt(args)
+    }
+
+    pub fn clear(&mut self) {
+        self.text.clear();
+    }
+
+    pub fn batch(&self) -> TextBatch<'_, &ProjMat3<Model>> {
+        let Self {
+            left_top: lt, right_bot: rb, ..
+        } = self;
+
+        let [w, h] = (*rb - *lt).0;
+
+        let viewport = viewport(lt.to()..rb.to());
+
+        Batch::new()
+            .mesh(&self.text.geom)
+            .uniform(&self.project)
+            .shader(self.text.shader())
+            .viewport(viewport)
+    }
+
+    pub fn render(&self, target: impl Target, ctx: &Context) {
+        self.batch().target(target).context(ctx).render();
+    }
 }
 
 //
 // Trait impls
 //
+
+impl VertexShader<Vertex3<TexCoord>, &ProjMat3<Model>> for TextShader<'_> {
+    type Output = Vertex<ProjVec3, TexCoord>;
+
+    fn shade_vertex(
+        &self,
+        v: Vertex3<TexCoord>,
+        tf: &ProjMat3<Model>,
+    ) -> Self::Output {
+        vertex(tf.apply(&v.pos), v.attrib)
+    }
+}
+
+impl FragmentShader<TexCoord, &ProjMat3<Model>> for TextShader<'_> {
+    fn shade_fragment(
+        &self,
+        f: Frag<TexCoord>,
+        _: &ProjMat3<Model>,
+    ) -> Option<Color4> {
+        self.0.sample(f.var)
+    }
+}
 
 #[cfg(feature = "std")]
 impl io::Write for Text {
@@ -184,18 +261,9 @@ impl io::Write for Text {
     ///
     /// [1]: https://en.wikipedia.org/wiki/Mojibake
     fn write(&mut self, buf: &[u8]) -> io::Result<usize> {
-        /*let (rows, cols) = buf
-            .split(|&b| b == b'\n')
-            .fold((0, 0), |(rs, cs), row| (rs + 1, cs.max(row.len() as u32)));
-        if rows == 0 || cols == 0 {
-            return Ok(0);
-        }*/
-        let Layout::Grid { sub_dims } = self.font.layout;
-        let glyph_h = sub_dims.1 as f32;
-
         for &b in buf {
             match b {
-                b'\n' => self.cursor = pt2(0.0, self.cursor.y() + glyph_h),
+                b'\n' => self.newline(),
                 _ => self.write_char(b.into()),
             }
         }
@@ -214,20 +282,9 @@ impl fmt::Write for Text {
     /// of each `char` as an index into the font. As such, the font should have
     /// enough glyphs to cover all the characters used.
     fn write_str(&mut self, s: &str) -> fmt::Result {
-        /*let (rows, cols) = s
-            .split(|c| c == '\n')
-            .fold((0, 0), |(rs, cs), row| {
-                (rs + 1, cs.max(row.chars().count() as u32))
-            });
-        if rows == 0 || cols == 0 {
-            return Ok(());
-        }*/
-        let Layout::Grid { sub_dims } = self.font.layout;
-        let glyph_h = sub_dims.1 as f32;
-
         for c in s.chars() {
             match c {
-                '\n' => self.cursor = pt2(0.0, self.cursor.y() + glyph_h),
+                '\n' => self.newline(),
                 _ => self.write_char(c.into()),
             }
         }
@@ -265,4 +322,14 @@ where
         (x, y) = (0, y + gh);
     }
     buf
+}
+
+#[cfg(test)]
+mod tests {
+    //use super::*;
+
+    #[test]
+    fn test_text() {
+        todo!()
+    }
 }
