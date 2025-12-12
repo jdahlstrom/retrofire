@@ -46,6 +46,7 @@ repository = "https://github.com/jdahlstrom/retrofire"
 documentation = "https://crates.io/crates/retrofire"
 
 [workspace.lints]
+rust.mismatched_lifetime_syntaxes = "deny"
 clippy.manual_range_contains = "allow"
 clippy.collapsible_if = "allow"
 
