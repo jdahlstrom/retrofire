@@ -144,6 +144,10 @@ impl<C> Atlas<C> {
         Self { layout, texture }
     }
 
+    pub fn grid(glyph_dims: Dims, texture: Texture<Buf2<C>>) -> Self {
+        Self::new(Layout::Grid { sub_dims: glyph_dims }, texture)
+    }
+
     /// Returns the top-left and bottom-right pixel coordinates
     /// of the sub-texture with index `i`.
     fn rect(&self, i: u32) -> [Point2u; 2] {
@@ -167,13 +171,13 @@ impl<C> Atlas<C> {
         self.texture.data.slice(p0..p1).into()
     }
 
-    /// Returns the texture coordinates of the sub-texture with index `i`.
+    /// Returns the texture coordinates of a sub-texture.
     ///
     /// The coordinates are the top-left, top-right, bottom-left, and
     /// bottom-right corners of the texture, in that order.
     ///
-    /// Note that currently this method does not check `i` is actually a valid
-    /// index and may return coordinates with values greater than one.
+    /// Note that currently this method does not check whether `i` is actually
+    /// a valid index, and may return coordinates with values greater than one.
     // TODO Error handling, more readable result type
     pub fn coords(&self, i: u32) -> [TexCoord; 4] {
         let tex_w = self.texture.width();
@@ -182,6 +186,12 @@ impl<C> Atlas<C> {
             .rect(i)
             .map(|p| (p.x() as f32 / tex_w, p.y() as f32 / tex_h));
         [uv(x0, y0), uv(x1, y0), uv(x0, y1), uv(x1, y1)]
+    }
+
+    /// Returns the width and height of a sub-texture, in pixels.
+    pub fn dims(&self, _: u32) -> Dims {
+        let Layout::Grid { sub_dims } = self.layout;
+        sub_dims
     }
 }
 
