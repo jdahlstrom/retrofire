@@ -5,10 +5,9 @@
 use alloc::vec::Vec;
 use core::fmt::{self, Debug, Formatter};
 
-use crate::math::vec::dot;
 use crate::math::{
-    Affine, Lerp, Linear, Mat4, Parametric, Point, Point2, Point3, Vec2, Vec3,
-    Vector, pt3, space::Real, vec2, vec3,
+    Affine, ApproxEq, Lerp, Linear, Mat4, Parametric, Point, Point2, Point3,
+    Vec2, Vec3, Vector, pt3, space::Real, vec::dot, vec2, vec3,
 };
 use crate::render::Model;
 
@@ -318,8 +317,8 @@ impl<B> Plane3<B> {
 
     /// Creates a new plane with the given coefficients.
     ///
-    ///
-    /// The returned plane satisfies the plane equation
+    /// The vector (a, b, c) must be a unit vector. The returned plane
+    /// satisfies the plane equation
     ///
     /// *ax* + *by* + *cz* = *d*,
     ///
@@ -330,9 +329,7 @@ impl<B> Plane3<B> {
     /// Note the sign of the *d* coefficient.
     ///
     /// The coefficients (a, b, c) make up a vector normal to the plane,
-    /// and d is proportional to the plane's distance to the origin.
-    /// If (a, b, c) is a unit vector, then d is exactly the offset of the
-    /// plane from the origin in the direction of the normal.
+    /// and d is the plane's offset from the origin.
     ///
     /// # Panics
     /// If the vector (a, b, c) is not unit length.
@@ -348,13 +345,11 @@ impl<B> Plane3<B> {
     /// ```
     #[inline]
     pub const fn new(a: f32, b: f32, c: f32, d: f32) -> Self {
-        // TODO Always require unit normal to avoid needless
-        //      normalizing in normal() and other methods
         // TODO This method can't itself normalize because const
-        // assert!(
-        //     (a * a + b * b + c * c - 1.0).abs() < 1e-6,
-        //     "non-unit normal"
-        // );
+        assert!(
+            (a * a + b * b + c * c - 1.0).abs() < 1e-6,
+            "non-unit normal"
+        );
         Self(Vector::new([a, b, c, -d]))
     }
 
@@ -415,7 +410,10 @@ impl<B> Plane3<B> {
     /// assert_eq!(<Plane3>::YZ.normal(), Vec3::X);
     #[inline]
     pub fn normal(&self) -> Normal3 {
-        self.abc().normalize().to()
+        let [a, b, c, _] = self.0.0;
+        let n = vec3(a, b, c);
+        debug_assert!(n.len_sqr().approx_eq(&1.0));
+        n
     }
 
     /// Returns the signed distance of `self` from the origin.
@@ -428,8 +426,7 @@ impl<B> Plane3<B> {
     /// use retrofire_core::{geom::Plane3, math::{Vec3, pt3}};
     ///
     /// assert_eq!(<Plane3>::new(0.0, 1.0, 0.0, 3.0).offset(), 3.0);
-    /// assert_eq!(<Plane3>::new(0.0, 2.0, 0.0, 6.0).offset(), 3.0);
-    /// assert_eq!(<Plane3>::new(0.0, -1.0, 0.0, -3.0).offset(), -3.0);
+    /// assert_eq!(<Plane3>::new(1.0, 0.0, 0.0, -3.0).offset(), -3.0);
     /// ```
     #[inline]
     pub fn offset(&self) -> f32 {
@@ -462,24 +459,13 @@ impl<B> Plane3<B> {
     /// assert_eq!(<Plane3>::XY.project(pt), pt3(1.0, 2.0, 0.0));
     ///
     /// assert_eq!(<Plane3>::new(0.0, 0.0, 1.0, 2.0).project(pt), pt3(1.0, 2.0, 2.0));
-    /// assert_eq!(<Plane3>::new(0.0, 0.0, 2.0, 2.0).project(pt), pt3(1.0, 2.0, 1.0));
     /// ```
     pub fn project(&self, pt: Point3<B>) -> Point3<B> {
-        // t = -(plane dot orig) / (plane dot dir)
-        // In this case dir is parallel to plane normal
-
-        let dir = self.abc();
-
-        // Use homogeneous pt to get self · pt = ax + by + cz + d
-        // Could also just add d manually to ax + by + cz
-        let plane_dot_orig = self.dot(pt);
-
-        // Vector, so w = 0, so dir_hom · dir_hom = dir · dir = |dir|²
-        let plane_dot_dir = dir.len_sqr();
-
-        let t = -plane_dot_orig / plane_dot_dir;
-
-        pt + t * dir
+        // t = -(plane · orig) / (plane · dir)
+        // In this case dir is normal to the plane and (plane · dir) = 1
+        let t = -self.dot(pt);
+        let dir = self.normal();
+        pt + t * dir.to()
     }
 
     /// Returns the signed distance of a point to `self`.
@@ -499,7 +485,7 @@ impl<B> Plane3<B> {
     /// ```
     #[inline]
     pub fn signed_dist(&self, pt: Point3<B>) -> f32 {
-        self.dot(pt) / self.abc().len()
+        self.dot(pt)
     }
 
     /// Returns whether a point is in the half-space that the normal of `self`
@@ -521,8 +507,15 @@ impl<B> Plane3<B> {
         self.dot(pt) <= 0.0
     }
 
+    /// Returns the dot product of the coefficients of self and a point,
+    /// interpreted as a homogeneous vector.
+    ///
+    /// Let `self` = (*a*, *b*, *c*, *d*) and `pt` = (*x*, *y*, *z*).
+    /// Then `self.dot(pt)` = *ax + by + cz* + d.
     #[inline]
     pub fn dot(&self, pt: Point3<B>) -> f32 {
+        // Use homogeneous pt to get self · pt = ax + by + cz + d
+        // Could also just add d manually to ax + by + cz
         dot(&self.0.0, &pt.to_hom().0)
     }
 
@@ -538,13 +531,16 @@ impl<B> Plane3<B> {
     /// use retrofire_core::geom::Plane3;
     /// use retrofire_core::math::{Point3, pt3, vec3};
     ///
-    /// let p = <Plane3>::from_point_and_normal(pt3(0.0,1.0,0.0), vec3(0.0,1.0,1.0));
+    /// let p = <Plane3>::from_point_and_normal(
+    ///     pt3(0.0,1.0,0.0),
+    ///     vec3(0.0,1.0,1.0)
+    /// );
     /// let m = p.basis::<()>();
     ///
     /// assert_approx_eq!(m.apply(&Point3::origin()), pt3(0.0, 0.5, 0.5));
     /// ```
     pub fn basis<F>(&self) -> Mat4<F, B> {
-        let up = self.abc();
+        let up = self.normal().to();
 
         let right: Vec3<B> =
             if up.x().abs() <= up.y().abs() && up.x().abs() <= up.z().abs() {
@@ -559,13 +555,6 @@ impl<B> Plane3<B> {
         let origin = self.offset() * up;
 
         Mat4::from_affine(right, up, fwd, origin.to_pt())
-    }
-
-    /// Helper that returns the a, b, and c coefficients non-normalized.
-    #[inline]
-    pub fn abc(&self) -> Vec3<B> {
-        let [a, b, c, _] = self.0.0;
-        vec3(a, b, c)
     }
 
     #[inline]
@@ -788,7 +777,7 @@ impl<B> Default for Sphere<B> {
 #[cfg(test)]
 mod tests {
     use alloc::vec;
-    use core::f32::consts::FRAC_1_SQRT_2;
+    use core::f32::consts::*;
 
     use crate::math::*;
     use crate::{assert_approx_eq, mat};
@@ -949,7 +938,7 @@ mod tests {
 
     #[test]
     fn plane_basis() {
-        let p = <Plane3>::new(0.0, 2.0, 2.0, 4.0);
+        let p = <Plane3>::new(0.0, FRAC_1_SQRT_2, FRAC_1_SQRT_2, 2.0);
 
         let m = p.basis::<Plane3>();
 
@@ -957,8 +946,8 @@ mod tests {
             m,
             mat![
                 1.0, 0.0, 0.0, 0.0;
-                0.0, FRAC_1_SQRT_2, -FRAC_1_SQRT_2, 1.0;
-                0.0, FRAC_1_SQRT_2, FRAC_1_SQRT_2, 1.0;
+                0.0, FRAC_1_SQRT_2, -FRAC_1_SQRT_2, SQRT_2;
+                0.0, FRAC_1_SQRT_2, FRAC_1_SQRT_2, SQRT_2;
                 0.0, 0.0, 0.0, 1.0;
             ]
         );
