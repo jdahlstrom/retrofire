@@ -2,12 +2,6 @@
 //!
 //! TODO
 
-use super::{
-    Affine, ApproxEq, Linear, Point,
-    space::{Proj3, Real},
-    vary::ZDiv,
-};
-use crate::math::space::Hom;
 use core::{
     array,
     fmt::{Debug, Formatter},
@@ -15,6 +9,12 @@ use core::{
     marker::PhantomData as Pd,
     ops::{Add, Div, Index, IndexMut, Mul, Neg, Sub},
     ops::{AddAssign, DivAssign, MulAssign, SubAssign},
+};
+
+use super::{
+    Affine, ApproxEq, Linear, Point,
+    space::{Hom, Proj3, Real},
+    vary::ZDiv,
 };
 
 //
@@ -722,20 +722,52 @@ impl<R: Debug, Sp: Debug + Default> Debug for Vector<R, Sp> {
     }
 }
 
+// Vector <-> repr conversions
 impl<R, Sp> From<R> for Vector<R, Sp> {
     #[inline]
     fn from(repr: R) -> Self {
         Self::new(repr)
     }
 }
-
-impl<Sp, Sc: Copy, const DIM: usize> From<Sc> for Vector<[Sc; DIM], Sp> {
+impl<Sc, Sp, const N: usize> From<Vector<[Sc; N], Sp>> for [Sc; N] {
+    #[inline]
+    fn from(v: Vector<[Sc; N], Sp>) -> Self {
+        v.0
+    }
+}
+impl<Sp, Sc: Copy, const N: usize> From<Sc> for Vector<[Sc; N], Sp> {
     /// Returns a vector with all components equal to `scalar`.
     ///
     /// This operation is also called "splat" or "broadcast".
     #[inline]
     fn from(scalar: Sc) -> Self {
         splat(scalar)
+    }
+}
+
+// Vector <-> tuple conversions
+impl<Sc, Sp> From<(Sc, Sc)> for Vector<[Sc; 2], Sp> {
+    #[inline]
+    fn from(xy: (Sc, Sc)) -> Self {
+        Self::new(xy.into())
+    }
+}
+impl<Sc, Sp> From<Vector<[Sc; 2], Sp>> for (Sc, Sc) {
+    #[inline]
+    fn from(v: Vector<[Sc; 2], Sp>) -> Self {
+        v.0.into()
+    }
+}
+impl<Sc, Sp> From<(Sc, Sc, Sc)> for Vector<[Sc; 3], Sp> {
+    #[inline]
+    fn from(xyz: (Sc, Sc, Sc)) -> Self {
+        Self::new(xyz.into())
+    }
+}
+impl<Sc, Sp> From<Vector<[Sc; 3], Sp>> for (Sc, Sc, Sc) {
+    #[inline]
+    fn from(v: Vector<[Sc; 3], Sp>) -> Self {
+        v.0.into()
     }
 }
 
