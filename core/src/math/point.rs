@@ -1,11 +1,15 @@
-use super::{Affine, ApproxEq, Linear, Vector, space::Real, vary::ZDiv};
-use crate::math::space::Hom;
 use core::{
     array,
     fmt::{Debug, Formatter},
     marker::PhantomData as Pd,
     ops::{Add, Div, Index, IndexMut, Mul, Neg, Sub},
     ops::{AddAssign, DivAssign, MulAssign, SubAssign},
+};
+
+use super::{
+    Affine, ApproxEq, Linear, Vector,
+    space::{Hom, Real},
+    vary::ZDiv,
 };
 
 #[repr(transparent)]
@@ -334,26 +338,45 @@ impl<R: PartialEq, S> PartialEq for Point<R, S> {
     }
 }
 
+// Point <-> repr conversions
 impl<R, Sp> From<R> for Point<R, Sp> {
     #[inline]
     fn from(repr: R) -> Self {
-        Self(repr, Pd)
+        Self::new(repr)
     }
 }
-/*
-impl<B> From<Point3<B>> for HomVec3<B> {
-    fn from(p: Point3<B>) -> Self {
-        let [x, y, z] = p.0;
-        [x, y, z, 1.0].into()
+impl<Sc, Sp, const N: usize> From<Point<[Sc; N], Sp>> for [Sc; N] {
+    #[inline]
+    fn from(v: Point<[Sc; N], Sp>) -> Self {
+        v.0
     }
 }
 
-impl<B> From<Point2<B>> for HomVec2<B> {
-    fn from(p: Point2<B>) -> Self {
-        let [x, y] = p.0;
-        [x, y, 1.0].into()
+// Point <-> tuple conversions
+impl<Sc, Sp> From<(Sc, Sc)> for Point<[Sc; 2], Sp> {
+    #[inline]
+    fn from(xy: (Sc, Sc)) -> Self {
+        Self::new(xy.into())
     }
-}*/
+}
+impl<Sc, Sp> From<Point<[Sc; 2], Sp>> for (Sc, Sc) {
+    #[inline]
+    fn from(v: Point<[Sc; 2], Sp>) -> Self {
+        v.0.into()
+    }
+}
+impl<Sc, Sp> From<(Sc, Sc, Sc)> for Point<[Sc; 3], Sp> {
+    #[inline]
+    fn from(xyz: (Sc, Sc, Sc)) -> Self {
+        Self::new(xyz.into())
+    }
+}
+impl<Sc, Sp> From<Point<[Sc; 3], Sp>> for (Sc, Sc, Sc) {
+    #[inline]
+    fn from(v: Point<[Sc; 3], Sp>) -> Self {
+        v.0.into()
+    }
+}
 
 impl<R: Index<usize>, Sp> Index<usize> for Point<R, Sp> {
     type Output = R::Output;
