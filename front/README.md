@@ -20,7 +20,7 @@ handling.
 ## Crate features
 
 * `minifb`: Enables a frontend using the [`minifb`][2] library.
-* `sdl2`:   Enables a frontend using the [`sdl2`][3] library.
+* `sdl3`:   Enables a frontend using the [`sdl3`][3] library.
 * `wasm`:   Enables a frontend using WebAssembly and [`wasm-bindgen`][4].
 * `stats`:  Enables collection and display of performance statistics.
 
@@ -28,7 +28,7 @@ All features are disabled by default.
 
 [2]: https://crates.io/crates/minifb
 
-[3]: https://crates.io/crates/sdl2
+[3]: https://crates.io/crates/sdl3
 
 [4]: https://crates.io/crates/wasm-bindgen
 
