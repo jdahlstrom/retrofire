@@ -26,17 +26,17 @@ re = { version = "0.4.0", path = "..", package = "retrofire" }
 re-front = { version = "0.4.0", path = "../front", package = "retrofire-front" }
 
 minifb = { version = "0.27.0", optional = true }
-sdl2 = { version = "0.35.2", optional = true }
+sdl3 = { version = "0.16.2", optional = true, features = ["build-from-source"] }
 pancurses = { version = "0.17.0", optional = true }
 
 [features]
 default = ["minifb"]
 minifb = ["dep:minifb", "re-front/minifb"]
-sdl2 = ["dep:sdl2", "re-front/sdl2"]
+sdl3 = ["dep:sdl3", "re-front/sdl3"]
 
 [[bin]]
 name = "crates"
-required-features = ["sdl2"]
+required-features = ["sdl3"]
 
 [[bin]]
 name = "curses"

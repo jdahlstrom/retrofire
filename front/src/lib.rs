@@ -14,8 +14,8 @@ use retrofire_core::{
 #[cfg(feature = "minifb")]
 pub mod minifb;
 
-#[cfg(feature = "sdl2")]
-pub mod sdl2;
+#[cfg(feature = "sdl3")]
+pub mod sdl3;
 
 #[no_std]
 #[cfg(feature = "wasm")]

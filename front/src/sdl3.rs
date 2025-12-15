@@ -1,12 +1,12 @@
-//! Frontend using the `sdl2` crate for window creation and event handling.
+//! Frontend using the `sdl3` crate for window creation and event handling.
 use core::{cell::RefCell, fmt, mem::replace, ops::ControlFlow};
 use std::time::Instant;
 
-use sdl2::{
+use sdl3::{
     EventPump, IntegerOrSdlError, Sdl,
     event::Event,
     keyboard::Keycode,
-    pixels::PixelFormatEnum,
+    pixels::PixelFormat,
     render::{Texture, TextureValueError, WindowCanvas},
     video::{FullscreenType, Window as SdlWindow, WindowBuildError},
 };
@@ -27,7 +27,7 @@ use super::{Frame, dims};
 /// Helper trait to support different pixel format types.
 pub trait PixelFmt: Copy + Default {
     type Pixel: AsRef<[u8]> + Copy + Sized;
-    const SDL_FMT: PixelFormatEnum;
+    const SDL_FMT: PixelFormat;
 
     fn encode<C: IntoPixel<Self::Pixel, Self>>(self, color: C) -> Self::Pixel {
         color.into_pixel_fmt(self)
@@ -59,7 +59,7 @@ pub struct Builder<'title, PF> {
     pub title: &'title str,
     pub vsync: bool,
     pub hidpi: bool,
-    pub fs: FullscreenType,
+    pub fullscreen: bool,
     pub pixfmt: PF,
 }
 
@@ -98,8 +98,8 @@ impl<'t, PF: PixelFmt> Builder<'t, PF> {
         self
     }
     /// Sets the fullscreen state of the window.
-    pub fn fullscreen(mut self, fs: FullscreenType) -> Self {
-        self.fs = fs;
+    pub fn fullscreen(mut self, fs: bool) -> Self {
+        self.fullscreen = fs;
         self
     }
     /// Sets the framebuffer pixel format.
@@ -112,10 +112,10 @@ impl<'t, PF: PixelFmt> Builder<'t, PF> {
 
     /// Creates the window.
     pub fn build(self) -> Result<Window<PF>, Error> {
-        let sdl = sdl2::init()?;
+        let sdl = sdl3::init()?;
         let win = self.create_window(&sdl)?;
 
-        self.set_mouse_mode(&sdl);
+        self.set_mouse_mode(&sdl, &win);
 
         let canvas = self.create_canvas(win)?;
         let ev_pump = sdl.event_pump()?;
@@ -133,28 +133,34 @@ impl<'t, PF: PixelFmt> Builder<'t, PF> {
 
     fn create_window(&self, sdl: &Sdl) -> Result<SdlWindow, Error> {
         let Self {
-            dims: (w, h), title, fs, hidpi, ..
+            dims: (w, h),
+            title,
+            fullscreen,
+            hidpi,
+            ..
         } = *self;
-        let mut win = sdl.video()?.window(title, w, h);
+        let mut bld = sdl.video()?.window(title, w, h);
         if hidpi {
-            win.allow_highdpi();
+            bld.high_pixel_density();
         }
-        let mut win = win.build()?;
-        win.set_fullscreen(fs)?;
-        Ok(win)
+        if fullscreen {
+            bld.fullscreen();
+        }
+        Ok(bld.build()?)
     }
 
     fn create_canvas(&self, w: SdlWindow) -> Result<WindowCanvas, Error> {
-        let mut canvas = w.into_canvas();
+        let canvas = w.into_canvas();
         if self.vsync {
-            canvas = canvas.present_vsync();
+            //let _ok = canvas.present();
+            //TODO vsync? canvas = canvas.present_vsync();
         }
-        Ok(canvas.accelerated().build()?)
+        Ok(canvas)
     }
 
-    fn set_mouse_mode(&self, sdl: &Sdl) {
+    fn set_mouse_mode(&self, sdl: &Sdl, win: &SdlWindow) {
         let m = sdl.mouse();
-        m.set_relative_mouse_mode(true);
+        m.set_relative_mouse_mode(win, true);
         m.capture(true);
         m.show_cursor(true);
     }
@@ -186,7 +192,7 @@ impl<PF: PixelFmt<Pixel = [u8; N]>, const N: usize> Window<PF> {
         F: FnMut(&mut Frame<Self, &RefCell<Framebuf<PF>>>) -> ControlFlow<()>,
         Color4: IntoPixel<PF::Pixel, PF>,
     {
-        let dims @ (w, h) = self.canvas.window().drawable_size();
+        let dims @ (w, h) = self.canvas.window().size_in_pixels();
 
         let tc = self.canvas.texture_creator();
         let mut tex = tc.create_texture_streaming(PF::SDL_FMT, w, h)?;
@@ -256,15 +262,15 @@ impl<PF: PixelFmt<Pixel = [u8; N]>, const N: usize> Window<PF> {
 
 impl PixelFmt for Rgba8888 {
     type Pixel = [u8; 4];
-    const SDL_FMT: PixelFormatEnum = PixelFormatEnum::RGBA32;
+    const SDL_FMT: PixelFormat = PixelFormat::RGBA32;
 }
 impl PixelFmt for Rgb565 {
     type Pixel = [u8; 2];
-    const SDL_FMT: PixelFormatEnum = PixelFormatEnum::RGB565;
+    const SDL_FMT: PixelFormat = PixelFormat::RGB565;
 }
 impl PixelFmt for Rgba4444 {
     type Pixel = [u8; 2];
-    const SDL_FMT: PixelFormatEnum = PixelFormatEnum::RGBA4444;
+    const SDL_FMT: PixelFormat = PixelFormat::RGBA4444;
 }
 
 impl<'a, PF, const N: usize> Target for Framebuf<'a, PF>
@@ -295,7 +301,7 @@ impl<PF: PixelFmt> Default for Builder<'_, PF> {
             dims: dims::SVGA_800_600,
             title: "// retrofire application //",
             vsync: true,
-            fs: FullscreenType::Off,
+            fullscreen: false,
             pixfmt: PF::default(),
             hidpi: false,
         }
@@ -320,7 +326,7 @@ macro_rules! impl_from_error {
 
 impl_from_error! {
     String
-    sdl2::Error
+    sdl3::Error
     WindowBuildError
     TextureValueError
     IntegerOrSdlError
