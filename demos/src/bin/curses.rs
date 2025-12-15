@@ -4,6 +4,7 @@ use pancurses::*;
 
 use re::prelude::*;
 
+use re::core::render::ctx::FaceCull::{Back, Front};
 use re::core::render::{
     Model, ctx::DepthSort::BackToFront, raster::Scanline, render, shader,
     stats::Throughput,
@@ -66,8 +67,8 @@ fn main() {
 
     let (wh, ww) = win.0.get_max_yx();
     let aspect = ww as f32 / wh as f32 / 2.0;
-    let project = perspective(1.0, aspect, 1.0..10.0);
-    let viewport = viewport(pt2(4, 2)..pt2(ww as u32 - 4, wh as u32 - 2));
+    let project = perspective(1.0, aspect, 0.1..10.0);
+    let viewport = viewport(pt2(4, wh as u32 - 2)..pt2(ww as u32 - 4, 2));
 
     let start = Instant::now();
     loop {
@@ -101,8 +102,6 @@ fn main() {
             break;
         }
     }
-
-    println!("{}", ctx.stats.borrow());
 }
 
 impl Target for Win {
