@@ -3,7 +3,6 @@
 //! Includes vertices, polygons, planes, rays, and more.
 
 use alloc::vec::Vec;
-
 use core::fmt::{self, Debug, Formatter};
 
 use crate::math::{
@@ -402,9 +401,9 @@ impl<B> Plane3<B> {
     ///
     /// ```
     pub fn from_point_and_normal(pt: Point3<B>, n: Normal3) -> Self {
-        let n = n.normalize();
-        let d = dot(&pt.0, &n.0);
-        Plane::new(n.x(), n.y(), n.z(), d)
+        let mut n = n.to().normalize().to_hom();
+        n[3] = -n.dot(&pt.to_hom());
+        Self(n)
     }
 
     /// Returns the normal vector of `self`.
@@ -439,8 +438,7 @@ impl<B> Plane3<B> {
     /// ```
     #[inline]
     pub fn offset(&self) -> f32 {
-        // plane dist from origin is origin dist from plane, negated
-        -self.signed_dist(Point3::origin())
+        -self.0[3]
     }
 
     /// Returns the perpendicular projection of a point on `self`.
@@ -470,9 +468,9 @@ impl<B> Plane3<B> {
     /// assert_eq!(<Plane3>::new(0.0, 0.0, 1.0, 2.0).project(pt), pt3(1.0, 2.0, 2.0));
     /// ```
     pub fn project(&self, pt: Point3<B>) -> Point3<B> {
-        // t = -(plane · orig) / (plane · dir)
-        // In this case dir is normal to the plane and (plane · dir) = 1
-        let t = -self.dot(pt);
+        // The vector that projects pt on the plane is parallel with the plane
+        // normal and its length is the distance of pt from the plane.
+        let t = -self.signed_dist(pt);
         let dir = self.normal();
         pt + t * dir.to()
     }
@@ -494,7 +492,7 @@ impl<B> Plane3<B> {
     /// ```
     #[inline]
     pub fn signed_dist(&self, pt: Point3<B>) -> f32 {
-        self.dot(pt)
+        self.0.dot(&pt.to_hom())
     }
 
     /// Returns whether a point is in the half-space that the normal of `self`
@@ -513,19 +511,7 @@ impl<B> Plane3<B> {
     // TODO "plane.is_inside(point)" reads wrong
     #[inline]
     pub fn is_inside(&self, pt: Point3<B>) -> bool {
-        self.dot(pt) <= 0.0
-    }
-
-    /// Returns the dot product of the coefficients of self and a point,
-    /// interpreted as a homogeneous vector.
-    ///
-    /// Let `self` = (*a*, *b*, *c*, *d*) and `pt` = (*x*, *y*, *z*).
-    /// Then `self.dot(pt)` = *ax + by + cz* + d.
-    #[inline]
-    pub fn dot(&self, pt: Point3<B>) -> f32 {
-        // Use homogeneous pt to get self · pt = ax + by + cz + d
-        // Could also just add d manually to ax + by + cz
-        dot(&self.0.0, &pt.to_hom().0)
+        self.signed_dist(pt) <= 0.0
     }
 
     /// Returns an orthonormal affine basis on `self`.
@@ -686,7 +672,7 @@ impl<B> Line2<B> {
     ///
     /// # Panics
     /// If the vector (a, b) is not unit-length.
-    pub const fn new(a: f32, b: f32, c: f32) -> Self {
+    pub fn new(a: f32, b: f32, c: f32) -> Self {
         // TODO This method can't itself normalize because const
         assert!((a * a + b * b - 1.0).abs() < 1e-6, "non-unit normal");
         Self(Vector::new([a, b, -c]))
