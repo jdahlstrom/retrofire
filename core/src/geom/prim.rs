@@ -66,7 +66,8 @@ pub struct Sphere<B = ()>(pub Point3<B>, pub f32);
 
 /// A surface normal in 3D.
 // TODO Use distinct type rather than alias
-pub type Normal3 = Vec3;
+pub type Normal3<B> = Vec3<B>;
+
 /// A surface normal in 2D.
 pub type Normal2 = Vec2;
 
@@ -248,10 +249,9 @@ impl<A, B> Tri<Vertex3<A, B>> {
     /// ]);
     /// assert_approx_eq!(tri.normal(), vec3(0.0, FRAC_1_SQRT_2, -FRAC_1_SQRT_2));
     /// ```
-    pub fn normal(&self) -> Normal3 {
+    pub fn normal(&self) -> Normal3<B> {
         let [t, u] = self.tangents();
-        // TODO add basis parameter to normals
-        t.cross(&u).normalize_or_zero().to()
+        t.cross(&u).normalize_or_zero()
     }
 
     /// Returns the plane that `self` lies on.
@@ -372,7 +372,7 @@ impl<B> Plane3<B> {
     ///
     /// ```
     pub fn from_points(a: Point3<B>, b: Point3<B>, c: Point3<B>) -> Self {
-        let n = (b - a).cross(&(c - a)).to();
+        let n = (b - a).cross(&(c - a));
         Self::from_point_and_normal(a, n)
     }
 
@@ -392,10 +392,9 @@ impl<B> Plane3<B> {
     /// assert_eq!(p.offset(), 3.0);
     ///
     /// ```
-    pub fn from_point_and_normal(pt: Point3<B>, n: Normal3) -> Self {
+    pub fn from_point_and_normal(pt: Point3<B>, n: Normal3<B>) -> Self {
         let n = n.normalize();
-        let d = dot(&pt.0, &n.0);
-        Plane::new(n.x(), n.y(), n.z(), d)
+        Plane::new(n.x(), n.y(), n.z(), dot(&pt.0, &n.0))
     }
 
     /// Returns the normal vector of `self`.
@@ -409,7 +408,7 @@ impl<B> Plane3<B> {
     /// assert_eq!(<Plane3>::XY.normal(), Vec3::Z);
     /// assert_eq!(<Plane3>::YZ.normal(), Vec3::X);
     #[inline]
-    pub fn normal(&self) -> Normal3 {
+    pub fn normal(&self) -> Normal3<B> {
         let [a, b, c, _] = self.0.0;
         let n = vec3(a, b, c);
         debug_assert!(n.len_sqr().approx_eq(&1.0));

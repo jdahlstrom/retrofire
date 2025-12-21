@@ -36,10 +36,10 @@ fn main() {
         },
     );
     let crate_shader = shader::new(
-        |v: Vertex3<(Normal3, TexCoord)>, mvp: &ProjMat3<_>| {
+        |v: Vertex3<(Normal3<_>, TexCoord)>, mvp: &ProjMat3<_>| {
             vertex(mvp.apply(&v.pos), v.attrib)
         },
-        |frag: Frag<(Normal3, TexCoord)>| {
+        |frag: Frag<(Normal3<_>, TexCoord)>| {
             let (n, uv) = frag.var;
             let kd = lerp(n.dot(&light_dir).max(0.0), 0.4, 1.0);
             let col = SamplerClamp.sample(&tex, uv);
@@ -137,7 +137,7 @@ fn main() {
     .expect("should run");
 }
 
-fn crates() -> Vec<Obj<(Normal3, TexCoord)>> {
+fn crates() -> Vec<Obj<(Normal3<Model>, TexCoord)>> {
     let obj = Obj::new(Cube { side_len: 2.0 }.build());
 
     let mut res = vec![];

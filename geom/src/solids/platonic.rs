@@ -115,13 +115,13 @@ impl Tetrahedron {
     ];
 
     /// Builds the tetrahedral mesh.
-    pub fn build(self) -> Mesh<Normal3> {
+    pub fn build(self) -> Mesh<Normal3<Model>> {
         let mut b = Mesh::builder();
         for (vs, i) in zip(Self::FACES, 0..) {
             b.push_face(i * 3, i * 3 + 1, i * 3 + 2);
             let n = -Self::NORMS[i]; // already unit length
             for v in vs {
-                b.push_vert(Self::COORDS[v].to_pt(), n);
+                b.push_vert(Self::COORDS[v].to_pt(), n.to());
             }
         }
         b.build()
@@ -141,7 +141,7 @@ impl Box {
         vec3(1.0, 1.0, 0.0), // 0b110
         vec3(1.0, 1.0, 1.0), // 0b111
     ];
-    const NORMS: [Normal3; 6] = [
+    const NORMS: [Normal3<Model>; 6] = [
         vec3(-1.0, 0.0, 0.0),
         vec3(1.0, 0.0, 0.0),
         vec3(0.0, -1.0, 0.0),
@@ -190,7 +190,7 @@ impl Box {
     /// Builds the cuboid mesh.
     pub fn build_with<A>(
         self,
-        mut f: impl FnMut(Point3<Model>, Normal3, TexCoord) -> Vertex3<A>,
+        mut f: impl FnMut(Point3<Model>, Normal3<Model>, TexCoord) -> Vertex3<A>,
     ) -> Mesh<A> {
         let mut b = Mesh::builder();
         b.push_faces(Self::FACES);
@@ -209,8 +209,8 @@ impl Box {
     }
 }
 
-impl Build<Normal3> for Box {
-    fn build(self) -> Mesh<Normal3> {
+impl Build<Normal3<Model>> for Box {
+    fn build(self) -> Mesh<Normal3<Model>> {
         self.build_with(|p, n, _| vertex(p, n))
     }
 }
@@ -219,8 +219,8 @@ impl Build<TexCoord> for Box {
         self.build_with(|p, _, uv| vertex(p, uv))
     }
 }
-impl Build<(Normal3, TexCoord)> for Box {
-    fn build(self) -> Mesh<(Normal3, TexCoord)> {
+impl Build<(Normal3<Model>, TexCoord)> for Box {
+    fn build(self) -> Mesh<(Normal3<Model>, TexCoord)> {
         self.build_with(|p, n, uv| vertex(p, (n, uv)))
     }
 }
@@ -251,7 +251,7 @@ impl Octahedron {
         pt3(0.0, 0.0, 1.0),
         pt3(1.0, 0.0, 0.0),
     ];
-    const NORMS: [Normal3; 8] = [
+    const NORMS: [Normal3<()>; 8] = [
         vec3(-1.0, -1.0, -1.0),
         vec3(-1.0, 1.0, -1.0),
         vec3(-1.0, 1.0, 1.0),
@@ -284,16 +284,16 @@ impl Octahedron {
     ];
 }
 
-impl Build<Normal3> for Octahedron {
+impl Build<Normal3<Model>> for Octahedron {
     /// Builds the octahedral mesh.
-    fn build(self) -> Mesh<Normal3> {
+    fn build(self) -> Mesh<Normal3<Model>> {
         let mut b = Mesh::builder();
         for (vs, i) in zip(&Self::FACES, 0..) {
             b.push_face(i * 3, i * 3 + 1, i * 3 + 2);
             for &vi in vs {
                 let pos = Self::COORDS[Self::VERTS[vi].0];
                 let n = Self::NORMS[i].normalize();
-                b.push_vert(pos, n);
+                b.push_vert(pos, n.to());
             }
         }
         b.build()
@@ -346,9 +346,9 @@ impl Dodecahedron {
     const NORMALS: [Vec3; 12] = Icosahedron::COORDS;
 }
 
-impl Build<Normal3> for Dodecahedron {
+impl Build<Normal3<Model>> for Dodecahedron {
     /// Builds the dodecahedral mesh.
-    fn build(self) -> Mesh<Normal3> {
+    fn build(self) -> Mesh<Normal3<Model>> {
         let mut b = Mesh::builder();
 
         for (face, i) in zip(&Self::FACES, 0..) {
@@ -360,7 +360,7 @@ impl Build<Normal3> for Dodecahedron {
             b.push_face(i5, i5 + 3, i5 + 4);
             for &j in face {
                 let pos = Self::COORDS[j].normalize().to_pt();
-                b.push_vert(pos, n);
+                b.push_vert(pos, n.to());
             }
         }
         b.build()
@@ -399,16 +399,16 @@ impl Icosahedron {
     const NORMALS: [Vec3; 20] = Dodecahedron::COORDS;
 }
 
-impl Build<Normal3> for Icosahedron {
+impl Build<Normal3<Model>> for Icosahedron {
     /// Builds the icosahedral mesh.
-    fn build(self) -> Mesh<Normal3> {
+    fn build(self) -> Mesh<Normal3<Model>> {
         let mut b = Mesh::builder();
         for (vs, i) in zip(&Self::FACES, 0..) {
             let n = Self::NORMALS[i].normalize();
             b.push_face(i * 3, i * 3 + 1, i * 3 + 2);
             for &vi in vs {
                 let pos = Self::COORDS[vi].normalize().to_pt();
-                b.push_vert(pos, n);
+                b.push_vert(pos, n.to());
             }
         }
         b.build()
