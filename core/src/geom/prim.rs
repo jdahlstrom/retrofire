@@ -722,6 +722,30 @@ impl<B> Line2<B> {
     pub const fn coeffs(&self) -> [f32; 3] {
         return self.0.0;
     }
+    /// Returns the point on `self` closest to the given point.
+    pub fn project(&self, _pt: Point2<B>) -> Vec2<B> {
+        todo!()
+    }
+    pub fn signed_dist(&self, _pt: Point2<B>) -> Vec2<B> {
+        todo!()
+    }
+    /// Returns an orthonormal frame defined by `self`.
+    ///
+    /// The x-axis of the frame is parallel with `self`, the y-axis is
+    /// parallel with `self.normal()`, and the origin is the point on `self`
+    /// closest to the origin of `B`.
+    /// ```text
+    ///        y
+    ///        ^    C
+    ///        |
+    /// <------o---->x------->
+    ///
+    ///        O
+    ///
+    /// ´``
+    pub fn frame<C>(&self) -> Mat3<B, C> {
+        todo!()
+    }
 }
 
 //
