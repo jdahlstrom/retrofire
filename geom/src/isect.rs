@@ -307,11 +307,13 @@ impl<B> Intersect<Self> for Line2<B> {
     /// };
     /// use retrofire_geom::{Intersect, isect::LineIntersect::*};
     ///
-    /// let horiz = Line2::<()>::from(Ray(pt2(0.0, 2.0), vec2(1.0, 0.0)));
-    /// let vert = Line2::<()>::from(Ray(pt2(3.0, 0.0), vec2(0.0, 1.0)));
-    /// assert_eq!(horiz.intersect(&vert), Some(Point(pt2(3.0, 2.0))));
+    /// let horiz: Line2 = Ray(pt2(0.0, 2.0), vec2(1.0, 0.0)).into();
+    /// let vert: Line2 = Ray(pt2(3.0, 0.0), vec2(0.0, 1.0)).into();
     ///
-    /// let horiz2 = Line2::<()>::from(Ray(pt2(0.0, 3.0), vec2(1.0, 0.0)));
+    /// let isect = horiz.intersect(&vert).and_then(|i| i.point());
+    /// assert_approx_eq!(isect, Some(pt2(3.0, 2.0)));
+    ///
+    /// let horiz2 = <Line2>::from(Ray(pt2(0.0, 3.0), vec2(1.0, 0.0)));
     /// assert_eq!(horiz.intersect(&horiz2), None);
     ///
     /// assert_eq!(horiz.intersect(&horiz), Some(Coincident));
@@ -323,23 +325,23 @@ impl<B> Intersect<Self> for Line2<B> {
         let [d, e, f] = other.coeffs();
 
         // Solve the system of equations for x and y:
-        //    ax + by = c     // self
-        //    dx + ey = f     // other
+        //    ax + by + c = 0   // self
+        //    dx + ey + f = 0   // other
         //
         // Write in matrix form and solve:
-        //    (a b) (x) = (c)
-        //    (d e) (y)   (f)
+        //    (a b) (x) = (-c)
+        //    (d e) (y)   (-f)
         //
         //               -1
-        //    (x) = (a b)   (c)
-        //    (y)   (d e)   (f)
+        //    (x) = (a b)   (-c)
+        //    (y)   (d e)   (-f)
         let abde: Mat2<B> = mat![
             a, b;
             d, e;
         ];
         match abde.checked_inverse() {
             Some(inv) => {
-                let res = inv.apply(&pt2(c, f));
+                let res = inv.apply(&pt2(-c, -f));
                 Some(LineIntersect::Point(res))
             }
             None if [a, b, c].approx_eq(&[d, e, f]) => {
@@ -430,8 +432,8 @@ impl<B> Intersect<Edge<Point2<B>>> for Ray2<B> {
         // Ray intersects the line of edge, but still have to check
         // whether the point is between edge endpoints
         let e01 = edge.1 - edge.0;
-        let u = (pt - edge.0).dot(&e01);
-        if u.approx_in(0.0..e01.len_sqr()) {
+        let u = (pt - edge.0).scalar_project(&e01);
+        if u.approx_in(0.0..1.0) {
             return Some((t, pt));
         }
 
