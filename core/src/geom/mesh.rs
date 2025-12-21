@@ -7,7 +7,7 @@ use core::{
 };
 
 use crate::{
-    math::{Linear, Mat4, Point3},
+    math::{Apply, Linear, Point3},
     render::Model,
 };
 
@@ -111,20 +111,20 @@ fn assert_indices_in_bounds(faces: &[Tri<usize>], len: usize) {
     }
 }
 
-impl<A> Mesh<A> {
+impl<A, B> Mesh<A, B> {
     /// Returns a new mesh builder.
-    pub fn builder() -> Builder<A> {
+    pub fn builder() -> Builder<A, B> {
         Builder::default()
     }
 
     /// Consumes `self` and returns a mesh builder with the faces and vertices
     ///  of `self`.
-    pub fn into_builder(self) -> Builder<A> {
+    pub fn into_builder(self) -> Builder<A, B> {
         Builder { mesh: self }
     }
 }
 
-impl<A> Builder<A> {
+impl<A, B> Builder<A, B> {
     /// Appends a face with the given vertex indices.
     ///
     /// Invalid indices (referring to vertices not yet added) are permitted,
@@ -164,19 +164,27 @@ impl<A> Builder<A> {
     ///
     /// # Panics
     /// If any of the vertex indices in `faces` ≥ `verts.len()`.
-    pub fn build(self) -> Mesh<A> {
+    pub fn build(self) -> Mesh<A, B> {
         // Sanity checks done by new()
         Mesh::new(self.mesh.faces, self.mesh.verts)
     }
 }
 
-impl<A> Builder<A> {
+impl<A, B> Builder<A, B> {
     /// Applies the given transform to the position of each vertex.
     ///
     /// This is an eager operation, that is, only vertices *currently*
     /// added to the builder are transformed.
-    pub fn transform(self, tf: &Mat4<Model, Model>) -> Self {
-        self.warp(|v| vertex(tf.apply(&v.pos), v.attrib))
+    pub fn transform<C, Tf>(self, tf: &Tf) -> Builder<A, C>
+    where
+        Tf: Apply<Point3<B>, Output = Point3<C>>,
+    {
+        let Mesh { faces, verts } = self.mesh;
+        let verts = verts
+            .into_iter()
+            .map(|v| vertex(tf.apply(&v.pos), v.attrib))
+            .collect();
+        Mesh { faces, verts }.into_builder()
     }
 
     /// Applies an arbitrary mapping to each vertex.
@@ -184,7 +192,10 @@ impl<A> Builder<A> {
     /// This method can be used for various nonlinear transformations such as
     /// twisting or dilation. This is an eager operation, that is, only vertices
     /// *currently* added to the builder are transformed.
-    pub fn warp(mut self, f: impl FnMut(Vertex3<A>) -> Vertex3<A>) -> Self {
+    pub fn warp(
+        mut self,
+        f: impl FnMut(Vertex3<A, B>) -> Vertex3<A, B>,
+    ) -> Self {
         self.mesh.verts = self.mesh.verts.into_iter().map(f).collect();
         self
     }
@@ -202,7 +213,7 @@ impl<A> Builder<A> {
     /// This is an eager operation, that is, only vertices *currently* added
     /// to the builder are transformed. The attribute type of the result is
     /// `Normal3`; the vertex type it accepts is changed accordingly.
-    pub fn with_vertex_normals(self) -> Builder<Normal3> {
+    pub fn with_vertex_normals(self) -> Builder<Normal3, B> {
         let Mesh { verts, faces } = self.mesh;
 
         // Compute weighted face normals...
@@ -225,7 +236,7 @@ impl<A> Builder<A> {
         }
         // ...and normalize to unit length.
         for v in &mut verts {
-            v.attrib = v.attrib.normalize();
+            v.attrib = v.attrib.normalize_or_zero();
         }
 
         // No need to sanity check again
@@ -237,7 +248,7 @@ impl<A> Builder<A> {
 // Foreign trait impls
 //
 
-impl<A: Debug, S: Debug + Default> Debug for Mesh<A, S> {
+impl<A: Debug, B: Debug + Default> Debug for Mesh<A, B> {
     fn fmt(&self, f: &mut Formatter<'_>) -> core::fmt::Result {
         f.debug_struct("Mesh")
             .field("faces", &self.faces)
@@ -246,7 +257,7 @@ impl<A: Debug, S: Debug + Default> Debug for Mesh<A, S> {
     }
 }
 
-impl<A: Debug, S: Debug + Default> Debug for Builder<A, S> {
+impl<A: Debug, B: Debug + Default> Debug for Builder<A, B> {
     fn fmt(&self, f: &mut Formatter<'_>) -> core::fmt::Result {
         f.debug_struct("Builder")
             .field("faces", &self.mesh.faces)
@@ -255,14 +266,14 @@ impl<A: Debug, S: Debug + Default> Debug for Builder<A, S> {
     }
 }
 
-impl<A, S> Default for Mesh<A, S> {
+impl<A, B> Default for Mesh<A, B> {
     /// Returns an empty mesh.
     fn default() -> Self {
         Self { faces: vec![], verts: vec![] }
     }
 }
 
-impl<A> Default for Builder<A> {
+impl<A, B> Default for Builder<A, B> {
     /// Returns an empty builder.
     fn default() -> Self {
         Self { mesh: Mesh::default() }

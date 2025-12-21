@@ -76,10 +76,10 @@ impl<Prim, Vtx, Uni, Shd, Tgt, Ctx> Batch<Prim, Vtx, Uni, Shd, Tgt, Ctx> {
     }
 
     /// Clones faces and vertices from a mesh to this batch.
-    pub fn mesh<A: Clone>(
+    pub fn mesh<A: Clone, B>(
         self,
-        mesh: &Mesh<A>,
-    ) -> Batch<Tri<usize>, Vertex3<A>, Uni, Shd, Tgt, Ctx> {
+        mesh: &Mesh<A, B>,
+    ) -> Batch<Tri<usize>, Vertex3<A, B>, Uni, Shd, Tgt, Ctx> {
         let prims = mesh.faces.clone();
         let verts = mesh.verts.clone();
         update!(verts prims; self uniform shader viewport target ctx)

@@ -159,7 +159,7 @@ fn create_faces(secs: usize, verts_per_sec: usize, out: &mut Vec<Tri<usize>>) {
 #[inline(never)]
 fn create_verts<A>(
     f: &mut dyn FnMut(Point3, Normal3, TexCoord) -> Vertex3<A>,
-    pts: &dyn Parametric<Vertex2<Normal2, ()>>,
+    pts: &impl Parametric<Vertex2<Normal2, ()>>,
     secs: usize,
     verts_per_sec: usize,
     az_range: Range<Angle>,

@@ -7,7 +7,7 @@ mod platonic;
 use alloc::vec::Vec;
 
 use retrofire_core::geom::{Mesh, Normal3, Tri, mesh::Builder, tri, vertex};
-use retrofire_core::math::{Lerp, Vec3};
+use retrofire_core::math::{Lerp, Mat4, Point2, Vec3};
 
 #[cfg(feature = "std")]
 pub use lathe::*;
@@ -75,4 +75,33 @@ impl Build<Normal3> for Icosphere {
 
         Mesh::new(recurser.faces, verts)
     }
+}
+
+pub fn extrude<B>(
+    p: impl IntoIterator<Item = Point2>,
+    frames: impl IntoIterator<Item = Mat4<B, B>>,
+) -> Builder<(), B> {
+    let mut b = Mesh::builder();
+    let mut frames = frames.into_iter();
+    let p: Vec<_> = p.into_iter().map(|p| p.to_pt3()).collect();
+    let n = p.len();
+
+    // first
+    {
+        let Some(f) = frames.next() else { return b };
+        let p = p.iter().map(|pt| (f.apply(&pt.to()).to(), ()));
+        b.push_verts(p);
+    }
+
+    for f in frames {
+        let l = b.mesh.verts.len();
+        for i in 0..n {
+            let j = (i + 1) % n;
+            b.push_face(l + i, l + i - n, l + j - n);
+            b.push_face(l + i, l + j - n, l + j)
+        }
+        let p = p.iter().map(|pt| (f.apply(&pt.to()).to(), ()));
+        b.push_verts(p);
+    }
+    b
 }
