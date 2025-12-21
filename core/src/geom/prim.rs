@@ -147,6 +147,8 @@ impl<V> Tri<V> {
     }
 }
 
+// TODO These Tri<Vertex> methods should all work also with Tri<Point>
+
 impl<P: Affine, A> Tri<Vertex<P, A>> {
     /// Given a triangle ABC, returns the vectors [AB, AC].
     #[inline]
@@ -159,11 +161,13 @@ impl<P: Affine, A> Tri<Vertex<P, A>> {
     ///
     /// The centroid is simply the average of the three vertex positions.
     pub fn centroid(&self) -> P
+    // TODO Should this return Vertex?
     where
+        P: Clone,
         P::Diff: Linear<Scalar = f32>,
     {
-        let [ab, ac] = self.tangents();
-        self.0[0].pos.add(&ab.add(&ac).mul(1.0 / 3.0))
+        let [a, b, c] = &self.0;
+        P::centroid([&a.pos, &b.pos, &c.pos].map(P::clone))
     }
 }
 
@@ -232,6 +236,34 @@ impl<A, B> Tri<Vertex2<A, B>> {
     pub fn area(&self) -> f32 {
         self.signed_area().abs()
     }
+
+    //}
+    //impl<B> Tri<Point2<B>> {
+
+    /// Returns whether the given point is within the bounds of `self`.
+    ///
+    /// # Examples TODO broke
+    /// ```
+    /// use retrofire_core::{geom::{Tri}, math::{Point2, pt2}};
+    ///
+    /// let tri: Tri<Point2> = Tri([pt2(-2.0, 0.0), pt2(3.0, 0.0), pt2(0.0, 4.0)]);
+    ///
+    /// assert!(tri.contains(pt2(0.0, 0.0)));
+    ///
+    /// assert!(!tri.contains(pt2(0.0, -1.0)));
+    /// assert!(!tri.contains(pt2(2.0, 3.0)));
+    /// ```
+    pub fn contains(&self, pt: Point2<B>) -> bool {
+        // For each of the three lines defined by the triangle's edges,
+        // compute which side the point is. If it's on the same side of
+        // each line, it is inside the triangle.
+
+        let [sign_ab, sign_bc, sign_ca] = self
+            .edges()
+            .map(|e| Edge(e.0.pos, e.1.pos).sign(pt));
+
+        sign_ab == sign_bc && sign_bc == sign_ca
+    }
 }
 
 impl<A, B> Tri<Vertex3<A, B>> {
@@ -286,10 +318,8 @@ impl<A, B> Tri<Vertex3<A, B>> {
     /// Returns the winding order of `self`, as projected to the XY plane.
     // TODO is this 3D version meaningful/useful enough?
     pub fn winding(&self) -> Winding {
-        // TODO better way to xyz->xy...
         let [u, v] = self.tangents();
-        let ([ux, uy, _], [vx, vy, _]) = (u.0, v.0);
-        let z = vec2::<_, ()>(ux, uy).perp_dot(vec2(vx, vy));
+        let z = u.xy().perp_dot(v.xy());
         if z < 0.0 { Winding::Cw } else { Winding::Ccw }
     }
 
@@ -612,7 +642,7 @@ impl<T> Polyline<T> {
 }
 
 impl<const N: usize, B> Polyline<Point<[f32; N], Real<N, B>>> {
-    /// Returns the sum of the lengths of the edges of `self`.
+    /// Returns the sum of the (Euclidean) lengths of the edges of `self`.
     ///
     /// # Examples
     /// ```
@@ -663,8 +693,57 @@ impl<T> Polygon<T> {
         };
         self.0
             .array_windows()
-            .map(|[a, b]| Edge(a, b))
+            .map(Edge::from)
             .chain(last_first)
+    }
+}
+impl<B> Polygon<Point2<B>> {
+    /// Returns the vertex winding order of `self`.
+    pub fn winding(&self) -> Option<Winding> {
+        if self.0.len() < 3 {
+            return None;
+        }
+
+        // Find (any) vertex Q on the convex hull of the polygon; the leftmost
+        // one works fine. The winding of the polygon is that of triangle PQR
+        // where P and R are the vertices adjacent to Q.
+
+        let mut min = (&self.0[0], 0);
+        for (p, i) in self.0.iter().zip(0..) {
+            if p.x() < min.0.x() {
+                min = (p, i);
+            }
+        }
+
+        let b = min.0;
+        let a = if min.1 == 0 {
+            self.0[self.0.len() - 1]
+        } else {
+            self.0[min.1 - 1]
+        };
+        let c = self.0[(min.1 + 1) % self.0.len()];
+
+        Some(tri(a, *b, c).map(|p| vertex(p, ())).winding())
+    }
+}
+
+impl<B> Edge<Point2<B>> {
+    #[inline]
+    pub const fn normal(&self) -> Vec2<B> {
+        let Edge(a, b) = self;
+        vec2(a.y() - b.y(), b.x() - a.x())
+    }
+
+    /// ASfg
+    ///
+    /// # E
+    #[inline]
+    pub const fn sign(&self, pt: Point2<B>) -> f32 {
+        let Self(e0, e1) = self;
+        // Manual sub because of const...
+        let e0_e1: Vec2 = vec2(e1.x() - e0.x(), e1.y() - e0.y());
+        let e0_pt = vec2(pt.x() - e0.x(), pt.y() - e0.y());
+        (e0_e1).perp_dot(e0_pt).signum()
     }
 }
 
@@ -685,7 +764,7 @@ impl<B> Line2<B> {
     /// If the points coincide.
     pub fn from_points(p: Point2<B>, q: Point2<B>) -> Self {
         // TODO not const due to normalize
-        Edge(p, q).into()
+        Self::from(Edge(p, q))
     }
 
     /// Returns the slope and y-intercept of `self` if `self` is not vertical.
@@ -713,7 +792,7 @@ impl<B> Line2<B> {
         }
     }
 
-    /// Returns
+    // Returns TODO
     pub fn normal(&self) -> Vec2<B> {
         vec2(self.0[0], self.0[1]).normalize()
     }
@@ -725,6 +804,11 @@ impl<B> Line2<B> {
     /// Returns the coefficients [a, b, c] of the line equation ax + by = c.
     pub const fn coeffs(&self) -> [f32; 3] {
         self.0.0
+    }
+
+    #[inline]
+    pub fn signed_dist(&self, pt: Point2<B>) -> f32 {
+        self.0.dot(&pt.to_hom())
     }
 }
 
@@ -887,7 +971,7 @@ impl<B> From<Ray<Point2<B>>> for Line2<B> {
 impl<B> From<Edge<Point2<B>>> for Line2<B> {
     /// Returns the line coincident with the given edge.
     fn from(e: Edge<Point2<B>>) -> Self {
-        Ray(e.0, e.1 - e.0).into()
+        Self::from(Ray(e.0, e.1 - e.0))
     }
 }
 

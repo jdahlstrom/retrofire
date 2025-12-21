@@ -16,7 +16,7 @@ use core::{
 use super::{
     Affine, ApproxEq, Linear, Point,
     float::fast_recip_sqrt,
-    pt3,
+    pt2, pt3,
     space::{Hom, Proj3, Real},
     vary::ZDiv,
 };
@@ -470,6 +470,11 @@ impl<Sc: Copy, B> Vector<[Sc; 2], Real<2, B>> {
         self.0[1]
     }
 
+    #[inline]
+    pub const fn yx(&self) -> Vector<[Sc; 2], Real<2, B>> {
+        vec2(self.y(), self.x())
+    }
+
     /// Converts `self` to a `Vec3`, with z set to 0.
     ///
     /// # Examples
@@ -596,6 +601,14 @@ where
     #[inline]
     pub const fn xy(&self) -> Vector<[Sc; 2], Real<2, B>> {
         vec2(self.x(), self.y())
+    }
+    #[inline]
+    pub const fn xz(&self) -> Vector<[Sc; 2], Real<2, B>> {
+        vec2(self.x(), self.z())
+    }
+    #[inline]
+    pub const fn yz(&self) -> Vector<[Sc; 2], Real<2, B>> {
+        vec2(self.y(), self.z())
     }
 
     /// Returns the cross product of `self` with `other`.

@@ -10,6 +10,7 @@ use super::{
     Affine, ApproxEq, Linear, Vector,
     space::{Hom, Real},
     vary::ZDiv,
+    vec2,
 };
 
 #[repr(transparent)]
@@ -212,6 +213,11 @@ impl<Sc: Copy, B> Point<[Sc; 2], Real<2, B>> {
         self.0[1]
     }
 
+    #[inline]
+    pub const fn yx(&self) -> Point<[Sc; 2], Real<2, B>> {
+        pt2(self.y(), self.x())
+    }
+
     /// Converts `self` to a `Point3`, with z equal to 0.
     #[inline]
     pub fn to_pt3(self) -> Point<[Sc; 3], Real<3, B>>
@@ -245,6 +251,19 @@ impl<Sc: Copy, B> Point<[Sc; 3], Real<3, B>> {
     #[inline]
     pub const fn z(&self) -> Sc {
         self.0[2]
+    }
+
+    #[inline]
+    pub const fn xy(&self) -> Point<[Sc; 2], Real<2, B>> {
+        pt2(self.x(), self.y())
+    }
+    #[inline]
+    pub const fn xz(&self) -> Point<[Sc; 2], Real<2, B>> {
+        pt2(self.x(), self.z())
+    }
+    #[inline]
+    pub const fn yz(&self) -> Point<[Sc; 2], Real<2, B>> {
+        pt2(self.y(), self.z())
     }
 }
 
