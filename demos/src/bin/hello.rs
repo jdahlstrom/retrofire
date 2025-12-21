@@ -31,9 +31,7 @@ fn main() {
     win.ctx.face_cull = None;
 
     let shader = shader::new(
-        |v: Vertex<_, _>, mvp: &ProjMat3<Model>| {
-            vertex(mvp.apply(&v.pos), v.attrib)
-        },
+        |v: Vertex<_, _>, mvp: &ProjMat3<Model>| v.map_pos(|p| mvp.apply(&p)),
         |frag: Frag<TexCoord>| text.sample(frag.var).to_rgba(),
     );
 

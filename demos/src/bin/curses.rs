@@ -47,9 +47,7 @@ fn main() {
     };
 
     let shader = shader::new(
-        |v: Vertex3<_>, mvp: &ProjMat3<Model>| {
-            vertex(mvp.apply(&v.pos), v.attrib)
-        },
+        |v: Vertex3<_>, mvp: &ProjMat3<Model>| v.map_pos(|p| mvp.apply(&p)),
         |frag: Frag<Normal3>| {
             let [x, y, z] = (frag.var / 2.0 + splat(0.5)).0;
             rgb(x, y, z).to_color4()

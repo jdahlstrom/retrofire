@@ -35,7 +35,7 @@ fn main() {
     }));
 
     let shader = shader::new(
-        |v: Vertex3<_>, mvp: &ProjMat3<_>| vertex(mvp.apply(&v.pos), v.attrib),
+        |v: Vertex3<_>, mvp: &ProjMat3<_>| v.map_pos(|p| mvp.apply(&p)),
         |frag: Frag<_>| SamplerClamp.sample(&checker, frag.var),
     );
 

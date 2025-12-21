@@ -108,6 +108,17 @@ pub const fn tri<V>(a: V, b: V, c: V) -> Tri<V> {
 // Inherent impls
 //
 
+impl<P, A> Vertex<P, A> {
+    /// Returns `self` with the position mapped.
+    pub fn map_pos<Q>(self, f: impl FnMut(P) -> Q) -> Vertex<Q, A> {
+        vertex(f(self.pos), self.attrib)
+    }
+    /// Returns `self` with the attribute mapped.
+    pub fn map_attrib<B>(self, f: impl FnMut(A) -> B) -> Vertex<P, B> {
+        vertex(self.pos, f(self.attrib))
+    }
+}
+
 impl<V> Tri<V> {
     /// Given a triangle ABC, returns the edges [AB, BC, CA].
     ///
@@ -271,8 +282,7 @@ impl<A, B> Tri<Vertex3<A, B>> {
     /// ```
     pub fn plane(&self) -> Plane3<B> {
         let [a, b, c] = &self.0;
-        let [p, q, r] = [a.pos, b.pos, c.pos];
-        Plane::from_points(p, q, r)
+        Plane::from_points(a.pos, b.pos, c.pos)
     }
 
     /// Returns the winding order of `self`, as projected to the XY plane.

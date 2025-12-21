@@ -24,9 +24,7 @@ fn textured_quad() {
     }));
 
     let shader = shader::new(
-        |v: Vertex3<_>, mvp: &ProjMat3<Model>| {
-            vertex(mvp.apply(&v.pos), v.attrib)
-        },
+        |v: Vertex3<_>, mvp: &ProjMat3<Model>| v.map_pos(|p| mvp.apply(&p)),
         |frag: Frag<_>| SamplerClamp.sample(&checker, frag.var),
     );
 

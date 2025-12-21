@@ -26,7 +26,7 @@ impl<'a, B> VertexShader<Vertex3<Color4f, B>, &'a ProjMat3<B>> for Shader {
         v: Vertex3<Color4f, B>,
         m: &'a ProjMat3<B>,
     ) -> Self::Output {
-        vertex(m.apply(&v.pos), v.attrib)
+        v.map_pos(|p| m.apply(&p))
     }
 }
 

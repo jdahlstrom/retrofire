@@ -176,7 +176,7 @@ impl<A> Builder<A> {
     /// This is an eager operation, that is, only vertices *currently*
     /// added to the builder are transformed.
     pub fn transform(self, tf: &Mat4<Model, Model>) -> Self {
-        self.warp(|v| vertex(tf.apply(&v.pos), v.attrib))
+        self.warp(|v| v.map_pos(|p| tf.apply(&p)))
     }
 
     /// Applies an arbitrary mapping to each vertex.

@@ -29,7 +29,7 @@ fn main() {
     let light_dir = vec3(-2.0, 1.0, -4.0).normalize();
 
     let floor_shader = shader::new(
-        |v: Vertex3<_>, mvp: &ProjMat3<_>| vertex(mvp.apply(&v.pos), v.attrib),
+        |v: Vertex3<_>, mvp: &ProjMat3<_>| v.map_pos(|p| mvp.apply(&p)),
         |frag: Frag<Vec2>| {
             let even_odd = (frag.var.x() > 0.5) ^ (frag.var.y() > 0.5);
             gray(if even_odd { 0.8 } else { 0.1 }).to_color4()
@@ -37,7 +37,7 @@ fn main() {
     );
     let crate_shader = shader::new(
         |v: Vertex3<(Normal3, TexCoord)>, mvp: &ProjMat3<_>| {
-            vertex(mvp.apply(&v.pos), v.attrib)
+            v.map_pos(|p| mvp.apply(&p))
         },
         |frag: Frag<(Normal3, TexCoord)>| {
             let (n, uv) = frag.var;
