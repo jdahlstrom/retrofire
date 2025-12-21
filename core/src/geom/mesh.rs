@@ -230,7 +230,7 @@ impl<A> Builder<A> {
         }
         // ...and normalize to unit length.
         for v in &mut verts {
-            v.attrib = v.attrib.normalize();
+            v.attrib = v.attrib.normalize_or_zero();
         }
 
         // No need to sanity check again

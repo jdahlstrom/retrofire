@@ -66,8 +66,8 @@ fn main() {
     let shader = shader::new(vtx_shader, frag_shader);
 
     let translate = translate(-3.0 * Vec3::Z);
-
     let mut state = State::new();
+
     win.run(|frame| {
         let Frame { t, dt, win, .. } = frame;
 
@@ -139,6 +139,7 @@ fn objects_n(res: u32) -> [Mesh<Normal3>; 14] {
 
     let major_sectors = 3 * res;
     let minor_sectors = 2 * res;
+
     [
         // The five Platonic solids
         Tetrahedron.build(),
