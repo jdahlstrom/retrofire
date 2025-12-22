@@ -1,15 +1,16 @@
 use core::ops::ControlFlow::Continue;
+use std::env;
 
 use minifb::{Key, KeyRepeat};
 
 use re::prelude::*;
 
-use re::core::{
-    geom::Polyline,
-    math::{ProjMat3, ProjVec3, color::gray},
-    render::cam::Fov,
-    render::{Model, ModelToWorld, shader},
+use re::core::geom::Polyline;
+use re::core::math::{ProjMat3, ProjVec3, color::gray};
+use re::core::render::{
+    Model, View, World, cam::Fov, debug::dir_to_rgb, light::Kind, shader,
 };
+
 use re::front::{Frame, minifb::Window};
 use re::geom::{io::read_obj, solids::*};
 
@@ -47,6 +48,28 @@ impl Carousel {
     }
 }
 
+#[inline]
+fn phong<B>(
+    normal: Vec3<B>,
+    view_dir: Vec3<B>,
+    light_dir: Vec3<B>,
+    shininess: i32,
+) -> f32 {
+    let refl_dir = light_dir.reflect(normal);
+    view_dir.dot(&refl_dir).max(0.0).powi(shininess)
+}
+
+#[inline]
+fn blinn_phong<B>(
+    normal: Vec3<B>,
+    view_dir: Vec3<B>,
+    light_dir: Vec3<B>,
+    shininess: i32,
+) -> f32 {
+    let halfway = (view_dir + light_dir).normalize_approx();
+    normal.dot(&halfway).max(0.0).powi(4 * shininess)
+}
+
 fn main() {
     eprintln!("Press Space to cycle between objects...");
 
@@ -59,35 +82,66 @@ fn main() {
 
     let (w, h) = win.dims;
     let cam = Camera::new(win.dims)
-        .transform(scale3(1.0, -1.0, -1.0).to())
+        .transform(Mat4::identity())
         .perspective(Fov::Equiv35mm(28.0), 0.1..1000.0)
         .viewport(pt2(10, h - 10)..pt2(w - 10, 10));
 
+    type Varyings = (Point3<View>, (Color3f, Normal3));
     type VertexIn = Vertex3<Normal3>;
-    type VertexOut = Vertex<ProjVec3, Color3f>;
-    type Uniform<'a> = (&'a ProjMat3<Model>, &'a Mat4);
-
-    fn vtx_shader(v: VertexIn, (mvp, spin): Uniform) -> VertexOut {
-        // Transform vertex normal
-        let norm = spin.apply(&v.attrib);
-        // Calculate diffuse shading
-        let diffuse = (norm.z() + 0.2).max(0.2) * 0.8;
-        // Visualize normal by mapping to RGB values
-        let [r, g, b] = (0.45 * (v.attrib + splat(1.1))).0;
-        let col = diffuse * rgb(r, g, b);
-        vertex(mvp.apply(&v.pos), col)
+    type VertexOut = Vertex<ProjVec3, Varyings>;
+    struct Uniform {
+        pub mv: Mat4<Model, View>,
+        pub proj: ProjMat3<View>,
+        pub norm: Mat4,
+        pub light: Light<View>,
     }
 
-    fn frag_shader(f: Frag<Color3f>, _: Uniform) -> Color4 {
-        f.var.to_color4()
+    #[inline]
+    fn vtx_shader(v: VertexIn, u: &Uniform) -> VertexOut {
+        let view_normal = u.norm.apply(&v.attrib);
+        let color = dir_to_rgb(v.attrib).to_rgb();
+        let view_pos = u.mv.apply(&v.pos);
+        let clip_pos = u.proj.apply(&view_pos);
+
+        // (camera_dir, (light_col * color, (view_normal, (light_col, light_dir))),),
+        vertex(clip_pos, (view_pos, (color, view_normal)))
+    }
+
+    #[inline]
+    fn frag_shader(f: Frag<Varyings>, u: &Uniform) -> Color4 {
+        //let (camera_dir, (light_x_col, (view_normal, (light_col, light_dir)))) =
+        let (view_pos, (color, view_normal)) = f.var;
+
+        let (light_col, light_dir) = u.light.eval(view_pos);
+        let camera_dir = -view_pos.to_vec().normalize_approx();
+        let view_normal = view_normal.normalize_approx();
+
+        let ambient = rgb(0.15, 0.18, 0.25);
+        let diffuse = 0.5 * light_dir.dot(&view_normal.to());
+        let specular =
+            0.5 * blinn_phong(view_normal.to(), camera_dir, light_dir, 30);
+
+        //(light_x_col * diffuse + light_col * specular + ambient).to_color4()
+
+        (light_col * color * diffuse + light_col * specular + ambient)
+            .to_color4()
     }
 
     let shader = shader::new(vtx_shader, frag_shader);
 
-    let objects = objects_n(8);
+    let res = env::args()
+        .nth(1)
+        .and_then(|arg| arg.parse().ok())
+        .unwrap_or(24);
+    let objects = objects_n(res);
 
-    let translate = translate(-3.0 * Vec3::Z);
+    let translate = translate(3.0 * Vec3::Z);
     let mut carousel = Carousel::default();
+
+    let light = Light::<World>::new(
+        rgb(1.0, 0.95, 0.9),
+        Kind::Point(pt3(-1.0, 3.0, 1.0)),
+    );
 
     win.run(|frame| {
         let Frame { t, dt, win, .. } = frame;
@@ -98,23 +152,26 @@ fn main() {
         }
 
         let theta = rads(t.as_secs_f32());
-        let spin = rotate_x(theta * 0.37).then(&rotate_y(theta * 0.51));
+        let spin = rotate_x(theta * 0.51).then(&rotate_y(theta * 0.37));
         let carouse = carousel.update(dt.as_secs_f32());
 
         // Compose transform stack
-        let model_view_project: ProjMat3<Model> = spin
-            .then(&translate)
-            .then(&carouse)
-            .to::<ModelToWorld>()
-            .then(&cam.world_to_project());
+        let modelview: Mat4<Model, View> =
+            spin.then(&translate).then(&carouse).to();
 
         let object = &objects[carousel.idx % objects.len()];
 
+        let uniform = &Uniform {
+            mv: modelview,
+            proj: cam.project,
+            norm: spin,
+            light: light.transform(&cam.world_to_view()),
+        };
         Batch {
             prims: object.faces.clone(),
             verts: object.verts.clone(),
-            uniform: (&model_view_project, &spin),
-            shader: shader,
+            uniform,
+            shader,
             viewport: cam.viewport,
             target: frame.buf,
             ctx: &*frame.ctx,
@@ -128,14 +185,14 @@ fn main() {
 // Creates the 14 objects exhibited.
 #[rustfmt::skip]
 fn objects_n(res: u32) -> [Mesh<Normal3>; 14] {
-    let segments = res;
-    let sectors = 2 * res;
+    let segments = res + 2;
+    let sectors = res + 3;
 
-    let cap_segments = res;
-    let body_segments = res;
+    let cap_segments = res + 1;
+    let body_segments = res + 1;
 
-    let major_sectors = 3 * res;
-    let minor_sectors = 2 * res;
+    let major_sectors = res + 3;
+    let minor_sectors = res.div_ceil(2) + 3;
     [
         // The five Platonic solids
         Tetrahedron.build(),
@@ -148,9 +205,9 @@ fn objects_n(res: u32) -> [Mesh<Normal3>; 14] {
         lathe(sectors),
         Sphere { radius: 1.0, sectors, segments, }.build(),
         Cylinder { radius: 0.8, sectors, segments, capped: true }.build(),
-        Cone { base_radius: 1.1, apex_radius: 0.3, sectors, segments, capped: true }.build(),
+        Cone { base_radius: 1.0, apex_radius: 0.2, sectors, segments, capped: true }.build(),
         Capsule { radius: 0.5, sectors, body_segments, cap_segments }.build(),
-        Torus { major_radius: 0.9, minor_radius: 0.3, major_sectors, minor_sectors }.build(),
+        Torus { major_radius: 0.9, minor_radius: 0.25, major_sectors, minor_sectors }.build(),
 
         // Traditional demo models
         teapot(),
