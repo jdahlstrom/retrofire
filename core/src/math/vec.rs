@@ -205,7 +205,7 @@ impl<Sp, const N: usize> Vector<[f32; N], Sp> {
         use super::float::RecipSqrt;
         use super::float::f32;
         let len_sqr = self.len_sqr();
-        if len_sqr.approx_eq_eps(&0.0, &1e-12) {
+        if !len_sqr.is_finite() || len_sqr.approx_eq_eps(&0.0, &1e-12) {
             Vector::zero()
         } else {
             *self * f32::recip_sqrt(len_sqr)
