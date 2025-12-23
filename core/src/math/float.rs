@@ -105,6 +105,8 @@ pub mod mm {
 }
 
 pub mod fallback {
+    use crate::math::float::fast_recip_sqrt;
+
     /// Returns the largest integer less than or equal to `x`.
     #[inline]
     pub fn floor(x: f32) -> f32 {
@@ -119,19 +121,24 @@ pub mod fallback {
     /// Returns the approximate reciprocal of the square root of `x`.
     #[inline]
     pub fn recip_sqrt(x: f32) -> f32 {
-        if x < 0.0 {
-            return f32::NAN;
-        }
-        // https://en.wikipedia.org/wiki/Fast_inverse_square_root
-        let y = f32::from_bits(0x5f37_5a86 - (x.to_bits() >> 1));
-        // Two rounds of Newton's method
-        let y = y * (1.5 - 0.5 * x * y * y);
-        y * (1.5 - 0.5 * x * y * y)
+        fast_recip_sqrt(x)
     }
     #[inline]
     pub fn sqrt(x: f32) -> f32 {
         1.0 / recip_sqrt(x)
     }
+}
+
+/// Returns a fast approximation of the reciprocal square root of a number.
+#[inline]
+pub fn fast_recip_sqrt(x: f32) -> f32 {
+    // https://en.wikipedia.org/wiki/Fast_inverse_square_root
+    const MAGIC: u32 = 0x5f37_5a86;
+    let mut y = f32::from_bits(MAGIC.saturating_sub(x.to_bits() >> 1));
+    // A round of Newton's method
+    y = y * (1.5 - 0.5 * x * y * y);
+    //y = y * (1.5 - 0.5 * x * y * y);
+    y
 }
 
 #[cfg(feature = "std")]
