@@ -13,6 +13,7 @@ use core::{
 
 use super::{
     Affine, ApproxEq, Linear, Point,
+    float::fast_recip_sqrt,
     space::{Hom, Proj3, Real},
     vary::ZDiv,
 };
@@ -162,6 +163,25 @@ impl<Sp, const N: usize> Vector<[f32; N], Sp> {
             self.0
         );
         *self * f32::recip_sqrt(len_sqr)
+    }
+
+    /// Returns `self` efficiently normalized to *approximately* unit length.
+    ///
+    /// This method is several times faster than `normalize`. Its absolute
+    /// error is less than 0.002 (1/500), that is, the length of  a vector
+    /// returned by this method should be in the range (0.998, 1.002) for
+    /// inputs at least up to ±1e15 in magnitude.
+    ///
+    /// # Examples
+    /// ```
+    /// use retrofire_core::math::{vec2, Vec2};
+    ///
+    /// let normalized: Vec2 = vec2(3.0, 4.0).normalize_approx();
+    /// assert_eq!(normalized.len(), 0.99844766);
+    /// ```
+    #[inline]
+    pub fn normalize_approx(&self) -> Self {
+        *self * fast_recip_sqrt(self.len_sqr())
     }
 
     /// Returns `self` normalized to unit length, or a zero vector if the
@@ -343,7 +363,7 @@ where
     /// Returns whether `self` is parallel to another vector.
     ///
     /// Two vectors **a** and **b** are parallel if and only if either:
-    /// * at least one is a zero vector, or
+    /// * at least one of them is a zero vector, or
     /// * there exists a nonzero scalar *k* such that *k*·**a** = **b**.
     ///
     /// # Examples
@@ -351,14 +371,14 @@ where
     /// use retrofire_core::math::vec2;
     /// let vec2 = vec2::<f32, ()>;
     ///
-    /// // Zero vector is parallel with anything
+    /// // Zero vector is parallel to anything
     /// assert!(vec2(0.0, 0.0).is_parallel_to(&vec2(0.0, 0.0)));
     /// assert!(vec2(0.0, 0.0).is_parallel_to(&vec2(1.0, 2.0)));
     ///
-    /// // (1, 0) is parallel with any (k, 0)
+    /// // (1, 0) is parallel to any (k, 0)
     /// assert!(vec2(1.0, 0.0).is_parallel_to(&vec2(-3.0, 0.0)));
     ///
-    /// // (2, -1) is parallel with any (2·k, -1·k)
+    /// // (2, -1) is parallel to any (2·k, -1·k)
     /// assert!(vec2(2.0, -1.0).is_parallel_to(&vec2(-4.0, 2.0)));
     ///
     /// // Counterexamples
@@ -984,6 +1004,30 @@ mod tests {
                 vec3(1.0, 2.0, 3.0).normalize(),
                 vec3(1.0 / sqrt_14, 2.0 / sqrt_14, 3.0 / sqrt_14)
             );
+        }
+
+        #[test]
+        fn normalize_approx() {
+            let pos_vs = [
+                0.001, 0.01, 0.02, 0.5, 0.1, 0.2, 0.5, 1.0, 2.0, 5.0, 10.0,
+                100.0, 1000.0, 10_000.0, 1e6, 1e8, 1e10, 1e12, 1e15,
+            ];
+            let neg_vs = pos_vs.map(|x| -x);
+            let vs = chain(&neg_vs, &pos_vs);
+
+            for &x in vs.clone() {
+                for &y in vs.clone() {
+                    for &z in vs.clone() {
+                        let v = vec3(x, y, z);
+                        let len = v.normalize_approx().len();
+                        let diff = (len - 1.0).abs();
+                        assert!(
+                            diff < 0.002,
+                            "v={v:?}, len={len}, diff={diff}"
+                        );
+                    }
+                }
+            }
         }
 
         #[test]
