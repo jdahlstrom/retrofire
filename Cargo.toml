@@ -74,7 +74,6 @@ lto = "thin"
 opt-level = 1
 split-debuginfo = "unpacked"
 
-
 [[bench]]
 name = "e2e"
 harness = false
@@ -89,4 +88,8 @@ harness = false
 
 [[bench]]
 name = "isect"
+harness = false
+
+[[bench]]
+name = "vec"
 harness = false
