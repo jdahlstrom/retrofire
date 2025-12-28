@@ -22,32 +22,6 @@ struct Carousel {
     t: Option<f32>,
 }
 
-impl Carousel {
-    fn start(&mut self) {
-        if self.t.is_none() {
-            self.t = Some(0.0);
-            self.new_idx = self.idx + 1;
-        } else {
-            // If already started, skip to next
-            self.new_idx += 1;
-        }
-    }
-    fn update(&mut self, dt: f32) -> Mat4 {
-        let Some(t) = self.t.as_mut() else {
-            return Mat4::identity();
-        };
-        *t += dt;
-        let t = *t;
-        if t >= 0.5 {
-            self.idx = self.new_idx;
-        }
-        if t >= 1.0 {
-            self.t = None
-        }
-        rotate_y(turns(smootherstep(t)))
-    }
-}
-
 #[inline]
 fn phong<B>(
     normal: Vec3<B>,
@@ -70,6 +44,45 @@ fn blinn_phong<B>(
     normal.dot(&halfway).max(0.0).powi(4 * shininess)
 }
 
+type Varyings = (Point3<View>, (Color3f, Normal3));
+type VertexIn = Vertex3<Normal3>;
+type VertexOut = Vertex<ProjVec3, Varyings>;
+struct Uniform {
+    pub mv: Mat4<Model, View>,
+    pub proj: ProjMat3<View>,
+    pub norm: Mat4,
+    pub light: Light<View>,
+}
+
+#[inline]
+fn vtx_shader(v: VertexIn, u: &Uniform) -> VertexOut {
+    let view_normal = u.norm.apply(&v.attrib);
+    let color = dir_to_rgb(v.attrib).to_rgb();
+    let view_pos = u.mv.apply(&v.pos);
+    let clip_pos = u.proj.apply(&view_pos);
+
+    // (camera_dir, (light_col * color, (view_normal, (light_col, light_dir))),),
+    vertex(clip_pos, (view_pos, (color, view_normal)))
+}
+
+#[inline]
+fn frag_shader(f: Frag<Varyings>, u: &Uniform) -> Color4 {
+    //let (camera_dir, (light_x_col, (view_normal, (light_col, light_dir)))) =
+    let (view_pos, (color, view_normal)) = f.var;
+
+    let (light_col, light_dir) = u.light.eval(view_pos);
+    let camera_dir = -view_pos.to_vec().normalize_approx();
+    let view_normal = view_normal.normalize_approx();
+
+    let ambient = rgb(0.15, 0.18, 0.25);
+    let diffuse = 0.5 * light_dir.dot(&view_normal.to());
+    let specular =
+        0.5 * blinn_phong(view_normal.to(), camera_dir, light_dir, 30);
+
+    //(light_x_col * diffuse + light_col * specular + ambient).to_color4()
+    (light_col * color * diffuse + light_col * specular + ambient).to_color4()
+}
+
 fn main() {
     eprintln!("Press Space to cycle between objects...");
 
@@ -85,47 +98,6 @@ fn main() {
         .transform(Mat4::identity())
         .perspective(Fov::Equiv35mm(28.0), 0.1..1000.0)
         .viewport(pt2(10, h - 10)..pt2(w - 10, 10));
-
-    type Varyings = (Point3<View>, (Color3f, Normal3));
-    type VertexIn = Vertex3<Normal3>;
-    type VertexOut = Vertex<ProjVec3, Varyings>;
-    struct Uniform {
-        pub mv: Mat4<Model, View>,
-        pub proj: ProjMat3<View>,
-        pub norm: Mat4,
-        pub light: Light<View>,
-    }
-
-    #[inline]
-    fn vtx_shader(v: VertexIn, u: &Uniform) -> VertexOut {
-        let view_normal = u.norm.apply(&v.attrib);
-        let color = dir_to_rgb(v.attrib).to_rgb();
-        let view_pos = u.mv.apply(&v.pos);
-        let clip_pos = u.proj.apply(&view_pos);
-
-        // (camera_dir, (light_col * color, (view_normal, (light_col, light_dir))),),
-        vertex(clip_pos, (view_pos, (color, view_normal)))
-    }
-
-    #[inline]
-    fn frag_shader(f: Frag<Varyings>, u: &Uniform) -> Color4 {
-        //let (camera_dir, (light_x_col, (view_normal, (light_col, light_dir)))) =
-        let (view_pos, (color, view_normal)) = f.var;
-
-        let (light_col, light_dir) = u.light.eval(view_pos);
-        let camera_dir = -view_pos.to_vec().normalize_approx();
-        let view_normal = view_normal.normalize_approx();
-
-        let ambient = rgb(0.15, 0.18, 0.25);
-        let diffuse = 0.5 * light_dir.dot(&view_normal.to());
-        let specular =
-            0.5 * blinn_phong(view_normal.to(), camera_dir, light_dir, 30);
-
-        //(light_x_col * diffuse + light_col * specular + ambient).to_color4()
-
-        (light_col * color * diffuse + light_col * specular + ambient)
-            .to_color4()
-    }
 
     let shader = shader::new(vtx_shader, frag_shader);
 
@@ -180,6 +152,32 @@ fn main() {
 
         Continue(())
     });
+}
+
+impl Carousel {
+    fn start(&mut self) {
+        if self.t.is_none() {
+            self.t = Some(0.0);
+            self.new_idx = self.idx + 1;
+        } else {
+            // If already started, skip to next
+            self.new_idx += 1;
+        }
+    }
+    fn update(&mut self, dt: f32) -> Mat4 {
+        let Some(t) = self.t.as_mut() else {
+            return Mat4::identity();
+        };
+        *t += dt;
+        let t = *t;
+        if t >= 0.5 {
+            self.idx = self.new_idx;
+        }
+        if t >= 1.0 {
+            self.t = None
+        }
+        rotate_y(turns(smootherstep(t)))
+    }
 }
 
 // Creates the 14 objects exhibited.
