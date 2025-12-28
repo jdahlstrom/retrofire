@@ -17,6 +17,9 @@ use super::{
     vary::ZDiv,
 };
 
+#[cfg(feature = "fp")]
+use super::{Angle, acos};
+
 //
 // Types
 //
@@ -189,6 +192,22 @@ impl<Sp, const N: usize> Vector<[f32; N], Sp> {
         }
     }
 
+    /// Returns the angle between `self` and another vector.
+    ///
+    /// # Examples
+    /// ```
+    /// use retrofire_core::math::{degs, vec3, Vec3};
+    ///
+    /// let a: Vec3 = vec3(0.0, 1.0, 0.0);
+    /// let b: Vec3 = vec3(2.0, 0.0, 3.0);
+    /// assert_eq!(a.angle(&b), degs(90.0));
+    /// ```
+    #[cfg(feature = "fp")]
+    #[inline]
+    pub fn angle(&self, other: &Self) -> Angle {
+        acos(dot(&self.0, &other.0) / (self.len() * other.len()))
+    }
+
     /// Returns `self` clamped component-wise to the given range.
     ///
     /// In other words, for each component `self[i]`, the result `r` has
@@ -251,7 +270,7 @@ where
         self.dot(self)
     }
 
-    /// Returns the dot product of `self` and `other`.
+    /// Returns the dot product of `self` and another vector.
     ///
     /// TODO docs
     #[inline]
