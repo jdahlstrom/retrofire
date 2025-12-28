@@ -22,28 +22,6 @@ struct Carousel {
     t: Option<f32>,
 }
 
-#[inline]
-fn phong<B>(
-    normal: Vec3<B>,
-    view_dir: Vec3<B>,
-    light_dir: Vec3<B>,
-    shininess: i32,
-) -> f32 {
-    let refl_dir = light_dir.reflect(normal);
-    view_dir.dot(&refl_dir).max(0.0).powi(shininess)
-}
-
-#[inline]
-fn blinn_phong<B>(
-    normal: Vec3<B>,
-    view_dir: Vec3<B>,
-    light_dir: Vec3<B>,
-    shininess: i32,
-) -> f32 {
-    let halfway = (view_dir + light_dir).normalize_approx();
-    normal.dot(&halfway).max(0.0).powi(4 * shininess)
-}
-
 type Varyings = (Point3<View>, (Color3f, Normal3));
 type VertexIn = Vertex3<Normal3>;
 type VertexOut = Vertex<ProjVec3, Varyings>;
