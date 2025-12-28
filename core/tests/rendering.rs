@@ -27,7 +27,7 @@ fn textured_quad() {
         |v: Vertex3<_>, mvp: &ProjMat3<Model>| {
             vertex(mvp.apply(&v.pos), v.attrib)
         },
-        |frag: Frag<_>| SamplerClamp.sample(&checker, frag.var),
+        |frag: Frag<_>, _| SamplerClamp.sample(&checker, frag.var),
     );
 
     let (w, h) = (256, 256);

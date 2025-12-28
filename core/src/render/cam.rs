@@ -210,11 +210,15 @@ impl<T> Camera<T> {
     }
 }
 
+// TODO Should probably pass view and projection matrices separately
+pub type CameraUni<'a, B, Uni> = (&'a ProjMat3<B>, Uni);
+
 impl<T: Transform> Camera<T> {
-    /// Returns the camera matrix.
+    /// Returns the camera (view, eye) matrix.
     pub fn world_to_view(&self) -> Mat4<World, View> {
         self.transform.world_to_view()
     }
+
     /// Returns the inverse camera matrix.
     pub fn view_to_world(&self) -> Mat4<View, World> {
         self.world_to_view().inverse()
@@ -238,15 +242,14 @@ impl<T: Transform> Camera<T> {
     ) where
         Prim: Render<Var> + Clone,
         [<Prim>::Clip]: Clip<Item = Prim::Clip>,
-        Shd: for<'a> Shader<Vtx, Var, (&'a ProjMat3<B>, Uni)>,
+        Shd: for<'a> Shader<Vtx, Var, CameraUni<'a, B, Uni>>,
     {
-        let tf = to_world.then(&self.world_to_project());
-
+        let to_proj = to_world.then(&self.world_to_project());
         super::render(
             prims.as_ref(),
             verts.as_ref(),
             shader,
-            (&tf, uniform),
+            (&to_proj, uniform),
             self.viewport,
             target,
             ctx,
