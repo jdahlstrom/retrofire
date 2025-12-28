@@ -7,7 +7,7 @@ use core::{
 };
 
 use crate::{
-    math::{Linear, Mat4, Point3},
+    math::{Linear, Mat4, Point3, degs},
     render::Model,
 };
 
@@ -33,6 +33,13 @@ pub struct Mesh<Attrib, Basis = Model> {
 #[derive(Clone)]
 pub struct Builder<Attrib = (), Basis = Model> {
     pub mesh: Mesh<Attrib, Basis>,
+}
+
+#[derive(Copy, Clone, Eq, PartialEq)]
+pub enum Weight {
+    Equal,
+    Area,
+    Angle,
 }
 
 //
@@ -205,27 +212,29 @@ impl<A> Builder<A> {
     pub fn with_vertex_normals(self) -> Builder<Normal3> {
         let Mesh { verts, faces } = self.mesh;
 
-        // Compute weighted face normals...
-        let face_normals = faces.iter().map(|tri| {
-            // TODO If n-gonal faces are supported some day, the cross
-            //      product is not proportional to area anymore
-            let [a, b, c] = tri.map(|i| verts[i].pos).0;
-            (b - a).cross(&(c - a)).to()
-        });
-        // ...initialize vertex normals to zero...
+        // Initialize vertex normals to zero...
         let mut verts: Vec<_> = verts
-            .iter()
+            .into_iter()
             .map(|v| vertex(v.pos, Normal3::zero()))
             .collect();
         // ...accumulate normals...
-        for (&Tri(vs), n) in zip(&faces, face_normals) {
-            for i in vs {
-                verts[i].attrib += n;
-            }
+        for tri in &faces {
+            let [i, j, k] = tri.0;
+            let [ab, ac] = tri.map(|i| verts[i]).tangents();
+            let bc = ac - ab;
+            let n = ab.cross(&ac).to().normalize_approx();
+            let a_a = ab.angle(&ac);
+            let a_b = (-ab).angle(&bc);
+            let a_c = degs(180.0) - a_a - a_b;
+
+            // Angle unit does not matter, the normals get normalized anyway
+            verts[i].attrib += n; //a_a.to_rads() * n;
+            verts[j].attrib += n; //a_b.to_rads() * n;
+            verts[k].attrib += n; //a_c.to_rads() * n;
         }
         // ...and normalize to unit length.
         for v in &mut verts {
-            v.attrib = v.attrib.normalize();
+            v.attrib = v.attrib.normalize_or_zero();
         }
 
         // No need to sanity check again
