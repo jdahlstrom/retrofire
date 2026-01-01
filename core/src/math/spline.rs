@@ -2,13 +2,13 @@
 use alloc::vec::Vec;
 use core::{array::from_fn, fmt::Debug, marker::PhantomData};
 
+use super::{
+    Affine, Lerp, Linear, Mat4, Parametric, Point, Point3, Vary, Vec3, Vector,
+    inv_lerp, param, space::Real,
+};
 use crate::geom::{Polyline, Ray};
 use crate::mat;
-
-use super::{
-    Affine, Lerp, Linear, Mat4, Parametric, Point, Vary, Vector, inv_lerp,
-    space::Real,
-};
+use crate::math::param::Iter;
 
 /// A cubic Bézier curve, defined by four control points.
 ///
@@ -497,6 +497,94 @@ where
     }
 }
 
+impl<B> BezierSpline<Point3<B>> {
+    pub fn frame_iter(&self, step: f32) -> impl Iterator<Item = Mat4<B>> {
+        FrameIter {
+            iter: self.iter(step),
+            mat: Mat4::identity(),
+            _pd: PhantomData,
+        }
+    }
+}
+
+impl<B> CatmullRomSpline<Point3<B>> {
+    pub fn frame_iter(&self, step: f32) -> impl Iterator<Item = Mat4<B>> {
+        FrameIter {
+            iter: self.iter(step),
+            mat: Mat4::identity(),
+            _pd: PhantomData,
+        }
+    }
+}
+impl<B> BSpline<Point3<B>> {
+    pub fn frame_iter(&self, step: f32) -> impl Iterator<Item = Mat4<B>> {
+        FrameIter {
+            iter: self.iter(step),
+            mat: Mat4::identity(),
+            _pd: PhantomData,
+        }
+    }
+}
+struct FrameIter<'a, T, S> {
+    iter: param::Iter<'a, T, S>,
+    mat: Mat4,
+    _pd: PhantomData<T>,
+}
+
+impl<'a, B, S: Parametric<Point3<B>>> FrameIter<'a, Point3<B>, S> {
+    fn next_frame(&mut self, fwd: Vec3<B>) -> Option<Mat4<B>> {
+        let Some(pt) = self.iter.next() else {
+            return None;
+        };
+        let up = 1.0 * self.mat.linear().col_vec(1).to() + 0.0 * Vec3::Y;
+        let right = up.cross(&fwd).normalize_or_zero();
+        let up = fwd.cross(&right);
+
+        let mat = Mat4::from_affine(right, up, fwd, pt);
+        self.mat = mat.to().clone();
+        Some(mat)
+    }
+}
+impl<B> Iterator for FrameIter<'_, Point3<B>, BezierSpline<Point3<B>>> {
+    type Item = Mat4<B>;
+
+    fn next(&mut self) -> Option<Mat4<B>> {
+        let t = self.iter.t;
+        let fwd = self.iter.param.velocity(t).normalize_or_zero();
+        self.next_frame(fwd)
+    }
+}
+
+impl<B> Iterator for FrameIter<'_, Point3<B>, HermiteSpline<Point3<B>>> {
+    type Item = Mat4<B>;
+
+    fn next(&mut self) -> Option<Mat4<B>> {
+        let t = self.iter.t;
+        let fwd = self.iter.param.velocity(t).normalize_or_zero();
+        self.next_frame(fwd)
+    }
+}
+
+impl<B> Iterator for FrameIter<'_, Point3<B>, CatmullRomSpline<Point3<B>>> {
+    type Item = Mat4<B>;
+
+    fn next(&mut self) -> Option<Mat4<B>> {
+        let t = self.iter.t;
+        let fwd = self.iter.param.velocity(t).normalize_or_zero();
+        self.next_frame(fwd)
+    }
+}
+
+impl<B> Iterator for FrameIter<'_, Point3<B>, BSpline<Point3<B>>> {
+    type Item = Mat4<B>;
+
+    fn next(&mut self) -> Option<Mat4<B>> {
+        let t = self.iter.t;
+        let fwd = self.iter.param.velocity(t).normalize_or_zero();
+        self.next_frame(fwd)
+    }
+}
+
 impl<T> HermiteSpline<T>
 where
     T: Affine<Diff: Linear<Scalar = f32> + Clone> + Clone,
@@ -836,6 +924,20 @@ where
 {
     fn eval(&self, s: f32) -> T {
         self.eval(s)
+    }
+
+    fn iter(&self, step: f32) -> Iter<'_, T, Self> {
+        Iter {
+            param: self,
+            t: 0.0,
+            step,
+            end: self.len(),
+            _pd: PhantomData,
+        }
+    }
+
+    fn iter_n(&self, n: u32) -> Iter<'_, T, Self> {
+        self.iter(self.len() / n as f32)
     }
 }
 

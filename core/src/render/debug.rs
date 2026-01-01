@@ -15,7 +15,7 @@ use crate::math::{Vary, polar, turns, vec3};
 
 use super::{Context, Frag, FragmentShader, VertexShader, scene::BBox};
 
-#[derive(Default)]
+#[derive(Copy, Clone, Default)]
 pub struct Shader;
 
 impl<'a, B> VertexShader<Vertex3<Color4f, B>, &'a ProjMat3<B>> for Shader {
