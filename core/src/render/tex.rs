@@ -112,10 +112,12 @@ pub fn cube_map(pos: Vec3, dir: Normal3) -> TexCoord {
 
 impl TexCoord {
     /// Returns the u (horizontal) component of `self`.
+    #[inline]
     pub const fn u(&self) -> f32 {
         self.0[0]
     }
     /// Returns the v (vertical) component of `self`.
+    #[inline]
     pub const fn v(&self) -> f32 {
         self.0[1]
     }
@@ -162,6 +164,7 @@ impl<C> Atlas<C> {
     /// # Panics
     /// If `i` is out of bounds.
     // TODO Improve error reporting
+    #[inline]
     pub fn get(&self, i: u32) -> Texture<Slice2<'_, C>> {
         let [p0, p1] = self.rect(i);
         self.texture.data.slice(p0..p1).into()

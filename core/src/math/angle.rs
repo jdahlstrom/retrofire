@@ -418,6 +418,7 @@ impl<B> Vec2<B> {
     /// // A negative x and zero y maps to straight angle azimuth
     /// assert_approx_eq!(vec2(-1.0, 0.0).to_polar().az(), degs(180.0));
     /// ```
+    #[inline]
     pub fn to_polar(&self) -> PolarVec<B> {
         polar(self.len(), self.atan())
     }

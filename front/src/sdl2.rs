@@ -26,6 +26,7 @@ pub trait PixelFmt: Copy + Default {
     type Pixel: AsRef<[u8]> + Copy + Sized;
     const SDL_FMT: PixelFormatEnum;
 
+    #[inline]
     fn encode<C: IntoPixel<Self::Pixel, Self>>(self, color: C) -> Self::Pixel {
         color.into_pixel_fmt(self)
     }

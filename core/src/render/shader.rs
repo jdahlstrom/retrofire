@@ -60,6 +60,7 @@ where
 {
     type Output = Out;
 
+    #[inline]
     fn shade_vertex(&self, vertex: In, uniform: Uni) -> Out {
         self(vertex, uniform)
     }
@@ -70,6 +71,7 @@ where
     F: Fn(Frag<Var>) -> Out,
     Out: Into<Option<Color4>>,
 {
+    #[inline]
     fn shade_fragment(&self, frag: Frag<Var>) -> Option<Color4> {
         self(frag).into()
     }
@@ -111,6 +113,7 @@ where
 {
     type Output = Vs::Output;
 
+    #[inline]
     fn shade_vertex(&self, vertex: In, uniform: Uni) -> Self::Output {
         self.vertex_shader.shade_vertex(vertex, uniform)
     }
@@ -120,6 +123,7 @@ impl<Vs, Fs, Var> FragmentShader<Var> for Shader<Vs, Fs>
 where
     Fs: FragmentShader<Var>,
 {
+    #[inline]
     fn shade_fragment(&self, frag: Frag<Var>) -> Option<Color4> {
         self.fragment_shader.shade_fragment(frag)
     }
