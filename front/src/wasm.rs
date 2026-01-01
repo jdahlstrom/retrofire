@@ -26,7 +26,7 @@ use retrofire_core::{
     math::color::rgba,
     render::{Colorbuf, Context, Stats, target},
     util::buf::{AsMutSlice2, Buf2, MutSlice2},
-    util::{Dims, pixfmt::Argb8888},
+    util::{Dims, pixfmt::Rgba8888},
 };
 
 #[wasm_bindgen]
@@ -53,8 +53,10 @@ pub struct Builder {
     dims: Dims,
 }
 
+pub type Pixel = [u8; 4];
+
 pub type Framebuf<'a> = target::Framebuf<
-    Colorbuf<MutSlice2<'a, u32>, Argb8888>,
+    Colorbuf<MutSlice2<'a, Pixel>, Rgba8888>,
     MutSlice2<'a, f32>,
 >;
 
@@ -158,17 +160,12 @@ impl Window {
             .ok()
     }
 
-    fn put_image_data(&self, data: &[u32]) -> Result<(), &'static str> {
-        // SAFETY: TODO
-        let u8_data = unsafe {
-            slice::from_raw_parts(
-                data as *const [u32] as *const u8,
-                data.len() * 4,
-            )
-        };
-        let img =
-            ImageData::new_with_u8_clamped_array(Clamped(u8_data), self.dims.0)
-                .map_err(|_| "could not create image data from color buf")?;
+    fn put_image_data(&self, data: &[Pixel]) -> Result<(), &'static str> {
+        let img = ImageData::new_with_u8_clamped_array(
+            Clamped(data.as_flattened()),
+            self.dims.0,
+        )
+        .map_err(|_| "could not create image data from color buf")?;
 
         self.ctx2d
             .put_image_data(&img, 0.0, 0.0)
