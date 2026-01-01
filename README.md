@@ -105,7 +105,7 @@ functions, the package is not fully functional unless either the `std`,
 `libm`, or `mm` feature is enabled. Activating `std` additionally enables
 APIs that do I/O.
 
-The `retrofire-front` package depends on either `sdl2`, `minifb`, or
+The `retrofire-front` package depends on either `sdl3`, `minifb`, or
 `wasm-bindgen` and `web-sys`, depending on enabled features.
 
 The `retrofire-geom` package has no external dependencies. It only requires
