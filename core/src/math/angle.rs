@@ -77,6 +77,7 @@ pub const fn turns(a: f32) -> Angle {
 /// # Panics
 /// If `x` is outside the range [-1.0, 1.0].
 #[cfg(feature = "fp")]
+#[inline]
 pub fn asin(x: f32) -> Angle {
     assert!(-1.0 <= x && x <= 1.0);
     Angle(f32::asin(x))
@@ -96,6 +97,7 @@ pub fn asin(x: f32) -> Angle {
 /// # Panics
 /// If `x` is outside the range [-1.0, 1.0].
 #[cfg(feature = "fp")]
+#[inline]
 pub fn acos(x: f32) -> Angle {
     Angle(f32::acos(x))
 }
@@ -113,11 +115,13 @@ pub fn acos(x: f32) -> Angle {
 /// assert_eq!(atan2(-3.0, 0.0), degs(-90.0));
 /// ```
 #[cfg(feature = "fp")]
+#[inline]
 pub fn atan2(y: f32, x: f32) -> Angle {
     Angle(f32::atan2(y, x))
 }
 
 /// Returns a polar coordinate vector with azimuth `az` and radius `r`.
+#[inline]
 pub const fn polar<B>(r: f32, az: Angle) -> PolarVec<B> {
     Vector::new([r, az.to_rads()])
 }
@@ -126,6 +130,7 @@ pub const fn polar<B>(r: f32, az: Angle) -> PolarVec<B> {
 /// altitude `alt`, and radius `r`.
 ///
 /// An altitude of +90° corresponds to straight up and -90° to straight down.
+#[inline]
 pub const fn spherical<B>(r: f32, az: Angle, alt: Angle) -> SphericalVec<B> {
     Vector::new([r, az.to_rads(), alt.to_rads()])
 }
@@ -413,6 +418,7 @@ impl<B> Vec2<B> {
     /// // A negative x and zero y maps to straight angle azimuth
     /// assert_approx_eq!(vec2(-1.0, 0.0).to_polar().az(), degs(180.0));
     /// ```
+    #[inline]
     pub fn to_polar(&self) -> PolarVec<B> {
         polar(self.len(), self.atan())
     }
