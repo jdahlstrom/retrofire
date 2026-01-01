@@ -174,6 +174,7 @@ impl Xorshift64 {
     /// Successive calls to this function (with the same `self`) will yield
     /// every value in the interval [1, 2<sup>64</sup>) exactly once before
     /// starting to repeat the sequence.
+    #[inline]
     pub const fn next_bits(&mut self) -> u64 {
         let Self(x) = self;
         *x ^= *x << 13;
@@ -193,6 +194,7 @@ impl<D: Distrib> Iterator for Samples<D, &'_ mut DefaultRng> {
     /// Returns the next pseudorandom sample from this iterator.
     ///
     /// This method never returns `None`.
+    #[inline]
     fn next(&mut self) -> Option<Self::Item> {
         Some(self.0.sample(self.1))
     }
@@ -220,6 +222,7 @@ impl Default for Xorshift64 {
 impl<D: Distrib + ?Sized> Distrib for &D {
     type Sample = D::Sample;
 
+    #[inline]
     fn sample(&self, rng: &mut DefaultRng) -> Self::Sample {
         (*self).sample(rng)
     }
@@ -357,6 +360,7 @@ where
 {
     type Sample = S;
 
+    #[inline]
     fn sample(&self, rng: &mut DefaultRng) -> Self::Sample {
         Uniform(self.clone()).sample(rng)
     }
@@ -406,6 +410,7 @@ where
     /// assert_eq!(int_pairs.next(), Some([1, 0]));
     /// assert_eq!(int_pairs.next(), Some([3, 1]));
     /// ```
+    #[inline]
     fn sample(&self, rng: &mut DefaultRng) -> [T; N] {
         let Range { start, end } = self.0;
         array::from_fn(|i| Uniform(start[i]..end[i]).sample(rng))
@@ -592,6 +597,7 @@ impl Distrib for Bernoulli {
     /// let bools = array::from_fn(|_| bern.sample(rng));
     /// assert_eq!(bools, [true, true, false, true, false, true]);
     /// ```
+    #[inline]
     fn sample(&self, rng: &mut DefaultRng) -> bool {
         Uniform(0.0f32..1.0).sample(rng) < self.0
     }
@@ -601,6 +607,7 @@ impl<D: Distrib, E: Distrib> Distrib for (D, E) {
     type Sample = (D::Sample, E::Sample);
 
     /// Returns a pair of samples, sampled from two separate distributions.
+    #[inline]
     fn sample(&self, rng: &mut DefaultRng) -> Self::Sample {
         (self.0.sample(rng), self.1.sample(rng))
     }

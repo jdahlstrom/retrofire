@@ -217,6 +217,7 @@ impl<Sp, const N: usize> Color<[f32; N], Sp> {
     //      A generic clamp for Sc: Ord would conflict with this one. There is
     //      currently no clean way to support both floats and impl Ord types.
     //      However, ColorX should have its own inherent impls.
+    #[inline]
     #[must_use]
     pub fn clamp(&self, min: &Self, max: &Self) -> Self {
         array::from_fn(|i| self[i].clamp(min[i], max[i])).into()
@@ -408,6 +409,7 @@ impl Color3f<Rgb> {
 
 impl Color4f<Rgba> {
     /// Returns `self` as RGB, discarding the alpha channel.
+    #[inline]
     pub const fn to_rgb(self) -> Color3f<Rgb> {
         let [r, g, b, _] = self.0;
         rgb(r, g, b)
@@ -551,11 +553,13 @@ fn hcx_to_rgb<T: Display>(h: i32, c: T, x: T, z: T) -> [T; 3] {
 
 impl Color4<Hsla> {
     /// Returns `self` as HSL, discarding the alpha channel.
+    #[inline]
     pub const fn to_hsl(self) -> Color3<Hsl> {
         let [h, s, l, _] = self.0;
         hsl(h, s, l)
     }
     /// Returns the RGBA color equivalent to `self`.
+    #[inline]
     pub fn to_rgba(self) -> Color4<Rgba> {
         let [r, g, b] = self.to_hsl().to_rgb().0;
         rgba(r, g, b, self.a())
@@ -563,11 +567,13 @@ impl Color4<Hsla> {
 }
 impl Color4f<Hsla> {
     /// Returns `self` as HSL, discarding the alpha channel.
+    #[inline]
     pub fn to_hsl(self) -> Color3f<Hsl> {
         let [h, s, l, _] = self.0;
         hsl(h, s, l)
     }
     /// Returns the RGBA color equivalent to `self`.
+    #[inline]
     pub fn to_rgba(self) -> Color4f<Rgba> {
         let [r, g, b] = self.to_hsl().to_rgb().0;
         rgba(r, g, b, self.a())
@@ -576,14 +582,17 @@ impl Color4f<Hsla> {
 
 impl<Ch: Copy, const N: usize> Color<[Ch; N], Rgb> {
     /// Returns the red component of `self`.
+    #[inline]
     pub const fn r(&self) -> Ch {
         self.0[0]
     }
     /// Returns the green component of `self`.
+    #[inline]
     pub const fn g(&self) -> Ch {
         self.0[1]
     }
     /// Returns the blue component of `self`.
+    #[inline]
     pub const fn b(&self) -> Ch {
         self.0[2]
     }
@@ -591,18 +600,22 @@ impl<Ch: Copy, const N: usize> Color<[Ch; N], Rgb> {
 
 impl<Ch: Copy, const N: usize> Color<[Ch; N], Rgba> {
     /// Returns the red component of `self`.
+    #[inline]
     pub const fn r(&self) -> Ch {
         self.0[0]
     }
     /// Returns the green component of `self`.
+    #[inline]
     pub const fn g(&self) -> Ch {
         self.0[1]
     }
     /// Returns the blue component of `self`.
+    #[inline]
     pub const fn b(&self) -> Ch {
         self.0[2]
     }
     /// Returns the alpha component of `self`.
+    #[inline]
     pub const fn a(&self) -> Ch {
         self.0[3]
     }
@@ -610,14 +623,17 @@ impl<Ch: Copy, const N: usize> Color<[Ch; N], Rgba> {
 
 impl<Ch: Copy, const N: usize> Color<[Ch; N], Hsl> {
     /// Returns the hue component of `self`.
+    #[inline]
     pub const fn h(&self) -> Ch {
         self.0[0]
     }
     /// Returns the saturation component of `self`.
+    #[inline]
     pub const fn s(&self) -> Ch {
         self.0[1]
     }
     /// Returns the luminance component of `self`.
+    #[inline]
     pub const fn l(&self) -> Ch {
         self.0[2]
     }
@@ -628,18 +644,22 @@ where
     Ch: Copy,
 {
     /// Returns the hue component of `self`.
+    #[inline]
     pub const fn h(&self) -> Ch {
         self.0[0]
     }
     /// Returns the saturation component of `self`.
+    #[inline]
     pub const fn s(&self) -> Ch {
         self.0[1]
     }
     /// Returns the luminance component of `self`.
+    #[inline]
     pub const fn l(&self) -> Ch {
         self.0[2]
     }
     /// Returns the alpha component of `self`.
+    #[inline]
     pub const fn a(&self) -> Ch {
         self.0[3]
     }
@@ -656,6 +676,7 @@ impl<Sp: Debug + Default, const DIM: usize> Affine for Color<[u8; DIM], Sp> {
 
     const DIM: usize = DIM;
 
+    #[inline]
     fn add(&self, other: &Self::Diff) -> Self {
         array::from_fn(|i| {
             let sum = i32::from(self.0[i]) + other.0[i];
@@ -663,6 +684,7 @@ impl<Sp: Debug + Default, const DIM: usize> Affine for Color<[u8; DIM], Sp> {
         })
         .into()
     }
+    #[inline]
     fn sub(&self, other: &Self) -> Self::Diff {
         array::from_fn(|i| i32::from(self.0[i]) - i32::from(other.0[i])).into()
     }
@@ -694,6 +716,7 @@ where
     type Scalar = f32;
 
     /// Returns the all-zeroes color (black).
+    #[inline]
     fn zero() -> Self {
         [0.0; DIM].into()
     }
@@ -714,6 +737,7 @@ impl<Sc, Sp, const N: usize> ZDiv for Color<[Sc; N], Sp> where Sc: ZDiv + Copy {
 impl<R: Copy, Sp> Copy for Color<R, Sp> {}
 
 impl<R: Clone, Sp> Clone for Color<R, Sp> {
+    #[inline]
     fn clone(&self) -> Self {
         self.0.clone().into()
     }
@@ -726,6 +750,7 @@ impl<R: Debug, Space: Debug + Default> Debug for Color<R, Space> {
 }
 
 impl<R: Default, S> Default for Color<R, S> {
+    #[inline]
     fn default() -> Self {
         R::default().into()
     }
@@ -734,6 +759,7 @@ impl<R: Default, S> Default for Color<R, S> {
 impl<R: Eq, Sp> Eq for Color<R, Sp> {}
 
 impl<R: PartialEq, Sp> PartialEq for Color<R, Sp> {
+    #[inline]
     fn eq(&self, other: &Self) -> bool {
         self.0 == other.0
     }

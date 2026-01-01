@@ -58,6 +58,7 @@ impl<B: AsMutSlice2, F> AsMutSlice2 for Colorbuf<B, F> {
 }
 
 impl<T: Target> Target for &mut T {
+    #[inline]
     fn rasterize<V: Vary, Fs: FragmentShader<V>>(
         &mut self,
         sl: Scanline<V>,
@@ -68,6 +69,7 @@ impl<T: Target> Target for &mut T {
     }
 }
 impl<T: Target> Target for &RefCell<T> {
+    #[inline]
     fn rasterize<V: Vary, Fs: FragmentShader<V>>(
         &mut self,
         sl: Scanline<V>,
@@ -85,6 +87,7 @@ where
     Color4: IntoPixel<Col::Elem, Fmt>,
 {
     /// Rasterizes `scanline` into this framebuffer.
+    #[inline]
     fn rasterize<V: Vary, Fs: FragmentShader<V>>(
         &mut self,
         sl: Scanline<V>,
@@ -103,6 +106,7 @@ where
 {
     /// Rasterizes `scanline` into this `u32` color buffer.
     /// Does no z-buffering.
+    #[inline]
     fn rasterize<V: Vary, Fs: FragmentShader<V>>(
         &mut self,
         sl: Scanline<V>,
@@ -114,6 +118,7 @@ where
 }
 
 impl Target for Buf2<Color4> {
+    #[inline]
     fn rasterize<V: Vary, Fs: FragmentShader<V>>(
         &mut self,
         sl: Scanline<V>,
@@ -125,6 +130,7 @@ impl Target for Buf2<Color4> {
 }
 
 impl Target for Buf2<Color3> {
+    #[inline]
     fn rasterize<V: Vary, Fs: FragmentShader<V>>(
         &mut self,
         sl: Scanline<V>,

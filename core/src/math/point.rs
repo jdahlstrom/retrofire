@@ -312,12 +312,14 @@ impl<Sc: ApproxEq, Sp, const N: usize> ApproxEq<Sc> for Point<[Sc; N], Sp> {
 impl<R: Copy, S> Copy for Point<R, S> {}
 
 impl<R: Clone, S> Clone for Point<R, S> {
+    #[inline]
     fn clone(&self) -> Self {
         Self(self.0.clone(), Pd)
     }
 }
 
 impl<R: Default, S> Default for Point<R, S> {
+    #[inline]
     fn default() -> Self {
         Self(R::default(), Pd)
     }
@@ -333,6 +335,7 @@ impl<R: Debug, Sp: Debug + Default> Debug for Point<R, Sp> {
 impl<R: Eq, S> Eq for Point<R, S> {}
 
 impl<R: PartialEq, S> PartialEq for Point<R, S> {
+    #[inline]
     fn eq(&self, other: &Self) -> bool {
         self.0 == other.0
     }
