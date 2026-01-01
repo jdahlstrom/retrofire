@@ -23,6 +23,7 @@ package = "retrofire-core"
 version = "0.4.0"
 path = "../../core"
 features = ["mm"]
+default-features = false
 
 [dependencies.re-front]
 package = "retrofire-front"
