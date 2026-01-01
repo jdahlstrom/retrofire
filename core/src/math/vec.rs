@@ -735,6 +735,7 @@ impl<Sc: ApproxEq, Sp, const N: usize> ApproxEq<Sc> for Vector<[Sc; N], Sp> {
 impl<R: Copy, S> Copy for Vector<R, S> {}
 
 impl<R: Clone, S> Clone for Vector<R, S> {
+    #[inline]
     fn clone(&self) -> Self {
         Self::new(self.0.clone())
     }
@@ -742,6 +743,7 @@ impl<R: Clone, S> Clone for Vector<R, S> {
 
 // Limited to Cartesian vectors because Spherical/PolarVec have own impl
 impl<R: Default, B, const DIM: usize> Default for Vector<R, Real<DIM, B>> {
+    #[inline]
     fn default() -> Self {
         Self::new(R::default())
     }
@@ -750,6 +752,7 @@ impl<R: Default, B, const DIM: usize> Default for Vector<R, Real<DIM, B>> {
 impl<R: Eq, S> Eq for Vector<R, S> {}
 
 impl<R: PartialEq, S> PartialEq for Vector<R, S> {
+    #[inline]
     fn eq(&self, other: &Self) -> bool {
         self.0 == other.0
     }

@@ -76,6 +76,7 @@ pub struct ClipPlane(ClipVec, u8);
 
 impl ClipPlane {
     /// Creates a clip plane given a normal, offset, and outcode bit.
+    #[inline]
     const fn new(x: f32, y: f32, z: f32, off: f32, bit: u8) -> Self {
         Self(ClipVec::new([x, y, z, -off]), bit)
     }
