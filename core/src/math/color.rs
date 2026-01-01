@@ -106,13 +106,15 @@ pub const INV_GAMMA: f32 = 1.0 / GAMMA;
 // Inherent impls
 //
 
-impl<Ch, Sp, const N: usize> Color<[Ch; N], Sp> {
-    /// Returns a new `Color` with the given channels.
+impl<R, Sp> Color<R, Sp> {
+    /// Returns a new `Color` with the given representation.
     #[inline]
-    pub const fn new(chs: [Ch; N]) -> Self {
-        Self(chs, PhantomData)
+    pub const fn new(repr: R) -> Self {
+        Self(repr, PhantomData)
     }
+}
 
+impl<Ch, Sp, const N: usize> Color<[Ch; N], Sp> {
     /// Returns `self` with each channel mapped with the given function.
     #[inline]
     pub fn map<C>(&self, f: impl FnMut(Ch) -> C) -> Color<[C; N], Sp>
@@ -661,10 +663,43 @@ impl<R: PartialEq, Sp> PartialEq for Color<R, Sp> {
     }
 }
 
+// Color <-> repr conversions
 impl<R, Sp> From<R> for Color<R, Sp> {
     #[inline]
-    fn from(els: R) -> Self {
-        Self(els, PhantomData)
+    fn from(repr: R) -> Self {
+        Self::new(repr)
+    }
+}
+impl<Sc, Sp, const N: usize> From<Color<[Sc; N], Sp>> for [Sc; N] {
+    #[inline]
+    fn from(c: Color<[Sc; N], Sp>) -> Self {
+        c.0
+    }
+}
+
+// Color <-> tuple conversions
+impl<Sc, Sp> From<(Sc, Sc, Sc)> for Color<[Sc; 3], Sp> {
+    #[inline]
+    fn from(chs: (Sc, Sc, Sc)) -> Self {
+        Self::new(chs.into())
+    }
+}
+impl<Sc, Sp> From<Color<[Sc; 3], Sp>> for (Sc, Sc, Sc) {
+    #[inline]
+    fn from(c: Color<[Sc; 3], Sp>) -> Self {
+        c.0.into()
+    }
+}
+impl<Sc, Sp> From<(Sc, Sc, Sc, Sc)> for Color<[Sc; 4], Sp> {
+    #[inline]
+    fn from(chs: (Sc, Sc, Sc, Sc)) -> Self {
+        Self::new(chs.into())
+    }
+}
+impl<Sc, Sp> From<Color<[Sc; 4], Sp>> for (Sc, Sc, Sc, Sc) {
+    #[inline]
+    fn from(c: Color<[Sc; 4], Sp>) -> Self {
+        c.0.into()
     }
 }
 
@@ -676,7 +711,6 @@ impl<R: Index<usize>, Sp> Index<usize> for Color<R, Sp> {
         &self.0[i]
     }
 }
-
 impl<R: IndexMut<usize>, Sp> IndexMut<usize> for Color<R, Sp> {
     #[inline]
     fn index_mut(&mut self, i: usize) -> &mut Self::Output {
@@ -797,6 +831,58 @@ impl_op!(Div::div, Color, f32, /=, bound=Linear<Scalar = f32>);
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn color3_from() {
+        let c: Color3 = [1, 2, 3].into();
+        assert_eq!(c.0, [1, 2, 3]);
+
+        let c: Color3 = (1, 2, 3).into();
+        assert_eq!(c.0, [1, 2, 3]);
+
+        let c: Color3f = [1.0, 2.0, 3.0].into();
+        assert_eq!(c.0, [1.0, 2.0, 3.0]);
+
+        let c: Color3f = (1.0, 2.0, 3.0).into();
+        assert_eq!(c.0, [1.0, 2.0, 3.0]);
+    }
+
+    #[test]
+    fn color3_into() {
+        let c = rgb(1, 2, 3);
+        assert_eq!(<[_; 3]>::from(c), [1, 2, 3]);
+        assert_eq!(<(_, _, _)>::from(c), (1, 2, 3));
+
+        let c = rgb(1.0, 2.0, 3.0);
+        assert_eq!(<[_; 3]>::from(c), [1.0, 2.0, 3.0]);
+        assert_eq!(<(_, _, _)>::from(c), (1.0, 2.0, 3.0));
+    }
+
+    #[test]
+    fn color4_from() {
+        let c: Color4 = [1, 2, 3, 4].into();
+        assert_eq!(c.0, [1, 2, 3, 4]);
+
+        let c: Color4 = (1, 2, 3, 4).into();
+        assert_eq!(c.0, [1, 2, 3, 4]);
+
+        let c: Color4f = [1.0, 2.0, 3.0, 4.0].into();
+        assert_eq!(c.0, [1.0, 2.0, 3.0, 4.0]);
+
+        let c: Color4f = (1.0, 2.0, 3.0, 4.0).into();
+        assert_eq!(c.0, [1.0, 2.0, 3.0, 4.0]);
+    }
+
+    #[test]
+    fn color4_into() {
+        let c = rgba(1, 2, 3, 4);
+        assert_eq!(<[_; 4]>::from(c), [1, 2, 3, 4]);
+        assert_eq!(<(_, _, _, _)>::from(c), (1, 2, 3, 4));
+
+        let c = rgba(1.0, 2.0, 3.0, 4.0);
+        assert_eq!(<[_; 4]>::from(c), [1.0, 2.0, 3.0, 4.0]);
+        assert_eq!(<(_, _, _, _)>::from(c), (1.0, 2.0, 3.0, 4.0));
+    }
 
     #[test]
     fn rgb_components() {
