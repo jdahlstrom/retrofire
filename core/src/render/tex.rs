@@ -224,7 +224,7 @@ impl SamplerRepeatPot {
     /// Creates a new `SamplerRepeatPot` based on the dimensions of `tex`.
     /// # Panics
     /// If the width or height of `tex` is not a power of two.
-    pub fn new<C>(tex: &Texture<impl AsSlice2<C>>) -> Self {
+    pub fn new(tex: &Texture<impl AsSlice2>) -> Self {
         let w = tex.width() as u32;
         let h = tex.height() as u32;
         assert!(w.is_power_of_two(), "width must be 2^n, was {w}");
@@ -237,11 +237,11 @@ impl SamplerRepeatPot {
     ///
     /// Uses nearest neighbor sampling.
     #[inline]
-    pub fn sample<C: Copy>(
+    pub fn sample<D: AsSlice2<Elem: Copy>>(
         &self,
-        tex: &Texture<impl AsSlice2<C>>,
+        tex: &Texture<D>,
         tc: TexCoord,
-    ) -> C {
+    ) -> D::Elem {
         let scaled_uv = uv(tex.width() * tc.u(), tex.height() * tc.v());
         self.sample_abs(tex, scaled_uv)
     }
@@ -252,11 +252,11 @@ impl SamplerRepeatPot {
     ///
     /// Uses nearest neighbor sampling.
     #[inline]
-    pub fn sample_abs<C: Copy>(
+    pub fn sample_abs<D: AsSlice2<Elem: Copy>>(
         &self,
-        tex: &Texture<impl AsSlice2<C>>,
+        tex: &Texture<D>,
         tc: TexCoord,
-    ) -> C {
+    ) -> D::Elem {
         use crate::math::float::f32;
         // Convert first to signed int to avoid clamping to zero
         let u = f32::floor(tc.u()) as i32 as u32 & self.w_mask;
@@ -277,11 +277,11 @@ impl SamplerClamp {
     ///
     /// Uses nearest neighbor sampling.
     #[inline]
-    pub fn sample<C: Copy>(
+    pub fn sample<D: AsSlice2<Elem: Copy>>(
         &self,
-        tex: &Texture<impl AsSlice2<C>>,
+        tex: &Texture<D>,
         tc: TexCoord,
-    ) -> C {
+    ) -> D::Elem {
         self.sample_abs(tex, uv(tc.u() * tex.w, tc.v() * tex.h))
     }
 
@@ -291,11 +291,11 @@ impl SamplerClamp {
     ///
     /// Uses nearest neighbor sampling.
     #[inline]
-    pub fn sample_abs<C: Copy>(
+    pub fn sample_abs<D: AsSlice2<Elem: Copy>>(
         &self,
-        tex: &Texture<impl AsSlice2<C>>,
+        tex: &Texture<D>,
         tc: TexCoord,
-    ) -> C {
+    ) -> D::Elem {
         use crate::math::float::f32;
         let u = f32::floor(tc.u().clamp(0.0, tex.w - 1.0)) as u32;
         let v = f32::floor(tc.v().clamp(0.0, tex.h - 1.0)) as u32;
@@ -322,11 +322,11 @@ impl SamplerOnce {
     /// # Panics
     /// May panic if `tc` is not in the valid range.
     #[inline]
-    pub fn sample<C: Copy>(
+    pub fn sample<D: AsSlice2<Elem: Copy>>(
         &self,
-        tex: &Texture<impl AsSlice2<C>>,
+        tex: &Texture<D>,
         tc: TexCoord,
-    ) -> C {
+    ) -> D::Elem {
         let scaled_uv = uv(tex.width() * tc.u(), tex.height() * tc.v());
         self.sample_abs(tex, scaled_uv)
     }
@@ -340,11 +340,11 @@ impl SamplerOnce {
     /// # Panics
     /// May panic if `tc` is not in the valid range.
     #[inline]
-    pub fn sample_abs<C: Copy>(
+    pub fn sample_abs<D: AsSlice2<Elem: Copy>>(
         &self,
-        tex: &Texture<impl AsSlice2<C>>,
+        tex: &Texture<D>,
         tc: TexCoord,
-    ) -> C {
+    ) -> D::Elem {
         let u = tc.u() as u32;
         let v = tc.v() as u32;
 

@@ -49,8 +49,10 @@ impl<B, F: Default> Colorbuf<B, F> {
     }
 }
 
-impl<T, B: AsMutSlice2<T>, F> AsMutSlice2<T> for Colorbuf<B, F> {
-    fn as_mut_slice2(&mut self) -> MutSlice2<'_, T> {
+impl<B: AsMutSlice2, F> AsMutSlice2 for Colorbuf<B, F> {
+    type Elem = B::Elem;
+    #[inline]
+    fn as_mut_slice2(&mut self) -> MutSlice2<'_, Self::Elem> {
         self.buf.as_mut_slice2()
     }
 }
@@ -78,9 +80,9 @@ impl<T: Target> Target for &RefCell<T> {
 
 impl<Col, Fmt, Dep> Target for Framebuf<Colorbuf<Col, Fmt>, Dep>
 where
-    Col: AsMutSlice2<u32>,
-    Dep: AsMutSlice2<f32>,
-    Color4: IntoPixel<u32, Fmt>,
+    Col: AsMutSlice2,
+    Dep: AsMutSlice2<Elem = f32>,
+    Color4: IntoPixel<Col::Elem, Fmt>,
 {
     /// Rasterizes `scanline` into this framebuffer.
     fn rasterize<V: Vary, Fs: FragmentShader<V>>(
@@ -96,8 +98,8 @@ where
 
 impl<Buf, Fmt> Target for Colorbuf<Buf, Fmt>
 where
-    Buf: AsMutSlice2<u32>,
-    Color4: IntoPixel<u32, Fmt>,
+    Buf: AsMutSlice2,
+    Color4: IntoPixel<Buf::Elem, Fmt>,
 {
     /// Rasterizes `scanline` into this `u32` color buffer.
     /// Does no z-buffering.
@@ -133,11 +135,11 @@ impl Target for Buf2<Color3> {
     }
 }
 
-pub fn rasterize<T, V: Vary>(
-    buf: &mut impl AsMutSlice2<T>,
+pub fn rasterize<B: AsMutSlice2, V: Vary>(
+    buf: &mut B,
     mut sl: Scanline<V>,
     fs: &impl FragmentShader<V>,
-    mut conv: impl FnMut(Color4) -> T,
+    mut conv: impl FnMut(Color4) -> B::Elem,
     ctx: &Context,
 ) -> Throughput {
     let x0 = sl.xs.start;
@@ -158,12 +160,12 @@ pub fn rasterize<T, V: Vary>(
     io
 }
 
-pub fn rasterize_fb<T, V: Vary>(
-    cbuf: &mut impl AsMutSlice2<T>,
-    zbuf: &mut impl AsMutSlice2<f32>,
+pub fn rasterize_fb<B: AsMutSlice2, V: Vary>(
+    cbuf: &mut B,
+    zbuf: &mut impl AsMutSlice2<Elem = f32>,
     mut sl: Scanline<V>,
     fs: &impl FragmentShader<V>,
-    mut conv: impl FnMut(Color4) -> T,
+    mut conv: impl FnMut(Color4) -> B::Elem,
     ctx: &Context,
 ) -> Throughput {
     let x0 = sl.xs.start;

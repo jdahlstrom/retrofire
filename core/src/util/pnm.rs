@@ -278,12 +278,10 @@ pub fn parse_pnm(input: impl IntoIterator<Item = u8>) -> Result<Buf2<Color3>> {
 /// # Errors
 /// Returns [`std::io::Error`] if an error occurs while writing.
 #[cfg(feature = "std")]
-pub fn save_ppm<T>(
-    path: impl AsRef<Path>,
-    data: impl AsSlice2<T>,
-) -> io::Result<()>
+pub fn save_ppm<D>(path: impl AsRef<Path>, data: D) -> io::Result<()>
 where
-    T: IntoPixel<[u8; 3], Rgb888> + Copy,
+    D: AsSlice2,
+    D::Elem: IntoPixel<[u8; 3], Rgb888> + Copy,
 {
     let out = BufWriter::new(File::create(path)?);
     write_ppm(out, data)
@@ -295,12 +293,10 @@ where
 /// # Errors
 /// Returns [`std::io::Error`] if an error occurs while writing.
 #[cfg(feature = "std")]
-pub fn write_ppm<T>(
-    mut out: impl io::Write,
-    data: impl AsSlice2<T>,
-) -> io::Result<()>
+pub fn write_ppm<D>(mut out: impl io::Write, data: D) -> io::Result<()>
 where
-    T: IntoPixel<[u8; 3], Rgb888> + Copy,
+    D: AsSlice2,
+    D::Elem: IntoPixel<[u8; 3], Rgb888> + Copy,
 {
     let slice = data.as_slice2();
     Header {
