@@ -6,7 +6,6 @@ use re::prelude::*;
 
 use re::render::{ModelToView, render, shader::Shader};
 use re::util::Dims;
-
 use re_front::{dims::SVGA_800_600, wasm::Window};
 
 // Entry point from JS
@@ -20,9 +19,9 @@ pub fn start() {
     win.ctx.color_clear = Some(rgba(0, 0, 0, 0x80));
 
     let vs = [
-        vertex(pt3(-2.0, 1.0, 0.0), rgba(1.0, 0.2, 0.1, 0.9)),
-        vertex(pt3(2.0, 2.0, 0.0), rgba(0.2, 0.9, 0.1, 0.8)),
+        vertex(pt3(-2.0, 1.0, 0.0), rgba(0.9, 0.2, 0.1, 0.9)),
         vertex(pt3(0.0, -2.0, 0.0), rgba(0.3, 0.4, 1.0, 1.0)),
+        vertex(pt3(2.0, 2.0, 0.0), rgba(0.2, 0.9, 0.1, 0.8)),
     ];
 
     let proj = perspective(1.0, 4.0 / 3.0, 0.1..1000.0);
