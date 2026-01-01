@@ -192,10 +192,11 @@ impl<PF: PixelFmt<Pixel = [u8; N]>, const N: usize> Window<PF> {
         let mut tex = tc.create_texture_streaming(PF::SDL_FMT, w, h)?;
 
         let mut zbuf = Buf2::new(dims);
-        let mut ctx = self.ctx.clone();
+        let ctx = self.ctx.clone();
 
         let start = Instant::now();
         let mut last = Instant::now();
+        let stats = RefCell::new(Stats::start());
         'main: loop {
             self.events.clear();
             for e in self.ev_pump.poll_iter() {
@@ -207,6 +208,11 @@ impl<PF: PixelFmt<Pixel = [u8; N]>, const N: usize> Window<PF> {
                     e => self.events.push(e),
                 }
             }
+
+            let mut frame_ctx = Context {
+                stats: stats.clone(),
+                ..ctx.clone()
+            };
 
             let cf = tex.with_lock(None, |bytes, pitch| {
                 let bytes = bytes.as_chunks_mut().0;
@@ -232,10 +238,12 @@ impl<PF: PixelFmt<Pixel = [u8; N]>, const N: usize> Window<PF> {
                     dt: replace(&mut last, Instant::now()).elapsed(),
                     buf: &RefCell::new(buf),
                     win: self,
-                    ctx: &mut ctx,
+                    ctx: &mut frame_ctx,
                 };
                 frame_fn(frame)
             })?;
+
+            *ctx.stats.borrow_mut() += frame_ctx.stats.into_inner();
 
             self.present(&tex)?;
             ctx.stats.borrow_mut().frames += 1.0;

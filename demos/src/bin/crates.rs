@@ -8,7 +8,8 @@ use re::core::render::{
     clip::Status::*,
     scene::Obj,
     shader,
-    tex::SamplerClamp,
+    tex::{Atlas, SamplerClamp},
+    text::Console,
 };
 // Try also Rgb565 or Rgba4444
 use re::core::util::{pixfmt::Rgba8888, pnm::read_pnm};
@@ -20,6 +21,7 @@ fn main() {
     let mut win = Window::builder()
         .title("retrofire//crates")
         .pixel_fmt(Rgba8888)
+        .vsync(false)
         .build()
         .expect("should create window");
 
@@ -55,6 +57,11 @@ fn main() {
 
     let floor = floor();
     let crates = crates();
+
+    static FONT: &[u8] = include_bytes!("../../assets/font_6x10.pbm");
+    let font = Atlas::grid((6, 10), read_pnm(FONT).expect("font exists").into());
+
+    let mut con = Console::new(font, pt2(20, 20)..pt2(400, 200));
 
     win.run(|frame| {
         //
@@ -131,6 +138,10 @@ fn main() {
 
             frame.ctx.stats.borrow_mut().objs.o += 1;
         }
+
+        con.clear();
+        write!(con, "{}", frame.ctx.stats.borrow());
+        con.render(frame.buf, frame.ctx);
 
         Continue(())
     })
