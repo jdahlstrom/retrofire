@@ -89,17 +89,19 @@ pub mod dims {
     pub const UWQHD_3440_1440: Dims = (3440, 1440);
 }
 
-impl<W, C: AsMutSlice2<u32>, F: Copy, Z: AsMutSlice2<f32>>
-    Frame<'_, W, &RefCell<Framebuf<Colorbuf<C, F>, Z>>>
+impl<Win, Fmt, Cbuf, Zbuf>
+    Frame<'_, Win, &RefCell<Framebuf<Colorbuf<Cbuf, Fmt>, Zbuf>>>
 where
-    Color4: IntoPixel<u32, F>,
+    Fmt: Copy,
+    Cbuf: AsMutSlice2<Elem: Clone>,
+    Zbuf: AsMutSlice2<Elem = f32>,
+    Color4: IntoPixel<Cbuf::Elem, Fmt>,
 {
     /// Clears the color buffer if [color clearing][Context::color_clear]
     /// is enabled and the depth buffer if [depth clearing][Context::depth_clear]
     /// is enabled.
     pub fn clear(&mut self) {
         if let Some(c) = self.ctx.color_clear {
-            // TODO Assumes pixel format
             self.buf
                 .borrow_mut()
                 .color_buf

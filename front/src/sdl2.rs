@@ -11,11 +11,8 @@ use sdl2::{
     video::{FullscreenType, Window as SdlWindow, WindowBuildError},
 };
 
-use retrofire_core::math::{Color4, Vary};
-use retrofire_core::render::{
-    Colorbuf, Context, FragmentShader, Stats, Target, raster::Scanline,
-    stats::Throughput, target::rasterize_fb,
-};
+use retrofire_core::math::Color4;
+use retrofire_core::render::{Colorbuf, Context, Stats, target};
 use retrofire_core::util::{
     Dims,
     buf::{AsMutSlice2, Buf2, MutSlice2},
@@ -63,10 +60,8 @@ pub struct Builder<'title, PF> {
     pub pixfmt: PF,
 }
 
-pub struct Framebuf<'a, PF: PixelFmt> {
-    pub color_buf: Colorbuf<MutSlice2<'a, PF::Pixel>, PF>,
-    pub depth_buf: MutSlice2<'a, f32>,
-}
+pub type Framebuf<'a, Pix, Fmt> =
+    target::Framebuf<Colorbuf<MutSlice2<'a, Pix>, Fmt>, MutSlice2<'a, f32>>;
 
 //
 // Inherent impls
@@ -183,7 +178,9 @@ impl<PF: PixelFmt<Pixel = [u8; N]>, const N: usize> Window<PF> {
     /// * the callback returns [`ControlFlow::Break`][ControlFlow].
     pub fn run<F>(&mut self, mut frame_fn: F) -> Result<Stats, Error>
     where
-        F: FnMut(&mut Frame<Self, &RefCell<Framebuf<PF>>>) -> ControlFlow<()>,
+        F: FnMut(
+            &mut Frame<Self, &RefCell<Framebuf<PF::Pixel, PF>>>,
+        ) -> ControlFlow<()>,
         Color4: IntoPixel<PF::Pixel, PF>,
     {
         let dims @ (w, h) = self.canvas.window().drawable_size();
@@ -212,14 +209,6 @@ impl<PF: PixelFmt<Pixel = [u8; N]>, const N: usize> Window<PF> {
                 let bytes = bytes.as_chunks_mut().0;
                 let pitch = pitch / N;
 
-                if let Some(z) = ctx.depth_clear {
-                    // Z-buffer stores reciprocals
-                    zbuf.fill(z.recip());
-                }
-                if let Some(c) = ctx.color_clear {
-                    bytes.fill(self.pixfmt.encode(c));
-                }
-
                 let color_buf =
                     Colorbuf::new(MutSlice2::new(dims, pitch as u32, bytes));
                 let buf = Framebuf {
@@ -234,6 +223,8 @@ impl<PF: PixelFmt<Pixel = [u8; N]>, const N: usize> Window<PF> {
                     win: self,
                     ctx: &mut ctx,
                 };
+
+                frame.clear();
                 frame_fn(frame)
             })?;
 
@@ -265,28 +256,6 @@ impl PixelFmt for Rgb565 {
 impl PixelFmt for Rgba4444 {
     type Pixel = [u8; 2];
     const SDL_FMT: PixelFormatEnum = PixelFormatEnum::RGBA4444;
-}
-
-impl<'a, PF, const N: usize> Target for Framebuf<'a, PF>
-where
-    PF: PixelFmt<Pixel = [u8; N]>,
-    Color4: IntoPixel<PF::Pixel, PF>,
-{
-    fn rasterize<V: Vary, Fs: FragmentShader<V>>(
-        &mut self,
-        sl: Scanline<V>,
-        fs: &Fs,
-        ctx: &Context,
-    ) -> Throughput {
-        rasterize_fb(
-            &mut self.color_buf,
-            &mut self.depth_buf,
-            sl,
-            fs,
-            |c| c.into_pixel(),
-            ctx,
-        )
-    }
 }
 
 impl<PF: PixelFmt> Default for Builder<'_, PF> {

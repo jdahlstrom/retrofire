@@ -18,16 +18,18 @@ use inner::Inner;
 //
 
 /// A trait for types that can provide a view of their data as a [`Slice2`].
-pub trait AsSlice2<T> {
+pub trait AsSlice2 {
+    type Elem;
     /// Returns a borrowed `Slice2` view of `Self`.
-    fn as_slice2(&self) -> Slice2<'_, T>;
+    fn as_slice2(&self) -> Slice2<'_, Self::Elem>;
 }
 
 /// A trait for types that can provide a mutable view of their data
 /// as a [`MutSlice2`].
-pub trait AsMutSlice2<T> {
+pub trait AsMutSlice2 {
+    type Elem;
     /// Returns a mutably borrowed `MutSlice2` view of `Self`.
-    fn as_mut_slice2(&mut self) -> MutSlice2<'_, T>;
+    fn as_mut_slice2(&mut self) -> MutSlice2<'_, Self::Elem>;
 }
 
 //
@@ -266,44 +268,51 @@ impl<'a, T> MutSlice2<'a, T> {
 // Local trait impls
 //
 
-impl<T> AsSlice2<T> for Buf2<T> {
+impl<T> AsSlice2 for Buf2<T> {
+    type Elem = T;
     #[inline]
     fn as_slice2(&self) -> Slice2<'_, T> {
         self.0.as_slice2()
     }
 }
-impl<T> AsSlice2<T> for &Buf2<T> {
+impl<T> AsSlice2 for &Buf2<T> {
+    type Elem = T;
     #[inline]
     fn as_slice2(&self) -> Slice2<'_, T> {
         self.0.as_slice2()
     }
 }
-impl<T> AsSlice2<T> for Slice2<'_, T> {
+impl<T> AsSlice2 for Slice2<'_, T> {
+    type Elem = T;
     #[inline]
     fn as_slice2(&self) -> Slice2<'_, T> {
         self.0.as_slice2()
     }
 }
-impl<T> AsSlice2<T> for MutSlice2<'_, T> {
+impl<T> AsSlice2 for MutSlice2<'_, T> {
+    type Elem = T;
     #[inline]
     fn as_slice2(&self) -> Slice2<'_, T> {
         self.0.as_slice2()
     }
 }
 
-impl<T> AsMutSlice2<T> for Buf2<T> {
+impl<T> AsMutSlice2 for Buf2<T> {
+    type Elem = T;
     #[inline]
     fn as_mut_slice2(&mut self) -> MutSlice2<'_, T> {
         self.0.as_mut_slice2()
     }
 }
-impl<T> AsMutSlice2<T> for &mut Buf2<T> {
+impl<T> AsMutSlice2 for &mut Buf2<T> {
+    type Elem = T;
     #[inline]
     fn as_mut_slice2(&mut self) -> MutSlice2<'_, T> {
         self.0.as_mut_slice2()
     }
 }
-impl<T> AsMutSlice2<T> for MutSlice2<'_, T> {
+impl<T> AsMutSlice2 for MutSlice2<'_, T> {
+    type Elem = T;
     #[inline]
     fn as_mut_slice2(&mut self) -> MutSlice2<'_, T> {
         self.0.as_mut_slice2()
@@ -637,7 +646,7 @@ pub mod inner {
         /// # Panics
         /// if the dimensions of `self` and `other` do not match.
         #[doc(alias = "blit")]
-        pub fn copy_from(&mut self, other: impl AsSlice2<T>)
+        pub fn copy_from(&mut self, other: impl AsSlice2<Elem = T>)
         where
             T: Copy,
         {
@@ -1050,7 +1059,7 @@ mod tests {
 
     #[test]
     fn buf_ref_as_slice() {
-        fn foo<T: AsSlice2<u32>>(buf: T) -> u32 {
+        fn foo<T: AsSlice2<Elem = u32>>(buf: T) -> u32 {
             buf.as_slice2().width()
         }
         let buf = Buf2::new((2, 2));
@@ -1060,7 +1069,7 @@ mod tests {
 
     #[test]
     fn buf_ref_as_slice_mut() {
-        fn foo<T: AsMutSlice2<u32>>(mut buf: T) {
+        fn foo<T: AsMutSlice2<Elem = u32>>(mut buf: T) {
             buf.as_mut_slice2()[[1, 1]] = 42;
         }
         let mut buf = Buf2::new((2, 2));
