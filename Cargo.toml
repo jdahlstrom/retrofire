@@ -8,6 +8,9 @@
 # \___\/ ==\______\/\_____\__\/ ==\______/_____,´ /==\_____\___\/==\_______\/
 #                                        \_____\,´
 
+# On nightly only
+#cargo-features = ["panic-immediate-abort"]
+
 [package]
 name = "retrofire"
 description = "90s style software 3D renderer and graphics tools."
@@ -67,12 +70,21 @@ debug = 1
 [profile.bench]
 opt-level = 3
 codegen-units = 1
-lto = "thin"
+lto = "fat"
 
 [profile.dev]
 opt-level = 1
 split-debuginfo = "unpacked"
 
+[profile.min]
+inherits = "release"
+opt-level = 3
+codegen-units = 1
+lto = "fat"
+debug = 0
+strip = true
+panic = "abort"
+#panic = "immediate-abort" # On nightly only
 
 [[bench]]
 name = "fill"
