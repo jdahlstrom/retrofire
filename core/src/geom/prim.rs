@@ -720,7 +720,7 @@ impl<B> Line2<B> {
 
     /// Returns the coefficients [a, b, c] of the line equation ax + by = c.
     pub const fn coeffs(&self) -> [f32; 3] {
-        return self.0.0;
+        self.0.0
     }
 }
 

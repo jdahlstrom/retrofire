@@ -1,4 +1,7 @@
 //! Bézier curves and splines.
+
+#![allow(clippy::just_underscores_and_digits)]
+
 use alloc::vec::Vec;
 use core::{array::from_fn, fmt::Debug, marker::PhantomData};
 
@@ -379,7 +382,7 @@ where
         // = (1 - b2) * p0 + b2 * p1
         // = p0 + b2 * (p1 - p0)
 
-        p0.add(&p1.sub(&p0).mul(b2)) // Affine part
+        p0.add(&p1.sub(p0).mul(b2)) // Affine part
             .add(&d0.mul(b1).add(&d1.mul(b3))) // Linear part
     }
 
@@ -411,7 +414,7 @@ where
 
         // Only vectors as expected:
         // b2·(p1 - p0) + b1·d0 + b3·d1
-        p1.sub(&p0)
+        p1.sub(p0)
             .mul(b2)
             .add(&d0.mul(b1).add(&d1.mul(b3)))
     }
@@ -452,7 +455,7 @@ impl<T: AffineF32> BezierSpline<T> {
             .into_iter()
             .flat_map(|Ray(p, d)| [p.add(&d.neg()), p.clone(), p.add(&d)])
             .collect();
-        Self::new(pts[1..pts.len() - 1].into_iter().cloned())
+        Self::new(pts[1..pts.len() - 1].iter().cloned())
     }
 
     /// Returns the point of `self` at the given *t* value.
@@ -608,9 +611,9 @@ impl<T: AffineF32> CatmullRomSpline<T> {
         // = P0 - b1·P0 - b2·P0 - b3·P0 + b1·P1 + b2·P2 + b3·P3
         // = P0 + b1·(P1 - P0) + b2·(P2 - P0) + b3·(P3 - P0)
 
-        let v01 = p1.sub(&p0).mul(b1);
-        let v02 = &p2.sub(&p0).mul(b2);
-        let v03 = p3.sub(&p0).mul(b3);
+        let v01 = p1.sub(p0).mul(b1);
+        let v02 = p2.sub(p0).mul(b2);
+        let v03 = p3.sub(p0).mul(b3);
         p0.add(&v01.add(&v02).add(&v03).mul(1.0 / 2.0))
     }
 
@@ -638,9 +641,9 @@ impl<T: AffineF32> CatmullRomSpline<T> {
         // = b1·P1 + b2·P2 + b3·P3 - b1·P0 - b2·P0 - b3·P0
         // = b1·(P1 - P0) + b2·(P2 - P0) + b3·(P3 - P0)
 
-        let v01 = p1.sub(&p0).mul(b1);
-        let v02 = p2.sub(&p0).mul(b2);
-        let v03 = p3.sub(&p0).mul(b3);
+        let v01 = p1.sub(p0).mul(b1);
+        let v02 = p2.sub(p0).mul(b2);
+        let v03 = p3.sub(p0).mul(b3);
         v01.add(&v02).add(&v03).mul(1.0 / 2.0)
     }
 }
@@ -676,9 +679,9 @@ impl<T: AffineF32> BSpline<T> {
         let b2 = 1.0 + 3.0 * t1 + 3.0 * t2 - 3.0 * t3;
         let b3 = t3;
 
-        let v01 = p1.sub(&p0).mul(b1);
-        let v02 = p2.sub(&p0).mul(b2);
-        let v03 = p3.sub(&p0).mul(b3);
+        let v01 = p1.sub(p0).mul(b1);
+        let v02 = p2.sub(p0).mul(b2);
+        let v03 = p3.sub(p0).mul(b3);
         p0.add(&v01.add(&v02).add(&v03).mul(1.0 / 6.0))
     }
 
@@ -706,9 +709,9 @@ impl<T: AffineF32> BSpline<T> {
         // = b1·P1 + b2·P2 + b3·P3 - b1·P0 - b2·P0 - b3·P0
         // = b1·(P1 - P0) + b2·(P2 - P0) + b3·(P3 - P0)
 
-        let v01 = p1.sub(&p0).mul(b1);
-        let v02 = p2.sub(&p0).mul(b2);
-        let v03 = p3.sub(&p0).mul(b3);
+        let v01 = p1.sub(p0).mul(b1);
+        let v02 = p2.sub(p0).mul(b2);
+        let v03 = p3.sub(p0).mul(b3);
         v01.add(&v02).add(&v03).mul(1.0 / 6.0)
     }
 }

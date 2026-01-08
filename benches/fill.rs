@@ -56,10 +56,8 @@ fn gouraud(b: Bencher, sz: f32) {
         });
     });
 
-    let buf = Buf2::new_from(
-        (1024, 1024),
-        buf.data().into_iter().map(|c| c.to_color3()),
-    );
+    let buf =
+        Buf2::new_from((1024, 1024), buf.data().iter().map(|c| c.to_color3()));
     save_ppm("benches_fill_color.ppm", buf).unwrap();
 }
 

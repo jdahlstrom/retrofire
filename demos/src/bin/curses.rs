@@ -1,3 +1,5 @@
+#![allow(clippy::unusual_byte_groupings)]
+
 use std::time::Instant;
 
 use pancurses::*;
@@ -126,8 +128,8 @@ impl Target for Win {
             let [r, g, b, _] = col.0.map(|c| c as u32);
 
             let col = (r & 0b111_000_00)
-                | (g / 9 & 0b000_111_00)
-                | (b / 85 & 0b000_000_11);
+                | ((g / 9) & 0b000_111_00)
+                | ((b / 85) & 0b000_000_11);
 
             // Avoid the eight standard colors
             self.0.addch(COLOR_PAIR(col.max(8) as chtype));

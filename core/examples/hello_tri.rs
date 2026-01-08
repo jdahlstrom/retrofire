@@ -1,7 +1,6 @@
 use retrofire_core::{
     prelude::*,
     render::{Model, render, shader},
-    util::*,
 };
 
 fn main() {
@@ -56,6 +55,7 @@ fn main() {
     }
     #[cfg(feature = "std")]
     {
+        use retrofire_core::util::pnm;
         pnm::save_ppm("triangle.ppm", framebuf).unwrap();
     }
 }
