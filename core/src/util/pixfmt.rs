@@ -156,6 +156,7 @@ impl IntoPixel<[u8; 2], Rgb565> for Color4 {
 }
 
 #[cfg(test)]
+#[allow(clippy::unusual_byte_groupings)]
 mod tests {
     use super::*;
     use crate::math::{color::hex, rgb};

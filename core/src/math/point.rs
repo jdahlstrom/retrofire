@@ -505,7 +505,7 @@ where
 
     #[inline]
     fn div(self, rhs: f32) -> Self {
-        self * rhs.recip()
+        self.mul(1.0 / rhs)
     }
 }
 impl<R: Copy, Sp> DivAssign<f32> for Point<R, Sp>

@@ -1,7 +1,7 @@
 //! Linear algebra and other useful mathematics.
 //!
 //! Includes [vectors][self::vec], [matrices][mat], [colors][color],
-//! [angles][angle], [Bezier splines][spline] and [pseudo-random numbers][rand],
+//! [angles][angle], [splines][spline] and [pseudo-random numbers][rand],
 //! as well as support for custom [varying][vary] types and utilities such as
 //! approximate equality comparisons.
 //!

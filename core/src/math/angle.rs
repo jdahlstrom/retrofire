@@ -432,8 +432,8 @@ impl<B> Vec3<B> {
     /// * `r` equals `self.len()`
     /// * `az`is the angle between `self` and the xy-plane in the range
     ///   (-180°, 180°] such that positive `z` maps to *negative* `az`, and
-    /// * `alt` is the angle between `self` and the xz-plane in the
-    /// range [-90°, 90°] such that positive `y` maps to positive `alt`.
+    /// * `alt` is the angle between `self` and the xz-plane in the range
+    ///   [-90°, 90°] such that positive `y` maps to positive `alt`.
     ///
     /// # Examples
     /// ```

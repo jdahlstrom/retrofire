@@ -1,6 +1,8 @@
 //! Real and projective vectors.
 //!
 //! TODO
+//!
+//!
 
 use core::{
     array,
@@ -28,9 +30,9 @@ use super::{Angle, acos};
 
 /// A generic vector type. Represents an element of a vector space.
 ///
-/// or a module,
-/// a generalization of a vector space where the scalars can be integers
-/// (technically, the scalar type can be any *ring*-like type).
+// or a module,
+// a generalization of a vector space where the scalars can be integers
+// (technically, the scalar type can be any *ring*-like type).
 ///
 /// # Type parameters
 /// * `Repr`: Representation of the scalar components of the vector,
