@@ -1,5 +1,5 @@
+use retrofire_core::prelude::*;
 use retrofire_core::render::{Model, render, shader};
-use retrofire_core::{prelude::*, util::*};
 
 fn main() {
     let verts = [
@@ -53,6 +53,7 @@ fn main() {
     }
     #[cfg(feature = "std")]
     {
+        use retrofire_core::util::pnm;
         pnm::save_ppm("triangle.ppm", framebuf).unwrap();
     }
 }

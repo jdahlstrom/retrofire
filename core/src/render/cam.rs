@@ -226,6 +226,7 @@ impl<T: Transform> Camera<T> {
     }
 
     /// Renders the given geometry from the viewpoint of this camera.
+    #[allow(clippy::too_many_arguments)]
     pub fn render<B, Prim, Vtx: Clone, Var: Vary, Uni: Copy, Shd>(
         &self,
         prims: impl AsRef<[Prim]>,

@@ -444,7 +444,7 @@ mod tests {
         //  32  16  8   4   2   1
 
         // Outside near == 1
-        assert_eq!(outcode(&vec(0.0, 0.0, -1.5)), 0b00_0_01);
+        assert_eq!(outcode(&vec(0.0, 0.0, -1.5)), 0b00_00_01);
         // Outside right == 8
         assert_eq!(outcode(&vec(2.0, 0.0, 0.0)), 0b00_10_00);
         // Outside bottom == 16

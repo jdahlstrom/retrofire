@@ -731,7 +731,7 @@ where
 {
     #[inline]
     fn sub_assign(&mut self, rhs: D) {
-        *self += rhs.neg();
+        self.add_assign(rhs.neg())
     }
 }
 
@@ -754,7 +754,7 @@ where
     #[inline]
     fn mul_assign(&mut self, rhs: Self) {
         for (a, b) in zip(&mut self.0, rhs.0) {
-            *a = (&*a).mul(b)
+            *a = Linear::mul(a, b);
         }
     }
 }

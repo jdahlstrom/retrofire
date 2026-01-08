@@ -279,7 +279,7 @@ where
             array::from_fn(|j| array::from_fn(|i| dot(&lhs[j], &rhs[i])))
         }
 
-        let mut other = other.0.clone();
+        let mut other = other.0;
         transpose(&mut other);
         do_compose(&self.0, &other).into()
     }

@@ -60,7 +60,7 @@ pub fn dir_to_rgb<B>(v: Vec3<B>) -> Color4f {
 }
 
 /// Draws an illustration of a ray.
-pub fn ray<'a, B>(o: Point3<B>, dir: Vec3<B>) -> DbgBatch<B> {
+pub fn ray<B>(o: Point3<B>, dir: Vec3<B>) -> DbgBatch<B> {
     let mut b = dir.cross(&Vec3::Y);
     if b.len_sqr() < 1e-6 {
         b = dir.cross(&Vec3::X);

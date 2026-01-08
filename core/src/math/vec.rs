@@ -1,13 +1,9 @@
 //! Real and projective vectors.
 //!
 //! TODO
+//!
+//!
 
-use super::{
-    Affine, ApproxEq, Linear, Point,
-    space::{Proj3, Real},
-    vary::ZDiv,
-};
-use crate::math::space::Hom;
 use core::{
     array,
     fmt::{Debug, Formatter},
@@ -17,15 +13,21 @@ use core::{
     ops::{AddAssign, DivAssign, MulAssign, SubAssign},
 };
 
+use super::{
+    Affine, ApproxEq, Linear, Point,
+    space::{Hom, Proj3, Real},
+    vary::ZDiv,
+};
+
 //
 // Types
 //
 
 /// A generic vector type. Represents an element of a vector space.
 ///
-/// or a module,
-/// a generalization of a vector space where the scalars can be integers
-/// (technically, the scalar type can be any *ring*-like type).
+// or a module,
+// a generalization of a vector space where the scalars can be integers
+// (technically, the scalar type can be any *ring*-like type).
 ///
 /// # Type parameters
 /// * `Repr`: Representation of the scalar components of the vector,
