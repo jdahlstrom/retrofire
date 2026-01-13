@@ -92,6 +92,7 @@ impl<A, B> Mesh<A, B> {
     }
 
     /// Returns a mesh with the faces and vertices of both `self` and `other`.
+    #[must_use]
     pub fn merge(mut self, Self { faces, verts }: Self) -> Self {
         let n = self.verts.len();
         self.verts.extend(verts);
@@ -107,7 +108,7 @@ fn assert_indices_in_bounds(faces: &[Tri<usize>], len: usize) {
         assert!(
             vs.iter().all(|&j| j < len),
             "vertex index out of bounds at faces[{i}]: {vs:?}"
-        )
+        );
     }
 }
 
@@ -164,6 +165,7 @@ impl<A> Builder<A> {
     ///
     /// # Panics
     /// If any of the vertex indices in `faces` ≥ `verts.len()`.
+    #[must_use]
     pub fn build(self) -> Mesh<A> {
         // Sanity checks done by new()
         Mesh::new(self.mesh.faces, self.mesh.verts)
@@ -175,6 +177,7 @@ impl<A> Builder<A> {
     ///
     /// This is an eager operation, that is, only vertices *currently*
     /// added to the builder are transformed.
+    #[must_use]
     pub fn transform(self, tf: &Mat4<Model, Model>) -> Self {
         self.warp(|v| vertex(tf.apply(&v.pos), v.attrib))
     }
@@ -184,6 +187,7 @@ impl<A> Builder<A> {
     /// This method can be used for various nonlinear transformations such as
     /// twisting or dilation. This is an eager operation, that is, only vertices
     /// *currently* added to the builder are transformed.
+    #[must_use]
     pub fn warp(mut self, f: impl FnMut(Vertex3<A>) -> Vertex3<A>) -> Self {
         self.mesh.verts = self.mesh.verts.into_iter().map(f).collect();
         self
@@ -202,6 +206,7 @@ impl<A> Builder<A> {
     /// This is an eager operation, that is, only vertices *currently* added
     /// to the builder are transformed. The attribute type of the result is
     /// `Normal3`; the vertex type it accepts is changed accordingly.
+    #[must_use]
     pub fn with_vertex_normals(self) -> Builder<Normal3> {
         let Mesh { verts, faces } = self.mesh;
 

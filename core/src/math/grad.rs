@@ -63,9 +63,9 @@ impl<T: Lerp> Gradient2<T> {
             Kind::Radial(p0, r) => p.distance(&p0) / r,
             #[cfg(feature = "fp")]
             Kind::Conical(p0) => {
+                use super::float::f32;
                 let angle = (p - p0).atan();
                 // map negative angles to positive
-                use super::float::f32;
                 f32::rem_euclid(angle.to_turns(), 1.0)
             }
         };

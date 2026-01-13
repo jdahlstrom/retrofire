@@ -155,6 +155,7 @@ impl Camera<()> {
     }
 
     /// Sets the world-to-view transform of this camera.
+    #[must_use]
     pub fn transform<T: Transform>(self, tf: T) -> Camera<T> {
         let Self { dims, project, viewport, .. } = self;
         Camera {
@@ -168,6 +169,7 @@ impl Camera<()> {
 
 impl<T> Camera<T> {
     /// Sets the viewport bounds of this camera.
+    #[must_use]
     pub fn viewport(self, bounds: impl Into<Rect<u32>>) -> Self {
         let (w, h) = self.dims;
 
@@ -197,6 +199,7 @@ impl<T> Camera<T> {
     /// # Panics
     /// * If any parameter value is non-positive.
     /// * If `near_far` is an empty range.
+    #[must_use]
     pub fn perspective(mut self, fov: Fov, near_far: Range<f32>) -> Self {
         let aspect = self.dims.0 as f32 / self.dims.1 as f32;
 
@@ -205,6 +208,7 @@ impl<T> Camera<T> {
     }
 
     /// Sets up orthographic projection.
+    #[must_use]
     pub fn orthographic(mut self, bounds: Range<Point3>) -> Self {
         self.project = orthographic(bounds.start, bounds.end);
         self
@@ -373,9 +377,8 @@ impl PitchYawRoll {
 
     /// Adjusts the orientation of the camera by the given delta angles.
     pub fn rotate(&mut self, pitch: Angle, yaw: Angle, roll: Angle) {
-        self.orient = self
-            .orient
-            .compose(&rotate_pyr(pitch, yaw, roll).to())
+        let rot = rotate_pyr(pitch, yaw, roll);
+        self.orient = self.orient.compose(&rot.to());
     }
 
     /// Sets the orientation of the camera to the given **world-space** angles.

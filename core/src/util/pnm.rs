@@ -161,7 +161,7 @@ pub fn parse_pnm(input: impl IntoIterator<Item = u8>) -> Result<Buf2<Color3>> {
         TextGraymap => (0..count)
             .map(|_| Ok(gray(parse_u16(&mut it)?.try_into()?)))
             .collect::<Result<Vec<_>>>()?,
-        _ => return Err(Unsupported(h.format.magic())),
+        TextBitmap => return Err(Unsupported(h.format.magic())),
     };
 
     if data.len() < count as usize {

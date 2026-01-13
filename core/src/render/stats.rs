@@ -66,13 +66,11 @@ impl Stats {
     ///
     /// No-op if the timer was not running. This method is also no-op unless
     /// the `std` feature is enabled.
+    #[must_use]
     pub fn finish(self) -> Self {
         Self {
             #[cfg(feature = "std")]
-            time: self
-                .start
-                .map(|st| st.elapsed())
-                .unwrap_or(self.time),
+            time: self.start.map_or(self.time, |st| st.elapsed()),
             ..self
         }
     }

@@ -368,7 +368,7 @@ impl<T> DerefMut for Buf2<T> {
         &mut self.0
     }
 }
-impl<'a, T> DerefMut for MutSlice2<'a, T> {
+impl<T> DerefMut for MutSlice2<'_, T> {
     fn deref_mut(&mut self) -> &mut Self::Target {
         &mut self.0
     }

@@ -183,7 +183,7 @@ fn floor() -> Obj<Vec2> {
                     bld.push_face(a, d, b);
                 } else {
                     bld.push_face(b, c, d);
-                    bld.push_face(b, a, c)
+                    bld.push_face(b, a, c);
                 }
             }
         }
