@@ -212,9 +212,9 @@ const fn transpose<Sc: Copy, const N: usize>(a: &mut [[Sc; N]; N]) {
             let tmp = a[i][j];
             a[i][j] = a[j][i];
             a[j][i] = tmp;
-            j += 1
+            j += 1;
         }
-        i += 1
+        i += 1;
     }
 }
 
@@ -530,6 +530,11 @@ impl<Src, Dst> Mat3<Src, Dst, 2> {
         Some(Mat3::new(res))
     }
 
+    /// TODO
+    ///
+    /// # Panics
+    /// If the matrix is singular or near-singular.
+    #[must_use]
     pub fn inverse(&self) -> Mat3<Dst, Src> {
         self.checked_inverse()
             .expect("matrix cannot be singular or near-singular")
@@ -671,14 +676,6 @@ impl<Src, Dst> Mat4<Src, Dst> {
     #[must_use]
     pub fn inverse(&self) -> Mat4<Dst, Src> {
         use super::float::f32;
-        if cfg!(debug_assertions) {
-            let det = self.determinant();
-            assert!(
-                !det.approx_eq(&0.0),
-                "a singular, near-singular, or non-finite matrix does not \
-                 have a well-defined inverse (determinant = {det})"
-            );
-        }
 
         // Elementary row operation subtracting one row,
         // multiplied by a scalar, from another
@@ -694,6 +691,15 @@ impl<Src, Dst> Mat4<Src, Dst> {
         // Elementary row operation swapping two rows
         const fn swap_rows(m: &mut Mat4, r: usize, s: usize) {
             m.0.swap(r, s);
+        }
+
+        if cfg!(debug_assertions) {
+            let det = self.determinant();
+            assert!(
+                !det.approx_eq(&0.0),
+                "a singular, near-singular, or non-finite matrix does not \
+                 have a well-defined inverse (determinant = {det})"
+            );
         }
 
         // This algorithm attempts to reduce `this` to the identity matrix
@@ -1472,11 +1478,11 @@ mod tests {
         fn matrix_debug() {
             assert_eq!(
                 alloc::format!("{MAT:?}"),
-                r#"Matrix<B1→B2>[
+                r"Matrix<B1→B2>[
     [ 0.0,  1.0,  2.0]
     [10.0, 11.0, 12.0]
     [20.0, 21.0, 22.0]
-]"#
+]"
             );
         }
     }
@@ -1744,12 +1750,12 @@ mod tests {
         fn matrix_debug() {
             assert_eq!(
                 alloc::format!("{MAT:?}"),
-                r#"Matrix<B1→B2>[
+                r"Matrix<B1→B2>[
     [ 0.0,  1.0,  2.0,  3.0]
     [10.0, 11.0, 12.0, 13.0]
     [20.0, 21.0, 22.0, 23.0]
     [30.0, 31.0, 32.0, 33.0]
-]"#
+]"
             );
         }
     }

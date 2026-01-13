@@ -392,7 +392,7 @@ impl Color3f<Rgb> {
             (r - g) / d + 4.0
         };
         let h = h / 6.0;
-        let l = (max + min) / 2.0;
+        let l = min.midpoint(max);
         let s = if l == 0.0 || l == 1.0 {
             0.0
         } else {
@@ -501,7 +501,7 @@ impl Color3<Hsl> {
         let rgb = hcx_to_rgb(h / _1, c, x, 0);
         rgb.map(|ch| {
             let ch = ch + m;
-            debug_assert!(0 <= ch && ch < _1, "channel oob: {:?}", ch);
+            debug_assert!(0 <= ch && ch < _1, "channel oob: {ch:?}");
             ch as u8
         })
         .into()
@@ -680,7 +680,7 @@ impl<Sp: Debug + Default, const DIM: usize> Affine for Color<[u8; DIM], Sp> {
     fn add(&self, other: &Self::Diff) -> Self {
         array::from_fn(|i| {
             let sum = i32::from(self.0[i]) + other.0[i];
-            sum.clamp(0, u8::MAX as i32) as u8
+            sum.clamp(0, u8::MAX.into()) as u8
         })
         .into()
     }
@@ -841,7 +841,7 @@ where
 {
     #[inline]
     fn sub_assign(&mut self, rhs: D) {
-        self.add_assign(rhs.neg())
+        self.add_assign(rhs.neg());
     }
 }
 

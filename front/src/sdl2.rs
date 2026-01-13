@@ -70,11 +70,13 @@ pub type Framebuf<'a, Pix, Fmt> =
 
 impl<'t, PF: PixelFmt> Builder<'t, PF> {
     /// Sets the width and height of the window, in pixels.
+    #[must_use]
     pub fn dims(mut self, dims: Dims) -> Self {
         self.dims = dims;
         self
     }
     /// Sets the title of the window.
+    #[must_use]
     pub fn title(mut self, title: &'t str) -> Self {
         self.title = title;
         self
@@ -82,18 +84,21 @@ impl<'t, PF: PixelFmt> Builder<'t, PF> {
     /// Sets whether vertical sync is enabled.
     ///
     /// If true, the frame rate is synced to the monitor's refresh rate.
+    #[must_use]
     pub fn vsync(mut self, enabled: bool) -> Self {
         self.vsync = enabled;
         self
     }
-    /// Sets whether high-dpi
+    /// Sets whether high-dpi TODO
     ///
     /// If true, the physical resolution may be higher than the logical resolution.
+    #[must_use]
     pub fn high_dpi(mut self, enabled: bool) -> Self {
         self.hidpi = enabled;
         self
     }
     /// Sets the fullscreen state of the window.
+    #[must_use]
     pub fn fullscreen(mut self, fs: FullscreenType) -> Self {
         self.fs = fs;
         self
@@ -101,6 +106,7 @@ impl<'t, PF: PixelFmt> Builder<'t, PF> {
     /// Sets the framebuffer pixel format.
     ///
     /// Supported formats are [`Rgba8888`], [`Rgb565`], and [`Rgba4444`].
+    #[must_use]
     pub fn pixel_fmt(mut self, fmt: PF) -> Self {
         self.pixfmt = fmt;
         self
