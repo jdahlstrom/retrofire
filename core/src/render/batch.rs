@@ -153,7 +153,7 @@ impl<Vtx, Uni, Shd, Tgt, Ctx> Batch<Edge<usize>, Vtx, Uni, Shd, Tgt, Ctx> {
         let prims = prims.into_iter().map(|e| Edge(e.0 + n, e.1 + n));
 
         self.verts.extend(verts);
-        self.prims.extend(prims)
+        self.prims.extend(prims);
     }
 }
 

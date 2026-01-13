@@ -55,7 +55,7 @@ impl<B> LineIntersect<B> {
 impl<B: Debug + Default> Debug for LineIntersect<B> {
     fn fmt(&self, f: &mut Formatter<'_>) -> core::fmt::Result {
         match self {
-            Self::Point(p) => write!(f, "Point({:?})", p),
+            Self::Point(p) => write!(f, "Point({p:?})"),
             Self::Coincident => f.write_str("Coincident"),
         }
     }
@@ -173,8 +173,8 @@ impl<B: Debug + Default> Intersect<BBox<B>> for Ray3<B> {
         let low = (low - orig) * r_d;
         let upp = (upp - orig) * r_d;
 
-        let near = low.zip_map(upp, |l, u| l.min(u));
-        let far = low.zip_map(upp, |l, u| l.max(u));
+        let near = low.zip_map(upp, f32::min);
+        let far = low.zip_map(upp, f32::max);
 
         let near_t = near[0].max(near[1]).max(near[2]);
         let far_t = far[0].min(far[1]).min(far[2]);
