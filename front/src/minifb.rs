@@ -52,22 +52,26 @@ impl Default for Builder<'_> {
 
 impl<'t> Builder<'t> {
     /// Sets the width and height of the window.
+    #[must_use]
     pub fn dims(mut self, dims: Dims) -> Self {
         self.dims = dims;
         self
     }
     /// Sets the title of the window.
+    #[must_use]
     pub fn title(mut self, title: &'t str) -> Self {
         self.title = title;
         self
     }
     /// Sets the frame rate cap of the window. `None` means unlimited
     /// frame rate (the main loop runs as fast as possible).
+    #[must_use]
     pub fn target_fps(mut self, fps: Option<u32>) -> Self {
         self.target_fps = fps;
         self
     }
     /// Sets other `minifb` options.
+    #[must_use]
     pub fn options(mut self, opts: WindowOptions) -> Self {
         self.opts = opts;
         self

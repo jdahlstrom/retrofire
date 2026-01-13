@@ -705,7 +705,7 @@ mod tests {
             in_degen += is_degenerate(&tr) as u32;
             out_tris[res.len()] += 1;
             out_total += res.len();
-            out_degen += res.iter().filter(|t| is_degenerate(t)).count()
+            out_degen += res.iter().filter(|t| is_degenerate(t)).count();
         }
         #[cfg(feature = "std")]
         {

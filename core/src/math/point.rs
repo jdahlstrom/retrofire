@@ -531,13 +531,14 @@ mod tests {
 
         const pt2: fn(f32, f32) -> Point2 = super::pt2;
         const pt3: fn(f32, f32, f32) -> Point3 = super::pt3;
+
         #[test]
         fn vector_addition() {
             assert_eq!(pt2(1.0, 2.0) + vec2(-2.0, 3.0), pt2(-1.0, 5.0));
             assert_eq!(
                 pt3(1.0, 2.0, 3.0) + vec3(-2.0, 3.0, 1.0),
                 pt3(-1.0, 5.0, 4.0)
-            )
+            );
         }
         #[test]
         fn vector_subtraction() {
@@ -545,7 +546,7 @@ mod tests {
             assert_eq!(
                 pt3(1.0, 2.0, 3.0) - vec3(-2.0, 3.0, 1.0),
                 pt3(3.0, -1.0, 2.0)
-            )
+            );
         }
         #[test]
         fn point_subtraction() {
@@ -553,7 +554,7 @@ mod tests {
             assert_eq!(
                 pt3(1.0, 2.0, 3.0) - pt3(-2.0, 3.0, 1.0),
                 vec3(3.0, -1.0, 2.0)
-            )
+            );
         }
         #[test]
         fn scalar_multiplication() {

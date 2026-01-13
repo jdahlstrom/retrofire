@@ -497,7 +497,6 @@ impl<T: AffineF32> BezierSpline<T> {
         let num_segs = (self.0.len() - 1) / 3;
         // Rescale from [0, 1] to [0, num_segs]
         let t = t * num_segs as f32;
-        use super::float::f32;
         // Calculate the segment index.
         let seg_i = (t as usize).min(num_segs - 1);
         // The leftover part is the local t value. This is the fractional part
@@ -580,6 +579,10 @@ impl<T: AffineF32> CatmullRomSpline<T> {
         -0.5,  1.5, -1.5,  0.5;
     ];
 
+    /// TODO
+    ///
+    /// # Panics
+    /// If `pts` has fewer than four points.
     pub fn new(pts: impl IntoIterator<Item = T>) -> Self {
         let pts: Vec<_> = pts.into_iter().collect();
         assert!(
@@ -660,6 +663,10 @@ impl<T: AffineF32> BSpline<T> {
         ]
     };
 
+    /// TODO
+    ///
+    /// # Panics
+    /// If `pts` has fewer than four points.
     pub fn new(pts: impl IntoIterator<Item = T>) -> Self {
         let pts: Vec<_> = pts.into_iter().collect();
         assert!(pts.len() >= 4, "a B-spline requires at least four points");

@@ -355,6 +355,7 @@ where
     ///
     /// assert_eq!(v.reflect(axis), vec3(2.0, 3.0, 1.0));
     /// ```
+    #[must_use]
     pub fn reflect(self, axis: Self) -> Self
     where
         Sc: Div<Sc, Output = Sc>,
@@ -398,7 +399,7 @@ where
             if !a.mul(y).approx_eq(&b.mul(x)) {
                 return false;
             }
-            (x, y) = (a, b)
+            (x, y) = (a, b);
         }
         true
     }

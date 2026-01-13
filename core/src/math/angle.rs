@@ -188,11 +188,13 @@ impl Angle {
 
     /// Returns the minimum of `self` and `other`.
     #[inline]
+    #[must_use]
     pub const fn min(self, other: Self) -> Self {
         Self(self.0.min(other.0))
     }
     /// Returns the maximum of `self` and `other`.
     #[inline]
+    #[must_use]
     pub const fn max(self, other: Self) -> Self {
         Self(self.0.max(other.0))
     }
@@ -637,7 +639,7 @@ impl DivAssign<f32> for Angle {
 impl<B> From<PolarVec<B>> for Vec2<B> {
     /// Converts a polar vector into the equivalent Cartesian vector.
     ///
-    /// See [PolarVec::to_cart] for more information.
+    /// See [`PolarVec::to_cart`] for more information.
     #[inline]
     fn from(p: PolarVec<B>) -> Self {
         p.to_cart()
@@ -648,7 +650,7 @@ impl<B> From<PolarVec<B>> for Vec2<B> {
 impl<B> From<Vec2<B>> for PolarVec<B> {
     /// Converts a Cartesian 2-vector into the equivalent polar vector.
     ///
-    /// See [Vec2::to_polar] for more information.
+    /// See [`Vec2::to_polar`] for more information.
     #[inline]
     fn from(v: Vec2<B>) -> Self {
         v.to_polar()
@@ -659,7 +661,7 @@ impl<B> From<Vec2<B>> for PolarVec<B> {
 impl<B> From<SphericalVec<B>> for Vec3<B> {
     /// Converts a spherical coordinate vector to a Euclidean 3-vector.
     ///
-    /// See [SphericalVec::to_cart] for more information.
+    /// See [`SphericalVec::to_cart`] for more information.
     #[inline]
     fn from(v: SphericalVec<B>) -> Self {
         v.to_cart()
@@ -670,7 +672,7 @@ impl<B> From<SphericalVec<B>> for Vec3<B> {
 impl<B> From<Vec3<B>> for SphericalVec<B> {
     /// Converts a Cartesian 3-vector into the equivalent spherical vector.
     ///
-    /// See [Vec3::to_spherical] for more information.
+    /// See [`Vec3::to_spherical`] for more information.
     #[inline]
     fn from(v: Vec3<B>) -> Self {
         v.to_spherical()
