@@ -118,7 +118,7 @@ struct Samples<D, R>(D, R);
 impl Xorshift64 {
     /// A random 64-bit prime, used to initialize the generator returned by
     /// [`Xorshift64::default()`].
-    pub const DEFAULT_SEED: u64 = 378682147834061;
+    pub const DEFAULT_SEED: u64 = 378_682_147_834_061;
 
     /// Returns a new `Xorshift64` seeded by the given number.
     ///
@@ -163,10 +163,11 @@ impl Xorshift64 {
     /// ```
     #[cfg(feature = "std")]
     pub fn from_time() -> Self {
-        let t = std::time::SystemTime::UNIX_EPOCH
+        let d = std::time::SystemTime::UNIX_EPOCH
             .elapsed()
-            .unwrap();
-        Self(t.as_micros() as u64)
+            // If for some strange reason the system time < epoch...
+            .unwrap_or_else(|e| e.duration());
+        Self(d.as_micros() as u64)
     }
 
     /// Returns 64 bits of pseudo-randomness.
@@ -623,7 +624,7 @@ mod tests {
     const COUNT: usize = 1000;
 
     fn rng() -> DefaultRng {
-        Default::default()
+        DefaultRng::default()
     }
 
     #[test]

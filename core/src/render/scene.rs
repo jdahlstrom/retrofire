@@ -26,6 +26,8 @@ impl<A> Obj<A> {
     pub fn new(geom: Mesh<A>) -> Self {
         Self::with_transform(geom, Mat4::identity())
     }
+
+    #[must_use]
     pub fn with_transform(geom: Mesh<A>, tf: Mat4<Model, World>) -> Self {
         let bbox = BBox::of(&geom);
         Self { geom, bbox, tf }

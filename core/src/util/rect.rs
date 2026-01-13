@@ -71,10 +71,10 @@ impl<T: Copy> Rect<T> {
 
     /// Returns the horizontal and vertical extents of `self`.
     pub fn bounds(&self) -> [impl RangeBounds<T>; 2] {
-        let left = self.left.map(Included).unwrap_or(Unbounded);
-        let top = self.top.map(Included).unwrap_or(Unbounded);
-        let right = self.right.map(Excluded).unwrap_or(Unbounded);
-        let bottom = self.bottom.map(Excluded).unwrap_or(Unbounded);
+        let left = self.left.map_or(Unbounded, Included);
+        let top = self.top.map_or(Unbounded, Included);
+        let right = self.right.map_or(Unbounded, Excluded);
+        let bottom = self.bottom.map_or(Unbounded, Excluded);
 
         [(left, right), (top, bottom)]
     }

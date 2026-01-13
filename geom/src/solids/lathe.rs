@@ -78,6 +78,10 @@ pub struct Capsule {
 //
 
 impl<P: Parametric<Vertex2<Normal2, ()>>> Lathe<P> {
+    /// TODO
+    ///
+    /// # Panics
+    /// If `sectors` < 3.
     pub fn new(points: P, sectors: u32, segments: u32) -> Self {
         assert!(sectors >= 3, "sectors must be at least 3, was {sectors}");
         Self {
@@ -89,12 +93,14 @@ impl<P: Parametric<Vertex2<Normal2, ()>>> Lathe<P> {
         }
     }
 
+    #[must_use]
     pub fn capped(self, capped: bool) -> Self {
         Self { capped, ..self }
     }
 
     /// Builds the lathe mesh.
     #[inline(never)]
+    #[must_use]
     pub fn build_with<A>(
         self,
         f: &mut dyn FnMut(Point3, Normal3, TexCoord) -> Vertex3<A>,
