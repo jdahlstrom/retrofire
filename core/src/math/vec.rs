@@ -748,9 +748,9 @@ where
     Sc: ZDiv + Copy,
 {
     #[inline]
-    fn z_div(mut self, z: f32) -> Self {
+    fn z_div_recip(mut self, recip_z: f32) -> Self {
         for c in &mut self.0 {
-            *c = c.z_div(z);
+            *c = c.z_div_recip(recip_z);
         }
         self
     }

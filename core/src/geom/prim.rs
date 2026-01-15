@@ -675,7 +675,7 @@ impl<B> Line2<B> {
     /// If the vector (a, b) is not unit-length.
     pub const fn new(a: f32, b: f32, c: f32) -> Self {
         // TODO This method can't itself normalize because const
-        assert!((a * a + b * b - 1.0).abs() < 1e-6, "non-unit normal");
+        assert!((a * a + b * b - 1.0).abs() < 1e-5, "non-unit normal",);
         Self(Vector::new([a, b, -c]))
     }
 

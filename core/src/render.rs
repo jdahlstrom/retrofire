@@ -59,7 +59,7 @@ pub mod stats;
 
 /// Renderable geometric primitive.
 pub trait Render<V: Vary> {
-    /// The type of this primitive in clip space
+    /// The type of this primitive in clip space.
     type Clip;
 
     /// The type for which `Clip` is implemented.

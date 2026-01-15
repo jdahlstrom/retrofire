@@ -93,8 +93,8 @@ impl Context {
     #[inline]
     pub fn face_cull(&self, is_backface: bool) -> bool {
         match self.face_cull {
-            Some(FaceCull::Back) if is_backface => true,
-            Some(FaceCull::Front) if !is_backface => true,
+            Some(FaceCull::Back) => is_backface,
+            Some(FaceCull::Front) => !is_backface,
             _ => false,
         }
     }
