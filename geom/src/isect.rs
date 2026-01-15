@@ -1,14 +1,13 @@
 use core::fmt::{Debug, Formatter};
 
+#[cfg(feature = "std")]
+use retrofire_core::geom::Sphere;
 use retrofire_core::{
-    geom::{Edge, Line2, Plane3, Ray, Ray2, Ray3},
+    geom::{Edge, Line2, Plane3, Polygon, Ray, Ray2, Ray3},
     mat,
     math::{ApproxEq, Mat2, Point2, Point3, pt2, vec3},
     render::scene::BBox,
 };
-
-#[cfg(feature = "std")]
-use retrofire_core::geom::Sphere;
 
 /// Trait for finding intersection points of geometric objects.
 pub trait Intersect<T> {
@@ -497,11 +496,39 @@ impl<B> Intersect<Self> for Edge<Point2<B>> {
     }
 }
 
+impl<B> Intersect<Polygon<Point2<B>>> for Ray2<B> {
+    type Result = RayIntersect2<B>;
+
+    fn intersect(&self, poly: &Polygon<Point2<B>>) -> Self::Result {
+        let mut res = None;
+        for Edge(a, b) in poly.edges() {
+            let ip = self.intersect(&Edge(*a, *b));
+            match (res, ip) {
+                (None, Some(ip)) => res = Some(ip),
+                (Some(curr), Some(new)) if curr.0 > new.0 => res = Some(new),
+                _ => continue,
+            }
+        }
+        res
+    }
+}
+
 #[cfg(test)]
 mod tests {
-    use retrofire_core::math::{Linear, Vec3, pt3};
+    use retrofire_core::math::{Linear, Vec3, pt3, vec2};
 
     use super::*;
+
+    #[test]
+    fn ray_polygon() {
+        let ray: Ray2 = Ray(pt2(-1.0, 0.0), vec2(1.0, 0.0));
+
+        let poly = Polygon::new([pt2(0.0, -1.0), pt2(2.0, 0.0), pt2(2.0, 1.0)]);
+
+        let ip = ray.intersect(&poly);
+
+        assert_eq!(ip, Some((1.0, pt2(-0.0, 0.0))));
+    }
 
     mod ray_plane {
         use super::*;
