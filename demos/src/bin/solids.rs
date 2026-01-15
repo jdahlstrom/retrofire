@@ -1,4 +1,5 @@
 use core::ops::ControlFlow::Continue;
+use std::env::args;
 
 use minifb::{Key, KeyRepeat};
 
@@ -22,6 +23,9 @@ struct Carousel {
 }
 
 impl Carousel {
+    fn new(idx: usize) -> Self {
+        Self { idx, ..Self::default() }
+    }
     fn start(&mut self) {
         if self.t.is_none() {
             self.t = Some(0.0);
@@ -48,8 +52,6 @@ impl Carousel {
 }
 
 fn main() {
-    eprintln!("Press Space to cycle between objects...");
-
     let mut win = Window::builder()
         .title("retrofire//solids")
         .build()
@@ -87,8 +89,14 @@ fn main() {
     let objects = objects_n(8);
 
     let translate = translate(-3.0 * Vec3::Z);
-    let mut carousel = Carousel::default();
 
+    let idx = args().nth(1).map(|idx| idx.parse());
+    let Ok(idx) = idx.unwrap_or(Ok(0)) else {
+        panic!("expected integer in 0..=13");
+    };
+    let mut carousel = Carousel::new(idx);
+
+    eprintln!("Press Space to cycle between objects...");
     win.run(|frame| {
         let Frame { t, dt, win, .. } = frame;
 
