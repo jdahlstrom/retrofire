@@ -66,13 +66,14 @@ impl<V: Vary> Render<V> for Edge<usize> {
     }
 }
 
+/// A helper function to perform z-division and viewport transform for a list
+/// of clip-space vertices.
 #[inline]
 pub fn to_screen<V: ZDiv, const N: usize>(
     vs: [ClipVert<V>; N],
     tf: &Mat4<Ndc, Screen>,
 ) -> [Vertex<ScreenPt, V>; N] {
     vs.map(|v| {
-        let [x, y, _, w] = v.pos.0;
         // Perspective division (projection to the real plane)
         //
         // We use the screen-space z coordinate to store the reciprocal
@@ -85,12 +86,14 @@ pub fn to_screen<V: ZDiv, const N: usize>(
         //      Vec3 was used here, which only worked because apply used to use
         //      w=1 for vectors. Fixing it made viewport transform incorrect.
         //      The z-div concept and trait likely need clarification.
-        let pos = pt3(x, y, 1.0).z_div(w);
+        let [x, y, _, w] = v.pos.0;
+        let recip_w = w.recip();
+        let pos = pt3(x, y, 1.0).z_div_recip(recip_w);
         Vertex {
             // Viewport transform
             pos: tf.apply(&pos),
             // Perspective correction
-            attrib: v.attrib.z_div(w),
+            attrib: v.attrib.z_div_recip(recip_w),
         }
     })
 }

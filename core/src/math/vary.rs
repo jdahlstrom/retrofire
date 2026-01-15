@@ -8,8 +8,22 @@ use core::mem;
 use super::Lerp;
 
 pub trait ZDiv: Sized {
+    /// Performs a z-division.
+    ///
+    /// The default implementation calls [`z_div_recip`][Self::z_div_recip]
+    /// with the reciprocal of `z`.
     #[must_use]
-    fn z_div(self, _z: f32) -> Self {
+    fn z_div(self, z: f32) -> Self {
+        self.z_div_recip(z.recip())
+    }
+    /// Performs a z-division by multiplying by the reciprocal of z.
+    ///
+    /// This method should be preferred to [`z_div`][Self::z_div] when the same
+    /// (reciprocal) z can be reused for several z-divisions.
+    ///
+    /// The default implementation is a no-op and simply returns `self`.
+    #[must_use]
+    fn z_div_recip(self, _recip_z: f32) -> Self {
         self
     }
 }
@@ -127,15 +141,15 @@ impl<T: Vary, U: Vary> Vary for (T, U) {
 }
 impl<T: ZDiv, U: ZDiv> ZDiv for (T, U) {
     #[inline]
-    fn z_div(self, z: f32) -> Self {
-        (self.0.z_div(z), self.1.z_div(z))
+    fn z_div_recip(self, recip_z: f32) -> Self {
+        (self.0.z_div_recip(recip_z), self.1.z_div_recip(recip_z))
     }
 }
 
 impl ZDiv for f32 {
     #[inline]
-    fn z_div(self, z: f32) -> Self {
-        self / z
+    fn z_div_recip(self, recip_z: f32) -> Self {
+        self * recip_z
     }
 }
 
