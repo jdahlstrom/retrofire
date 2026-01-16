@@ -1,0 +1,40 @@
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+clip                 fastest       │ slowest       │ median        │ mean          │ samples │ iters
+├─ clip_all_inside                 │               │               │               │         │
+│  ├─ 1              121.6 ns      │ 6.734 µs      │ 124.6 ns      │ 192.4 ns      │ 100     │ 100
+│  │                 8.217 Mitem/s │ 148.4 Kitem/s │ 8.019 Mitem/s │ 5.196 Mitem/s │         │
+│  ├─ 10             481.9 ns      │ 3.401 µs      │ 489.4 ns      │ 527.6 ns      │ 100     │ 400
+│  │                 20.74 Mitem/s │ 2.94 Mitem/s  │ 20.43 Mitem/s │ 18.95 Mitem/s │         │
+│  ├─ 100            1.299 µs      │ 14.45 µs      │ 1.402 µs      │ 1.585 µs      │ 100     │ 100
+│  │                 76.94 Mitem/s │ 6.92 Mitem/s  │ 71.29 Mitem/s │ 63.08 Mitem/s │         │
+│  ├─ 1000           9.797 µs      │ 55.06 µs      │ 9.962 µs      │ 12.42 µs      │ 100     │ 100
+│  │                 102 Mitem/s   │ 18.16 Mitem/s │ 100.3 Mitem/s │ 80.51 Mitem/s │         │
+│  ╰─ 10000          268.9 µs      │ 444.8 µs      │ 304.2 µs      │ 317.1 µs      │ 100     │ 100
+│                    37.17 Mitem/s │ 22.48 Mitem/s │ 32.86 Mitem/s │ 31.53 Mitem/s │         │
+├─ clip_all_outside                │               │               │               │         │
+│  ├─ 1              70.45 ns      │ 71.41 ns      │ 71.04 ns      │ 70.97 ns      │ 100     │ 6400
+│  │                 14.19 Mitem/s │ 14 Mitem/s    │ 14.07 Mitem/s │ 14.08 Mitem/s │         │
+│  ├─ 10             140.4 ns      │ 162.3 ns      │ 142 ns        │ 142.2 ns      │ 100     │ 3200
+│  │                 71.21 Mitem/s │ 61.6 Mitem/s  │ 70.38 Mitem/s │ 70.27 Mitem/s │         │
+│  ├─ 100            325 ns        │ 337.3 ns      │ 327.9 ns      │ 328.1 ns      │ 100     │ 1600
+│  │                 307.6 Mitem/s │ 296.4 Mitem/s │ 304.9 Mitem/s │ 304.7 Mitem/s │         │
+│  ├─ 1000           3.085 µs      │ 11.86 µs      │ 3.109 µs      │ 3.203 µs      │ 100     │ 100
+│  │                 324 Mitem/s   │ 84.29 Mitem/s │ 321.5 Mitem/s │ 312.1 Mitem/s │         │
+│  ╰─ 10000          25.36 µs      │ 38.05 µs      │ 25.84 µs      │ 26.03 µs      │ 100     │ 100
+│                    394.2 Mitem/s │ 262.8 Mitem/s │ 386.8 Mitem/s │ 384.1 Mitem/s │         │
+╰─ clip_mixed                      │               │               │               │         │
+   ├─ 1              124.7 ns      │ 281 ns        │ 205.6 ns      │ 205.5 ns      │ 100     │ 3200
+   │                 8.017 Mitem/s │ 3.557 Mitem/s │ 4.862 Mitem/s │ 4.865 Mitem/s │         │
+   ├─ 10             1.137 µs      │ 4.934 µs      │ 1.81 µs       │ 1.875 µs      │ 100     │ 400
+   │                 8.787 Mitem/s │ 2.026 Mitem/s │ 5.523 Mitem/s │ 5.33 Mitem/s  │         │
+   ├─ 100            12.63 µs      │ 20.31 µs      │ 16.45 µs      │ 16.47 µs      │ 100     │ 100
+   │                 7.911 Mitem/s │ 4.922 Mitem/s │ 6.077 Mitem/s │ 6.068 Mitem/s │         │
+   ├─ 1000           147.5 µs      │ 313.6 µs      │ 159 µs        │ 162.7 µs      │ 100     │ 100
+   │                 6.776 Mitem/s │ 3.188 Mitem/s │ 6.288 Mitem/s │ 6.145 Mitem/s │         │
+   ╰─ 10000          1.544 ms      │ 2.106 ms      │ 1.598 ms      │ 1.638 ms      │ 100     │ 100
+                     6.474 Mitem/s │ 4.746 Mitem/s │ 6.256 Mitem/s │ 6.104 Mitem/s │         │
+

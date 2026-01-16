@@ -711,6 +711,12 @@ impl<R: Default, B, const DIM: usize> Default for Vector<R, Real<DIM, B>> {
         Self::new(R::default())
     }
 }
+impl Default for ProjVec3 {
+    #[inline]
+    fn default() -> Self {
+        Self::new(Default::default())
+    }
+}
 
 impl<R: Eq, S> Eq for Vector<R, S> {}
 
