@@ -152,6 +152,7 @@ impl<T> Buf2<T> {
     ///
     /// # Panics
     /// If `w * h > isize::MAX`.
+    #[inline]
     pub fn new((w, h): Dims) -> Self
     where
         T: Default + Clone,
@@ -200,11 +201,13 @@ impl<T> Buf2<T> {
     }
 
     /// Returns a view of the backing data of `self`.
+    #[inline]
     pub fn data(&self) -> &[T] {
         self.0.data()
     }
 
     /// Returns a mutable view of the backing data of `self`.
+    #[inline]
     pub fn data_mut(&mut self) -> &mut [T] {
         self.0.data_mut()
     }
@@ -249,6 +252,7 @@ impl<'a, T> Slice2<'a, T> {
     /// # Panics
     /// if `stride < width` or if the slice would overflow `data`.
     ///
+    #[inline]
     pub fn new(dims: Dims, stride: u32, data: &'a [T]) -> Self {
         Self(Inner::new(dims, stride, data))
     }
@@ -259,6 +263,7 @@ impl<'a, T> MutSlice2<'a, T> {
     /// and stride `stride`.
     ///
     /// See [`Slice2::new`] for more information.
+    #[inline]
     pub fn new(dims: Dims, stride: u32, data: &'a mut [T]) -> Self {
         Self(Inner::new(dims, stride, data))
     }
@@ -363,7 +368,7 @@ impl<T> DerefMut for Buf2<T> {
         &mut self.0
     }
 }
-impl<'a, T> DerefMut for MutSlice2<'a, T> {
+impl<T> DerefMut for MutSlice2<'_, T> {
     fn deref_mut(&mut self) -> &mut Self::Target {
         &mut self.0
     }
@@ -422,11 +427,13 @@ pub mod inner {
         /// `Buf2` instances are always contiguous. A `Slice2` or `MutSlice2`
         /// instance is contiguous if its width equals its stride, if its
         /// height is 1, or if it is empty.
+        #[inline]
         pub fn is_contiguous(&self) -> bool {
             let (w, h) = self.dims;
             self.stride == w || h <= 1 || w == 0
         }
         /// Returns whether `self` contains no elements.
+        #[inline]
         pub fn is_empty(&self) -> bool {
             self.dims.0 == 0 || self.dims.1 == 0
         }
@@ -457,6 +464,7 @@ pub mod inner {
         }
 
         /// Returns the dimensions and linear range corresponding to the rect.
+        #[inline(never)]
         fn resolve_bounds(&self, rect: &Rect<u32>) -> (Dims, Range<usize>) {
             let (w, h) = self.dims;
 
@@ -487,6 +495,7 @@ pub mod inner {
         }
 
         /// A helper for implementing `Debug`.
+        #[inline(never)]
         pub(super) fn debug_fmt(
             &self,
             f: &mut Formatter,
@@ -515,6 +524,7 @@ pub mod inner {
     impl<T, D: Deref<Target = [T]>> Inner<T, D> {
         /// # Panics
         /// if `stride < w` or if the slice would overflow `data`.
+        #[inline]
         #[rustfmt::skip]
         pub(super) fn new(dims: Dims, stride: u32, data: D) -> Self {
             check_preconditions(dims, stride, data.len());
@@ -522,6 +532,7 @@ pub mod inner {
         }
 
         /// Returns the data of `self` as a linear slice.
+        #[inline]
         pub(super) fn data(&self) -> &[T] {
             &self.data
         }
@@ -537,6 +548,7 @@ pub mod inner {
         ///
         /// # Panics
         /// If any part of `rect` is outside the bounds of `self`.
+        #[inline]
         pub fn slice(&self, rect: impl Into<Rect>) -> Slice2<'_, T> {
             let (dims, rg) = self.resolve_bounds(&rect.into());
             Slice2::new(dims, self.stride, &self.data[rg])
@@ -544,6 +556,7 @@ pub mod inner {
 
         /// Returns a reference to the element at `pos`,
         /// or `None` if `pos` is out of bounds.
+        #[inline]
         pub fn get(&self, pos: impl Into<Point2u>) -> Option<&T> {
             let [x, y] = pos.into().0;
             self.to_index_checked(x, y).map(|i| &self.data[i])
@@ -593,6 +606,7 @@ pub mod inner {
         }
 
         /// Returns the data of `self` as a single mutable slice.
+        #[inline]
         pub(super) fn data_mut(&mut self) -> &mut [T] {
             &mut self.data
         }
@@ -664,6 +678,7 @@ pub mod inner {
 
         /// Returns a mutable reference to the element at `pos`,
         /// or `None` if `pos` is out of bounds.
+        #[inline]
         pub fn get_mut(&mut self, pos: impl Into<Point2u>) -> Option<&mut T> {
             let [x, y] = pos.into().0;
             self.to_index_checked(x, y)
@@ -674,6 +689,7 @@ pub mod inner {
         ///
         /// # Panics
         /// If any part of `rect` is outside the bounds of `self`.
+        #[inline]
         pub fn slice_mut(&mut self, rect: impl Into<Rect>) -> MutSlice2<'_, T> {
             let (dims, rg) = self.resolve_bounds(&rect.into());
             MutSlice2(Inner::new(dims, self.stride, &mut self.data[rg]))

@@ -9,30 +9,31 @@ use super::{
     raster::{Scanline, ScreenPt, line, tri_fill},
 };
 
-impl<V: Vary> Render<V> for Tri<usize> {
+impl<V: Vary + Default> Render<V> for Tri<usize> {
     type Clip = Tri<ClipVert<V>>;
     type Clips = [Tri<ClipVert<V>>];
     type Screen = Tri<Vertex<ScreenPt, V>>;
 
+    #[inline]
     fn inline(tri: Self, vs: &[ClipVert<V>]) -> Tri<ClipVert<V>> {
         tri.map(|i| vs[i].clone())
     }
-
+    #[inline]
     fn depth(Tri([a, b, c]): &Self::Clip) -> f32 {
         (a.pos.z() + b.pos.z() + c.pos.z()) / 3.0
     }
-
+    #[inline]
     fn is_backface(tri: &Self::Screen) -> bool {
         tri.winding() == Winding::Cw
     }
-
+    #[inline]
     fn to_screen(
         clip: Tri<ClipVert<V>>,
         tf: &Mat4<Ndc, Screen>,
     ) -> Self::Screen {
         Tri(to_screen(clip.0, tf))
     }
-
+    #[inline]
     fn rasterize<F: FnMut(Scanline<V>)>(scr: Self::Screen, scanline_fn: F) {
         tri_fill(scr.0, scanline_fn);
     }
@@ -45,26 +46,29 @@ impl<V: Vary> Render<V> for Edge<usize> {
 
     type Screen = Edge<Vertex<ScreenPt, V>>;
 
+    #[inline]
     fn inline(Edge(i, j): Edge<usize>, vs: &[ClipVert<V>]) -> Self::Clip {
         Edge(vs[i].clone(), vs[j].clone())
     }
-
+    #[inline]
     fn to_screen(e: Self::Clip, tf: &Mat4<Ndc, Screen>) -> Self::Screen {
         let [a, b] = to_screen([e.0, e.1], tf);
         Edge(a, b)
     }
-
+    #[inline]
     fn rasterize<F: FnMut(Scanline<V>)>(e: Self::Screen, scanline_fn: F) {
         line([e.0, e.1], scanline_fn);
     }
 }
 
+/// A helper function to perform z-division and viewport transform for a list
+/// of clip-space vertices.
+#[inline]
 pub fn to_screen<V: ZDiv, const N: usize>(
     vs: [ClipVert<V>; N],
     tf: &Mat4<Ndc, Screen>,
 ) -> [Vertex<ScreenPt, V>; N] {
     vs.map(|v| {
-        let [x, y, _, w] = v.pos.0;
         // Perspective division (projection to the real plane)
         //
         // We use the screen-space z coordinate to store the reciprocal
@@ -77,12 +81,14 @@ pub fn to_screen<V: ZDiv, const N: usize>(
         //      Vec3 was used here, which only worked because apply used to use
         //      w=1 for vectors. Fixing it made viewport transform incorrect.
         //      The z-div concept and trait likely need clarification.
-        let pos = pt3(x, y, 1.0).z_div(w);
+        let [x, y, _, w] = v.pos.0;
+        let recip_w = w.recip();
+        let pos = pt3(x, y, 1.0).z_div_recip(recip_w);
         Vertex {
             // Viewport transform
             pos: tf.apply(&pos),
             // Perspective correction
-            attrib: v.attrib.z_div(w),
+            attrib: v.attrib.z_div_recip(recip_w),
         }
     })
 }

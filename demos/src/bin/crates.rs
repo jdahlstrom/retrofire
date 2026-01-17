@@ -98,7 +98,7 @@ fn main() {
         // Floor
         {
             let Obj { bbox, tf, geom } = &floor;
-            let model_to_project = tf.then(&world_to_project);
+            let model_to_project = tf.then(world_to_project);
             if bbox.visibility(&model_to_project) != Hidden {
                 let mut b = batch
                     .clone()
@@ -114,7 +114,7 @@ fn main() {
         for Obj { geom, bbox, tf } in &crates {
             frame.ctx.stats.borrow_mut().objs.i += 1;
 
-            let model_to_project = tf.then(&world_to_project);
+            let model_to_project = tf.then(world_to_project);
 
             // TODO Also if `Visible`, no further clipping or culling needed
             if bbox.visibility(&model_to_project) == Hidden {
@@ -183,7 +183,7 @@ fn floor() -> Obj<Vec2> {
                     bld.push_face(a, d, b);
                 } else {
                     bld.push_face(b, c, d);
-                    bld.push_face(b, a, c)
+                    bld.push_face(b, a, c);
                 }
             }
         }

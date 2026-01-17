@@ -43,6 +43,7 @@ pub struct Rgba4444;
 // Impls for Color3
 
 impl IntoPixel<u32, Rgb888> for Color3 {
+    #[inline]
     fn into_pixel(self) -> u32 {
         let [r, g, b] = self.0;
         // [0x00, 0xRR, 0xGG, 0xBB] -> 0x00_RR_GG_BB
@@ -50,12 +51,14 @@ impl IntoPixel<u32, Rgb888> for Color3 {
     }
 }
 impl IntoPixel<[u8; 3], Rgb888> for Color3 {
+    #[inline]
     fn into_pixel(self) -> [u8; 3] {
         self.0
     }
 }
 
 impl IntoPixel<u16, Rgb565> for Color3 {
+    #[inline]
     fn into_pixel(self) -> u16 {
         let [r, g, b] = self.0;
         (r as u16 >> 3 & 0x1F) << 11
@@ -65,6 +68,7 @@ impl IntoPixel<u16, Rgb565> for Color3 {
 }
 
 impl IntoPixel<[u8; 2], Rgb565> for Color3 {
+    #[inline]
     fn into_pixel(self) -> [u8; 2] {
         let c: u16 = self.into_pixel();
         c.to_ne_bytes()
@@ -77,6 +81,7 @@ impl<F> IntoPixel<u32, F> for Color4
 where
     Self: IntoPixel<[u8; 4], F>,
 {
+    #[inline]
     fn into_pixel(self) -> u32 {
         // From [0xAA, 0xBB, 0xCC, 0xDD] to 0xAA_BB_CC_DD -> big-endian!
         u32::from_be_bytes(self.into_pixel())
@@ -84,6 +89,7 @@ where
 }
 
 impl IntoPixel<u32, Xrgb8888> for Color4 {
+    #[inline]
     fn into_pixel(self) -> u32 {
         let [r, g, b, _] = self.0;
         // From [0x00, 0xRR, 0xGG, 0xBB] to 0x00_RR_GG_BB -> big-endian!
@@ -91,34 +97,40 @@ impl IntoPixel<u32, Xrgb8888> for Color4 {
     }
 }
 impl IntoPixel<[u8; 4], Rgba8888> for Color4 {
+    #[inline]
     fn into_pixel(self) -> [u8; 4] {
         self.0
     }
 }
 impl IntoPixel<[u8; 4], Argb8888> for Color4 {
+    #[inline]
     fn into_pixel(self) -> [u8; 4] {
         let [r, g, b, a] = self.0;
         [a, r, g, b]
     }
 }
 impl IntoPixel<[u8; 4], Bgra8888> for Color4 {
+    #[inline]
     fn into_pixel(self) -> [u8; 4] {
         let [r, g, b, a] = self.0;
         [b, g, r, a]
     }
 }
 impl IntoPixel<[u8; 3], Rgb888> for Color4 {
+    #[inline]
     fn into_pixel(self) -> [u8; 3] {
         [self.r(), self.g(), self.b()]
     }
 }
 impl IntoPixel<[u8; 2], Rgba4444> for Color4 {
+    #[inline]
     fn into_pixel(self) -> [u8; 2] {
         let c: u16 = self.into_pixel_fmt(Rgba4444);
         c.to_ne_bytes()
     }
 }
 impl IntoPixel<u16, Rgba4444> for Color4 {
+    #[inline]
     fn into_pixel(self) -> u16 {
         let [r, g, b, a] = self.0;
 
@@ -130,11 +142,13 @@ impl IntoPixel<u16, Rgba4444> for Color4 {
     }
 }
 impl IntoPixel<u16, Rgb565> for Color4 {
+    #[inline]
     fn into_pixel(self) -> u16 {
         self.to_rgb().into_pixel()
     }
 }
 impl IntoPixel<[u8; 2], Rgb565> for Color4 {
+    #[inline]
     fn into_pixel(self) -> [u8; 2] {
         let c: u16 = self.into_pixel_fmt(Rgb565);
         c.to_ne_bytes()
@@ -142,6 +156,7 @@ impl IntoPixel<[u8; 2], Rgb565> for Color4 {
 }
 
 #[cfg(test)]
+#[allow(clippy::unusual_byte_groupings)]
 mod tests {
     use crate::math::{rgb, rgba};
 

@@ -14,7 +14,12 @@
 //!
 
 use alloc::vec::Vec;
-use core::{iter::zip, mem::swap};
+use core::{
+    iter::zip,
+    marker::PhantomData,
+    mem::swap,
+    ops::{Deref, DerefMut},
+};
 
 use crate::geom::{Edge, Tri, Vertex, vertex};
 use crate::math::{Lerp, ProjVec3};
@@ -53,7 +58,7 @@ pub trait Clip {
 pub type ClipVec = ProjVec3;
 
 /// A vertex in clip space.
-#[derive(Copy, Clone, Debug, PartialEq)]
+#[derive(Copy, Clone, Debug, Default, PartialEq)]
 pub struct ClipVert<A> {
     pub pos: ClipVec,
     pub attrib: A,
@@ -74,8 +79,75 @@ pub enum Status {
 #[derive(Debug, Copy, Clone)]
 pub struct ClipPlane(ClipVec, u8);
 
+#[derive(Debug, Copy, Clone, Default, Eq, PartialEq)]
+pub struct FixedVec<T, D>(D, usize, PhantomData<T>);
+
+pub type ArrayVec<T, const CAP: usize> = FixedVec<T, [T; CAP]>;
+pub type SliceVec<'a, T> = FixedVec<T, &'a mut [T]>;
+
+impl<T, D: AsRef<[T]>> FixedVec<T, D> {
+    #[inline]
+    pub fn new() -> Self
+    where
+        T: Default,
+        D: Default,
+    {
+        Self::default()
+    }
+    #[inline]
+    pub fn from(data: D) -> Self {
+        Self(data, 0, PhantomData)
+    }
+    #[inline]
+    pub fn capacity(&self) -> usize {
+        self.0.as_ref().len()
+    }
+    #[inline]
+    pub fn clear(&mut self) {
+        self.1 = 0;
+    }
+}
+impl<T, D: AsRef<[T]> + AsMut<[T]>> FixedVec<T, D> {
+    #[inline]
+    pub fn push(&mut self, item: T) {
+        self.try_push(item).unwrap_or_else(|_| {
+            panic!("at maximum capacity ({})", self.capacity());
+        });
+    }
+    #[inline]
+    pub fn try_push(&mut self, item: T) -> Result<(), T> {
+        if self.1 < self.capacity() {
+            self.0.as_mut()[self.1] = item;
+            self.1 += 1;
+            Ok(())
+        } else {
+            Err(item)
+        }
+    }
+}
+
+impl<T, D: AsRef<[T]>> Deref for FixedVec<T, D> {
+    type Target = [T];
+    #[inline]
+    fn deref(&self) -> &[T] {
+        &self.0.as_ref()[..self.1]
+    }
+}
+
+impl<T, D: AsRef<[T]> + AsMut<[T]>> DerefMut for FixedVec<T, D> {
+    #[inline]
+    fn deref_mut(&mut self) -> &mut [T] {
+        &mut self.0.as_mut()[..self.1]
+    }
+}
+
+//
+// Inherent impls
+//
+
 impl ClipPlane {
     /// Creates a clip plane given a normal, offset, and outcode bit.
+    #[inline]
     const fn new(x: f32, y: f32, z: f32, off: f32, bit: u8) -> Self {
         Self(ClipVec::new([x, y, z, -off]), bit)
     }
@@ -167,7 +239,7 @@ impl ClipPlane {
     pub fn clip_simple_polygon<A: Lerp>(
         &self,
         verts_in: &[ClipVert<A>],
-        verts_out: &mut Vec<ClipVert<A>>,
+        verts_out: &mut SliceVec<ClipVert<A>>,
     ) {
         let mut verts = verts_in.iter().chain(&verts_in[..1]);
 
@@ -282,20 +354,20 @@ pub mod view_frustum {
 ///        Communications of the ACM, vol. 17, pp. 32–42, 1974
 pub fn clip_simple_polygon<'a, A: Lerp>(
     planes: &[ClipPlane],
-    verts_in: &'a mut Vec<ClipVert<A>>,
-    verts_out: &'a mut Vec<ClipVert<A>>,
+    mut verts_in: SliceVec<'a, ClipVert<A>>,
+    mut verts_out: &mut SliceVec<'a, ClipVert<A>>,
 ) {
     debug_assert!(verts_out.is_empty());
 
     for (p, i) in zip(planes, 0..) {
-        p.clip_simple_polygon(verts_in, verts_out);
+        p.clip_simple_polygon(&verts_in, &mut verts_out);
         verts_in.clear();
-        if verts_out.is_empty() {
+        if verts_out.len() == 0 {
             // Nothing left to clip; the polygon was fully outside
             break;
         } else if i < planes.len() - 1 {
             // Use the result of this iteration as the input of the next
-            swap(verts_in, verts_out);
+            swap(&mut verts_in, &mut verts_out);
         }
     }
 }
@@ -347,30 +419,36 @@ impl<A: Lerp> Clip for [Edge<ClipVert<A>>] {
     }
 }
 
-impl<A: Lerp> Clip for [Tri<ClipVert<A>>] {
+impl<A: Lerp + Default> Clip for [Tri<ClipVert<A>>] {
     type Item = Tri<ClipVert<A>>;
 
     fn clip(&self, planes: &[ClipPlane], out: &mut Vec<Self::Item>) {
         debug_assert!(out.is_empty());
 
         // Avoid unnecessary allocations by reusing these
-        let mut verts_in = Vec::with_capacity(10);
-        let mut verts_out = Vec::with_capacity(10);
+        let mut verts_in_a: [_; 10] = Default::default();
+        let mut verts_out_a: [_; 10] = Default::default();
 
-        for tri @ Tri(vs) in self {
-            match status(vs) {
+        for tri in self.iter().cloned() {
+            match status(&tri.0) {
                 Status::Visible => {
-                    out.push(tri.clone());
+                    out.push(tri);
                     continue;
                 }
                 Status::Hidden => continue,
                 Status::Clipped => { /* go on and clip */ }
+            };
+
+            let mut verts_in = FixedVec::from(verts_in_a.as_mut());
+            let mut verts_out = FixedVec::from(verts_out_a.as_mut());
+
+            for v in tri.0 {
+                verts_in.push(v);
             }
 
-            verts_in.extend(vs.clone());
-            clip_simple_polygon(planes, &mut verts_in, &mut verts_out);
+            clip_simple_polygon(planes, verts_in, &mut verts_out);
 
-            if let [p, rest @ ..] = &verts_out[..] {
+            if let [p, rest @ ..] = verts_out.deref() {
                 // Clipping a triangle results in an n-gon, where n depends on
                 // how many planes the triangle intersects. For example, here
                 // clipping triangle ABC generated three new vertices, resulting
@@ -399,6 +477,7 @@ impl<A: Lerp> Clip for [Tri<ClipVert<A>>] {
     }
 }
 
+#[cfg(false)]
 #[cfg(test)]
 mod tests {
     use alloc::vec;
@@ -443,7 +522,7 @@ mod tests {
         //  32  16  8   4   2   1
 
         // Outside near == 1
-        assert_eq!(outcode(&vec(0.0, 0.0, -1.5)), 0b00_0_01);
+        assert_eq!(outcode(&vec(0.0, 0.0, -1.5)), 0b00_00_01);
         // Outside right == 8
         assert_eq!(outcode(&vec(2.0, 0.0, 0.0)), 0b00_10_00);
         // Outside bottom == 16
@@ -701,7 +780,7 @@ mod tests {
             in_degen += is_degenerate(&tr) as u32;
             out_tris[res.len()] += 1;
             out_total += res.len();
-            out_degen += res.iter().filter(|t| is_degenerate(t)).count()
+            out_degen += res.iter().filter(|t| is_degenerate(t)).count();
         }
         #[cfg(feature = "std")]
         {

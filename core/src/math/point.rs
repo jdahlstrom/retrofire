@@ -281,9 +281,9 @@ where
     Sc: ZDiv + Copy,
 {
     #[inline]
-    fn z_div(mut self, z: f32) -> Self {
+    fn z_div_recip(mut self, recip_z: f32) -> Self {
         for c in &mut self.0 {
-            *c = c.z_div(z);
+            *c = c.z_div_recip(recip_z);
         }
         self
     }
@@ -308,12 +308,14 @@ impl<Sc: ApproxEq, Sp, const N: usize> ApproxEq<Sc> for Point<[Sc; N], Sp> {
 impl<R: Copy, S> Copy for Point<R, S> {}
 
 impl<R: Clone, S> Clone for Point<R, S> {
+    #[inline]
     fn clone(&self) -> Self {
         Self(self.0.clone(), Pd)
     }
 }
 
 impl<R: Default, S> Default for Point<R, S> {
+    #[inline]
     fn default() -> Self {
         Self(R::default(), Pd)
     }
@@ -329,6 +331,7 @@ impl<R: Debug, Sp: Debug + Default> Debug for Point<R, Sp> {
 impl<R: Eq, S> Eq for Point<R, S> {}
 
 impl<R: PartialEq, S> PartialEq for Point<R, S> {
+    #[inline]
     fn eq(&self, other: &Self) -> bool {
         self.0 == other.0
     }
@@ -479,7 +482,7 @@ where
 
     #[inline]
     fn div(self, rhs: f32) -> Self {
-        self * rhs.recip()
+        self.mul(1.0 / rhs)
     }
 }
 impl<R: Copy, Sp> DivAssign<f32> for Point<R, Sp>
@@ -505,13 +508,14 @@ mod tests {
 
         const pt2: fn(f32, f32) -> Point2 = super::pt2;
         const pt3: fn(f32, f32, f32) -> Point3 = super::pt3;
+
         #[test]
         fn vector_addition() {
             assert_eq!(pt2(1.0, 2.0) + vec2(-2.0, 3.0), pt2(-1.0, 5.0));
             assert_eq!(
                 pt3(1.0, 2.0, 3.0) + vec3(-2.0, 3.0, 1.0),
                 pt3(-1.0, 5.0, 4.0)
-            )
+            );
         }
         #[test]
         fn vector_subtraction() {
@@ -519,7 +523,7 @@ mod tests {
             assert_eq!(
                 pt3(1.0, 2.0, 3.0) - vec3(-2.0, 3.0, 1.0),
                 pt3(3.0, -1.0, 2.0)
-            )
+            );
         }
         #[test]
         fn point_subtraction() {
@@ -527,7 +531,7 @@ mod tests {
             assert_eq!(
                 pt3(1.0, 2.0, 3.0) - pt3(-2.0, 3.0, 1.0),
                 vec3(3.0, -1.0, 2.0)
-            )
+            );
         }
         #[test]
         fn scalar_multiplication() {

@@ -1,13 +1,9 @@
 //! Real and projective vectors.
 //!
 //! TODO
+//!
+//!
 
-use super::{
-    Affine, ApproxEq, Linear, Point,
-    space::{Proj3, Real},
-    vary::ZDiv,
-};
-use crate::math::space::Hom;
 use core::{
     array,
     fmt::{Debug, Formatter},
@@ -17,15 +13,21 @@ use core::{
     ops::{AddAssign, DivAssign, MulAssign, SubAssign},
 };
 
+use super::{
+    Affine, ApproxEq, Linear, Point,
+    space::{Hom, Proj3, Real},
+    vary::ZDiv,
+};
+
 //
 // Types
 //
 
 /// A generic vector type. Represents an element of a vector space.
 ///
-/// or a module,
-/// a generalization of a vector space where the scalars can be integers
-/// (technically, the scalar type can be any *ring*-like type).
+// or a module,
+// a generalization of a vector space where the scalars can be integers
+// (technically, the scalar type can be any *ring*-like type).
 ///
 /// # Type parameters
 /// * `Repr`: Representation of the scalar components of the vector,
@@ -313,6 +315,7 @@ where
     ///
     /// assert_eq!(v.reflect(axis), vec3(2.0, 3.0, 1.0));
     /// ```
+    #[must_use]
     pub fn reflect(self, axis: Self) -> Self
     where
         Sc: Div<Sc, Output = Sc>,
@@ -356,7 +359,7 @@ where
             if !a.mul(y).approx_eq(&b.mul(x)) {
                 return false;
             }
-            (x, y) = (a, b)
+            (x, y) = (a, b);
         }
         true
     }
@@ -668,9 +671,9 @@ where
     Sc: ZDiv + Copy,
 {
     #[inline]
-    fn z_div(mut self, z: f32) -> Self {
+    fn z_div_recip(mut self, recip_z: f32) -> Self {
         for c in &mut self.0 {
-            *c = c.z_div(z);
+            *c = c.z_div_recip(recip_z);
         }
         self
     }
@@ -695,6 +698,7 @@ impl<Sc: ApproxEq, Sp, const N: usize> ApproxEq<Sc> for Vector<[Sc; N], Sp> {
 impl<R: Copy, S> Copy for Vector<R, S> {}
 
 impl<R: Clone, S> Clone for Vector<R, S> {
+    #[inline]
     fn clone(&self) -> Self {
         Self::new(self.0.clone())
     }
@@ -702,14 +706,22 @@ impl<R: Clone, S> Clone for Vector<R, S> {
 
 // Limited to Cartesian vectors because Spherical/PolarVec have own impl
 impl<R: Default, B, const DIM: usize> Default for Vector<R, Real<DIM, B>> {
+    #[inline]
     fn default() -> Self {
         Self::new(R::default())
+    }
+}
+impl Default for ProjVec3 {
+    #[inline]
+    fn default() -> Self {
+        Self::new(Default::default())
     }
 }
 
 impl<R: Eq, S> Eq for Vector<R, S> {}
 
 impl<R: PartialEq, S> PartialEq for Vector<R, S> {
+    #[inline]
     fn eq(&self, other: &Self) -> bool {
         self.0 == other.0
     }

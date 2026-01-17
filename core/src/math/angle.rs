@@ -77,6 +77,7 @@ pub const fn turns(a: f32) -> Angle {
 /// # Panics
 /// If `x` is outside the range [-1.0, 1.0].
 #[cfg(feature = "fp")]
+#[inline]
 pub fn asin(x: f32) -> Angle {
     assert!(-1.0 <= x && x <= 1.0);
     Angle(f32::asin(x))
@@ -96,6 +97,7 @@ pub fn asin(x: f32) -> Angle {
 /// # Panics
 /// If `x` is outside the range [-1.0, 1.0].
 #[cfg(feature = "fp")]
+#[inline]
 pub fn acos(x: f32) -> Angle {
     Angle(f32::acos(x))
 }
@@ -113,11 +115,13 @@ pub fn acos(x: f32) -> Angle {
 /// assert_eq!(atan2(-3.0, 0.0), degs(-90.0));
 /// ```
 #[cfg(feature = "fp")]
+#[inline]
 pub fn atan2(y: f32, x: f32) -> Angle {
     Angle(f32::atan2(y, x))
 }
 
 /// Returns a polar coordinate vector with azimuth `az` and radius `r`.
+#[inline]
 pub const fn polar<B>(r: f32, az: Angle) -> PolarVec<B> {
     Vector::new([r, az.to_rads()])
 }
@@ -126,6 +130,7 @@ pub const fn polar<B>(r: f32, az: Angle) -> PolarVec<B> {
 /// altitude `alt`, and radius `r`.
 ///
 /// An altitude of +90° corresponds to straight up and -90° to straight down.
+#[inline]
 pub const fn spherical<B>(r: f32, az: Angle, alt: Angle) -> SphericalVec<B> {
     Vector::new([r, az.to_rads(), alt.to_rads()])
 }
@@ -183,11 +188,13 @@ impl Angle {
 
     /// Returns the minimum of `self` and `other`.
     #[inline]
+    #[must_use]
     pub const fn min(self, other: Self) -> Self {
         Self(self.0.min(other.0))
     }
     /// Returns the maximum of `self` and `other`.
     #[inline]
+    #[must_use]
     pub const fn max(self, other: Self) -> Self {
         Self(self.0.max(other.0))
     }
@@ -413,6 +420,7 @@ impl<B> Vec2<B> {
     /// // A negative x and zero y maps to straight angle azimuth
     /// assert_approx_eq!(vec2(-1.0, 0.0).to_polar().az(), degs(180.0));
     /// ```
+    #[inline]
     pub fn to_polar(&self) -> PolarVec<B> {
         polar(self.len(), self.atan())
     }
@@ -426,8 +434,8 @@ impl<B> Vec3<B> {
     /// * `r` equals `self.len()`
     /// * `az`is the angle between `self` and the xy-plane in the range
     ///   (-180°, 180°] such that positive `z` maps to *negative* `az`, and
-    /// * `alt` is the angle between `self` and the xz-plane in the
-    /// range [-90°, 90°] such that positive `y` maps to positive `alt`.
+    /// * `alt` is the angle between `self` and the xz-plane in the range
+    ///   [-90°, 90°] such that positive `y` maps to positive `alt`.
     ///
     /// # Examples
     /// ```
@@ -631,7 +639,7 @@ impl DivAssign<f32> for Angle {
 impl<B> From<PolarVec<B>> for Vec2<B> {
     /// Converts a polar vector into the equivalent Cartesian vector.
     ///
-    /// See [PolarVec::to_cart] for more information.
+    /// See [`PolarVec::to_cart`] for more information.
     #[inline]
     fn from(p: PolarVec<B>) -> Self {
         p.to_cart()
@@ -642,7 +650,7 @@ impl<B> From<PolarVec<B>> for Vec2<B> {
 impl<B> From<Vec2<B>> for PolarVec<B> {
     /// Converts a Cartesian 2-vector into the equivalent polar vector.
     ///
-    /// See [Vec2::to_polar] for more information.
+    /// See [`Vec2::to_polar`] for more information.
     #[inline]
     fn from(v: Vec2<B>) -> Self {
         v.to_polar()
@@ -653,7 +661,7 @@ impl<B> From<Vec2<B>> for PolarVec<B> {
 impl<B> From<SphericalVec<B>> for Vec3<B> {
     /// Converts a spherical coordinate vector to a Euclidean 3-vector.
     ///
-    /// See [SphericalVec::to_cart] for more information.
+    /// See [`SphericalVec::to_cart`] for more information.
     #[inline]
     fn from(v: SphericalVec<B>) -> Self {
         v.to_cart()
@@ -664,7 +672,7 @@ impl<B> From<SphericalVec<B>> for Vec3<B> {
 impl<B> From<Vec3<B>> for SphericalVec<B> {
     /// Converts a Cartesian 3-vector into the equivalent spherical vector.
     ///
-    /// See [Vec3::to_spherical] for more information.
+    /// See [`Vec3::to_spherical`] for more information.
     #[inline]
     fn from(v: Vec3<B>) -> Self {
         v.to_spherical()

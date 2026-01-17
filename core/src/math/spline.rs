@@ -1,4 +1,7 @@
 //! Bézier curves and splines.
+
+#![allow(clippy::just_underscores_and_digits)]
+
 use alloc::vec::Vec;
 use core::{array::from_fn, fmt::Debug, marker::PhantomData};
 
@@ -243,6 +246,7 @@ impl<T: Lerp> CubicBezier<T> {
     /// the curve beyond the control points.
     ///
     /// [1]: https://en.wikipedia.org/wiki/De_Casteljau%27s_algorithm
+    #[inline]
     pub fn eval(&self, t: f32) -> T {
         let [p0, p1, p2, p3] = &self.0;
         let p01 = p0.lerp(p1, t);
@@ -262,6 +266,7 @@ where
     /// numerically stable than [`Self::eval`].  Values of *t* outside the
     /// interval [0, 1] are accepted and extrapolate the curve beyond the
     /// control points.
+    #[inline]
     pub fn fast_eval(&self, t: f32) -> T {
         // Add a linear combination of the three coefficients
         // to `p0` to get the result
@@ -346,6 +351,7 @@ where
     ///
     /// Values of *t* outside the interval [0, 1] are accepted and extrapolate
     /// the curve beyond the control points.
+    #[inline]
     pub fn eval(&self, t: f32) -> P {
         let Self([p0, p1], [d0, d1]) = self;
         let [_0, t1, t2, t3] = [1.0, t, t * t, t * t * t];
@@ -366,7 +372,7 @@ where
         // = (1 - b2) * p0 + b2 * p1
         // = p0 + b2 * (p1 - p0)
 
-        p0.add(&p1.sub(&p0).mul(b2)) // Affine part
+        p0.add(&p1.sub(p0).mul(b2)) // Affine part
             .add(&d0.mul(b1).add(&d1.mul(b3))) // Linear part
     }
 
@@ -398,7 +404,7 @@ where
 
         // Only vectors as expected:
         // b2·(p1 - p0) + b1·d0 + b3·d1
-        p1.sub(&p0)
+        p1.sub(p0)
             .mul(b2)
             .add(&d0.mul(b1).add(&d1.mul(b3)))
     }
@@ -442,13 +448,14 @@ where
             .into_iter()
             .flat_map(|Ray(p, d)| [p.add(&d.neg()), p.clone(), p.add(&d)])
             .collect();
-        Self::new(pts[1..pts.len() - 1].into_iter().cloned())
+        Self::new(pts[1..pts.len() - 1].iter().cloned())
     }
 
     /// Returns the point of `self` at the given *t* value.
     ///
     /// Values of *t* outside the interval [0, 1] are accepted and extrapolate
     /// the curve beyond the control points.
+    #[inline]
     pub fn eval(&self, t: f32) -> T {
         let (u, seg) = self.segment(t);
         seg.fast_eval(u)
@@ -458,6 +465,7 @@ where
     ///
     /// Values of *t* outside the interval [0, 1] are accepted and extrapolate
     /// the curve beyond the control points.
+    #[inline]
     pub fn velocity(&self, t: f32) -> T::Diff {
         let (u, seg) = self.segment(t);
         seg.velocity(u)
@@ -482,7 +490,6 @@ where
         let num_segs = (self.0.len() - 1) / 3;
         // Rescale from [0, 1] to [0, num_segs]
         let t = t * num_segs as f32;
-        use super::float::f32;
         // Calculate the segment index.
         let seg_i = (t as usize).min(num_segs - 1);
         // The leftover part is the local t value. This is the fractional part
@@ -542,6 +549,7 @@ where
     ///
     /// Values of *t* outside the interval [0, 1] are accepted and extrapolate
     /// the curve beyond the control points.
+    #[inline]
     pub fn eval(&self, t: f32) -> T {
         let (u, seg) = self.segment(t);
         seg.eval(u)
@@ -552,6 +560,7 @@ where
     ///
     /// Values of *t* outside the interval [0, 1] are accepted and extrapolate
     /// the curve beyond the control points.
+    #[inline]
     pub fn velocity(&self, t: f32) -> T::Diff {
         let (u, seg) = self.segment(t);
         seg.velocity(u)
@@ -569,6 +578,10 @@ where
         -0.5,  1.5, -1.5,  0.5;
     ];
 
+    /// TODO
+    ///
+    /// # Panics
+    /// If `pts` has fewer than four points.
     pub fn new(pts: impl IntoIterator<Item = T>) -> Self {
         let pts: Vec<_> = pts.into_iter().collect();
         assert!(
@@ -582,6 +595,7 @@ where
     ///
     /// Values of *t* outside the interval [0, 1] are accepted and extrapolate
     /// the curve beyond the control points.
+    #[inline]
     pub fn eval(&self, t: f32) -> T {
         let (t, [p0, p1, p2, p3]) = crb_segment(&self.0, t);
         let [_0, t1, t2, t3] = [1.0, t, t * t, t * t * t];
@@ -599,9 +613,9 @@ where
         // = P0 - b1·P0 - b2·P0 - b3·P0 + b1·P1 + b2·P2 + b3·P3
         // = P0 + b1·(P1 - P0) + b2·(P2 - P0) + b3·(P3 - P0)
 
-        let v01 = p1.sub(&p0).mul(b1);
-        let v02 = &p2.sub(&p0).mul(b2);
-        let v03 = p3.sub(&p0).mul(b3);
+        let v01 = p1.sub(p0).mul(b1);
+        let v02 = p2.sub(p0).mul(b2);
+        let v03 = p3.sub(p0).mul(b3);
         p0.add(&v01.add(&v02).add(&v03).mul(1.0 / 2.0))
     }
 
@@ -629,9 +643,9 @@ where
         // = b1·P1 + b2·P2 + b3·P3 - b1·P0 - b2·P0 - b3·P0
         // = b1·(P1 - P0) + b2·(P2 - P0) + b3·(P3 - P0)
 
-        let v01 = p1.sub(&p0).mul(b1);
-        let v02 = p2.sub(&p0).mul(b2);
-        let v03 = p3.sub(&p0).mul(b3);
+        let v01 = p1.sub(p0).mul(b1);
+        let v02 = p2.sub(p0).mul(b2);
+        let v03 = p3.sub(p0).mul(b3);
         v01.add(&v02).add(&v03).mul(1.0 / 2.0)
     }
 }
@@ -651,6 +665,10 @@ where
         ]
     };
 
+    /// TODO
+    ///
+    /// # Panics
+    /// If `pts` has fewer than four points.
     pub fn new(pts: impl IntoIterator<Item = T>) -> Self {
         let pts: Vec<_> = pts.into_iter().collect();
         assert!(pts.len() >= 4, "a B-spline requires at least four points");
@@ -670,9 +688,9 @@ where
         let b2 = 1.0 + 3.0 * t1 + 3.0 * t2 - 3.0 * t3;
         let b3 = t3;
 
-        let v01 = p1.sub(&p0).mul(b1);
-        let v02 = p2.sub(&p0).mul(b2);
-        let v03 = p3.sub(&p0).mul(b3);
+        let v01 = p1.sub(p0).mul(b1);
+        let v02 = p2.sub(p0).mul(b2);
+        let v03 = p3.sub(p0).mul(b3);
         p0.add(&v01.add(&v02).add(&v03).mul(1.0 / 6.0))
     }
 
@@ -700,15 +718,16 @@ where
         // = b1·P1 + b2·P2 + b3·P3 - b1·P0 - b2·P0 - b3·P0
         // = b1·(P1 - P0) + b2·(P2 - P0) + b3·(P3 - P0)
 
-        let v01 = p1.sub(&p0).mul(b1);
-        let v02 = p2.sub(&p0).mul(b2);
-        let v03 = p3.sub(&p0).mul(b3);
+        let v01 = p1.sub(p0).mul(b1);
+        let v02 = p2.sub(p0).mul(b2);
+        let v03 = p3.sub(p0).mul(b3);
         v01.add(&v02).add(&v03).mul(1.0 / 6.0)
     }
 }
 
 /// Returns the curve segment and local *t* value corresponding to
 /// the global *t* value of a Catmull–Rom or B-spline.
+#[inline]
 fn crb_segment<T: Clone>(pts: &[T], t: f32) -> (f32, &[T; 4]) {
     let t = 1.0 + t * (pts.len() as f32 - 3.0);
 
@@ -742,6 +761,7 @@ impl<Spl> Euclidean<Spl> {
 
     /// Returns the point of `self` at distance *s* from the start,
     /// as measured along the curve.
+    #[inline]
     pub fn eval<T>(&self, s: f32) -> T
     where
         Spl: Parametric<T>,
@@ -780,6 +800,7 @@ impl<T> Parametric<T> for CubicBezier<T>
 where
     T: Affine<Diff: Linear<Scalar = f32> + Clone> + Clone,
 {
+    #[inline]
     fn eval(&self, t: f32) -> T {
         self.fast_eval(t)
     }
@@ -789,6 +810,7 @@ impl<T> Parametric<T> for CubicHermite<T, T::Diff>
 where
     T: Affine<Diff: Linear<Scalar = f32> + Clone> + Clone,
 {
+    #[inline]
     fn eval(&self, t: f32) -> T {
         self.eval(t)
     }
@@ -798,6 +820,7 @@ impl<T> Parametric<T> for BezierSpline<T>
 where
     T: Affine<Diff: Linear<Scalar = f32> + Clone> + Clone,
 {
+    #[inline]
     fn eval(&self, t: f32) -> T {
         self.eval(t)
     }
@@ -807,6 +830,7 @@ impl<T> Parametric<T> for HermiteSpline<T>
 where
     T: Affine<Diff: Linear<Scalar = f32> + Clone> + Clone,
 {
+    #[inline]
     fn eval(&self, t: f32) -> T {
         self.eval(t)
     }
@@ -816,6 +840,7 @@ impl<T> Parametric<T> for CatmullRomSpline<T>
 where
     T: Affine<Diff: Linear<Scalar = f32> + Clone> + Clone,
 {
+    #[inline]
     fn eval(&self, t: f32) -> T {
         self.eval(t)
     }
@@ -825,6 +850,7 @@ impl<T> Parametric<T> for BSpline<T>
 where
     T: Affine<Diff: Linear<Scalar = f32> + Clone> + Clone,
 {
+    #[inline]
     fn eval(&self, t: f32) -> T {
         self.eval(t)
     }
@@ -834,6 +860,7 @@ impl<T, Spl> Parametric<T> for Euclidean<Spl>
 where
     Spl: Parametric<T>,
 {
+    #[inline]
     fn eval(&self, s: f32) -> T {
         self.eval(s)
     }

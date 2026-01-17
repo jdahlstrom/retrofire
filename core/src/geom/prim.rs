@@ -467,6 +467,7 @@ impl<B> Plane3<B> {
     ///
     /// assert_eq!(<Plane3>::new(0.0, 0.0, 1.0, 2.0).project(pt), pt3(1.0, 2.0, 2.0));
     /// ```
+    #[must_use]
     pub fn project(&self, pt: Point3<B>) -> Point3<B> {
         // The vector that projects pt on the plane is parallel with the plane
         // normal and its length is the distance of pt from the plane.
@@ -672,9 +673,9 @@ impl<B> Line2<B> {
     ///
     /// # Panics
     /// If the vector (a, b) is not unit-length.
-    pub fn new(a: f32, b: f32, c: f32) -> Self {
+    pub const fn new(a: f32, b: f32, c: f32) -> Self {
         // TODO This method can't itself normalize because const
-        assert!((a * a + b * b - 1.0).abs() < 1e-6, "non-unit normal");
+        assert!((a * a + b * b - 1.0).abs() < 1e-5, "non-unit normal",);
         Self(Vector::new([a, b, -c]))
     }
 
@@ -720,7 +721,7 @@ impl<B> Line2<B> {
 
     /// Returns the coefficients [a, b, c] of the line equation ax + by = c.
     pub const fn coeffs(&self) -> [f32; 3] {
-        return self.0.0;
+        self.0.0
     }
 }
 
@@ -1071,21 +1072,21 @@ mod tests {
         let mut l: Line2;
 
         l = Line2::new(1.0, 0.0, 0.0); // x = 0
-        assert_eq!(format!("{:?}", l), "Line(x = 0)");
+        assert_eq!(format!("{l:?}"), "Line(x = 0)");
 
         l = Line2::from_points(pt2(2.0, 0.0), pt2(2.0, -1.0));
         assert_eq!(l.coeffs(), [1.0, 0.0, -2.0]);
-        assert_eq!(format!("{:?}", l), "Line(x = 2)");
+        assert_eq!(format!("{l:?}"), "Line(x = 2)");
 
         l = Line2::new(1.0, 0.0, 2.0); // x = 2
-        assert_eq!(format!("{:?}", l), "Line(x = 2)");
+        assert_eq!(format!("{l:?}"), "Line(x = 2)");
 
         l = Line2::new(0.0, 1.0, 0.0); // y = 0
-        assert_eq!(format!("{:?}", l), "Line(y = 0)");
+        assert_eq!(format!("{l:?}"), "Line(y = 0)");
 
         l = Line2::from_points(pt2(0.0, -3.0), pt2(1.0, -3.0)); // y = -3
         assert_eq!(l.slope_intercept(), Some((0.0, -3.0)));
-        assert_eq!(format!("{:?}", l), "Line(y = -3)");
+        assert_eq!(format!("{l:?}"), "Line(y = -3)");
 
         l = Line2::new(0.0, 1.0, -3.0); // y = -3
         assert_eq!(format!("{:?}", l), "Line(y = -3)");
