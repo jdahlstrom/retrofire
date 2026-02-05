@@ -11,15 +11,15 @@ use sdl2::{
     video::{FullscreenType, Window as SdlWindow, WindowBuildError},
 };
 
+use super::{Frame, dims};
 use retrofire_core::math::Color4;
 use retrofire_core::render::{Colorbuf, Context, Stats, target};
+use retrofire_core::util::pixfmt::PixelFmt;
 use retrofire_core::util::{
     Dims,
     buf::{AsMutSlice2, Buf2, MutSlice2},
-    pixfmt::{IntoPixel, Rgb565, Rgba4444, Rgba8888},
+    pixfmt::{Indexed1, IntoPixel, Rgb565, Rgba4444, Rgba8888},
 };
-
-use super::{Frame, dims};
 
 /// Helper trait to support different pixel format types.
 pub trait PixelFmt: Copy + Default {
@@ -162,7 +162,7 @@ impl<'t, PF: PixelFmt> Builder<'t, PF> {
     }
 }
 
-impl<PF: PixelFmt<Pixel = [u8; N]>, const N: usize> Window<PF> {
+impl<PF> Window<PF> {
     /// Returns a window builder.
     pub fn builder() -> Builder<'static, PF> {
         Builder::default()
@@ -183,11 +183,15 @@ impl<PF: PixelFmt<Pixel = [u8; N]>, const N: usize> Window<PF> {
     /// * the user closes the window via the GUI (e.g. a title bar button);
     /// * the Esc key is pressed; or
     /// * the callback returns [`ControlFlow::Break`][ControlFlow].
-    pub fn run<F>(&mut self, mut frame_fn: F) -> Result<Stats, Error>
+    pub fn run<F, const N: usize>(
+        &mut self,
+        mut frame_fn: F,
+    ) -> Result<Stats, Error>
     where
         F: FnMut(
             &mut Frame<Self, &RefCell<Framebuf<PF::Pixel, PF>>>,
         ) -> ControlFlow<()>,
+        PF: PixelFmt<Pixel = [u8; N]>,
         Color4: IntoPixel<PF::Pixel, PF>,
     {
         let dims @ (w, h) = self.canvas.window().drawable_size();
@@ -263,6 +267,10 @@ impl PixelFmt for Rgb565 {
 impl PixelFmt for Rgba4444 {
     type Pixel = [u8; 2];
     const SDL_FMT: PixelFormatEnum = PixelFormatEnum::RGBA4444;
+}
+impl PixelFmt for Indexed1<Color4> {
+    type Pixel = u8;
+    const SDL_FMT: PixelFormatEnum = PixelFormatEnum::Index1LSB;
 }
 
 impl<PF: PixelFmt> Default for Builder<'_, PF> {

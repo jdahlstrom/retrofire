@@ -1,7 +1,9 @@
 use crate::math::{Color3, Color4};
 
-// TODO Do we need the trait at all?
-// pub trait PixelFmt {}
+pub trait PixelFmt<Col, Pix> {
+    fn encode(&self, color: &Col) -> Pix;
+    fn decode(&self, pixel: &Pix) -> Col;
+}
 
 pub trait IntoPixel<T, F>: Sized {
     /// Converts `self` to `T` in format `F`.
@@ -17,30 +19,78 @@ pub trait IntoPixel<T, F>: Sized {
 }
 
 /// Eight-bit channels in R,G,B order.
-#[derive(Copy, Clone, Default)]
+#[derive(Copy, Clone, Debug, Default)]
 pub struct Rgb888;
 /// 5,6,5-bit channels in R,G,B order.
-#[derive(Copy, Clone, Default)]
+#[derive(Copy, Clone, Debug, Default)]
 pub struct Rgb565;
 
 /// Eight-bit channels in X,R,G,B order, where X is unused.
-#[derive(Copy, Clone, Default)]
+#[derive(Copy, Clone, Debug, Default)]
 pub struct Xrgb8888;
 /// Eight-bit channels in R,G,B,A order.
-#[derive(Copy, Clone, Default)]
+#[derive(Copy, Clone, Debug, Default)]
 pub struct Rgba8888;
 /// Eight-bit channels in A,R,G,B order.
-#[derive(Copy, Clone, Default)]
+#[derive(Copy, Clone, Debug, Default)]
 pub struct Argb8888;
 /// Eight-bit channels in B,G,R,A order.
-#[derive(Copy, Clone, Default)]
+#[derive(Copy, Clone, Debug, Default)]
 pub struct Bgra8888;
 
 /// Four-bit channels in R,G,B,A order.
-#[derive(Copy, Clone, Default)]
+#[derive(Copy, Clone, Debug, Default)]
 pub struct Rgba4444;
 
+#[derive(Copy, Clone, Debug)]
+pub struct Indexed1<C>([C; 2]);
+
+#[derive(Copy, Clone, Debug)]
+pub struct Indexed2<C>([C; 4]);
+
+#[derive(Copy, Clone, Debug)]
+pub struct Indexed4<C>([C; 16]);
+
+#[derive(Copy, Clone, Debug)]
+pub struct Indexed8<C>([C; 256]);
+
 // Impls for Color3
+
+/*impl PixelFmt<Color3, u32> for Rgb888 {
+    fn encode(&self, col: Color3) -> u32 {
+        let [r, g, b] = col.0;
+        // [0x00, 0xRR, 0xGG, 0xBB] -> 0x00_RR_GG_BB
+        u32::from_be_bytes([0, r, g, b])
+    }
+
+    fn decode(&self, pix: &u32) -> Color3 {
+        let [0, r, g, b] = pix.to_be_bytes();
+        rgb(r, g, b)
+    }
+}
+impl PixelFmt<Color3, [u8; 3]> for Rgb888 {
+    fn encode(&self, col: Color3) -> [u8; 3] {
+        col.0
+    }
+
+    fn decode(&self, pix: &[u8; 3]) -> Color3 {
+        pix.into()
+    }
+}*/
+
+impl<C, P, F> PixelFmt<C, P> for F
+where
+    C: IntoPixel<P, F> + Copy,
+    F: Copy,
+{
+    fn encode(&self, color: &C) -> P {
+        color.into_pixel_fmt(*self)
+    }
+
+    fn decode(&self, _pixel: &P) -> C {
+        todo!()
+    }
+}
 
 impl IntoPixel<u32, Rgb888> for Color3 {
     #[inline]
@@ -79,7 +129,7 @@ impl IntoPixel<[u8; 2], Rgb565> for Color3 {
 
 impl<F> IntoPixel<u32, F> for Color4
 where
-    Self: IntoPixel<[u8; 4], F>,
+    Self: IntoPixel<[u8; 4], F> + Copy,
 {
     #[inline]
     fn into_pixel(self) -> u32 {

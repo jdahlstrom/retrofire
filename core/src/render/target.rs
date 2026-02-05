@@ -7,10 +7,8 @@
 use core::cell::RefCell;
 
 use crate::math::{Color3, Color4, Vary};
-use crate::util::{
-    buf::{AsMutSlice2, Buf2, MutSlice2},
-    pixfmt::IntoPixel,
-};
+use crate::util::buf::{AsMutSlice2, Buf2, MutSlice2};
+use crate::util::pixfmt::PixelFmt;
 
 use super::{Context, FragmentShader, raster::Scanline, stats::Throughput};
 
@@ -80,11 +78,12 @@ impl<T: Target> Target for &RefCell<T> {
     }
 }
 
-impl<Col, Fmt, Dep> Target for Framebuf<Colorbuf<Col, Fmt>, Dep>
+impl<Cbuf, Fmt, Zbuf> Target for Framebuf<Colorbuf<Cbuf, Fmt>, Zbuf>
 where
-    Col: AsMutSlice2,
-    Dep: AsMutSlice2<Elem = f32>,
-    Color4: IntoPixel<Col::Elem, Fmt>,
+    Cbuf: AsMutSlice2,
+    Zbuf: AsMutSlice2<Elem = f32>,
+    Fmt: PixelFmt<Color4, Cbuf::Elem>,
+    Color4: Copy,
 {
     /// Rasterizes `scanline` into this framebuffer.
     #[inline]
@@ -94,17 +93,20 @@ where
         fs: &Fs,
         ctx: &Context,
     ) -> Throughput {
-        let Self { color_buf, depth_buf } = self;
-        rasterize_fb(color_buf, depth_buf, sl, fs, Color4::into_pixel, ctx)
+        let Self {
+            color_buf: Colorbuf { buf, fmt },
+            depth_buf,
+        } = self;
+        rasterize_fb(buf, depth_buf, sl, fs, |col| (*fmt).encode(&col), ctx)
     }
 }
 
 impl<Buf, Fmt> Target for Colorbuf<Buf, Fmt>
 where
     Buf: AsMutSlice2,
-    Color4: IntoPixel<Buf::Elem, Fmt>,
+    Fmt: PixelFmt<Color4, Buf::Elem>,
 {
-    /// Rasterizes `scanline` into this `u32` color buffer.
+    /// Rasterizes `scanline` into this color buffer.
     /// Does no z-buffering.
     #[inline]
     fn rasterize<V: Vary, Fs: FragmentShader<V>>(
@@ -113,7 +115,7 @@ where
         fs: &Fs,
         ctx: &Context,
     ) -> Throughput {
-        rasterize(&mut self.buf, sl, fs, Color4::into_pixel, ctx)
+        rasterize(&mut self.buf, sl, fs, |col| self.fmt.encode(&col), ctx)
     }
 }
 
@@ -161,6 +163,43 @@ pub fn rasterize<B: AsMutSlice2, V: Vary>(
             {
                 io.o += 1;
                 *curr_col = conv(new_col);
+            }
+        });
+    io
+}
+
+pub fn rasterize_bit<B: AsMutSlice2<Elem = u8>, V: Vary>(
+    buf: &mut B,
+    mut sl: Scanline<V>,
+    fs: &impl FragmentShader<V>,
+    ctx: &Context,
+) -> Throughput {
+    let x0 = sl.xs.start / 8;
+    let x1 = sl.xs.end.div_ceil(8).max(x0);
+    let mut io = Throughput { i: x1 - x0, o: 0 };
+    let cbuf_span = &mut buf.as_mut_slice2()[sl.y][x0..x1];
+
+    let mut cbuf_iter = cbuf_span.iter_mut();
+    let mut curr_col = cbuf_iter.next().unwrap();
+    let mut bit = 0;
+    sl.fragments()
+        //.zip(cbuf_span)
+        .for_each(|frag| {
+            if let Some(new_col) = fs.shade_fragment(frag)
+                && ctx.color_write
+            {
+                io.o += 1;
+                if new_col.r() > 0 {
+                    *curr_col = *curr_col | (1 << bit)
+                } else {
+                    *curr_col = *curr_col & !(1 << bit)
+                }
+            }
+
+            bit += 1;
+            if bit >= 8 {
+                bit = 0;
+                curr_col = cbuf_iter.next().unwrap();
             }
         });
     io

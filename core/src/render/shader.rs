@@ -14,10 +14,8 @@
 //! input any vertex attributes interpolated across the primitive being
 //! rasterized, such as color, texture coordinate, or normal vector.
 
-use crate::{
-    geom::Vertex,
-    math::{Color4, ProjVec3},
-};
+use crate::geom::Vertex;
+use crate::math::{Color4, ProjVec3};
 
 use super::Frag;
 
@@ -31,9 +29,9 @@ use super::Frag;
 pub trait VertexShader<In, Uni> {
     /// The type of the output vertex.
     type Output;
-    /// Transforms `vertex` and does performs other per-vertex computations
-    /// needed, outputting a new vertex of type `Self::Output`. Custom data
-    /// that is not vertex-specific can be passed in the `uniform` parameter.
+    /// Transforms `vertex` and performs other per-vertex computations needed
+    /// outputting a new vertex of type `Self::Output`. Custom data that is not
+    /// vertex-specific can be passed in the `uniform` parameter.
     ///
     /// # Panics
     /// `shade_vertex` should never panic.
