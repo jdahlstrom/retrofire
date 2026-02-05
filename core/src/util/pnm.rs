@@ -1,4 +1,4 @@
-//! PNM, also known as NetPBM, file format support.
+//! Reading and writing data in the PNM file format, also known as NetPBM.
 //!
 //! PNM is a venerable family of extremely simple image formats, each
 //! consisting of a simple textual header followed by either textual or
@@ -12,11 +12,16 @@
 //! PPM   | P3  | P6  | 3x8 bpp RGB
 //! ```
 
+use crate::math::{
+    Color, Color3,
+    color::{ColorIdx1, gray},
+};
 use alloc::{string::String, vec::Vec};
 use core::{
     fmt::{self, Debug, Display, Formatter},
     num::{IntErrorKind, ParseIntError, TryFromIntError},
 };
+use std::dbg;
 #[cfg(feature = "std")]
 use std::{
     fs::File,
@@ -24,15 +29,14 @@ use std::{
     path::Path,
 };
 
-use crate::math::{Color3, color::gray};
-
 use super::{Dims, buf::Buf2};
 #[cfg(feature = "std")]
 use super::{
     buf::AsSlice2,
-    pixfmt::{IntoPixel, Rgb888},
+    pixfmt::{PixelFmt, Rgb888},
 };
 
+use crate::math::color::ColorIdx8;
 use Error::*;
 use Format::*;
 
@@ -69,29 +73,6 @@ const fn magic(bytes: &[u8; 2]) -> u16 {
     u16::from_be_bytes(*bytes)
 }
 
-impl Display for Format {
-    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
-        use fmt::Write;
-        let [p, n] = (*self as u16).to_be_bytes();
-        f.write_char(p as char)?;
-        f.write_char(n as char)
-    }
-}
-
-impl TryFrom<[u8; 2]> for Format {
-    type Error = Error;
-    fn try_from(magic: [u8; 2]) -> Result<Self> {
-        Ok(match &magic {
-            b"P2" => TextGraymap,
-            b"P3" => TextPixmap,
-            b"P4" => BinaryBitmap,
-            b"P5" => BinaryGraymap,
-            b"P6" => BinaryPixmap,
-            other => Err(Unsupported(*other))?,
-        })
-    }
-}
-
 // Error during loading or decoding a PNM file.
 #[derive(Debug, Eq, PartialEq)]
 pub enum Error {
@@ -108,77 +89,6 @@ pub enum Error {
 
 /// Result of loading or decoding a PNM file.
 pub type Result<T> = core::result::Result<T, Error>;
-
-impl core::error::Error for Error {}
-
-impl Display for Error {
-    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
-        match *self {
-            #[cfg(feature = "std")]
-            Io(kind) => write!(f, "i/o error {kind}"),
-            Unsupported([c, d]) => {
-                use fmt::Write;
-                f.write_str("unsupported magic number ")?;
-                f.write_char(c as char)?;
-                f.write_char(d as char)
-            }
-            UnexpectedEnd => f.write_str("unexpected end of input"),
-            InvalidNumber => f.write_str("invalid numeric value"),
-        }
-    }
-}
-
-impl From<ParseIntError> for Error {
-    fn from(e: ParseIntError) -> Self {
-        match e.kind() {
-            IntErrorKind::Empty => UnexpectedEnd,
-            _ => InvalidNumber,
-        }
-    }
-}
-impl From<TryFromIntError> for Error {
-    fn from(_: TryFromIntError) -> Self {
-        // TODO better handling of unexpected values
-        InvalidNumber
-    }
-}
-#[cfg(feature = "std")]
-impl From<io::Error> for Error {
-    fn from(e: io::Error) -> Self {
-        Io(e.kind())
-    }
-}
-
-impl Header {
-    /// Attempts to parse a PNM header from an iterator.
-    ///
-    /// Currently supported formats are P2, P3, P4, P5, and P6.
-    fn parse(input: impl IntoIterator<Item = u8>) -> Result<Self> {
-        let mut it = input.into_iter();
-        let magic = [
-            it.next().ok_or(UnexpectedEnd)?,
-            it.next().ok_or(UnexpectedEnd)?,
-        ];
-        let format = magic.try_into()?;
-        let dims = (parse_u16(&mut it)?.into(), parse_u16(&mut it)?.into());
-        let max: u16 = match &format {
-            TextBitmap | BinaryBitmap => 1,
-            _ => parse_u16(&mut it)?,
-        };
-        Ok(Self { format, dims, max })
-    }
-    /// Writes `self` to `dest` as a valid PNM header,
-    /// including a trailing newline.
-    #[cfg(feature = "std")]
-    fn write(&self, mut dest: impl io::Write) -> io::Result<()> {
-        let Self { format, dims: (w, h), max } = *self;
-        let max: &dyn Display = match format {
-            TextBitmap | BinaryBitmap => &"",
-            _ => &max,
-        };
-        writeln!(dest, "{format} {w} {h} {max}")
-    }
-}
 
 /// Loads a PNM image from a path into a buffer.
 ///
@@ -215,6 +125,7 @@ pub fn read_pnm(input: impl Read) -> Result<Buf2<Color3>> {
 /// Returns [`Error`] in case of an invalid or unrecognized PNM image.
 pub fn parse_pnm(input: impl IntoIterator<Item = u8>) -> Result<Buf2<Color3>> {
     let mut it = input.into_iter();
+
     let h = Header::parse(&mut it)?;
 
     let count = h.dims.0 * h.dims.1;
@@ -259,8 +170,66 @@ pub fn parse_pnm(input: impl IntoIterator<Item = u8>) -> Result<Buf2<Color3>> {
         TextGraymap => (0..count)
             .map(|_| Ok(gray(parse_u16(&mut it)?.try_into()?)))
             .collect::<Result<Vec<_>>>()?,
-        TextBitmap => return Err(Unsupported((h.format as u16).to_be_bytes())),
+        TextBitmap => return Err(Unsupported(h.format.magic())),
     };
+
+    if data.len() < count as usize {
+        Err(UnexpectedEnd)
+    } else {
+        Ok(Buf2::new_from(h.dims, data))
+    }
+}
+
+pub fn parse_pbm(
+    input: impl IntoIterator<Item = u8>,
+) -> Result<Buf2<ColorIdx1>> {
+    let mut it = input.into_iter().peekable();
+    let Header { format, dims: (w, h), .. } = Header::parse(&mut it)?;
+
+    // TODO Support P1
+    if format != BinaryBitmap {
+        return Err(Unsupported(format.magic()));
+    }
+
+    // In P4, pixel values are packed in bytes, most significant bit first.
+    // Each row is padded to the next byte boundary, taking ceil(width / 8) bytes.
+    // For example, a 3x3 image takes three bytes, whereas a 9x1 image takes only two.
+
+    let count = w * h;
+    let mut data = Vec::new();
+
+    while it.peek().is_some() {
+        // For each row
+        for bit in (&mut it)
+            .take(w.div_ceil(8) as usize)
+            .flat_map(|byte| (0..8).rev().map(move |i| (byte >> i) & 1 == 1))
+            .take(w as usize)
+        {
+            data.push(Color::new(bit));
+        }
+    }
+
+    if data.len() < count as usize {
+        Err(UnexpectedEnd)
+    } else {
+        Ok(Buf2::new_from((w, h), data))
+    }
+}
+pub fn parse_pgm(
+    input: impl IntoIterator<Item = u8>,
+) -> Result<Buf2<ColorIdx8>> {
+    let mut it = input.into_iter();
+    let h = Header::parse(&mut it)?;
+
+    if h.format != BinaryBitmap {
+        return Err(Unsupported(h.format.magic()));
+    }
+
+    let count = h.dims.0 * h.dims.1;
+    let data: Vec<ColorIdx8> = it
+        .skip_while(|b| b.is_ascii_whitespace())
+        .map(Color::new)
+        .collect();
 
     if data.len() < count as usize {
         Err(UnexpectedEnd)
@@ -281,7 +250,8 @@ pub fn parse_pnm(input: impl IntoIterator<Item = u8>) -> Result<Buf2<Color3>> {
 pub fn save_ppm<D>(path: impl AsRef<Path>, data: D) -> io::Result<()>
 where
     D: AsSlice2,
-    D::Elem: IntoPixel<[u8; 3], Rgb888> + Copy,
+    Rgb888: PixelFmt<D::Elem, [u8; 3]>,
+    //D::Elem: IntoPixel<[u8; 3], Rgb888> + Copy,
 {
     let out = BufWriter::new(File::create(path)?);
     write_ppm(out, data)
@@ -296,7 +266,7 @@ where
 pub fn write_ppm<D>(mut out: impl io::Write, data: D) -> io::Result<()>
 where
     D: AsSlice2,
-    D::Elem: IntoPixel<[u8; 3], Rgb888> + Copy,
+    Rgb888: PixelFmt<D::Elem, [u8; 3]>,
 {
     let slice = data.as_slice2();
     Header {
@@ -310,16 +280,16 @@ where
     slice
         .rows()
         .flatten()
-        .map(|c| c.into_pixel())
+        .map(|col| Rgb888.encode(col))
         .try_for_each(|rgb| out.write_all(&rgb[..]))
 }
 
-/// Parses a numeric value from `src`, skipping whitespace and comments.
+/// Parses a `u16` integer from `src`, skipping leading whitespace and comments.
 #[inline]
 fn parse_u16(src: impl IntoIterator<Item = u8>) -> Result<u16> {
     let mut whitespace_or_comment = {
         let mut in_comment = false;
-        move |b: &u8| match *b {
+        move |&b: &u8| match b {
             b'#' => {
                 in_comment = true;
                 true
@@ -328,16 +298,136 @@ fn parse_u16(src: impl IntoIterator<Item = u8>) -> Result<u16> {
                 in_comment = false;
                 true
             }
-            _ => in_comment || b.is_ascii_whitespace(),
+            _ if in_comment => true,
+            _ => b.is_ascii_whitespace(),
         }
     };
     let str = src
         .into_iter()
         .skip_while(whitespace_or_comment)
+        // Note that take_while removes the first whitespace after the number
         .take_while(|b| !whitespace_or_comment(b))
         .map(char::from)
         .collect::<String>();
     Ok(str.parse()?)
+}
+
+//
+// Inherent impls
+//
+
+impl Header {
+    /// Attempts to parse a PNM header from an iterator of bytes.
+    ///
+    /// Currently supported formats are P2, P3, P4, P5, and P6.
+    fn parse(input: impl IntoIterator<Item = u8>) -> Result<Self> {
+        let mut it = input.into_iter();
+        let magic = [
+            it.next().ok_or(UnexpectedEnd)?,
+            it.next().ok_or(UnexpectedEnd)?,
+        ];
+        let format = magic.try_into()?;
+        let w = parse_u16(&mut it)? as u32;
+        let h = parse_u16(&mut it)? as u32;
+        let max = match &format {
+            TextBitmap | BinaryBitmap => {
+                // FIXME hack parse_u16 removes the subsequent (required)
+                //       newline, here we have to do it manually
+                // if it.next() != Some(b'\n') {
+                //     return Err(UnexpectedEnd);
+                // }
+                1
+            }
+            _ => parse_u16(&mut it)?,
+        };
+
+        Ok(Self { format, dims: (w, h), max })
+    }
+
+    /// Writes `self` to `dest` as a valid PNM header,
+    /// including a trailing newline.
+    #[cfg(feature = "std")]
+    fn write(&self, mut dest: impl io::Write) -> io::Result<()> {
+        let Self { format, dims: (w, h), max } = *self;
+        write!(dest, "{format} {w} {h}")?;
+        if !matches!(format, TextBitmap | BinaryBitmap) {
+            write!(dest, " {max}")?;
+        }
+        writeln!(dest)
+    }
+}
+
+impl Format {
+    pub fn magic(&self) -> [u8; 2] {
+        (*self as u16).to_be_bytes()
+    }
+}
+
+//
+// Trait impls
+//
+
+impl Display for Format {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        use fmt::Write;
+        let [p, n] = self.magic();
+        f.write_char(p as char)?;
+        f.write_char(n as char)
+    }
+}
+
+impl TryFrom<[u8; 2]> for Format {
+    type Error = Error;
+    fn try_from(magic: [u8; 2]) -> Result<Self> {
+        Ok(match &magic {
+            b"P2" => TextGraymap,
+            b"P3" => TextPixmap,
+            b"P4" => BinaryBitmap,
+            b"P5" => BinaryGraymap,
+            b"P6" => BinaryPixmap,
+            other => Err(Unsupported(*other))?,
+        })
+    }
+}
+
+impl core::error::Error for Error {}
+
+impl Display for Error {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        match *self {
+            #[cfg(feature = "std")]
+            Io(kind) => write!(f, "i/o error {kind}"),
+            Unsupported([c, d]) => {
+                use fmt::Write;
+                f.write_str("unsupported magic number ")?;
+                f.write_char(c as char)?;
+                f.write_char(d as char)
+            }
+            UnexpectedEnd => f.write_str("unexpected end of input"),
+            InvalidNumber => f.write_str("invalid numeric value"),
+        }
+    }
+}
+
+impl From<ParseIntError> for Error {
+    fn from(e: ParseIntError) -> Self {
+        match e.kind() {
+            IntErrorKind::Empty => UnexpectedEnd,
+            _ => InvalidNumber,
+        }
+    }
+}
+impl From<TryFromIntError> for Error {
+    fn from(_: TryFromIntError) -> Self {
+        // TODO better handling of unexpected values
+        InvalidNumber
+    }
+}
+#[cfg(feature = "std")]
+impl From<io::Error> for Error {
+    fn from(e: io::Error) -> Self {
+        Io(e.kind())
+    }
 }
 
 #[cfg(test)]
@@ -495,7 +585,7 @@ mod tests {
             max: 1,
         };
         hdr.write(&mut out).unwrap();
-        assert_eq!(&out, b"P1 123 456 \n");
+        assert_eq!(&out, b"P1 123 456\n");
     }
 
     #[cfg(feature = "std")]
@@ -547,9 +637,8 @@ mod tests {
 
         assert_eq!(buf.dims(), (4, 2));
 
-        let b = rgb(0u8, 0, 0);
-        let w = rgb(0xFFu8, 0xFF, 0xFF);
-
+        let b = gray(0u8);
+        let w = gray(0xFFu8);
         assert_eq!(buf[0usize], [w, b, b, w]);
         assert_eq!(buf[1usize], [b, w, w, b]);
     }
@@ -579,6 +668,25 @@ mod tests {
 
         assert_eq!(buf[0usize], [rgb(0x01, 0x12, 0x23), rgb(0x34, 0x45, 0x56)]);
         assert_eq!(buf[1usize], [rgb(0x67, 0x78, 0x89), rgb(0x9A, 0xAB, 0xBC)]);
+    }
+
+    #[test]
+    fn read_pbm_p4() {
+        // In P4, rows are padded to the next byte boundary
+        // row 0 = 0b10_000000 = 0x80;
+        // row 1 = 0b01_000000 = 0x40;
+        let buf = parse_pbm(*b"P4 2 2\n\x80\x40").unwrap();
+
+        assert_eq!(buf.dims(), (2, 2));
+        assert_eq!(
+            buf.data(),
+            &[
+                Color::new(true),
+                Color::new(false),
+                Color::new(false),
+                Color::new(true)
+            ]
+        );
     }
 
     #[cfg(feature = "std")]
