@@ -9,7 +9,7 @@ use core::{
     ops::{AddAssign, DivAssign, MulAssign, SubAssign},
 };
 
-use super::{Affine, Linear, Vector, vary::ZDiv};
+use super::{Affine, Linear, Vector, vary::ZDiv, vec::dot};
 
 //
 // Types
@@ -46,6 +46,10 @@ pub struct Hsl;
 #[derive(Copy, Clone, Debug, Default, Eq, PartialEq)]
 pub struct Hsla;
 
+/// An indexed (paletted) color space.
+#[derive(Copy, Clone, Debug, Default, Eq, PartialEq)]
+pub struct Idx;
+
 /// A color with three `u8` channels, by default RGB.
 pub type Color3<Space = Rgb> = Color<[u8; 3], Space>;
 
@@ -63,6 +67,12 @@ pub type Color3f<Space = Rgb> = Color<[f32; 3], Space>;
 /// The nominal range of values for each channel is [0.0, 1.0], but values
 /// outside the range can be useful as intermediate results in calculations.
 pub type Color4f<Space = Rgba> = Color<[f32; 4], Space>;
+
+/// One-bit color.
+pub type ColorIdx1 = Color<bool, Idx>;
+
+/// Eight-bit indexed color.
+pub type ColorIdx8 = Color<u8, Idx>;
 
 /// Returns a new RGB color with the given channels.
 #[inline]
@@ -105,14 +115,15 @@ pub const INV_GAMMA: f32 = 1.0 / GAMMA;
 //
 // Inherent impls
 //
-
-impl<Ch, Sp, const N: usize> Color<[Ch; N], Sp> {
+impl<R, Sp> Color<R, Sp> {
     /// Returns a new `Color` with the given channels.
     #[inline]
-    pub const fn new(chs: [Ch; N]) -> Self {
-        Self(chs, PhantomData)
+    pub const fn new(repr: R) -> Self {
+        Self(repr, PhantomData)
     }
+}
 
+impl<Ch, Sp, const N: usize> Color<[Ch; N], Sp> {
     /// Returns `self` with each channel mapped with the given function.
     #[inline]
     pub fn map<C>(&self, f: impl FnMut(Ch) -> C) -> Color<[C; N], Sp>
@@ -234,6 +245,10 @@ impl Color4<Rgba> {
 }
 
 impl Color3f<Rgb> {
+    pub fn lum(&self) -> f32 {
+        dot(&self.0, &[0.2126, 0.7152, 0.0722])
+    }
+
     /// Returns `self` as RGBA, with alpha set to 1.0 (fully opaque).
     #[inline]
     pub const fn to_rgba(self) -> Color4f {
@@ -273,16 +288,19 @@ impl Color3f<Rgb> {
     /// however, incurs a small performance penalty.
     ///
     /// [1]: Color3f<LinRgb>::to_srgb()
-    #[cfg(feature = "fp")]
     #[inline]
     pub fn to_linear(self) -> Color3f<LinRgb> {
         use super::float::f32;
         let [r, g, b] = self.0;
-        Color::new([
+        #[cfg(feature = "fp")]
+        let res = Color::new([
             f32::powf(r, GAMMA),
             f32::powf(g, GAMMA),
             f32::powf(b, GAMMA),
-        ])
+        ]);
+        #[cfg(not(feature = "fp"))]
+        let res = Color::new([r * r, g * g, b * b]);
+        res
     }
 
     /// Returns the HSL color equivalent to `self`.
@@ -330,6 +348,10 @@ impl Color3f<Rgb> {
 }
 
 impl Color4f<Rgba> {
+    pub fn lum(&self) -> f32 {
+        self.to_rgb().lum()
+    }
+
     /// Returns `self` as RGB, discarding the alpha channel.
     #[inline]
     pub const fn to_rgb(self) -> Color3f<Rgb> {
@@ -380,16 +402,19 @@ impl Color3f<LinRgb> {
     /// Conversion, however, incurs a small performance penalty.
     ///
     /// [1]: Color3f<Rgb>::to_linear()
-    #[cfg(feature = "fp")]
     #[inline]
     pub fn to_srgb(self) -> Color3f<Rgb> {
         use super::float::f32;
         let [r, g, b] = self.0;
-        Color::new([
+        #[cfg(feature = "fp")]
+        let res = Color::new([
             f32::powf(r, INV_GAMMA),
             f32::powf(g, INV_GAMMA),
             f32::powf(b, INV_GAMMA),
-        ])
+        ]);
+        #[cfg(not(feature = "fp"))]
+        let res = Color::new([f32::sqrt(r), f32::sqrt(g), f32::sqrt(b)]);
+        res
     }
 }
 
