@@ -65,33 +65,6 @@ enum Format {
     BinaryPixmap = magic(b"P6"),
 }
 
-const fn magic(bytes: &[u8; 2]) -> u16 {
-    u16::from_be_bytes(*bytes)
-}
-
-impl Display for Format {
-    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
-        use fmt::Write;
-        let [p, n] = (*self as u16).to_be_bytes();
-        f.write_char(p as char)?;
-        f.write_char(n as char)
-    }
-}
-
-impl TryFrom<[u8; 2]> for Format {
-    type Error = Error;
-    fn try_from(magic: [u8; 2]) -> Result<Self> {
-        Ok(match &magic {
-            b"P2" => TextGraymap,
-            b"P3" => TextPixmap,
-            b"P4" => BinaryBitmap,
-            b"P5" => BinaryGraymap,
-            b"P6" => BinaryPixmap,
-            other => Err(Unsupported(*other))?,
-        })
-    }
-}
-
 // Error during loading or decoding a PNM file.
 #[derive(Debug, Eq, PartialEq)]
 pub enum Error {
@@ -108,77 +81,6 @@ pub enum Error {
 
 /// Result of loading or decoding a PNM file.
 pub type Result<T> = core::result::Result<T, Error>;
-
-impl core::error::Error for Error {}
-
-impl Display for Error {
-    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
-        match *self {
-            #[cfg(feature = "std")]
-            Io(kind) => write!(f, "i/o error {kind}"),
-            Unsupported([c, d]) => {
-                use fmt::Write;
-                f.write_str("unsupported magic number ")?;
-                f.write_char(c as char)?;
-                f.write_char(d as char)
-            }
-            UnexpectedEnd => f.write_str("unexpected end of input"),
-            InvalidNumber => f.write_str("invalid numeric value"),
-        }
-    }
-}
-
-impl From<ParseIntError> for Error {
-    fn from(e: ParseIntError) -> Self {
-        match e.kind() {
-            IntErrorKind::Empty => UnexpectedEnd,
-            _ => InvalidNumber,
-        }
-    }
-}
-impl From<TryFromIntError> for Error {
-    fn from(_: TryFromIntError) -> Self {
-        // TODO better handling of unexpected values
-        InvalidNumber
-    }
-}
-#[cfg(feature = "std")]
-impl From<io::Error> for Error {
-    fn from(e: io::Error) -> Self {
-        Io(e.kind())
-    }
-}
-
-impl Header {
-    /// Attempts to parse a PNM header from an iterator.
-    ///
-    /// Currently supported formats are P2, P3, P4, P5, and P6.
-    fn parse(input: impl IntoIterator<Item = u8>) -> Result<Self> {
-        let mut it = input.into_iter();
-        let magic = [
-            it.next().ok_or(UnexpectedEnd)?,
-            it.next().ok_or(UnexpectedEnd)?,
-        ];
-        let format = magic.try_into()?;
-        let dims = (parse_u16(&mut it)?.into(), parse_u16(&mut it)?.into());
-        let max: u16 = match &format {
-            TextBitmap | BinaryBitmap => 1,
-            _ => parse_u16(&mut it)?,
-        };
-        Ok(Self { format, dims, max })
-    }
-    /// Writes `self` to `dest` as a valid PNM header,
-    /// including a trailing newline.
-    #[cfg(feature = "std")]
-    fn write(&self, mut dest: impl io::Write) -> io::Result<()> {
-        let Self { format, dims: (w, h), max } = *self;
-        let max: &dyn Display = match format {
-            TextBitmap | BinaryBitmap => &"",
-            _ => &max,
-        };
-        writeln!(dest, "{format} {w} {h} {max}")
-    }
-}
 
 /// Loads a PNM image from a path into a buffer.
 ///
@@ -259,7 +161,7 @@ pub fn parse_pnm(input: impl IntoIterator<Item = u8>) -> Result<Buf2<Color3>> {
         TextGraymap => (0..count)
             .map(|_| Ok(gray(parse_u16(&mut it)?.try_into()?)))
             .collect::<Result<Vec<_>>>()?,
-        _ => return Err(Unsupported((h.format as u16).to_be_bytes())),
+        _ => return Err(Unsupported(h.format.magic())),
     };
 
     if data.len() < count as usize {
@@ -338,6 +240,118 @@ fn parse_u16(src: impl IntoIterator<Item = u8>) -> Result<u16> {
         .map(char::from)
         .collect::<String>();
     Ok(str.parse()?)
+}
+
+const fn magic(bytes: &[u8; 2]) -> u16 {
+    u16::from_be_bytes(*bytes)
+}
+
+//
+// Inherent impls
+//
+
+impl Header {
+    /// Attempts to parse a PNM header from an iterator.
+    ///
+    /// Currently supported formats are P2, P3, P4, P5, and P6.
+    fn parse(input: impl IntoIterator<Item = u8>) -> Result<Self> {
+        let mut it = input.into_iter();
+        let magic = [
+            it.next().ok_or(UnexpectedEnd)?,
+            it.next().ok_or(UnexpectedEnd)?,
+        ];
+        let format = magic.try_into()?;
+        let dims = (parse_u16(&mut it)?.into(), parse_u16(&mut it)?.into());
+        let max: u16 = match &format {
+            TextBitmap | BinaryBitmap => 1,
+            _ => parse_u16(&mut it)?,
+        };
+        Ok(Self { format, dims, max })
+    }
+    /// Writes `self` to `dest` as a valid PNM header,
+    /// including a trailing newline.
+    #[cfg(feature = "std")]
+    fn write(&self, mut dest: impl io::Write) -> io::Result<()> {
+        let Self { format, dims: (w, h), max } = *self;
+        let max: &dyn Display = match format {
+            TextBitmap | BinaryBitmap => &"",
+            _ => &max,
+        };
+        writeln!(dest, "{format} {w} {h} {max}")
+    }
+}
+
+//
+// Trait impls
+//
+
+impl Format {
+    pub fn magic(&self) -> [u8; 2] {
+        (*self as u16).to_be_bytes()
+    }
+}
+
+impl Display for Format {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        use fmt::Write;
+        let [p, n] = self.magic();
+        f.write_char(p as char)?;
+        f.write_char(n as char)
+    }
+}
+
+impl TryFrom<[u8; 2]> for Format {
+    type Error = Error;
+    fn try_from(magic: [u8; 2]) -> Result<Self> {
+        Ok(match &magic {
+            b"P2" => TextGraymap,
+            b"P3" => TextPixmap,
+            b"P4" => BinaryBitmap,
+            b"P5" => BinaryGraymap,
+            b"P6" => BinaryPixmap,
+            other => Err(Unsupported(*other))?,
+        })
+    }
+}
+
+impl core::error::Error for Error {}
+
+impl Display for Error {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        match *self {
+            #[cfg(feature = "std")]
+            Io(kind) => write!(f, "i/o error {kind}"),
+            Unsupported([c, d]) => {
+                use fmt::Write;
+                f.write_str("unsupported magic number ")?;
+                f.write_char(c as char)?;
+                f.write_char(d as char)
+            }
+            UnexpectedEnd => f.write_str("unexpected end of input"),
+            InvalidNumber => f.write_str("invalid numeric value"),
+        }
+    }
+}
+
+impl From<ParseIntError> for Error {
+    fn from(e: ParseIntError) -> Self {
+        match e.kind() {
+            IntErrorKind::Empty => UnexpectedEnd,
+            _ => InvalidNumber,
+        }
+    }
+}
+impl From<TryFromIntError> for Error {
+    fn from(_: TryFromIntError) -> Self {
+        // TODO better handling of unexpected values
+        InvalidNumber
+    }
+}
+#[cfg(feature = "std")]
+impl From<io::Error> for Error {
+    fn from(e: io::Error) -> Self {
+        Io(e.kind())
+    }
 }
 
 #[cfg(test)]
