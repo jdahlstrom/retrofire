@@ -4,6 +4,8 @@ use minifb::{Key, KeyRepeat};
 
 use re::prelude::*;
 
+use re::core::geom::Ray;
+use re::core::math::spline::{HermiteSpline, approximate};
 use re::core::{
     geom::Polyline,
     math::{ProjMat3, ProjVec3, color::gray},
@@ -161,18 +163,23 @@ fn objects_n(res: u32) -> [Mesh<Normal3>; 14] {
 
 // Creates a Lathe mesh.
 fn lathe(secs: u32) -> Mesh<Normal3> {
-    let pts = [
-        (pt2(0.75, -0.5), vec2(1.0, 1.0)),
-        (pt2(0.55, -0.25), vec2(1.0, 0.5)),
-        (pt2(0.5, 0.0), vec2(1.0, 0.0)),
-        (pt2(0.55, 0.25), vec2(1.0, -0.5)),
-        (pt2(0.75, 0.5), vec2(1.0, -1.0)),
-    ]
-    .map(|(p, n)| vertex(p, n.normalize()));
+    let spline = HermiteSpline::new([
+        Ray(pt2(0.6, -1.0), vec2(0.0, 0.3)),
+        Ray(pt2(0.1, -0.8), vec2(0.0, 0.3)),
+        Ray(pt2(0.1, -0.3), vec2(0.0, 0.4)),
+        Ray(pt2(0.6, 0.2), vec2(0.0, 0.8)),
+        Ray(pt2(0.5, 1.0), vec2(0.0, 0.1)),
+        Ray(pt2(0.45, 1.0), vec2(0.0, -0.1)),
+        Ray(pt2(0.55, 0.2), vec2(0.0, -0.2)),
+        Ray(pt2(0.0, -0.2), vec2(-1.0, 0.0)),
+    ]);
 
-    Lathe::new(Polyline::new(pts), secs, pts.len() as u32)
-        .capped(true)
-        .build()
+    let verts = 0.0.vary_to(1.0, 2 * secs).map(|t| {
+        vertex(spline.eval(t), -spline.velocity(t).normalize().perp())
+    });
+    let pl = Polyline::new(verts);
+    let segs = pl.0.len() as u32;
+    Lathe::new(pl, secs, segs).capped(true).build()
 }
 
 // Loads the Utah teapot model.
