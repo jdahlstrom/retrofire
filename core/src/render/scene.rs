@@ -2,7 +2,7 @@ use core::fmt::{self, Debug, Formatter};
 
 use crate::{
     geom::{Mesh, vertex},
-    math::{Mat4, Point3, ProjMat3, pt3},
+    math::{Mat4, Point3, ProjMat3, Vec3, pt3},
 };
 
 use super::{
@@ -26,6 +26,7 @@ impl<A> Obj<A> {
     pub fn new(geom: Mesh<A>) -> Self {
         Self::with_transform(geom, Mat4::identity())
     }
+
     pub fn with_transform(geom: Mesh<A>, tf: Mat4<Model, World>) -> Self {
         let bbox = BBox::of(&geom);
         Self { geom, bbox, tf }
@@ -33,6 +34,13 @@ impl<A> Obj<A> {
 }
 
 impl<B> BBox<B> {
+    /// Returns an [empty][Self::is_empty] bounding box.
+    ///
+    /// Equivalent to `BBox::default()`
+    pub fn new() -> Self {
+        Self::default()
+    }
+
     pub fn of<A>(mesh: &Mesh<A, B>) -> Self {
         mesh.verts.iter().map(|v| &v.pos).collect()
     }
@@ -44,9 +52,16 @@ impl<B> BBox<B> {
         *upp = upp.zip_map(*pt, f32::max);
     }
 
+    pub fn dims(&self) -> Vec3<B> {
+        self.1 - self.0
+    }
+
+    /// Returns whether `self` is empty.
+    ///
+    /// A bounding box is empty *iff* for all points `p`, `contains(&p)` is false.
     pub fn is_empty(&self) -> bool {
-        let BBox(low, upp) = self;
-        (0..3).any(|i| low[i] >= upp[i])
+        let [x, y, z] = self.dims().0;
+        x <= 0.0 || y <= 0.0 || z <= 0.0
     }
 
     /// Returns whether a point is within the bounds of `self`.
@@ -87,11 +102,11 @@ impl<B> BBox<B> {
     }
 }
 
-impl<B: Debug + Default> Debug for BBox<B> {
+impl<B> Debug for BBox<B> {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         f.debug_tuple("BBox")
-            .field(&self.0)
-            .field(&self.1)
+            .field(&self.0.0)
+            .field(&self.1.0)
             .finish()
     }
 }

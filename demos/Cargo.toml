@@ -42,5 +42,9 @@ required-features = ["sdl2"]
 name = "curses"
 required-features = ["pancurses"]
 
+[[bin]]
+name = "kdtree"
+required-features = ["minifb"]
+
 [lints]
 workspace = true
