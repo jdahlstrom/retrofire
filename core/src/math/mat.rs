@@ -70,9 +70,11 @@ pub struct Matrix<Repr, Map>(pub Repr, Pd<Map>);
 /// Type alias for a 2x2 float matrix.
 pub type Mat2<Src = (), Dst = Src, const DIM: usize = 2> =
     Matrix<[[f32; 2]; 2], RealToReal<DIM, Src, Dst>>;
+
 /// Type alias for a 3x3 float matrix.
 pub type Mat3<Src = (), Dst = Src, const DIM: usize = 2> =
     Matrix<[[f32; 3]; 3], RealToReal<DIM, Src, Dst>>;
+
 /// Type alias for a 4x4 float matrix.
 pub type Mat4<Src = (), Dst = Src, const DIM: usize = 3> =
     Matrix<[[f32; 4]; 4], RealToReal<DIM, Src, Dst>>;
@@ -561,7 +563,7 @@ impl<Src, Dst> Mat4<Src, Dst> {
     /// use retrofire_core::assert_approx_eq;
     /// use retrofire_core::math::*;
     ///
-    /// let m = scale(splat(5.0)).then(&translate3(1.0, 2.0, 3.0));
+    /// let m = scale(5.0).then(&translate((1.0, 2.0, 3.0)));
     /// let pt = pt3(1.0, -1.0, 0.5);
     ///
     /// // Only the scale is applied because the translate is not linear
@@ -582,7 +584,7 @@ impl<Src, Dst> Mat4<Src, Dst> {
     /// use retrofire_core::math::*;
     ///
     /// let trans = vec3(1.0, 2.0, 3.0);
-    /// let m = scale(splat(5.0)).then(&translate(trans));
+    /// let m = scale(5.0).then(&translate(trans));
     /// assert_eq!(m.translation(), trans);
     pub const fn translation(&self) -> Vec3<Dst> {
         vec3(self.0[0][3], self.0[1][3], self.0[2][3])
@@ -595,7 +597,7 @@ impl<Src, Dst> Mat4<Src, Dst> {
     /// use retrofire_core::math::*;
     ///
     /// let trans = vec3(1.0, 2.0, 3.0);
-    /// let m = scale(splat(5.0)).then(&translate(trans));
+    /// let m = scale(5.0).then(&translate(trans));
     /// assert_eq!(m.origin(), pt3(1.0, 2.0, 3.0));
     pub const fn origin(&self) -> Point3<Dst> {
         self.translation().to_pt()
@@ -1021,26 +1023,12 @@ impl<Repr, M> From<Repr> for Matrix<Repr, M> {
 // Free functions
 //
 
-/// Returns a matrix applying a scaling by a vector of factors.
-///
-/// # Examples
-/// Tip: use [`splat`][super::vec::splat] to scale uniformly:
-/// ```
-/// use retrofire_core::math::{Apply, scale, splat, vec3};
-///
-/// let m = scale(splat(2.0));
-/// let scaled = m.apply(&vec3(1.0, -2.0, 3.0));
-/// assert_eq!(scaled, vec3(2.0, -4.0, 6.0))
-/// ```
-pub const fn scale(s: Vec3) -> Mat4 {
-    scale3(s.0[0], s.0[1], s.0[2])
-}
-
 /// Returns a matrix applying a scaling by the given factors.
 ///
 /// # Examples
 /// See the [`scale`] method for an example.
-pub const fn scale3(x: f32, y: f32, z: f32) -> Mat4 {
+pub fn scale(factor: impl Into<Vec3>) -> Mat4 {
+    let [x, y, z] = factor.into().0;
     mat![
          x,  0.0, 0.0, 0.0;
         0.0,  y,  0.0, 0.0;
@@ -1049,7 +1037,7 @@ pub const fn scale3(x: f32, y: f32, z: f32) -> Mat4 {
     ]
 }
 
-/// Returns a matrix applying a translation vector to points.
+/// Returns a matrix applying a translation to a point.
 ///
 /// Vectors have no defined position and are unaffected by translation.
 ///
@@ -1065,17 +1053,8 @@ pub const fn scale3(x: f32, y: f32, z: f32) -> Mat4 {
 /// // Vectors are unaffected
 /// assert_eq!(m.apply(&vec3(1.0, 1.0, 1.0)), vec3(1.0, 1.0, 1.0));
 ///```
-pub const fn translate(t: Vec3) -> Mat4 {
-    translate3(t.0[0], t.0[1], t.0[2])
-}
-
-/// Returns a matrix applying a translation to *points*.
-///
-/// Vectors have no defined position and are unaffected by translation.
-///
-/// # Examples
-/// See the [`translate`] function for an example.
-pub const fn translate3(x: f32, y: f32, z: f32) -> Mat4 {
+pub fn translate(offset: impl Into<Vec3>) -> Mat4 {
+    let [x, y, z] = offset.into().0;
     mat![
         1.0, 0.0, 0.0,  x ;
         0.0, 1.0, 0.0,  y ;
@@ -1529,8 +1508,8 @@ mod tests {
 
         #[test]
         fn composition() {
-            let tr = translate3(1.0, 2.0, 3.0).to::<Map>();
-            let sc = scale3(3.0, 2.0, 1.0).to::<InvMap>();
+            let tr = translate((1.0, 2.0, 3.0)).to::<Map>();
+            let sc = scale((3.0, 2.0, 1.0)).to::<InvMap>();
 
             let tr_sc = tr.then(&sc);
             let sc_tr = sc.then(&tr);
@@ -1550,7 +1529,7 @@ mod tests {
 
         #[test]
         fn scaling() {
-            let m = scale3(1.0, -2.0, 3.0);
+            let m = scale((1.0, -2.0, 3.0));
 
             let v = vec3(0.0, 4.0, -3.0);
             assert_eq!(m.apply(&v), vec3(0.0, -8.0, -9.0));
@@ -1561,7 +1540,7 @@ mod tests {
 
         #[test]
         fn translation() {
-            let m = translate3(1.0, 2.0, 3.0);
+            let m = translate((1.0, 2.0, 3.0));
 
             let v = vec3(0.0, 5.0, -3.0);
             assert_eq!(m.apply(&v), vec3(0.0, 5.0, -3.0));
@@ -1791,7 +1770,7 @@ mod tests {
 
     #[test]
     fn determinant_of_scaling_is_product_of_diagonal() {
-        let scale: Mat4 = scale3(2.0, 3.0, 4.0);
+        let scale: Mat4 = scale((2.0, 3.0, 4.0));
         assert_eq!(scale.determinant(), 24.0);
     }
 
@@ -1804,8 +1783,8 @@ mod tests {
 
     #[test]
     fn matrix_composed_with_inverse_is_identity() {
-        let m: Mat4<B1, B2> = translate3(1.0e3, -2.0e2, 0.0)
-            .then(&scale3(0.5, 100.0, 42.0))
+        let m: Mat4<B1, B2> = translate((1.0e3, -2.0e2, 0.0))
+            .then(&scale((0.5, 100.0, 42.0)))
             .to();
 
         let m_inv: Mat4<B2, B1> = m.inverse();
@@ -1816,8 +1795,8 @@ mod tests {
 
     #[test]
     fn inverse_reverts_transform() {
-        let m: Mat4<B1, B2> = scale3(1.0, 2.0, 0.5)
-            .then(&translate3(-2.0, 3.0, 0.0))
+        let m: Mat4<B1, B2> = scale((1.0, 2.0, 0.5))
+            .then(&translate((-2.0, 3.0, 0.0)))
             .to();
         let m_inv: Mat4<B2, B1> = m.inverse();
 
