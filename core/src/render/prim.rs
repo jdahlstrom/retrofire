@@ -45,13 +45,12 @@ impl<V: Vary> Render<V> for Edge<usize> {
 
     type Screen = Edge<Vertex<ScreenPt, V>>;
 
-    fn inline(Edge(i, j): Edge<usize>, vs: &[ClipVert<V>]) -> Self::Clip {
-        Edge(vs[i].clone(), vs[j].clone())
+    fn inline(e: Edge<usize>, vs: &[ClipVert<V>]) -> Self::Clip {
+        Edge(vs[e.0].clone(), vs[e.1].clone())
     }
 
     fn to_screen(e: Self::Clip, tf: &Mat4<Ndc, Screen>) -> Self::Screen {
-        let [a, b] = to_screen([e.0, e.1], tf);
-        Edge(a, b)
+        to_screen([e.0, e.1], tf).into()
     }
 
     fn rasterize<F: FnMut(Scanline<V>)>(e: Self::Screen, scanline_fn: F) {
