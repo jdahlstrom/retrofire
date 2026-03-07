@@ -312,37 +312,39 @@ impl<A: Lerp> Clip for [Edge<ClipVert<A>>] {
     type Item = Edge<ClipVert<A>>;
 
     fn clip(&self, planes: &[ClipPlane], out: &mut Vec<Self::Item>) {
-        'lines: for Edge(a, b) in self {
+        'lines: for edge @ Edge(a, b) in self {
             let both_outside = a.outcode & b.outcode != 0;
             let neither_outside = a.outcode | b.outcode == 0;
 
-            let mut a = a.clone();
-            let mut b = b.clone();
+            //let mut a = a.clone();
+            //let mut b = b.clone();
+
+            let mut e = edge.clone();
 
             if both_outside {
                 continue;
             }
             if neither_outside {
-                out.push(Edge(a, b));
+                out.push(e);
                 continue;
             }
             // Otherwise, clipping is needed
             for p in planes {
-                let a_in = p.is_inside(&a);
-                let b_in = p.is_inside(&b);
+                let a_in = p.is_inside(&e.0);
+                let b_in = p.is_inside(&e.1);
                 // TODO Why not handled by both_outside check?
                 if !a_in && !b_in {
                     continue 'lines;
                 }
-                if let Some(v) = p.intersect([&a, &b]) {
+                if let Some(v) = p.intersect([&e.0, &e.1]) {
                     if a_in {
-                        b = v;
+                        e.1 = v;
                     } else if b_in {
-                        a = v;
+                        e.0 = v;
                     }
                 }
             }
-            out.push(Edge(a, b));
+            out.push(e);
         }
     }
 }
@@ -390,8 +392,9 @@ impl<A: Lerp> Clip for [Tri<ClipVert<A>>] {
                 //             |
                 //
                 out.extend(
-                    rest.windows(2)
-                        .map(|e| Tri([p.clone(), e[0].clone(), e[1].clone()])),
+                    rest.array_windows()
+                        .cloned()
+                        .map(|[a, b]| Tri([p.clone(), a, b])),
                 );
             }
             verts_out.clear();
