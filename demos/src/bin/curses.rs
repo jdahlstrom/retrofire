@@ -80,7 +80,7 @@ fn main() {
 
         let mvp = rotate_x(rads(t_secs))
             .then(&rotate_y(rads(t_secs / 1.7)))
-            .then(&translate3(0.0, 0.0, 3.0 + t_secs.sin()))
+            .then(&translate((0.0, 0.0, 3.0 + t_secs.sin())))
             .to()
             .then(&project);
 
