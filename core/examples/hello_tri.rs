@@ -1,5 +1,8 @@
-use retrofire_core::render::{Model, render, shader};
-use retrofire_core::{prelude::*, util::*};
+use retrofire_core::{
+    prelude::*,
+    render::{Model, render, shader},
+    util::*,
+};
 
 fn main() {
     let verts = [
@@ -28,7 +31,7 @@ fn main() {
     );
 
     let dims @ (w, h) = (640, 480);
-    let modelview = translate3(0.0, 0.0, 2.0).to();
+    let modelview = translate((0.0, 0.0, 2.0)).to();
     let project = perspective(1.0, w as f32 / h as f32, 0.1..1000.0);
     let viewport = viewport(pt2(0, h)..pt2(w, 0));
 

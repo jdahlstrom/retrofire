@@ -5,7 +5,7 @@ use minifb::{Key, KeyRepeat};
 use re::prelude::*;
 
 use re::core::geom::Ray;
-use re::core::math::spline::{HermiteSpline, approximate};
+use re::core::math::spline::HermiteSpline;
 use re::core::{
     geom::Polyline,
     math::{ProjMat3, ProjVec3, color::gray},
@@ -61,7 +61,7 @@ fn main() {
 
     let (w, h) = win.dims;
     let cam = Camera::new(win.dims)
-        .transform(scale3(1.0, -1.0, -1.0).to())
+        .transform(scale((1.0, -1.0, -1.0)).to())
         .perspective(Fov::Equiv35mm(28.0), 0.1..1000.0)
         .viewport(pt2(10, h - 10)..pt2(w - 10, 10));
 
@@ -187,11 +187,7 @@ fn teapot() -> Mesh<Normal3> {
     static TEAPOT: &[u8] = include_bytes!("../../assets/teapot.obj");
     read_obj(TEAPOT)
         .unwrap()
-        .transform(
-            &scale(splat(0.4))
-                .then(&translate(-0.5 * Vec3::Y))
-                .to(),
-        )
+        .transform(&scale(0.4).then(&translate(-0.5 * Vec3::Y)).to())
         .build()
 }
 
@@ -200,7 +196,7 @@ fn bunny() -> Mesh<Normal3> {
     static BUNNY: &[u8] = include_bytes!("../../assets/bunny.obj");
     read_obj::<()>(BUNNY)
         .unwrap()
-        .transform(&scale(splat(0.12)).then(&translate(-Vec3::Y)).to())
+        .transform(&scale(0.12).then(&translate(-Vec3::Y)).to())
         .with_vertex_normals()
         .build()
 }
@@ -211,10 +207,6 @@ fn dragon() -> Mesh<Normal3> {
     read_obj::<()>(DRAGON)
         .unwrap()
         .with_vertex_normals()
-        .transform(
-            &scale(splat(0.18))
-                .then(&translate(-0.5 * Vec3::Y))
-                .to(),
-        )
+        .transform(&scale(0.18).then(&translate(-0.5 * Vec3::Y)).to())
         .build()
 }

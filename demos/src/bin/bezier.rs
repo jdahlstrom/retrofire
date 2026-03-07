@@ -3,7 +3,7 @@ use core::ops::ControlFlow::Continue;
 use re::prelude::*;
 
 use re::core::{
-    geom::{Edge, Ray},
+    geom::Ray,
     math::rand::{Distrib, Uniform, VectorsOnUnitDisk, Xorshift64},
     math::spline::approximate,
     render::raster::line,
