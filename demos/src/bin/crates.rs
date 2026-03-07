@@ -145,7 +145,7 @@ fn crates() -> Vec<Obj<(Normal3, TexCoord)>> {
     for i in (-n..=n).step_by(5) {
         for j in (-n..=n).step_by(5) {
             res.push(Obj {
-                tf: translate3(i as f32, 0.0, j as f32).to(),
+                tf: translate((i as f32, 0.0, j as f32)).to(),
                 // TODO Same geometry cloned many times
                 ..obj.clone()
             });
