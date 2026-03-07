@@ -79,7 +79,7 @@ pub fn ray<'a, B>(o: Point3<B>, dir: Vec3<B>) -> DbgBatch<B> {
     let edges = [
         [0, 1], [1, 2], [1, 3], [1, 4], [1, 5],
         [2, 4], [2, 5], [3, 4], [3, 5],
-    ].map(|[i, j]| Edge(i, j));
+    ].map(Edge::from);
 
     DbgBatch::new(&edges, &verts)
 }
@@ -126,7 +126,7 @@ pub fn cuboid<B>(v0: Point3<B>, v1: Point3<B>) -> DbgBatch<B> {
         [0, 1], [1, 2], [2, 3], [3, 0],
         [4, 5], [5, 6], [6, 7], [7, 4],
         [0, 4], [1, 5], [2, 6], [3, 7],
-    ].map(|[i, j]| Edge(i, j));
+    ].map(Edge::from);
 
     DbgBatch::new(&edges, &verts)
 }

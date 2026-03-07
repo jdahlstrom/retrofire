@@ -581,7 +581,7 @@ impl<T> Polyline<T> {
     /// assert_eq!(edges.next(), None);
     /// ```
     pub fn edges(&self) -> impl Iterator<Item = Edge<&T>> + '_ {
-        self.0.windows(2).map(|e| Edge(&e[0], &e[1]))
+        self.0.array_windows().map(|[a, b]| Edge(a, b))
     }
 
     /// Returns the sum of the lengths of the edges using a custom metric.
@@ -606,7 +606,7 @@ impl<T> Polyline<T> {
     /// assert_eq!(pline.len_by(taxicab), 9.0);
     /// ```
     pub fn len_by(&self, mut m: impl FnMut(&T, &T) -> f32) -> f32 {
-        self.edges().map(|Edge(a, b)| m(a, b)).sum()
+        self.edges().map(|e| m(e.0, e.1)).sum()
     }
 }
 
@@ -655,14 +655,14 @@ impl<T> Polygon<T> {
     /// assert_eq!(edges.next(), None);
     /// ```
     pub fn edges(&self) -> impl Iterator<Item = Edge<&T>> + '_ {
-        let last_first = if let [f, .., l] = &self.0[..] {
-            Some(Edge(l, f))
+        let last_first = if let [fst, .., lst] = &self.0[..] {
+            Some(Edge(lst, fst))
         } else {
             None
         };
         self.0
-            .windows(2)
-            .map(|e| Edge(&e[0], &e[1]))
+            .array_windows()
+            .map(|[a, b]| Edge(a, b))
             .chain(last_first)
     }
 }
@@ -882,8 +882,14 @@ impl<B> From<Ray<Point2<B>>> for Line2<B> {
 
 impl<B> From<Edge<Point2<B>>> for Line2<B> {
     /// Returns the line coincident with the given edge.
-    fn from(Edge(p, q): Edge<Point2<B>>) -> Self {
-        Ray(p, q - p).into()
+    fn from(e: Edge<Point2<B>>) -> Self {
+        Ray(e.0, e.1 - e.0).into()
+    }
+}
+
+impl<T> From<[T; 2]> for Edge<T> {
+    fn from([a, b]: [T; 2]) -> Self {
+        Edge(a, b)
     }
 }
 

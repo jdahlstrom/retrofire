@@ -49,8 +49,8 @@ fn main() {
         // Stop once error is less than one pixel
         let approx = approximate(&b, 1.0);
 
-        for Edge(p0, p1) in approx.edges() {
-            let vs = [p0, p1].map(|p| vertex(p.to_pt3().to(), ()));
+        for e in approx.edges() {
+            let vs = [e.0, e.1].map(|p| vertex(p.to_pt3().to(), ()));
             line(vs, |sl| {
                 buf[sl.y][sl.xs].fill(0xFF_FF_FF);
             })
