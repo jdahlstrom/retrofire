@@ -2,6 +2,7 @@
 
 use core::ops::Range;
 
+use crate::math::space::Real;
 #[cfg(feature = "fp")]
 use crate::math::{
     Angle, Vec3, orient_z, rotate_pyr, rotate_x, rotate_y, spherical, turns,
@@ -108,7 +109,7 @@ fn az_alt<B>(az: Angle, alt: Angle) -> SphericalVec<B> {
 
 /// Helper to create a translation from a point
 fn origin<S, D>(o: Point3<D>) -> Mat4<S, D> {
-    translate(o.to().to_vec()).to()
+    translate(o.to_vec().to::<Real<_>>()).to()
 }
 
 //

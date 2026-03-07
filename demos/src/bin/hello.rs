@@ -46,8 +46,8 @@ fn main() {
     win.run(|frame: &mut Frame<_, _>| {
         let secs = frame.t.as_secs_f32();
 
-        let mvp = scale(splat(0.1))
-            .then(&translate(vec3(-10.0, -5.0, 5.0 * secs.sin())))
+        let mvp = scale(0.1)
+            .then(&translate((-10.0, -5.0, 5.0 * secs.sin())))
             .then(&rotate_y(rads(secs * 0.59)))
             .then(&rotate_z(rads((secs * 1.13).sin())))
             .to()

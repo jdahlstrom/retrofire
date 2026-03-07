@@ -1,8 +1,7 @@
 #![allow(unused)]
 
-use retrofire_core::prelude::*;
-
 use retrofire_core::{
+    prelude::*,
     render::{Model, render, shader, tex::SamplerClamp},
     util::{self, pixfmt::Xrgb8888, pnm::parse_pnm},
 };
@@ -33,7 +32,7 @@ fn textured_quad() {
     let (w, h) = (256, 256);
     let project = perspective(1.0, 1.0, 0.1..1000.0);
     let viewport = viewport(pt2(0, 0)..pt2(w, h));
-    let mvp = translate3(0.0, 0.0, 1.0).to().then(&project);
+    let mvp = translate((0.0, 0.0, 1.0)).to().then(&project);
 
     let mut framebuf = Buf2::<Color3>::new((w, h));
     let mut ctx = Context::default();
