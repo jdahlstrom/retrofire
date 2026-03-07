@@ -30,7 +30,7 @@ pub(super) mod re_exports {
         lerp,
         mat::{
             Apply, Mat2, Mat3, Mat4, Matrix, ProjMat3, orthographic,
-            perspective, scale, scale3, translate, translate3, viewport,
+            perspective, scale, translate, viewport,
         },
         param::Parametric,
         point::{Point, Point2, Point2u, Point3, pt2, pt3},

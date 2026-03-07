@@ -729,6 +729,27 @@ impl<R, Sp> From<R> for Vector<R, Sp> {
     }
 }
 
+impl<Sc, Sp, const N: usize> From<Vector<[Sc; N], Sp>> for [Sc; N] {
+    #[inline]
+    fn from(vec: Vector<[Sc; N], Sp>) -> Self {
+        vec.0
+    }
+}
+
+impl<Sc, Sp> From<(Sc, Sc)> for Vector<[Sc; 2], Sp> {
+    #[inline]
+    fn from((x, y): (Sc, Sc)) -> Self {
+        [x, y].into()
+    }
+}
+
+impl<Sc, Sp> From<(Sc, Sc, Sc)> for Vector<[Sc; 3], Sp> {
+    #[inline]
+    fn from((x, y, z): (Sc, Sc, Sc)) -> Self {
+        [x, y, z].into()
+    }
+}
+
 impl<Sp, Sc: Copy, const DIM: usize> From<Sc> for Vector<[Sc; DIM], Sp> {
     /// Returns a vector with all components equal to `scalar`.
     ///

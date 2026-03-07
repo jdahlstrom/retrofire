@@ -47,7 +47,7 @@ fn main() {
         let time = frame.t.as_secs_f32();
 
         let model_view_project = rotate_y(rads(time))
-            .then(&translate3(0.0, 0.0, 3.0 + time.sin()))
+            .then(&translate((0.0, 0.0, 3.0 + time.sin())))
             .to()
             .then(&projection);
 
