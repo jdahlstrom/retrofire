@@ -51,6 +51,26 @@ pub type Vec2i<Basis = ()> = Vector<[i32; 2], Real<2, Basis>>;
 /// A 3-vector with `i32` components.
 pub type Vec3i<Basis = ()> = Vector<[i32; 3], Real<3, Basis>>;
 
+pub type Vec3b = Vector<u8, Real<3>>; // not really "real"
+
+impl Vec3b {
+    pub fn any(&self) -> bool {
+        self.0 & 0b111 != 0
+    }
+    pub fn all(&self) -> bool {
+        self.0 == 0b111
+    }
+    pub fn x(&self) -> bool {
+        self.0 & 0b001 == 1
+    }
+    pub fn y(&self) -> bool {
+        self.0 & 0b010 == 1
+    }
+    pub fn z(&self) -> bool {
+        self.0 & 0b100 == 1
+    }
+}
+
 //
 // Free functions
 //
