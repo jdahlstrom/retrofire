@@ -70,7 +70,7 @@ where
 }
 
 #[inline]
-fn phong<B>(
+pub fn phong<B>(
     normal: Vec3<B>,
     view_dir: Vec3<B>,
     light_dir: Vec3<B>,
@@ -81,7 +81,7 @@ fn phong<B>(
 }
 
 #[inline]
-fn blinn_phong<B>(
+pub fn blinn_phong<B>(
     normal: Vec3<B>,
     view_dir: Vec3<B>,
     light_dir: Vec3<B>,

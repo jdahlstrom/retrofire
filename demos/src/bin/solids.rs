@@ -12,7 +12,6 @@ use re::core::{
         Model, View, World, cam::Fov, debug::dir_to_rgb, light::Kind, shader,
     },
 };
-
 use re::front::{Frame, minifb::Window};
 use re::geom::{io::read_obj, solids::*};
 
@@ -41,13 +40,11 @@ fn vtx_shader(v: VertexIn, u: &Uniform) -> VertexOut {
     let view_pos = u.mv.apply(&v.pos);
     let clip_pos = u.proj.apply(&view_pos);
 
-    // (camera_dir, (light_col * color, (view_normal, (light_col, light_dir))),),
     vertex(clip_pos, (view_pos, (color, view_normal)))
 }
 
 #[inline]
 fn frag_shader(f: Frag<Varyings>, u: &Uniform) -> Color4 {
-    //let (camera_dir, (light_x_col, (view_normal, (light_col, light_dir)))) =
     let (view_pos, (color, view_normal)) = f.var;
 
     let (light_col, light_dir) = u.light.eval(view_pos);
@@ -57,9 +54,8 @@ fn frag_shader(f: Frag<Varyings>, u: &Uniform) -> Color4 {
     let ambient = rgb(0.15, 0.18, 0.25);
     let diffuse = 0.5 * light_dir.dot(&view_normal.to());
     let specular =
-        0.5 * blinn_phong(view_normal.to(), camera_dir, light_dir, 30);
+        0.5 * shader::blinn_phong(view_normal.to(), camera_dir, light_dir, 30);
 
-    //(light_x_col * diffuse + light_col * specular + ambient).to_color4()
     (light_col * color * diffuse + light_col * specular + ambient).to_color4()
 }
 

@@ -12,6 +12,7 @@ pub struct Light<B> {
     pub falloff: u8,
 }
 
+/// Type of light source.
 #[derive(Copy, Clone, PartialEq)]
 pub enum Kind<B> {
     /// A light source "at infinity", so that the light rays arrive
@@ -61,7 +62,7 @@ impl<B: Copy> Light<B> {
                 if dot > r0 {
                     self.color
                 } else if dot > r1 {
-                    let t = inv_lerp(dot, r1, r0); // ok: r0 != r1
+                    let t = inv_lerp(dot, r1, r0); // ok: r1 < dot <= r0
                     self.color * t
                 } else {
                     gray(0.0)
