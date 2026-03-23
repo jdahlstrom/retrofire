@@ -1509,7 +1509,7 @@ mod tests {
         #[test]
         fn composition() {
             let tr = translate((1.0, 2.0, 3.0)).to::<Map>();
-            let sc = scale3(3.0, 2.0, 1.0).to::<InvMap>();
+            let sc = scale((3.0, 2.0, 1.0)).to::<InvMap>();
 
             let tr_sc = tr.then(&sc);
             let sc_tr = sc.then(&tr);
@@ -1529,7 +1529,7 @@ mod tests {
 
         #[test]
         fn scaling() {
-            let m = scale3(1.0, -2.0, 3.0);
+            let m = scale((1.0, -2.0, 3.0));
 
             let v = vec3(0.0, 4.0, -3.0);
             assert_eq!(m.apply(&v), vec3(0.0, -8.0, -9.0));
@@ -1770,7 +1770,7 @@ mod tests {
 
     #[test]
     fn determinant_of_scaling_is_product_of_diagonal() {
-        let scale: Mat4 = scale3(2.0, 3.0, 4.0);
+        let scale: Mat4 = scale((2.0, 3.0, 4.0));
         assert_eq!(scale.determinant(), 24.0);
     }
 
@@ -1784,7 +1784,7 @@ mod tests {
     #[test]
     fn matrix_composed_with_inverse_is_identity() {
         let m: Mat4<B1, B2> = translate((1.0e3, -2.0e2, 0.0))
-            .then(&scale3(0.5, 100.0, 42.0))
+            .then(&scale((0.5, 100.0, 42.0)))
             .to();
 
         let m_inv: Mat4<B2, B1> = m.inverse();
@@ -1795,7 +1795,7 @@ mod tests {
 
     #[test]
     fn inverse_reverts_transform() {
-        let m: Mat4<B1, B2> = scale3(1.0, 2.0, 0.5)
+        let m: Mat4<B1, B2> = scale((1.0, 2.0, 0.5))
             .then(&translate((-2.0, 3.0, 0.0)))
             .to();
         let m_inv: Mat4<B2, B1> = m.inverse();
