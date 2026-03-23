@@ -93,6 +93,88 @@ pub const fn hsla<Ch>(h: Ch, s: Ch, l: Ch, a: Ch) -> Color<[Ch; 4], Hsla> {
     Color::new([h, s, l, a])
 }
 
+/// Creates a `Color` from a CSS-like hex string.
+///
+/// The string may have an initial '#'  which is ignored.
+///
+/// For three-channel colors, the hex string must have either three or
+/// six digits. A three-digit string such as "ABC" means the same as "AABBCC".
+/// This number will be broken down to channels (0xAA, 0xBB, 0xCC).
+///
+/// For four-channel colors, the hex string must have either four or eight
+/// digits. A four-digit string such as "ABCD" means the same as "AABBCCDD".
+/// The number will be broken down to channels (0xAA, 0xBB, 0xCC, 0xDD).
+///
+/// # Panics
+/// If the string is not a valid hexadecimal number, or if the number of hex
+/// digits is not either N or 2N.
+///
+/// # Examples
+/// ```
+/// use retrofire_core::math::color::*;
+///
+/// let blue: Color3 = hex("#12E");
+/// assert_eq!(blue.0, [0x11, 0x22, 0xEE]);
+///
+/// let red: Color3 = hex("AA3322");
+/// assert_eq!(red.0, [0xAA, 0x33, 0x22]);
+///
+/// let translucent_green: Color4 = hex("3B29");
+/// assert_eq!(translucent_green.0, [0x33, 0xBB, 0x22, 0x99]);
+/// ```
+///
+/// The number of hex digits must be either N or 2N:
+/// ```should_panic
+/// # use retrofire_core::math::color::*;
+/// let color_of_nothing: Color3 = hex(""); // panics!
+/// ```
+///
+/// If N is not 3 or 4, compilation will fail:
+/// ```compile_fail
+/// # use retrofire_core::math::color::*;
+/// let pentachromatic: Color<[u8; 5], ()> = hex("12345"); // fails to compile!
+/// ```
+pub const fn hex<S, const N: usize>(mut s: &str) -> Color<[u8; N], S> {
+    const {
+        assert!(N == 3 || N == 4, "number of components must be 3 or 4");
+    }
+    // Ceremony needed to make this work in const...
+    if let Some((fst, rst)) = s.split_at_checked(1)
+        && fst.as_bytes()[0] == b'#'
+    {
+        s = rst;
+    }
+    let Ok(n) = u32::from_str_radix(s, 16) else {
+        panic!("invalid hex string")
+    };
+
+    let n = if s.len() == N * 2 {
+        n
+    } else if s.len() == N {
+        // Morton code interleaving trick
+        //
+        // Expand n by adding a nibble of zeroes between each nibble
+        // 0x123 -> 0x01_02_03
+        let n = (n | n << 8) & 0x00_FF_00_FF;
+        let n = (n | n << 4) & 0x0F_0F_0F_0F;
+        // Duplicate nibbles into the gaps
+        // 0x01_02_03 -> 0x11_22_33
+        n | n << 4
+    } else {
+        panic!(
+            // "number of hex digits must be {N} or {}, was {}", s.len(), N * 2
+            "invalid number of hex digits"
+        )
+    };
+    // The lowest N bytes are the components we want
+    let bytes = n.to_be_bytes();
+    let (_, cs) = bytes.split_at(4 - N);
+    let Some(&cs) = cs.as_array() else {
+        unreachable!()
+    };
+    Color::new(cs)
+}
+
 /// Exponent for gamma conversion [from sRGB to linear sRGB][1].
 ///
 /// [1]: Color3f<Rgb>::to_linear
