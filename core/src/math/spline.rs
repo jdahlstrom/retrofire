@@ -231,6 +231,16 @@ fn do_approx<T: Affine<Diff: Linear<Scalar = f32>>>(
     }
 }
 
+pub trait AffineF32:
+    Affine<Diff: Linear<Scalar = f32> + Clone> + Clone
+{
+}
+
+impl<T> AffineF32 for T where
+    T: Affine<Diff: Linear<Scalar = f32> + Clone> + Clone
+{
+}
+
 //
 // Inherent impls
 //
@@ -404,10 +414,7 @@ where
     }
 }
 
-impl<T> BezierSpline<T>
-where
-    T: Affine<Diff: Linear<Scalar = f32> + Clone> + Clone,
-{
+impl<T: AffineF32> BezierSpline<T> {
     /// Creates a Bézier spline from the given control points.
     ///
     /// The number of elements in `pts` must be 3*n* + 1 for some positive integer
@@ -497,10 +504,7 @@ where
     }
 }
 
-impl<T> HermiteSpline<T>
-where
-    T: Affine<Diff: Linear<Scalar = f32> + Clone> + Clone,
-{
+impl<T: AffineF32> HermiteSpline<T> {
     /// Creates a new Hermite spline from a sequence of rays.
     ///
     /// Each ray (P<sub>i</sub>, **v**<sub>i</sub>) makes up a point
@@ -558,10 +562,7 @@ where
     }
 }
 
-impl<T> CatmullRomSpline<T>
-where
-    T: Affine<Diff: Linear<Scalar = f32>> + Clone,
-{
+impl<T: AffineF32> CatmullRomSpline<T> {
     const _CHAR_MAT: Mat4 = mat![
          0.0,  1.0,  0.0,  0.0;
         -0.5,  0.0,  0.5,  0.0;
@@ -636,10 +637,7 @@ where
     }
 }
 
-impl<T> BSpline<T>
-where
-    T: Affine<Diff: Linear<Scalar = f32>> + Clone,
-{
+impl<T: AffineF32> BSpline<T> {
     const _CHAR_MAT: Mat4 = {
         const _1_6: f32 = 1.0 / 6.0;
         const _2_3: f32 = 2.0 / 3.0;
@@ -776,64 +774,43 @@ impl<Spl> Euclidean<Spl> {
 // Local trait impls
 //
 
-impl<T> Parametric<T> for CubicBezier<T>
-where
-    T: Affine<Diff: Linear<Scalar = f32> + Clone> + Clone,
-{
+impl<T: AffineF32> Parametric<T> for CubicBezier<T> {
     fn eval(&self, t: f32) -> T {
         self.fast_eval(t)
     }
 }
 
-impl<T> Parametric<T> for CubicHermite<T, T::Diff>
-where
-    T: Affine<Diff: Linear<Scalar = f32> + Clone> + Clone,
-{
+impl<T: AffineF32> Parametric<T> for CubicHermite<T, T::Diff> {
     fn eval(&self, t: f32) -> T {
         self.eval(t)
     }
 }
 
-impl<T> Parametric<T> for BezierSpline<T>
-where
-    T: Affine<Diff: Linear<Scalar = f32> + Clone> + Clone,
-{
+impl<T: AffineF32> Parametric<T> for BezierSpline<T> {
     fn eval(&self, t: f32) -> T {
         self.eval(t)
     }
 }
 
-impl<T> Parametric<T> for HermiteSpline<T>
-where
-    T: Affine<Diff: Linear<Scalar = f32> + Clone> + Clone,
-{
+impl<T: AffineF32> Parametric<T> for HermiteSpline<T> {
     fn eval(&self, t: f32) -> T {
         self.eval(t)
     }
 }
 
-impl<T> Parametric<T> for CatmullRomSpline<T>
-where
-    T: Affine<Diff: Linear<Scalar = f32> + Clone> + Clone,
-{
+impl<T: AffineF32> Parametric<T> for CatmullRomSpline<T> {
     fn eval(&self, t: f32) -> T {
         self.eval(t)
     }
 }
 
-impl<T> Parametric<T> for BSpline<T>
-where
-    T: Affine<Diff: Linear<Scalar = f32> + Clone> + Clone,
-{
+impl<T: AffineF32> Parametric<T> for BSpline<T> {
     fn eval(&self, t: f32) -> T {
         self.eval(t)
     }
 }
 
-impl<T, Spl> Parametric<T> for Euclidean<Spl>
-where
-    Spl: Parametric<T>,
-{
+impl<T, Spl: Parametric<T>> Parametric<T> for Euclidean<Spl> {
     fn eval(&self, s: f32) -> T {
         self.eval(s)
     }
