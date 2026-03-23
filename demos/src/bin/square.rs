@@ -1,9 +1,52 @@
+#![feature(portable_simd)]
+
 use core::ops::ControlFlow::*;
+use core::simd::f32x2;
 
 use re::prelude::*;
 
-use re::core::render::{render, shader, tex::SamplerClamp};
+use re::core::math::vary::ZDiv;
+use re::core::render::{
+    render, shader,
+    tex::{SamplerClamp, Tex, uv as uv_},
+};
+
 use re::front::minifb::Window;
+
+#[derive(Default, Copy, Clone, Debug)]
+struct Simd2(f32x2);
+
+type TexCoord = Simd2; //Vector<Simd2, Tex>;
+
+impl Affine for TexCoord {
+    type Space = Tex;
+    type Diff = Self;
+    const DIM: usize = 2;
+
+    fn add(&self, diff: &Self::Diff) -> Self {
+        Self(self.0 + diff.0)
+    }
+
+    fn sub(&self, other: &Self) -> Self::Diff {
+        Self(self.0 - other.0)
+    }
+}
+impl Linear for TexCoord {
+    type Scalar = f32;
+
+    fn zero() -> Self {
+        Self(f32x2::default())
+    }
+
+    fn mul(&self, s: Self::Scalar) -> Self {
+        Self(self.0 * f32x2::splat(s))
+    }
+}
+impl ZDiv for TexCoord {}
+
+fn uv(x: f32, y: f32) -> TexCoord {
+    Simd2(f32x2::from_array([x, y]))
+}
 
 fn main() {
     // Vertices of a square
@@ -36,7 +79,11 @@ fn main() {
 
     let shader = shader::new(
         |v: Vertex3<_>, mvp: &ProjMat3<_>| vertex(mvp.apply(&v.pos), v.attrib),
-        |frag: Frag<_>| SamplerClamp.sample(&checker, frag.var),
+        |frag: Frag<TexCoord>| {
+            //gray(255).to_rgba();
+            let &[x, y] = frag.var.0.as_array();
+            SamplerClamp.sample(&checker, uv_(x, y))
+        },
     );
 
     let (w, h) = win.dims;
