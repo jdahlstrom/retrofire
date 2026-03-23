@@ -143,11 +143,10 @@ impl IntoPixel<[u8; 2], Rgb565> for Color4 {
 
 #[cfg(test)]
 mod tests {
-    use crate::math::{rgb, rgba};
-
     use super::*;
+    use crate::math::{color::hex, rgb};
 
-    const COL3: Color3 = rgb(0x11u8, 0x22, 0x33);
+    const COL3: Color3 = hex("#112233");
 
     #[test]
     fn color3_to_rgb888() {
@@ -164,18 +163,16 @@ mod tests {
         assert_eq!(pix, [0b000_00010, 0b01000_001]);
     }
 
+    const COL4: Color4 = hex("#11223344");
+
     #[test]
     fn color4_to_rgba8888() {
-        let col = rgba(0x11u8, 0x22, 0x33, 0x44);
-
-        let pix: u32 = col.into_pixel_fmt(Rgba8888);
+        let pix: u32 = COL4.into_pixel_fmt(Rgba8888);
         assert_eq!(pix, 0x11_22_33_44);
 
-        let pix: [u8; 4] = col.into_pixel_fmt(Rgba8888);
+        let pix: [u8; 4] = COL4.into_pixel_fmt(Rgba8888);
         assert_eq!(pix, [0x11, 0x22, 0x33, 0x44]);
     }
-
-    const COL4: Color4 = rgba(0x11u8, 0x22, 0x33, 0x44);
 
     #[test]
     fn color4_to_argb8888() {
