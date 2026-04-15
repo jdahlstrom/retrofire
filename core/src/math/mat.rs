@@ -302,6 +302,32 @@ where
 }
 
 impl<Src, Dest> Mat2<Src, Dest> {
+    /// Creates a change-of-basis matrix
+    pub fn basis_change<Dest2>(
+        &self,
+        other: Mat2<Src, Dest2>,
+    ) -> Mat2<Dest, Dest2> {
+        self.inverse().then(&other)
+    }
+
+    /// Creates a 2-dimensional linear scaling matrix.
+    pub fn scale(v: impl Into<Vec2<Src>>) -> Self {
+        let [x, y] = v.into().0;
+        mat![
+            x, 0.0;
+            0.0, y
+        ]
+    }
+
+    /// Creates a 2-dimensional linear rotation matrix.
+    pub fn rotate(a: Angle) -> Self {
+        let (sin, cos) = a.sin_cos();
+        mat![
+            cos, sin;
+            sin, -cos
+        ]
+    }
+
     /// Returns the determinant of `self`.
     ///
     /// # Examples
@@ -389,9 +415,48 @@ impl<Src, Dest> Mat2<Src, Dest> {
 }
 
 impl<Src, Dest> Mat3<Src, Dest, 2> {
+    /// Creates a 2-dimensional affine scaling matrix.
+    pub fn scale(v: impl Into<Vec2<Src>>) -> Self {
+        let [x, y] = v.into().0;
+        mat![
+             x,  0.0, 0.0;
+            0.0,  y,  0.0;
+            0.0, 0.0, 1.0;
+        ]
+    }
+
+    /// Creates a 2-dimensional affine rotation matrix.
+    pub fn rotate(a: Angle) -> Self {
+        let (sin, cos) = a.sin_cos();
+        mat![
+            cos, -sin, 0.0;
+            sin,  cos, 0.0;
+            0.0,  0.0, 1.0;
+        ]
+    }
+
+    /// Creates a 2-dimensional affine translation matrix.
+    pub fn translate(v: impl Into<Vec2<Src>>) -> Self {
+        let [x, y] = v.into().0;
+        mat![
+            1.0, 0.0,  x;
+            0.0, 1.0,  y;
+            0.0, 0.0, 1.0;
+        ]
+    }
+
     /// Constructs a matrix from a linear basis.
     ///
     /// The basis does not have to be orthonormal.
+    ///
+    /// # Examples
+    /// ```
+    /// use retrofire_core::math::{Mat3, Vec2};
+    ///
+    /// let m: Mat3 = Mat3::from_linear(Vec2::Y, 2.0 * Vec2::X);
+    /// assert_eq!(m.linear().0, [[0.0, 2.0], [1.0, 0.0]]);
+    /// assert_eq!(m.translation().0, [0.0, 0.0]);
+    /// ```
     pub const fn from_linear(i: Vec2<Dest>, j: Vec2<Dest>) -> Self {
         Self::from_affine(i, j, Point2::origin())
     }
@@ -399,6 +464,15 @@ impl<Src, Dest> Mat3<Src, Dest, 2> {
     /// Constructs a matrix from an affine basis, or frame.
     ///
     /// The basis does not have to be orthonormal.
+    ///
+    /// # Examples
+    /// ```
+    /// use retrofire_core::math::{Mat3, Vec2, pt2};
+    ///
+    /// let m: Mat3 = Mat3::from_affine(Vec2::Y, 2.0 * Vec2::X, pt2(1.0, 2.0));
+    /// assert_eq!(m.linear().0, [[0.0, 2.0], [1.0, 0.0]]);
+    /// assert_eq!(m.translation().0, [1.0, 2.0]);
+    /// ```
     pub const fn from_affine(
         i: Vec2<Dest>,
         j: Vec2<Dest>,
@@ -419,10 +493,11 @@ impl<Src, Dest> Mat3<Src, Dest, 2> {
     /// use retrofire_core::assert_approx_eq;
     /// use retrofire_core::math::*;
     ///
-    /// // TODO translate2 does not exist (yet)
-    /// /*let m = rotate2(degs(90.0)).then(&translate3(1.0, 2.0, 3.0));
-    /// let lin = m.linear();
-    /// assert_approx_eq!(lin.apply(&pt2(1.0, 0.0, 0.0)), pt2(0.0, 0.0, -1.0));*/
+    /// let rot: Mat3 = Mat3::rotate(degs(90.0));
+    /// let trans: Mat3 = Mat3::translate((3.0, 4.0));
+    /// let lin = rot.then(&trans).linear();
+    /// assert_approx_eq!(lin.apply(&pt2::<_, ()>(1.0, 0.0)), pt2(0.0, 1.0));
+    /// ```
     pub const fn linear(&self) -> Mat2<Src, Dest> {
         let [r, s, _] = self.0;
         mat![r[0], r[1]; s[0], s[1]]
@@ -438,12 +513,22 @@ impl<Src, Dest> Mat3<Src, Dest, 2> {
     /// /*let trans = vec2(1.0, 2.0);
     /// let m = rotate2(degs(45.0)).then(&translate(trans));
     /// assert_eq!(m.translation(), trans);*/
+    /// ```
     pub const fn translation(&self) -> Vec2<Dest> {
         let [r, s, _] = self.0;
         vec2(r[2], s[2])
     }
 
     /// Returns the determinant of `self`.
+    ///
+    /// # Example
+    /// ```
+    /// use retrofire_core::math::Mat3;
+    ///
+    /// let m: Mat3 = Mat3::scale((2.0, -3.0));
+    /// assert_eq!(m.determinant(), -6.0);
+    ///
+    /// ```
     pub const fn determinant(&self) -> f32 {
         let [a, b, c] = self.0[0];
 
@@ -524,6 +609,84 @@ impl<Src, Dest> Mat3<Src, Dest, 2> {
     pub fn inverse(&self) -> Mat3<Dest, Src> {
         self.checked_inverse()
             .expect("matrix cannot be singular or near-singular")
+    }
+}
+
+impl<Src, Dest> Mat3<Src, Dest, 3> {
+    /// Creates a 3-dimensional linear scaling matrix.
+    pub fn scale(v: impl Into<Vec3<Src>>) -> Self {
+        let [x, y, z] = v.into().0;
+        mat![
+             x,  0.0, 0.0;
+            0.0,  y,  0.0;
+            0.0, 0.0,  z;
+        ]
+    }
+
+    /// Returns a matrix applying a 3D rotation about the x-axis (on the yz plane).
+    ///
+    /// # Example
+    /// ```
+    /// use retrofire_core::assert_approx_eq;
+    /// use retrofire_core::math::{Apply, degs, rotate_x, vec3};
+    ///
+    /// let m = rotate_x(degs(90.0));
+    /// assert_approx_eq!(m.apply(&vec3(0.0, 1.0, 0.0)), vec3(0.0, 0.0, 1.0));
+    /// ```
+    #[cfg(feature = "fp")]
+    pub fn rotate_x(a: Angle) -> Self {
+        let (sin, cos) = a.sin_cos();
+        mat![
+            1.0,  0.0,  0.0;
+            0.0,  cos, -sin;
+            0.0,  sin,  cos;
+        ]
+    }
+    /// Returns a matrix applying a 3D rotation about the y-axis (on the xz plane).
+    ///
+    /// # Example
+    /// ```
+    /// use retrofire_core::assert_approx_eq;
+    /// use retrofire_core::math::{Apply, degs, rotate_y, vec3};
+    ///
+    /// let m = rotate_y(degs(90.0));
+    /// assert_approx_eq!(m.apply(&vec3(1.0, 0.0, 0.0)), vec3(0.0, 0.0, -1.0));
+    ///```
+    #[cfg(feature = "fp")]
+    pub fn rotate_y(a: Angle) -> Self {
+        let (sin, cos) = a.sin_cos();
+        mat![
+            cos,  0.0,  sin;
+            0.0,  1.0,  0.0;
+           -sin,  0.0,  cos;
+        ]
+    }
+    /// Returns a matrix applying a 3D rotation about the z axis (on the xy plane).
+    /// # Example
+    /// ```
+    /// use retrofire_core::assert_approx_eq;
+    /// use retrofire_core::math::{Apply, degs, rotate_z, vec3};
+    ///
+    /// let m = rotate_z(degs(90.0));
+    /// assert_approx_eq!(m.apply(&vec3(1.0, 0.0, 0.0)), vec3(0.0, 1.0, 0.0));
+    #[cfg(feature = "fp")]
+    pub fn rotate_z(a: Angle) -> Self {
+        let (sin, cos) = a.sin_cos();
+        mat![
+            cos, -sin,  0.0;
+            sin,  cos,  0.0;
+            0.0,  0.0,  1.0;
+        ]
+    }
+
+    /// Creates a 3-dimensional linear rotation matrix.
+    pub fn rotate(axis: Vec3, a: Angle) -> Self {
+        let (sin, cos) = a.sin_cos();
+        mat![
+            cos, -sin, 0.0;
+            sin,  cos, 0.0;
+            0.0,  0.0, 1.0;
+        ]
     }
 }
 
@@ -1019,6 +1182,18 @@ impl<Repr, M> From<Repr> for Matrix<Repr, M> {
     }
 }
 
+impl<S, D> From<Mat3<S, D, 3>> for Mat4<S, D, 4> {
+    fn from(m: Mat3<S, D, 3>) -> Self {
+        let [r, s, t] = m.0;
+        mat! [
+            r[0], r[1], r[2], 0.0;
+            s[0], s[1], s[2], 0.0;
+            t[0], t[1], t[2], 0.0;
+             0.0,  0.0,  0.0, 1.0;
+        ]
+    }
+}
+
 //
 // Free functions
 //
@@ -1146,10 +1321,10 @@ pub fn rotate_x(a: Angle) -> Mat4 {
 pub fn rotate_y(a: Angle) -> Mat4 {
     let (sin, cos) = a.sin_cos();
     mat![
-        cos,  0.0,  sin, 0.0;
-        0.0,  1.0,  0.0, 0.0;
-       -sin,  0.0,  cos, 0.0;
-        0.0,  0.0,  0.0, 1.0;
+        cos,  0.0,  sin,  0.0;
+        0.0,  1.0,  0.0,  0.0;
+       -sin,  0.0,  cos,  0.0;
+        0.0,  0.0,  0.0,  1.0;
     ]
 }
 /// Returns a matrix applying a 3D rotation about the z axis (on the xy plane).
@@ -1191,12 +1366,7 @@ pub fn rotate_pyr(pitch: Angle, yaw: Angle, roll: Angle) -> Mat4 {
 /// Returns a matrix applying a 2D rotation by an angle.
 #[cfg(feature = "fp")]
 pub fn rotate2(a: Angle) -> Mat3 {
-    let (sin, cos) = a.sin_cos();
-    mat![
-         cos, sin, 0.0;
-        -sin, cos, 0.0;
-         0.0, 0.0, 1.0;
-    ]
+    Mat3::rotate(a)
 }
 
 /// Returns a matrix applying a 3D rotation about an arbitrary axis.
@@ -1401,6 +1571,13 @@ mod tests {
             ];
             assert_eq!(m.apply(&vec2(1.0, 2.0)), vec2(2.0, -6.0));
             assert_eq!(m.apply(&pt2(2.0, -1.0)), pt2(4.0, 3.0));
+        }
+
+        #[test]
+        fn rotation() {
+            let rot = rotate2(degs(90.0));
+            assert_approx_eq!(rot.apply(&vec2(1.0, 2.0)), vec2(-2.0, 1.0));
+            assert_approx_eq!(rot.apply(&pt2(2.0, -1.0)), pt2(1.0, 2.0));
         }
 
         #[test]
