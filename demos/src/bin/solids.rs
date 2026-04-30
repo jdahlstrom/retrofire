@@ -4,13 +4,10 @@ use minifb::{Key, KeyRepeat};
 
 use re::prelude::*;
 
-use re::core::geom::Ray;
-use re::core::math::spline::HermiteSpline;
 use re::core::{
-    geom::Polyline,
-    math::{ProjMat3, ProjVec3, color::gray},
-    render::cam::Fov,
-    render::{Model, ModelToWorld, shader},
+    geom::{Polyline, Ray},
+    math::{ProjMat3, ProjVec3, color::gray, spline::HermiteSpline},
+    render::{Model, ModelToWorld, cam::Fov, shader},
 };
 use re::front::{Frame, minifb::Window};
 use re::geom::{io::read_obj, solids::*};
