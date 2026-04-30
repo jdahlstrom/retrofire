@@ -21,6 +21,8 @@ use self::{
 };
 
 pub(super) mod re_exports {
+    #[cfg(feature = "stats")]
+    pub use super::stats::Stats;
     pub use super::{
         batch::Batch,
         cam::Camera,
@@ -28,7 +30,6 @@ pub(super) mod re_exports {
         ctx::Context,
         raster::Frag,
         shader::{FragmentShader, VertexShader},
-        stats::Stats,
         target::{Colorbuf, Framebuf, Target},
         tex::{TexCoord, Texture, uv},
         text::Text,
@@ -45,10 +46,12 @@ pub mod prim;
 pub mod raster;
 pub mod scene;
 pub mod shader;
-pub mod stats;
 pub mod target;
 pub mod tex;
 pub mod text;
+
+#[cfg(feature = "stats")]
+pub mod stats;
 
 /// Renderable geometric primitive.
 pub trait Render<V: Vary> {
@@ -149,10 +152,14 @@ pub fn render<Prim, Vtx: Clone, Var, Uni: Copy, Shd>(
     let verts = verts.as_ref();
     let prims = prims.as_ref();
 
-    let mut stats = Stats::start();
-    stats.calls = 1.0;
-    stats.prims.i = prims.len();
-    stats.verts.i = verts.len();
+    #[cfg(feature = "stats")]
+    let mut stats = {
+        let mut s = Stats::start();
+        s.calls = 1.0;
+        s.prims.i = prims.len();
+        s.verts.i = verts.len();
+        s
+    };
 
     // 1. Vertex shader: transform vertices to clip space
     let verts: Vec<_> = verts
@@ -192,18 +199,29 @@ pub fn render<Prim, Vtx: Clone, Var, Uni: Copy, Shd>(
         }
 
         // Log output stats after culling
-        stats.prims.o += 1;
-        stats.verts.o += 3; // TODO Get number of verts in prim somehow
+        #[cfg(feature = "stats")]
+        {
+            stats.prims.o += 1;
+            stats.verts.o += 3; // TODO Get number of verts in prim somehow
+        }
 
         // 4. Fragment shader and rasterization
         Prim::rasterize(prim, |scanline| {
             // Convert to fragments, shade, and draw to target
-            stats.frags += target
+            let _tp = target
                 .deref_mut()
                 .rasterize(scanline, shader, ctx);
+            #[cfg(feature = "stats")]
+            {
+                //stats.frags += tp;
+            }
         });
     }
-    *ctx.stats.borrow_mut() += stats.finish();
+
+    #[cfg(feature = "stats")]
+    {
+        *ctx.stats.borrow_mut() += stats.finish();
+    }
 }
 
 fn depth_sort<P: Render<V>, V: Vary>(prims: &mut [P::Clip], d: DepthSort) {

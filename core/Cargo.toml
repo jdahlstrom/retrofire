@@ -23,6 +23,7 @@ documentation.workspace = true
 
 [features]
 default = ["std"]
+
 # Use std fp functions, enable I/O and timing support.
 std = ["fp"]
 # Use fp functions from the libm crate.
@@ -31,6 +32,8 @@ libm = ["fp", "dep:libm"]
 mm = ["fp", "dep:micromath"]
 # For internal use only.
 fp = []
+
+stats = []
 
 [dependencies]
 libm = { version = "0.2", optional = true }
