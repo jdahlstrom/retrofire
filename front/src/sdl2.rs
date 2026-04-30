@@ -12,7 +12,7 @@ use sdl2::{
 };
 
 use retrofire_core::math::Color4;
-use retrofire_core::render::{Colorbuf, Context, Stats, target};
+use retrofire_core::render::{Colorbuf, Context, target};
 use retrofire_core::util::{
     Dims,
     buf::{AsMutSlice2, Buf2, MutSlice2},
@@ -62,6 +62,9 @@ pub struct Builder<'title, PF> {
 
 pub type Framebuf<'a, Pix, Fmt> =
     target::Framebuf<Colorbuf<MutSlice2<'a, Pix>, Fmt>, MutSlice2<'a, f32>>;
+
+#[cfg(not(feature = "stats"))]
+pub type Stats = ();
 
 //
 // Inherent impls
@@ -229,15 +232,24 @@ impl<PF: PixelFmt<Pixel = [u8; N]>, const N: usize> Window<PF> {
             })?;
 
             self.present(&tex)?;
-            ctx.stats.borrow_mut().frames += 1.0;
+
+            #[cfg(feature = "stats")]
+            {
+                ctx.stats.borrow_mut().frames += 1.0;
+            }
 
             if cf.is_break() {
                 break;
             }
         }
-        let stats = ctx.stats.into_inner();
-        println!("{stats}");
-        Ok(stats)
+
+        #[cfg(feature = "stats")]
+        {
+            let stats = ctx.stats.into_inner();
+            println!("{stats}");
+            return Ok(stats);
+        }
+        Ok(Stats::default())
     }
 }
 
