@@ -10,7 +10,7 @@ use std::time::Instant;
 use minifb::{Key, WindowOptions};
 
 use retrofire_core::{
-    render::{Colorbuf, Context, Stats, target},
+    render::{Colorbuf, Context, target},
     util::{Dims, buf::Buf2, buf::MutSlice2, pixfmt::Xrgb8888},
 };
 
@@ -86,6 +86,9 @@ impl<'t> Builder<'t> {
     }
 }
 
+#[cfg(not(feature = "stats"))]
+pub type Stats = ();
+
 impl Window {
     /// Returns a window builder.
     pub fn builder() -> Builder<'static> {
@@ -144,11 +147,17 @@ impl Window {
             }
             self.present(cbuf.data_mut());
 
-            ctx.stats.borrow_mut().frames += 1.0;
+            #[cfg(feature = "stats")]
+            {
+                ctx.stats.borrow_mut().frames += 1.0;
+            }
         }
-        let stats = ctx.stats.into_inner();
-        println!("{stats}");
-        stats
+        #[cfg(feature = "stats")]
+        {
+            let stats = ctx.stats.into_inner();
+            println!("{stats}");
+            return stats;
+        }
     }
 
     fn should_quit(&self) -> bool {

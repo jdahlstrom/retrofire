@@ -12,7 +12,9 @@ use crate::util::{
     pixfmt::IntoPixel,
 };
 
-use super::{Context, FragmentShader, raster::Scanline, stats::Throughput};
+use super::{Context, FragmentShader, raster::Scanline};
+
+pub type Throughput = ();
 
 /// Trait for types that can be used as render targets.
 pub trait Target {
@@ -145,7 +147,7 @@ pub fn rasterize<B: AsMutSlice2, V: Vary>(
     let x0 = sl.xs.start;
     let x1 = sl.xs.end.max(x0);
 
-    let mut io = Throughput { i: x1 - x0, o: 0 };
+    let io = (); //Throughput { i: x1 - x0, o: 0 };
     let cbuf_span = &mut buf.as_mut_slice2()[sl.y][x0..x1];
 
     sl.fragments()
@@ -154,7 +156,7 @@ pub fn rasterize<B: AsMutSlice2, V: Vary>(
             if let Some(new_col) = fs.shade_fragment(frag)
                 && ctx.color_write
             {
-                io.o += 1;
+                //io.o += 1;
                 *curr_col = conv(new_col);
             }
         });
@@ -174,7 +176,7 @@ pub fn rasterize_fb<B: AsMutSlice2, V: Vary>(
     let cbuf_span = &mut cbuf.as_mut_slice2()[sl.y][x0..x1];
     let zbuf_span = &mut zbuf.as_mut_slice2()[sl.y][x0..x1];
 
-    let mut io = Throughput { i: x1 - x0, o: 0 };
+    let io = (); //Throughput { i: x1 - x0, o: 0 };
 
     sl.fragments()
         .zip(cbuf_span)
@@ -186,7 +188,7 @@ pub fn rasterize_fb<B: AsMutSlice2, V: Vary>(
                 && let Some(new_col) = fs.shade_fragment(frag)
             {
                 if ctx.color_write {
-                    io.o += 1;
+                    //io.o += 1;
                     // TODO Blending should happen here
                     *curr_col = conv(new_col);
                 }
