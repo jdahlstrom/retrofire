@@ -22,13 +22,13 @@ pub trait Intersect<T> {
     fn intersect(&self, other: &T) -> Self::Result;
 }
 
-pub type RayIntersect3<B> = Option<(f32, Point3<B>)>;
-pub type RayIntersect2<B> = Option<(f32, Point2<B>)>;
+pub type RayIntersect3 = Option<(f32, Point3)>;
+pub type RayIntersect2 = Option<(f32, Point2)>;
 
 #[derive(Copy, Clone, PartialEq)]
-pub enum LineIntersect<B> {
+pub enum LineIntersect {
     /// Unique intersection point.
-    Point(Point2<B>),
+    Point(Point2),
     /// Line is coincident with the intersecting object.
     Coincident,
 }
@@ -37,10 +37,10 @@ pub enum LineIntersect<B> {
 // Inherent impls
 //
 
-impl<B> LineIntersect<B> {
+impl LineIntersect {
     /// Returns the intersection point if `self` is a `LineIntersect::Point`,
     /// `None` otherwise.
-    pub fn point(&self) -> Option<Point2<B>> {
+    pub fn point(&self) -> Option<Point2> {
         match self {
             LineIntersect::Point(p) => Some(*p),
             LineIntersect::Coincident => None,
@@ -52,7 +52,7 @@ impl<B> LineIntersect<B> {
 // Trait impls
 //
 
-impl<B: Debug + Default> Debug for LineIntersect<B> {
+impl Debug for LineIntersect {
     fn fmt(&self, f: &mut Formatter<'_>) -> core::fmt::Result {
         match self {
             Self::Point(p) => write!(f, "Point({:?})", p),
@@ -65,8 +65,8 @@ impl<B: Debug + Default> Debug for LineIntersect<B> {
 // 3D Intersect impls
 //
 
-impl<B> Intersect<Plane3<B>> for Ray3<B> {
-    type Result = RayIntersect3<B>;
+impl Intersect<Plane3> for Ray3 {
+    type Result = RayIntersect3;
 
     /// Returns the unique intersection point of `self` and a plane,
     /// or `None` if they do not intersect.
@@ -74,7 +74,7 @@ impl<B> Intersect<Plane3<B>> for Ray3<B> {
     /// If an intersection point exists, returns `Some((t, point))`, where
     /// `point` is the intersection point and  `t` is the ray parameter value
     /// such that `self.orig + t * self.dir == point`.
-    fn intersect(&self, p: &Plane3<B>) -> Self::Result {
+    fn intersect(&self, p: &Plane3) -> Self::Result {
         let &Self(orig, dir) = self;
 
         // Plane equation:
@@ -131,8 +131,8 @@ impl<B> Intersect<Plane3<B>> for Ray3<B> {
     }
 }
 
-impl<B: Debug + Default> Intersect<BBox<B>> for Ray3<B> {
-    type Result = RayIntersect3<B>; // Only closest for now
+impl Intersect<BBox> for Ray3 {
+    type Result = RayIntersect3; // Only closest for now
 
     /// Returns the nearest intersection point of `self` and a box,
     /// or `None` if they do not intersect.
@@ -140,7 +140,7 @@ impl<B: Debug + Default> Intersect<BBox<B>> for Ray3<B> {
     /// If an intersection point exists, returns `Some((t, point))`, where
     /// `point` is the intersection point and  `t` is the ray parameter value
     /// such that `self.orig + t * self.dir == point`.
-    fn intersect(&self, bbox: &BBox<B>) -> Self::Result {
+    fn intersect(&self, bbox: &BBox) -> Self::Result {
         let &BBox(low, upp) = bbox;
         let Ray(orig, dir) = *self;
 
@@ -200,8 +200,8 @@ impl<B: Debug + Default> Intersect<BBox<B>> for Ray3<B> {
 }
 
 #[cfg(feature = "std")]
-impl<B> Intersect<Sphere<B>> for Ray3<B> {
-    type Result = RayIntersect3<B>; // Only closest for now
+impl Intersect<Sphere> for Ray3 {
+    type Result = RayIntersect3; // Only closest for now
 
     /// Returns the intersection point of `self` and a sphere closest to the
     /// origin of `self`, or `None` if they do not intersect.
@@ -209,7 +209,7 @@ impl<B> Intersect<Sphere<B>> for Ray3<B> {
     /// # Examples
     /// ```
     /// ```
-    fn intersect(&self, &Sphere(center, r): &Sphere<B>) -> Self::Result {
+    fn intersect(&self, &Sphere(center, r): &Sphere) -> Self::Result {
         let &Ray(orig, dir) = self;
 
         //             > r, no intersection
@@ -290,8 +290,8 @@ impl<B> Intersect<Sphere<B>> for Ray3<B> {
 // 2D intersection
 //
 
-impl<B> Intersect<Self> for Line2<B> {
-    type Result = Option<LineIntersect<B>>;
+impl Intersect<Self> for Line2 {
+    type Result = Option<LineIntersect>;
 
     /// Computes the intersection point of `self` and another 2-line.
     ///
@@ -335,7 +335,7 @@ impl<B> Intersect<Self> for Line2<B> {
         //               -1
         //    (x) = (a b)   (-c)
         //    (y)   (d e)   (-f)
-        let abde: Mat2<B> = mat![
+        let abde: Mat2 = mat![
             a, b;
             d, e;
         ];
@@ -352,11 +352,11 @@ impl<B> Intersect<Self> for Line2<B> {
     }
 }
 
-impl<B> Intersect<Line2<B>> for Ray2<B> {
-    type Result = RayIntersect2<B>;
+impl Intersect<Line2> for Ray2 {
+    type Result = RayIntersect2;
 
     // Returns the intersection point of self and a line.
-    fn intersect(&self, line: &Line2<B>) -> Self::Result {
+    fn intersect(&self, line: &Line2) -> Self::Result {
         // TODO if degenerate ray, could return if ray origin on edge
 
         // First find intersection of lines
@@ -379,8 +379,8 @@ impl<B> Intersect<Line2<B>> for Ray2<B> {
     }
 }
 
-impl<B> Intersect<Edge<Point2<B>>> for Ray2<B> {
-    type Result = RayIntersect2<B>;
+impl Intersect<Edge<Point2>> for Ray2 {
+    type Result = RayIntersect2;
 
     /// Returns the intersection of `self` and an edge, or `None` if there is
     /// no intersection point.
@@ -425,7 +425,7 @@ impl<B> Intersect<Edge<Point2<B>>> for Ray2<B> {
     // // E=====E  O--->
     // let ray: Ray<Point2> = Ray(pt2(4.0, 1.0), vec2(1.0, 0.0));
     // assert_eq!(ray.intersect(&edge), None);
-    fn intersect(&self, edge: &Edge<Point2<B>>) -> Self::Result {
+    fn intersect(&self, edge: &Edge<Point2>) -> Self::Result {
         // Compute ray-line intersection
         let (t, pt) = self.intersect(&Line2::from(*edge))?;
 
@@ -459,8 +459,8 @@ impl<B> Intersect<Edge<Point2<B>>> for Ray2<B> {
     }
 }
 
-impl<B> Intersect<Self> for Edge<Point2<B>> {
-    type Result = Option<Point2<B>>;
+impl Intersect<Self> for Edge<Point2> {
+    type Result = Option<Point2>;
 
     /// Returns the intersection point of `self` and another edge, or `None`
     /// if the edges do not intersect.

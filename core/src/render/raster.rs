@@ -20,7 +20,6 @@ use core::{
 use crate::{
     geom::Vertex,
     math::{Lerp, Vary, point::Point3},
-    render::Screen,
 };
 
 /// A fragment, or a single "pixel" in a rasterized primitive.
@@ -52,7 +51,7 @@ pub struct ScanlineIter<V: Vary> {
 
 /// Point in screen space.
 /// `x` and `y` are viewport pixel coordinates, `z` is depth.
-pub type ScreenPt = Point3<Screen>;
+pub type ScreenPt = Point3;
 
 /// Values to interpolate across a rasterized primitive.
 pub type Varyings<V> = (ScreenPt, V);

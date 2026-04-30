@@ -653,8 +653,7 @@ mod tests {
 
     #[test]
     fn uniform_vec3() {
-        let dist =
-            Uniform(vec3::<f32, ()>(-2.0, 0.0, -1.0)..vec3(1.0, 2.0, 3.0));
+        let dist = Uniform(vec3::<f32>(-2.0, 0.0, -1.0)..vec3(1.0, 2.0, 3.0));
 
         let mean = dist
             .samples(&mut rng())

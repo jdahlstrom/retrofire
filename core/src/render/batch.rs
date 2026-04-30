@@ -6,7 +6,7 @@ use core::borrow::Borrow;
 use crate::geom::{Edge, Mesh, Tri, Vertex3};
 use crate::math::{Mat4, Vary};
 
-use super::{Clip, Context, Ndc, Render, Screen, Shader, Target};
+use super::{Clip, Context, Render, Shader, Target};
 
 /// A builder for rendering a chunk of geometry as a batch.
 ///
@@ -33,7 +33,7 @@ pub struct Batch<Prim, Vtx, Uni, Shd, Tgt, Ctx> {
     pub verts: Vec<Vtx>,
     pub uniform: Uni,
     pub shader: Shd,
-    pub viewport: Mat4<Ndc, Screen>,
+    pub viewport: Mat4,
     pub target: Tgt,
     pub ctx: Ctx,
 }
@@ -102,7 +102,7 @@ impl<Prim, Vtx, Uni, Shd, Tgt, Ctx> Batch<Prim, Vtx, Uni, Shd, Tgt, Ctx> {
     }
 
     /// Sets the viewport matrix.
-    pub fn viewport(self, viewport: Mat4<Ndc, Screen>) -> Self {
+    pub fn viewport(self, viewport: Mat4) -> Self {
         update!(viewport; self verts prims uniform shader target ctx)
     }
 

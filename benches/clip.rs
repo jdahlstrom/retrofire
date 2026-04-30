@@ -23,7 +23,7 @@ fn clip_mixed(b: Bencher, n: usize) {
     b.with_inputs(|| {
         repeat_with(|| {
             let vs = array::from_fn(|_| {
-                ClipVert::new(vertex(proj.apply(&pts.sample(rng)), ()))
+                ClipVert::new(vertex(proj.apply(&pts.sample(rng).to_hom()), ()))
             });
             Tri(vs)
         })
@@ -47,7 +47,7 @@ fn clip_all_inside(b: Bencher, n: usize) {
     b.with_inputs(|| {
         repeat_with(|| {
             let vs = array::from_fn(|_| {
-                ClipVert::new(vertex(proj.apply(&pts.sample(rng)), ()))
+                ClipVert::new(vertex(proj.apply(&pts.sample(rng).to_hom()), ()))
             });
             Tri(vs)
         })
@@ -72,7 +72,7 @@ fn clip_all_outside(b: Bencher, n: usize) {
         repeat_with(|| {
             let vs = ([pts.start; 3]..[pts.end; 3])
                 .sample(&mut rng)
-                .map(|pt| ClipVert::new(vertex(proj.apply(&pt), ())));
+                .map(|pt| ClipVert::new(vertex(proj.apply(&pt.to_hom()), ())));
             Tri(vs)
         })
         .take(n)

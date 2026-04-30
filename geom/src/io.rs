@@ -52,7 +52,7 @@ use std::{
 use retrofire_core::{
     geom::{Mesh, Normal3, Tri, mesh::Builder, vertex},
     math::{Point3, Vec3, vec3},
-    render::{Model, TexCoord, uv},
+    render::{TexCoord, uv},
 };
 
 use Error::*;
@@ -78,7 +78,7 @@ pub enum Error {
 #[derive(Default)]
 pub struct Obj {
     faces: Vec<Tri<Indices>>,
-    coords: Vec<Point3<Model>>,
+    coords: Vec<Point3>,
     norms: Vec<Normal3>,
     texcs: Vec<TexCoord>,
 }
@@ -326,9 +326,7 @@ fn parse_texcoord<'a>(
     Ok(uv(u, v))
 }
 
-fn parse_vector<'a>(
-    i: &mut impl Iterator<Item = &'a str>,
-) -> Result<Vec3<Model>> {
+fn parse_vector<'a>(i: &mut impl Iterator<Item = &'a str>) -> Result<Vec3> {
     let x = next(i)?.parse()?;
     let y = next(i)?.parse()?;
     let z = next(i)?.parse()?;
@@ -339,9 +337,7 @@ fn parse_normal<'a>(i: &mut impl Iterator<Item = &'a str>) -> Result<Normal3> {
     Ok(parse_vector(i)?.to())
 }
 
-fn parse_point<'a>(
-    i: &mut impl Iterator<Item = &'a str>,
-) -> Result<Point3<Model>> {
+fn parse_point<'a>(i: &mut impl Iterator<Item = &'a str>) -> Result<Point3> {
     Ok(parse_vector(i)?.to_pt())
 }
 

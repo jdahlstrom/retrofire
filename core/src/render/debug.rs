@@ -3,7 +3,6 @@
 
 #[cfg(feature = "fp")]
 use alloc::vec::Vec;
-use core::fmt::Debug;
 
 use crate::geom::{Edge, Tri, Vertex, Vertex3, vertex};
 use crate::math::{
@@ -18,13 +17,13 @@ use super::{Context, Frag, FragmentShader, VertexShader, scene::BBox};
 #[derive(Default)]
 pub struct Shader;
 
-impl<'a, B> VertexShader<Vertex3<Color4f, B>, &'a ProjMat3<B>> for Shader {
+impl<'a> VertexShader<Vertex3<Color4f>, &'a ProjMat3> for Shader {
     type Output = Vertex<ProjVec3, Color4f>;
 
     fn shade_vertex(
         &self,
-        v: Vertex3<Color4f, B>,
-        m: &'a ProjMat3<B>,
+        v: Vertex3<Color4f>,
+        m: &'a ProjMat3,
     ) -> Self::Output {
         vertex(m.apply(&v.pos), v.attrib)
     }
@@ -36,8 +35,8 @@ impl FragmentShader<Color4f> for Shader {
     }
 }
 
-pub type DbgBatch<B> =
-    super::Batch<Edge<usize>, Vertex3<Color4f, B>, (), Shader, (), Context>;
+pub type DbgBatch =
+    super::Batch<Edge<usize>, Vertex3<Color4f>, (), Shader, (), Context>;
 
 /// Returns a color visualizing the direction of a vector.
 ///
@@ -53,14 +52,14 @@ pub type DbgBatch<B> =
 /// assert_eq!(dir_to_rgb(down), rgba(0.5, 0.0, 0.5, 1.0));
 ///
 /// ```
-pub fn dir_to_rgb<B>(v: Vec3<B>) -> Color4f {
+pub fn dir_to_rgb(v: Vec3) -> Color4f {
     (0.5 * Color::new(v.0) + gray(0.5))
         .clamp(&gray(0.0), &gray(1.0))
         .to_rgba()
 }
 
 /// Draws an illustration of a ray.
-pub fn ray<'a, B>(o: Point3<B>, dir: Vec3<B>) -> DbgBatch<B> {
+pub fn ray<'a>(o: Point3, dir: Vec3) -> DbgBatch {
     let mut b = dir.cross(&Vec3::Y);
     if b.len_sqr() < 1e-6 {
         b = dir.cross(&Vec3::X);
@@ -87,9 +86,7 @@ pub fn ray<'a, B>(o: Point3<B>, dir: Vec3<B>) -> DbgBatch<B> {
 /// Draws a unit-length ray denoting the normal vector of a triangle.
 ///
 /// The ray originates from the triangle's centroid.
-pub fn face_normal<A, B: Debug + Default>(
-    tri: Tri<Vertex3<A, B>>,
-) -> DbgBatch<B> {
+pub fn face_normal<A>(tri: Tri<Vertex3<A>>) -> DbgBatch {
     ray(tri.centroid(), tri.normal().to())
 }
 
@@ -97,7 +94,7 @@ pub fn face_normal<A, B: Debug + Default>(
 ///
 /// Draws three rays representing the coordinate axes. The rays originate
 /// from the origin point of the basis.
-pub fn basis<S, D>(m: Mat4<S, D>) -> DbgBatch<D> {
+pub fn basis(m: Mat4) -> DbgBatch {
     let xyz = m.linear();
     let x = xyz.col_vec(0);
     let y = xyz.col_vec(1);
@@ -111,7 +108,7 @@ pub fn basis<S, D>(m: Mat4<S, D>) -> DbgBatch<D> {
 }
 
 /// Draws an axis-aligned box with the given opposite vertices.
-pub fn cuboid<B>(v0: Point3<B>, v1: Point3<B>) -> DbgBatch<B> {
+pub fn cuboid(v0: Point3, v1: Point3) -> DbgBatch {
     let [x0, y0, z0] = v0.0;
     let [x1, y1, z1] = v1.0;
     #[rustfmt::skip]
@@ -132,14 +129,14 @@ pub fn cuboid<B>(v0: Point3<B>, v1: Point3<B>) -> DbgBatch<B> {
 }
 
 /// Draws the smallest axis-aligned box that contains a set of vertices.
-pub fn bbox<A, B>(vs: &[Vertex3<A, B>]) -> DbgBatch<B> {
+pub fn bbox<A>(vs: &[Vertex3<A>]) -> DbgBatch {
     let BBox(min, max) = vs.iter().map(|v| &v.pos).collect();
     cuboid(min, max)
 }
 
 /// Draws a circle on the XY plane with the given center and radius.
 #[cfg(feature = "fp")]
-pub fn circle<B>(o: Point3<B>, r: f32) -> DbgBatch<B> {
+pub fn circle(o: Point3, r: f32) -> DbgBatch {
     const RES: usize = 64; // TODO constant, use array rather than Vec
 
     let verts: Vec<_> = 0.0
@@ -160,13 +157,13 @@ pub fn circle<B>(o: Point3<B>, r: f32) -> DbgBatch<B> {
 /// The sphere is represented by three circles lying on the XY, XZ, and
 /// YZ planes.
 #[cfg(feature = "fp")]
-pub fn sphere<B>(o: Point3<B>, r: f32) -> DbgBatch<B> {
+pub fn sphere(o: Point3, r: f32) -> DbgBatch {
     const RES: usize = 64;
 
     let verts: Vec<_> = 0.0
         .vary_to(1.0, RES as u32 + 1)
         .flat_map(|a| {
-            let [x, y] = polar::<()>(r, turns(a)).to_cart().0;
+            let [x, y] = polar(r, turns(a)).to_cart().0;
             [vec3(x, y, 0.0), vec3(x, 0.0, y), vec3(0.0, x, y)]
                 .map(|v| vertex(o + v, dir_to_rgb(v)))
         })
@@ -185,9 +182,9 @@ pub fn sphere<B>(o: Point3<B>, r: f32) -> DbgBatch<B> {
     DbgBatch::new(&edges, &verts)
 }
 
-impl<B> DbgBatch<B> {
-    fn new(prims: &[Edge<usize>], verts: &[Vertex3<Color4f, B>]) -> Self {
-        DbgBatch::<B>::default()
+impl DbgBatch {
+    fn new(prims: &[Edge<usize>], verts: &[Vertex3<Color4f>]) -> Self {
+        DbgBatch::default()
             .primitives(prims)
             .vertices(verts)
             .shader(Shader)

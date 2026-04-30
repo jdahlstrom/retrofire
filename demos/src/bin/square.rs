@@ -35,7 +35,7 @@ fn main() {
     }));
 
     let shader = shader::new(
-        |v: Vertex3<_>, mvp: &ProjMat3<_>| vertex(mvp.apply(&v.pos), v.attrib),
+        |v: Vertex3<_>, mvp: &ProjMat3| vertex(mvp.apply(&v.pos), v.attrib),
         |frag: Frag<_>| SamplerClamp.sample(&checker, frag.var),
     );
 
@@ -49,7 +49,8 @@ fn main() {
         let model_view_project = rotate_y(rads(time))
             .then(&translate((0.0, 0.0, 3.0 + time.sin())))
             .to()
-            .then(&projection);
+            .then(&projection)
+            .to();
 
         render(
             [tri(0, 1, 2), tri(3, 2, 1)],

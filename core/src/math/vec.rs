@@ -11,11 +11,7 @@ use core::{
     ops::{AddAssign, DivAssign, MulAssign, SubAssign},
 };
 
-use super::{
-    Affine, ApproxEq, Linear, Point, pt3,
-    space::{Hom, Proj3, Real},
-    vary::ZDiv,
-};
+use super::{Affine, ApproxEq, Linear, Point, pt3, space::Hom, vary::ZDiv};
 
 //
 // Types
@@ -39,17 +35,19 @@ use super::{
 pub struct Vector<Repr, Space = ()>(pub Repr, Pd<Space>);
 
 /// A 2-vector with `f32` components.
-pub type Vec2<Basis = ()> = Vector<[f32; 2], Real<2, Basis>>;
+pub type Vec2 = Vector<[f32; 2], ()>;
 /// A 3-vector with `f32` components.
-pub type Vec3<Basis = ()> = Vector<[f32; 3], Real<3, Basis>>;
+pub type Vec3 = Vector<[f32; 3], ()>;
 
 /// A `f32` 4-vector in the projective 3-space over ℝ, aka P<sub>3</sub>(ℝ).
-pub type ProjVec3 = Vector<[f32; 4], Proj3>;
+pub type ProjVec3 = Vec4;
+
+pub type Vec4 = Vector<[f32; 4], ()>;
 
 /// A 2-vector with `i32` components.
-pub type Vec2i<Basis = ()> = Vector<[i32; 2], Real<2, Basis>>;
+pub type Vec2i<S = ()> = Vector<[i32; 2], S>;
 /// A 3-vector with `i32` components.
-pub type Vec3i<Basis = ()> = Vector<[i32; 3], Real<3, Basis>>;
+pub type Vec3i<S = ()> = Vector<[i32; 3], S>;
 
 //
 // Free functions
@@ -57,13 +55,13 @@ pub type Vec3i<Basis = ()> = Vector<[i32; 3], Real<3, Basis>>;
 
 /// Returns a real 2-vector with components `x` and `y`.
 #[inline]
-pub const fn vec2<Sc, B>(x: Sc, y: Sc) -> Vector<[Sc; 2], Real<2, B>> {
+pub const fn vec2<Sc>(x: Sc, y: Sc) -> Vector<[Sc; 2]> {
     Vector([x, y], Pd)
 }
 
 /// Returns a real 3-vector with components `x`, `y`, and `z`.
 #[inline]
-pub const fn vec3<Sc, B>(x: Sc, y: Sc, z: Sc) -> Vector<[Sc; 3], Real<3, B>> {
+pub const fn vec3<Sc>(x: Sc, y: Sc, z: Sc) -> Vector<[Sc; 3]> {
     Vector([x, y, z], Pd)
 }
 
@@ -401,7 +399,7 @@ impl<Sc: Copy, Sp, const N: usize> Vector<[Sc; N], Sp> {
     }
 }
 
-impl<Sc: Copy, B> Vector<[Sc; 2], Real<2, B>> {
+impl<Sc: Copy> Vector<[Sc; 2]> {
     /// Returns the x component of `self`.
     #[inline]
     pub const fn x(&self) -> Sc {
@@ -414,7 +412,7 @@ impl<Sc: Copy, B> Vector<[Sc; 2], Real<2, B>> {
     }
 
     /// Converts `self` to a `Vec3`, with z set to 0.
-    pub fn to_vec3(self) -> Vector<[Sc; 3], Real<3, B>>
+    pub fn to_vec3(self) -> Vector<[Sc; 3]>
     where
         Sc: Linear,
     {
@@ -423,7 +421,7 @@ impl<Sc: Copy, B> Vector<[Sc; 2], Real<2, B>> {
 }
 
 // TODO These should be also impl'd for Vec2i...
-impl<B> Vec2<B> {
+impl Vec2 {
     /// Unit vector codirectional with the positive x-axis.
     pub const X: Self = vec2(1.0, 0.0);
 
@@ -501,12 +499,12 @@ impl<B> Vec2<B> {
 
     /// Converts `self` to homogeneous representation.
     #[inline]
-    pub const fn to_hom(&self) -> Vector<[f32; 3], Hom<2, B>> {
+    pub const fn to_hom(&self) -> Vector<[f32; 3], Hom<2>> {
         Vector::new([self.0[0], self.0[1], 0.0])
     }
 }
 
-impl<Sc, B> Vector<[Sc; 3], Real<3, B>>
+impl<Sc> Vector<[Sc; 3]>
 where
     Sc: Copy,
 {
@@ -568,7 +566,7 @@ where
 }
 
 // TODO These should be also impl'd for Vec3i...
-impl<B> Vec3<B> {
+impl Vec3 {
     /// Unit vector codirectional with the positive x-axis.
     pub const X: Self = vec3(1.0, 0.0, 0.0);
 
@@ -579,12 +577,12 @@ impl<B> Vec3<B> {
     pub const Z: Self = vec3(0.0, 0.0, 1.0);
 
     #[inline]
-    pub const fn to_hom(&self) -> Vector<[f32; 4], Hom<3, B>> {
+    pub const fn to_hom(&self) -> Vec4 {
         Vector::new([self.0[0], self.0[1], self.0[2], 0.0])
     }
 }
 
-impl<Sc: Copy> Vector<[Sc; 4], Proj3> {
+impl<Sc: Copy, S> Vector<[Sc; 4], S> {
     /// Returns the x component of `self`.
     #[inline]
     pub const fn x(&self) -> Sc {
@@ -608,7 +606,7 @@ impl<Sc: Copy> Vector<[Sc; 4], Proj3> {
 
     /// Projects `self` to the real plane by dividing by `w`.
     #[inline]
-    pub fn to_real<B>(&self) -> Point<[Sc; 3], Real<3, B>>
+    pub fn to_real(&self) -> Point<[Sc; 3]>
     where
         Sc: Div<Sc, Output = Sc>,
     {
@@ -701,7 +699,7 @@ impl<R: Clone, S> Clone for Vector<R, S> {
 }
 
 // Limited to Cartesian vectors because Spherical/PolarVec have own impl
-impl<R: Default, B, const DIM: usize> Default for Vector<R, Real<DIM, B>> {
+impl<R: Default> Default for Vector<R> {
     fn default() -> Self {
         Self::new(R::default())
     }
@@ -959,13 +957,13 @@ mod tests {
 
     use super::*;
 
-    const fn vec2<S>(x: S, y: S) -> Vector<[S; 2], Real<2>> {
+    const fn vec2<S>(x: S, y: S) -> Vector<[S; 2]> {
         super::vec2(x, y)
     }
-    const fn vec3<S>(x: S, y: S, z: S) -> Vector<[S; 3], Real<3>> {
+    const fn vec3<S>(x: S, y: S, z: S) -> Vector<[S; 3]> {
         super::vec3(x, y, z)
     }
-    const fn vec4<S>(x: S, y: S, z: S, w: S) -> Vector<[S; 4], Real<4>> {
+    const fn vec4<S>(x: S, y: S, z: S, w: S) -> Vector<[S; 4]> {
         Vector::new([x, y, z, w])
     }
 
@@ -1098,8 +1096,8 @@ mod tests {
 
         #[test]
         fn perp() {
-            assert_eq!(Vec2::<()>::zero().perp(), Vec2::zero());
-            assert_eq!(Vec2::<()>::X.perp(), Vec2::Y);
+            assert_eq!(Vec2::zero().perp(), Vec2::zero());
+            assert_eq!(Vec2::X.perp(), Vec2::Y);
             assert_eq!(vec2(-0.2, -1.5).perp(), vec2(1.5, -0.2));
         }
 
