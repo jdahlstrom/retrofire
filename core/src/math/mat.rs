@@ -301,7 +301,7 @@ where
     }
 }
 
-impl<Src, Dest> Mat2<Src, Dest> {
+impl<Src, Dst> Mat2<Src, Dst> {
     /// Returns the determinant of `self`.
     ///
     /// # Examples
@@ -339,7 +339,7 @@ impl<Src, Dest> Mat2<Src, Dest> {
     /// assert_eq!(singular.checked_inverse(), None);
     /// ```
     #[must_use]
-    pub const fn checked_inverse(&self) -> Option<Mat2<Dest, Src>> {
+    pub const fn checked_inverse(&self) -> Option<Mat2<Dst, Src>> {
         let det = self.determinant();
         // No approx_eq in const :/
         if det.abs() < 1e-6 {
@@ -382,17 +382,17 @@ impl<Src, Dest> Mat2<Src, Dest> {
     /// let _ = singular.inverse();
     /// ```
     #[must_use]
-    pub const fn inverse(&self) -> Mat2<Dest, Src> {
+    pub const fn inverse(&self) -> Mat2<Dst, Src> {
         self.checked_inverse()
             .expect("matrix cannot be singular or near-singular")
     }
 }
 
-impl<Src, Dest> Mat3<Src, Dest, 2> {
+impl<Src, Dst> Mat3<Src, Dst, 2> {
     /// Constructs a matrix from a linear basis.
     ///
     /// The basis does not have to be orthonormal.
-    pub const fn from_linear(i: Vec2<Dest>, j: Vec2<Dest>) -> Self {
+    pub const fn from_linear(i: Vec2<Dst>, j: Vec2<Dst>) -> Self {
         Self::from_affine(i, j, Point2::origin())
     }
 
@@ -400,9 +400,9 @@ impl<Src, Dest> Mat3<Src, Dest, 2> {
     ///
     /// The basis does not have to be orthonormal.
     pub const fn from_affine(
-        i: Vec2<Dest>,
-        j: Vec2<Dest>,
-        o: Point2<Dest>,
+        i: Vec2<Dst>,
+        j: Vec2<Dst>,
+        o: Point2<Dst>,
     ) -> Self {
         let (i, j, o) = (i.0, j.0, o.0);
         mat![
@@ -423,7 +423,7 @@ impl<Src, Dest> Mat3<Src, Dest, 2> {
     /// /*let m = rotate2(degs(90.0)).then(&translate3(1.0, 2.0, 3.0));
     /// let lin = m.linear();
     /// assert_approx_eq!(lin.apply(&pt2(1.0, 0.0, 0.0)), pt2(0.0, 0.0, -1.0));*/
-    pub const fn linear(&self) -> Mat2<Src, Dest> {
+    pub const fn linear(&self) -> Mat2<Src, Dst> {
         let [r, s, _] = self.0;
         mat![r[0], r[1]; s[0], s[1]]
     }
@@ -438,9 +438,18 @@ impl<Src, Dest> Mat3<Src, Dest, 2> {
     /// /*let trans = vec2(1.0, 2.0);
     /// let m = rotate2(degs(45.0)).then(&translate(trans));
     /// assert_eq!(m.translation(), trans);*/
-    pub const fn translation(&self) -> Vec2<Dest> {
+    pub const fn translation(&self) -> Vec2<Dst> {
         let [r, s, _] = self.0;
         vec2(r[2], s[2])
+    }
+
+    /// Returns the translation column vector of `self` as a point.
+    ///
+    /// # Example
+    ///
+    /// TODO
+    pub const fn origin(&self) -> Point2<Dst> {
+        self.translation().to_pt()
     }
 
     /// Returns the determinant of `self`.
@@ -492,7 +501,7 @@ impl<Src, Dest> Mat3<Src, Dest, 2> {
     /// ]));
     /// ```
     #[must_use]
-    pub const fn checked_inverse(&self) -> Option<Mat3<Dest, Src, 2>> {
+    pub const fn checked_inverse(&self) -> Option<Mat3<Dst, Src, 2>> {
         let det = self.determinant();
         if det.abs() < 1e-6 {
             return None;
@@ -521,7 +530,7 @@ impl<Src, Dest> Mat3<Src, Dest, 2> {
         Some(Mat3::new(res))
     }
 
-    pub fn inverse(&self) -> Mat3<Dest, Src> {
+    pub fn inverse(&self) -> Mat3<Dst, Src> {
         self.checked_inverse()
             .expect("matrix cannot be singular or near-singular")
     }
@@ -784,8 +793,8 @@ where
 
 // Apply trait impls
 
-impl<Src, Dest> Apply<Vec2<Src>> for Mat2<Src, Dest> {
-    type Output = Vec2<Dest>;
+impl<Src, Dst> Apply<Vec2<Src>> for Mat2<Src, Dst> {
+    type Output = Vec2<Dst>;
 
     /// Maps a real 2-vector from basis `Src` to basis `Dst`.
     ///
@@ -797,14 +806,14 @@ impl<Src, Dest> Apply<Vec2<Src>> for Mat2<Src, Dest> {
     ///         ⎝ M10 M11 ⎠ ⎝ v1 ⎠     ⎝ v1' ⎠
     /// ```
     #[inline]
-    fn apply(&self, v: &Vec2<Src>) -> Vec2<Dest> {
+    fn apply(&self, v: &Vec2<Src>) -> Vec2<Dst> {
         let [r0, r1] = &self.0;
         vec2(dot(r0, &v.0), dot(r1, &v.0))
     }
 }
 
-impl<Src, Dest> Apply<Point2<Src>> for Mat2<Src, Dest> {
-    type Output = Point2<Dest>;
+impl<Src, Dst> Apply<Point2<Src>> for Mat2<Src, Dst> {
+    type Output = Point2<Dst>;
 
     /// Maps a real 2-point from basis `Src` to basis `Dst`.
     ///
@@ -816,13 +825,13 @@ impl<Src, Dest> Apply<Point2<Src>> for Mat2<Src, Dest> {
     ///         ⎝ M10 M11 ⎠ ⎝ v1 ⎠     ⎝ v1' ⎠
     /// ```
     #[inline(always)]
-    fn apply(&self, pt: &Point2<Src>) -> Point2<Dest> {
+    fn apply(&self, pt: &Point2<Src>) -> Point2<Dst> {
         self.apply(&pt.to_vec()).to_pt()
     }
 }
 
-impl<Src, Dest> Apply<Vec2<Src>> for Mat3<Src, Dest, 2> {
-    type Output = Vec2<Dest>;
+impl<Src, Dst> Apply<Vec2<Src>> for Mat3<Src, Dst, 2> {
+    type Output = Vec2<Dst>;
 
     /// Maps a real 2-vector from basis `Src` to basis `Dst`.
     ///
@@ -836,15 +845,15 @@ impl<Src, Dest> Apply<Vec2<Src>> for Mat3<Src, Dest, 2> {
     ///          ⎝  0  0  1 ⎠ ⎝  0 ⎠     ⎝  0  ⎠
     /// ```
     #[inline]
-    fn apply(&self, v: &Vec2<Src>) -> Vec2<Dest> {
+    fn apply(&self, v: &Vec2<Src>) -> Vec2<Dst> {
         let [r0, r1, _] = &self.0;
         let v = &v.to_hom().0;
         vec2(dot(r0, v), dot(r1, v))
     }
 }
 
-impl<Src, Dest> Apply<Point2<Src>> for Mat3<Src, Dest, 2> {
-    type Output = Point2<Dest>;
+impl<Src, Dst> Apply<Point2<Src>> for Mat3<Src, Dst, 2> {
+    type Output = Point2<Dst>;
 
     /// Maps a real 2-point from basis `Src` to basis `Dst`.
     ///
@@ -858,15 +867,15 @@ impl<Src, Dest> Apply<Point2<Src>> for Mat3<Src, Dest, 2> {
     ///          ⎝  0  0  1 ⎠ ⎝  1 ⎠     ⎝  1  ⎠
     /// ```
     #[inline]
-    fn apply(&self, p: &Point2<Src>) -> Point2<Dest> {
+    fn apply(&self, p: &Point2<Src>) -> Point2<Dst> {
         let [r0, r1, _] = &self.0;
         let p = &p.to_hom().0;
         pt2(dot(r0, p), dot(r1, p))
     }
 }
 
-impl<Src, Dest> Apply<Vec3<Src>> for Mat3<Src, Dest, 3> {
-    type Output = Vec3<Dest>;
+impl<Src, Dst> Apply<Vec3<Src>> for Mat3<Src, Dst, 3> {
+    type Output = Vec3<Dst>;
 
     /// Maps a real 3-vector from basis `Src` to basis `Dst`.
     ///
@@ -879,15 +888,15 @@ impl<Src, Dest> Apply<Vec3<Src>> for Mat3<Src, Dest, 3> {
     ///          ⎝ x2 y2 z2 ⎠ ⎝ v2 ⎠     ⎝ v2' ⎠
     /// ```
     #[inline]
-    fn apply(&self, v: &Vec3<Src>) -> Vec3<Dest> {
+    fn apply(&self, v: &Vec3<Src>) -> Vec3<Dst> {
         let [r0, r1, r2] = &self.0;
         let v = &v.0;
         vec3(dot(r0, v), dot(r1, v), dot(r2, v))
     }
 }
 
-impl<Src, Dest> Apply<Point3<Src>> for Mat3<Src, Dest, 3> {
-    type Output = Point3<Dest>;
+impl<Src, Dst> Apply<Point3<Src>> for Mat3<Src, Dst, 3> {
+    type Output = Point3<Dst>;
 
     /// Maps a real 3-point from basis `Src` to basis `Dst`.
     ///
@@ -900,7 +909,7 @@ impl<Src, Dest> Apply<Point3<Src>> for Mat3<Src, Dest, 3> {
     ///          ⎝ x2 y2 z2 ⎠ ⎝ p2 ⎠     ⎝ p2' ⎠
     /// ```
     #[inline(always)]
-    fn apply(&self, p: &Point3<Src>) -> Point3<Dest> {
+    fn apply(&self, p: &Point3<Src>) -> Point3<Dst> {
         self.apply(&p.to_vec()).to_pt()
     }
 }

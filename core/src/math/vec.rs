@@ -12,7 +12,7 @@ use core::{
 };
 
 use super::{
-    Affine, ApproxEq, Linear, Point,
+    Affine, ApproxEq, Linear, Point, pt3,
     space::{Hom, Proj3, Real},
     vary::ZDiv,
 };
@@ -608,12 +608,12 @@ impl<Sc: Copy> Vector<[Sc; 4], Proj3> {
 
     /// Projects `self` to the real plane by dividing by `w`.
     #[inline]
-    pub fn to_real<B>(&self) -> Vector<[Sc; 3], Real<3, B>>
+    pub fn to_real<B>(&self) -> Point<[Sc; 3], Real<3, B>>
     where
         Sc: Div<Sc, Output = Sc>,
     {
         let [x, y, z, w] = self.0;
-        vec3(x / w, y / w, z / w)
+        pt3(x / w, y / w, z / w)
     }
 }
 
