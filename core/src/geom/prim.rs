@@ -5,14 +5,11 @@
 use alloc::vec::Vec;
 use core::fmt::{self, Debug, Formatter};
 
+use crate::math::vec::Vec4;
 use crate::math::{
     Affine, ApproxEq, Lerp, Linear, Mat4, Parametric, Point, Point2, Point3,
-    Vec2, Vec3, Vector,
-    space::{Hom, Real},
-    vec::dot,
-    vec2, vec3,
+    Vec2, Vec3, Vector, space::Hom, vec::dot, vec2, vec3,
 };
-use crate::render::Model;
 
 /// Vertex with a position and arbitrary other attributes.
 #[derive(Copy, Clone, Debug, Default, Eq, PartialEq)]
@@ -22,10 +19,10 @@ pub struct Vertex<P, A> {
 }
 
 /// Two-dimensional vertex type.
-pub type Vertex2<A, B = Model> = Vertex<Point2<B>, A>;
+pub type Vertex2<A> = Vertex<Point2, A>;
 
 /// Three-dimensional vertex type.
-pub type Vertex3<A, B = Model> = Vertex<Point3<B>, A>;
+pub type Vertex3<A> = Vertex<Point3, A>;
 
 /// Triangle, defined by three vertices.
 #[derive(Copy, Clone, Debug, Default, Eq, PartialEq)]
@@ -38,7 +35,7 @@ pub struct Tri<V>(pub [V; 3]);
 pub struct Plane<V>(pub(crate) V);
 
 /// Plane embedded in 3D space, splitting the space into two half-spaces.
-pub type Plane3<B = ()> = Plane<Vector<[f32; 4], Hom<3, B>>>;
+pub type Plane3 = Plane<Vec4>;
 
 /// A ray, or a half line, composed of an initial point and a direction vector.
 #[derive(Copy, Clone, Debug, Eq, PartialEq)]
@@ -167,7 +164,7 @@ impl<P: Affine, A> Tri<Vertex<P, A>> {
     }
 }
 
-impl<A, B> Tri<Vertex2<A, B>> {
+impl<A> Tri<Vertex2<A>> {
     /// Returns the winding order of `self`.
     ///
     /// # Examples
@@ -234,7 +231,7 @@ impl<A, B> Tri<Vertex2<A, B>> {
     }
 }
 
-impl<A, B> Tri<Vertex3<A, B>> {
+impl<A> Tri<Vertex3<A>> {
     /// Returns the normal vector of `self`.
     ///
     /// The result is normalized to unit length. If self is degenerate and
@@ -277,7 +274,7 @@ impl<A, B> Tri<Vertex3<A, B>> {
     /// assert_eq!(tri.plane().normal(), Vec3::Z);
     /// assert_eq!(tri.plane().offset(), 2.0);
     /// ```
-    pub fn plane(&self) -> Plane3<B> {
+    pub fn plane(&self) -> Plane3 {
         let [a, b, c] = &self.0;
         let [p, q, r] = [a.pos, b.pos, c.pos];
         Plane::from_points(p, q, r)
@@ -289,7 +286,7 @@ impl<A, B> Tri<Vertex3<A, B>> {
         // TODO better way to xyz->xy...
         let [u, v] = self.tangents();
         let ([ux, uy, _], [vx, vy, _]) = (u.0, v.0);
-        let z = vec2::<_, ()>(ux, uy).perp_dot(vec2(vx, vy));
+        let z = vec2(ux, uy).perp_dot(vec2(vx, vy));
         if z < 0.0 { Winding::Cw } else { Winding::Ccw }
     }
 
@@ -313,7 +310,7 @@ impl<A, B> Tri<Vertex3<A, B>> {
     }
 }
 
-impl<B> Plane3<B> {
+impl Plane3 {
     /// The x = 0 coordinate plane.
     pub const YZ: Self = Self::new(1.0, 0.0, 0.0, 0.0);
 
@@ -379,7 +376,7 @@ impl<B> Plane3<B> {
     /// assert_eq!(p.offset(), 2.0);
     ///
     /// ```
-    pub fn from_points(a: Point3<B>, b: Point3<B>, c: Point3<B>) -> Self {
+    pub fn from_points(a: Point3, b: Point3, c: Point3) -> Self {
         let n = (b - a).cross(&(c - a)).to();
         Self::from_point_and_normal(a, n)
     }
@@ -400,7 +397,7 @@ impl<B> Plane3<B> {
     /// assert_eq!(p.offset(), 3.0);
     ///
     /// ```
-    pub fn from_point_and_normal(pt: Point3<B>, n: Normal3) -> Self {
+    pub fn from_point_and_normal(pt: Point3, n: Normal3) -> Self {
         let mut n = n.to().normalize().to_hom();
         n[3] = -n.dot(&pt.to_hom());
         Self(n)
@@ -467,7 +464,7 @@ impl<B> Plane3<B> {
     ///
     /// assert_eq!(<Plane3>::new(0.0, 0.0, 1.0, 2.0).project(pt), pt3(1.0, 2.0, 2.0));
     /// ```
-    pub fn project(&self, pt: Point3<B>) -> Point3<B> {
+    pub fn project(&self, pt: Point3) -> Point3 {
         // The vector that projects pt on the plane is parallel with the plane
         // normal and its length is the distance of pt from the plane.
         let t = -self.signed_dist(pt);
@@ -491,7 +488,7 @@ impl<B> Plane3<B> {
     /// assert_eq!(p.signed_dist(pt), -3.0);
     /// ```
     #[inline]
-    pub fn signed_dist(&self, pt: Point3<B>) -> f32 {
+    pub fn signed_dist(&self, pt: Point3) -> f32 {
         self.0.dot(&pt.to_hom())
     }
 
@@ -510,7 +507,7 @@ impl<B> Plane3<B> {
     /// ```
     // TODO "plane.is_inside(point)" reads wrong
     #[inline]
-    pub fn is_inside(&self, pt: Point3<B>) -> bool {
+    pub fn is_inside(&self, pt: Point3) -> bool {
         self.signed_dist(pt) <= 0.0
     }
 
@@ -534,10 +531,10 @@ impl<B> Plane3<B> {
     ///
     /// assert_approx_eq!(m.apply(&Point3::origin()), pt3(0.0, 0.5, 0.5));
     /// ```
-    pub fn basis<F>(&self) -> Mat4<F, B> {
+    pub fn basis<F>(&self) -> Mat4 {
         let up = self.normal().to();
 
-        let right: Vec3<B> =
+        let right: Vec3 =
             if up.x().abs() <= up.y().abs() && up.x().abs() <= up.z().abs() {
                 Vec3::X
             } else {
@@ -610,7 +607,7 @@ impl<T> Polyline<T> {
     }
 }
 
-impl<const N: usize, B> Polyline<Point<[f32; N], Real<N, B>>> {
+impl<const N: usize> Polyline<Point<[f32; N]>> {
     /// Returns the sum of the lengths of the edges of `self`.
     ///
     /// # Examples
@@ -667,7 +664,7 @@ impl<T> Polygon<T> {
     }
 }
 
-impl<B> Line2<B> {
+impl Line2 {
     /// Two-dimensional line, given by the line equation ax + by = c.
     ///
     /// # Panics
@@ -682,7 +679,7 @@ impl<B> Line2<B> {
     ///
     /// # Panics
     /// If the points coincide.
-    pub fn from_points(p: Point2<B>, q: Point2<B>) -> Self {
+    pub fn from_points(p: Point2, q: Point2) -> Self {
         Edge(p, q).into()
     }
 
@@ -710,7 +707,7 @@ impl<B> Line2<B> {
     }
 
     /// Returns
-    pub fn normal(&self) -> Vec2<B> {
+    pub fn normal(&self) -> Vec2 {
         vec2(self.0[0], self.0[1]).normalize()
     }
     /// Returns the signed distance of `self` from the origin.
@@ -720,7 +717,7 @@ impl<B> Line2<B> {
 
     /// Returns the coefficients [a, b, c] of the line equation ax + by = c.
     pub const fn coeffs(&self) -> [f32; 3] {
-        return self.0.0;
+        self.0.0
     }
 }
 
@@ -801,7 +798,7 @@ impl<P: Lerp, A: Lerp> Lerp for Vertex<P, A> {
 // Foreign trait impls
 //
 
-impl<B> Default for Plane3<B> {
+impl Default for Plane3 {
     /// Returns the XZ coordinate plane.
     fn default() -> Self {
         Plane3::XZ
@@ -817,14 +814,14 @@ impl<B: Debug + Default> Debug for Sphere<B> {
     }
 }
 
-impl<B> Default for Sphere<B> {
+impl Default for Sphere {
     /// Returns a unit sphere, with the center at the origin and radius 1.
     fn default() -> Self {
         Self(Point3::origin(), 1.0)
     }
 }
 
-impl<B> Debug for Line2<B> {
+impl Debug for Line2 {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         // ax + by + c = 0
         let [a, _, c] = self.coeffs();
@@ -851,7 +848,7 @@ impl<B> Debug for Line2<B> {
     }
 }
 
-impl<B> From<Ray<Point2<B>>> for Line2<B> {
+impl From<Ray<Point2>> for Line2 {
     /// Returns the line coincident with the given ray.
     ///
     /// # Panics
@@ -874,15 +871,15 @@ impl<B> From<Ray<Point2<B>>> for Line2<B> {
     /// assert_eq!(line.normal(), vec2(0.0, 1.0));
     /// assert_eq!(line.offset(), 2.0);
     /// ```
-    fn from(Ray(orig, dir): Ray<Point2<B>>) -> Self {
+    fn from(Ray(orig, dir): Ray<Point2>) -> Self {
         let n = dir.perp().normalize();
         Self::new(n.x(), n.y(), dot(&orig.0, &n.0))
     }
 }
 
-impl<B> From<Edge<Point2<B>>> for Line2<B> {
+impl From<Edge<Point2>> for Line2 {
     /// Returns the line coincident with the given edge.
-    fn from(e: Edge<Point2<B>>) -> Self {
+    fn from(e: Edge<Point2>) -> Self {
         Ray(e.0, e.1 - e.0).into()
     }
 }
@@ -903,7 +900,7 @@ mod tests {
 
     use super::*;
 
-    type Pt<const N: usize> = Point<[f32; N], Real<N>>;
+    type Pt<const N: usize> = Point<[f32; N]>;
 
     fn tri<const N: usize>(
         a: Pt<N>,

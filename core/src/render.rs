@@ -10,7 +10,7 @@ use core::{fmt::Debug, ops::DerefMut};
 
 use crate::geom::Vertex;
 use crate::math::{
-    Mat4, ProjVec3, Vary,
+    Mat4, Vary,
     mat::{RealToProj, RealToReal},
 };
 
@@ -35,6 +35,7 @@ pub(super) mod re_exports {
         text::Text,
     };
 }
+use crate::math::vec::Vec4;
 pub use re_exports::*;
 
 pub mod batch;
@@ -78,7 +79,7 @@ pub trait Render<V: Vary> {
     }
 
     /// Transforms the argument from NDC to screen space.
-    fn to_screen(clip: Self::Clip, tf: &Mat4<Ndc, Screen>) -> Self::Screen;
+    fn to_screen(clip: Self::Clip, tf: &Mat4) -> Self::Screen;
 
     /// Rasterizes the argument by calling the function for each scanline.
     fn rasterize<F: FnMut(Scanline<V>)>(scr: Self::Screen, scanline_fn: F);
@@ -124,12 +125,11 @@ pub type NdcToScreen = RealToReal<3, Ndc, Screen>;
 
 /// Alias for combined vertex+fragment shader types
 pub trait Shader<Vtx, Var, Uni>:
-    VertexShader<Vtx, Uni, Output = Vertex<ProjVec3, Var>> + FragmentShader<Var>
+    VertexShader<Vtx, Uni, Output = Vertex<Vec4, Var>> + FragmentShader<Var>
 {
 }
 impl<S, Vtx, Var, Uni> Shader<Vtx, Var, Uni> for S where
-    S: VertexShader<Vtx, Uni, Output = Vertex<ProjVec3, Var>>
-        + FragmentShader<Var>
+    S: VertexShader<Vtx, Uni, Output = Vertex<Vec4, Var>> + FragmentShader<Var>
 {
 }
 
@@ -139,7 +139,7 @@ pub fn render<Prim, Vtx: Clone, Var, Uni: Copy, Shd>(
     verts: impl AsRef<[Vtx]>,
     shader: &Shd,
     uniform: Uni,
-    to_screen: Mat4<Ndc, Screen>,
+    to_screen: Mat4,
     mut target: &mut impl Target,
     ctx: &Context,
 ) where

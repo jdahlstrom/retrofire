@@ -6,10 +6,7 @@ use core::{
     iter::zip,
 };
 
-use crate::{
-    math::{Linear, Mat4, Point3},
-    render::Model,
-};
+use crate::math::{Linear, Mat4, Point3};
 
 use super::{Normal3, Tri, Vertex3, tri, vertex};
 
@@ -21,25 +18,25 @@ use super::{Normal3, Tri, Vertex3, tri, vertex};
 /// with 8 vertices and 12 faces. By using many faces, complex curved shapes
 /// can be approximated.
 #[derive(Clone)]
-pub struct Mesh<Attrib, Basis = Model> {
+pub struct Mesh<Attrib> {
     /// The faces of the mesh, with each face a triplet of indices
     /// to the `verts` vector. Several faces can share a vertex.
     pub faces: Vec<Tri<usize>>,
     /// The vertices of the mesh.
-    pub verts: Vec<Vertex3<Attrib, Basis>>,
+    pub verts: Vec<Vertex3<Attrib>>,
 }
 
 /// A builder type for creating meshes.
 #[derive(Clone)]
-pub struct Builder<Attrib = (), Basis = Model> {
-    pub mesh: Mesh<Attrib, Basis>,
+pub struct Builder<Attrib = ()> {
+    pub mesh: Mesh<Attrib>,
 }
 
 //
 // Inherent impls
 //
 
-impl<A, B> Mesh<A, B> {
+impl<A> Mesh<A> {
     /// Creates a new triangle mesh with the given faces and vertices.
     ///
     /// Each face in `faces` is a triplet of indices, referring to
@@ -74,7 +71,7 @@ impl<A, B> Mesh<A, B> {
     pub fn new<F, V>(faces: F, verts: V) -> Self
     where
         F: IntoIterator<Item = Tri<usize>>,
-        V: IntoIterator<Item = Vertex3<A, B>>,
+        V: IntoIterator<Item = Vertex3<A>>,
     {
         let faces: Vec<_> = faces.into_iter().collect();
         let verts: Vec<_> = verts.into_iter().collect();
@@ -85,7 +82,7 @@ impl<A, B> Mesh<A, B> {
 
     /// Returns an iterator over the faces of `self`, mapping the vertex indices
     /// to references to the corresponding vertices.
-    pub fn faces(&self) -> impl Iterator<Item = Tri<&Vertex3<A, B>>> {
+    pub fn faces(&self) -> impl Iterator<Item = Tri<&Vertex3<A>>> {
         self.faces
             .iter()
             .map(|tri| tri.map(|i| &self.verts[i]))
@@ -175,7 +172,7 @@ impl<A> Builder<A> {
     ///
     /// This is an eager operation, that is, only vertices *currently*
     /// added to the builder are transformed.
-    pub fn transform(self, tf: &Mat4<Model, Model>) -> Self {
+    pub fn transform(self, tf: &Mat4) -> Self {
         self.warp(|v| vertex(tf.apply(&v.pos), v.attrib))
     }
 
@@ -237,7 +234,7 @@ impl<A> Builder<A> {
 // Foreign trait impls
 //
 
-impl<A: Debug, S: Debug + Default> Debug for Mesh<A, S> {
+impl<A: Debug> Debug for Mesh<A> {
     fn fmt(&self, f: &mut Formatter<'_>) -> core::fmt::Result {
         f.debug_struct("Mesh")
             .field("faces", &self.faces)
@@ -246,7 +243,7 @@ impl<A: Debug, S: Debug + Default> Debug for Mesh<A, S> {
     }
 }
 
-impl<A: Debug, S: Debug + Default> Debug for Builder<A, S> {
+impl<A: Debug> Debug for Builder<A> {
     fn fmt(&self, f: &mut Formatter<'_>) -> core::fmt::Result {
         f.debug_struct("Builder")
             .field("faces", &self.mesh.faces)
@@ -255,7 +252,7 @@ impl<A: Debug, S: Debug + Default> Debug for Builder<A, S> {
     }
 }
 
-impl<A, S> Default for Mesh<A, S> {
+impl<A> Default for Mesh<A> {
     /// Returns an empty mesh.
     fn default() -> Self {
         Self { faces: vec![], verts: vec![] }

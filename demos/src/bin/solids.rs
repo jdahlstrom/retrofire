@@ -7,7 +7,7 @@ use re::prelude::*;
 use re::core::{
     geom::{Polyline, Ray},
     math::{ProjMat3, ProjVec3, color::gray, spline::HermiteSpline},
-    render::{Model, ModelToWorld, cam::Fov, shader},
+    render::{cam::Fov, shader},
 };
 use re::front::{Frame, minifb::Window};
 use re::geom::{io::read_obj, solids::*};
@@ -64,7 +64,7 @@ fn main() {
 
     type VertexIn = Vertex3<Normal3>;
     type VertexOut = Vertex<ProjVec3, Color3f>;
-    type Uniform<'a> = (&'a ProjMat3<Model>, &'a Mat4);
+    type Uniform<'a> = (&'a ProjMat3, &'a Mat4);
 
     fn vtx_shader(v: VertexIn, (mvp, spin): Uniform) -> VertexOut {
         // Transform vertex normal
@@ -101,11 +101,11 @@ fn main() {
         let carouse = carousel.update(dt.as_secs_f32());
 
         // Compose transform stack
-        let model_view_project: ProjMat3<Model> = spin
+        let model_view_project: ProjMat3 = spin
             .then(&translate)
             .then(&carouse)
-            .to::<ModelToWorld>()
-            .then(&cam.world_to_project());
+            .then(&cam.world_to_project().to())
+            .to();
 
         let object = &objects[carousel.idx % objects.len()];
 

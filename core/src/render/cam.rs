@@ -2,7 +2,6 @@
 
 use core::ops::Range;
 
-use crate::math::space::Real;
 #[cfg(feature = "fp")]
 use crate::math::{
     Angle, Vec3, orient_z, rotate_pyr, rotate_x, rotate_y, spherical, turns,
@@ -13,12 +12,12 @@ use crate::math::{
 };
 use crate::util::{Dims, rect::Rect};
 
-use super::{Clip, Context, Ndc, Render, Screen, Shader, Target, View, World};
+use super::{Clip, Context, Render, Shader, Target};
 
 /// Trait for different modes of camera motion.
 pub trait Transform {
     /// Returns the current world-to-view matrix.
-    fn world_to_view(&self) -> Mat4<World, View>;
+    fn world_to_view(&self) -> Mat4;
 }
 
 /// Camera field of view.
@@ -59,9 +58,9 @@ pub struct Camera<Tf> {
     /// Viewport width and height.
     pub dims: Dims,
     /// Projection matrix.
-    pub project: ProjMat3<View>,
+    pub project: Mat4,
     /// Viewport matrix.
-    pub viewport: Mat4<Ndc, Screen>,
+    pub viewport: Mat4,
 }
 
 /// First-person camera transform.
@@ -71,9 +70,9 @@ pub struct Camera<Tf> {
 #[derive(Copy, Clone, Debug, Default)]
 pub struct FirstPerson {
     /// Current position of the camera in **world** space.
-    pub pos: Point3<World>,
+    pub pos: Point3,
     /// Current heading of the camera in **world** space.
-    pub heading: SphericalVec<World>,
+    pub heading: SphericalVec,
 }
 
 /// Orbiting camera transform.
@@ -84,9 +83,9 @@ pub struct FirstPerson {
 #[derive(Copy, Clone, Debug, Default)]
 pub struct Orbit {
     /// The camera's target point in **world** space.
-    pub target: Point3<World>,
+    pub target: Point3,
     /// The camera's direction in **world** space.
-    pub dir: SphericalVec<World>,
+    pub dir: SphericalVec,
 }
 
 /// Camera transform implementing airplane-like controls based on three angles.
@@ -97,19 +96,19 @@ pub struct Orbit {
 /// also known to as Tait–Bryan angles.
 #[derive(Copy, Clone, Debug, Default)]
 pub struct PitchYawRoll {
-    pub orient: Mat4<View, World>,
-    pub position: Point3<World>,
+    pub orient: Mat4,
+    pub position: Point3,
 }
 
 /// Creates a unit `SphericalVec` from azimuth and altitude.
 #[cfg(feature = "fp")]
-fn az_alt<B>(az: Angle, alt: Angle) -> SphericalVec<B> {
+fn az_alt(az: Angle, alt: Angle) -> SphericalVec {
     spherical(1.0, az, alt)
 }
 
 /// Helper to create a translation from a point
-fn origin<S, D>(o: Point3<D>) -> Mat4<S, D> {
-    translate(o.to_vec().to::<Real<_>>()).to()
+fn origin(o: Point3) -> Mat4 {
+    translate(o.to_vec()).to()
 }
 
 //
@@ -213,25 +212,25 @@ impl<T> Camera<T> {
 
 impl<T: Transform> Camera<T> {
     /// Returns the camera matrix.
-    pub fn world_to_view(&self) -> Mat4<World, View> {
+    pub fn world_to_view(&self) -> Mat4 {
         self.transform.world_to_view()
     }
     /// Returns the inverse camera matrix.
-    pub fn view_to_world(&self) -> Mat4<View, World> {
+    pub fn view_to_world(&self) -> Mat4 {
         self.world_to_view().inverse()
     }
 
     /// Returns the composed camera and projection matrix.
-    pub fn world_to_project(&self) -> ProjMat3<World> {
-        self.world_to_view().then(&self.project)
+    pub fn world_to_project(&self) -> ProjMat3 {
+        self.world_to_view().then(&self.project).to()
     }
 
     /// Renders the given geometry from the viewpoint of this camera.
-    pub fn render<B, Prim, Vtx: Clone, Var: Vary, Uni: Copy, Shd>(
+    pub fn render<Prim, Vtx: Clone, Var: Vary, Uni: Copy, Shd>(
         &self,
         prims: impl AsRef<[Prim]>,
         verts: impl AsRef<[Vtx]>,
-        to_world: &Mat4<B, World>,
+        to_world: &Mat4,
         shader: &Shd,
         uniform: Uni,
         target: &mut impl Target,
@@ -239,9 +238,9 @@ impl<T: Transform> Camera<T> {
     ) where
         Prim: Render<Var> + Clone,
         [<Prim>::Clip]: Clip<Item = Prim::Clip>,
-        Shd: for<'a> Shader<Vtx, Var, (&'a ProjMat3<B>, Uni)>,
+        Shd: for<'a> Shader<Vtx, Var, (&'a ProjMat3, Uni)>,
     {
-        let tf = to_world.then(&self.world_to_project());
+        let tf = to_world.then(&self.world_to_project().to()).to();
 
         super::render(
             prims.as_ref(),
@@ -264,7 +263,7 @@ impl FirstPerson {
     }
 
     /// Rotates the camera to center the view on a **world-space** point.
-    pub fn look_at(&mut self, pt: Point3<World>) {
+    pub fn look_at(&mut self, pt: Point3) {
         let head = (pt - self.pos).to_spherical();
         self.rotate_to(head.az(), head.alt());
     }
@@ -286,7 +285,7 @@ impl FirstPerson {
 
     /// Translates the camera by a relative offset in **view** space.
     // TODO Explain that up/down is actually in world space (dir of gravity)
-    pub fn translate(&mut self, delta: Vec3<View>) {
+    pub fn translate(&mut self, delta: Vec3) {
         // Zero azimuth means parallel to the x-axis
         let fwd = az_alt(self.heading.az(), turns(0.0)).to_cart();
         let up = Vec3::Y;
@@ -323,7 +322,7 @@ impl Orbit {
     }
 
     /// Translates the camera's target point in **world** space.
-    pub fn translate(&mut self, delta: Vec3<World>) {
+    pub fn translate(&mut self, delta: Vec3) {
         self.target += delta;
     }
 
@@ -361,12 +360,12 @@ impl PitchYawRoll {
 
     /// Adjusts the camera position in view space (relative to the current
     /// position, along the current orientation axes).
-    pub fn translate(&mut self, v: Vec3<View>) {
+    pub fn translate(&mut self, v: Vec3) {
         self.position += self.view_to_world().apply(&v);
     }
 
     /// Moves the camera to the given position in world space.
-    pub fn translate_to(&mut self, pt: Point3<World>) {
+    pub fn translate_to(&mut self, pt: Point3) {
         self.position = pt;
     }
 
@@ -386,7 +385,7 @@ impl PitchYawRoll {
     }
 
     /// Returns the matrix from view to world space.
-    pub fn view_to_world(&self) -> Mat4<View, World> {
+    pub fn view_to_world(&self) -> Mat4 {
         self.orient.then(&origin(self.position))
     }
 }
@@ -395,24 +394,23 @@ impl PitchYawRoll {
 // Local trait impls
 //
 
-impl Transform for Mat4<World, View> {
-    fn world_to_view(&self) -> Mat4<World, View> {
+impl Transform for Mat4 {
+    fn world_to_view(&self) -> Mat4 {
         *self
     }
 }
 
 #[cfg(feature = "fp")]
 impl Transform for FirstPerson {
-    fn world_to_view(&self) -> Mat4<World, View> {
+    fn world_to_view(&self) -> Mat4 {
         let &Self { pos, heading, .. } = self;
         let fwd_move = az_alt(heading.az(), turns(0.0)).to_cart();
         let fwd = heading.to_cart();
         let right = Vec3::Y.cross(&fwd_move);
 
         // World-to-view is inverse of camera's world transform
-        let inv_origin: Mat4<World> = origin(-pos.to());
-        let inv_orient: Mat4<_, View> =
-            orient_z(fwd.to(), right).transpose().to();
+        let inv_origin: Mat4 = origin(-pos.to());
+        let inv_orient: Mat4 = orient_z(fwd.to(), right).transpose().to();
 
         inv_origin.then(&inv_orient)
     }
@@ -420,14 +418,14 @@ impl Transform for FirstPerson {
 
 #[cfg(feature = "fp")]
 impl Transform for Orbit {
-    fn world_to_view(&self) -> Mat4<World, View> {
+    fn world_to_view(&self) -> Mat4 {
         // TODO Figure out how to do this with orient
         //let fwd = self.dir.to_cart().normalize();
         //let o = orient_z(fwd, Vec3::X - 0.1 * Vec3::Z);
 
         // TODO Work out how and whether this is the correct inverse
         //      of the view-to-world transform
-        origin::<(), ()>(self.target.to())
+        origin(self.target.to())
             .then(&rotate_y(self.dir.az())) // to world-space az
             .then(&rotate_x(self.dir.alt())) // to world-space alt
             .then(&translate(self.dir.r() * Vec3::Z)) // view space
@@ -436,7 +434,7 @@ impl Transform for Orbit {
 }
 
 impl Transform for PitchYawRoll {
-    fn world_to_view(&self) -> Mat4<World, View> {
+    fn world_to_view(&self) -> Mat4 {
         let inv_origin = origin(-self.position);
         let inv_orient = self.orient.transpose();
         inv_origin.then(&inv_orient)

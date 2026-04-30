@@ -77,7 +77,7 @@ pub struct Capsule {
 // Inherent impls
 //
 
-impl<P: Parametric<Vertex2<Normal2, ()>>> Lathe<P> {
+impl<P: Parametric<Vertex2<Normal2>>> Lathe<P> {
     pub fn new(points: P, sectors: u32, segments: u32) -> Self {
         assert!(sectors >= 3, "sectors must be at least 3, was {sectors}");
         Self {
@@ -159,7 +159,7 @@ fn create_faces(secs: usize, verts_per_sec: usize, out: &mut Vec<Tri<usize>>) {
 #[inline(never)]
 fn create_verts<A>(
     f: &mut dyn FnMut(Point3, Normal3, TexCoord) -> Vertex3<A>,
-    pts: &dyn Parametric<Vertex2<Normal2, ()>>,
+    pts: &dyn Parametric<Vertex2<Normal2>>,
     secs: usize,
     verts_per_sec: usize,
     az_range: Range<Angle>,
@@ -218,26 +218,24 @@ fn make_cap<A>(
 // Local trait impls
 //
 
-impl<P: Parametric<Vertex2<Normal2, ()>>> Build<Normal3> for Lathe<P> {
+impl<P: Parametric<Vertex2<Normal2>>> Build<Normal3> for Lathe<P> {
     fn build(self) -> Mesh<Normal3> {
         self.build_with(&mut |p, n, _| vertex(p.to(), n))
     }
 }
-impl<P: Parametric<Vertex2<Normal2, ()>>> Build<TexCoord> for Lathe<P> {
+impl<P: Parametric<Vertex2<Normal2>>> Build<TexCoord> for Lathe<P> {
     fn build(self) -> Mesh<TexCoord> {
         self.build_with(&mut |p, _, tc| vertex(p.to(), tc))
     }
 }
-impl<P: Parametric<Vertex2<Normal2, ()>>> Build<(Normal3, TexCoord)>
-    for Lathe<P>
-{
+impl<P: Parametric<Vertex2<Normal2>>> Build<(Normal3, TexCoord)> for Lathe<P> {
     fn build(self) -> Mesh<(Normal3, TexCoord)> {
         self.build_with(&mut |p, n, tc| vertex(p.to(), (n, tc)))
     }
 }
 
 impl Sphere {
-    fn lathe(self) -> Lathe<impl Parametric<Vertex2<Normal2, ()>>> {
+    fn lathe(self) -> Lathe<impl Parametric<Vertex2<Normal2>>> {
         let Self { sectors, segments, radius } = self;
         let pts = move |t| {
             let a = (-0.25).lerp(&0.25, t);
@@ -262,7 +260,7 @@ impl Build<TexCoord> for Sphere {
 }
 
 impl Torus {
-    fn lathe(self) -> Lathe<impl Parametric<Vertex2<Normal2, ()>>> {
+    fn lathe(self) -> Lathe<impl Parametric<Vertex2<Normal2>>> {
         let pts = move |t| {
             let a = 0.0.lerp(&1.0, t);
             let v = polar(self.minor_radius, turns(a)).to_cart();
@@ -316,7 +314,7 @@ impl Build<TexCoord> for Cylinder {
 }
 
 impl Cone {
-    fn lathe(self) -> Lathe<impl Parametric<Vertex2<Normal2, ()>>> {
+    fn lathe(self) -> Lathe<impl Parametric<Vertex2<Normal2>>> {
         assert!(self.segments > 0, "segments cannot be zero");
 
         let base_pt = pt2(self.base_radius, -1.0);
@@ -344,7 +342,7 @@ impl Build<TexCoord> for Cone {
 }
 
 impl Capsule {
-    fn lathe(self) -> Lathe<impl Parametric<Vertex2<Normal2, ()>>> {
+    fn lathe(self) -> Lathe<impl Parametric<Vertex2<Normal2>>> {
         #[rustfmt::skip]
         let Self { sectors, body_segments, cap_segments, radius } = self;
         assert!(body_segments > 0, "body segments cannot be zero");

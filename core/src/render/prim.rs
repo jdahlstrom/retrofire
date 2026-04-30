@@ -4,7 +4,7 @@ use crate::geom::{Edge, Tri, Vertex, Winding};
 use crate::math::{Mat4, Vary, pt3, vary::ZDiv};
 
 use super::{
-    Ndc, Render, Screen,
+    Render,
     clip::ClipVert,
     raster::{Scanline, ScreenPt, line, tri_fill},
 };
@@ -30,10 +30,7 @@ impl<V: Vary> Render<V> for Tri<usize> {
     }
 
     #[inline]
-    fn to_screen(
-        clip: Tri<ClipVert<V>>,
-        tf: &Mat4<Ndc, Screen>,
-    ) -> Self::Screen {
+    fn to_screen(clip: Tri<ClipVert<V>>, tf: &Mat4) -> Self::Screen {
         Tri(to_screen(clip.0, tf))
     }
 
@@ -56,7 +53,7 @@ impl<V: Vary> Render<V> for Edge<usize> {
     }
 
     #[inline]
-    fn to_screen(e: Self::Clip, tf: &Mat4<Ndc, Screen>) -> Self::Screen {
+    fn to_screen(e: Self::Clip, tf: &Mat4) -> Self::Screen {
         to_screen([e.0, e.1], tf).into()
     }
 
@@ -69,7 +66,7 @@ impl<V: Vary> Render<V> for Edge<usize> {
 #[inline]
 pub fn to_screen<V: ZDiv, const N: usize>(
     vs: [ClipVert<V>; N],
-    tf: &Mat4<Ndc, Screen>,
+    tf: &Mat4,
 ) -> [Vertex<ScreenPt, V>; N] {
     vs.map(|v| {
         let [x, y, _, w] = v.pos.0;

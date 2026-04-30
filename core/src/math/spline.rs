@@ -7,7 +7,6 @@ use crate::mat;
 
 use super::{
     Affine, Lerp, Linear, Mat4, Parametric, Point, Vary, Vector, inv_lerp,
-    space::Real,
 };
 
 /// A cubic Bézier curve, defined by four control points.
@@ -720,9 +719,9 @@ fn crb_segment<T: Clone>(pts: &[T], t: f32) -> (f32, &[T; 4]) {
 
 impl<Spl> Euclidean<Spl> {
     /// Creates a new `Euclidean` wrapper of the given spline.
-    pub fn new<B, const N: usize>(spline: Spl) -> Self
+    pub fn new<const N: usize>(spline: Spl) -> Self
     where
-        Spl: Parametric<Point<[f32; N], Real<N, B>>>,
+        Spl: Parametric<Point<[f32; N]>>,
     {
         let mut lut = Vec::new();
         let mut s = 0.0;

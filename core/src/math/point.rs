@@ -6,31 +6,27 @@ use core::{
     ops::{AddAssign, DivAssign, MulAssign, SubAssign},
 };
 
-use super::{
-    Affine, ApproxEq, Linear, Vector,
-    space::{Hom, Real},
-    vary::ZDiv,
-};
+use super::{Affine, ApproxEq, Linear, Vec3, Vector, vary::ZDiv, vec::Vec4};
 
 #[repr(transparent)]
 pub struct Point<Repr, Space = ()>(pub Repr, Pd<Space>);
 
 /// A 2-point with `f32` components.
-pub type Point2<Basis = ()> = Point<[f32; 2], Real<2, Basis>>;
+pub type Point2<S = ()> = Point<[f32; 2], S>;
 /// A 3-point with `f32` components.
-pub type Point3<Basis = ()> = Point<[f32; 3], Real<3, Basis>>;
+pub type Point3<S = ()> = Point<[f32; 3], S>;
 
 /// A 2-point with `u32` components.
-pub type Point2u<Basis = ()> = Point<[u32; 2], Real<2, Basis>>;
+pub type Point2u<S = ()> = Point<[u32; 2], S>;
 
 /// Returns a real 2-point with `x` and `y` components.
 #[inline]
-pub const fn pt2<Sc, B>(x: Sc, y: Sc) -> Point<[Sc; 2], Real<2, B>> {
+pub const fn pt2<Sc>(x: Sc, y: Sc) -> Point<[Sc; 2]> {
     Point([x, y], Pd)
 }
 /// Returns a real 3-point with `x`, `y`, and `z` components.
 #[inline]
-pub const fn pt3<Sc, B>(x: Sc, y: Sc, z: Sc) -> Point<[Sc; 3], Real<3, B>> {
+pub const fn pt3<Sc>(x: Sc, y: Sc, z: Sc) -> Point<[Sc; 3]> {
     Point([x, y, z], Pd)
 }
 
@@ -98,7 +94,7 @@ impl<Sc: Copy, Sp, const N: usize> Point<[Sc; N], Sp> {
     }
 }
 
-impl<const N: usize, B> Point<[f32; N], Real<N, B>> {
+impl<const N: usize> Point<[f32; N]> {
     /// Returns the canonical origin point (0, …, 0).
     #[inline]
     pub const fn origin() -> Self {
@@ -200,7 +196,7 @@ impl<const N: usize, B> Point<[f32; N], Real<N, B>> {
     }
 }
 
-impl<Sc: Copy, B> Point<[Sc; 2], Real<2, B>> {
+impl<Sc: Copy> Point<[Sc; 2]> {
     /// Returns the x component of `self`.
     #[inline]
     pub const fn x(&self) -> Sc {
@@ -214,7 +210,7 @@ impl<Sc: Copy, B> Point<[Sc; 2], Real<2, B>> {
 
     /// Converts `self` to a `Point3`, with z equal to 0.
     #[inline]
-    pub fn to_pt3(self) -> Point<[Sc; 3], Real<3, B>>
+    pub fn to_pt3(self) -> Point<[Sc; 3]>
     where
         Sc: Linear,
     {
@@ -225,12 +221,12 @@ impl<Sc: Copy, B> Point<[Sc; 2], Real<2, B>> {
 impl<B> Point2<B> {
     /// Converts `self` to homogeneous representation.
     #[inline]
-    pub const fn to_hom(&self) -> Vector<[f32; 3], Hom<2, B>> {
+    pub const fn to_hom(&self) -> Vec3 {
         Vector::new([self.0[0], self.0[1], 1.0])
     }
 }
 
-impl<Sc: Copy, B> Point<[Sc; 3], Real<3, B>> {
+impl<Sc: Copy> Point<[Sc; 3]> {
     /// Returns the x component of `self`.
     #[inline]
     pub const fn x(&self) -> Sc {
@@ -251,7 +247,7 @@ impl<Sc: Copy, B> Point<[Sc; 3], Real<3, B>> {
 impl<B> Point3<B> {
     // Converts `self´ to homogeneous representation.
     #[inline]
-    pub const fn to_hom(&self) -> Vector<[f32; 4], Hom<3, B>> {
+    pub const fn to_hom(&self) -> Vec4 {
         Vector::new([self.0[0], self.0[1], self.0[2], 1.0])
     }
 }

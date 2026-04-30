@@ -5,40 +5,37 @@ use crate::{
     math::{Mat4, Point3, ProjMat3, pt3},
 };
 
-use super::{
-    Model, World,
-    clip::{ClipVert, Status, view_frustum},
-};
+use super::clip::{ClipVert, Status, view_frustum};
 
 #[derive(Clone, Debug)]
 pub struct Obj<A> {
     pub geom: Mesh<A>,
-    pub bbox: BBox<Model>,
-    pub tf: Mat4<Model, World>,
+    pub bbox: BBox,
+    pub tf: Mat4,
 }
 
 // TODO Decide whether upper bound is inclusive or exclusive
 // TODO Needs to be more generic to work with clip points
 #[derive(Copy, Clone, PartialEq)]
-pub struct BBox<B>(pub Point3<B>, pub Point3<B>);
+pub struct BBox(pub Point3, pub Point3);
 
 impl<A> Obj<A> {
     pub fn new(geom: Mesh<A>) -> Self {
         Self::with_transform(geom, Mat4::identity())
     }
-    pub fn with_transform(geom: Mesh<A>, tf: Mat4<Model, World>) -> Self {
+    pub fn with_transform(geom: Mesh<A>, tf: Mat4) -> Self {
         let bbox = BBox::of(&geom);
         Self { geom, bbox, tf }
     }
 }
 
-impl<B> BBox<B> {
-    pub fn of<A>(mesh: &Mesh<A, B>) -> Self {
+impl BBox {
+    pub fn of<A>(mesh: &Mesh<A>) -> Self {
         mesh.verts.iter().map(|v| &v.pos).collect()
     }
 
     /// If needed, enlarges `self` so that a point is just contained.
-    pub fn extend(&mut self, pt: &Point3<B>) {
+    pub fn extend(&mut self, pt: &Point3) {
         let BBox(low, upp) = self;
         *low = low.zip_map(*pt, f32::min);
         *upp = upp.zip_map(*pt, f32::max);
@@ -50,13 +47,13 @@ impl<B> BBox<B> {
     }
 
     /// Returns whether a point is within the bounds of `self`.
-    pub fn contains(&self, pt: &Point3<B>) -> bool {
+    pub fn contains(&self, pt: &Point3) -> bool {
         let BBox(low, upp) = self;
         (0..3).all(|i| low[i] <= pt[i] && pt[i] <= upp[i])
     }
 
     #[rustfmt::skip]
-    pub fn verts(&self) -> [Point3<B>; 8] {
+    pub fn verts(&self) -> [Point3; 8] {
         let [x0, y0, z0] = self.0.0;
         let [x1, y1, z1] = self.1.0;
         [
@@ -78,7 +75,7 @@ impl<B> BBox<B> {
     /// geometry needs no clipping or culling.  If the return value is
     /// `Clipped`, the box and the geometry are *potentially* visible and
     /// more fine-grained culling is required.
-    pub fn visibility(&self, tf: &ProjMat3<B>) -> Status {
+    pub fn visibility(&self, tf: &ProjMat3) -> Status {
         view_frustum::status(
             &self
                 .verts()
@@ -87,7 +84,7 @@ impl<B> BBox<B> {
     }
 }
 
-impl<B: Debug + Default> Debug for BBox<B> {
+impl Debug for BBox {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         f.debug_tuple("BBox")
             .field(&self.0)
@@ -107,21 +104,21 @@ impl<A> Default for Obj<A> {
     }
 }
 
-impl<B> Default for BBox<B> {
+impl Default for BBox {
     /// Returns an empty `BBox`.
     fn default() -> Self {
         BBox([f32::INFINITY; 3].into(), [f32::NEG_INFINITY; 3].into())
     }
 }
 
-impl<'a, B> Extend<&'a Point3<B>> for BBox<B> {
-    fn extend<I: IntoIterator<Item = &'a Point3<B>>>(&mut self, it: I) {
+impl<'a> Extend<&'a Point3> for BBox {
+    fn extend<I: IntoIterator<Item = &'a Point3>>(&mut self, it: I) {
         it.into_iter().for_each(|pt| self.extend(pt));
     }
 }
 
-impl<'a, B> FromIterator<&'a Point3<B>> for BBox<B> {
-    fn from_iter<I: IntoIterator<Item = &'a Point3<B>>>(it: I) -> Self {
+impl<'a> FromIterator<&'a Point3> for BBox {
+    fn from_iter<I: IntoIterator<Item = &'a Point3>>(it: I) -> Self {
         let mut bbox = BBox::default();
         Extend::extend(&mut bbox, it);
         bbox
@@ -136,13 +133,13 @@ mod tests {
 
     #[test]
     fn bbox_default() {
-        assert!(BBox::<()>::default().is_empty());
-        assert!(!BBox::<()>::default().contains(&Point3::origin()));
+        assert!(BBox::default().is_empty());
+        assert!(!BBox::default().contains(&Point3::origin()));
     }
 
     #[test]
     fn bbox_extend() {
-        let mut bbox = BBox::<()>(pt3(-1.0, -2.0, -3.0), pt3(5.0, 3.0, 2.0));
+        let mut bbox = BBox(pt3(-1.0, -2.0, -3.0), pt3(5.0, 3.0, 2.0));
 
         bbox.extend(&pt3(1.0, 1.0, 1.0));
         assert_eq!(bbox, BBox(pt3(-1.0, -2.0, -3.0), pt3(5.0, 3.0, 2.0)));
@@ -153,17 +150,11 @@ mod tests {
 
     #[test]
     fn bbox_is_empty() {
+        assert!(BBox(pt3(-1.0, 0.0, -1.0), pt3(1.0, 0.0, 1.0)).is_empty());
+        assert!(BBox(pt3(-1.0, -1.0, 1.0), pt3(1.0, 1.0, -1.0)).is_empty());
+        assert!(!BBox(pt3(-1.0, -1.0, -1.0), pt3(1.0, 1.0, 1.0)).is_empty());
         assert!(
-            BBox::<()>(pt3(-1.0, 0.0, -1.0), pt3(1.0, 0.0, 1.0)).is_empty()
-        );
-        assert!(
-            BBox::<()>(pt3(-1.0, -1.0, 1.0), pt3(1.0, 1.0, -1.0)).is_empty()
-        );
-        assert!(
-            !BBox::<()>(pt3(-1.0, -1.0, -1.0), pt3(1.0, 1.0, 1.0)).is_empty()
-        );
-        assert!(
-            !BBox::<()>(pt3(-1.0, 10.0, -1.0), pt3(1.0, f32::INFINITY, 1.0))
+            !BBox(pt3(-1.0, 10.0, -1.0), pt3(1.0, f32::INFINITY, 1.0))
                 .is_empty()
         );
     }
@@ -171,19 +162,19 @@ mod tests {
     #[test]
     fn bbox_contains() {
         assert!(
-            !BBox::<()>(pt3(-1.0, 0.0, -1.0), pt3(1.0, 0.0, 1.0))
+            !BBox(pt3(-1.0, 0.0, -1.0), pt3(1.0, 0.0, 1.0))
                 .contains(&pt3(0.0, 1.0, 0.0))
         );
         assert!(
-            BBox::<()>(pt3(-1.0, 0.0, -1.0), pt3(1.0, 0.0, 1.0))
+            BBox(pt3(-1.0, 0.0, -1.0), pt3(1.0, 0.0, 1.0))
                 .contains(&pt3(0.0, 0.0, 0.0))
         );
         assert!(
-            BBox::<()>(pt3(-1.0, -1.0, -1.0), pt3(1.0, 1.0, 1.0))
+            BBox(pt3(-1.0, -1.0, -1.0), pt3(1.0, 1.0, 1.0))
                 .contains(&pt3(-1.0, 0.0, 0.0))
         );
         assert!(
-            BBox::<()>(pt3(-1.0, -1.0, -1.0), pt3(1.0, 1.0, 1.0))
+            BBox(pt3(-1.0, -1.0, -1.0), pt3(1.0, 1.0, 1.0))
                 .contains(&pt3(0.0, 0.0, 0.0))
         );
     }

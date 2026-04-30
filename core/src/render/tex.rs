@@ -15,7 +15,7 @@ pub struct Tex;
 /// in range (0, 0)..(w, h) for some texture with dimensions w and h, or
 /// relative, in range (0, 0)..(1, 1), in which case they are independent
 /// of the actual dimensions of the texture.
-pub type TexCoord = Vec2<Tex>;
+pub type TexCoord = Vec2;
 
 /// A texture type. Can contain either owned or borrowed pixel data.
 ///

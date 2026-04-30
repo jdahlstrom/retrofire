@@ -29,14 +29,14 @@ fn main() {
     let light_dir = vec3(-2.0, 1.0, -4.0).normalize();
 
     let floor_shader = shader::new(
-        |v: Vertex3<_>, mvp: &ProjMat3<_>| vertex(mvp.apply(&v.pos), v.attrib),
+        |v: Vertex3<_>, mvp: &ProjMat3| vertex(mvp.apply(&v.pos), v.attrib),
         |frag: Frag<Vec2>| {
             let even_odd = (frag.var.x() > 0.5) ^ (frag.var.y() > 0.5);
             gray(if even_odd { 0.8 } else { 0.1 }).to_color4()
         },
     );
     let crate_shader = shader::new(
-        |v: Vertex3<(Normal3, TexCoord)>, mvp: &ProjMat3<_>| {
+        |v: Vertex3<(Normal3, TexCoord)>, mvp: &ProjMat3| {
             vertex(mvp.apply(&v.pos), v.attrib)
         },
         |frag: Frag<(Normal3, TexCoord)>| {
@@ -98,7 +98,7 @@ fn main() {
         // Floor
         {
             let Obj { bbox, tf, geom } = &floor;
-            let model_to_project = tf.then(&world_to_project);
+            let model_to_project = tf.then(&world_to_project.to()).to();
             if bbox.visibility(&model_to_project) != Hidden {
                 let mut b = batch
                     .clone()
@@ -117,7 +117,7 @@ fn main() {
                 frame.ctx.stats.borrow_mut().objs.i += 1;
             }
 
-            let model_to_project = tf.then(&world_to_project);
+            let model_to_project = tf.then(&world_to_project.to()).to();
 
             // TODO Also if `Visible`, no further clipping or culling needed
             if bbox.visibility(&model_to_project) == Hidden {

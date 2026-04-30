@@ -6,7 +6,7 @@ use core::{array::from_fn, f32::consts::SQRT_2, iter::zip};
 use retrofire_core::{
     geom::{Mesh, Normal3, Vertex3, vertex},
     math::{Lerp, Point3, SQRT_3, Vec3, pt3, vec3},
-    render::{Model, TexCoord, uv},
+    render::{TexCoord, uv},
 };
 
 use super::Build;
@@ -190,7 +190,7 @@ impl Box {
     /// Builds the cuboid mesh.
     pub fn build_with<A>(
         self,
-        mut f: impl FnMut(Point3<Model>, Normal3, TexCoord) -> Vertex3<A>,
+        mut f: impl FnMut(Point3, Normal3, TexCoord) -> Vertex3<A>,
     ) -> Mesh<A> {
         let mut b = Mesh::builder();
         b.push_faces(Self::FACES);

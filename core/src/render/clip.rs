@@ -726,8 +726,9 @@ mod tests {
     }
 
     fn in_bounds(Tri(vs): &Tri<ClipVert<f32>>) -> bool {
-        vs.iter()
-            .flat_map(|v| (v.pos / v.pos.w()).0)
-            .all(|a| a.abs() <= 1.00001)
+        //vs.iter()
+        //  .flat_map(|v| (v.pos / v.pos.w()).0)
+        //.all(|a| a.abs() <= 1.00001)
+        todo!()
     }
 }
