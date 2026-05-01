@@ -219,27 +219,30 @@ where
 /// Parses a numeric value from `src`, skipping whitespace and comments.
 #[inline]
 fn parse_u16(src: impl IntoIterator<Item = u8>) -> Result<u16> {
-    let mut whitespace_or_comment = {
-        let mut in_comment = false;
-        move |b: &u8| match *b {
-            b'#' => {
-                in_comment = true;
-                true
+    fn do_parse(src: &mut dyn Iterator<Item = u8>) -> Result<u16> {
+        let mut whitespace_or_comment = {
+            let mut in_comment = false;
+            move |b: &u8| match *b {
+                b'#' => {
+                    in_comment = true;
+                    true
+                }
+                b'\n' => {
+                    in_comment = false;
+                    true
+                }
+                _ => in_comment || b.is_ascii_whitespace(),
             }
-            b'\n' => {
-                in_comment = false;
-                true
-            }
-            _ => in_comment || b.is_ascii_whitespace(),
-        }
-    };
-    let str = src
-        .into_iter()
-        .skip_while(whitespace_or_comment)
-        .take_while(|b| !whitespace_or_comment(b))
-        .map(char::from)
-        .collect::<String>();
-    Ok(str.parse()?)
+        };
+        let str = src
+            .into_iter()
+            .skip_while(whitespace_or_comment)
+            .take_while(|b| !whitespace_or_comment(b))
+            .map(char::from)
+            .collect::<String>();
+        Ok(str.parse()?)
+    }
+    do_parse(&mut src.into_iter())
 }
 
 const fn magic(bytes: &[u8; 2]) -> u16 {
