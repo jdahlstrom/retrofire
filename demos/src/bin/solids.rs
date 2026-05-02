@@ -1,5 +1,6 @@
-use core::ops::ControlFlow::Continue;
+#![allow(unused)]
 
+use core::ops::ControlFlow::Continue;
 use minifb::{Key, KeyRepeat};
 
 use re::prelude::*;
@@ -7,7 +8,7 @@ use re::prelude::*;
 use re::core::{
     geom::{Polyline, Ray},
     math::{ProjMat3, ProjVec3, color::gray, spline::HermiteSpline},
-    render::{cam::Fov, shader},
+    render::{cam::Fov, render, render_, shader},
 };
 use re::front::{Frame, minifb::Window};
 use re::geom::{io::read_obj, solids::*};
@@ -79,6 +80,7 @@ fn main() {
 
     fn frag_shader(f: Frag<Color3f>) -> Color4 {
         f.var.to_color4()
+        //rgba(0xFF, 0xFF, 0xFF, 0xFF)
     }
 
     let shader = shader::new(vtx_shader, frag_shader);
@@ -87,6 +89,7 @@ fn main() {
 
     let translate = translate(-3.0 * Vec3::Z);
     let mut carousel = Carousel::default();
+    carousel.idx = 1;
 
     win.run(|frame| {
         let Frame { t, dt, win, .. } = frame;
@@ -109,16 +112,27 @@ fn main() {
 
         let object = &objects[carousel.idx % objects.len()];
 
-        Batch {
-            prims: object.faces.clone(),
-            verts: object.verts.clone(),
-            uniform: (&model_view_project, &spin),
-            shader: shader,
-            viewport: cam.viewport,
-            target: frame.buf,
-            ctx: &*frame.ctx,
+        if cfg!(feature = "simple") {
+            render_(
+                &object.faces,
+                &object.verts,
+                &shader,
+                (&model_view_project, &spin),
+                cam.viewport,
+                &mut frame.buf.borrow_mut().color_buf,
+                &*frame.ctx,
+            );
+        } else {
+            render(
+                &object.faces,
+                &object.verts,
+                &shader,
+                (&model_view_project, &spin),
+                cam.viewport,
+                &mut frame.buf.borrow_mut().color_buf,
+                &*frame.ctx,
+            );
         }
-        .render();
 
         Continue(())
     });
@@ -126,7 +140,7 @@ fn main() {
 
 // Creates the 14 objects exhibited.
 #[rustfmt::skip]
-fn objects_n(res: u32) -> [Mesh<Normal3>; 14] {
+fn objects_n(res: u32) -> [Mesh<Normal3>; 2] {
     let segments = res;
     let sectors = 2 * res;
 
@@ -135,7 +149,10 @@ fn objects_n(res: u32) -> [Mesh<Normal3>; 14] {
 
     let major_sectors = 3 * res;
     let minor_sectors = 2 * res;
-    [
+
+
+    return [Icosahedron.build(),bunny()];
+    /*[
         // The five Platonic solids
         Tetrahedron.build(),
         Cube { side_len: 1.25 }.build(),
@@ -155,7 +172,7 @@ fn objects_n(res: u32) -> [Mesh<Normal3>; 14] {
         teapot(),
         bunny(),
         dragon()
-    ]
+    ]*/
 }
 
 // Creates a Lathe mesh.

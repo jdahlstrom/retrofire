@@ -17,9 +17,13 @@ use core::{
     ops::Range,
 };
 
+use crate::render::Context;
 use crate::{
     geom::Vertex,
-    math::{Lerp, Vary, point::Point3},
+    math::{Affine, Lerp, Linear, Vary, point::Point3},
+    render::FragmentShader,
+    util::buf::MutSlice2,
+    util::pixfmt::{IntoPixel, Xrgb8888},
 };
 
 /// A fragment, or a single "pixel" in a rasterized primitive.
@@ -187,7 +191,16 @@ where
     F: FnMut(Scanline<V>),
 {
     // Sort by y coordinate, start from the top
-    verts.sort_by(|a, b| a.pos.y().total_cmp(&b.pos.y()));
+    if verts[0].pos.y() > verts[1].pos.y() {
+        verts.swap(0, 1);
+    }
+    if verts[1].pos.y() > verts[2].pos.y() {
+        verts.swap(1, 2);
+    }
+    if verts[0].pos.y() > verts[1].pos.y() {
+        verts.swap(0, 1);
+    }
+
     let [a, b, c] = verts;
     let [top, mid0, bot] =
         [(a.pos, a.attrib), (b.pos, b.attrib), (c.pos, c.attrib)];
@@ -297,6 +310,161 @@ pub fn scan<V: Vary>(
         right: r0.vary(dr_dy.0.x(), None),
         dv_dx,
         n: (y1_rounded - y0_rounded) as u32, // saturates to 0
+    }
+}
+
+pub fn tri_fill_<V>(
+    mut verts: [Vertex<ScreenPt, V>; 3],
+    shd: &impl FragmentShader<V>,
+    buf: &mut MutSlice2<u32>,
+    ctx: &Context,
+) where
+    V: Affine<Diff: Linear<Scalar = f32>> + Lerp + Copy,
+{
+    if verts[0].pos.y() > verts[1].pos.y() {
+        verts.swap(0, 1);
+    }
+    if verts[1].pos.y() > verts[2].pos.y() {
+        verts.swap(1, 2);
+    }
+    if verts[0].pos.y() > verts[1].pos.y() {
+        verts.swap(0, 1);
+    }
+
+    let [a, b, c] = verts;
+    let [top, mid0, bot] =
+        [(a.pos, a.attrib), (b.pos, b.attrib), (c.pos, c.attrib)];
+
+    let [top_y, mid_y, bot_y] = [a.pos.y(), b.pos.y(), c.pos.y()];
+
+    // Find the point on the "long" edge at the same line as `mid0`
+    let mid1 = top.lerp(&bot, (mid_y - top_y) / (bot_y - top_y));
+
+    let (left, right) = if mid0.0.x() < mid1.0.x() {
+        (mid0, mid1)
+    } else {
+        (mid1, mid0)
+    };
+
+    // UPPER TRI
+
+    let y0 = top.0.y();
+    let y1 = left.0.y();
+    let l0 = top;
+    let l1 = left;
+    let r0 = top;
+    let r1 = right;
+
+    let recip_dy = (y1 - y0).recip();
+
+    // dv/dy for the left edge
+    let dl_dy = (l1.0.sub(&l0.0).mul(recip_dy), l1.1.sub(&l0.1).mul(recip_dy));
+    // dv/dy for the right edge
+    let dr_dy = (r1.0.sub(&r0.0).mul(recip_dy), r1.1.sub(&r0.1).mul(recip_dy));
+
+    // dv/dx is constant for the whole polygon; precompute it
+    let dv_dx = {
+        let (l0, r0) = (
+            (l0.0.add(&dl_dy.0), l0.1.add(&dl_dy.1)),
+            (r0.0.add(&dr_dy.0), r0.1.add(&dr_dy.1)),
+        );
+        let dx = r0.0.x() - l0.0.x();
+        (
+            r0.0.sub(&l0.0).mul(dx.recip()),
+            r0.1.sub(&l0.1).mul(dx.recip()),
+        )
+    };
+
+    let y0_rounded = round_up_to_half(y0);
+    let y1_rounded = round_up_to_half(y1);
+
+    let y_tweak = y0_rounded - y0;
+
+    // Adjust varyings to correspond to the aligned y value
+    let v_l = (
+        l0.0.lerp(&l0.0.add(&dl_dy.0), y_tweak),
+        l0.1.lerp(&l0.1.add(&dl_dy.1), y_tweak),
+    );
+
+    let r0 = r0.0.x() + dr_dy.0.x() * y_tweak;
+
+    let mut x_r = r0;
+    let mut var = v_l;
+
+    for y in (y0_rounded as u32)..(y1_rounded as u32) {
+        let x_l = var.0.x().min(x_r);
+        let slice = &mut buf[y as usize][(x_l as usize)..(x_r as usize)];
+        let mut v = var;
+        for p in slice {
+            let frag = Frag { pos: v.0, var: v.1 };
+            if let Some(col) = shd.shade_fragment(frag)
+                && ctx.color_write
+            {
+                *p = col.into_pixel_fmt(Xrgb8888)
+            }
+
+            v = (v.0.add(&dv_dx.0), v.1.add(&dv_dx.1));
+        }
+        x_r += dr_dy.0.x();
+        var = (var.0.add(&dl_dy.0), var.1.add(&dl_dy.1));
+    }
+
+    // LOWER TRI
+
+    let y0 = left.0.y();
+    let y1 = bot.0.y();
+    let l0 = left;
+    let l1 = bot;
+    let r0 = right;
+    let r1 = bot;
+
+    let recip_dy = (y1 - y0).recip();
+
+    // dv/dy for the left edge
+    let dl_dy = (l1.0.sub(&l0.0).mul(recip_dy), l1.1.sub(&l0.1).mul(recip_dy));
+    // dv/dy for the right edge
+    let dr_dy = (r1.0.sub(&r0.0).mul(recip_dy), r1.1.sub(&r0.1).mul(recip_dy));
+
+    // dv/dx is constant for the whole polygon; precompute it
+    let dv_dx = {
+        let (l0, r0) = (
+            (l0.0.add(&dl_dy.0), l0.1.add(&dl_dy.1)),
+            (r0.0.add(&dr_dy.0), r0.1.add(&dr_dy.1)),
+        );
+        let dx = r0.0.x() - l0.0.x();
+        (
+            r0.0.sub(&l0.0).mul(dx.recip()),
+            r0.1.sub(&l0.1).mul(dx.recip()),
+        )
+    };
+
+    let y0_rounded = round_up_to_half(y0);
+    let y1_rounded = round_up_to_half(y1);
+
+    let y_tweak = y0_rounded - y0;
+
+    // Adjust varyings to correspond to the aligned y value
+    let v_l = (
+        l0.0.lerp(&l0.0.add(&dl_dy.0), y_tweak),
+        l0.1.lerp(&l0.1.add(&dl_dy.1), y_tweak),
+    );
+    let mut x_r = r0.0.x() + dr_dy.0.x() * y_tweak;
+    let mut var = v_l;
+    for y in (y0_rounded as u32)..(y1_rounded as u32) {
+        let x_l = var.0.x().min(x_r);
+        let slice = &mut buf[y as usize][(x_l as usize)..(x_r as usize)];
+        let mut v = var;
+        for p in slice {
+            let frag = Frag { pos: v.0, var: v.1 };
+            if let Some(col) = shd.shade_fragment(frag)
+                && ctx.color_write
+            {
+                *p = col.into_pixel_fmt(Xrgb8888);
+            }
+            v = (v.0.add(&dv_dx.0), v.1.add(&dv_dx.1));
+        }
+        x_r += dr_dy.0.x();
+        var = (var.0.add(&dl_dy.0), var.1.add(&dl_dy.1));
     }
 }
 

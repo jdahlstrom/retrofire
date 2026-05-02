@@ -1,5 +1,4 @@
 //! Fillrate benchmarks.
-
 use core::iter::zip;
 
 use divan::{Bencher, counter::ItemsCount};

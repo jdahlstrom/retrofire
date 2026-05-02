@@ -8,16 +8,19 @@
 use alloc::vec::Vec;
 use core::{fmt::Debug, ops::DerefMut};
 
-use crate::geom::Vertex;
+use crate::geom::{Tri, Vertex};
 use crate::math::{
-    Mat4, Vary,
+    Affine, Lerp, Linear, Mat4, Vary,
     mat::{RealToProj, RealToReal},
+    vec::Vec4,
 };
+use crate::util::buf::AsMutSlice2;
 
 use self::{
     clip::{ClipVert, view_frustum},
     ctx::DepthSort,
     raster::Scanline,
+    raster::tri_fill_,
 };
 
 pub(super) mod re_exports {
@@ -35,7 +38,6 @@ pub(super) mod re_exports {
         text::Text,
     };
 }
-use crate::math::vec::Vec4;
 pub use re_exports::*;
 
 pub mod batch;
@@ -216,6 +218,85 @@ pub fn render<Prim, Vtx: Clone, Var, Uni: Copy, Shd>(
                 //stats.frags += tp;
             }
         });
+    }
+
+    #[cfg(feature = "stats")]
+    {
+        *ctx.stats.borrow_mut() += stats.finish();
+    }
+}
+
+/// Renders the given primitives into `target`.
+pub fn render_<Vtx: Clone, Var, Uni: Copy, Shd>(
+    tris: impl AsRef<[Tri<usize>]>,
+    verts: impl AsRef<[Vtx]>,
+    shader: &Shd,
+    uniform: Uni,
+    to_screen: Mat4,
+    target: &mut impl AsMutSlice2<Elem = u32>,
+    ctx: &Context,
+) where
+    Var: Vary + Affine<Diff: Linear<Scalar = f32> + Copy> + Lerp + Copy,
+    Shd: Shader<Vtx, Var, Uni>,
+{
+    // 0. Preparations
+    let verts = verts.as_ref();
+    let prims = tris.as_ref();
+
+    #[cfg(feature = "stats")]
+    let mut stats = {
+        let mut s = Stats::start();
+        s.calls = 1.0;
+        s.prims.i = prims.len();
+        s.verts.i = verts.len();
+        s
+    };
+
+    // 1. Vertex shader: transform vertices to clip space
+    let verts: Vec<_> = verts
+        // verts is borrowed, can't consume
+        .iter()
+        // TODO Pass vertex as ref to shader
+        .cloned()
+        .map(|v| shader.shade_vertex(v, uniform))
+        .map(ClipVert::new)
+        .collect();
+
+    // 2. Primitive assembly: map vertex indices to actual vertices
+    let prims: Vec<_> = prims
+        .iter()
+        .map(|tri| Tri::inline(tri.clone(), &verts))
+        // Collect needed because clip takes a slice...
+        .collect();
+
+    // 3. Clipping: clip against the view frustum
+    // TODO capacity is just a heuristic, should retain vector between calls somehow
+    let mut clipped = Vec::with_capacity(prims.len() / 2);
+    view_frustum::clip(&prims[..], &mut clipped);
+
+    // Optional depth sorting for use case such as transparency
+    if let Some(d) = ctx.depth_sort {
+        depth_sort::<Tri<_>, _>(&mut clipped, d);
+    }
+
+    // For each primitive in the view frustum:
+    for prim in clipped {
+        // Transform to screen space
+        let prim = Tri::to_screen(prim, &to_screen);
+        // Back/frontface culling
+        // TODO This could also be done earlier, before or as part of clipping
+        if ctx.face_cull(Tri::is_backface(&prim)) {
+            continue;
+        }
+
+        // Log output stats after culling
+        #[cfg(feature = "stats")]
+        {
+            stats.prims.o += 1;
+            stats.verts.o += 3; // TODO Get number of verts in prim somehow
+        }
+
+        tri_fill_(prim.0, shader, &mut target.as_mut_slice2(), ctx);
     }
 
     #[cfg(feature = "stats")]

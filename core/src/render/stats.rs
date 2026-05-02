@@ -12,10 +12,13 @@ use std::time::Instant;
 //
 
 /// Collects and accumulates rendering statistics and performance data.
-#[derive(Clone, Debug, Default)]
+#[derive(Clone, Debug)]
 pub struct Stats {
     /// Time spent rendering.
     pub time: Duration,
+    pub min_time: Duration,
+    pub max_time: Duration,
+
     /// Number of render calls issued.
     pub calls: f32,
     /// Number of frames rendered.
@@ -43,6 +46,25 @@ pub struct Throughput {
 // Impls
 //
 
+impl Default for Stats {
+    fn default() -> Self {
+        Self {
+            time: Duration::ZERO,
+            min_time: Duration::from_secs_f32(1e6),
+            max_time: Duration::ZERO,
+            calls: 0.0,
+            frames: 0.0,
+            objs: Throughput::default(),
+            prims: Throughput::default(),
+            verts: Throughput::default(),
+            frags: Throughput::default(),
+
+            #[cfg(feature = "std")]
+            start: None,
+        }
+    }
+}
+
 impl Stats {
     /// Creates a new zeroed `Stats` instance.
     pub fn new() -> Self {
@@ -58,6 +80,7 @@ impl Stats {
         Self {
             #[cfg(feature = "std")]
             start: Some(Instant::now()),
+            min_time: Duration::from_secs_f32(1e6),
             ..Self::default()
         }
     }
@@ -67,12 +90,15 @@ impl Stats {
     /// No-op if the timer was not running. This method is also no-op unless
     /// the `std` feature is enabled.
     pub fn finish(self) -> Self {
+        let time = self
+            .start
+            .map(|st| st.elapsed())
+            .unwrap_or(self.time);
         Self {
             #[cfg(feature = "std")]
-            time: self
-                .start
-                .map(|st| st.elapsed())
-                .unwrap_or(self.time),
+            time,
+            min_time: self.min_time.min(time),
+            max_time: self.max_time.max(time),
             ..self
         }
     }
@@ -90,6 +116,8 @@ impl Stats {
             frames: self.frames / secs,
             calls: self.calls / secs,
             time: Duration::from_secs(1),
+            min_time: Default::default(),
+            max_time: Default::default(),
             objs,
             prims,
             verts,
@@ -108,6 +136,8 @@ impl Stats {
             frames: 1.0,
             calls: self.calls / frames,
             time: self.time.div_f32(frames),
+            min_time: Default::default(),
+            max_time: Default::default(),
             objs,
             prims,
             verts,
@@ -173,6 +203,12 @@ impl Display for Stats {
                 writeln!(f, " {lbl:6} {tot:w$} │ {per_s:w$} │ {per_f:w$}")?;
             }
         }
+
+        writeln!(f, "min time: {}, max time: {}", human_time(self.min_time),
+            human_time(
+                self
+            .max_time))?;
+
         Ok(())
     }
 }
@@ -200,6 +236,8 @@ impl AddAssign for Stats {
     /// Appends the stats of `other` to `self`.
     fn add_assign(&mut self, other: Self) {
         self.time += other.time;
+        self.min_time = self.min_time.min(other.min_time);
+        self.max_time = self.max_time.max(other.max_time);
         self.calls += other.calls;
         self.frames += other.frames;
         for i in 0..4 {

@@ -1,5 +1,4 @@
 //! Intersection testing benchmarks.
-
 use core::hint::black_box;
 
 use divan::{Bencher, counter::ItemsCount};

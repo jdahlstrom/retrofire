@@ -5,6 +5,7 @@ use core::{
     mem::replace,
     ops::ControlFlow::{self, *},
 };
+use std::env;
 use std::time::Instant;
 
 use minifb::{Key, WindowOptions};
@@ -86,6 +87,8 @@ impl<'t> Builder<'t> {
     }
 }
 
+#[cfg(feature = "stats")]
+use retrofire_core::render::Stats;
 #[cfg(not(feature = "stats"))]
 pub type Stats = ();
 
@@ -118,6 +121,8 @@ impl Window {
     where
         F: FnMut(&mut Frame<Window, &RefCell<Framebuf>>) -> ControlFlow<()>,
     {
+        let bench = env::args().find(|arg| arg == "bench").is_some();
+
         let (w, h) = self.dims;
         let mut cbuf = Buf2::new((w, h));
         let mut zbuf = Buf2::new((w, h));
@@ -127,6 +132,9 @@ impl Window {
         let mut last = Instant::now();
         loop {
             if self.should_quit() {
+                break;
+            }
+            if bench && start.elapsed().as_secs_f32() > 5.0 {
                 break;
             }
             let buf = Framebuf {
@@ -145,7 +153,9 @@ impl Window {
             if let Break(_) = frame_fn(frame) {
                 break;
             }
-            self.present(cbuf.data_mut());
+            if !bench {
+                self.present(cbuf.data_mut());
+            }
 
             #[cfg(feature = "stats")]
             {
