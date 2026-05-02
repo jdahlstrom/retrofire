@@ -144,6 +144,7 @@ pub fn rasterize<B: AsMutSlice2, V: Vary>(
 ) -> Throughput {
     let x0 = sl.xs.start;
     let x1 = sl.xs.end.max(x0);
+
     let mut io = Throughput { i: x1 - x0, o: 0 };
     let cbuf_span = &mut buf.as_mut_slice2()[sl.y][x0..x1];
 

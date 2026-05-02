@@ -75,6 +75,10 @@ split-debuginfo = "unpacked"
 
 
 [[bench]]
+name = "e2e"
+harness = false
+
+[[bench]]
 name = "fill"
 harness = false
 
