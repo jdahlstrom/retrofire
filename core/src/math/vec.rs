@@ -105,7 +105,7 @@ impl<R, Sp> Vector<R, Sp> {
     /// to cast a "generic" vector returned by one of the constructor
     /// functions to a more specific space.
     #[inline]
-    pub const fn to<S>(self) -> Vector<R, S>
+    pub const fn to(self) -> Vector<R>
     where
         R: Copy, // Required for now due to E0493
     {
@@ -114,7 +114,7 @@ impl<R, Sp> Vector<R, Sp> {
 
     /// Returns the affine point equivalent to `self`.
     #[inline]
-    pub const fn to_pt(self) -> Point<R, Sp>
+    pub const fn to_pt(self) -> Point<R>
     where
         R: Copy, // Required for now due to E0493
     {

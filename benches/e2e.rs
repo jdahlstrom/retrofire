@@ -62,7 +62,7 @@ fn triangle(b: Bencher, n: u32) {
     //pnm::save_ppm("benches_e2e_triangle.ppm", framebuf).unwrap();
 }
 
-#[divan::bench(args=[4, 16, 64, 256, 1024], min_time=1, max_time=2)]
+#[divan::bench(args=[4, 16, 64, 256, 1024], min_time=5, max_time=5)]
 fn sphere(b: Bencher, res: u32) {
     let sphere = Sphere {
         sectors: res,

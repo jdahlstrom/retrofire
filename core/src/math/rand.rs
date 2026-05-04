@@ -430,12 +430,12 @@ where
 }
 
 /// Uniformly distributed points within a rectangular volume.
-impl<Sc, Sp, const DIM: usize> Distrib for Uniform<Point<[Sc; DIM], Sp>>
+impl<Sc, const DIM: usize> Distrib for Uniform<Point<[Sc; DIM]>>
 where
     Sc: Copy,
     Uniform<[Sc; DIM]>: Distrib<Sample = [Sc; DIM]>,
 {
-    type Sample = Point<[Sc; DIM], Sp>;
+    type Sample = Point<[Sc; DIM]>;
 
     /// Returns a point uniformly sampled from the rectangular volume
     /// bounded by `self.0`.
@@ -445,13 +445,12 @@ where
             .into()
     }
 }
-impl<Sc, Sp, const DIM: usize> Distrib for Uniform<Color<[Sc; DIM], Sp>>
+impl<Sc, const DIM: usize> Distrib for Uniform<Color<[Sc; DIM]>>
 where
     Sc: Copy,
-    Sp: Clone, // TODO Color needs manual Clone etc impls like Vector
     Uniform<[Sc; DIM]>: Distrib<Sample = [Sc; DIM]>,
 {
-    type Sample = Point<[Sc; DIM], Sp>;
+    type Sample = Color<[Sc; DIM]>;
 
     /// Returns a point uniformly sampled from the rectangular volume
     /// bounded by `self.0`.

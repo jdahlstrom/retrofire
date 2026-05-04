@@ -24,7 +24,7 @@ use super::{Affine, Linear, Vector, vary::ZDiv};
 ///   Color components are also called *channels*.
 /// * `Space`: the color space that `Self` is an element of.
 #[repr(transparent)]
-pub struct Color<Repr, Space>(pub Repr, PhantomData<Space>);
+pub struct Color<Repr, Space = ()>(pub Repr, PhantomData<Space>);
 
 /// The (s)RGB (red, green, blue) color space.
 #[derive(Copy, Clone, Debug, Default, Eq, PartialEq)]
