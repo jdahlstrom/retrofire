@@ -1,7 +1,6 @@
 use core::{
     array,
     fmt::{Debug, Formatter},
-    marker::PhantomData as Pd,
     ops::{Add, Div, Index, IndexMut, Mul, Neg, Sub},
     ops::{AddAssign, DivAssign, MulAssign, SubAssign},
 };
@@ -9,36 +8,36 @@ use core::{
 use super::{Affine, ApproxEq, Linear, Vec3, Vector, vary::ZDiv, vec::Vec4};
 
 #[repr(transparent)]
-pub struct Point<Repr, Space = ()>(pub Repr, Pd<Space>);
+pub struct Point<Repr>(pub Repr);
 
 /// A 2-point with `f32` components.
-pub type Point2<S = ()> = Point<[f32; 2], S>;
+pub type Point2 = Point<[f32; 2]>;
 /// A 3-point with `f32` components.
-pub type Point3<S = ()> = Point<[f32; 3], S>;
+pub type Point3 = Point<[f32; 3]>;
 
 /// A 2-point with `u32` components.
-pub type Point2u<S = ()> = Point<[u32; 2], S>;
+pub type Point2u = Point<[u32; 2]>;
 
 /// Returns a real 2-point with `x` and `y` components.
 #[inline]
 pub const fn pt2<Sc>(x: Sc, y: Sc) -> Point<[Sc; 2]> {
-    Point([x, y], Pd)
+    Point([x, y])
 }
 /// Returns a real 3-point with `x`, `y`, and `z` components.
 #[inline]
 pub const fn pt3<Sc>(x: Sc, y: Sc, z: Sc) -> Point<[Sc; 3]> {
-    Point([x, y, z], Pd)
+    Point([x, y, z])
 }
 
-impl<R, Sp> Point<R, Sp> {
+impl<R> Point<R> {
     #[inline]
     pub const fn new(repr: R) -> Self {
-        Self(repr, Pd)
+        Self(repr)
     }
 
     /// Returns a point with value equal to `self` but in space `S`.
     #[inline]
-    pub const fn to<S>(self) -> Point<R, S>
+    pub const fn to(self) -> Point<R>
     where
         R: Copy, // TODO Needed for now due to E0493
     {
@@ -47,7 +46,7 @@ impl<R, Sp> Point<R, Sp> {
 
     /// Returns the vector equivalent to `self`.
     #[inline]
-    pub const fn to_vec(self) -> Vector<R, Sp>
+    pub const fn to_vec(self) -> Vector<R>
     where
         R: Copy, // TODO Needed for now due to E0493
     {
@@ -55,7 +54,7 @@ impl<R, Sp> Point<R, Sp> {
     }
 }
 
-impl<Sc: Copy, Sp, const N: usize> Point<[Sc; N], Sp> {
+impl<Sc: Copy, const N: usize> Point<[Sc; N]> {
     /// Returns a vector of the same dimension as `self` by applying `f`
     /// component-wise.
     ///
@@ -68,7 +67,7 @@ impl<Sc: Copy, Sp, const N: usize> Point<[Sc; N], Sp> {
     /// ```
     #[inline]
     #[must_use]
-    pub fn map<T>(self, f: impl FnMut(Sc) -> T) -> Point<[T; N], Sp> {
+    pub fn map<T>(self, f: impl FnMut(Sc) -> T) -> Point<[T; N]> {
         self.0.map(f).into()
     }
 
@@ -87,9 +86,9 @@ impl<Sc: Copy, Sp, const N: usize> Point<[Sc; N], Sp> {
     #[must_use]
     pub fn zip_map<T: Copy, U>(
         self,
-        other: Point<[T; N], Sp>,
+        other: Point<[T; N]>,
         mut f: impl FnMut(Sc, T) -> U,
-    ) -> Point<[U; N], Sp> {
+    ) -> Point<[U; N]> {
         array::from_fn(|i| f(self.0[i], other.0[i])).into()
     }
 }
@@ -218,7 +217,7 @@ impl<Sc: Copy> Point<[Sc; 2]> {
     }
 }
 
-impl<B> Point2<B> {
+impl Point2 {
     /// Converts `self` to homogeneous representation.
     #[inline]
     pub const fn to_hom(&self) -> Vec3 {
@@ -244,7 +243,7 @@ impl<Sc: Copy> Point<[Sc; 3]> {
     }
 }
 
-impl<B> Point3<B> {
+impl Point3 {
     // Converts `self´ to homogeneous representation.
     #[inline]
     pub const fn to_hom(&self) -> Vec4 {
@@ -256,19 +255,19 @@ impl<B> Point3<B> {
 // Local trait impls
 //
 
-impl<ScSelf, ScDiff, Sp, const N: usize> Affine for Point<[ScSelf; N], Sp>
+impl<ScSelf, ScDiff, const N: usize> Affine for Point<[ScSelf; N]>
 where
     ScSelf: Affine<Diff = ScDiff> + Copy,
     ScDiff: Linear<Scalar = ScDiff> + Copy,
 {
-    type Space = Sp;
-    type Diff = Vector<[ScDiff; N], Sp>;
+    type Space = ();
+    type Diff = Vector<[ScDiff; N]>;
     const DIM: usize = N;
 
     #[inline]
     fn add(&self, other: &Self::Diff) -> Self {
         // TODO Profile performance of array::from_fn
-        Self(array::from_fn(|i| self.0[i].add(&other.0[i])), Pd)
+        Self(array::from_fn(|i| self.0[i].add(&other.0[i])))
     }
     #[inline]
     fn sub(&self, other: &Self) -> Self::Diff {
@@ -276,7 +275,7 @@ where
     }
 }
 
-impl<Sc, Sp, const N: usize> ZDiv for Point<[Sc; N], Sp>
+impl<Sc, const N: usize> ZDiv for Point<[Sc; N]>
 where
     Sc: ZDiv + Copy,
 {
@@ -289,7 +288,7 @@ where
     }
 }
 
-impl<Sc: ApproxEq, Sp, const N: usize> ApproxEq<Sc> for Point<[Sc; N], Sp> {
+impl<Sc: ApproxEq, const N: usize> ApproxEq<Sc> for Point<[Sc; N]> {
     fn approx_eq_eps(&self, other: &Self, eps: &Sc) -> bool {
         self.0.approx_eq_eps(&other.0, eps)
     }
@@ -305,76 +304,76 @@ impl<Sc: ApproxEq, Sp, const N: usize> ApproxEq<Sc> for Point<[Sc; N], Sp> {
 // Manual impls of Copy, Clone, Eq, and PartialEq to avoid
 // superfluous where S: Trait bound
 
-impl<R: Copy, S> Copy for Point<R, S> {}
+impl<R: Copy> Copy for Point<R> {}
 
-impl<R: Clone, S> Clone for Point<R, S> {
+impl<R: Clone> Clone for Point<R> {
     fn clone(&self) -> Self {
-        Self(self.0.clone(), Pd)
+        Self(self.0.clone())
     }
 }
 
-impl<R: Default, S> Default for Point<R, S> {
+impl<R: Default> Default for Point<R> {
     fn default() -> Self {
-        Self(R::default(), Pd)
+        Self(R::default())
     }
 }
 
-impl<R: Debug, Sp: Debug + Default> Debug for Point<R, Sp> {
+impl<R: Debug> Debug for Point<R> {
     fn fmt(&self, f: &mut Formatter<'_>) -> core::fmt::Result {
-        write!(f, "Point<{:?}>", Sp::default())?;
+        write!(f, "Point")?;
         Debug::fmt(&self.0, f)
     }
 }
 
-impl<R: Eq, S> Eq for Point<R, S> {}
+impl<R: Eq> Eq for Point<R> {}
 
-impl<R: PartialEq, S> PartialEq for Point<R, S> {
+impl<R: PartialEq> PartialEq for Point<R> {
     fn eq(&self, other: &Self) -> bool {
         self.0 == other.0
     }
 }
 
 // Point <-> repr conversions
-impl<R, Sp> From<R> for Point<R, Sp> {
+impl<R> From<R> for Point<R> {
     #[inline]
     fn from(repr: R) -> Self {
         Self::new(repr)
     }
 }
-impl<Sc, Sp, const N: usize> From<Point<[Sc; N], Sp>> for [Sc; N] {
+impl<Sc, const N: usize> From<Point<[Sc; N]>> for [Sc; N] {
     #[inline]
-    fn from(v: Point<[Sc; N], Sp>) -> Self {
+    fn from(v: Point<[Sc; N]>) -> Self {
         v.0
     }
 }
 
 // Point <-> tuple conversions
-impl<Sc, Sp> From<(Sc, Sc)> for Point<[Sc; 2], Sp> {
+impl<Sc> From<(Sc, Sc)> for Point<[Sc; 2]> {
     #[inline]
     fn from(xy: (Sc, Sc)) -> Self {
         Self::new(xy.into())
     }
 }
-impl<Sc, Sp> From<Point<[Sc; 2], Sp>> for (Sc, Sc) {
+impl<Sc> From<Point<[Sc; 2]>> for (Sc, Sc) {
     #[inline]
-    fn from(v: Point<[Sc; 2], Sp>) -> Self {
+    fn from(v: Point<[Sc; 2]>) -> Self {
         v.0.into()
     }
 }
-impl<Sc, Sp> From<(Sc, Sc, Sc)> for Point<[Sc; 3], Sp> {
+impl<Sc> From<(Sc, Sc, Sc)> for Point<[Sc; 3]> {
     #[inline]
     fn from(xyz: (Sc, Sc, Sc)) -> Self {
         Self::new(xyz.into())
     }
 }
-impl<Sc, Sp> From<Point<[Sc; 3], Sp>> for (Sc, Sc, Sc) {
+impl<Sc> From<Point<[Sc; 3]>> for (Sc, Sc, Sc) {
     #[inline]
-    fn from(v: Point<[Sc; 3], Sp>) -> Self {
+    fn from(v: Point<[Sc; 3]>) -> Self {
         v.0.into()
     }
 }
 
-impl<R: Index<usize>, Sp> Index<usize> for Point<R, Sp> {
+impl<R: Index<usize>> Index<usize> for Point<R> {
     type Output = R::Output;
 
     #[inline]
@@ -382,14 +381,14 @@ impl<R: Index<usize>, Sp> Index<usize> for Point<R, Sp> {
         self.0.index(i)
     }
 }
-impl<R: IndexMut<usize>, Sp> IndexMut<usize> for Point<R, Sp> {
+impl<R: IndexMut<usize>> IndexMut<usize> for Point<R> {
     #[inline]
     fn index_mut(&mut self, i: usize) -> &mut R::Output {
         self.0.index_mut(i)
     }
 }
 
-impl<R, Sp> Add<<Self as Affine>::Diff> for Point<R, Sp>
+impl<R> Add<<Self as Affine>::Diff> for Point<R>
 where
     Self: Affine,
 {
@@ -400,7 +399,7 @@ where
         Affine::add(&self, &other)
     }
 }
-impl<R, Sp> AddAssign<<Self as Affine>::Diff> for Point<R, Sp>
+impl<R> AddAssign<<Self as Affine>::Diff> for Point<R>
 where
     Self: Affine,
 {
@@ -410,7 +409,7 @@ where
     }
 }
 
-impl<R, Sp> Sub<<Self as Affine>::Diff> for Point<R, Sp>
+impl<R> Sub<<Self as Affine>::Diff> for Point<R>
 where
     Self: Affine,
 {
@@ -421,7 +420,7 @@ where
         Affine::add(&self, &other.neg())
     }
 }
-impl<R, Sp> SubAssign<<Self as Affine>::Diff> for Point<R, Sp>
+impl<R> SubAssign<<Self as Affine>::Diff> for Point<R>
 where
     Self: Affine,
 {
@@ -431,7 +430,7 @@ where
     }
 }
 
-impl<R, Sp, Diff> Sub for Point<R, Sp>
+impl<R, Diff> Sub for Point<R>
 where
     Self: Affine<Diff = Diff>,
 {
@@ -443,7 +442,7 @@ where
     }
 }
 
-impl<R, Sp> Neg for Point<R, Sp>
+impl<R> Neg for Point<R>
 where
     Self: Mul<f32, Output = Self>,
 {
@@ -454,10 +453,10 @@ where
     }
 }
 
-impl<R: Copy, Sp, Sc> Mul<Sc> for Point<R, Sp>
+impl<R: Copy, Sc> Mul<Sc> for Point<R>
 where
-    Self: Affine<Diff = Vector<R, Sp>>,
-    Vector<R, Sp>: Linear<Scalar = Sc>,
+    Self: Affine<Diff = Vector<R>>,
+    Vector<R>: Linear<Scalar = Sc>,
 {
     type Output = Self;
 
@@ -466,22 +465,22 @@ where
         self.to_vec().mul(rhs).to_pt()
     }
 }
-impl<R: Copy, Sp> Mul<Point<R, Sp>> for f32
+impl<R: Copy> Mul<Point<R>> for f32
 where
-    Point<R, Sp>: Affine<Diff = Vector<R, Sp>>,
-    Vector<R, Sp>: Linear<Scalar = f32>,
+    Point<R>: Affine<Diff = Vector<R>>,
+    Vector<R>: Linear<Scalar = f32>,
 {
-    type Output = Point<R, Sp>;
+    type Output = Point<R>;
 
     #[inline]
-    fn mul(self, rhs: Point<R, Sp>) -> Point<R, Sp> {
+    fn mul(self, rhs: Point<R>) -> Point<R> {
         rhs * self
     }
 }
-impl<R: Copy, Sp, Sc> MulAssign<Sc> for Point<R, Sp>
+impl<R: Copy, Sc> MulAssign<Sc> for Point<R>
 where
-    Self: Affine<Diff = Vector<R, Sp>>,
-    Vector<R, Sp>: Linear<Scalar = Sc>,
+    Self: Affine<Diff = Vector<R>>,
+    Vector<R>: Linear<Scalar = Sc>,
 {
     #[inline]
     fn mul_assign(&mut self, rhs: Sc) {
@@ -489,10 +488,10 @@ where
     }
 }
 
-impl<R: Copy, Sp> Div<f32> for Point<R, Sp>
+impl<R: Copy> Div<f32> for Point<R>
 where
-    Self: Affine<Diff = Vector<R, Sp>>,
-    Vector<R, Sp>: Linear<Scalar = f32>,
+    Self: Affine<Diff = Vector<R>>,
+    Vector<R>: Linear<Scalar = f32>,
 {
     type Output = Self;
 
@@ -501,10 +500,10 @@ where
         self * rhs.recip()
     }
 }
-impl<R: Copy, Sp> DivAssign<f32> for Point<R, Sp>
+impl<R: Copy> DivAssign<f32> for Point<R>
 where
-    Self: Affine<Diff = Vector<R, Sp>>,
-    Vector<R, Sp>: Linear<Scalar = f32>,
+    Self: Affine<Diff = Vector<R>>,
+    Vector<R>: Linear<Scalar = f32>,
 {
     #[inline]
     fn div_assign(&mut self, rhs: f32) {

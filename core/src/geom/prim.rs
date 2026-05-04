@@ -8,7 +8,7 @@ use core::fmt::{self, Debug, Formatter};
 use crate::math::vec::Vec4;
 use crate::math::{
     Affine, ApproxEq, Lerp, Linear, Mat4, Parametric, Point, Point2, Point3,
-    Vec2, Vec3, Vector, space::Hom, vec::dot, vec2, vec3,
+    Vec2, Vec3, Vector, vec::dot, vec2, vec3,
 };
 
 /// Vertex with a position and arbitrary other attributes.
@@ -41,8 +41,8 @@ pub type Plane3 = Plane<Vec4>;
 #[derive(Copy, Clone, Debug, Eq, PartialEq)]
 pub struct Ray<T: Affine>(pub T, pub T::Diff);
 
-pub type Ray2<B = ()> = Ray<Point2<B>>;
-pub type Ray3<B = ()> = Ray<Point3<B>>;
+pub type Ray2 = Ray<Point2>;
+pub type Ray3 = Ray<Point3>;
 
 /// A curve composed of a chain of line segments.
 ///
@@ -63,11 +63,11 @@ pub struct Polygon<T>(pub Vec<T>);
 pub struct Edge<T>(pub T, pub T);
 
 #[derive(Copy, Clone, PartialEq)]
-pub struct Sphere<B = ()>(pub Point3<B>, pub f32);
+pub struct Sphere(pub Point3, pub f32);
 
 // TODO Line3?
 #[derive(Copy, Clone, PartialEq)]
-pub struct Line2<B = ()>(Vector<[f32; 3], Hom<2, B>>);
+pub struct Line2(Vec3);
 
 /// A surface normal in 3D.
 // TODO Use distinct type rather than alias
@@ -805,7 +805,7 @@ impl Default for Plane3 {
     }
 }
 
-impl<B: Debug + Default> Debug for Sphere<B> {
+impl Debug for Sphere {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         f.debug_tuple("Sphere")
             .field(&self.0)

@@ -4,7 +4,7 @@ use wasm_bindgen::prelude::*;
 
 use re::prelude::*;
 
-use re::render::{ModelToView, render, shader::Shader};
+use re::render::{render, shader::Shader};
 use re::util::Dims;
 use re_front::{dims::SVGA_800_600, wasm::Window};
 
@@ -30,13 +30,14 @@ pub fn start() {
     win.run(move |mut frame| {
         let t = frame.t.as_secs_f32();
 
-        let mv = rotate_z(rads(t))
-            .then(&translate((3.0 + 2.0 * t.sin()) * Vec3::Z))
-            .to::<ModelToView>();
+        let mv =
+            rotate_z(rads(t)).then(&translate((3.0 + 2.0 * t.sin()) * Vec3::Z));
         let mvp = mv.then(&proj);
 
         let sh = Shader::new(
-            |v: Vertex3<Color4f>, _| vertex(mvp.apply(&v.pos), v.attrib),
+            |v: Vertex3<Color4f>, _| {
+                vertex(mvp.apply(&v.pos.to_hom()), v.attrib)
+            },
             |f: Frag<Color4f>| f.var.to_color4(),
         );
 
