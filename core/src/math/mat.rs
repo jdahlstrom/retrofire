@@ -1,6 +1,179 @@
-//! Matrices and linear and affine transforms.
+//! Matrices and linear, affine, and projective transforms.
 //!
-//! TODO Docs
+//! Retrofire matrices encode their source and target spaces (coordinate frames)
+//! in their types. For example, a `Mat4<Model, View>` may only be used to map
+//! points in model space (`Point3<Model>`) to points in view space
+//! (`Point3<View>`). Similarly, matrices can only be composed (multiplied)
+//! if they have compatible source and target spaces.
+//!
+//! The generic "base" matrix type [`Matrix<Repr, Map>`](Matrix) rarely needs
+//! to be named directly; in normal use only the type aliases [`Mat2`], [`Mat3`],
+//! [`Mat4`], and [`ProjMat3`] are needed. These represent 2x2, 3x3, and 4x4 real
+//! matrices and 4x4 projective matrices respectively.
+//!
+//! # Creating matrices
+//!
+//! ```
+//! use retrofire_core::mat;
+//! use retrofire_core::math::{
+//!     Mat2, Mat3, Mat4, Vec3, pt3, vec3,
+//! };
+//! use retrofire_core::render::{Model, World, View};
+//!
+//! // Identity matrix:
+//! let id: Mat4<Model, World> = Mat4::identity();
+//!
+//! // () denotes a generic "don't care" frame:
+//! let id = Mat4::<()>::identity();
+//!
+//! // The source parameter defaults to (); the target parameter defaults to
+//! // the source parameter:
+//! let id: Mat4 = Mat4::identity();
+//! let id = <Mat4>::identity();
+//!
+//! // Note that this way is ambiguous due to the way Rust resolves methods:
+//! // let id = Mat4::identity();
+//!
+//! // The `Default` impl gives the identity matrix:
+//! let also_id = <Mat4>::default();
+//!
+//! assert_eq!(id, also_id);
+//!
+//! // From an array:
+//! let from_array = <Mat2>::new([[0.0, 2.0], [3.0, 0.0]]);
+//!
+//! // With a macro:
+//! let from_macro: Mat2 = mat![
+//!     0.0, 2.0;
+//!     3.0, 0.0;
+//! ];
+//!
+//! assert_eq!(from_array, from_macro);
+//!
+//! // From linear basis vectors:
+//! let reflect_x = <Mat4>::from_linear(-Vec3::X, Vec3::Y, Vec3::Z);
+//!
+//! // From an affine basis (basis vectors plus origin point):
+//! let glide_reflect = <Mat4>::from_affine(
+//!     -Vec3::X, Vec3::Y, Vec3::Z, pt3(0.0, 2.0, 0.0)
+//! );
+//! ```
+//!
+//! # Elementary affine transforms
+//! ```
+//! # use retrofire_core::math::*;
+//! # use retrofire_core::render::*;
+//! use retrofire_core::math::{scale, rotate_x, rotate, translate};
+//!
+//! // `scale` takes anything that's `Into<Vec3>`:
+//! let sc = scale((1.0, 2.0, 3.0));
+//! let sc = scale(vec3(1.0, 2.0, 3.0));
+//! let sc_uniform = scale(3.0);
+//!
+//! // Rotation about one of the cardinal axes:
+//! let rot_x = rotate_x(degs(90.0));
+//!
+//! // Rotation about an arbitrary axis:
+//! let rot_arb = rotate(vec3(1.0, 1.0, 0.0), degs(30.0));
+//!
+//! // Translation:
+//! let tr = translate((1.0, 2.0, 3.0));
+//! let tr_along_z = translate(4.0 * Vec3::Z);
+//!
+//! // The transform constructors return "()" matrices to avoid type inference
+//! // ambiguities. Coerce to the desired mapping with the .to() method:
+//! let model_to_view: Mat4<Model, View> = translate((0.0, 0.0, -4.0)).to();
+//! ```
+//!
+//! ## Projection and viewport transforms
+//!
+//! The `perspective` and `orthographic` functions return view-to-clip space
+//! projective matrices. The `viewport` function returns NDC-to-screen space
+//! matrices.
+//! ```
+//! # use retrofire_core::math::*;
+//!
+//! // Focal ratio, aspect ratio, and the near-far plane distances.
+//! let persp /*: ProjMat3<View> */ = perspective(1.0, 1.0, 0.1..1000.0);
+//!
+//! // Left-bottom-near and right-top-far corners of the orthographic clip box.
+//! let ortho /*: ProjMat3<View> */ = orthographic(
+//!     pt3(-2.0, -1.0, -1.0),
+//!     pt3(2.0, 1.0, 1.0)
+//! );
+//!
+//! let viewp /*: Mat4<Ndc, Screen> */ = viewport(pt2(10, 10)..pt2(630, 470));
+//! ```
+//!
+//! ## Applying transforms to vectors and points
+//! ```
+//! # use retrofire_core::math::*;
+//! # let sc = scale((1.0, 2.0, 3.0));
+//! # let tr = translate((1.0, 2.0, 3.0));
+//!
+//! let v = vec3(0.0, 1.0, -1.0);
+//!
+//! assert_eq!(sc.apply(&v), vec3(0.0, 2.0, -3.0));
+//!
+//! // In most cases it is unnecessary to manually handle 4D homogeneous
+//! // vectors, it is managed by the types. Translations do not affect vectors:
+//! assert_eq!(tr.apply(&v), v);
+//! // But they affect points:
+//! let p = pt3(0.0, 1.0, -1.0);
+//! assert_eq!(tr.apply(&p), pt3(1.0, 3.0, 2.0));
+//! ```
+//!
+//! ## Composing transforms
+//!
+//! Transforms can be composed with the methods [`then`][Mat4::then] and
+//! [`compose`][Mat4::compose]:
+//! ```
+//! # use retrofire_core::math::*;
+//! # let sc = scale((1.0, 2.0, 3.0));
+//! # let tr = translate((1.0, 2.0, 3.0));
+//!
+//! let scale_then_translate = sc.then(&tr);
+//! let translate_then_scale = sc.compose(&tr);
+//!
+//! let p = pt3(0.0, 1.0, -1.0);
+//! assert_eq!(scale_then_translate.apply(&p), pt3(1.0, 4.0, 0.0));
+//! assert_eq!(translate_then_scale.apply(&p), pt3(1.0, 6.0, 6.0));
+//! ```
+//!
+//! ## Matrix properties
+//! ```
+//! # use retrofire_core::{*, math::*};
+//! # let sc = scale((1.0, 2.0, 3.0));
+//! # let tr = translate((1.0, 2.0, 3.0));
+//!
+//! // Row and col vectors
+//! assert_eq!(sc.col_vec(1), [0.0, 2.0, 0.0, 0.0].into());
+//! assert_approx_eq!(tr.row_vec(2), [0.0, 0.0, 1.0, 3.0].into());
+//!
+//! // Determinant
+//! assert_eq!(sc.determinant(), 1.0 * 2.0 * 3.0);
+//! assert_approx_eq!(tr.determinant(), 1.0);
+//!
+//! // Inversion
+//! assert_eq!(sc.inverse(), scale((1.0, 1.0/2.0, 1.0/3.0)));
+//! assert_eq!(tr.inverse(), translate((-1.0, -2.0, -3.0)));
+//!
+//! assert_eq!(sc.then(&sc.inverse()), Mat4::identity());
+//!
+//! // Checked inversion, returning None if singular:
+//! let singular: Mat2 = mat![0.0, 1.0; 0.0, 2.0];
+//! assert_eq!(singular.checked_inverse(), None::<Mat2>);
+//!
+//! // Decomposition into parts:
+//! assert_eq!(sc.linear(), mat![
+//!     1.0, 0.0, 0.0;
+//!     0.0, 2.0, 0.0;
+//!     0.0, 0.0, 3.0;
+//! ]);
+//! assert_eq!(tr.translation(), vec3(1.0, 2.0, 3.0));
+//! // origin() is the same as translation(), but returns a point
+//! assert_eq!(tr.origin(), pt3(1.0, 2.0, 3.0));
+//! ```
 
 #![allow(clippy::needless_range_loop)]
 
@@ -49,11 +222,14 @@ pub trait Apply<T> {
     type Output;
 
     /// Applies this transform to a value.
+    ///
+    /// # Examples
+    /// For examples, see the [module documentation][self].
     #[must_use]
     fn apply(&self, t: &T) -> Self::Output;
 }
 
-/// A change of basis in real vector space of dimension `DIM`.
+/// Mapping between frames in real vector space of dimension `DIM`.
 #[derive(Copy, Clone, Default, Eq, PartialEq)]
 pub struct RealToReal<const DIM: usize, SrcBasis = (), DstBasis = ()>(
     Pd<(SrcBasis, DstBasis)>,
@@ -68,18 +244,19 @@ pub struct RealToProj<SrcBasis>(Pd<SrcBasis>);
 #[derive(Copy, Eq, PartialEq)]
 pub struct Matrix<Repr, Map>(pub Repr, Pd<Map>);
 
-/// Type alias for a 2x2 float matrix.
+/// Type alias for a 2x2 linear matrix.
 pub type Mat2<Src = (), Dst = Src, const DIM: usize = 2> =
     Matrix<[[f32; 2]; 2], RealToReal<DIM, Src, Dst>>;
 
-/// Type alias for a 3x3 float matrix.
+/// Type alias for a 3x3 affine matrix.
 pub type Mat3<Src = (), Dst = Src, const DIM: usize = 2> =
     Matrix<[[f32; 3]; 3], RealToReal<DIM, Src, Dst>>;
 
-/// Type alias for a 4x4 float matrix.
+/// Type alias for a 4x4 affine matrix.
 pub type Mat4<Src = (), Dst = Src, const DIM: usize = 3> =
     Matrix<[[f32; 4]; 4], RealToReal<DIM, Src, Dst>>;
 
+/// Type alias for a 4x4 projective matrix.
 pub type ProjMat3<Src = ()> = Matrix<[[f32; 4]; 4], RealToProj<Src>>;
 
 //
@@ -114,6 +291,14 @@ macro_rules! mat {
 
 impl<Repr, Map> Matrix<Repr, Map> {
     /// Returns a matrix with the given elements.
+    ///
+    /// # Examples
+    /// ```
+    /// use retrofire_core::math::Mat2;
+    ///
+    /// let m = <Mat2>::new([[2.0, 0.0], [0.0, 3.0]]);
+    /// assert_eq!(m.0, [[2.0, 0.0], [0.0, 3.0]]);
+    /// ```
     #[inline]
     pub const fn new(els: Repr) -> Self {
         Self(els, Pd)
@@ -130,12 +315,17 @@ impl<Repr, Map> Matrix<Repr, Map> {
     {
         Matrix::new(self.0)
     }
+
+    /// Applies this matrix to an object.
+    ///
+    /// This is an inherent helper method delegating to the appropriate
+    /// [`Apply`] implementation.
     #[inline]
-    pub fn apply<T>(&self, t: &T) -> <Self as Apply<T>>::Output
+    pub fn apply<T>(&self, obj: &T) -> <Self as Apply<T>>::Output
     where
         Self: Apply<T>,
     {
-        Apply::apply(self, t)
+        Apply::apply(self, obj)
     }
 }
 
@@ -144,9 +334,9 @@ where
     Sc: Linear<Scalar = Sc> + Copy,
     Map: LinearMap,
 {
-    /// Returns the row vector of `self` with index `i`.
+    /// Returns the row vector of `self` with the given index.
     ///
-    /// The returned vector is in space `Map::Source`.
+    /// The returned vector is in the *source* space of `Self`.
     ///
     /// # Panics
     /// If `i >= M`.
@@ -162,9 +352,9 @@ where
         Vector::new(self.0[i])
     }
 
-    /// Returns the column vector of `self` with index `i`.
+    /// Returns the column vector of `self` with the given index.
     ///
-    /// The returned vector is in space `Map::Dest`.
+    /// The returned vector is in the *destination* space of `Self`.
     ///
     /// # Panics
     /// If `i >= N`.
@@ -184,6 +374,9 @@ impl<Sc: Copy, const N: usize, const DIM: usize, S, D>
     Matrix<[[Sc; N]; N], RealToReal<DIM, S, D>>
 {
     /// Returns `self` with its rows and columns swapped.
+    ///
+    /// Note that this also swaps the source and destination spaces and thus
+    /// returns a matrix of a different type.
     ///
     /// # Examples
     /// ```
@@ -210,9 +403,7 @@ const fn transpose<Sc: Copy, const N: usize>(a: &mut [[Sc; N]; N]) {
     while i < N {
         let mut j = i + 1;
         while j < N {
-            let tmp = a[i][j];
-            a[i][j] = a[j][i];
-            a[j][i] = tmp;
+            (a[i][j], a[j][i]) = (a[j][i], a[i][j]);
             j += 1;
         }
         i += 1;
@@ -233,6 +424,20 @@ impl<const N: usize, Map> Matrix<[[f32; N]; N], Map> {
     /// It is the neutral element of matrix multiplication:
     /// **A · I** = **I · A** = **A**, as well as matrix-vector
     /// multiplication: **I·v** = **v**.
+    ///
+    /// # Examples
+    /// ```
+    /// use retrofire_core::math::{Mat4, Vec3, vec3, scale};
+    ///
+    /// let id = <Mat4>::identity();
+    ///
+    /// let v: Vec3 = vec3(0.0, -2.0, 1.0);
+    /// assert_eq!(id.apply(&v), v);
+    ///
+    /// let scale = scale((1.0, 2.0, 3.0));
+    /// assert_eq!(scale.then(&id), scale);
+    /// assert_eq!(id.then(&scale), scale);
+    /// ```
     pub const fn identity() -> Self {
         // Needs const traits to be more generic;
         // const array::map/from_fn for a nicer impl
@@ -266,6 +471,18 @@ where
     /// (𝗠 ∘ 𝗡) 𝘃 = 𝗠(𝗡 𝘃)
     /// ```
     /// for some matrices 𝗠 and 𝗡 and a vector 𝘃.
+    ///
+    /// # Examples
+    /// ```
+    /// use retrofire_core::math::{scale, translate, pt3, Point3};
+    ///
+    /// let sc = scale(2.0);
+    /// let tr = translate((1.0, 2.0, 3.0));
+    ///
+    /// let pt: Point3 = pt3(0.0, -1.0, 1.0);
+    ///
+    /// assert_eq!(tr.compose(&sc).apply(&pt), tr.apply(&sc.apply(&pt)));
+    /// ```
     #[inline]
     #[must_use]
     pub fn compose<Inner: LinearMap>(
@@ -292,6 +509,18 @@ where
     /// the resulting matrix is equivalent to first applying `self` and then
     /// `other`. The call `self.then(other)` is thus equivalent to
     /// `other.compose(self)`.
+    ///
+    /// # Examples
+    /// ```
+    /// use retrofire_core::math::{scale, translate, pt3, Point3};
+    ///
+    /// let sc = scale(2.0);
+    /// let tr = translate((1.0, 2.0, 3.0));
+    ///
+    /// let pt: Point3 = pt3(0.0, -1.0, 1.0);
+    ///
+    /// assert_eq!(sc.then(&tr).apply(&pt), tr.apply(&sc.apply(&pt)));
+    /// ```
     #[must_use]
     #[inline]
     pub fn then<Outer: Compose<Map>>(
@@ -318,7 +547,7 @@ impl<Src, Dst> Mat2<Src, Dst> {
     #[inline]
     pub const fn determinant(&self) -> f32 {
         let [[a, b], [c, d]] = self.0;
-        a * d - b * c
+        det2(a, b, c, d)
     }
 
     /// Returns the [inverse][Self::inverse] of `self`, or `None` if `self`
@@ -413,13 +642,13 @@ impl<Src, Dst> Mat3<Src, Dst, 2> {
     ///     0.0, 3.0, 0.0;
     ///     2.0, 0.0, 0.0;
     ///     0.0, 0.0, 1.0;
-    /// ])
+    /// ]);
     /// ```
     pub const fn from_linear(i: Vec2<Dst>, j: Vec2<Dst>) -> Self {
         Self::from_affine(i, j, Point2::origin())
     }
 
-    /// Constructs a matrix from an affine basis, or frame.
+    /// Constructs a matrix from an affine basis, also called a frame.
     ///
     /// The basis does not have to be orthonormal.
     ///
@@ -434,7 +663,7 @@ impl<Src, Dst> Mat3<Src, Dst, 2> {
     ///     0.0, 3.0, 4.0;
     ///     2.0, 0.0, 5.0;
     ///     0.0, 0.0, 1.0;
-    /// ])
+    /// ]);
     /// ```
     pub const fn from_affine(
         i: Vec2<Dst>,
@@ -462,8 +691,8 @@ impl<Src, Dst> Mat3<Src, Dst, 2> {
     /// ];
     /// assert_eq!(m.linear(), mat![
     ///     1.0, 0.0;
-    ///     0.0, 2.0]
-    /// );
+    ///     0.0, 2.0
+    /// ]);
     /// ```
     pub const fn linear(&self) -> Mat2<Src, Dst> {
         let [r, s, _] = self.0;
@@ -541,7 +770,7 @@ impl<Src, Dst, const DIM: usize> Mat3<Src, Dst, DIM> {
     pub const fn determinant(&self) -> f32 {
         let [[a, b, c], [d, e, _], _] = self.0;
         if self.is_affine() {
-            a * e - b * d
+            det2(a, b, d, e)
         } else {
             a * self.cofactor(0, 0)
                 + b * self.cofactor(0, 1)
@@ -565,12 +794,7 @@ impl<Src, Dst, const DIM: usize> Mat3<Src, Dst, DIM> {
         let c1 = (col + 1) % 3;
         let c2 = (col + 2) % 3;
         let m = self.0;
-        m[r1][c1] * m[r2][c2] - m[r1][c2] * m[r2][c1]
-    }
-
-    #[inline]
-    const fn _det2(a: f32, b: f32, c: f32, d: f32) -> f32 {
-        a * d - b * c
+        det2(m[r1][c1], m[r1][c2], m[r2][c1], m[r2][c2])
     }
 
     // TODO separate impls for DIM 2 and 3
@@ -602,16 +826,16 @@ impl<Src, Dst, const DIM: usize> Mat3<Src, Dst, DIM> {
 
         // Inverse is transpose of cofactor matrix divided by determinant:
         //
-        //  1   ( co(a) co(d) co(g) )
-        // ---  ( co(b) co(e) co(h) )
-        // det  ( co(c) co(f) co(i) )
+        //  1    ⎛ co(a) co(d) co(g) ⎞
+        // ---   ⎜ co(b) co(e) co(h) ⎟
+        // det   ⎝ co(c) co(f) co(i) ⎠
 
         if self.is_affine() {
             // When (g, h, i) = (0, 0, 1), simplifies to:
-            //  1   (  e -b  bf-ce )
-            // ---  ( -d  a  cd-af )
-            // det  (  0  0  ae-bd )
-            //               ^^^^^--- = 1 after div by det
+            //   1    ⎛  e -b  bf-ce ⎞
+            // -----  ⎜ -d  a  cd-af ⎟
+            // ae-bd  ⎝  0  0  ae-bd ⎠
+            //                 ^^^^^--- = 1 after div by det
 
             let [[a, b, c], [d, e, f], _] = self.0;
             let a_ = a * r_det;
@@ -619,9 +843,9 @@ impl<Src, Dst, const DIM: usize> Mat3<Src, Dst, DIM> {
             let d_ = d * r_det;
             let e_ = e * r_det;
             Some(mat![
-                 e_, -b_,  b_ * f - c * e_;
-                -d_,  a_,  c * d_ - a_ * f;
-                0.0, 0.0,              1.0;
+                 e_, -b_, det2(b_, c, e_, f);
+                -d_,  a_, det2(c, a_, f, d_);
+                0.0, 0.0, 1.0;
             ])
         } else {
             // No for or from_fn in const :(
@@ -803,7 +1027,8 @@ impl<Src, Dst> Mat4<Src, Dst> {
     /// Only matrices with a nonzero determinant have a defined inverse.
     /// A matrix without an inverse is said to be singular.
     ///
-    /// Note: This method uses naive Gauss–Jordan elimination and may
+    /// This method has a fast path if `self` is affine (which it should
+    /// always be); otherwise it uses Gauss–Jordan elimination which may
     /// suffer from imprecision or numerical instability in certain cases.
     ///
     /// # Panics
@@ -841,6 +1066,7 @@ impl<Src, Dst> Mat4<Src, Dst> {
         }
 
         if self.is_affine() {
+            // M = LT <=> M^-1 = T^-1 L^-1
             let lin: Mat3<(), (), 3> = self.linear().to();
             let trans: Vec3 = self.translation().to();
             return translate(-trans)
@@ -901,6 +1127,7 @@ impl<Src, Dst> Mat4<Src, Dst> {
 
     #[inline]
     const fn is_affine(&self) -> bool {
+        // no array == in const...
         let [a, b, c, d] = self.0[3];
         if a == 0.0 && b == 0.0 && c == 0.0 && d == 1.0 {
             true
@@ -909,6 +1136,12 @@ impl<Src, Dst> Mat4<Src, Dst> {
             false
         }
     }
+}
+
+/// Computes the determinant of the matrix [[a, b], [c, d]].
+#[inline]
+const fn det2(a: f32, b: f32, c: f32, d: f32) -> f32 {
+    a * d - b * c
 }
 
 //
@@ -1200,7 +1433,10 @@ impl<Repr, M> From<Repr> for Matrix<Repr, M> {
 /// Returns a matrix applying a scaling by the given factors.
 ///
 /// # Examples
-/// See the [`scale`] method for an example.
+/// ```
+///
+///
+/// ``
 pub fn scale(factor: impl Into<Vec3>) -> Mat4 {
     let [x, y, z] = factor.into().0;
     mat![
@@ -1291,10 +1527,10 @@ fn orient(new_y: Vec3, new_z: Vec3) -> Mat4 {
 /// # Example
 /// ```
 /// use retrofire_core::assert_approx_eq;
-/// use retrofire_core::math::{Apply, degs, rotate_x, vec3};
+/// use retrofire_core::math::{Apply, degs, rotate_x, Vec3};
 ///
 /// let m = rotate_x(degs(90.0));
-/// assert_approx_eq!(m.apply(&vec3(0.0, 1.0, 0.0)), vec3(0.0, 0.0, 1.0));
+/// assert_approx_eq!(m.apply(&Vec3::Y), Vec3::Z);
 /// ```
 #[cfg(feature = "fp")]
 pub fn rotate_x(a: Angle) -> Mat4 {
@@ -1306,15 +1542,15 @@ pub fn rotate_x(a: Angle) -> Mat4 {
         0.0,  0.0,  0.0,  1.0;
     ]
 }
-/// Returns a matrix applying a 3D rotation about the y-axis (on the xz plane).
+/// Returns a matrix applying a 3D rotation about the y-axis (on the zx plane).
 ///
 /// # Example
 /// ```
 /// use retrofire_core::assert_approx_eq;
-/// use retrofire_core::math::{Apply, degs, rotate_y, vec3};
+/// use retrofire_core::math::{Apply, degs, rotate_y, Vec3};
 ///
 /// let m = rotate_y(degs(90.0));
-/// assert_approx_eq!(m.apply(&vec3(1.0, 0.0, 0.0)), vec3(0.0, 0.0, -1.0));
+/// assert_approx_eq!(m.apply(&Vec3::X), -Vec3::Z);
 ///```
 #[cfg(feature = "fp")]
 pub fn rotate_y(a: Angle) -> Mat4 {
@@ -1330,10 +1566,11 @@ pub fn rotate_y(a: Angle) -> Mat4 {
 /// # Example
 /// ```
 /// use retrofire_core::assert_approx_eq;
-/// use retrofire_core::math::{Apply, degs, rotate_z, vec3};
+/// use retrofire_core::math::{Apply, degs, rotate_z, Vec3};
 ///
 /// let m = rotate_z(degs(90.0));
-/// assert_approx_eq!(m.apply(&vec3(1.0, 0.0, 0.0)), vec3(0.0, 1.0, 0.0));
+/// assert_approx_eq!(m.apply(&Vec3::X), Vec3::Y);
+/// ```
 #[cfg(feature = "fp")]
 pub fn rotate_z(a: Angle) -> Mat4 {
     let (sin, cos) = a.sin_cos();
@@ -1363,6 +1600,9 @@ pub fn rotate_pyr(pitch: Angle, yaw: Angle, roll: Angle) -> Mat4 {
 }
 
 /// Returns a matrix applying a 2D rotation by an angle.
+///
+/// # Examples
+/// TODO
 #[cfg(feature = "fp")]
 pub fn rotate2(a: Angle) -> Mat3 {
     let (sin, cos) = a.sin_cos();
@@ -1374,6 +1614,9 @@ pub fn rotate2(a: Angle) -> Mat3 {
 }
 
 /// Returns a matrix applying a 3D rotation about an arbitrary axis.
+///
+/// # Examples
+/// TODO
 #[cfg(feature = "fp")]
 pub fn rotate(axis: Vec3, a: Angle) -> Mat4 {
     // 1. Change of basis such that `axis` is mapped to the z-axis,
@@ -1405,6 +1648,9 @@ pub fn rotate(axis: Vec3, a: Angle) -> Mat4 {
 /// # Panics
 /// * If any parameter value is nonpositive.
 /// * If `near_far` is an empty range.
+///
+/// # Examples
+/// TODO
 pub const fn perspective(
     focal_ratio: f32,
     aspect_ratio: f32,
@@ -1434,6 +1680,9 @@ pub const fn perspective(
 /// # Parameters
 /// * `lbn`: The left-bottom-near corner of the projection box.
 /// * `rtf`: The right-bottom-far corner of the projection box.
+///
+/// # Examples
+/// TODO
 // TODO Take a Range like `viewport` does? Or have `viewport` take separate?
 pub const fn orthographic(lbn: Point3, rtf: Point3) -> ProjMat3<View> {
     // Done manually due until const traits are stable
@@ -1455,6 +1704,9 @@ pub const fn orthographic(lbn: Point3, rtf: Point3) -> ProjMat3<View> {
 /// A viewport matrix is used to transform points from the NDC space to
 /// screen space for rasterization. NDC coordinates (-1, -1, _) are mapped
 /// to `bounds.start` and NDC coordinates (1, 1, _) to `bounds.end`.
+///
+/// # Examples
+/// TODO
 pub const fn viewport(bounds: Range<Point2u>) -> Mat4<Ndc, Screen> {
     let Range { start, end } = bounds;
     let [x0, y0] = [start.x() as f32, start.y() as f32];
@@ -1720,6 +1972,7 @@ mod tests {
         }
 
         #[test]
+        #[cfg(feature = "fp")]
         fn inversion() {
             let sc = scale((1.0, -2.0, 5.0));
             assert_eq!(sc.inverse(), scale((1.0, -0.5, 0.2)));
