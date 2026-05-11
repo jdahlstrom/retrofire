@@ -43,7 +43,7 @@ fn main() {
             let (n, uv) = frag.var;
             let kd = lerp(n.dot(&light_dir).max(0.0), 0.4, 1.0);
             let col = SamplerClamp.sample(&tex, uv);
-            (col.to_color3f() * kd).to_color4()
+            (col.to_color3f() * kd).to_color4() // TODO integer math
         },
     );
 
