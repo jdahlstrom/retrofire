@@ -1,6 +1,135 @@
-//! Matrices and linear and affine transforms.
+//! Matrices and linear, affine, and projective transforms.
 //!
 //! TODO Docs
+//!
+//!
+//!
+//! ## Creating matrices
+//!
+//! ```
+//! use retrofire_core::mat;
+//! use retrofire_core::math::{
+//!     Mat2, Mat3, Mat4, Vec3,
+//!     pt3, vec3, degs, scale,
+//!     rotate, rotate_x, translate
+//! };
+//! use retrofire_core::render::{Model, View};
+//!
+//! // From an array:
+//! let m = <Mat2>::new([[0.0, 1.0], [1.0, 0.0]]);
+//!
+//! // With a macro:
+//! let m: Mat3 = mat![
+//!     1.0, 0.0, 0.0;
+//!     0.0, 1.0, 0.0;
+//!     0.0, 0.0, 1.0;
+//! ];
+//!
+//! // Identity matrix:
+//! let id = <Mat4>::identity();
+//! let also_id = <Mat4>::default();
+//!
+//! // From linear basis vectors:
+//! let reflect_x = <Mat4>::from_linear(-Vec3::X, Vec3::Y, Vec3::Z);
+//!
+//! // From an affine basis (basis vectors plus origin):
+//!
+//! let glide_reflect = <Mat4>::from_affine(
+//!     -Vec3::X, Vec3::Y, Vec3::Z, pt3(0.0, 2.0, 0.0)
+//! );
+//!
+//! // Elementary transformations
+//!
+//! let sc = scale((1.0, 2.0, 3.0));
+//! let sc = scale(vec3(1.0, 2.0, 3.0));
+//!
+//! let sc_uniform = scale(3.0);
+//!
+//! // Rotation about one of the cardinal axes:
+//! let rot_x = rotate_x(degs(90.0));
+//!
+//! // Rotation about an arbitrary axis:
+//! let rot_arb = rotate(vec3(1.0, 1.0, 0.0), degs(30.0));
+//!
+//! // Translation:
+//!
+//! let trans = translate((1.0, 2.0, 3.0));
+//!
+//! // With specific domain and codomain frames:
+//!
+//! let model_to_view: Mat4<Model, View> = translate((0.0, 0.0, -4.0)).to();
+//! ```
+//!
+//! ## Projection and viewport transforms
+//! ```
+//! use retrofire_core::math::*;
+//!
+//! let persp: ProjMat3<_> = perspective(1.0, 1.0, 0.1..1000.0);
+//!
+//! let ortho: ProjMat3<_> = orthographic(pt3(-2.0, -1.0, -1.0), pt3(2.0, 1.0, 1.0));
+//!
+//! let viewp = viewport(pt2(0, 0)..pt2(640, 480));
+//! ```
+//!
+//! ## Applying transforms
+//! ```
+//! # use retrofire_core::{*, math::*};
+//! # let sc = scale((1.0, 2.0, 3.0));
+//! # let rot = rotate_x(degs(90.0));
+//!
+//! let v = vec3(0.0, 1.0, -1.0);
+//! assert_eq!(sc.apply(&v), vec3(0.0, 2.0, -3.0));
+//! assert_approx_eq!(rot.apply(&v), vec3(0.0, 1.0, 1.0));
+//! ```
+//!
+//! ## Composing transforms
+//!
+//! Transforms can be composed with the methods [`then`][Mat4::then] and
+//! [`compose`][Mat4::compose]:
+//! ```
+//! # use retrofire_core::math::*;
+//! # let sc = scale((1.0, 2.0, 3.0));
+//! # let rot = rotate_x(degs(90.0));
+//!
+//! let scale_then_rotate = sc.then(&rot);
+//!
+//! let rotate_then_scale = sc.compose(&rot);
+//! ```
+//!
+//! ## Matrix properties
+//! ```
+//! # use retrofire_core::{*, math::*};
+//!
+//! # let sc = scale((1.0, 2.0, 3.0));
+//! # let rot = rotate_x(degs(90.0));
+//!
+//! // Row and col vectors
+//! assert_eq!(sc.row_vec(1), [0.0, 2.0, 0.0, 0.0].into());
+//! assert_approx_eq!(rot.col_vec(2), [0.0, -1.0, 0.0, 0.0].into());
+//!
+//! // Determinant
+//! assert_eq!(sc.determinant(), 1.0 * 2.0 * 3.0);
+//! assert_approx_eq!(rot.determinant(), 1.0);
+//!
+//! // Transposition
+//! assert_eq!(rot.transpose(), rotate_x(degs(-90.0)));
+//!
+//! // Inversion
+//! assert_eq!(sc.inverse(), scale((1.0, 1.0/2.0, 1.0/3.0)));
+//! assert_eq!(rot.inverse(), rotate_x(degs(-90.0)));
+//!
+//! // Checked inversion, returning None if singular:
+//! assert_eq!(mat![0.0, 1.0; 0.0, 2.0].checked_inverse(), None::<Mat2>);
+//!
+//! // Into parts:
+//! assert_eq!(sc.linear(), mat![
+//!     1.0, 0.0, 0.0;
+//!     0.0, 2.0, 0.0;
+//!     0.0, 0.0, 3.0;
+//! ]);
+//! assert_eq!(sc.translation(), Vec3::zero());
+//! assert_eq!(sc.origin(), Point3::origin());
+//! ```
 
 #![allow(clippy::needless_range_loop)]
 
