@@ -7,6 +7,7 @@
 use core::{
     array,
     fmt::{self, Debug, Formatter},
+    hint::cold_path,
     marker::PhantomData as Pd,
     ops::Range,
 };
@@ -386,6 +387,16 @@ impl<Src, Dst> Mat2<Src, Dst> {
         self.checked_inverse()
             .expect("matrix cannot be singular or near-singular")
     }
+
+    /// Returns the affine 3x3 matrix corresponding to `self`.
+    pub const fn to_affine(&self) -> Mat3<Src, Dst, 2> {
+        let [[a, b], [c, d]] = self.0;
+        mat! [
+             a,   b,  0.0;
+             c,   d,  0.0;
+            0.0, 0.0, 1.0;
+        ]
+    }
 }
 
 impl<Src, Dst> Mat3<Src, Dst, 2> {
@@ -445,14 +456,14 @@ impl<Src, Dst> Mat3<Src, Dst, 2> {
     /// use retrofire_core::{mat, math::*};
     ///
     /// let m: Mat3 = mat![
-    ///     2.0, 0.0, 4.0;
-    ///     0.0, 3.0, 5.0;
+    ///     1.0, 0.0, 3.0;
+    ///     0.0, 2.0, 4.0;
     ///     0.0, 0.0, 1.0;
     /// ];
     /// assert_eq!(m.linear(), mat![
-    ///     2.0, 0.0;
-    ///     0.0, 3.0;
-    /// ]);
+    ///     1.0, 0.0;
+    ///     0.0, 2.0]
+    /// );
     /// ```
     pub const fn linear(&self) -> Mat2<Src, Dst> {
         let [r, s, _] = self.0;
@@ -461,50 +472,81 @@ impl<Src, Dst> Mat3<Src, Dst, 2> {
 
     /// Returns the translation column vector of `self`.
     ///
-    /// # Example
+    /// Use [`origin`][Self::origin] to get the translation as a point.
+    /// # Examples
     /// ```
     /// use retrofire_core::{mat, math::*};
     ///
     /// let m: Mat3 = mat![
-    ///     2.0, 0.0, 4.0;
-    ///     0.0, 3.0, 5.0;
+    ///     1.0, 0.0, 3.0;
+    ///     0.0, 2.0, 4.0;
     ///     0.0, 0.0, 1.0;
     /// ];
-    /// assert_eq!(m.translation(), vec2(4.0, 5.0));
+    /// assert_eq!(m.translation(), vec2(3.0, 4.0));
     /// ```
     pub const fn translation(&self) -> Vec2<Dst> {
         let [r, s, _] = self.0;
         vec2(r[2], s[2])
     }
 
-    /// Returns the translation column vector of `self` as a point.
+    /// Returns the [translation][1] column vector of `self` as a point.
     ///
     /// # Example
     /// ```
     /// use retrofire_core::{mat, math::*};
     ///
     /// let m: Mat3 = mat![
-    ///     2.0, 0.0, 4.0;
-    ///     0.0, 3.0, 5.0;
+    ///     1.0, 0.0, 3.0;
+    ///     0.0, 2.0, 4.0;
     ///     0.0, 0.0, 1.0;
     /// ];
-    /// assert_eq!(m.origin(), pt2(4.0, 5.0));
+    /// assert_eq!(m.origin(), pt2(3.0, 4.0));
     /// ```
+    /// [1]: Self::translation
     pub const fn origin(&self) -> Point2<Dst> {
         self.translation().to_pt()
+    }
+}
+impl<Src, Dst> Mat3<Src, Dst, 3> {
+    pub const fn to_affine(&self) -> Mat4<Src, Dst, 3> {
+        let [[a, b, c], [d, e, f], [g, h, i]] = self.0;
+        mat! [
+             a,   b,   c,  0.0;
+             d,   e,   f,  0.0;
+             g,   h,   i,  0.0;
+            0.0, 0.0, 0.0, 1.0;
+        ]
+    }
+}
+
+impl<Src, Dst, const DIM: usize> Mat3<Src, Dst, DIM> {
+    #[inline]
+    const fn is_affine(&self) -> bool {
+        let [g, h, i] = self.0[2];
+        let affine = g == 0.0 && h == 0.0 && i == 1.0;
+
+        if DIM == 2 {
+            if affine {
+                true
+            } else {
+                cold_path();
+                false
+            }
+        } else {
+            affine
+        }
     }
 
     /// Returns the determinant of `self`.
     pub const fn determinant(&self) -> f32 {
-        let [a, b, c] = self.0[0];
-
-        // assert!(g == 0.0 && h == 0.0 && i == 1.0);
-        // TODO If affine (as should be), reduces to:
-        // a * e - b * d
-
-        a * self.cofactor(0, 0)
-            + b * self.cofactor(0, 1)
-            + c * self.cofactor(0, 2)
+        let [[a, b, c], [d, e, _], _] = self.0;
+        if self.is_affine() {
+            a * e - b * d
+        } else {
+            a * self.cofactor(0, 0)
+                + b * self.cofactor(0, 1)
+                + c * self.cofactor(0, 2)
+        }
     }
 
     /// Returns the cofactor of the element at the given row and column.
@@ -514,7 +556,7 @@ impl<Src, Dst> Mat3<Src, Dst, 2> {
     ///
     /// 1. Remove the given row and column from `self` to get a 2x2 submatrix;
     /// 2. Compute its determinant;
-    /// 3. If exactly one of `row` and `col` is even, multiply by -1.
+    /// 3. If `row` is even XOR `col` is even, multiply by -1.
     #[inline]
     const fn cofactor(&self, row: usize, col: usize) -> f32 {
         // This automatically takes care of the negation
@@ -522,8 +564,16 @@ impl<Src, Dst> Mat3<Src, Dst, 2> {
         let r2 = (row + 2) % 3;
         let c1 = (col + 1) % 3;
         let c2 = (col + 2) % 3;
-        self.0[r1][c1] * self.0[r2][c2] - self.0[r1][c2] * self.0[r2][c1]
+        let m = self.0;
+        m[r1][c1] * m[r2][c2] - m[r1][c2] * m[r2][c1]
     }
+
+    #[inline]
+    const fn _det2(a: f32, b: f32, c: f32, d: f32) -> f32 {
+        a * d - b * c
+    }
+
+    // TODO separate impls for DIM 2 and 3
 
     /// Returns the inverse of `self`, or `None` if `self` is singular.
     ///
@@ -543,33 +593,48 @@ impl<Src, Dst> Mat3<Src, Dst, 2> {
     /// ]));
     /// ```
     #[must_use]
-    pub const fn checked_inverse(&self) -> Option<Mat3<Dst, Src, 2>> {
+    pub const fn checked_inverse(&self) -> Option<Mat3<Dst, Src, DIM>> {
         let det = self.determinant();
         if det.abs() < 1e-6 {
             return None;
         }
-
-        // Inverse is transpose of cofactor matrix divided by determinant
-        let mut res = [[0.0; 3]; 3];
         let r_det = 1.0 / det;
-        let mut i = 0;
-        while i < 3 {
-            res[i][0] = r_det * self.cofactor(0, i);
-            res[i][1] = r_det * self.cofactor(1, i);
-            res[i][2] = r_det * self.cofactor(2, i);
-            i += 1;
-        }
-        /*let c_a = self.cofactor(0, 0); // = e
-        let c_b = self.cofactor(0, 1); // = d
-        let c_c = self.cofactor(0, 2); // = 0
-        let c_d = self.cofactor(1, 0); // = b
-        let c_e = self.cofactor(1, 1); // = a
-        let c_f = self.cofactor(1, 2); // = 0
-        let c_g = self.cofactor(2, 0); // = b * f - c * e
-        let c_h = self.cofactor(2, 1); // = a * f - c * d
-        let c_i = self.cofactor(2, 2); // = a * e - b * d*/
 
-        Some(Mat3::new(res))
+        // Inverse is transpose of cofactor matrix divided by determinant:
+        //
+        //  1   ( co(a) co(d) co(g) )
+        // ---  ( co(b) co(e) co(h) )
+        // det  ( co(c) co(f) co(i) )
+
+        if self.is_affine() {
+            // When (g, h, i) = (0, 0, 1), simplifies to:
+            //  1   (  e -b  bf-ce )
+            // ---  ( -d  a  cd-af )
+            // det  (  0  0  ae-bd )
+            //               ^^^^^--- = 1 after div by det
+
+            let [[a, b, c], [d, e, f], _] = self.0;
+            let a_ = a * r_det;
+            let b_ = b * r_det;
+            let d_ = d * r_det;
+            let e_ = e * r_det;
+            Some(mat![
+                 e_, -b_,  b_ * f - c * e_;
+                -d_,  a_,  c * d_ - a_ * f;
+                0.0, 0.0,              1.0;
+            ])
+        } else {
+            // No for or from_fn in const :(
+            let mut res = [[0.0; 3]; 3];
+            let mut i = 0;
+            while i < 3 {
+                res[i][0] = r_det * self.cofactor(0, i);
+                res[i][1] = r_det * self.cofactor(1, i);
+                res[i][2] = r_det * self.cofactor(2, i);
+                i += 1;
+            }
+            Some(Mat3::new(res))
+        }
     }
 
     /// TODO
@@ -577,7 +642,7 @@ impl<Src, Dst> Mat3<Src, Dst, 2> {
     /// # Panics
     /// If the matrix is singular or near-singular.
     #[must_use]
-    pub fn inverse(&self) -> Mat3<Dst, Src> {
+    pub fn inverse(&self) -> Mat3<Dst, Src, DIM> {
         self.checked_inverse()
             .expect("matrix cannot be singular or near-singular")
     }
@@ -635,6 +700,8 @@ impl<Src, Dst> Mat4<Src, Dst> {
 
     /// Returns the translation column vector of `self`.
     ///
+    /// Use [`origin`][Self::origin] to get the translation as a point.
+    ///
     /// # Example
     /// ```
     /// use retrofire_core::math::*;
@@ -642,11 +709,12 @@ impl<Src, Dst> Mat4<Src, Dst> {
     /// let trans = vec3(1.0, 2.0, 3.0);
     /// let m = scale(5.0).then(&translate(trans));
     /// assert_eq!(m.translation(), trans);
+    /// ```
     pub const fn translation(&self) -> Vec3<Dst> {
         vec3(self.0[0][3], self.0[1][3], self.0[2][3])
     }
 
-    /// Returns the translation column vector of `self` as a point.
+    /// Returns the [translation][1] column vector of `self` as a point.
     ///
     /// # Example
     /// ```
@@ -655,8 +723,32 @@ impl<Src, Dst> Mat4<Src, Dst> {
     /// let trans = vec3(1.0, 2.0, 3.0);
     /// let m = scale(5.0).then(&translate(trans));
     /// assert_eq!(m.origin(), pt3(1.0, 2.0, 3.0));
+    /// ```
+    ///
+    /// [1]: Self::translation
     pub const fn origin(&self) -> Point3<Dst> {
         self.translation().to_pt()
+    }
+
+    const fn minor(&self, r: usize, c: usize) -> Mat3<(), (), 3> {
+        let r1 = (r + 1) & 3;
+        let r2 = (r + 2) & 3;
+        let r3 = (r + 3) & 3;
+        let c1 = (c + 1) & 3;
+        let c2 = (c + 2) & 3;
+        let c3 = (c + 3) & 3;
+        let m = self.0;
+
+        mat! [
+            m[r1][c1], m[r1][c2], m[r1][c3];
+            m[r2][c1], m[r2][c2], m[r2][c3];
+            m[r3][c1], m[r3][c2], m[r3][c3];
+        ]
+    }
+
+    const fn cofactor(&self, r: usize, c: usize) -> f32 {
+        let co = self.minor(r, c).determinant();
+        if (r & 1) == (c & 1) { co } else { -co }
     }
 
     /// Returns the determinant of `self`.
@@ -668,23 +760,27 @@ impl<Src, Dst> Mat4<Src, Dst> {
     ///         ⎜ i  j  k  l ⎟
     ///         ⎝ m  n  o  p ⎠
     /// ```
-    /// its determinant can be computed by multiplying each element *e* on row 0
-    /// with its *minors*: the determinant of the submatrix obtained by removing
-    /// the row and column of *e*:
+    /// its determinant can be computed by multiplying each element *x* on some
+    /// row *n* with the determinant of its *minor*, the submatrix obtained by
+    /// removing the row and column of *x*.
+    ///
+    /// When M is affine, its determinant is exactly the determinant of its
+    /// top-right 3x3 submatrix. This is easy to show by choosing *n* = 3:
     /// ```text
-    ///              ⎜ f g h ⎜       ⎜ e g h ⎜
-    /// det(M) = a · ⎜ j k l ⎜ - b · ⎜ i k l ⎜  + c * ··· - d * ···
-    ///              ⎜ n o p ⎜       ⎜ m o p ⎜
+    ///              ⎜ b c d ⎜                           ⎜ a c d ⎜   ⎜ a c d ⎜
+    /// det(M) = 0 · ⎜ f g h ⎜ + 0 · ··· - 0 * ··· + 1 · ⎜ e g h ⎜ = ⎜ e g h ⎜
+    ///              ⎜ j k l ⎜                           ⎜ i k l ⎜   ⎜ i k l ⎜
     /// ```
-    pub fn determinant(&self) -> f32 {
-        let [[a, b, c, d], r, s, t] = self.0;
-
-        let det2 = |m, n| s[m] * t[n] - s[n] * t[m];
-        let det3 =
-            |j, k, l| r[j] * det2(k, l) - r[k] * det2(j, l) + r[l] * det2(j, k);
-
-        a * det3(1, 2, 3) - b * det3(0, 2, 3) + c * det3(0, 1, 3)
-            - d * det3(0, 1, 2)
+    pub const fn determinant(&self) -> f32 {
+        if self.is_affine() {
+            self.linear().determinant()
+        } else {
+            let [a, b, c, d] = self.0[0];
+            a * self.cofactor(0, 0)
+                + b * self.cofactor(0, 1)
+                + c * self.cofactor(0, 2)
+                + d * self.cofactor(0, 3)
+        }
     }
 
     #[must_use]
@@ -744,6 +840,14 @@ impl<Src, Dst> Mat4<Src, Dst> {
             );
         }
 
+        if self.is_affine() {
+            let lin: Mat3<(), (), 3> = self.linear().to();
+            let trans: Vec3 = self.translation().to();
+            return translate(-trans)
+                .then(&lin.inverse().to_affine())
+                .to();
+        }
+
         // This algorithm attempts to reduce `this` to the identity matrix
         // by simultaneously applying elementary row operations to it and
         // another matrix `inv` which starts as the identity matrix. Once
@@ -777,9 +881,9 @@ impl<Src, Dst> Mat4<Src, Dst> {
         }
         // now in upper echelon form, back-substitute variables
         for &idx in &[3, 2, 1] {
-            let diag = this.0[idx][idx];
+            let r_diag = this.0[idx][idx].recip();
             for r in 0..idx {
-                let x = this.0[r][idx] / diag;
+                let x = this.0[r][idx] * r_diag;
 
                 sub_row(this, idx, r, x);
                 sub_row(inv, idx, r, x);
@@ -793,6 +897,17 @@ impl<Src, Dst> Mat4<Src, Dst> {
         }
         debug_assert!(inv.is_finite());
         inv.to()
+    }
+
+    #[inline]
+    const fn is_affine(&self) -> bool {
+        let [a, b, c, d] = self.0[3];
+        if a == 0.0 && b == 0.0 && c == 0.0 && d == 1.0 {
+            true
+        } else {
+            cold_path();
+            false
+        }
     }
 }
 
@@ -830,10 +945,12 @@ impl<Repr, E, M> ApproxEq<E> for Matrix<Repr, M>
 where
     Repr: ApproxEq<E>,
 {
+    #[inline]
     fn approx_eq_eps(&self, other: &Self, rel_eps: &E) -> bool {
         self.0.approx_eq_eps(&other.0, rel_eps)
     }
 
+    #[inline]
     fn relative_epsilon() -> E {
         Repr::relative_epsilon()
     }
@@ -1317,6 +1434,7 @@ pub const fn perspective(
 /// # Parameters
 /// * `lbn`: The left-bottom-near corner of the projection box.
 /// * `rtf`: The right-bottom-far corner of the projection box.
+// TODO Take a Range like `viewport` does? Or have `viewport` take separate?
 pub const fn orthographic(lbn: Point3, rtf: Point3) -> ProjMat3<View> {
     // Done manually due until const traits are stable
     let [x0, y0, z0] = lbn.0;
@@ -1602,6 +1720,27 @@ mod tests {
         }
 
         #[test]
+        fn inversion() {
+            let sc = scale((1.0, -2.0, 5.0));
+            assert_eq!(sc.inverse(), scale((1.0, -0.5, 0.2)));
+
+            let rot = rotate_x(degs(123.0));
+            assert_approx_eq!(rot.inverse(), rotate_x(degs(-123.0)));
+
+            let tr = translate((1.0, 2.0, -3.0));
+            assert_eq!(tr.inverse(), translate((-1.0, -2.0, 3.0)));
+
+            let sc_rot_trans = sc.then(&rot).then(&tr);
+
+            assert_approx_eq!(
+                sc_rot_trans.inverse(),
+                translate((-1.0, -2.0, 3.0))
+                    .then(&rotate_x(degs(-123.0)))
+                    .then(&scale((1.0, -0.5, 0.2)))
+            );
+        }
+
+        #[test]
         fn scaling() {
             let m = scale((1.0, -2.0, 3.0));
 
@@ -1856,6 +1995,12 @@ mod tests {
     }
 
     #[test]
+    fn determinant_of_translation_is_one() {
+        let trans = translate((2.0, 3.0, 4.0));
+        assert_eq!(trans.determinant(), 1.0);
+    }
+
+    #[test]
     fn matrix_composed_with_inverse_is_identity() {
         let m: Mat4<B1, B2> = translate((1.0e3, -2.0e2, 0.0))
             .then(&scale((0.5, 100.0, 42.0)))
@@ -1863,8 +2008,8 @@ mod tests {
 
         let m_inv: Mat4<B2, B1> = m.inverse();
 
-        assert_eq!(m.compose(&m_inv), Mat4::identity());
-        assert_eq!(m_inv.compose(&m), Mat4::identity());
+        assert_eq!(m.then(&m_inv), <Mat4<B1, B1>>::identity());
+        assert_eq!(m.compose(&m_inv), <Mat4<B2, B2>>::identity());
     }
 
     #[test]
