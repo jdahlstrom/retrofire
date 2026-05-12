@@ -198,6 +198,12 @@ where
     }
 }
 
+impl<T: Lerp, const N: usize> Lerp for [T; N] {
+    fn lerp(&self, other: &Self, t: f32) -> Self {
+        core::array::from_fn(|i| self[i].lerp(&other[i], t))
+    }
+}
+
 impl Lerp for () {
     fn lerp(&self, _: &Self, _: f32) {}
 }
