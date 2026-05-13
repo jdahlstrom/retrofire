@@ -2,14 +2,15 @@
 
 use divan::Bencher;
 
-use retrofire_core::geom::{Normal3, Vertex3, tri, vertex};
-use retrofire_core::math::{
-    Color3f, Color4, Color4f, ProjMat3, perspective, pt2, pt3, rgb, rgba,
-    translate, viewport,
+use retrofire_core::{
+    geom::{Normal3, Vertex3, tri, vertex},
+    math::{
+        Color3f, Color4, Color4f, ProjMat3, perspective, pt2, pt3, rgb, rgba,
+        translate, viewport,
+    },
+    render::{Context, Frag, Model, debug::dir_to_rgb, render, shader},
+    util::{buf::Buf2, pnm},
 };
-use retrofire_core::render::debug::dir_to_rgb;
-use retrofire_core::render::{Context, Frag, Model, render, shader};
-use retrofire_core::util::{buf::Buf2, pnm};
 use retrofire_geom::solids::{Build, Sphere};
 
 #[cfg(false)]
