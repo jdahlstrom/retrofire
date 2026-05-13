@@ -2,7 +2,7 @@
 
 use core::iter::zip;
 
-use divan::{Bencher, counter::ItemsCount};
+use divan::Bencher;
 
 use retrofire_core::{
     geom::{Tri, vertex},
@@ -23,7 +23,7 @@ fn flat(b: Bencher, sz: f32) {
     let mut buf: Buf2<Color3> = Buf2::new((1024, 1024));
 
     b.with_inputs(|| VERTS.map(|p| vertex(p * sz, ())))
-        .input_counter(move |vs| ItemsCount::new(Tri(*vs).area() as usize))
+        .input_counter(move |vs| Tri(*vs).area() as usize)
         .bench_local_values(|vs| {
             tri_fill(vs, |sl| {
                 buf[sl.y][sl.xs].fill(gray(0xCC));
@@ -43,7 +43,7 @@ fn gouraud(b: Bencher, sz: f32) {
             vertex(VERTS[2] * sz, rgb(0.2, 0.3, 1.0)),
         ]
     })
-    .input_counter(move |vs| ItemsCount::new(Tri(*vs).area() as usize))
+    .input_counter(move |vs| Tri(*vs).area() as usize)
     .bench_local_values(|vs| {
         tri_fill(vs, |sl| {
             let y = sl.y;
@@ -78,7 +78,7 @@ fn texture(b: Bencher, sz: f32) {
             vertex(VERTS[2] * sz, uv(0.0, 4.0)),
         ]
     })
-    .input_counter(move |vs| ItemsCount::new(Tri(*vs).area() as usize))
+    .input_counter(move |vs| Tri(*vs).area() as usize)
     .bench_local_values(|vs| {
         tri_fill(vs, |sl| {
             let y = sl.y;
