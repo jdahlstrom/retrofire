@@ -5,8 +5,8 @@
 use core::{array::from_fn, cell::Cell};
 
 use super::{
-    Lerp, Point, Point2, Point3, Vec2, Vec3, Vector, lerp, pt3, smoothstep,
-    splat, vec2, vec3,
+    Lerp, Point, Point2, Point3, Vec2, Vec3, Vector, lerp, pt3, smootherstep,
+    space::Real, splat, vec2, vec3,
 };
 
 /// 2D-dimensional Perlin noise generator.
@@ -59,7 +59,7 @@ impl Perlin2 {
         let dots = from_fn(|i| grads[i].dot(&deltas[i]));
 
         // Smooth the interpolation variables
-        let tu = deltas[0].map(smoothstep).0;
+        let tu = deltas[0].map(smootherstep).0;
         // Interpolate the final noise value at pt
         bilerp(tu, dots)
     }
@@ -70,7 +70,7 @@ impl Perlin2 {
     /// surrounding grid points and smoothly interpolating between them.
     pub fn gradient(&self, pt: Point2) -> Vec2 {
         let GridCell { pts, grads } = self.grid_cell(pt);
-        let tu = (pt - pts[0]).map(smoothstep).0;
+        let tu = (pt - pts[0]).map(smootherstep).0;
         bilerp(tu, grads)
     }
 
@@ -145,7 +145,7 @@ impl Perlin3 {
         let dots: [f32; 8] = from_fn(|i| grads[i].dot(&deltas[i]));
 
         // Smooth the interpolation variables
-        let tuv = deltas[0].map(smoothstep).0;
+        let tuv = deltas[0].map(smootherstep).0;
 
         // Interpolate the final noise value at pt
         trilerp(tuv, dots)
@@ -156,7 +156,7 @@ impl Perlin3 {
         let GridCell { pts, grads } = self.grid_cell(pt);
 
         // Smooth the interpolation variables
-        let tuv = (pt - pts[0]).map(smoothstep).0;
+        let tuv = (pt - pts[0]).map(smootherstep).0;
         // Interpolate the gradient at pt
         trilerp(tuv, grads)
     }
@@ -274,9 +274,10 @@ static PERM: [u8; 256] = [
 
 #[cfg(test)]
 mod tests {
-    use crate::math::{pt2, pt3};
     use alloc::string::String;
     use core::fmt::Write;
+
+    use crate::math::{pt2, pt3};
 
     use super::*;
 
@@ -332,11 +333,11 @@ mod tests {
         assert_eq!(
             stats,
             Stats {
-                total: 1000000.0,
-                avg: -0.00024930664,
-                std: 0.28139114,
-                min: -0.8853002,
-                max: 0.8853002
+                total: 1000f32.powi(2),
+                avg: -0.00023739079,
+                std: 0.28690845,
+                min: -0.87925243,
+                max: 0.87925243
             }
         );
     }
@@ -355,11 +356,17 @@ mod tests {
                 }
             }
         }
-        let Stats { total: _, avg, std, min, max } = stats.finish();
-        assert_eq!(avg, 0.0003959533);
-        assert_eq!(std, 0.24879986);
-        assert_eq!(min, -0.8853568);
-        assert_eq!(max, 0.87813747);
+        let stats = stats.finish();
+        assert_eq!(
+            stats,
+            Stats {
+                total: 100f32.powi(3),
+                avg: 0.00037712423,
+                std: 0.26199436,
+                min: -0.890156,
+                max: 0.89380443
+            }
+        );
     }
 
     const PALETTE: &[u8] = b"   ..,:;=+*odO#%@WW";
@@ -368,22 +375,22 @@ mod tests {
     fn perlin2_pattern() {
         #[rustfmt::skip]
         static EXPECTED: &str = "\
-;;;+++ooo***;;;::::::;;;;;;;;;;;;===;;;,,,...,,,
-...:::======;;;;;;===***ooo+++===:::,,,......:::
-......,,,;;;;;;===***ddddddooo;;;,,,......,,,;;;
-.........:::===+++******ooo***;;;,,,,,,:::;;;;;;
-;;;,,,...,,,;;;++++++===;;;;;;::::::;;;===;;;;;;
-ooo+++::::::===+++===,,,.........:::===+++===;;;
-dddooo+++===++++++;;;......   ...,,,;;;******+++
-ooo***+++++++++***+++:::......   ...;;;***ddd***
-;;;===;;;;;;;;;+++++++++;;;,,,...,,,;;;ooodddooo
-...............:::+++oooooo+++;;;===+++oooooo+++
-...............,,,===ddddddooo******oooooo+++:::
-...............,,,===***ooo************+++:::,,,
-;;;;;;;;;===;;;;;;;;;===;;;;;;;;;===;;;:::,,,:::
-ooo******+++===;;;:::,,,......,,,:::,,,...,,,;;;
-dddooo***+++;;;:::............,,,,,,......,,,===
-ooo***+++===;;;,,,.........:::===;;;,,,,,,:::===
++++===+++***++++++oooooo+++:::,,,;;;++++++;;;;;;
+oooooodddOOOOOOddddddddd***;;;,,,,,,;;;======+++
+ooo***ddd%%%%%%OOOooo++++++===::::::;;;+++oooddd
++++;;;+++dddOOO***;;;:::===***===;;;+++ddd###OOO
++++;;;;;;++++++;;;,,,:::+++ooo+++;;;+++dddOOOooo
+***;;;:::::::::,,,,,,===oooddd+++;;;===oooooo===
++++===:::,,,,,,:::===oooOOO###***;;;+++ooo***:::
+===+++;;;:::;;;+++oooooodddddd+++===***dddddd===
++++ooo+++;;;+++oooooo+++++++++;;;;;;+++dddOOOooo
+oooOOOooo***oooddd***;;;;;;;;;::::::===ooo######
+OOO%%%###OOOOOOOOO+++:::;;;++++++;;;;;;===ddd%%%
+ddd######OOOddd***;;;;;;+++dddOOOooo===:::+++ddd
++++***ooo***+++;;;,,,:::+++OOO%%%OOO+++;;;;;;+++
+;;;======;;;,,,......:::+++ddd###ddd***===::::::
+;;;+++;;;.........:::+++ooooooooo+++++++++;;;,,,
++++ooo+++:::,,,;;;***dddooo***;;;:::===******===
 ";
         const SIZE: usize = 16;
         const SCALE: f32 = 4.0;
@@ -393,9 +400,9 @@ ooo***+++===;;;,,,.........:::===;;;,,,,,,:::===
         for i in 0..SIZE {
             for j in 0..SIZE {
                 let pt = pt2(i as f32 / SCALE, j as f32 / SCALE);
-                let val = (p.eval(pt) + 1.0) * 127.0;
+                let val = p.eval(pt) * 0.5 + 0.5;
 
-                let ch = PALETTE[val as usize / 16];
+                let ch = PALETTE[(val * PALETTE.len() as f32) as usize];
                 _ = write!(actual, "{0}{0}{0}", ch as char);
             }
             _ = writeln!(actual);
@@ -406,41 +413,42 @@ ooo***+++===;;;,,,.........:::===;;;,,,,,,:::===
     fn perlin3_pattern() {
         #[rustfmt::skip]
         static EXPECTED: &str = "\
-*********OOO***,,,***%%%
-%%%ooo*********+++***###
-***;;;***;;;***OOO***;;;
-,,,:::***;;;;;;+++***ooo
-***************;;;***%%%
-%%%WWW%%%%%%%%%OOO***+++
-***OOO*********OOO***;;;
-;;;+++***+++***ooo******
++++++++++ooo+++...+++###
+###***+++++++++===+++OOO
++++;;;+++;;;+++ooo+++;;;
+...,,,+++;;;;;;===+++***
++++++++++++++++;;;+++###
+###%%%#########ooo+++===
++++ooo+++++++++ooo+++;;;
+;;;===+++===+++***++++++
 
-###ooo+++OOOooo,,,***%%%
-@@@ooo===***ooo===+++OOO
-+++:::===+++dddooo===;;;
-...,,,***++++++++++++ooo
-;;;+++ddd***===;;;+++###
-OOO######%%%%%%ddd***;;;
-***ooo===oooddd###ooo;;;
-******ooo***ooodddooo+++
+ddd+++===ooo***,,,+++###
+###***;;;+++ooo======ddd
+===,,,;;;;;;oooooo;;;:::
+...,,,+++;;;;;;======+++
+:::===ooo+++;;;:::===OOO
+dddOOOOOOOOOOOOooo+++;;;
++++***;;;+++oooOOO***:::
+++++++++++++***ooo+++===
 
-%%%ooo***OOO***,,,***%%%
-###***+++ooo***:::+++OOO
-;;;:::;;;oooOOO+++;;;;;;
-   ,,,***oooooo*********
-,,,;;;OOO***;;;;;;;;;***
-*********OOOOOOooo+++:::
-******;;;OOOOOO###OOO;;;
-OOOooooooooo***oooooo+++
+###***+++ooo+++...+++###
+OOO+++===***+++,,,===ooo
+;;;,,,;;;***ooo===;;;;;;
+   ...+++******+++++++++
+...;;;ooo+++;;;;;;;;;+++
++++++++++oooooo***===,,,
+++++++;;;ooooooOOOooo;;;
+ooo*********+++******===
 
-###***oooOOO+++...***%%%
-ddd+++***ddd===...+++OOO
-======+++###ooo:::++++++
-...:::***######dddOOOooo
-;;;;;;ooo***+++***======
-+++;;;:::oooooo***===:::
-******+++%%%ooodddddd+++
-###ooooooooo;;;+++***===
+ddd+++***ooo===...+++###
+***===+++ooo;;;...+++ooo
+;;;;;;===OOO***,,,======
+...,,,+++OOOOOOoooddd+++
+::::::***+++===+++;;;:::
+===:::,,,+++++++++;;;,,,
+++++++===OOO***oooooo===
+ddd*********:::===+++===
+
 ";
 
         const SIZE: usize = 8;
@@ -454,9 +462,9 @@ ddd+++***ddd===...+++OOO
                 for j in 0..SIZE {
                     let pt =
                         pt3(i as f32 / SCALE, j as f32 / SCALE, k as f32 / 4.0);
-                    let val = (p.eval(pt) + 1.0) * 127.0;
+                    let val = p.eval(pt) * 0.5 + 0.5;
 
-                    let ch = PALETTE[val as usize / 16];
+                    let ch = PALETTE[(val * PALETTE.len() as f32) as usize];
                     _ = write!(actual, "{0}{0}{0}", ch as char);
                 }
                 _ = writeln!(actual);
