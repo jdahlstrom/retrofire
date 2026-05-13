@@ -2,12 +2,11 @@
 
 use core::hint::black_box;
 
-use divan::{Bencher, counter::ItemsCount};
+use divan::Bencher;
 
 use retrofire::core::{
     geom::{Plane3, Ray, Sphere},
-    math::rand::*,
-    math::{Point3, degs, pt3, spherical, vec3},
+    math::{Point3, degs, pt3, rand::*, spherical, vec3},
     render::scene::BBox,
 };
 use retrofire::geom::Intersect;
@@ -25,7 +24,7 @@ fn ray_plane_hit(b: Bencher) {
         let v = (splat(-1.0)..splat(0.0)).sample(&mut rng);
         Ray(pt3(0.0, 10.0, 0.0), 100.0 * (v - vec3(1.0, 1.0, 1.0)))
     })
-    .counter(ItemsCount::new(1usize))
+    .counter(1u32)
     .bench_local_values(|ray| ray.intersect(&black_box(plane)));
 }
 #[divan::bench]
@@ -40,7 +39,7 @@ fn ray_plane_miss(b: Bencher) {
         let v = (splat(0.0)..splat(1.0)).sample(&mut rng);
         Ray(pt3(0.0, 10.0, 0.0), 100.0 * v)
     })
-    .counter(ItemsCount::new(1usize))
+    .counter(1u32)
     .bench_local_values(|ray| ray.intersect(&black_box(plane)));
 }
 #[divan::bench]
@@ -55,7 +54,7 @@ fn ray_plane_mixed(b: Bencher) {
         let v = VectorsInUnitBall.sample(&mut rng);
         Ray(pt3(0.0, 10.0, 0.0), 100.0 * v)
     })
-    .counter(ItemsCount::new(1usize))
+    .counter(1u32)
     .bench_local_values(|ray| ray.intersect(&black_box(plane)));
 }
 
@@ -68,7 +67,7 @@ fn ray_bbox_hit(b: Bencher) {
         let v = VectorsInUnitBall.sample(&mut rng);
         Ray(v.to_pt(), 100.0 * v)
     })
-    .counter(ItemsCount::new(1usize))
+    .counter(1u32)
     .bench_local_values(|ray| {
         assert!(ray.intersect(&black_box(bbox)).is_some())
     });
@@ -84,7 +83,7 @@ fn ray_bbox_hit_2(b: Bencher) {
         let v = (min..max).sample(&mut rng);
         Ray(pt3(0.0, 2.0, 0.0), v.to_cart())
     })
-    .counter(ItemsCount::new(1usize))
+    .counter(1u32)
     .bench_local_values(|ray| {
         assert!(ray.intersect(&black_box(bbox)).is_some())
     });
@@ -99,7 +98,7 @@ fn ray_bbox_inside(b: Bencher) {
         let dir = VectorsInUnitBall.sample(&mut rng);
         Ray(pt, dir)
     })
-    .counter(ItemsCount::new(1usize))
+    .counter(1u32)
     .bench_local_values(|ray| {
         assert!(ray.intersect(&black_box(bbox)).is_some())
     });
@@ -116,7 +115,7 @@ fn ray_bbox_miss(b: Bencher) {
         let v = (min..max).sample(&mut rng);
         Ray(pt3(0.0, 3.0, 0.0), v.to_cart())
     })
-    .counter(ItemsCount::new(1usize))
+    .counter(1u32)
     .bench_local_values(|ray| {
         assert!(ray.intersect(&black_box(bbox)).is_none())
     });
@@ -134,7 +133,7 @@ fn ray_bbox_mixed(b: Bencher) {
         let dir = (p..q).sample(&mut rng);
         Ray(2.0 * orig, 100.0 * dir.to_vec())
     })
-    .counter(ItemsCount::new(1usize))
+    .counter(1u32)
     .bench_local_values(|ray| ray.intersect(&black_box(bbox)));
 }
 
@@ -150,7 +149,7 @@ fn ray_sphere_miss(b: Bencher) {
         let v = (min..max).sample(&mut rng);
         Ray(pt3(0.0, 3.0, 0.0), v.to_cart())
     })
-    .counter(ItemsCount::new(1usize))
+    .counter(1u32)
     .bench_local_values(|ray| {
         let ip = ray.intersect(&black_box(sphere));
         assert!(ip.is_none());
@@ -170,7 +169,7 @@ fn ray_sphere_hit(b: Bencher) {
             .sample(&mut rng);
         Ray(pt3(0.0, 2.0f32.sqrt(), 0.0), v.to_cart())
     })
-    .counter(ItemsCount::new(1usize))
+    .counter(1u32)
     .bench_local_values(|ray| {
         let ip = ray.intersect(&black_box(sphere));
         assert!(ip.is_some());
@@ -188,7 +187,7 @@ fn ray_sphere_mixed(b: Bencher) {
         let v = VectorsInUnitBall.sample(&mut rng);
         Ray(pt3(0.0, 2.0, 0.0), v)
     })
-    .counter(ItemsCount::new(1usize))
+    .counter(1u32)
     .bench_local_values(|ray| ray.intersect(&black_box(sphere)));
 }
 
