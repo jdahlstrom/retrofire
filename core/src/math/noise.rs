@@ -2,19 +2,19 @@
 //!
 //! This module implements two- and three-dimensional Perlin noise.
 
+use core::{array::from_fn, cell::Cell};
+
 use super::{
     Lerp, Point, Point2, Point3, Vec2, Vec3, Vector, lerp, pt3, smoothstep,
     splat, vec2, vec3,
 };
-use crate::math::space::Real;
-use core::{array::from_fn, cell::Cell};
 
 /// 2D-dimensional Perlin noise generator.
 #[derive(Clone, Debug, Default, PartialEq)]
 pub struct Perlin2 {
     pub seed: u8,
 
-    // Cache the grid points and gradients because in general several
+    // Cache the grid points and gradients because usually several
     // consecutive evaluations are likely to hit the same grid square
     cache: Cell<GridCell2>,
 }
@@ -24,7 +24,7 @@ pub struct Perlin2 {
 pub struct Perlin3 {
     pub seed: u8,
 
-    // Cache the grid points and gradients because in general several
+    // Cache the grid points and gradients because usually several
     // consecutive evaluations are likely to hit the same grid square
     cache: Cell<GridCell3>,
 }
