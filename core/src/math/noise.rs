@@ -5,8 +5,8 @@
 use core::{array::from_fn, cell::Cell};
 
 use super::{
-    Lerp, Point, Point2, Point3, Vec2, Vec3, Vector, lerp, pt3, smootherstep,
-    space::Real, splat, vec2, vec3,
+    Lerp, Point, Point2, Point3, Vec2, Vec3, Vector, lerp, pt3, space::Real,
+    splat, spline::smoothstep_unit, vec2, vec3,
 };
 
 /// 2D-dimensional Perlin noise generator.
@@ -48,7 +48,7 @@ impl Perlin2 {
     }
 
     /// Returns the Perlin noise value corresponding to a 2D point.
-    #[inline(never)]
+    #[inline]
     pub fn eval(&self, pt: Point2) -> f32 {
         let GridCell { pts, grads } = self.grid_cell(pt);
 
@@ -59,7 +59,7 @@ impl Perlin2 {
         let dots = from_fn(|i| grads[i].dot(&deltas[i]));
 
         // Smooth the interpolation variables
-        let tu = deltas[0].map(smootherstep).0;
+        let tu = deltas[0].map(smoothstep_unit).0;
         // Interpolate the final noise value at pt
         bilerp(tu, dots)
     }
@@ -68,12 +68,14 @@ impl Perlin2 {
     ///
     /// The vector is computed by taking the gradient vectors of all four
     /// surrounding grid points and smoothly interpolating between them.
+    #[inline]
     pub fn gradient(&self, pt: Point2) -> Vec2 {
         let GridCell { pts, grads } = self.grid_cell(pt);
-        let tu = (pt - pts[0]).map(smootherstep).0;
+        let tu = (pt - pts[0]).map(smoothstep_unit).0;
         bilerp(tu, grads)
     }
 
+    #[inline]
     fn grid_cell(&self, pt: Point2) -> GridCell2 {
         let pt0 = pt.map(f32::floor);
 
@@ -104,19 +106,6 @@ impl Perlin2 {
         GRADS_2[hash as usize & 0x7]
     }
 }
-
-impl<const DIM: usize, const N: usize> Default for GridCell<DIM, N>
-where
-    [f32; DIM]: Default,
-{
-    fn default() -> Self {
-        Self {
-            pts: [Point::new([f32::NAN; DIM]); N],
-            grads: [Vector::default(); N],
-        }
-    }
-}
-
 /// Gradient vectors for 2D noise.
 static GRADS_2: [Vec2; 8] = const {
     const A: f32 = 1.237;
@@ -134,7 +123,8 @@ static GRADS_2: [Vec2; 8] = const {
 };
 
 impl Perlin3 {
-    /// Returns the Perlin noise value corresponding to the 3D point.
+    /// Returns the Perlin noise value corresponding to a 3D point.
+    // #[inline] Benchmarks appear to indicate that this reduces perf
     pub fn eval(&self, pt: Point3) -> f32 {
         let GridCell { pts, grads } = self.grid_cell(pt);
 
@@ -145,22 +135,24 @@ impl Perlin3 {
         let dots: [f32; 8] = from_fn(|i| grads[i].dot(&deltas[i]));
 
         // Smooth the interpolation variables
-        let tuv = deltas[0].map(smootherstep).0;
+        let tuv = deltas[0].map(smoothstep_unit).0;
 
         // Interpolate the final noise value at pt
         trilerp(tuv, dots)
     }
 
     /// Returns the Perlin gradient vector corresponding to a 3D point.
+    #[inline]
     pub fn gradient(&self, pt: Point3) -> Vec3 {
         let GridCell { pts, grads } = self.grid_cell(pt);
 
         // Smooth the interpolation variables
-        let tuv = (pt - pts[0]).map(smootherstep).0;
+        let tuv = (pt - pts[0]).map(smoothstep_unit).0;
         // Interpolate the gradient at pt
         trilerp(tuv, grads)
     }
 
+    #[inline]
     fn grid_cell(&self, pt: Point3) -> GridCell3 {
         let pt0 = pt.map(f32::floor);
 
@@ -175,7 +167,6 @@ impl Perlin3 {
         }
         cached
     }
-
 
     #[inline]
     #[rustfmt::skip]
@@ -271,6 +262,18 @@ static PERM: [u8; 256] = [
     169, 81, 218, 67, 21, 170, 187, 59, 86, 235, 154, 123, 150, 177, 135, 228,
     104, 242, 6, 151, 255, 34, 30, 141, 202, 196, 236, 207, 241, 40, 17, 10
 ];
+
+impl<const DIM: usize, const N: usize> Default for GridCell<DIM, N>
+where
+    [f32; DIM]: Default,
+{
+    fn default() -> Self {
+        Self {
+            pts: [Point::new([f32::NAN; DIM]); N],
+            grads: [Vector::default(); N],
+        }
+    }
+}
 
 #[cfg(test)]
 mod tests {
