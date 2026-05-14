@@ -137,7 +137,7 @@ pub fn render<Prim, Vtx: Clone, Var, Uni: Copy, Shd>(
     shader: &Shd,
     uniform: Uni,
     to_screen: Mat4<Ndc, Screen>,
-    mut target: &mut impl Target,
+    target: &mut impl Target,
     ctx: &Context,
 ) where
     Prim: Render<Var> + Clone,
@@ -155,38 +155,40 @@ pub fn render<Prim, Vtx: Clone, Var, Uni: Copy, Shd>(
     stats.verts.i = verts.len();
 
     // 1. Vertex shader: transform vertices to clip space
-    let verts: Vec<_> = verts
-        // verts is borrowed, can't consume
-        .iter()
-        // TODO Pass vertex as ref to shader
-        .cloned()
-        .map(|v| shader.shade_vertex(v, uniform))
-        .map(ClipVert::new)
-        .collect();
+    let verts = vertex_transform(shader, uniform, verts);
 
     // 2. Primitive assembly: map vertex indices to actual vertices
-    let prims: Vec<_> = prims
-        .iter()
-        .map(|tri| Prim::inline(tri.clone(), &verts))
-        // Collect needed because clip takes a slice...
-        .collect();
+    let prims: Vec<_> = primitive_assembly(prims, &verts);
 
     // 3. Clipping: clip against the view frustum
-    // TODO capacity is just a heuristic, should retain vector between calls somehow
-    let mut clipped = Vec::with_capacity(prims.len() / 2);
+    let mut clipped = Vec::new();
     view_frustum::clip(&prims[..], &mut clipped);
 
-    // Optional depth sorting for use case such as transparency
+    // Optional depth sorting for use cases such as transparency
     if let Some(d) = ctx.depth_sort {
         depth_sort::<Prim, _>(&mut clipped, d);
     }
 
-    // For each primitive in the view frustum:
+    // 4. Rasterize: Turn visible primitives to fragments
+    stats += rasterize::<Prim, _, _>(clipped, shader, to_screen, target, ctx);
+
+    *ctx.stats.borrow_mut() += stats.finish();
+}
+
+fn rasterize<Prim: Render<Var>, Shd: FragmentShader<Var>, Var: Vary>(
+    clipped: Vec<Prim::Clip>,
+    shader: &Shd,
+    to_screen: Mat4<Ndc, Screen>,
+    mut target: &mut impl Target,
+    ctx: &Context,
+) -> Stats {
+    let mut stats = Stats::new();
     for prim in clipped {
         // Transform to screen space
         let prim = Prim::to_screen(prim, &to_screen);
         // Back/frontface culling
-        // TODO This could also be done earlier, before or as part of clipping
+        // TODO This could also be done earlier, before or as part of clipping,
+        //      but determining back/frontface is more difficult before z-div
         if ctx.face_cull(Prim::is_backface(&prim)) {
             continue;
         }
@@ -203,7 +205,39 @@ pub fn render<Prim, Vtx: Clone, Var, Uni: Copy, Shd>(
                 .rasterize(scanline, shader, ctx);
         });
     }
-    *ctx.stats.borrow_mut() += stats.finish();
+    stats
+}
+
+#[inline]
+fn primitive_assembly<Prim: Render<Var> + Clone, Var: Vary>(
+    prims: &[Prim],
+    verts: &[ClipVert<Var>],
+) -> Vec<Prim::Clip> {
+    prims
+        .iter()
+        .cloned()
+        .map(|prim| Prim::inline(prim, &verts))
+        // Collect needed because clip takes a slice...
+        .collect()
+}
+
+#[inline]
+fn vertex_transform<Shd, Vtx: Clone, Var: Vary, Uni: Copy>(
+    shader: &Shd,
+    uniform: Uni,
+    verts: &[Vtx],
+) -> Vec<ClipVert<Var>>
+where
+    Shd: VertexShader<Vtx, Uni, Output = Vertex<ProjVec3, Var>>,
+{
+    verts
+        // verts is borrowed, can't consume
+        .iter()
+        // TODO Pass vertex as ref to shader
+        .cloned()
+        .map(|v| shader.shade_vertex(v, uniform))
+        .map(ClipVert::new)
+        .collect()
 }
 
 fn depth_sort<P: Render<V>, V: Vary>(prims: &mut [P::Clip], d: DepthSort) {
