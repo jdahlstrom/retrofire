@@ -63,6 +63,7 @@ for custom allocators is planned in order to make `alloc` optional as well.
 * Reading and writing pnm image files
 * Reading and writing Wavefront .obj files
 * Minifb, SDL2, and Wasm frontends
+* Procedural noise generation
 * Forever emoji-free README and docs
 * Forever LLM-free code
 
@@ -70,7 +71,6 @@ for custom allocators is planned in order to make `alloc` optional as well.
 
 * Different camera types
 * Spherical etc. UV mapping
-* Procedural noise generation
 * Terminal frontend with ncurses
 * Cube mapping and skyboxes
 
