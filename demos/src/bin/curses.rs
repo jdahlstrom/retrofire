@@ -1,5 +1,3 @@
-#![allow(clippy::unusual_byte_groupings)]
-
 use std::time::Instant;
 
 use pancurses::*;
@@ -7,8 +5,8 @@ use pancurses::*;
 use re::prelude::*;
 
 use re::core::render::{
-    Model, ctx::DepthSort::BackToFront, raster::Scanline, render, shader,
-    stats::Throughput,
+    Model, ctx::DepthSort::BackToFront, debug::dir_to_rgb, raster::Scanline,
+    render, shader, stats::Throughput,
 };
 use re::geom::solids::{Build, Torus};
 
@@ -21,15 +19,13 @@ impl Win {
         curs_set(0);
         start_color();
 
-        // Create an RGB 332 palette but keep the eight standard colors
-        for i in 8..256 {
-            // Range from 0 to 1000
-            let r = (i & 0b111_000_00) * 4;
-            let g = (i & 0b000_111_00) * 35;
-            let b = (i & 0b000_000_11) * 330;
-
-            init_color(i, r, g, b);
-            init_pair(i, i, i);
+        // Use the standard xterm 8-bit palette:
+        // 0..8: basic dark
+        // 8..16: basic bright
+        // 16..232: 6x6x6 RGB cube
+        // 232..256: sixteen shades of gray
+        for i in 16..232 {
+            init_pair(i, 15, i);
         }
         Self(w)
     }
@@ -52,17 +48,14 @@ fn main() {
         |v: Vertex3<_>, mvp: &ProjMat3<Model>| {
             vertex(mvp.apply(&v.pos), v.attrib)
         },
-        |frag: Frag<Normal3>, _: &_| {
-            let [x, y, z] = (frag.var * 0.5 + splat(0.5)).0;
-            rgb(x, y, z).to_color4()
-        },
+        |frag: Frag<Normal3>, _: &_| dir_to_rgb(frag.var).to_color4(),
     );
 
     let torus = Torus {
         major_radius: 1.0,
         minor_radius: 0.3,
-        major_sectors: 32,
-        minor_sectors: 16,
+        major_sectors: 19,
+        minor_sectors: 13,
     }
     .build();
 
@@ -113,24 +106,18 @@ impl Target for Win {
         uni: U,
         _ctx: &Context,
     ) -> Throughput {
-        let w = sc.xs.len();
-        let y = sc.y;
-
-        self.0.mv(y as i32, sc.xs.start as i32);
+        self.0.mv(sc.y as i32, sc.xs.start as i32);
 
         for frag in sc.fragments() {
             let Some(col) = fs.shade_fragment(frag, uni) else {
                 continue;
             };
-            let [r, g, b, _] = col.0.map(|c| c as u32);
-
-            let col = (r & 0b111_000_00)
-                | ((g / 9) & 0b000_111_00)
-                | ((b / 85) & 0b000_000_11);
-
-            // Avoid the eight standard colors
-            self.0.addch(COLOR_PAIR(col.max(8) as chtype));
+            // Map the RGB to the closest color in the 6x6x6 xterm RGB cube
+            let [r, g, b, _] = col.0.map(|c| c / 43);
+            let col = 16 + 36 * r + 6 * g + b;
+            self.0
+                .addch(COLOR_PAIR(col as chtype) | ' ' as chtype);
         }
-        Throughput { i: w, o: w }
+        Throughput { i: sc.xs.len(), o: sc.xs.len() }
     }
 }
