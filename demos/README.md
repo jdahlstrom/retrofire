@@ -20,10 +20,15 @@ Simple demo programs showcasing [`retrofire`][1] features.
 
 * `bezier` : A Bézier curve bouncing around, like in a 90s screensaver.
 * `crates` : A scene demonstrating a first-person camera and controls.
+* `curses` : A colorful torus rendered in the terminal using ncurses.
 * `hello`  : A bouncing message, a custom message on the cmd line.
 * `solids` : A collection of solid shapes, hit space to switch.
 * `sprites`: A ball made of a large number of spherical particles.
 * `square` : A minimal example rendering a textured, transformed quad.
+
+## Crate features
+
+* `stats`: Enables the collection and display of rendering statistics.
 
 ## License
 

@@ -1,10 +1,8 @@
 //! Rendering context and parameters.
 
-use core::{cell::RefCell, cmp::Ordering};
+use core::cmp::Ordering;
 
 use crate::math::{Color4, rgba};
-
-use super::Stats;
 
 /// Context and parameters used by the renderer.
 #[derive(Clone, Debug)]
@@ -61,7 +59,8 @@ pub struct Context {
     pub depth_write: bool,
 
     /// Collecting rendering statistics.
-    pub stats: RefCell<Stats>,
+    #[cfg(feature = "stats")]
+    pub stats: core::cell::RefCell<super::Stats>,
 }
 
 /// Whether to sort faces front to back or back to front.
@@ -121,7 +120,8 @@ impl Default for Context {
             color_write: true,
             depth_test: Some(Ordering::Less),
             depth_write: true,
-            stats: Default::default(),
+            #[cfg(feature = "stats")]
+            stats: super::Stats::new().into(),
         }
     }
 }

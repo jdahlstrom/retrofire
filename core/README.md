@@ -28,6 +28,10 @@ customizable shaders; with more to come.
   and transcendental functions. Enabled by default. If this feature is
   disabled, the crate only depends on `alloc`.
 
+* `stats`:
+  Enables collection of rendering performance data, with a slight performance
+  and binary size impact.
+
 * `libm`:
   Provides software implementations of floating-point functions via the
   [`libm`](https://crates.io/crates/libm) crate.

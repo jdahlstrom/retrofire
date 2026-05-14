@@ -22,6 +22,7 @@ repository.workspace = true
 documentation.workspace = true
 
 [features]
+stats = ["retrofire-core/stats"]
 wasm = ["dep:wasm-bindgen", "dep:web-sys"]
 wasm-dev = ["wasm", "dep:console_error_panic_hook"]
 

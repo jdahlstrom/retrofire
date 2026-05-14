@@ -7,8 +7,6 @@
 
 use alloc::vec::Vec;
 use core::{fmt::Debug, ops::DerefMut};
-#[cfg(feature = "std")]
-use std::time::Instant;
 
 use crate::geom::Vertex;
 use crate::math::{
@@ -32,11 +30,13 @@ pub(super) mod re_exports {
         raster::Frag,
         scene::{BBox, Obj},
         shader::{FragmentShader, VertexShader},
-        stats::Stats,
         target::{Colorbuf, Framebuf, Target},
         tex::{TexCoord, Texture, uv},
         text::Text,
     };
+
+    #[cfg(feature = "stats")]
+    pub use super::stats::Stats;
 }
 pub use re_exports::*;
 
@@ -50,10 +50,12 @@ pub mod prim;
 pub mod raster;
 pub mod scene;
 pub mod shader;
-pub mod stats;
 pub mod target;
 pub mod tex;
 pub mod text;
+
+#[cfg(feature = "stats")]
+pub mod stats;
 
 /// Renderable geometric primitive.
 pub trait Render<V: Vary> {
@@ -151,16 +153,12 @@ pub fn render<Prim, Vtx: Clone, Var, Uni: Copy, Shd>(
     Var: Vary,
     Shd: Shader<Vtx, Var, Uni>,
 {
-    // 0. Preparations
-    let verts = verts.as_ref();
+    // 0. Setup
     let prims = prims.as_ref();
+    let verts = verts.as_ref();
 
-    let mut stats = Stats::new();
-    stats.calls = 1.0;
-    stats.prims.i = prims.len();
-    stats.verts.i = verts.len();
-    #[cfg(feature = "std")]
-    let start = Instant::now();
+    #[cfg(feature = "stats")]
+    let stats = Stats::start_call(prims.len(), verts.len());
 
     // 1. Vertex shader: transform vertices to clip space
     let verts = vertex_transform(shader, uniform, verts);
@@ -170,7 +168,7 @@ pub fn render<Prim, Vtx: Clone, Var, Uni: Copy, Shd>(
 
     // 3. Clipping: clip against the view frustum
     let mut clipped = Vec::new();
-    view_frustum::clip(&prims[..], &mut clipped);
+    view_frustum::clip(prims.as_slice(), &mut clipped);
 
     // Optional depth sorting for use cases such as transparency
     if let Some(d) = ctx.depth_sort {
@@ -178,16 +176,15 @@ pub fn render<Prim, Vtx: Clone, Var, Uni: Copy, Shd>(
     }
 
     // 4. Rasterize: Turn visible primitives to fragments
-    stats += rasterize::<Prim, _, _, _>(
+    #[allow(unused_variables)]
+    let (prims_out, verts_out) = rasterize::<Prim, _, _, _>(
         clipped, shader, uniform, to_screen, target, ctx,
     );
 
-    #[cfg(feature = "std")]
+    #[cfg(feature = "stats")]
     {
-        stats.render_time = start.elapsed();
+        *ctx.stats.borrow_mut() += stats.finish_call(prims_out, verts_out);
     }
-
-    *ctx.stats.borrow_mut() += stats.finish();
 }
 
 fn rasterize<Prim, Shd, Var, Uni>(
@@ -197,14 +194,14 @@ fn rasterize<Prim, Shd, Var, Uni>(
     to_screen: Mat4<Ndc, Screen>,
     mut target: &mut impl Target,
     ctx: &Context,
-) -> Stats
+) -> (usize, usize)
 where
     Prim: Render<Var>,
     Shd: FragmentShader<Var, Uni>,
     Var: Vary,
     Uni: Copy,
 {
-    let mut stats = Stats::new();
+    let mut out = (0, 0);
     for prim in clipped {
         // Transform to screen space
         let prim = Prim::to_screen(prim, &to_screen);
@@ -216,18 +213,17 @@ where
         }
 
         // Log output stats after culling
-        stats.prims.o += 1;
-        stats.verts.o += 3; // TODO Get number of verts in prim somehow
+        out.0 += 1;
+        out.1 += 3; // TODO Get number of verts in prim somehow
 
         // 4. Fragment shader and rasterization
+        let target = target.deref_mut();
         Prim::rasterize(prim, |scanline| {
             // Convert to fragments, shade, and draw to target
-            stats.frags += target
-                .deref_mut()
-                .rasterize(scanline, shader, uniform, ctx);
+            target.rasterize(scanline, shader, uniform, ctx);
         });
     }
-    stats
+    out
 }
 
 #[inline]
