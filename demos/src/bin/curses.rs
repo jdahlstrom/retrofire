@@ -6,7 +6,7 @@ use re::prelude::*;
 
 use re::core::render::{
     Model, ctx::DepthSort::BackToFront, debug::dir_to_rgb, raster::Scanline,
-    render, shader, stats::Throughput,
+    render, shader,
 };
 use re::geom::solids::{Build, Torus};
 
@@ -70,7 +70,11 @@ fn main() {
         win.0.attrset(COLOR_PAIR(0));
         win.0.mvprintw(0, 0, "Q to quit");
 
-        ctx.stats.borrow_mut().frames += 1.0;
+        #[cfg(feature = "stats")]
+        {
+            ctx.stats.borrow_mut().frames += 1.0;
+        }
+
         let t_secs = start.elapsed().as_secs_f32();
 
         let mvp = rotate_x(rads(t_secs))
@@ -96,6 +100,16 @@ fn main() {
             break;
         }
     }
+
+    // Return to normal terminal mode
+    drop(win);
+
+    #[cfg(feature = "stats")]
+    {
+        let mut stats = ctx.stats.into_inner();
+        stats.wall_time = start.elapsed();
+        println!("{stats}");
+    }
 }
 
 impl Target for Win {
@@ -105,8 +119,16 @@ impl Target for Win {
         fs: &Fs,
         uni: U,
         _ctx: &Context,
+<<<<<<< HEAD
     ) -> Throughput {
         self.0.mv(sc.y as i32, sc.xs.start as i32);
+=======
+    ) {
+        let w = sc.xs.len();
+        let y = sc.y;
+
+        self.0.mv(y as i32, sc.xs.start as i32);
+>>>>>>> ed082dfd (Make stats optional and behind a feature flag)
 
         for frag in sc.fragments() {
             let Some(col) = fs.shade_fragment(frag, uni) else {
@@ -118,6 +140,9 @@ impl Target for Win {
             self.0
                 .addch(COLOR_PAIR(col as chtype) | ' ' as chtype);
         }
+<<<<<<< HEAD
         Throughput { i: sc.xs.len(), o: sc.xs.len() }
+=======
+>>>>>>> ed082dfd (Make stats optional and behind a feature flag)
     }
 }

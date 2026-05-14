@@ -113,7 +113,10 @@ fn main() {
         // Crates
 
         for Obj { geom, bbox, tf } in &crates {
-            frame.ctx.stats.borrow_mut().objs.i += 1;
+            #[cfg(feature = "stats")]
+            {
+                frame.ctx.stats.borrow_mut().objs.i += 1;
+            }
 
             let model_to_project = tf.then(world_to_project);
 
@@ -130,7 +133,10 @@ fn main() {
                 .uniform(&model_to_project)
                 .render();
 
-            frame.ctx.stats.borrow_mut().objs.o += 1;
+            #[cfg(feature = "stats")]
+            {
+                frame.ctx.stats.borrow_mut().objs.o += 1;
+            }
         }
 
         Continue(())

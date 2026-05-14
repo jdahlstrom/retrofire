@@ -12,24 +12,20 @@ use crate::util::{
     pixfmt::IntoPixel,
 };
 
-use super::{Context, FragmentShader, raster::Scanline, stats::Throughput};
+use super::{Context, FragmentShader, raster::Scanline};
 
 /// Trait for types that can be used as render targets.
 pub trait Target {
     /// Writes a single scanline into `self`.
     ///
     /// Returns count of fragments input and output.
-    fn rasterize<V, U, Fs>(
+    fn rasterize<V: Vary, U: Copy, Fs: FragmentShader<V, U>>(
         &mut self,
         scanline: Scanline<V>,
         frag_shader: &Fs,
         uniform: U,
         ctx: &Context,
-    ) -> Throughput
-    where
-        V: Vary,
-        U: Copy,
-        Fs: FragmentShader<V, U>;
+    );
 }
 
 /// Framebuffer, combining a color (pixel) buffer and a depth buffer.
@@ -67,7 +63,7 @@ impl<T: Target> Target for &mut T {
         fs: &Fs,
         uni: U,
         ctx: &Context,
-    ) -> Throughput {
+    ) {
         (*self).rasterize(sl, fs, uni, ctx)
     }
 }
@@ -79,7 +75,7 @@ impl<T: Target> Target for &RefCell<T> {
         fs: &Fs,
         uni: U,
         ctx: &Context,
-    ) -> Throughput {
+    ) {
         RefCell::borrow_mut(self).rasterize(sl, fs, uni, ctx)
     }
 }
@@ -98,7 +94,7 @@ where
         fs: &Fs,
         uni: U,
         ctx: &Context,
-    ) -> Throughput {
+    ) {
         let Self { color_buf, depth_buf } = self;
         rasterize_fb(color_buf, depth_buf, sl, fs, uni, Color4::into_pixel, ctx)
     }
@@ -118,7 +114,7 @@ where
         fs: &Fs,
         uni: U,
         ctx: &Context,
-    ) -> Throughput {
+    ) {
         rasterize(&mut self.buf, sl, fs, uni, Color4::into_pixel, ctx)
     }
 }
@@ -131,7 +127,7 @@ impl Target for Buf2<Color4> {
         fs: &Fs,
         uni: U,
         ctx: &Context,
-    ) -> Throughput {
+    ) {
         rasterize(self, sl, fs, uni, |c| c, ctx)
     }
 }
@@ -144,7 +140,7 @@ impl Target for Buf2<Color3> {
         fs: &Fs,
         uni: U,
         ctx: &Context,
-    ) -> Throughput {
+    ) {
         rasterize(self, sl, fs, uni, |c| c.to_rgb(), ctx)
     }
 }
@@ -156,11 +152,13 @@ pub fn rasterize<B: AsMutSlice2, V: Vary, U: Copy>(
     uni: U,
     mut conv: impl FnMut(Color4) -> B::Elem,
     ctx: &Context,
-) -> Throughput {
+) {
     let x0 = sl.xs.start;
     let x1 = sl.xs.end.max(x0);
 
-    let mut io = Throughput { i: x1 - x0, o: 0 };
+    #[cfg(feature = "stats")]
+    let mut frags = super::stats::Throughput { i: x1 - x0, o: 0 };
+
     let cbuf_span = &mut buf.as_mut_slice2()[sl.y][x0..x1];
 
     sl.fragments()
@@ -169,11 +167,17 @@ pub fn rasterize<B: AsMutSlice2, V: Vary, U: Copy>(
             if let Some(new_col) = fs.shade_fragment(frag, uni)
                 && ctx.color_write
             {
-                io.o += 1;
+                #[cfg(feature = "stats")]
+                {
+                    frags.o += 1;
+                }
                 *curr_col = conv(new_col);
             }
         });
-    io
+    #[cfg(feature = "stats")]
+    {
+        ctx.stats.borrow_mut().frags += frags;
+    };
 }
 
 pub fn rasterize_fb<B: AsMutSlice2, V: Vary, U: Copy>(
@@ -184,13 +188,14 @@ pub fn rasterize_fb<B: AsMutSlice2, V: Vary, U: Copy>(
     uni: U,
     mut conv: impl FnMut(Color4) -> B::Elem,
     ctx: &Context,
-) -> Throughput {
+) {
     let x0 = sl.xs.start;
     let x1 = sl.xs.end.max(x0);
     let cbuf_span = &mut cbuf.as_mut_slice2()[sl.y][x0..x1];
     let zbuf_span = &mut zbuf.as_mut_slice2()[sl.y][x0..x1];
 
-    let mut io = Throughput { i: x1 - x0, o: 0 };
+    #[cfg(feature = "stats")]
+    let mut frags = super::stats::Throughput { i: x1 - x0, o: 0 };
 
     sl.fragments()
         .zip(cbuf_span)
@@ -202,7 +207,10 @@ pub fn rasterize_fb<B: AsMutSlice2, V: Vary, U: Copy>(
                 && let Some(new_col) = fs.shade_fragment(frag, uni)
             {
                 if ctx.color_write {
-                    io.o += 1;
+                    #[cfg(feature = "stats")]
+                    {
+                        frags.o += 1;
+                    }
                     // TODO Blending should happen here
                     *curr_col = conv(new_col);
                 }
@@ -211,5 +219,8 @@ pub fn rasterize_fb<B: AsMutSlice2, V: Vary, U: Copy>(
                 }
             }
         });
-    io
+    #[cfg(feature = "stats")]
+    {
+        ctx.stats.borrow_mut().frags += frags;
+    };
 }

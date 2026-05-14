@@ -46,6 +46,15 @@ impl Stats {
         Self::default()
     }
 
+    pub fn start_call(n_prims: usize, n_verts: usize) -> Self {
+        Self {
+            calls: 1.0,
+            prims: Throughput { i: n_prims, o: 0 },
+            verts: Throughput { i: n_verts, o: 0 },
+            ..Self::default()
+        }
+    }
+
     /// Stops the timer and records the elapsed time to `self.time`.
     ///
     /// No-op if the timer was not running. This method is also no-op unless
@@ -267,8 +276,7 @@ fn human_time(d: Duration) -> String {
 
 #[cfg(test)]
 mod tests {
-    use core::array::from_fn;
-    use core::time::Duration;
+    use core::{array::from_fn, time::Duration};
 
     use super::*;
 

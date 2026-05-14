@@ -11,15 +11,20 @@ use sdl2::{
     video::{FullscreenType, Window as SdlWindow, WindowBuildError},
 };
 
-use retrofire_core::math::Color4;
-use retrofire_core::render::{Colorbuf, Context, Stats, Text, target};
-use retrofire_core::util::{
-    Dims,
-    buf::{AsMutSlice2, Buf2, MutSlice2},
-    pixfmt::{IntoPixel, Rgb565, Rgba4444, Rgba8888},
+use retrofire_core::{
+    math::Color4,
+    render::{Colorbuf, Context, Text, target},
+    util::Dims,
+    util::buf::{AsMutSlice2, Buf2, MutSlice2},
+    util::pixfmt::{IntoPixel, Rgb565, Rgba4444, Rgba8888},
 };
 
 use super::{Frame, dims, font_6x10};
+
+#[cfg(feature = "stats")]
+use retrofire_core::render::Stats;
+#[cfg(not(feature = "stats"))]
+pub type Stats = ();
 
 /// Helper trait to support different pixel format types.
 pub trait PixelFmt: Copy + Default {
@@ -245,16 +250,28 @@ impl<PF: PixelFmt<Pixel = [u8; N]>, const N: usize> Window<PF> {
             })?;
 
             self.present(&tex)?;
-            ctx.stats.borrow_mut().frames += 1.0;
+
+            #[cfg(feature = "stats")]
+            {
+                ctx.stats.borrow_mut().frames += 1.0;
+            }
 
             if cf.is_break() {
                 break;
             }
         }
-        let mut stats = ctx.stats.into_inner();
-        stats.wall_time = start.elapsed();
-        println!("{stats}");
-        Ok(stats)
+
+        #[cfg(feature = "stats")]
+        {
+            let mut stats = ctx.stats.into_inner();
+            stats.wall_time = start.elapsed();
+            println!("{stats}");
+            Ok(stats)
+        }
+        #[cfg(not(feature = "stats"))]
+        {
+            Ok(())
+        }
     }
 }
 
