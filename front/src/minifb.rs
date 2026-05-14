@@ -11,11 +11,16 @@ use std::time::Instant;
 use minifb::{Key, WindowOptions};
 
 use retrofire_core::{
-    render::{Colorbuf, Context, Stats, Text, target},
+    render::{Colorbuf, Context, Text, target},
     util::{Buf2, Dims, MutSlice2, dims, pixfmt::Xrgb8888},
 };
 
 use super::{Frame, font_6x10};
+
+#[cfg(feature = "stats")]
+use retrofire_core::render::Stats;
+#[cfg(not(feature = "stats"))]
+pub type Stats = ();
 
 /// A lightweight wrapper of a `minibuf` window.
 pub struct Window {
@@ -156,12 +161,17 @@ impl Window {
 
             self.present(cbuf.data_mut());
 
-            ctx.stats.borrow_mut().frames += 1.0;
+            #[cfg(feature = "stats")]
+            {
+                ctx.stats.borrow_mut().frames += 1.0;
+            }
         }
-        let mut stats = ctx.stats.into_inner();
-        stats.wall_time = start.elapsed();
-        println!("{stats}");
-        stats
+        #[cfg(feature = "stats")]
+        {
+            let stats = ctx.stats.into_inner().finish();
+            println!("{stats}");
+            stats
+        }
     }
 
     fn should_quit(&self) -> bool {

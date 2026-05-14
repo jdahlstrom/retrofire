@@ -1,17 +1,25 @@
 //! Rendering statistics.
 
 use alloc::{format, string::String};
-use core::fmt::{self, Display, Formatter};
-use core::ops::AddAssign;
-use core::time::Duration;
+use core::{
+    fmt::{self, Display, Formatter},
+    ops::AddAssign,
+    time::Duration,
+};
+
+#[cfg(feature = "std")]
+use std::time::Instant;
 
 //
 // Types
 //
 
 /// Collects and accumulates rendering statistics and performance data.
-#[derive(Clone, Debug, Default)]
+#[derive(Clone, Debug)]
 pub struct Stats {
+    #[cfg(feature = "std")]
+    pub start: Instant,
+
     /// Wall clock time elapsed.
     pub wall_time: Duration,
     /// Time spent rendering.
@@ -43,7 +51,35 @@ pub struct Throughput {
 impl Stats {
     /// Creates a new zeroed `Stats` instance.
     pub fn new() -> Self {
-        Self::default()
+        Self {
+            #[cfg(feature = "std")]
+            start: Instant::now(),
+            wall_time: Default::default(),
+            render_time: Default::default(),
+            calls: 0.0,
+            frames: 0.0,
+            objs: Default::default(),
+            prims: Default::default(),
+            verts: Default::default(),
+            frags: Default::default(),
+        }
+    }
+
+    pub fn start_call(n_prims: usize, n_verts: usize) -> Self {
+        Self {
+            calls: 1.0,
+            prims: Throughput { i: n_prims, o: 0 },
+            verts: Throughput { i: n_verts, o: 0 },
+            ..Self::new()
+        }
+    }
+
+    pub fn finish(self) -> Self {
+        Self {
+            #[cfg(feature = "std")]
+            wall_time: self.start.elapsed(),
+            ..self
+        }
     }
 
     /// Stops the timer and records the elapsed time to `self.time`.
@@ -51,8 +87,14 @@ impl Stats {
     /// No-op if the timer was not running. This method is also no-op unless
     /// the `std` feature is enabled.
     #[must_use]
-    pub fn finish(self) -> Self {
-        self
+    pub fn finish_call(mut self, prims_out: usize, verts_out: usize) -> Self {
+        self.prims.o += prims_out;
+        self.verts.o += verts_out;
+        Self {
+            #[cfg(feature = "std")]
+            render_time: self.start.elapsed(),
+            ..self
+        }
     }
 
     /// Returns the average throughput in items per second.
@@ -65,6 +107,8 @@ impl Stats {
         let [objs, prims, verts, frags] =
             self.throughput().map(|stat| stat.per_sec(secs));
         Self {
+            #[cfg(feature = "std")]
+            start: self.start,
             render_time: Duration::from_secs(1),
             wall_time: self.wall_time.div_f32(secs),
             frames: self.frames / secs,
@@ -85,6 +129,8 @@ impl Stats {
         let [objs, prims, verts, frags] =
             self.throughput().map(|stat| stat.per_sec(secs));
         Self {
+            #[cfg(feature = "std")]
+            start: self.start,
             wall_time: Duration::from_secs(1),
             render_time: self.render_time.div_f32(secs),
             frames: self.frames / secs,
@@ -102,6 +148,8 @@ impl Stats {
             .throughput()
             .map(|stat| stat.per_frame(frames));
         Self {
+            #[cfg(feature = "std")]
+            start: self.start,
             frames: 1.0,
             render_time: self.render_time / frames,
             wall_time: self.wall_time / frames,
@@ -267,8 +315,7 @@ fn human_time(d: Duration) -> String {
 
 #[cfg(test)]
 mod tests {
-    use core::array::from_fn;
-    use core::time::Duration;
+    use core::{array::from_fn, time::Duration};
 
     use super::*;
 
@@ -287,6 +334,7 @@ mod tests {
             prims,
             verts,
             frags,
+            ..Stats::new()
         };
 
         assert_eq!(

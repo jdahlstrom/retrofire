@@ -4,9 +4,9 @@ use pancurses::*;
 
 use re::prelude::*;
 
+use re::core::render::{Model, render, shader};
 use re::core::render::{
-    Model, ctx::DepthSort::BackToFront, debug::dir_to_rgb, raster::Scanline,
-    render, shader, stats::Throughput,
+    ctx::DepthSort::BackToFront, debug::dir_to_rgb, raster::Scanline,
 };
 use re::geom::solids::{Build, Torus};
 
@@ -70,7 +70,11 @@ fn main() {
         win.0.attrset(COLOR_PAIR(0));
         win.0.mvprintw(0, 0, "Q to quit");
 
-        ctx.stats.borrow_mut().frames += 1.0;
+        #[cfg(feature = "stats")]
+        {
+            ctx.stats.borrow_mut().frames += 1.0;
+        }
+
         let t_secs = start.elapsed().as_secs_f32();
 
         let mvp = rotate_x(rads(t_secs))
@@ -96,6 +100,14 @@ fn main() {
             break;
         }
     }
+
+    // Return to normal terminal mode
+    drop(win);
+
+    #[cfg(feature = "stats")]
+    {
+        println!("{}", ctx.stats.into_inner().finish());
+    }
 }
 
 impl Target for Win {
@@ -105,7 +117,7 @@ impl Target for Win {
         fs: &Fs,
         uni: U,
         _ctx: &Context,
-    ) -> Throughput {
+    ) {
         self.0.mv(sc.y as i32, sc.xs.start as i32);
 
         for frag in sc.fragments() {
@@ -118,6 +130,6 @@ impl Target for Win {
             self.0
                 .addch(COLOR_PAIR(col as chtype) | ' ' as chtype);
         }
-        Throughput { i: sc.xs.len(), o: sc.xs.len() }
+        //Throughput { i: sc.xs.len(), o: sc.xs.len() }
     }
 }

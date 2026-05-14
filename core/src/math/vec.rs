@@ -593,6 +593,11 @@ where
         self.0[2]
     }
 
+    #[inline]
+    pub const fn xy(&self) -> Vector<[Sc; 2], Real<2, B>> {
+        vec2(self.x(), self.y())
+    }
+
     /// Returns the cross product of `self` with `other`.
     ///
     /// The result is a vector orthogonal with both input vectors, its length

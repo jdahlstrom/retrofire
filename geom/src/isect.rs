@@ -169,9 +169,9 @@ impl<B: Debug + Default> Intersect<BBox<B>> for Ray3<B> {
             return None;
         }
 
-        let r_d = vec3(1.0 / dir.x(), 1.0 / dir.y(), 1.0 / dir.z());
-        let low = (low - orig) * r_d;
-        let upp = (upp - orig) * r_d;
+        let r_dir = dir.map(f32::recip);
+        let low = (low - orig) * r_dir;
+        let upp = (upp - orig) * r_dir;
 
         let near = low.zip_map(upp, f32::min);
         let far = low.zip_map(upp, f32::max);

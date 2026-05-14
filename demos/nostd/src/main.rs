@@ -28,7 +28,7 @@ unsafe impl GlobalAlloc for Malloc {
 
 #[panic_handler]
 unsafe fn panic(_info: &PanicInfo) -> ! {
-    unsafe { abort() }
+    unsafe { abort(); _info.message(). }
 }
 
 #[unsafe(no_mangle)]
