@@ -199,7 +199,7 @@ impl<PF: PixelFmt<Pixel = [u8; N]>, const N: usize> Window<PF> {
         let mut ctx = self.ctx.clone();
 
         let start = Instant::now();
-        let mut last = Instant::now();
+        let mut last = start;
         'main: loop {
             self.events.clear();
             for e in self.ev_pump.poll_iter() {
@@ -242,7 +242,8 @@ impl<PF: PixelFmt<Pixel = [u8; N]>, const N: usize> Window<PF> {
                 break;
             }
         }
-        let stats = ctx.stats.into_inner();
+        let mut stats = ctx.stats.into_inner();
+        stats.wall_time = start.elapsed();
         println!("{stats}");
         Ok(stats)
     }

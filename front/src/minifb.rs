@@ -150,7 +150,8 @@ impl Window {
 
             ctx.stats.borrow_mut().frames += 1.0;
         }
-        let stats = ctx.stats.into_inner();
+        let mut stats = ctx.stats.into_inner();
+        stats.wall_time = start.elapsed();
         println!("{stats}");
         stats
     }
