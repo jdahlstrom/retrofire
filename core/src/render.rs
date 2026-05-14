@@ -7,6 +7,8 @@
 
 use alloc::vec::Vec;
 use core::{fmt::Debug, ops::DerefMut};
+#[cfg(feature = "std")]
+use std::time::Instant;
 
 use crate::geom::Vertex;
 use crate::math::{
@@ -152,10 +154,12 @@ pub fn render<Prim, Vtx: Clone, Var, Uni: Copy, Shd>(
     let verts = verts.as_ref();
     let prims = prims.as_ref();
 
-    let mut stats = Stats::start();
+    let mut stats = Stats::new();
     stats.calls = 1.0;
     stats.prims.i = prims.len();
     stats.verts.i = verts.len();
+    #[cfg(feature = "std")]
+    let start = Instant::now();
 
     // 1. Vertex shader: transform vertices to clip space
     let verts = vertex_transform(shader, uniform, verts);
@@ -176,6 +180,11 @@ pub fn render<Prim, Vtx: Clone, Var, Uni: Copy, Shd>(
     stats += rasterize::<Prim, _, _, _>(
         clipped, shader, uniform, to_screen, target, ctx,
     );
+
+    #[cfg(feature = "std")]
+    {
+        stats.render_time = start.elapsed();
+    }
 
     *ctx.stats.borrow_mut() += stats.finish();
 }

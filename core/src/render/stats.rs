@@ -4,8 +4,6 @@ use alloc::{format, string::String};
 use core::fmt::{self, Display, Formatter};
 use core::ops::AddAssign;
 use core::time::Duration;
-#[cfg(feature = "std")]
-use std::time::Instant;
 
 //
 // Types
@@ -14,8 +12,10 @@ use std::time::Instant;
 /// Collects and accumulates rendering statistics and performance data.
 #[derive(Clone, Debug, Default)]
 pub struct Stats {
+    /// Wall clock time elapsed.
+    pub wall_time: Duration,
     /// Time spent rendering.
-    pub time: Duration,
+    pub render_time: Duration,
     /// Number of render calls issued.
     pub calls: f32,
     /// Number of frames rendered.
@@ -26,9 +26,6 @@ pub struct Stats {
     pub prims: Throughput,
     pub verts: Throughput,
     pub frags: Throughput,
-
-    #[cfg(feature = "std")]
-    start: Option<Instant>,
 }
 
 #[derive(Copy, Clone, Debug, Default)]
@@ -48,19 +45,6 @@ impl Stats {
     pub fn new() -> Self {
         Self::default()
     }
-    /// Creates a `Stats` instance that records the time of its creation.
-    ///
-    /// Call [`finish`][Self::finish] to write the elapsed time to `self.time`.
-    /// Useful for timing frames, rendering calls, etc.
-    ///
-    /// Equivalent to [`Stats::new`] if the `std` feature is not enabled.
-    pub fn start() -> Self {
-        Self {
-            #[cfg(feature = "std")]
-            start: Some(Instant::now()),
-            ..Self::default()
-        }
-    }
 
     /// Stops the timer and records the elapsed time to `self.time`.
     ///
@@ -68,50 +52,64 @@ impl Stats {
     /// the `std` feature is enabled.
     #[must_use]
     pub fn finish(self) -> Self {
-        Self {
-            #[cfg(feature = "std")]
-            time: self.start.map_or(self.time, |st| st.elapsed()),
-            ..self
-        }
+        self
     }
 
     /// Returns the average throughput in items per second.
-    pub fn per_sec(&self) -> Self {
-        let secs = if self.time.is_zero() {
+    pub fn per_render_sec(&self) -> Self {
+        let secs = if self.render_time.is_zero() {
             1.0
         } else {
-            self.time.as_secs_f32()
+            self.render_time.as_secs_f32()
         };
         let [objs, prims, verts, frags] =
             self.throughput().map(|stat| stat.per_sec(secs));
         Self {
+            render_time: Duration::from_secs(1),
+            wall_time: self.wall_time.div_f32(secs),
             frames: self.frames / secs,
             calls: self.calls / secs,
-            time: Duration::from_secs(1),
             objs,
             prims,
             verts,
             frags,
-            #[cfg(feature = "std")]
-            start: None,
+        }
+    }
+
+    pub fn per_wall_sec(&self) -> Self {
+        let secs = if self.wall_time.is_zero() {
+            1.0
+        } else {
+            self.wall_time.as_secs_f32()
+        };
+        let [objs, prims, verts, frags] =
+            self.throughput().map(|stat| stat.per_sec(secs));
+        Self {
+            wall_time: Duration::from_secs(1),
+            render_time: self.render_time.div_f32(secs),
+            frames: self.frames / secs,
+            calls: self.calls / secs,
+            objs,
+            prims,
+            verts,
+            frags,
         }
     }
     /// Returns the average throughput in items per frame.
     pub fn per_frame(&self) -> Self {
-        let frames = self.frames.max(1.0);
+        let frames = self.frames.max(1.0) as u32;
         let [objs, prims, verts, frags] = self
             .throughput()
             .map(|stat| stat.per_frame(frames));
         Self {
             frames: 1.0,
-            calls: self.calls / frames,
-            time: self.time.div_f32(frames),
+            render_time: self.render_time / frames,
+            wall_time: self.wall_time / frames,
+            calls: self.calls / frames as f32,
             objs,
             prims,
             verts,
             frags,
-            #[cfg(feature = "std")]
-            start: None,
         }
     }
 
@@ -132,7 +130,7 @@ impl Throughput {
             o: (self.o as f32 / secs) as usize,
         }
     }
-    fn per_frame(&self, frames: f32) -> Self {
+    fn per_frame(&self, frames: u32) -> Self {
         Self {
             i: self.i / frames as usize,
             o: self.o / frames as usize,
@@ -144,33 +142,53 @@ impl Display for Stats {
     #[rustfmt::skip]
     #[inline(never)]
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
-        let w = f.width().unwrap_or(16);
-        let per_s = self.per_sec();
+        let per_ws = self.per_wall_sec();
+        let per_rs = self.per_render_sec();
         let per_f = self.per_frame();
-        write!(f,
-            " STATS  {:>w$} │ {:>w$} │ {:>w$}\n\
-             ────────{empty:─>w$}─┼─{empty:─>w$}─┼─{empty:─>w$}─\n \
-              time   {:>w$} │ {empty:w$} │ {:>w$}\n \
-              calls  {:>w$} │ {:>w$.1} │ {:>w$.1}\n \
-              frames {:>w$} │ {:>w$.1} │\n\
-             ────────{empty:─>w$}─┼─{empty:─>w$}─┼─{empty:─>w$}─\n",
-            "TOTAL", "PER SEC", "PER FRAME",
-            human_time(self.time), human_time(per_f.time),
-            self.calls, per_s.calls, per_f.calls,
-            self.frames, per_s.frames,
-            empty = ""
+
+        let ws_per_rs = self.wall_time.div_duration_f32(self.render_time);
+
+        let w = f.width().unwrap_or(14);
+        let e = "";
+
+        writeln!(f,
+            " STATS     {:>w$} │ {:>w$} │ {:>w$} │ {:>w$}\n\
+             ───────────{e:─>w$}─┼─{e:─>w$}─┼─{e:─>w$}─┼─{e:─>w$}─",
+            "TOTAL", "PER WALL-SEC", "PER REND-SEC", "PER FRAME"
+        )?;
+        writeln!(f,
+            " wall-time {:>w$} │ {e:w$} │ {:>w$.2} │ {:>w$}",
+            human_time(self.wall_time), ws_per_rs,
+            human_time(per_f.wall_time)
+        )?;
+
+
+        let  rs_per_ws = 1.0 / ws_per_rs;
+
+        writeln!(f,
+            " rend-time {:>w$} │ {:>w$.2} │ {e:w$} │ {:>w$}\n \
+              calls     {:>w$} │ {:>w$.1} │ {:>w$.1} │ {:>w$.1}\n \
+              frames    {:>w$} │ {:>w$.1} │ {:>w$.1} │\n\
+             ───────────{e:─>w$}─┼─{e:─>w$}─┼─{e:─>w$}─┼─{e:─>w$}─",
+
+            human_time(self.render_time), rs_per_ws, human_time(per_f.render_time),
+            self.calls, per_ws.calls, per_rs.calls, per_f.calls,
+            self.frames, per_ws.frames, per_rs.frames,
+            e = ""
         )?;
 
         let labels = ["objs", "prims", "verts", "frags"];
         for (i, lbl) in (0..4).zip(labels) {
-            let [tot, per_s, per_f] = [self, &per_s, &per_f].map(|s| s.throughput()[i]);
+            let [tot, per_ws, per_rs, per_f] =
+                [self, &per_ws, &per_rs, &per_f].map(|s| s.throughput()[i]);
 
             if f.alternate() {
-                writeln!(f, " {lbl:6} {tot:#w$} │ {per_s:#w$} │ {per_f:#w$}")?;
+                writeln!(f, " {lbl:9} {tot:#w$} │ {per_ws:#w$} │ {per_rs:#w$} │ {per_f:#w$}")?;
             } else {
-                writeln!(f, " {lbl:6} {tot:w$} │ {per_s:w$} │ {per_f:w$}")?;
+                writeln!(f, " {lbl:9} {tot:w$} │ {per_ws:w$} │ {per_rs:w$} │ {per_f:w$}")?;
             }
         }
+
         Ok(())
     }
 }
@@ -197,7 +215,8 @@ impl Display for Throughput {
 impl AddAssign for Stats {
     /// Appends the stats of `other` to `self`.
     fn add_assign(&mut self, other: Self) {
-        self.time += other.time;
+        self.wall_time += other.wall_time;
+        self.render_time += other.render_time;
         self.calls += other.calls;
         self.frames += other.frames;
         for i in 0..4 {
@@ -262,44 +281,45 @@ mod tests {
         let stats = Stats {
             frames: 1234.0,
             calls: 5678.0,
-            time: Duration::from_millis(4321),
+            wall_time: Duration::from_millis(5432),
+            render_time: Duration::from_millis(4321),
             objs,
             prims,
             verts,
             frags,
-            #[cfg(feature = "std")]
-            start: None,
         };
 
         assert_eq!(
             format!("{stats}"),
             " \
- STATS             TOTAL │          PER SEC │        PER FRAME
-─────────────────────────┼──────────────────┼──────────────────
- time               4.3s │                  │            3.5ms
- calls              5678 │           1314.0 │              4.6
- frames             1234 │            285.6 │
-─────────────────────────┼──────────────────┼──────────────────
- objs      12.3k /  4.3k │     2.9k /  1.0k │       10 /     3
- prims     24.7k /  8.6k │     5.7k /  2.0k │       20 /     7
- verts     37.0k / 13.0k │     8.6k /  3.0k │       30 /    10
- frags     49.4k / 17.3k │    11.4k /  4.0k │       40 /    14
+ STATS              TOTAL │   PER WALL-SEC │   PER REND-SEC │      PER FRAME
+──────────────────────────┼────────────────┼────────────────┼────────────────
+ wall-time           5.4s │                │           1.26 │          4.4ms
+ rend-time           4.3s │           0.80 │                │          3.5ms
+ calls               5678 │         1045.3 │         1314.0 │            4.6
+ frames              1234 │          227.2 │          285.6 │
+──────────────────────────┼────────────────┼────────────────┼────────────────
+ objs       12.3k /  4.3k │   2.3k /   795 │   2.9k /  1.0k │     10 /     3
+ prims      24.7k /  8.6k │   4.5k /  1.6k │   5.7k /  2.0k │     20 /     7
+ verts      37.0k / 13.0k │   6.8k /  2.4k │   8.6k /  3.0k │     30 /    10
+ frags      49.4k / 17.3k │   9.1k /  3.2k │  11.4k /  4.0k │     40 /    14
 "
         );
 
         assert_eq!(
             format!("{stats:#}"),
             " \
- STATS             TOTAL │          PER SEC │        PER FRAME
-─────────────────────────┼──────────────────┼──────────────────
- time               4.3s │                  │            3.5ms
- calls              5678 │           1314.0 │              4.6
- frames             1234 │            285.6 │
-─────────────────────────┼──────────────────┼──────────────────
- objs              35.0% │            35.0% │            30.0%
- prims             35.0% │            35.0% │            35.0%
- verts             35.0% │            35.0% │            33.3%
- frags             35.0% │            35.0% │            35.0%
+ STATS              TOTAL │   PER WALL-SEC │   PER REND-SEC │      PER FRAME
+──────────────────────────┼────────────────┼────────────────┼────────────────
+ wall-time           5.4s │                │           1.26 │          4.4ms
+ rend-time           4.3s │           0.80 │                │          3.5ms
+ calls               5678 │         1045.3 │         1314.0 │            4.6
+ frames              1234 │          227.2 │          285.6 │
+──────────────────────────┼────────────────┼────────────────┼────────────────
+ objs               35.0% │          35.0% │          35.0% │          30.0%
+ prims              35.0% │          35.0% │          35.0% │          35.0%
+ verts              35.0% │          35.0% │          35.0% │          33.3%
+ frags              35.0% │          35.0% │          35.0% │          35.0%
 "
         );
     }
