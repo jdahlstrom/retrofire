@@ -248,8 +248,9 @@ fn human_time(d: Duration) -> String {
 
 #[cfg(test)]
 mod tests {
-    use core::array::from_fn;
-    use core::time::Duration;
+    use core::{array::from_fn, time::Duration};
+
+    use pretty_assertions::assert_eq;
 
     use super::*;
 

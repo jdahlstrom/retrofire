@@ -311,6 +311,8 @@ mod tests {
     use alloc::string::{String, ToString};
     use core::iter::once;
 
+    use pretty_assertions::assert_eq;
+
     use crate::{
         assert_approx_eq,
         geom::vertex,
