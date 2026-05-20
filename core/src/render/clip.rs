@@ -57,7 +57,7 @@ pub type ClipVec = ProjVec3;
 pub struct ClipVert<A> {
     pub pos: ClipVec,
     pub attrib: A,
-    outcode: u8,
+    pub outcode: u8,
 }
 
 /// Visibility of a shape in the view frustum.

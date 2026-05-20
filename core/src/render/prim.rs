@@ -1,13 +1,64 @@
 //! Render impls for primitives and related items.
 
-use crate::geom::{Edge, Tri, Vertex, Winding};
-use crate::math::{Mat4, Vary, pt3, vary::ZDiv};
+use alloc::vec::Vec;
+
+use crate::{
+    geom::{Edge, Tri, Vertex, Winding},
+    math::{Mat4, Vary, pt3, vary::ZDiv},
+};
 
 use super::{
-    Ndc, Render, Screen,
-    clip::ClipVert,
+    Clip, Ndc, Render, Screen,
+    clip::{ClipPlane, ClipVert},
     raster::{Scanline, ScreenPt, line, tri_fill},
 };
+
+#[derive(Copy, Clone, Debug, Default, Eq, PartialEq)]
+pub struct Point<Vtx>(pub Vtx);
+
+impl<V: Clone> Clip for [Point<ClipVert<V>>] {
+    type Item = Point<ClipVert<V>>;
+
+    fn clip(&self, _: &[ClipPlane], out: &mut Vec<Self::Item>) {
+        for pt in self {
+            if pt.0.outcode == 0 {
+                out.push(pt.clone());
+            }
+        }
+    }
+}
+
+impl<V: Vary> Render<V> for Point<usize> {
+    type Clip = Point<ClipVert<V>>;
+    type Clips = [Point<ClipVert<V>>];
+    type Screen = Point<Vertex<ScreenPt, V>>;
+
+    fn inline(ixd: Self, vs: &[ClipVert<V>]) -> Self::Clip {
+        Point(vs[ixd.0].clone())
+    }
+
+    fn to_screen(clip: Self::Clip, tf: &Mat4<Ndc, Screen>) -> Self::Screen {
+        Point(to_screen([clip.0], tf)[0].clone())
+    }
+
+    fn rasterize<F: FnMut(Scanline<V>)>(pt: Self::Screen, mut scanline_fn: F) {
+        let [x, y, _] = pt.0.pos.0;
+
+        let vs = (pt.0.pos, pt.0.attrib.clone());
+        let step = vs.dv_dt(&vs, 1.0);
+        let vs = vs.clone().vary(step, None);
+
+        let y = y as usize;
+
+        for y in y - 4..=y + 4 {
+            scanline_fn(Scanline {
+                y,
+                xs: x as usize - 4..(x as usize + 5),
+                vs: vs.clone(),
+            });
+        }
+    }
+}
 
 impl<V: Vary> Render<V> for Tri<usize> {
     type Clip = Tri<ClipVert<V>>;

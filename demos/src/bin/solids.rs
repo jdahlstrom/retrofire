@@ -1,9 +1,10 @@
 use core::ops::ControlFlow::Continue;
-
 use minifb::{Key, KeyRepeat};
+use std::f32::consts::PI;
 
 use re::prelude::*;
 
+use re::core::math::inv_lerp;
 use re::core::{
     geom::{Polyline, Ray},
     math::{ProjMat3, ProjVec3, color::gray, spline::HermiteSpline},
@@ -110,7 +111,10 @@ fn main() {
         let object = &objects[carousel.idx % objects.len()];
 
         Batch {
-            prims: object.faces.clone(),
+            //prims: object.faces.clone(),
+            prims: (0..object.verts.len())
+                .map(re::core::render::prim::Point)
+                .collect(),
             verts: object.verts.clone(),
             uniform: (&model_view_project, &spin),
             shader: shader,

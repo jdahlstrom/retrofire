@@ -69,7 +69,7 @@ pub trait Render<V: Vary> {
     fn inline(ixd: Self, vs: &[ClipVert<V>]) -> Self::Clip;
 
     /// Returns the (average) depth of the argument.
-    fn depth(_clip: &Self::Clip) -> f32 {
+    fn depth(_: &Self::Clip) -> f32 {
         f32::INFINITY
     }
 
