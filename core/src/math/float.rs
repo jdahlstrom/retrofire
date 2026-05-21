@@ -6,6 +6,7 @@
 //! it also implements a critical subset of the functions even if none of
 //! the features is enabled.
 
+/// Floating-point functions delegating to software implementations in `libm`.
 #[cfg(feature = "libm")]
 pub mod libm {
     pub use libm::floorf as floor;
@@ -32,6 +33,8 @@ pub mod libm {
     }
 }
 
+/// Floating-point functions delegating to approximate implementations
+/// in the `micromath` library.
 #[cfg(feature = "mm")]
 pub mod mm {
     use micromath::F32Ext as mm;
@@ -104,25 +107,82 @@ pub mod mm {
     }
 }
 
+/// Fallback implementations of required floating-point functions
+/// used if none of the fp features is enabled.
+//#[cfg(not(feature = "fp"))]
 pub mod fallback {
-    use crate::math::float::fast_recip_sqrt;
+    use core::hint::cold_path;
 
     /// Returns the largest integer less than or equal to `x`.
+    ///
+    /// # Examples
+    /// ```
+    /// use retrofire_core::math::float::fallback::floor;
+    ///
+    /// assert_eq!(floor(1.0), 1.0);
+    /// assert_eq!(floor(1.9), 1.0);
+    ///
+    /// assert_eq!(floor(-1.0), -1.0);
+    /// assert_eq!(floor(-1.1), -2.0);
+    /// ```
     #[inline]
     pub fn floor(x: f32) -> f32 {
-        (x as i64 - (x < 0.0) as i64) as f32
+        let xi = x as i64 as f32;
+        if xi > x { xi - 1.0 } else { xi }
     }
+
     /// Returns the least non-negative remainder of `x` (mod `m`).
+    ///
+    /// # Examples
+    /// ```
+    /// use retrofire_core::math::float::fallback::rem_euclid;
+    ///
+    /// assert_eq!(rem_euclid(3.0, 4.0), 3.0);
+    /// assert_eq!(rem_euclid(4.0, 4.0), 0.0);
+    /// assert_eq!(rem_euclid(5.5, 4.0), 1.5);
+    /// assert_eq!(rem_euclid(-3.5, 4.0), 0.5);
+    /// ```
     #[inline]
     pub fn rem_euclid(x: f32, m: f32) -> f32 {
         let r = x % m;
         r + if r < 0.0 { m.abs() } else { 0.0 }
     }
-    /// Returns the approximate reciprocal of the square root of `x`.
+
+    /// Returns the (approximate) reciprocal square root of a number.
+    ///
+    /// If the argument is zero or negative, returns infinity or NaN respectively.
+    ///
+    /// # Examples
+    /// ```
+    /// use retrofire_core::math::float::fallback::recip_sqrt;
+    ///
+    /// assert_eq!(recip_sqrt(4.0), 0.49999782);
+    /// assert_eq!(recip_sqrt(9.0), 0.3333327);
+    /// assert_eq!(recip_sqrt(0.0), f32::INFINITY);
+    /// ```
     #[inline]
     pub fn recip_sqrt(x: f32) -> f32 {
-        fast_recip_sqrt(x)
+        if x > 0.0 {
+            let y = super::fast_recip_sqrt(x);
+            return y * (1.5 - 0.5 * x * y * y);
+        }
+        cold_path();
+        if x == 0.0 { f32::INFINITY } else { f32::NAN }
     }
+
+    /// Returns the (approximate) square root of a number.
+    ///
+    /// If the argument is negative, returns NaN.
+    ///
+    /// # Example
+    /// ```
+    /// use retrofire_core::math::float::fallback::sqrt;
+    ///
+    /// assert_eq!(sqrt(0.0), 0.0);
+    /// assert_eq!(sqrt(4.0), 2.0000088);
+    /// assert_eq!(sqrt(9.0), 3.0000057);
+    /// assert!(sqrt(-1.0).is_nan());
+    /// ```
     #[inline]
     pub fn sqrt(x: f32) -> f32 {
         1.0 / recip_sqrt(x)
@@ -130,6 +190,17 @@ pub mod fallback {
 }
 
 /// Returns a fast approximation of the reciprocal square root of a number.
+///
+/// If the argument is zero or negative, the return value is unspecified.
+///
+/// # Example
+/// ```
+/// use retrofire_core::math::float::fast_recip_sqrt;
+///
+/// assert_eq!(fast_recip_sqrt(4.0), 0.49915406);
+/// assert_eq!(fast_recip_sqrt(0.25), 1.9966162);
+///
+/// ```
 #[inline]
 pub fn fast_recip_sqrt(x: f32) -> f32 {
     // https://en.wikipedia.org/wiki/Fast_inverse_square_root
@@ -147,6 +218,7 @@ pub type f32 = core::primitive::f32;
 
 #[allow(unused)]
 pub(crate) trait RecipSqrt {
+    /// Returns the reciprocal square root (1/√x) of a number.
     fn recip_sqrt(x: Self) -> Self;
 }
 
