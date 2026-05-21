@@ -392,6 +392,18 @@ impl<Src, Dst> Mat3<Src, Dst, 2> {
     /// Constructs a matrix from a linear basis.
     ///
     /// The basis does not have to be orthonormal.
+    ///
+    /// # Examples
+    /// ```
+    /// use retrofire_core::{mat, math::{Mat3, vec2}};
+    ///
+    /// let m = <Mat3>::from_linear(vec2(0.0, 2.0), vec2(3.0, 0.0));
+    /// assert_eq!(m, mat![
+    ///     0.0, 3.0, 0.0;
+    ///     2.0, 0.0, 0.0;
+    ///     0.0, 0.0, 1.0;
+    /// ])
+    /// ```
     pub const fn from_linear(i: Vec2<Dst>, j: Vec2<Dst>) -> Self {
         Self::from_affine(i, j, Point2::origin())
     }
@@ -399,6 +411,20 @@ impl<Src, Dst> Mat3<Src, Dst, 2> {
     /// Constructs a matrix from an affine basis, or frame.
     ///
     /// The basis does not have to be orthonormal.
+    ///
+    /// # Examples
+    /// ```
+    /// use retrofire_core::{mat, math::{Mat3, vec2, pt2}};
+    ///
+    /// let m = <Mat3>::from_affine(
+    ///     vec2(0.0, 2.0), vec2(3.0, 0.0), pt2(4.0, 5.0));
+    ///
+    /// assert_eq!(m, mat![
+    ///     0.0, 3.0, 4.0;
+    ///     2.0, 0.0, 5.0;
+    ///     0.0, 0.0, 1.0;
+    /// ])
+    /// ```
     pub const fn from_affine(
         i: Vec2<Dst>,
         j: Vec2<Dst>,
@@ -416,13 +442,18 @@ impl<Src, Dst> Mat3<Src, Dst, 2> {
     ///
     /// # Examples
     /// ```
-    /// use retrofire_core::assert_approx_eq;
-    /// use retrofire_core::math::*;
+    /// use retrofire_core::{mat, math::*};
     ///
-    /// // TODO translate2 does not exist (yet)
-    /// /*let m = rotate2(degs(90.0)).then(&translate3(1.0, 2.0, 3.0));
-    /// let lin = m.linear();
-    /// assert_approx_eq!(lin.apply(&pt2(1.0, 0.0, 0.0)), pt2(0.0, 0.0, -1.0));*/
+    /// let m: Mat3 = mat![
+    ///     2.0, 0.0, 4.0;
+    ///     0.0, 3.0, 5.0;
+    ///     0.0, 0.0, 1.0;
+    /// ];
+    /// assert_eq!(m.linear(), mat![
+    ///     2.0, 0.0;
+    ///     0.0, 3.0;
+    /// ]);
+    /// ```
     pub const fn linear(&self) -> Mat2<Src, Dst> {
         let [r, s, _] = self.0;
         mat![r[0], r[1]; s[0], s[1]]
@@ -432,12 +463,15 @@ impl<Src, Dst> Mat3<Src, Dst, 2> {
     ///
     /// # Example
     /// ```
-    /// use retrofire_core::math::*;
+    /// use retrofire_core::{mat, math::*};
     ///
-    /// // TODO translate2 does not exist (yet)
-    /// /*let trans = vec2(1.0, 2.0);
-    /// let m = rotate2(degs(45.0)).then(&translate(trans));
-    /// assert_eq!(m.translation(), trans);*/
+    /// let m: Mat3 = mat![
+    ///     2.0, 0.0, 4.0;
+    ///     0.0, 3.0, 5.0;
+    ///     0.0, 0.0, 1.0;
+    /// ];
+    /// assert_eq!(m.translation(), vec2(4.0, 5.0));
+    /// ```
     pub const fn translation(&self) -> Vec2<Dst> {
         let [r, s, _] = self.0;
         vec2(r[2], s[2])
@@ -446,8 +480,16 @@ impl<Src, Dst> Mat3<Src, Dst, 2> {
     /// Returns the translation column vector of `self` as a point.
     ///
     /// # Example
+    /// ```
+    /// use retrofire_core::{mat, math::*};
     ///
-    /// TODO
+    /// let m: Mat3 = mat![
+    ///     2.0, 0.0, 4.0;
+    ///     0.0, 3.0, 5.0;
+    ///     0.0, 0.0, 1.0;
+    /// ];
+    /// assert_eq!(m.origin(), pt2(4.0, 5.0));
+    /// ```
     pub const fn origin(&self) -> Point2<Dst> {
         self.translation().to_pt()
     }
@@ -1358,6 +1400,14 @@ mod tests {
             assert_approx_eq!(m_inv.inverse(), m);
         }
         #[test]
+        fn inverse_of_singular_does_not_exist() {
+            let singular: Mat2 = mat![
+                1.0, 0.0;
+                2.0, 0.0;
+            ];
+            assert_eq!(singular.checked_inverse(), None);
+        }
+        #[test]
         fn composition_of_inverse_is_identity() {
             let m: Mat2<B1, B2> = [[0.5, 1.5], [1.0, -0.5]].into();
             let m_inv: Mat2<B2, B1> = m.inverse();
@@ -1449,6 +1499,15 @@ mod tests {
                     0.0,  0.0, 1.0/4.0;
                 ]
             );
+        }
+        #[test]
+        fn inverse_of_singular_does_not_exist() {
+            let singular: Mat3 = mat![
+                1.0, 0.0, 0.0;
+                2.0, 0.0, 0.0;
+                0.0, 0.0, 1.0;
+            ];
+            assert_eq!(singular.checked_inverse(), None);
         }
         #[test]
         fn matrix_composed_with_inverse_is_identity() {
