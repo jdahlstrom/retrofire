@@ -192,6 +192,15 @@ impl<R, Sp> Color<R, Sp> {
 
 impl<Ch, Sp, const N: usize> Color<[Ch; N], Sp> {
     /// Returns `self` with each channel mapped with the given function.
+    ///
+    /// # Examples
+    /// ```
+    /// use retrofire_core::math::color::rgb;
+    ///
+    /// let cyan = rgb(0.2,0.8,1.0);
+    /// let darker_cyan = cyan.map(|ch| ch * 0.5);
+    /// assert_eq!(darker_cyan, rgb(0.1, 0.4, 0.5));
+    /// ```
     #[inline]
     pub fn map<C>(&self, f: impl FnMut(Ch) -> C) -> Color<[C; N], Sp>
     where
@@ -208,11 +217,13 @@ impl<Sp, const N: usize> Color<[f32; N], Sp> {
     ///
     /// # Examples
     /// ```
-    /// use retrofire_core::math::color::{Color3f, gray, rgb};
-    /// let c: Color3f = rgb(-0.1, 0.5, 1.2);
+    /// use retrofire_core::math::color::*;
     ///
-    /// let clamped = c.clamp(&gray(0.0), &gray(1.0));
+    /// let out_of_bounds = rgb(-0.1, 0.5, 1.2);
+    ///
+    /// let clamped = out_of_bounds.clamp(&gray(0.0), &gray(1.0));
     /// assert_eq!(clamped, rgb(0.0, 0.5, 1.0));
+    /// ```
     // TODO f32 and f64 have inherent clamp methods because they're not Ord.
     //      A generic clamp for Sc: Ord would conflict with this one. There is
     //      currently no clean way to support both floats and impl Ord types.
@@ -226,6 +237,14 @@ impl<Sp, const N: usize> Color<[f32; N], Sp> {
 
 impl Color3<Rgb> {
     /// Returns `self` as RGBA, with alpha set to 0xFF (fully opaque).
+    ///
+    /// # Examples
+    /// ```
+    /// use retrofire_core::math::color::*;
+    ///
+    /// let red = rgb(0xFF, 0, 0);
+    /// assert_eq!(red.to_rgba(), rgba(0xFF, 0, 0, 0xFF))
+    /// ```
     #[inline]
     pub const fn to_rgba(self) -> Color4 {
         let [r, g, b] = self.0;
@@ -234,8 +253,16 @@ impl Color3<Rgb> {
 
     /// Returns `self` as floating-point RGB, with channels normalized
     /// to the range [0, 1].
+    ///
+    /// # Examples
+    /// ```
+    /// use retrofire_core::math::color::rgb;
+    ///
+    /// let orange = rgb(0xE0, 0x80, 0);
+    /// assert_eq!(orange.to_color3f(), rgb(0.875, 0.5, 0.0));
+    /// ```
     #[inline]
-    pub fn to_color3f(self) -> Color3f {
+    pub const fn to_color3f(self) -> Color3f {
         let [r, g, b] = self.0;
         rgb(r as f32 / 256.0, g as f32 / 256.0, b as f32 / 256.0)
     }
@@ -291,6 +318,16 @@ impl Color4<Rgba> {
         rgb(r, g, b)
     }
 
+    /// Returns `self` as floating-point RGBA, with channels normalized
+    /// to the range [0, 1].
+    ///
+    /// # Examples
+    /// ```
+    /// use retrofire_core::math::color::rgba;
+    ///
+    /// let orange = rgba(0xE0, 0x80, 0, 0x40);
+    /// assert_eq!(orange.to_color4f(), rgba(0.875, 0.5, 0.0, 0.25));
+    /// ```
     #[inline]
     pub const fn to_color4f(self) -> Color4f {
         let [r, g, b, a] = self.0;
@@ -349,6 +386,16 @@ impl Color3f<Rgb> {
     /// results, colors should be interpolated in a linear space and only
     /// [converted to sRGB][1] right before writing to the output. Conversion,
     /// however, incurs a small performance penalty.
+    ///
+    /// # Examples
+    /// ```
+    /// use retrofire_core::math::color::*;
+    ///
+    /// let cyan = rgb(0.0, 0.8, 1.0);
+    /// let linear_cyan: Color3f<LinRgb> = [0.0, 0.6120656, 1.0].into();
+    ///
+    /// assert_eq!(cyan.to_linear(), linear_cyan);
+    /// ```
     ///
     /// [1]: Color3f<LinRgb>::to_srgb()
     #[cfg(feature = "fp")]
@@ -456,6 +503,16 @@ impl Color3f<LinRgb> {
     /// results, sRGB input colors should be [converted to linear space][1]
     /// before interpolation, and right before writing to the output.
     /// Conversion, however, incurs a small performance penalty.
+    ///
+    /// # Examples
+    /// ```
+    /// use retrofire_core::math::color::*;
+    ///
+    /// let linear_cyan: Color3f<LinRgb> = [0.0, 0.8, 1.0].into();
+    /// let gamma_cyan = rgb(0.0, 0.90354544, 1.0);
+    ///
+    /// assert_eq!(linear_cyan.to_srgb(), gamma_cyan);
+    /// ```
     ///
     /// [1]: Color3f<Rgb>::to_linear()
     #[cfg(feature = "fp")]
