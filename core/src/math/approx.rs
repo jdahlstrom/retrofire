@@ -35,6 +35,17 @@ pub trait ApproxEq<Epsilon = Self> {
     ///
     /// This means that `self` is either strictly contained in the range
     /// or approximately equal to one of the endpoints.
+    ///
+    /// # Examples
+    /// ```
+    /// use retrofire_core::math::ApproxEq;
+    ///
+    /// assert!(1.0.approx_in(0.0..2.0));
+    /// assert!((-0.000001).approx_in(0.0..2.0));
+    /// assert!(2.000001.approx_in(0.0..2.0));
+    ///
+    /// assert!(!2.001.approx_in(0.0..2.0));
+    /// ```
     fn approx_in(&self, rg: Range<Self>) -> bool
     where
         Self: PartialOrd + Sized,
@@ -44,6 +55,17 @@ pub trait ApproxEq<Epsilon = Self> {
     }
 
     /// Returns whether `self` is less than or approximately equal to a value.
+    ///
+    /// # Examples
+    /// ```
+    /// use retrofire_core::math::ApproxEq;
+    ///
+    /// assert!(1.0.approx_le(&2.0));
+    /// assert!(2.0.approx_le(&2.0));
+    /// assert!(2.000001.approx_le(&2.0));
+    ///
+    /// assert!(!2.001.approx_le(&2.0));
+    /// ```
     fn approx_le(&self, other: &Self) -> bool
     where
         Self: PartialOrd,
@@ -52,6 +74,19 @@ pub trait ApproxEq<Epsilon = Self> {
     }
 
     /// Returns whether `self` is greater than or approximately equal to a value.
+    ///
+    /// TODO should be renamed to `approx_ge`!
+    ///
+    /// # Examples
+    /// ```
+    /// use retrofire_core::math::ApproxEq;
+    ///
+    /// assert!(2.0.approx_gt(&1.0));
+    /// assert!(1.0.approx_gt(&1.0));
+    /// assert!(0.9999999.approx_gt(&1.0));
+    ///
+    /// assert!(!0.999.approx_gt(&1.0));
+    /// ```
     fn approx_gt(&self, other: &Self) -> bool
     where
         Self: PartialOrd,
