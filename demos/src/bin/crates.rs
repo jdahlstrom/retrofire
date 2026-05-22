@@ -1,6 +1,6 @@
 use core::ops::ControlFlow::*;
-
 use re::prelude::*;
+use std::process::exit;
 
 use re::core::math::color::gray;
 use re::core::render::{
@@ -11,8 +11,8 @@ use re::core::render::{
     tex::SamplerClamp,
 };
 // Try also Rgb565 or Rgba4444
+use re::core::util::pnm::save_ppm;
 use re::core::util::{pixfmt::Rgba8888, pnm::read_pnm};
-
 use re::front::sdl2::Window;
 use re::geom::solids::{Build, Cube};
 
@@ -23,8 +23,17 @@ fn main() {
         .build()
         .expect("should create window");
 
-    let tex_data = *include_bytes!("../../assets/crate.ppm");
-    let tex = Texture::from(read_pnm(&tex_data[..]).expect("data exists"));
+    let tex_data = include_bytes!("../../assets/crate.ppm");
+    let mut tex =
+        Texture::from(read_pnm(tex_data.as_slice()).expect("data exists"));
+
+    tex.gen_mipmaps();
+
+    // for i in 0..=tex.max_mip {
+    //     let map = tex.mipmap(i);
+    //
+    //     save_ppm(format!("crate_mip_{i}.ppm"), map).unwrap();
+    // }
 
     let light_dir = vec3(-2.0, 1.0, -4.0).normalize();
 
@@ -40,9 +49,13 @@ fn main() {
             vertex(mvp.apply(&v.pos), v.attrib)
         },
         |frag: Frag<(Normal3, TexCoord)>, _: &_| {
-            let (n, uv) = frag.var;
+            let (n, uv_) = frag.var;
             let kd = lerp(n.dot(&light_dir).max(0.0), 0.4, 1.0);
-            let col = SamplerClamp.sample(&tex, uv);
+            let col = SamplerClamp.sample(
+                &tex,
+                uv_,
+                uv(0.0, frag.pos.z().recip() / 4.0),
+            );
             (col.to_color3f() * kd).to_color4()
         },
     );

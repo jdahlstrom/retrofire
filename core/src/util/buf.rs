@@ -127,7 +127,7 @@ impl<T> Buf2<T> {
         assert_eq!(
             data.len(),
             len as usize,
-            "insufficient items in iterator ({} < {len}",
+            "insufficient items in iterator ({} < {w}*{h})",
             data.len()
         );
         Self(Inner::new((w, h), w, data))
@@ -200,7 +200,7 @@ impl<T> Buf2<T> {
         )
     }
 
-    /// Returns a view of the backing data of `self`.
+    /*/// Returns a view of the backing data of `self`.
     #[inline]
     pub fn data(&self) -> &[T] {
         self.0.data()
@@ -210,7 +210,7 @@ impl<T> Buf2<T> {
     #[inline]
     pub fn data_mut(&mut self) -> &mut [T] {
         self.0.data_mut()
-    }
+    }*/
 
     /// Reinterprets `self` as a buffer of different dimensions but same area.
     ///
@@ -219,6 +219,11 @@ impl<T> Buf2<T> {
     /// and current dimensions (`cw`, `ch`).
     pub fn reshape(&mut self, dims: Dims) {
         self.0.reshape(dims);
+    }
+
+    /// Consumes `self` and returns the backing vector.
+    pub fn into_vec(self) -> Vec<T> {
+        self.0.into_data()
     }
 }
 
@@ -512,6 +517,10 @@ pub mod inner {
             assert_eq!(dims.0 * dims.1, self.dims.0 * self.dims.1);
             self.dims = dims;
         }
+
+        pub(super) fn into_data(self) -> D {
+            self.data
+        }
     }
 
     #[cold]
@@ -533,7 +542,7 @@ pub mod inner {
 
         /// Returns the data of `self` as a linear slice.
         #[inline]
-        pub(super) fn data(&self) -> &[T] {
+        pub fn data(&self) -> &[T] {
             &self.data
         }
 
@@ -607,7 +616,7 @@ pub mod inner {
 
         /// Returns the data of `self` as a single mutable slice.
         #[inline]
-        pub(super) fn data_mut(&mut self) -> &mut [T] {
+        pub fn data_mut(&mut self) -> &mut [T] {
             &mut self.data
         }
 

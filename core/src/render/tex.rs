@@ -1,7 +1,10 @@
 //! Textures and texture samplers.
+use alloc::vec::Vec;
+use core::mem::replace;
+use std::eprintln;
 
 use crate::geom::Normal3;
-use crate::math::{Point2u, Vec2, Vec3, Vector, pt2, splat, vec2};
+use crate::math::{Color3, Point2u, Vec2, Vec3, Vector, pt2, rgb, splat, vec2};
 use crate::util::{
     Dims,
     buf::{AsSlice2, Buf2, Slice2},
@@ -33,6 +36,7 @@ pub type TexCoord = Vec2<Tex>;
 pub struct Texture<D> {
     w: f32,
     h: f32,
+    pub max_mip: u8,
     data: D,
 }
 
@@ -140,6 +144,80 @@ impl<D> Texture<D> {
     }
 }
 
+impl Texture<Buf2<Color3>> {
+    pub fn gen_mipmaps(&mut self) {
+        let mut buf = replace(&mut self.data, Buf2::new((0, 0)));
+
+        let mut w = buf.width() as usize;
+        let mut h = buf.height() as usize;
+        let total_w = w;
+
+        // 1 + (1/2)^2 + (1/4)^2 + (1/8)^2 + ... = 4/3
+        let extra_h = h.div_ceil(3);
+        let total_h = h + extra_h;
+
+        let mut v = buf.into_vec();
+        v.reserve(w * extra_h);
+        let mut max_mip = 0;
+
+        let mut tmp = Vec::with_capacity(w * h / 4);
+
+        let mut slice = &v[..];
+        while w > 1 && h > 1 {
+            for j in (0..h).step_by(2) {
+                for i in (0..w).step_by(2) {
+                    let mut texel = slice[j * w + i].to_color3f()
+                        + slice[j * w + i + 1].to_color3f()
+                        + slice[j * w + w + i].to_color3f()
+                        + slice[j * w + w + i + 1].to_color3f();
+
+                    tmp.push((texel / 4.0).to_color3());
+                }
+            }
+            w /= 2;
+            h /= 2;
+            max_mip += 1;
+
+            eprintln!("adding mip level {w} x {h} -> {} pixels", tmp.len());
+
+            v.append(&mut tmp);
+            slice = &v[(v.len() - w * h)..];
+        }
+
+        v.resize(total_w * total_h, Default::default());
+
+        eprintln!("total dims = {total_w} x {total_h}");
+        eprintln!("vec len = {}", v.len());
+
+        self.max_mip = max_mip;
+        self.data = Buf2::new_from((total_w as u32, total_h as u32), v);
+    }
+}
+impl Texture<Buf2<Color3>> {
+    pub fn mipmap(&self, level: u8) -> Slice2<'_, Color3> {
+        let mut w = self.w as u32;
+        let mut h = self.h as u32;
+
+        // partial sum: S_n(x) = (1 - x^(n+1)) / (1 - x)
+        //
+        // (w*h) + (w*h)/4 + (w*h)/16 + ...
+        //
+        // = wh(1 + 1/4 + 1/16 + ...)
+        //
+        // = wh(1 + 1/4 + 1/4^2 + ... + 1/4^n)
+        //
+        // = wh * (1 - 1/4^(n+1) ) / (1 - 1/4)
+        let offset =
+            w as f32 * h as f32 * (1.0 - 4f32.powi(-(level as i32))) / 0.75;
+
+        let ww = w / 2u32.pow(level as u32);
+        let hh = h / 2u32.pow(level as u32);
+
+        let data = &self.data.data()[offset as usize..][..(ww * hh) as usize];
+        Slice2::new((ww, hh), ww, data)
+    }
+}
+
 impl<C> Atlas<C> {
     /// Creates a new texture atlas from a texture.
     pub fn new(layout: Layout, texture: Texture<Buf2<C>>) -> Self {
@@ -198,6 +276,7 @@ impl<C> From<Buf2<C>> for Texture<Buf2<C>> {
         Self {
             w: data.width() as f32,
             h: data.height() as f32,
+            max_mip: 0,
             data,
         }
     }
@@ -209,6 +288,7 @@ impl<'a, C> From<Slice2<'a, C>> for Texture<Slice2<'a, C>> {
         Self {
             w: data.width() as f32,
             h: data.height() as f32,
+            max_mip: 0,
             data,
         }
     }
@@ -280,12 +360,24 @@ impl SamplerClamp {
     ///
     /// Uses nearest neighbor sampling.
     #[inline]
-    pub fn sample<D: AsSlice2<Elem: Copy>>(
+    pub fn sample(
         &self,
-        tex: &Texture<D>,
+        tex: &Texture<Buf2<Color3>>,
         tc: TexCoord,
-    ) -> D::Elem {
-        self.sample_abs(tex, uv(tc.u() * tex.w, tc.v() * tex.h))
+        dt: TexCoord,
+    ) -> Color3 {
+        //self.sample_abs(tex, uv(tc.u() * tex.w, tc.v() * tex.h), dt)
+
+        let level = (dt.u().abs().max(dt.v().abs()) as u8).min(tex.max_mip);
+        let mip = tex.mipmap(level);
+
+        let u = tc.u() * mip.width() as f32;
+        let v = tc.v() * mip.height() as f32;
+
+        let u = f32::floor(u.clamp(0.0, mip.width() as f32 - 1.0)) as u32;
+        let v = f32::floor(v.clamp(0.0, mip.height() as f32 - 1.0)) as u32;
+
+        mip[[u, v]]
     }
 
     /// Returns the color in `tex` at `tc` in absolute coordinates, such that
@@ -294,15 +386,17 @@ impl SamplerClamp {
     ///
     /// Uses nearest neighbor sampling.
     #[inline]
-    pub fn sample_abs<D: AsSlice2<Elem: Copy>>(
+    pub fn sample_abs(
         &self,
-        tex: &Texture<D>,
+        tex: &Texture<Buf2<Color3>>,
         tc: TexCoord,
-    ) -> D::Elem {
-        use crate::math::float::f32;
-        let u = f32::floor(tc.u().clamp(0.0, tex.w - 1.0)) as u32;
-        let v = f32::floor(tc.v().clamp(0.0, tex.h - 1.0)) as u32;
-        tex.data.as_slice2()[[u, v]]
+        dt: TexCoord,
+    ) -> Color3 {
+        let level = (dt.u().abs().max(dt.v().abs()) as u8).min(tex.max_mip);
+        let mip = tex.mipmap(level);
+        let u = f32::floor(tc.u().clamp(0.0, mip.width() as f32 - 1.0)) as u32;
+        let v = f32::floor(tc.v().clamp(0.0, mip.height() as f32 - 1.0)) as u32;
+        mip[[u, v]]
     }
 }
 

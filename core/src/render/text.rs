@@ -58,7 +58,7 @@ impl Text {
     /// Samples the font at `uv`.
     pub fn sample(&self, uv: TexCoord) -> Color3 {
         // TODO Figure out why coords go out of bounds -> SamplerOnce panics
-        SamplerClamp.sample(&self.font.texture, uv)
+        SamplerClamp.sample(&self.font.texture, uv, TexCoord::default())
     }
 
     fn write_char(&mut self, idx: u32) {
