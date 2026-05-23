@@ -1,5 +1,5 @@
 //! Frontend using the `sdl2` crate for window creation and event handling.
-use core::{cell::RefCell, fmt, mem::replace, ops::ControlFlow};
+use core::{cell::RefCell, fmt, fmt::Write, mem::replace, ops::ControlFlow};
 use std::time::Instant;
 
 use sdl2::{
@@ -12,14 +12,14 @@ use sdl2::{
 };
 
 use retrofire_core::math::Color4;
-use retrofire_core::render::{Colorbuf, Context, Stats, target};
+use retrofire_core::render::{Colorbuf, Context, Stats, Text, target};
 use retrofire_core::util::{
     Dims,
     buf::{AsMutSlice2, Buf2, MutSlice2},
     pixfmt::{IntoPixel, Rgb565, Rgba4444, Rgba8888},
 };
 
-use super::{Frame, dims};
+use super::{Frame, dims, font_6x10};
 
 /// Helper trait to support different pixel format types.
 pub trait PixelFmt: Copy + Default {
@@ -198,6 +198,9 @@ impl<PF: PixelFmt<Pixel = [u8; N]>, const N: usize> Window<PF> {
         let mut zbuf = Buf2::new(dims);
         let mut ctx = self.ctx.clone();
 
+        let mut fps = Text::new(font_6x10());
+        fps.anchor = (2.0, 2.0).into();
+
         let start = Instant::now();
         let mut last = start;
         'main: loop {
@@ -232,7 +235,13 @@ impl<PF: PixelFmt<Pixel = [u8; N]>, const N: usize> Window<PF> {
                 };
 
                 frame.clear();
-                frame_fn(frame)
+                let cf = frame_fn(frame);
+
+                fps.clear();
+                _ = write!(fps, "{:>6.1}", frame.dt.as_secs_f32().recip());
+                fps.render(&mut frame.buf);
+
+                cf
             })?;
 
             self.present(&tex)?;

@@ -2,6 +2,7 @@
 
 use core::{
     cell::RefCell,
+    fmt::Write,
     mem::replace,
     ops::ControlFlow::{self, *},
 };
@@ -10,11 +11,11 @@ use std::time::Instant;
 use minifb::{Key, WindowOptions};
 
 use retrofire_core::{
-    render::{Colorbuf, Context, Stats, target},
+    render::{Colorbuf, Context, Stats, Text, target},
     util::{Dims, buf::Buf2, buf::MutSlice2, pixfmt::Xrgb8888},
 };
 
-use super::{Frame, dims};
+use super::{Frame, dims, font_6x10};
 
 /// A lightweight wrapper of a `minibuf` window.
 pub struct Window {
@@ -124,6 +125,9 @@ impl Window {
         let mut zbuf = Buf2::new((w, h));
         let mut ctx = self.ctx.clone();
 
+        let mut fps = Text::new(font_6x10());
+        fps.anchor = (2.0, 2.0).into();
+
         let start = Instant::now();
         let mut last = Instant::now();
         loop {
@@ -146,6 +150,11 @@ impl Window {
             if let Break(_) = frame_fn(frame) {
                 break;
             }
+
+            fps.clear();
+            _ = write!(fps, "{:>6.1}", frame.dt.as_secs_f32().recip());
+            fps.render(&mut frame.buf);
+
             self.present(cbuf.data_mut());
 
             ctx.stats.borrow_mut().frames += 1.0;

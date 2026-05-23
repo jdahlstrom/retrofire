@@ -16,6 +16,8 @@ use re::core::util::{pixfmt::Rgba8888, pnm::read_pnm};
 use re::front::sdl2::Window;
 use re::geom::solids::{Build, Cube};
 
+static CRATE_TEX: &[u8] = include_bytes!("../../assets/crate.ppm");
+
 fn main() {
     let mut win = Window::builder()
         .title("retrofire//crates")
@@ -23,8 +25,7 @@ fn main() {
         .build()
         .expect("should create window");
 
-    let tex_data = *include_bytes!("../../assets/crate.ppm");
-    let tex = Texture::from(read_pnm(&tex_data[..]).expect("data exists"));
+    let tex = Texture::from(read_pnm(CRATE_TEX).expect("data exists"));
 
     let light_dir = vec3(-2.0, 1.0, -4.0).normalize();
 
