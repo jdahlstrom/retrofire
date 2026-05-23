@@ -673,7 +673,7 @@ impl<B> Line2<B> {
     ///
     /// # Panics
     /// If the vector (a, b) is not unit-length.
-    pub fn new(a: f32, b: f32, c: f32) -> Self {
+    pub const fn new(a: f32, b: f32, c: f32) -> Self {
         // TODO This method can't itself normalize because const
         assert!((a * a + b * b - 1.0).abs() < 1e-6, "non-unit normal");
         Self(Vector::new([a, b, -c]))
@@ -684,6 +684,7 @@ impl<B> Line2<B> {
     /// # Panics
     /// If the points coincide.
     pub fn from_points(p: Point2<B>, q: Point2<B>) -> Self {
+        // TODO not const due to normalize
         Edge(p, q).into()
     }
 
@@ -698,16 +699,18 @@ impl<B> Line2<B> {
     /// assert_approx_eq!(slope, 0.5);
     /// assert_approx_eq!(y_intercept, 1.5);
     /// ```
-    pub fn slope_intercept(&self) -> Option<(f32, f32)> {
+    pub const fn slope_intercept(&self) -> Option<(f32, f32)> {
         // ax + by + c = 0
         let [a, b, c] = self.coeffs();
 
-        (b != 0.0).then(|| {
+        if b != 0.0 {
             // by = -ax - c  <=>  y = -a/b x - c/b
             let m = -a / b; // slope
             let y0 = -c / b; // y intercept
-            (m, y0)
-        })
+            Some((m, y0))
+        } else {
+            None
+        }
     }
 
     /// Returns
@@ -715,8 +718,8 @@ impl<B> Line2<B> {
         vec2(self.0[0], self.0[1]).normalize()
     }
     /// Returns the signed distance of `self` from the origin.
-    pub fn offset(&self) -> f32 {
-        -self.0[2]
+    pub const fn offset(&self) -> f32 {
+        -self.0.0[2]
     }
 
     /// Returns the coefficients [a, b, c] of the line equation ax + by = c.
