@@ -1084,7 +1084,7 @@ mod tests {
         assert_eq!(format!("{l:?}"), "Line(x = 0)");
 
         l = Line2::from_points(pt2(2.0, 0.0), pt2(2.0, -1.0));
-        assert_eq!(l.coeffs(), [1.0, 0.0, -2.0]);
+        assert_approx_eq!(l.coeffs(), [1.0, 0.0, -2.0]);
         assert_eq!(format!("{l:?}"), "Line(x = 2)");
 
         l = Line2::new(1.0, 0.0, 2.0); // x = 2
