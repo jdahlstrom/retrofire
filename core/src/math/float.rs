@@ -202,7 +202,7 @@ pub mod fallback {
 ///
 /// ```
 #[inline]
-pub fn fast_recip_sqrt(x: f32) -> f32 {
+pub const fn fast_recip_sqrt(x: f32) -> f32 {
     // https://en.wikipedia.org/wiki/Fast_inverse_square_root
     const MAGIC: u32 = 0x5f37_5a86;
     let mut y = f32::from_bits(MAGIC.saturating_sub(x.to_bits() >> 1));

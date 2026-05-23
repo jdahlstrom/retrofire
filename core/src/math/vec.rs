@@ -541,8 +541,10 @@ impl<B> Vec2<B> {
     /// assert!   (v.perp_dot(Vec2::Y) > 0.0, "Y is counter-clockwise from v");
     /// ```
     #[inline]
-    pub fn perp_dot(self, other: Self) -> f32 {
-        self.perp().dot(&other)
+    pub const fn perp_dot(self, other: Self) -> f32 {
+        let perp = self.perp();
+        // Manual dot to allow const
+        perp.x() * other.x() + perp.y() * other.y()
     }
 
     /// Returns the angle between `self` and the positive x-axis.
