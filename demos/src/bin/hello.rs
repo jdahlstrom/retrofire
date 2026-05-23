@@ -13,7 +13,7 @@ const FONT: &[u8] = include_bytes!("../../assets/font_16x24.pbm");
 
 fn main() {
     let font = read_pnm(FONT).expect("valid image");
-    let font = Atlas::new(Layout::Grid { sub_dims: (16, 24) }, font.into());
+    let font = Atlas::grid((16, 24), font.into());
 
     let arg = env::args().nth(1); // Borrow checker...
     let msg = arg

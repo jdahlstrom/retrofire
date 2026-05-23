@@ -146,6 +146,11 @@ impl<C> Atlas<C> {
         Self { layout, texture }
     }
 
+    /// Creates a texture atlas with a grid layout.
+    pub fn grid(sub_dims: Dims, texture: Texture<Buf2<C>>) -> Self {
+        Self::new(Layout::Grid { sub_dims }, texture)
+    }
+
     /// Returns the top-left and bottom-right pixel coordinates
     /// of the sub-texture with index `i`.
     fn rect(&self, i: u32) -> [Point2u; 2] {
