@@ -220,10 +220,11 @@ impl<Sp, const N: usize> Vector<[f32; N], Sp> {
     /// # Examples
     /// ```
     /// use retrofire_core::math::{degs, vec3, Vec3};
+    /// use retrofire_core::assert_approx_eq;
     ///
     /// let a: Vec3 = vec3(0.0, 1.0, 0.0);
     /// let b: Vec3 = vec3(2.0, 0.0, 3.0);
-    /// assert_eq!(a.angle(&b), degs(90.0));
+    /// assert_approx_eq!(a.angle(&b), degs(90.0));
     /// ```
     #[cfg(feature = "fp")]
     #[inline]

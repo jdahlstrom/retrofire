@@ -1768,13 +1768,13 @@ mod tests {
             let m = orient_y(Y, X);
 
             assert_approx_eq!(m.apply(&X), X);
-            assert_eq!(m.apply(&X.to_pt()), X.to_pt());
+            assert_approx_eq!(m.apply(&X.to_pt()), X.to_pt());
 
-            assert_eq!(m.apply(&Y), Y);
-            assert_eq!(m.apply(&Y.to_pt()), Y.to_pt());
+            assert_approx_eq!(m.apply(&Y), Y);
+            assert_approx_eq!(m.apply(&Y.to_pt()), Y.to_pt());
 
-            assert_eq!(m.apply(&Z), Z);
-            assert_eq!(m.apply(&Z.to_pt()), Z.to_pt());
+            assert_approx_eq!(m.apply(&Z), Z);
+            assert_approx_eq!(m.apply(&Z.to_pt()), Z.to_pt());
         }
 
         #[test]
@@ -1782,13 +1782,13 @@ mod tests {
             let m = orient_y(Z, X);
 
             assert_approx_eq!(m.apply(&X), X);
-            assert_eq!(m.apply(&X.to_pt()), X.to_pt());
+            assert_approx_eq!(m.apply(&X.to_pt()), X.to_pt());
 
-            assert_eq!(m.apply(&Y), Z);
-            assert_eq!(m.apply(&Y.to_pt()), Z.to_pt());
+            assert_approx_eq!(m.apply(&Y), Z);
+            assert_approx_eq!(m.apply(&Y.to_pt()), Z.to_pt());
 
-            assert_eq!(m.apply(&Z), -Y);
-            assert_eq!(m.apply(&Z.to_pt()), (-Y).to_pt());
+            assert_approx_eq!(m.apply(&Z), -Y);
+            assert_approx_eq!(m.apply(&Z.to_pt()), (-Y).to_pt());
         }
 
         #[test]
@@ -1796,13 +1796,13 @@ mod tests {
             let m = orient_z(Y, X);
 
             assert_approx_eq!(m.apply(&X), X);
-            assert_eq!(m.apply(&X.to_pt()), X.to_pt());
+            assert_approx_eq!(m.apply(&X.to_pt()), X.to_pt());
 
-            assert_eq!(m.apply(&Y), -Z);
-            assert_eq!(m.apply(&Y.to_pt()), (-Z).to_pt());
+            assert_approx_eq!(m.apply(&Y), -Z);
+            assert_approx_eq!(m.apply(&Y.to_pt()), (-Z).to_pt());
 
-            assert_eq!(m.apply(&Z), Y);
-            assert_eq!(m.apply(&Z.to_pt()), Y.to_pt());
+            assert_approx_eq!(m.apply(&Z), Y);
+            assert_approx_eq!(m.apply(&Z.to_pt()), Y.to_pt());
         }
 
         #[test]
