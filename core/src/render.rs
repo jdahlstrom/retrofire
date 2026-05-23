@@ -30,6 +30,7 @@ pub(super) mod re_exports {
         ctx::Context,
         light::Light,
         raster::Frag,
+        scene::{BBox, Obj},
         shader::{FragmentShader, VertexShader},
         stats::Stats,
         target::{Colorbuf, Framebuf, Target},
