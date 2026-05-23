@@ -452,6 +452,7 @@ pub mod inner {
 
         /// Returns the linear index corresponding to the coordinates,
         /// or panics if either x or y is out of bounds.
+        #[track_caller]
         #[inline]
         fn to_index_strict(&self, x: u32, y: u32) -> usize {
             match self.to_index_checked(x, y) {
@@ -700,8 +701,13 @@ pub mod inner {
         /// If any part of `rect` is outside the bounds of `self`.
         #[inline]
         pub fn slice_mut(&mut self, rect: impl Into<Rect>) -> MutSlice2<'_, T> {
-            let (dims, rg) = self.resolve_bounds(&rect.into());
-            MutSlice2(Inner::new(dims, self.stride, &mut self.data[rg]))
+            let (dims, range) = self.resolve_bounds(&rect.into());
+            MutSlice2(Inner {
+                dims,
+                stride: self.stride,
+                data: &mut self.data[range],
+                _pd: PhantomData,
+            })
         }
     }
 

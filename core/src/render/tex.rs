@@ -4,7 +4,9 @@ use core::mem::replace;
 use std::eprintln;
 
 use crate::geom::Normal3;
-use crate::math::{Color3, Point2u, Vec2, Vec3, Vector, pt2, rgb, splat, vec2};
+use crate::math::{
+    Color3, Lerp, Point2u, Vec2, Vec3, Vector, pt2, rgb, splat, vec2,
+};
 use crate::util::{
     Dims,
     buf::{AsSlice2, Buf2, Slice2},
@@ -36,7 +38,8 @@ pub type TexCoord = Vec2<Tex>;
 pub struct Texture<D> {
     w: f32,
     h: f32,
-    pub max_mip: u8,
+    pub max_mip: u32,
+    mips: [(usize, u32, u32); 8],
     data: D,
 }
 
@@ -148,8 +151,8 @@ impl Texture<Buf2<Color3>> {
     pub fn gen_mipmaps(&mut self) {
         let mut buf = replace(&mut self.data, Buf2::new((0, 0)));
 
-        let mut w = buf.width() as usize;
-        let mut h = buf.height() as usize;
+        let mut w = buf.width();
+        let mut h = buf.height();
         let total_w = w;
 
         // 1 + (1/2)^2 + (1/4)^2 + (1/8)^2 + ... = 4/3
@@ -157,64 +160,62 @@ impl Texture<Buf2<Color3>> {
         let total_h = h + extra_h;
 
         let mut v = buf.into_vec();
-        v.reserve(w * extra_h);
-        let mut max_mip = 0;
+        v.reserve((w * extra_h) as usize);
+        let mut mip_i = 0;
+        self.mips[0] = (0, w, h);
 
-        let mut tmp = Vec::with_capacity(w * h / 4);
+        let mut tmp = Vec::with_capacity((w * h / 4) as usize);
 
         let mut slice = &v[..];
-        while w > 1 && h > 1 {
-            for j in (0..h).step_by(2) {
+        while w > 1 && h > 1 && mip_i < self.mips.len() {
+            for two_rows in slice.chunks_exact(2 * w as usize) {
                 for i in (0..w).step_by(2) {
-                    let mut texel = slice[j * w + i].to_color3f()
-                        + slice[j * w + i + 1].to_color3f()
-                        + slice[j * w + w + i].to_color3f()
-                        + slice[j * w + w + i + 1].to_color3f();
+                    let i = i as usize;
+                    let w = w as usize;
 
-                    tmp.push((texel / 4.0).to_color3());
+                    let foo = &two_rows[i..];
+
+                    let [a, b, c, d] =
+                        [0, 1, w, w + 1].map(|i| foo[i].to_color3f());
+
+                    let texel = (a + b + c + d) / 4.0;
+
+                    //let texel = texel.lerp(&rgb(1.0, 0.0, 1.0), 0.0);
+
+                    tmp.push(texel.to_color3());
                 }
             }
             w /= 2;
             h /= 2;
-            max_mip += 1;
+            mip_i += 1;
+            self.mips[mip_i] = (v.len(), w, h);
 
-            eprintln!("adding mip level {w} x {h} -> {} pixels", tmp.len());
+            eprintln!(
+                "adding mip level {mip_i}: {w} x {h} -> {} pixels",
+                tmp.len()
+            );
 
             v.append(&mut tmp);
-            slice = &v[(v.len() - w * h)..];
+            slice = &v[(v.len() - (w * h) as usize)..];
         }
 
-        v.resize(total_w * total_h, Default::default());
+        v.resize((total_w * total_h) as usize, Default::default());
 
         eprintln!("total dims = {total_w} x {total_h}");
         eprintln!("vec len = {}", v.len());
 
-        self.max_mip = max_mip;
-        self.data = Buf2::new_from((total_w as u32, total_h as u32), v);
+        self.max_mip = mip_i as u32;
+        self.data = Buf2::new_from((total_w, total_h), v);
     }
 }
 impl Texture<Buf2<Color3>> {
-    pub fn mipmap(&self, level: u8) -> Slice2<'_, Color3> {
-        let mut w = self.w as u32;
-        let mut h = self.h as u32;
+    #[inline]
+    pub fn mipmap(&self, level: u32) -> Slice2<'_, Color3> {
+        let (off, w, h) = self.mips[level.min(self.max_mip) as usize];
+        let data = &self.data.data()[off..][..(w * h) as usize];
 
-        // partial sum: S_n(x) = (1 - x^(n+1)) / (1 - x)
-        //
-        // (w*h) + (w*h)/4 + (w*h)/16 + ...
-        //
-        // = wh(1 + 1/4 + 1/16 + ...)
-        //
-        // = wh(1 + 1/4 + 1/4^2 + ... + 1/4^n)
-        //
-        // = wh * (1 - 1/4^(n+1) ) / (1 - 1/4)
-        let offset =
-            w as f32 * h as f32 * (1.0 - 4f32.powi(-(level as i32))) / 0.75;
-
-        let ww = w / 2u32.pow(level as u32);
-        let hh = h / 2u32.pow(level as u32);
-
-        let data = &self.data.data()[offset as usize..][..(ww * hh) as usize];
-        Slice2::new((ww, hh), ww, data)
+        // TODO slow due to precondition checking
+        Slice2::new((w, h), w, data)
     }
 }
 
@@ -276,6 +277,7 @@ impl<C> From<Buf2<C>> for Texture<Buf2<C>> {
         Self {
             w: data.width() as f32,
             h: data.height() as f32,
+            mips: [(0, data.width(), data.height()); _],
             max_mip: 0,
             data,
         }
@@ -289,6 +291,7 @@ impl<'a, C> From<Slice2<'a, C>> for Texture<Slice2<'a, C>> {
             w: data.width() as f32,
             h: data.height() as f32,
             max_mip: 0,
+            mips: [(0, data.width(), data.height()); _],
             data,
         }
     }
@@ -364,20 +367,42 @@ impl SamplerClamp {
         &self,
         tex: &Texture<Buf2<Color3>>,
         tc: TexCoord,
-        dt: TexCoord,
+        d_dx: TexCoord,
+        d_dy: TexCoord,
     ) -> Color3 {
-        //self.sample_abs(tex, uv(tc.u() * tex.w, tc.v() * tex.h), dt)
+        // Scale to pixel coordinates
+        //let d_dx = vec2(tex.w, tex.w) * d_dx / 16.0;
+        //let d_dy = vec2(tex.w, tex.w) * d_dy / 16.0;
 
-        let level = (dt.u().abs().max(dt.v().abs()) as u8).min(tex.max_mip);
-        let mip = tex.mipmap(level);
+        // Crude l1 approximation
+        let _d = (d_dx.u().abs() + d_dx.v().abs())
+            .max(d_dy.u().abs() + d_dy.v().abs());
 
-        let u = tc.u() * mip.width() as f32;
-        let v = tc.v() * mip.height() as f32;
+        let d = d_dx.len().max(d_dy.len()) * 256.0;
 
-        let u = f32::floor(u.clamp(0.0, mip.width() as f32 - 1.0)) as u32;
-        let v = f32::floor(v.clamp(0.0, mip.height() as f32 - 1.0)) as u32;
+        let level = d.log2().clamp(0.0, 7.0) as u32;
 
-        mip[[u, v]]
+        return [
+            rgb(1.0, 0.0, 0.0),
+            rgb(0.0, 1.0, 1.0),
+            rgb(1.0, 1.0, 0.0),
+            rgb(1.0, 0.0, 1.0),
+            rgb(0.0, 1.0, 0.0),
+            rgb(1.0, 0.0, 0.0),
+            rgb(0.0, 1.0, 1.0),
+            rgb(1.0, 1.0, 0.0),
+        ][level as usize]
+            .to_color3();
+
+        let mip = { tex.mipmap(level) };
+
+        let u = tc.u().rem_euclid(1.0 - 1e-6) * mip.width() as f32;
+        let v = tc.v().rem_euclid(1.0 - 1e-6) * mip.height() as f32;
+
+        //let u = f32::floor(u.clamp(0.0, mip.width() as f32 - 1.0)) as u32;
+        //let v = f32::floor(v.clamp(0.0, mip.height() as f32 - 1.0)) as u32;
+
+        mip[[u as u32, v as u32]]
     }
 
     /// Returns the color in `tex` at `tc` in absolute coordinates, such that
@@ -392,7 +417,8 @@ impl SamplerClamp {
         tc: TexCoord,
         dt: TexCoord,
     ) -> Color3 {
-        let level = (dt.u().abs().max(dt.v().abs()) as u8).min(tex.max_mip);
+        todo!();
+        let level = (dt.u().abs().max(dt.v().abs()) as u32).min(tex.max_mip);
         let mip = tex.mipmap(level);
         let u = f32::floor(tc.u().clamp(0.0, mip.width() as f32 - 1.0)) as u32;
         let v = f32::floor(tc.v().clamp(0.0, mip.height() as f32 - 1.0)) as u32;

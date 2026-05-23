@@ -11,23 +11,26 @@
 //! passes the depth test, a color is computed by the fragment shader and
 //! written into the framebuffer. Fragments that fail the test are discarded.
 
-use core::{
-    fmt::{Debug, Formatter},
-    mem::swap,
-    ops::Range,
-};
-
+use crate::math::vary::ZDiv;
 use crate::{
     geom::Vertex,
     math::{Lerp, Vary, point::Point3},
     render::Screen,
 };
+use core::{
+    fmt::{Debug, Formatter},
+    mem::swap,
+    ops::Range,
+};
+use std::iter;
 
 /// A fragment, or a single "pixel" in a rasterized primitive.
 #[derive(Clone, Debug)]
-pub struct Frag<V> {
+pub struct Frag<V: Vary> {
     pub pos: ScreenPt,
     pub var: V,
+    pub d_dx: V::Diff,
+    pub d_dy: V::Diff,
 }
 
 /// A horizontal, 1-pixel-thick "slice" of a primitive being rasterized.
@@ -38,15 +41,20 @@ pub struct Scanline<V: Vary> {
     pub xs: Range<usize>,
     /// Iterator emitting the varyings on the line.
     pub vs: <Varyings<V> as Vary>::Iter,
+
+    pub d_dx: V::Diff,
+    pub d_dy: V::Diff,
 }
 
 /// Iterator emitting scanlines, linearly interpolating values between the
 /// left and right endpoints as it goes.
 pub struct ScanlineIter<V: Vary> {
     y: f32,
+    last: V,
     left: <Varyings<V> as Vary>::Iter,
     right: <f32 as Vary>::Iter,
     dv_dx: <Varyings<V> as Vary>::Diff,
+    dv_dy: <Varyings<V> as Vary>::Diff,
     n: u32,
 }
 
@@ -57,13 +65,24 @@ pub type ScreenPt = Point3<Screen>;
 /// Values to interpolate across a rasterized primitive.
 pub type Varyings<V> = (ScreenPt, V);
 
-impl<V: Vary> Scanline<V> {
+impl<V: Vary + Default> Scanline<V> {
     pub fn fragments(&mut self) -> impl Iterator<Item = Frag<V>> + '_ {
-        self.vs.by_ref().map(|(pos, var)| {
+        //let d_dx = self.vs.step.1.clone();
+        let d_dy = self.d_dy.clone();
+
+        let mut var_last = V::default();
+        self.vs.by_ref().map(move |(pos, var)| {
             // Perspective correct varyings
             // TODO optimization: only every 16 or so pixels
             let var = var.z_div(pos.z());
-            Frag { pos, var }
+
+            //let d_dx = d_dx.clone().z_div(pos.z());
+            let d_dy = d_dy.clone().z_div(pos.z());
+
+            let d_dx = var_last.dv_dt(&var, 1.0);
+            var_last = var.clone();
+
+            Frag { pos, var, d_dx, d_dy }
         })
     }
 }
@@ -101,15 +120,49 @@ impl<V: Vary> Iterator for ScanlineIter<V> {
         // Adjust v0 to match the rounded x0
         let v0 = v0.lerp(&v0.step(&self.dv_dx), x0 - v0.0.x());
 
-        let vs = v0.vary(self.dv_dx.clone(), Some((x1 - x0) as u32));
-
         let y = self.y as usize;
         let xs = x0 as usize..x1 as usize;
+        let vs = v0.vary(self.dv_dx.clone(), Some((x1 - x0) as u32));
+
+        /*
+           v_k = v0,  v0 + dv_dx,  v0 + 2*dv_dx,  v0 + 3*dv_dx, ...
+               = v0, v0 + dv_dx, v1 + dv_dx, ...
+
+           dv_dx_k = v1 - v0, v2 - v1, v3 - v2, ...
+
+
+           v_k_z = v0/z0,  (v0 + d_dx)/z1, (v0 + 2*d_dx)/z2, ...
+
+           dv_dx_k_z =
+                (v0 + d_dx)/z1 - v0/z0,
+                (v1 + d_dx)/z2 - (v0 + d_dx)/z1, ...
+
+           = ... (v1 + d_dx)/z2 - (v0 + d_dx)/z1, ...
+
+
+           a / x - b / y
+
+           = ay/xy - bx/yx = (ay - bx) / xy
+
+           ≈ 2(a - b) / (x-y)
+
+
+           Approximation! But how good?
+           ≈ (v0 + d_dx - v0) / z0, (v1 + d_dx - v1) / z1, ...
+
+           = d_dx / z0, d_dx / z1, ...
+        */
 
         self.y += 1.0;
         self.n -= 1;
 
-        Some(Scanline { y, xs, vs })
+        Some(Scanline {
+            y,
+            xs,
+            vs,
+            d_dx: self.dv_dx.1.clone(),
+            d_dy: self.dv_dy.1.clone(),
+        })
     }
 }
 
@@ -129,6 +182,9 @@ where
     }
     let [dx, dy, _] = (v1.pos - v0.pos).0;
 
+    let d_dy: V::Diff = v0.attrib.dv_dt(&v1.attrib, dy);
+    let d_dx: V::Diff = v0.attrib.dv_dt(&v1.attrib, dx);
+
     if dx.abs() > dy {
         // More wide than tall
         if dx < 0.0 {
@@ -139,6 +195,7 @@ where
         let x1 = round_up_to_half(v1.pos.x());
 
         let dy_dx = dy / dx;
+
         // Adjust y0 to match the rounded x0
         let y0 = v0.pos.y() + dy_dx * (x0 - v0.pos.x());
 
@@ -150,6 +207,8 @@ where
                 y: y as usize,
                 xs: x..x + 1,
                 vs,
+                d_dx: d_dx.clone(),
+                d_dy: d_dy.clone(),
             });
             y += dy_dx;
         }
@@ -170,6 +229,8 @@ where
                 y,
                 xs: x as usize..x as usize + 1,
                 vs,
+                d_dx: d_dx.clone(),
+                d_dy: d_dy.clone(),
             });
             x += dx_dy;
         }
@@ -294,10 +355,12 @@ pub fn scan<V: Vary>(
 
     ScanlineIter {
         y: y0_rounded,
-        left: l0.vary(dl_dy, None),
+        left: l0.vary(dl_dy.clone(), None),
         right: r0.vary(dr_dy.0.x(), None),
         dv_dx,
+        dv_dy: dl_dy.clone(),
         n: (y1_rounded - y0_rounded) as u32, // saturates to 0
+        last: Default::default(),
     }
 }
 

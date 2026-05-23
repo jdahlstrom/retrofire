@@ -75,6 +75,7 @@ lto = "fat"
 [profile.dev]
 opt-level = 1
 split-debuginfo = "unpacked"
+debug-assertions = false
 
 [profile.min]
 inherits = "release"

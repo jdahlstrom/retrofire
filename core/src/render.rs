@@ -124,14 +124,16 @@ pub type ViewToProj = RealToProj<View>;
 pub type NdcToScreen = RealToReal<3, Ndc, Screen>;
 
 /// Alias for combined vertex+fragment shader types
-pub trait Shader<Vtx, Var, Uni>:
+pub trait Shader<Vtx, Var: Vary, Uni>:
     VertexShader<Vtx, Uni, Output = Vertex<ProjVec3, Var>>
     + FragmentShader<Var, Uni>
 {
 }
-impl<S, Vtx, Var, Uni> Shader<Vtx, Var, Uni> for S where
+impl<S, Vtx, Var, Uni> Shader<Vtx, Var, Uni> for S
+where
     S: VertexShader<Vtx, Uni, Output = Vertex<ProjVec3, Var>>
-        + FragmentShader<Var, Uni>
+        + FragmentShader<Var, Uni>,
+    Var: Vary,
 {
 }
 

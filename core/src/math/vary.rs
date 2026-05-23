@@ -20,11 +20,11 @@ pub trait ZDiv: Sized {
 /// This trait is designed particularly for *varyings:* types that are
 /// meant to be interpolated across the face of a polygon when rendering,
 /// but the methods are useful for various purposes.
-pub trait Vary: Lerp + ZDiv {
+pub trait Vary: Lerp + ZDiv + Default {
     /// The iterator returned by the [vary][Self::vary] method.
     type Iter: Iterator<Item = Self>;
     /// The difference type of `Self`.
-    type Diff: Clone;
+    type Diff: ZDiv + Clone;
 
     /// Returns an iterator that yields values such that the first value
     /// equals `self`, and each subsequent value is offset by `step` from its
@@ -109,7 +109,11 @@ impl<T: Vary, U: Vary> Vary for (T, U) {
 
     #[inline]
     fn vary(self, step: Self::Diff, n: Option<u32>) -> Self::Iter {
-        Iter { val: self, step, n }
+        Iter {
+            val: self,
+            step: step.clone(),
+            n,
+        }
     }
 
     #[inline]

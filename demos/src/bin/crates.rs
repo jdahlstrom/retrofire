@@ -1,5 +1,6 @@
 use core::ops::ControlFlow::*;
 use re::prelude::*;
+use std::cell::Cell;
 use std::process::exit;
 
 use re::core::math::color::gray;
@@ -23,27 +24,36 @@ fn main() {
         .build()
         .expect("should create window");
 
-    let tex_data = include_bytes!("../../assets/crate.ppm");
-    let mut tex =
-        Texture::from(read_pnm(tex_data.as_slice()).expect("data exists"));
+    // let tex_data = include_bytes!("../../assets/crate.ppm");
+    // let mut tex =
+    //     Texture::from(read_pnm(tex_data.as_slice()).expect("data exists"));
+
+    let mut tex = Texture::from(Buf2::new_with((128, 128), |x, y| {
+        if x & 15 == 0 || y & 15 == 0 {
+            gray(0x20)
+        } else {
+            gray(0xD0)
+        }
+    }));
 
     tex.gen_mipmaps();
 
-    // for i in 0..=tex.max_mip {
-    //     let map = tex.mipmap(i);
-    //
-    //     save_ppm(format!("crate_mip_{i}.ppm"), map).unwrap();
-    // }
+    for i in 0..=tex.max_mip {
+        let map = tex.mipmap(i);
+
+        save_ppm(format!("crate_mip_{i}.ppm"), map).unwrap();
+    }
 
     let light_dir = vec3(-2.0, 1.0, -4.0).normalize();
 
-    let floor_shader = shader::new(
+    let _floor_shader = shader::new(
         |v: Vertex3<_>, mvp: &ProjMat3<_>| vertex(mvp.apply(&v.pos), v.attrib),
         |frag: Frag<Vec2>, _: &_| {
             let even_odd = (frag.var.x() > 0.5) ^ (frag.var.y() > 0.5);
             gray(if even_odd { 0.8 } else { 0.1 }).to_color4()
         },
     );
+    let mut c = Cell::new(0);
     let crate_shader = shader::new(
         |v: Vertex3<(Normal3, TexCoord)>, mvp: &ProjMat3<_>| {
             vertex(mvp.apply(&v.pos), v.attrib)
@@ -51,11 +61,28 @@ fn main() {
         |frag: Frag<(Normal3, TexCoord)>, _: &_| {
             let (n, uv_) = frag.var;
             let kd = lerp(n.dot(&light_dir).max(0.0), 0.4, 1.0);
-            let col = SamplerClamp.sample(
-                &tex,
-                uv_,
-                uv(0.0, frag.pos.z().recip() / 4.0),
-            );
+
+            let d_dx = frag.d_dx.1;
+            let d_dy = frag.d_dy.1;
+
+            /*
+            let d = d_dx.u().abs()
+                + d_dx.v().abs()
+                + d_dy.u().abs()
+                + d_dy.v().abs();
+
+            if d > 30.0 {
+                c.set(c.get() + 1);
+                if c.get() == 16 {
+                    eprintln!("{d}");
+                    c.set(0);
+                }
+            }*/
+
+            let kd = rgb(1.0, 1.0, 1.0);
+            //    .lerp(&rgb(0.0, 0.6, 1.0), (32.0 * d + 1.0).log2() /8.0);
+
+            let col = SamplerClamp.sample(&tex, uv_, d_dx, d_dy);
             (col.to_color3f() * kd).to_color4()
         },
     );
@@ -64,9 +91,9 @@ fn main() {
     let mut cam = Camera::new(win.dims)
         .transform(FirstPerson::default())
         .viewport((10..w - 10, h - 10..10))
-        .perspective(Fov::Diagonal(degs(90.0)), 0.1..1000.0);
+        .perspective(Fov::Diagonal(degs(120.0)), 0.1..1000.0);
 
-    let floor = floor();
+    let _floor = floor();
     let crates = crates();
 
     win.run(|frame| {
@@ -95,7 +122,7 @@ fn main() {
             turns(ms.y() as f32) * -0.001,
         );
         cam.transform
-            .translate(cam_vel.mul(frame.dt.as_secs_f32()));
+            .translate(0.1 * cam_vel * frame.dt.as_secs_f32());
 
         //
         // Render
@@ -109,7 +136,7 @@ fn main() {
             .context(frame.ctx);
 
         // Floor
-        {
+        /*{
             let Obj { bbox, tf, geom } = &floor;
             let model_to_project = tf.then(world_to_project);
             if bbox.visibility(&model_to_project) != Hidden {
@@ -120,7 +147,7 @@ fn main() {
                     .uniform(&model_to_project);
                 b.render();
             }
-        }
+        }*/
 
         // Crates
 
@@ -151,7 +178,8 @@ fn main() {
 }
 
 fn crates() -> Vec<Obj<(Normal3, TexCoord)>> {
-    let obj = Obj::new(Cube { side_len: 2.0 }.build());
+    let mut obj =
+        <Obj<(Normal3, TexCoord)>>::new(Cube { side_len: 2.0 }.build());
 
     let mut res = vec![];
     let n = 30;
@@ -164,6 +192,20 @@ fn crates() -> Vec<Obj<(Normal3, TexCoord)>> {
             });
         }
     }
+
+    obj.geom = obj
+        .geom
+        .into_builder()
+        .warp(|v| vertex(v.pos, (v.attrib.0, 10.0 * v.attrib.1)))
+        .build();
+
+    res.push(Obj {
+        tf: scale((100.0, 0.1, 100.0))
+            .then(&translate(-Vec3::Y))
+            .to(),
+        ..obj.clone()
+    });
+
     res
 }
 fn floor() -> Obj<Vec2> {

@@ -149,7 +149,7 @@ impl Target for Buf2<Color3> {
     }
 }
 
-pub fn rasterize<B: AsMutSlice2, V: Vary, U: Copy>(
+pub fn rasterize<B: AsMutSlice2, V: Vary + Default, U: Copy>(
     buf: &mut B,
     mut sl: Scanline<V>,
     fs: &impl FragmentShader<V, U>,
@@ -176,7 +176,7 @@ pub fn rasterize<B: AsMutSlice2, V: Vary, U: Copy>(
     io
 }
 
-pub fn rasterize_fb<B: AsMutSlice2, V: Vary, U: Copy>(
+pub fn rasterize_fb<B: AsMutSlice2, V: Vary + Default, U: Copy>(
     cbuf: &mut B,
     zbuf: &mut impl AsMutSlice2<Elem = f32>,
     mut sl: Scanline<V>,

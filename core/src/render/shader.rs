@@ -16,7 +16,7 @@
 
 use crate::{
     geom::Vertex,
-    math::{Color4, ProjVec3},
+    math::{Color4, ProjVec3, Vary},
 };
 
 use super::Frag;
@@ -45,7 +45,7 @@ pub trait VertexShader<In, Uni> {
 ///
 /// # Type parameters
 /// * `Var`: The varying of the input fragment.
-pub trait FragmentShader<Var, Uni> {
+pub trait FragmentShader<Var: Vary, Uni> {
     /// Computes the color of `frag`. Returns either `Some(color)`, or `None`
     /// if the fragment should be discarded.
     ///
@@ -69,6 +69,7 @@ where
 impl<F, Var, Out, Uni> FragmentShader<Var, Uni> for F
 where
     F: Fn(Frag<Var>, Uni) -> Out,
+    Var: Vary,
     Out: Into<Option<Color4>>,
 {
     #[inline]
@@ -81,6 +82,7 @@ pub fn new<Vs, Fs, Vtx, Var, Uni>(vs: Vs, fs: Fs) -> Shader<Vs, Fs>
 where
     Vs: VertexShader<Vtx, Uni, Output = Vertex<ProjVec3, Var>>,
     Fs: FragmentShader<Var, Uni>,
+    Var: Vary,
 {
     Shader::new(vs, fs)
 }
@@ -95,10 +97,11 @@ pub struct Shader<Vs, Fs> {
 impl<Vs, Fs> Shader<Vs, Fs> {
     /// Returns a new `Shader` with `vs` as the vertex shader
     /// and `fs` as the fragment shader.
-    pub const fn new<In, Uni, Pos, Attr>(vs: Vs, fs: Fs) -> Self
+    pub const fn new<In, Uni, Pos, Var>(vs: Vs, fs: Fs) -> Self
     where
-        Vs: VertexShader<In, Uni, Output = Vertex<Pos, Attr>>,
-        Fs: FragmentShader<Attr, Uni>,
+        Vs: VertexShader<In, Uni, Output = Vertex<Pos, Var>>,
+        Fs: FragmentShader<Var, Uni>,
+        Var: Vary,
     {
         Self {
             vertex_shader: vs,
@@ -122,6 +125,7 @@ where
 impl<Vs, Fs, Var, Uni> FragmentShader<Var, Uni> for Shader<Vs, Fs>
 where
     Fs: FragmentShader<Var, Uni>,
+    Var: Vary,
 {
     #[inline]
     fn shade_fragment(&self, frag: Frag<Var>, uni: Uni) -> Option<Color4> {

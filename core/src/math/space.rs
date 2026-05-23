@@ -8,7 +8,10 @@ use core::{
     marker::PhantomData,
 };
 
-use super::vary::{Iter, Vary, ZDiv};
+use super::{
+    Lerp, Vary,
+    vary::{Iter, ZDiv},
+};
 
 /// Trait for types representing elements of an affine space.
 ///
@@ -190,16 +193,23 @@ impl Affine for u32 {
     }
 }
 
-impl<V: Clone + Debug> Vary for V
+impl<V> Vary for V
 where
-    Self: Affine<Diff: Linear<Scalar = f32> + Clone> + ZDiv,
+    Self: Affine<Diff: Linear<Scalar = f32> + ZDiv + Clone>
+        + ZDiv
+        + Lerp
+        + Default,
 {
     type Iter = Iter<Self>;
     type Diff = <Self as Affine>::Diff;
 
     #[inline]
     fn vary(self, step: Self::Diff, n: Option<u32>) -> Self::Iter {
-        Iter { val: self, step, n }
+        Iter {
+            val: self,
+            step: step.clone(),
+            n,
+        }
     }
 
     #[inline]
