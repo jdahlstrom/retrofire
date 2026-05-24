@@ -7,9 +7,9 @@ use re::prelude::*;
 use re::core::{
     geom::{Polyline, Ray},
     math::{ProjMat3, ProjVec3, color::gray, spline::HermiteSpline},
-    render::{Model, ModelToWorld, cam::Fov, shader},
+    render::{Model, ModelToWorld, cam::Fov, shader, text::Console},
 };
-use re::front::{Frame, minifb::Window};
+use re::front::{Frame, font_6x10, minifb::Window};
 use re::geom::{io::read_obj, solids::*};
 
 // Carousel animation for switching between objects.
@@ -83,17 +83,20 @@ fn main() {
 
     let shader = shader::new(vtx_shader, frag_shader);
 
-    let objects = objects_n(8);
+    let objects = objects_n(100);
 
     let translate = translate(-3.0 * Vec3::Z);
     let mut carousel = Carousel::default();
+
+    let mut con = Console::new(font_6x10(), pt2(10, 20)..pt2(100, 200));
 
     win.run(|frame| {
         let Frame { t, dt, win, .. } = frame;
 
         // Press Space to trigger carousel animation
-        if win.imp.is_key_pressed(Key::Space, KeyRepeat::No) {
+        if win.imp.is_key_pressed(Key::Space, KeyRepeat::Yes) {
             carousel.start();
+            writeln!(con, "object {}", carousel.idx);
         }
 
         let theta = rads(t.as_secs_f32());
@@ -119,6 +122,8 @@ fn main() {
             ctx: &*frame.ctx,
         }
         .render();
+
+        con.render(&mut frame.buf, frame.ctx);
 
         Continue(())
     });

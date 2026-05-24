@@ -1,3 +1,4 @@
+use alloc::vec::Vec;
 use core::fmt::{self, Write};
 use core::ops::Range;
 #[cfg(feature = "std")]
@@ -5,8 +6,8 @@ use std::io;
 
 use crate::geom::{Mesh, Tri, Vertex, Vertex3, tri, vertex};
 use crate::math::{
-    Color3, Color4, Point2, Point2u, ProjMat3, ProjVec3, Vec2, color::gray,
-    orthographic, pt2, pt3, vec2, vec3, viewport,
+    Color3, Color4, Point2, Point2u, ProjMat3, ProjVec3, Vec2, Vec3,
+    color::gray, orthographic, pt2, pt3, translate, vec2, vec3, viewport,
 };
 use crate::util::buf::Buf2;
 
@@ -24,6 +25,8 @@ pub struct Text {
     pub anchor: Point2,
     pub align: Align,
     cursor: Point2<Model>,
+    /// The index of the first primitive of each line in geom.faces.
+    lines: Vec<usize>,
 }
 
 #[derive(Copy, Clone, Debug, Default, Eq, PartialEq)]
@@ -45,7 +48,7 @@ pub struct Console {
     left_top: Point2u<Screen>,
     right_bot: Point2u<Screen>,
     // Store here to allow passing by ref to shader
-    project: ProjMat3<Model>,
+    transform: ProjMat3<Model>,
 }
 
 pub struct TextShader<'a>(&'a Text);
@@ -64,9 +67,10 @@ impl Text {
             font,
             geom: Mesh::default(),
             color: gray(0xFF),
-            anchor: Point2::default(),
+            anchor: Point2::origin(),
             align: Align::default(),
-            cursor: Point2::default(),
+            cursor: Point2::origin(),
+            lines: [0].to_vec(),
         }
     }
 
@@ -165,7 +169,8 @@ impl Text {
     fn newline(&mut self) {
         let Layout::Grid { sub_dims: (_, h) } = self.font.layout;
         // TODO variable line height support
-        self.cursor = pt2(0.0, self.cursor.y() + h as f32)
+        self.cursor = pt2(0.0, self.cursor.y() + h as f32);
+        self.lines.push(self.geom.faces.len());
     }
 }
 
@@ -176,24 +181,38 @@ impl Console {
             text: Text::new(font),
             left_top: bounds.start,
             right_bot: bounds.end,
-            project: orthographic(
-                pt3(0.0, 0.0, 0.0),
-                pt3(dims.x() as f32, dims.y() as f32, 0.0),
+            transform: orthographic(
+                pt3(0.0, 0.0, -1.0),
+                pt3(dims.x() as f32, dims.y() as f32, 1.0),
             )
             .to(),
         }
     }
 
     pub fn print(&mut self, s: &str) {
-        _ = self.text.write_str(s);
+        _ = write!(self, "{}", s);
     }
     pub fn println(&mut self, s: &str) {
-        self.print(s);
-        self.print("\n");
+        _ = writeln!(self, "{}", s);
     }
 
     pub fn write_fmt(&mut self, args: fmt::Arguments) {
-        _ = self.text.write_fmt(args)
+        let lines_old = self.text.lines.len() as u32;
+        _ = self.text.write_fmt(args);
+        let lines_new = self.text.lines.len() as u32;
+        let (_, glyph_h) = self.text.font.dims(0);
+
+        let vis_lines = (self.right_bot.y() - self.left_top.y()) / glyph_h;
+
+        if lines_new < vis_lines {
+            return;
+        }
+
+        let scroll = lines_new - lines_old;
+
+        self.transform = self
+            .transform
+            .compose(&translate(-((glyph_h * scroll) as f32) * Vec3::Y).to())
     }
 
     pub fn clear(&mut self) {
@@ -201,19 +220,13 @@ impl Console {
     }
 
     pub fn batch(&self) -> TextBatch<'_, &ProjMat3<Model>> {
-        let Self {
-            left_top: lt, right_bot: rb, ..
-        } = self;
-
-        let [w, h] = (*rb - *lt).0;
-
-        let viewport = viewport(lt.to()..rb.to());
+        let &Self { left_top, right_bot, .. } = self;
 
         Batch::new()
             .mesh(&self.text.geom)
-            .uniform(&self.project)
+            .uniform(&self.transform)
             .shader(self.text.shader())
-            .viewport(viewport)
+            .viewport(viewport(left_top..right_bot))
     }
 
     pub fn render(&self, target: impl Target, ctx: &Context) {
