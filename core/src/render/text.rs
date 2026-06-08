@@ -49,6 +49,7 @@ pub struct Console {
     right_bot: Point2u<Screen>,
     // Store here to allow passing by ref to shader
     transform: ProjMat3<Model>,
+    pub open: bool,
 }
 
 pub struct TextShader<'a>(&'a Text);
@@ -186,6 +187,7 @@ impl Console {
                 pt3(dims.x() as f32, dims.y() as f32, 1.0),
             )
             .to(),
+            open: true,
         }
     }
 
@@ -198,7 +200,7 @@ impl Console {
 
     pub fn write_fmt(&mut self, args: fmt::Arguments) {
         #[rustfmt::skip]
-        let Self { left_top, right_bot, text, transform } = self;
+        let Self { left_top, right_bot, text, transform, .. } = self;
 
         let lines_old = text.lines.len() as u32;
         text.write_fmt(args).expect("cannot fail");
@@ -230,7 +232,9 @@ impl Console {
     }
 
     pub fn render(&self, target: impl Target, ctx: &Context) {
-        self.batch().target(target).context(ctx).render();
+        if self.open {
+            self.batch().target(target).context(ctx).render();
+        }
     }
 }
 

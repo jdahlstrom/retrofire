@@ -83,8 +83,8 @@ fn main() {
 
     let shader = shader::new(vtx_shader, frag_shader);
 
-    let mut resolution = 8;
-    let mut objects = objects_n(resolution);
+    let mut lod = 8;
+    let mut objects = objects_n(lod);
 
     let translate = translate(-3.0 * Vec3::Z);
     let mut carousel = Carousel::default();
@@ -101,7 +101,7 @@ fn main() {
                 Key::Space => {
                     carousel.start();
                     let i = carousel.new_idx % objects.len();
-                    write!(
+                    writeln!(
                         con,
                         "object {i} ({} faces, {} verts)",
                         objects[i].faces.len(),
@@ -111,15 +111,18 @@ fn main() {
                 Key::Comma | Key::Period => {
                     let (num, denom) =
                         if key == Key::Comma { (3, 4) } else { (4, 3) };
-                    resolution = (resolution * num / denom).clamp(3, 50);
-                    objects = objects_n(resolution);
+                    lod = (lod * num / denom).clamp(3, 50);
+                    objects = objects_n(lod);
                     let i = carousel.idx;
                     writeln!(
                         con,
-                        "resolution -> {resolution} ({} faces, {} verts)",
+                        "resolution -> {lod} ({} faces, {} verts)",
                         objects[i].faces.len(),
                         objects[i].verts.len()
                     );
+                }
+                Key::Tab => {
+                    con.open ^= true;
                 }
                 _ => (),
             }
