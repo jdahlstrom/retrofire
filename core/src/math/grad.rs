@@ -5,11 +5,11 @@ use super::{Lerp, Parametric, Point2, inv_lerp};
 
 /// A position-based color progression that can be used to fill a 2D surface.
 #[derive(Clone, Debug, PartialEq)]
-pub struct Gradient2<T> {
+pub struct Gradient2<C> {
     /// The shape of the gradient.
     pub kind: Kind<Point2>,
     /// The sequence of colors to interpolate between.
-    pub map: ColorMap<T>,
+    pub map: ColorMap<C>,
 }
 
 /// The shape of a gradient.
@@ -39,16 +39,16 @@ pub enum Kind<Pt> {
 /// A sequence of (number, color) pairs, mapping t values to colors.
 /// The numbers must be in a *nondecreasing* order.
 #[derive(Clone, Debug, PartialEq)]
-pub struct ColorMap<T>(Vec<(f32, T)>);
+pub struct ColorMap<C>(Vec<(f32, C)>);
 
-impl<T: Lerp> Gradient2<T> {
+impl<C: Lerp> Gradient2<C> {
     /// Creates a new gradient.
     ///
     /// # Panics
     /// If there are no stops, or not all the stop values are nondecreasing
     pub fn new(
         kind: Kind<Point2>,
-        stops: impl IntoIterator<Item = (f32, T)>,
+        stops: impl IntoIterator<Item = (f32, C)>,
     ) -> Self {
         Self {
             kind,
@@ -57,7 +57,7 @@ impl<T: Lerp> Gradient2<T> {
     }
 
     /// Returns the value of `self` at the given point.
-    pub fn eval(&self, p: Point2) -> T {
+    pub fn eval(&self, p: Point2) -> C {
         let t = match self.kind {
             Kind::Linear(p0, p1) => (p - p0).scalar_project(&(p1 - p0)),
             Kind::Radial(p0, r) => p.distance(&p0) / r,

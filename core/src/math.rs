@@ -27,6 +27,7 @@ pub(super) mod re_exports {
         },
         approx::ApproxEq,
         color::{Color, Color3, Color3f, Color4, Color4f, rgb, rgba},
+        grad::Gradient2,
         lerp,
         mat::{
             Apply, Mat2, Mat3, Mat4, Matrix, ProjMat3, orthographic,
@@ -78,6 +79,7 @@ pub mod float;
 pub mod grad;
 pub mod mat;
 pub mod param;
+pub mod pattern;
 pub mod point;
 pub mod rand;
 pub mod space;
