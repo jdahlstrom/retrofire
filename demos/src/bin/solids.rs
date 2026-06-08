@@ -1,6 +1,6 @@
 use core::ops::ControlFlow::Continue;
-
 use minifb::{Key, KeyRepeat};
+use std::sync::{LazyLock, OnceLock};
 
 use re::prelude::*;
 
@@ -83,20 +83,46 @@ fn main() {
 
     let shader = shader::new(vtx_shader, frag_shader);
 
-    let objects = objects_n(100);
+    let mut resolution = 8;
+    let mut objects = objects_n(resolution);
 
     let translate = translate(-3.0 * Vec3::Z);
     let mut carousel = Carousel::default();
 
-    let mut con = Console::new(font_6x10(), pt2(10, 20)..pt2(100, 200));
+    let mut con = Console::new(font_6x10(), pt2(10, 20)..pt2(400, 100));
 
     win.run(|frame| {
         let Frame { t, dt, win, .. } = frame;
 
         // Press Space to trigger carousel animation
-        if win.imp.is_key_pressed(Key::Space, KeyRepeat::Yes) {
-            carousel.start();
-            writeln!(con, "object {}", carousel.idx);
+
+        for key in win.imp.get_keys_pressed(KeyRepeat::No) {
+            match key {
+                Key::Space => {
+                    carousel.start();
+                    let i = carousel.new_idx % objects.len();
+                    write!(
+                        con,
+                        "object {i} ({} faces, {} verts)",
+                        objects[i].faces.len(),
+                        objects[i].verts.len()
+                    );
+                }
+                Key::Comma | Key::Period => {
+                    let (num, denom) =
+                        if key == Key::Comma { (3, 4) } else { (4, 3) };
+                    resolution = (resolution * num / denom).clamp(3, 50);
+                    objects = objects_n(resolution);
+                    let i = carousel.idx;
+                    writeln!(
+                        con,
+                        "resolution -> {resolution} ({} faces, {} verts)",
+                        objects[i].faces.len(),
+                        objects[i].verts.len()
+                    );
+                }
+                _ => (),
+            }
         }
 
         let theta = rads(t.as_secs_f32());
@@ -157,9 +183,9 @@ fn objects_n(res: u32) -> [Mesh<Normal3>; 14] {
         Torus { major_radius: 0.9, minor_radius: 0.3, major_sectors, minor_sectors }.build(),
 
         // Traditional demo models
-        teapot(),
-        bunny(),
-        dragon()
+        teapot().clone(),
+        bunny().clone(),
+        dragon().clone()
     ]
 }
 
@@ -185,30 +211,39 @@ fn lathe(secs: u32) -> Mesh<Normal3> {
 }
 
 // Loads the Utah teapot model.
-fn teapot() -> Mesh<Normal3> {
-    static TEAPOT: &[u8] = include_bytes!("../../assets/teapot.obj");
-    read_obj(TEAPOT)
-        .unwrap()
-        .transform(&scale(0.4).then(&translate(-0.5 * Vec3::Y)).to())
-        .build()
+fn teapot() -> &'static Mesh<Normal3> {
+    static TEAPOT: LazyLock<Mesh<Normal3>> = LazyLock::new(|| {
+        let obj: &[_] = include_bytes!("../../assets/teapot.obj");
+        read_obj::<Normal3>(obj)
+            .unwrap()
+            .transform(&scale(0.4).then(&translate(-0.5 * Vec3::Y)).to())
+            .build()
+    });
+    &TEAPOT
 }
 
 // Loads the Stanford bunny model.
-fn bunny() -> Mesh<Normal3> {
-    static BUNNY: &[u8] = include_bytes!("../../assets/bunny.obj");
-    read_obj::<()>(BUNNY)
-        .unwrap()
-        .transform(&scale(0.12).then(&translate(-Vec3::Y)).to())
-        .with_vertex_normals()
-        .build()
+fn bunny() -> &'static Mesh<Normal3> {
+    static BUNNY: LazyLock<Mesh<Normal3>> = LazyLock::new(|| {
+        let obj: &[_] = include_bytes!("../../assets/bunny.obj");
+        read_obj::<()>(obj)
+            .unwrap()
+            .transform(&scale(0.12).then(&translate(-Vec3::Y)).to())
+            .with_vertex_normals()
+            .build()
+    });
+    &BUNNY
 }
 
 // Loads the Stanford dragon model.
-fn dragon() -> Mesh<Normal3> {
-    static DRAGON: &[u8] = include_bytes!("../../assets/dragon.obj");
-    read_obj::<()>(DRAGON)
-        .unwrap()
-        .with_vertex_normals()
-        .transform(&scale(0.18).then(&translate(-0.5 * Vec3::Y)).to())
-        .build()
+fn dragon() -> &'static Mesh<Normal3> {
+    static DRAGON: LazyLock<Mesh<Normal3>> = LazyLock::new(|| {
+        let obj: &[_] = include_bytes!("../../assets/dragon.obj");
+        read_obj::<()>(obj)
+            .unwrap()
+            .with_vertex_normals()
+            .transform(&scale(0.18).then(&translate(-0.5 * Vec3::Y)).to())
+            .build()
+    });
+    &DRAGON
 }

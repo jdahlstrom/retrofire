@@ -197,12 +197,15 @@ impl Console {
     }
 
     pub fn write_fmt(&mut self, args: fmt::Arguments) {
-        let lines_old = self.text.lines.len() as u32;
-        _ = self.text.write_fmt(args);
-        let lines_new = self.text.lines.len() as u32;
-        let (_, glyph_h) = self.text.font.dims(0);
+        #[rustfmt::skip]
+        let Self { left_top, right_bot, text, transform } = self;
 
-        let vis_lines = (self.right_bot.y() - self.left_top.y()) / glyph_h;
+        let lines_old = text.lines.len() as u32;
+        text.write_fmt(args).expect("cannot fail");
+        let lines_new = text.lines.len() as u32;
+        let (_, glyph_h) = text.font.dims(0);
+
+        let vis_lines = (right_bot.y() - left_top.y()) / glyph_h;
 
         if lines_new < vis_lines {
             return;
@@ -210,8 +213,7 @@ impl Console {
 
         let scroll = lines_new - lines_old;
 
-        self.transform = self
-            .transform
+        *transform = transform
             .compose(&translate(-((glyph_h * scroll) as f32) * Vec3::Y).to())
     }
 
@@ -220,13 +222,11 @@ impl Console {
     }
 
     pub fn batch(&self) -> TextBatch<'_, &ProjMat3<Model>> {
-        let &Self { left_top, right_bot, .. } = self;
-
         Batch::new()
             .mesh(&self.text.geom)
             .uniform(&self.transform)
             .shader(self.text.shader())
-            .viewport(viewport(left_top..right_bot))
+            .viewport(viewport(self.left_top..self.right_bot))
     }
 
     pub fn render(&self, target: impl Target, ctx: &Context) {
