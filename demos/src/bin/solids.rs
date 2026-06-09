@@ -116,7 +116,7 @@ fn main() {
                     let i = carousel.idx;
                     writeln!(
                         con,
-                        "resolution -> {lod} ({} faces, {} verts)",
+                        "LoD -> {lod} ({} faces, {} verts)",
                         objects[i].faces.len(),
                         objects[i].verts.len()
                     );

@@ -97,11 +97,11 @@ impl Text {
     ///
     /// For more customizable rendering, see the [`batch`][Self::batch] function.
     pub fn render(&self, target: &mut impl Target) {
-        let BBox(_lt, rb) = BBox::of(&self.geom);
-        let [r, b, _] = rb.0;
+        let [right, bot, _] = BBox::of(&self.geom).1.0;
+        let right_bot = vec2(right, bot); // TODO Vec3::xy()
 
         use Align::*;
-        let off = match self.align {
+        let offset: Vec2 = match self.align {
             TopLeft => (0.0, 0.0),
             TopCenter => (0.5, 0.0),
             TopRight => (1.0, 0.0),
@@ -111,14 +111,15 @@ impl Text {
             BottomLeft => (0.0, 1.0),
             BottomCenter => (0.5, 1.0),
             BottomRight => (1.0, 1.0),
-        };
-        let pos = self.anchor - Vec2::from(off) * vec2(r, b);
+        }
+        .into();
+        let pos = self.anchor - offset * right_bot;
 
         let proj: ProjMat3<Model> =
-            orthographic(pt3(0.0, 0.0, -1.0), pt3(self.cursor.x(), b, 1.0))
+            orthographic(pt3(0.0, 0.0, -1.0), pt3(self.cursor.x(), bot, 1.0))
                 .to();
         let pos = pt2(pos.x() as _, pos.y() as _);
-        let wh = vec2(r as _, b as _);
+        let wh = vec2(right as _, bot as _);
         let viewport = viewport(pos..pos + wh);
 
         self.batch()
