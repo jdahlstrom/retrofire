@@ -355,7 +355,7 @@ mod tests {
         for i in 0..count {
             for j in 0..count {
                 for k in 0..count {
-                    let pt = pt3(i, j, k).map(|c| c as f32 / scale);
+                    let pt = pt3(i, j, k).map(|c| c as f32) / scale;
                     let v = p.eval(pt);
                     stats.cum(v);
                 }

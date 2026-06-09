@@ -22,7 +22,7 @@ pub struct Text {
     pub font: Atlas<Color3>,
     pub geom: Mesh<TexCoord>,
     pub color: Color3,
-    pub anchor: Point2,
+    pub anchor: Point2<Model>,
     pub align: Align,
     cursor: Point2<Model>,
     /// The index of the first primitive of each line in geom.faces.
@@ -76,7 +76,7 @@ impl Text {
     }
 
     /// Sets the anchor point of the text.
-    pub fn anchor(mut self, pt: impl Into<Point2>) -> Self {
+    pub fn anchor(mut self, pt: impl Into<Point2<Model>>) -> Self {
         self.anchor = pt.into();
         self
     }
@@ -97,11 +97,10 @@ impl Text {
     ///
     /// For more customizable rendering, see the [`batch`][Self::batch] function.
     pub fn render(&self, target: &mut impl Target) {
-        let [right, bot, _] = BBox::of(&self.geom).1.0;
-        let right_bot = vec2(right, bot); // TODO Vec3::xy()
+        let right_bot = BBox::of(&self.geom).1.xy().to_vec();
 
         use Align::*;
-        let offset: Vec2 = match self.align {
+        let offset: Vec2<_> = match self.align {
             TopLeft => (0.0, 0.0),
             TopCenter => (0.5, 0.0),
             TopRight => (1.0, 0.0),
@@ -113,14 +112,18 @@ impl Text {
             BottomRight => (1.0, 1.0),
         }
         .into();
-        let pos = self.anchor - offset * right_bot;
+        // Transform to screen
+        let pos: Point2<Screen> = (self.anchor - offset * right_bot).to();
 
-        let proj: ProjMat3<Model> =
-            orthographic(pt3(0.0, 0.0, -1.0), pt3(self.cursor.x(), bot, 1.0))
-                .to();
-        let pos = pt2(pos.x() as _, pos.y() as _);
-        let wh = vec2(right as _, bot as _);
-        let viewport = viewport(pos..pos + wh);
+        let proj: ProjMat3<Model> = orthographic(
+            pt3(0.0, 0.0, -1.0),
+            // TODO What??
+            pt3(self.cursor.x(), right_bot.y(), 1.0),
+            //  ^^^^^^^^^^^^^^^
+        )
+        .to();
+        let pos = pos.to_u();
+        let viewport = viewport(pos..pos + right_bot.to_i().to());
 
         self.batch()
             .uniform(&proj)

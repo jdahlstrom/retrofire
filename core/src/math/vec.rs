@@ -253,6 +253,11 @@ impl<Sp, const N: usize> Vector<[f32; N], Sp> {
         array::from_fn(|i| self[i].clamp(min[i], max[i])).into()
     }
 
+    /// Returns a vector with the components of `self` truncated to integers.
+    pub fn to_i(self) -> Vector<[i32; N], Sp> {
+        self.map(|x| x as _)
+    }
+
     /// Returns `true` if every component of `self` is finite, `false` otherwise.
     ///
     /// See [`f32::is_finite()`].
@@ -545,7 +550,7 @@ impl<B> Vec2<B> {
     /// Converts `self` to homogeneous representation.
     #[inline]
     pub const fn to_hom(&self) -> Vector<[f32; 3], Hom<2, B>> {
-        Vector::new([self.0[0], self.0[1], 0.0])
+        Vector::new([self.x(), self.y(), 0.0])
     }
 }
 
@@ -567,6 +572,21 @@ where
     #[inline]
     pub const fn z(&self) -> Sc {
         self.0[2]
+    }
+    /// Returns the x and y components of `self` as a 2-vector.
+    #[inline]
+    pub const fn xy(&self) -> Vector<[Sc; 2], Real<2, B>> {
+        vec2(self.0[0], self.0[1])
+    }
+    /// Returns the x and y components of `self` as a 2-vector.
+    #[inline]
+    pub const fn yz(&self) -> Vector<[Sc; 2], Real<2, B>> {
+        vec2(self.0[1], self.0[2])
+    }
+    /// Returns the x and y components of `self` as a 2-vector.
+    #[inline]
+    pub const fn xz(&self) -> Vector<[Sc; 2], Real<2, B>> {
+        vec2(self.0[0], self.0[2])
     }
 
     /// Returns the cross product of `self` with `other`.
@@ -623,7 +643,7 @@ impl<B> Vec3<B> {
 
     #[inline]
     pub const fn to_hom(&self) -> Vector<[f32; 4], Hom<3, B>> {
-        Vector::new([self.0[0], self.0[1], self.0[2], 0.0])
+        Vector::new([self.x(), self.y(), self.z(), 0.0])
     }
 }
 

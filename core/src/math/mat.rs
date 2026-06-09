@@ -1311,7 +1311,7 @@ pub const fn viewport(bounds: Range<Point2u<Screen>>) -> Mat4<Ndc, Screen> {
 #[cfg(test)]
 mod tests {
     use crate::assert_approx_eq;
-    use crate::math::pt3;
+    use crate::math::{pt3, splat};
 
     #[cfg(feature = "fp")]
     use crate::math::degs;
@@ -1330,7 +1330,7 @@ mod tests {
     const Y: Vec3 = Vec3::Y;
     const Z: Vec3 = Vec3::Z;
     #[allow(unused)]
-    const O: Vec3 = Vec3::new([0.0; 3]);
+    const O: Vec3 = splat(0.0);
 
     mod mat2 {
         use super::*;

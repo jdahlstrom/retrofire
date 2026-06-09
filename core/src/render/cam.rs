@@ -149,7 +149,7 @@ impl Camera<()> {
     pub fn new(dims: Dims) -> Self {
         Self {
             dims,
-            viewport: viewport(pt2(0, 0)..pt2(dims.0, dims.1)),
+            viewport: viewport(pt2(0, 0)..dims.into()),
             ..Self::default()
         }
     }

@@ -198,6 +198,11 @@ impl<const N: usize, B> Point<[f32; N], Real<N, B>> {
             *other
         }
     }
+
+    /// Returns a point with the components of `self` truncated to unsigned integers.
+    pub fn to_u(self) -> Point<[u32; N], Real<N, B>> {
+        self.map(|x| x as _)
+    }
 }
 
 impl<Sc: Copy, B> Point<[Sc; 2], Real<2, B>> {
@@ -245,6 +250,22 @@ impl<Sc: Copy, B> Point<[Sc; 3], Real<3, B>> {
     #[inline]
     pub const fn z(&self) -> Sc {
         self.0[2]
+    }
+
+    /// Returns the x and y components of `self` as a 2-point.
+    #[inline]
+    pub const fn xy(&self) -> Point<[Sc; 2], Real<2, B>> {
+        pt2(self.0[0], self.0[1])
+    }
+    /// Returns the x and y components of `self` as a 2-point.
+    #[inline]
+    pub const fn yz(&self) -> Point<[Sc; 2], Real<2, B>> {
+        pt2(self.0[1], self.0[2])
+    }
+    /// Returns the x and y components of `self` as a 2-point.
+    #[inline]
+    pub const fn xz(&self) -> Point<[Sc; 2], Real<2, B>> {
+        pt2(self.0[0], self.0[2])
     }
 }
 

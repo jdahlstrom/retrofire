@@ -538,8 +538,9 @@ impl<B> Plane3<B> {
     pub fn basis<F>(&self) -> Mat4<F, B> {
         let up = self.normal().to();
 
+        let abs_up = up.map(f32::abs);
         let right: Vec3<B> =
-            if up.x().abs() <= up.y().abs() && up.x().abs() <= up.z().abs() {
+            if abs_up.x() <= abs_up.y() && abs_up.x() <= abs_up.z() {
                 Vec3::X
             } else {
                 Vec3::Z
