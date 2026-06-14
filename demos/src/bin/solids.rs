@@ -1,11 +1,12 @@
 use core::ops::ControlFlow::Continue;
+use std::sync::LazyLock;
+
 use minifb::{Key, KeyRepeat};
-use std::sync::{LazyLock, OnceLock};
 
 use re::prelude::*;
 
 use re::core::{
-    geom::{Polyline, Ray},
+    geom::Ray,
     math::{ProjMat3, ProjVec3, color::gray, spline::HermiteSpline},
     render::{Model, ModelToWorld, cam::Fov, shader, text::Console},
 };
@@ -100,12 +101,13 @@ fn main() {
             match key {
                 Key::Space => {
                     carousel.start();
-                    let i = carousel.new_idx % objects.len();
+                    let (name, obj) =
+                        &objects[carousel.new_idx % objects.len()];
                     writeln!(
                         con,
-                        "object {i} ({} faces, {} verts)",
-                        objects[i].faces.len(),
-                        objects[i].verts.len()
+                        "{name} ({} faces, {} verts)",
+                        obj.faces.len(),
+                        obj.verts.len()
                     );
                 }
                 Key::Comma | Key::Period => {
@@ -117,8 +119,8 @@ fn main() {
                     writeln!(
                         con,
                         "LoD -> {lod} ({} faces, {} verts)",
-                        objects[i].faces.len(),
-                        objects[i].verts.len()
+                        objects[i].1.faces.len(),
+                        objects[i].1.verts.len()
                     );
                 }
                 Key::Tab => {
@@ -139,7 +141,7 @@ fn main() {
             .to::<ModelToWorld>()
             .then(&cam.world_to_project());
 
-        let object = &objects[carousel.idx % objects.len()];
+        let object = &objects[carousel.idx % objects.len()].1;
 
         Batch {
             prims: object.faces.clone(),
@@ -160,35 +162,39 @@ fn main() {
 
 // Creates the 14 objects exhibited.
 #[rustfmt::skip]
-fn objects_n(res: u32) -> [Mesh<Normal3>; 14] {
-    let segments = res;
-    let sectors = 2 * res;
+fn objects_n(res: u32) -> [(&'static str, Mesh<Normal3>); 14] {
+    assert!(res >= 3);
 
-    let cap_segments = res;
+    let segments = res;
+    let sectors = 3 * res / 2;
+
+    let cap_segments = res / 2;
     let body_segments = res;
 
-    let major_sectors = 3 * res;
-    let minor_sectors = 2 * res;
+    let major_sectors = 2 * res;
+    let minor_sectors = 3 * res / 2;
     [
         // The five Platonic solids
-        Tetrahedron.build(),
-        Cube { side_len: 1.25 }.build(),
-        Octahedron.build(),
-        Dodecahedron.build(),
-        Icosahedron.build(),
+        ("tetrahedron", Tetrahedron.build()),
+        ("cube", Cube { side_len: 1.25 }.build()),
+        ("octahedron", Octahedron.build()),
+        ("dodecahedron", Dodecahedron.build()),
+        ("icosahedron", Icosahedron.build()),
 
         // Surfaces of revolution
-        lathe(sectors),
-        Sphere { radius: 1.0, sectors, segments, }.build(),
-        Cylinder { radius: 0.8, sectors, segments, capped: true }.build(),
-        Cone { base_radius: 1.1, apex_radius: 0.3, sectors, segments, capped: true }.build(),
-        Capsule { radius: 0.5, sectors, body_segments, cap_segments }.build(),
-        Torus { major_radius: 0.9, minor_radius: 0.3, major_sectors, minor_sectors }.build(),
+        ("lathe", lathe(sectors)),
+        ("sphere", Sphere { radius: 1.0, sectors, segments, }.build()),
+        ("cylinder", Cylinder { radius: 0.8, sectors, segments, capped: true }.build()),
+        ("cone", Cone { base_radius: 1.1, apex_radius: 0.3, sectors, segments, capped: true }
+            .build()),
+        ("capsule", Capsule { radius: 0.5, sectors, body_segments, cap_segments }.build()),
+        ("torus", Torus { major_radius: 0.9, minor_radius: 0.3, major_sectors, minor_sectors }
+        .build()),
 
         // Traditional demo models
-        teapot().clone(),
-        bunny().clone(),
-        dragon().clone()
+        ("teapot", teapot().clone()),
+        ("bunny", bunny().clone()),
+        ("dragon", dragon().clone())
     ]
 }
 
@@ -205,12 +211,13 @@ fn lathe(secs: u32) -> Mesh<Normal3> {
         Ray(pt2(0.0, -0.2), vec2(-1.0, 0.0)),
     ]);
 
-    let verts = 0.0.vary_to(1.0, 2 * secs).map(|t| {
-        vertex(spline.eval(t), -spline.velocity(t).normalize().perp())
-    });
-    let pl = Polyline::new(verts);
-    let segs = pl.0.len() as u32;
-    Lathe::new(pl, secs, segs).capped(true).build()
+    let parametric = |t| {
+        let tan = spline.velocity(t).normalize();
+        vertex(spline.eval(t), -tan.perp())
+    };
+    Lathe::new(parametric, secs, 2 * secs)
+        .capped(true)
+        .build()
 }
 
 // Loads the Utah teapot model.
