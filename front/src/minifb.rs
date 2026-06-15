@@ -8,11 +8,10 @@ use core::{
 };
 use std::time::Instant;
 
-use minifb::{InputCallback, Key, KeyRepeat, WindowOptions};
+use minifb::{Key, KeyRepeat, WindowOptions};
 
 use super::{Frame, dims, font_6x10};
 
-use retrofire_core::math::rgb;
 use retrofire_core::{
     math::pt2,
     render::{
