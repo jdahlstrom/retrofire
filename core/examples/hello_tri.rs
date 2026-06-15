@@ -1,6 +1,8 @@
-use retrofire_core::prelude::*;
-use retrofire_core::render::{Model, render, shader};
-use retrofire_core::util::dims;
+use retrofire_core::{
+    prelude::*,
+    render::{Model, render, shader},
+    util::dims,
+};
 
 fn main() {
     let verts = [
@@ -44,10 +46,11 @@ fn main() {
         &mut framebuf,
         &Context::default(),
     );
+
     #[cfg(feature = "std")]
     {
-        use retrofire_core::util::pnm;
-        pnm::save_ppm("triangle.ppm", &framebuf).unwrap();
+        use retrofire_core::util::pnm::WritePnm as _;
+        framebuf.save("triangle.ppm").unwrap();
     }
 
     let center_pixel = framebuf[[dims.0 / 2, dims.1 / 2]];

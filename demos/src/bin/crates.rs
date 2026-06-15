@@ -10,7 +10,12 @@ use re::core::render::{
     shader,
     tex::SamplerClamp,
 };
+<<<<<<< HEAD
 use re::core::util::{pixfmt, pnm::read_pnm};
+=======
+// Try also Rgb565 or Rgba4444
+use re::core::util::{pixfmt::Rgba8888, pnm::ReadPnm};
+>>>>>>> f421e7b3 (WIP Revamp the PNM reading/writing API)
 
 use re::front::sdl2::Window;
 use re::geom::solids::{Build, Cube};
@@ -27,7 +32,9 @@ fn main() {
         .build()
         .expect("should create window");
 
-    let tex = Texture::from(read_pnm(CRATE_TEX).expect("data exists"));
+    let tex = Buf2::<Color3>::read(CRATE_TEX)
+        .expect("statically included valid ppm")
+        .into();
 
     let light_dir = vec3(-2.0, 1.0, -4.0).normalize();
 

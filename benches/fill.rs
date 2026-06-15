@@ -6,11 +6,10 @@ use divan::Bencher;
 
 use retrofire_core::{
     geom::{Tri, vertex},
-    math::{Color3, Color3f, color::gray, pt3, rgb},
-    render::{
-        Texture, raster::ScreenPt, raster::tri_fill, tex::SamplerRepeatPot, uv,
-    },
-    util::{Buf2, Dims, pnm::save_ppm},
+    math::{Color3, color::gray, pt3, rgb},
+    render::raster::{ScreenPt, tri_fill},
+    render::{Texture, tex::SamplerRepeatPot, uv},
+    util::{Buf2, Dims, pnm::WritePnm},
 };
 
 const SIZES: [f32; 5] = [4.0, 16.0, 64.0, 256.0, 1024.0];
@@ -30,11 +29,12 @@ fn flat(b: Bencher, sz: f32) {
             });
         });
 
-    save_ppm("benches_fill_flat.ppm", buf).unwrap();
+    buf.save("benches_fill_flat.ppm").unwrap();
 }
+
 #[divan::bench(args = SIZES)]
 fn gouraud(b: Bencher, sz: f32) {
-    let mut buf: Buf2<Color3f> = Buf2::new(Dims(1024, 1024));
+    let mut buf: Buf2<Color3> = Buf2::new(Dims(1024, 1024));
 
     b.with_inputs(|| {
         [
@@ -51,16 +51,12 @@ fn gouraud(b: Bencher, sz: f32) {
             let span = &mut buf[y][xs];
 
             for ((_, col), pix) in zip(sl.vs, span) {
-                *pix = col;
+                *pix = col.to_color3();
             }
         });
     });
 
-    let buf = Buf2::new_from(
-        Dims(1024, 1024),
-        buf.data().iter().map(|c| c.to_color3()),
-    );
-    save_ppm("benches_fill_color.ppm", buf).unwrap();
+    buf.save("benches_fill_color.ppm").unwrap();
 }
 
 #[divan::bench(args = SIZES)]
@@ -93,7 +89,7 @@ fn texture(b: Bencher, sz: f32) {
         });
     });
 
-    save_ppm("benches_fill_tex.ppm", buf).unwrap();
+    buf.save("benches_fill_tex.ppm").unwrap();
 }
 
 fn main() {
