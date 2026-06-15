@@ -114,22 +114,13 @@ impl<T> Buf2<T> {
     where
         I: IntoIterator<Item = T>,
     {
-        let ww = isize::try_from(w).ok();
-        let hh = isize::try_from(h).ok();
-        let len = ww.and_then(|w| hh.and_then(|h| w.checked_mul(h)));
-        let Some(len) = len else {
-            panic!(
-                "w * h cannot exceed isize::MAX ({w} * {h} > {})",
-                isize::MAX
-            );
+        let len = u64::from(w) * u64::from(h);
+        let max = isize::MAX as usize;
+        let len = match usize::try_from(len) {
+            Ok(len) if len <= max => len,
+            _ => panic!("length cannot exceed isize::MAX ({w} * {h} > {max})"),
         };
-        let data: Vec<_> = init.into_iter().take(len as usize).collect();
-        assert_eq!(
-            data.len(),
-            len as usize,
-            "insufficient items in iterator ({} < {len}",
-            data.len()
-        );
+        let data: Vec<_> = init.into_iter().take(len).collect();
         Self(Inner::new((w, h), w, data))
     }
 
@@ -579,7 +570,7 @@ pub mod inner {
             let size = (h - 1) * stride + w;
             assert!(
                 size as usize <= len,
-                "required size ({size}) > data length ({len})"
+                "required size ({w} * {h}) > data length ({len})"
             );
         }
     }
