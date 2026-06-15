@@ -8,7 +8,7 @@ use core::{cell::RefCell, time::Duration};
 use retrofire_core::{
     math::{Color3, Color4},
     render::{Colorbuf, Context, Framebuf, tex::Atlas},
-    util::{buf::AsMutSlice2, pixfmt::IntoPixel, pnm::read_pnm},
+    util::{buf::AsMutSlice2, buf::Buf2, pixfmt::IntoPixel, pnm::ReadPnm},
 };
 
 #[cfg(feature = "minifb")]
@@ -25,7 +25,7 @@ pub static FONT_6X10: &[u8] = include_bytes!("../assets/font_6x10.pbm");
 
 /// Returns a 6x10 bitmap font, e.g. for rendering debug messages.
 pub fn font_6x10() -> Atlas<Color3> {
-    let font = read_pnm(FONT_6X10).expect("font statically included");
+    let font = Buf2::read(FONT_6X10).expect("font statically included");
     Atlas::grid((6, 10), font.into())
 }
 

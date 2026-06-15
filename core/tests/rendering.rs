@@ -3,7 +3,7 @@
 use retrofire_core::{
     prelude::*,
     render::{Model, render, shader, tex::SamplerClamp},
-    util::{self, pixfmt::Xrgb8888, pnm::parse_pnm},
+    util::{self, pixfmt::Xrgb8888, pnm::ReadPnm},
 };
 
 const VERTS: [Vertex3<TexCoord>; 4] = [
@@ -44,16 +44,17 @@ fn textured_quad() {
     assert_eq!(framebuf[0][255], rgb(0x7F, 0, 0));
 
     static COMP: &[u8] = include_bytes!("textured_quad.ppm");
-    let comp = parse_pnm(COMP.iter().copied()).expect("should be a valid ppm");
+    let comp = Buf2::<Color3>::decode(COMP.iter().copied())
+        .expect("should be a valid ppm");
 
     assert_eq!(framebuf, comp);
 
     #[cfg(feature = "std")]
     {
-        use util::pnm::*;
+        use util::pnm::WritePnm as _;
         // Uncomment to save generated image to compare visually
-        //save_ppm("tests/textured_quad_actual.ppm", &framebuf);
+        //framebuf.save("tests/textured_quad_actual.ppm").expect("should save image");
         // Uncomment to (re)generate the comparison image
-        //save_ppm("tests/textured_quad.ppm", &buf).expect("should save image");
+        //comp.save("tests/textured_quad.ppm").expect("should save image");
     }
 }

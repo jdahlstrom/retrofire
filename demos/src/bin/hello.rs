@@ -2,17 +2,17 @@ use std::{env, fmt::Write, ops::ControlFlow::Continue};
 
 use re::prelude::*;
 
-use re::core::math::color::hsl;
 use re::core::{
-    render::{Text, World, tex::Atlas, tex::Layout},
-    util::pnm::read_pnm,
+    math::color::hsl,
+    render::{Text, World, tex::Atlas},
+    util::pnm::ReadPnm,
 };
 use re_front::{Frame, dims::SVGA_800_600, minifb::Window};
 
-const FONT: &[u8] = include_bytes!("../../assets/font_16x24.pbm");
+static FONT: &[u8] = include_bytes!("../../assets/font_16x24.pbm");
 
 fn main() {
-    let font = read_pnm(FONT).expect("valid image");
+    let font = Buf2::<Color3>::read(FONT).expect("valid image");
     let font = Atlas::grid((16, 24), font.into());
 
     let arg = env::args().nth(1); // Borrow checker...
@@ -31,7 +31,7 @@ fn main() {
 
     win.ctx.face_cull = None;
 
-    let vp: ProjMat3<World> = translate(vec3(0.0, 0.0, 15.0))
+    let world_to_proj: ProjMat3<World> = translate(15.0 * Vec3::Z)
         .to()
         .then(&perspective(1.0, 4.0 / 3.0, 0.1..1000.0));
 
@@ -45,7 +45,7 @@ fn main() {
             .then(&rotate_y(rads(secs * 0.59)))
             .then(&rotate_z(rads((secs * 1.13).sin())))
             .to()
-            .then(&vp);
+            .then(&world_to_proj);
 
         text.color = hsl(secs / 10.0 % 1.0, 0.8, 0.6)
             .to_rgb()
