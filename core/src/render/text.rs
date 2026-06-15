@@ -1,6 +1,7 @@
 use alloc::vec::Vec;
 use core::fmt::{self, Write};
 use core::ops::Range;
+
 #[cfg(feature = "std")]
 use std::io;
 
@@ -71,7 +72,7 @@ impl Text {
             anchor: Point2::origin(),
             align: Align::default(),
             cursor: Point2::origin(),
-            lines: [0].to_vec(),
+            lines: Vec::default(),
         }
     }
 
@@ -97,22 +98,13 @@ impl Text {
     ///
     /// For more customizable rendering, see the [`batch`][Self::batch] function.
     pub fn render(&self, target: &mut impl Target) {
+        if self.geom.faces.is_empty() {
+            return;
+        }
         let right_bot = BBox::of(&self.geom).1.xy().to_vec();
 
-        use Align::*;
-        let offset: Vec2<_> = match self.align {
-            TopLeft => (0.0, 0.0),
-            TopCenter => (0.5, 0.0),
-            TopRight => (1.0, 0.0),
-            CenterLeft => (0.0, 0.5),
-            Center => (0.5, 0.5),
-            CenterRight => (1.0, 0.5),
-            BottomLeft => (0.0, 1.0),
-            BottomCenter => (0.5, 1.0),
-            BottomRight => (1.0, 1.0),
-        }
-        .into();
         // Transform to screen
+        let offset = self.align.offset().to();
         let pos: Point2<Screen> = (self.anchor - offset * right_bot).to();
 
         let proj: ProjMat3<Model> = orthographic(
@@ -209,18 +201,14 @@ impl Console {
         let lines_old = text.lines.len() as u32;
         text.write_fmt(args).expect("cannot fail");
         let lines_new = text.lines.len() as u32;
-        let (_, glyph_h) = text.font.dims(0);
 
+        let glyph_h = text.font.dims(0).1;
         let vis_lines = (right_bot.y() - left_top.y()) / glyph_h;
-
-        if lines_new < vis_lines {
-            return;
+        if lines_new > vis_lines {
+            let scroll = lines_new - lines_old;
+            *transform = transform
+                .compose(&translate((glyph_h * scroll) as f32 * -Vec3::Y).to())
         }
-
-        let scroll = lines_new - lines_old;
-
-        *transform = transform
-            .compose(&translate(-((glyph_h * scroll) as f32) * Vec3::Y).to())
     }
 
     pub fn clear(&mut self) {
@@ -239,6 +227,24 @@ impl Console {
         if self.open {
             self.batch().target(target).context(ctx).render();
         }
+    }
+}
+
+impl Align {
+    pub fn offset(&self) -> Vec2 {
+        use Align::*;
+        match self {
+            TopLeft => (0.0, 0.0),
+            TopCenter => (0.5, 0.0),
+            TopRight => (1.0, 0.0),
+            CenterLeft => (0.0, 0.5),
+            Center => (0.5, 0.5),
+            CenterRight => (1.0, 0.5),
+            BottomLeft => (0.0, 1.0),
+            BottomCenter => (0.5, 1.0),
+            BottomRight => (1.0, 1.0),
+        }
+        .into()
     }
 }
 
