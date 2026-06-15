@@ -77,7 +77,7 @@ where
     }
 }
 
-pub fn new<Vs, Fs, Vtx, Var, Uni>(vs: Vs, fs: Fs) -> Shader<Vs, Fs>
+pub const fn new<Vs, Fs, Vtx, Var, Uni>(vs: Vs, fs: Fs) -> Shader<Vs, Fs>
 where
     Vs: VertexShader<Vtx, Uni, Output = Vertex<ProjVec3, Var>>,
     Fs: FragmentShader<Var, Uni>,
