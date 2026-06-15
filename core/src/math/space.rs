@@ -178,20 +178,21 @@ impl Affine for u32 {
     const DIM: usize = 1;
 
     #[inline]
-    fn add(&self, rhs: &i32) -> u32 {
-        let (res, o) = self.overflowing_add_signed(*rhs);
-        debug_assert!(!o, "overflow adding {rhs}_i32 to {self}_u32");
-        res
+    fn add(&self, &rhs: &i32) -> u32 {
+        debug_assert!(
+            self.checked_add_signed(rhs).is_some(),
+            "overflow: {self}_u32 + {rhs}_i32 -> u32"
+        );
+        self.wrapping_add(rhs as u32)
     }
 
     #[inline]
-    fn sub(&self, rhs: &u32) -> i32 {
-        let diff = *self as i64 - *rhs as i64;
+    fn sub(&self, &rhs: &u32) -> i32 {
         debug_assert!(
-            i32::try_from(diff).is_ok(),
-            "overflow subtracting {rhs}_u32 from {self}_u32"
+            self.checked_signed_diff(rhs).is_some(),
+            "overflow: {rhs}_u32 - {self}_u32 -> i32"
         );
-        diff as i32
+        self.wrapping_sub(rhs) as i32
     }
 }
 
