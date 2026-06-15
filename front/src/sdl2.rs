@@ -203,7 +203,7 @@ impl<PF: PixelFmt<Pixel = [u8; N]>, const N: usize> Window<PF> {
 
         let start = Instant::now();
         let mut last = start;
-        let stats = RefCell::new(Stats::start());
+        let stats = RefCell::new(Stats::new());
         'main: loop {
             self.events.clear();
             for e in self.ev_pump.poll_iter() {
