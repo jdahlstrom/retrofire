@@ -255,6 +255,7 @@ impl<Sp, const N: usize> Vector<[f32; N], Sp> {
 
     /// Returns a vector with the components of `self` truncated to integers.
     pub fn to_i(self) -> Vector<[i32; N], Sp> {
+        debug_assert!(self.is_finite());
         self.map(|x| x as _)
     }
 

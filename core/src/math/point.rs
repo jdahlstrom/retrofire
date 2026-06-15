@@ -201,7 +201,15 @@ impl<const N: usize, B> Point<[f32; N], Real<N, B>> {
 
     /// Returns a point with the components of `self` truncated to unsigned integers.
     pub fn to_u(self) -> Point<[u32; N], Real<N, B>> {
+        debug_assert!(self.is_finite());
         self.map(|x| x as _)
+    }
+
+    /// Returns `true` if every component of `self` is finite, `false` otherwise.
+    ///
+    /// See [`f32::is_finite()`].
+    pub fn is_finite(&self) -> bool {
+        self.0.iter().all(|c| c.is_finite())
     }
 }
 
