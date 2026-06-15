@@ -8,14 +8,18 @@ use core::{
 };
 use std::time::Instant;
 
-use minifb::{Key, WindowOptions};
-
-use retrofire_core::{
-    render::{Colorbuf, Context, Stats, Text, target},
-    util::{Dims, buf::Buf2, buf::MutSlice2, pixfmt::Xrgb8888},
-};
+use minifb::{InputCallback, Key, KeyRepeat, WindowOptions};
 
 use super::{Frame, dims, font_6x10};
+
+use retrofire_core::math::rgb;
+use retrofire_core::{
+    math::pt2,
+    render::{
+        Colorbuf, Context, Stats, Text, target, text::Align, text::Console,
+    },
+    util::{Dims, buf::Buf2, buf::MutSlice2, pixfmt::Xrgb8888, pnm::WritePnm},
+};
 
 /// A lightweight wrapper of a `minibuf` window.
 pub struct Window {
@@ -23,6 +27,9 @@ pub struct Window {
     pub imp: minifb::Window,
     /// The width and height of the window.
     pub dims: Dims,
+
+    /// Console for logging things
+    pub con: Console,
     /// Rendering context defaults.
     pub ctx: Context,
 }
@@ -86,8 +93,9 @@ impl<'t> Builder<'t> {
         if let Some(fps) = target_fps {
             imp.set_target_fps(fps as usize);
         }
+        let con = Console::new(font_6x10(), pt2(4, 4)..pt2(400, 54));
         let ctx = Context::default();
-        Ok(Window { imp, dims, ctx })
+        Ok(Window { imp, dims, con, ctx })
     }
 }
 
@@ -102,10 +110,10 @@ impl Window {
     /// The data is interpreted as colors in `0x00_RR_GG_BB` format.
     /// # Panics
     /// If `fb.len() < self.size.0 * self.size.1`.
-    pub fn present(&mut self, fb: &[u32]) {
-        let (w, h) = self.dims;
+    pub fn present(&mut self, fb: &Buf2<u32>) {
+        let (w, h) = fb.dims();
         self.imp
-            .update_with_buffer(fb, w as usize, h as usize)
+            .update_with_buffer(fb.data(), w as usize, h as usize)
             .unwrap();
     }
 
@@ -120,20 +128,17 @@ impl Window {
     where
         F: FnMut(&mut Frame<Window, &RefCell<Framebuf>>) -> ControlFlow<()>,
     {
-        let (w, h) = self.dims;
-        let mut cbuf = Buf2::new((w, h));
-        let mut zbuf = Buf2::new((w, h));
+        let mut cbuf = Buf2::new(self.dims);
+        let mut zbuf = Buf2::new(self.dims);
         let mut ctx = self.ctx.clone();
 
         let mut fps = Text::new(font_6x10());
-        fps.anchor = (2.0, 2.0).into();
+        fps.anchor = (self.dims.0 as f32 - 4.0, 4.0).into();
+        fps.align = Align::TopRight;
 
         let start = Instant::now();
         let mut last = Instant::now();
-        loop {
-            if self.should_quit() {
-                break;
-            }
+        while !self.should_quit() {
             let buf = Framebuf {
                 color_buf: Colorbuf::new(cbuf.as_mut_slice2()),
                 depth_buf: zbuf.as_mut_slice2(),
@@ -152,10 +157,27 @@ impl Window {
             }
 
             fps.clear();
-            _ = write!(fps, "{:>6.1}", frame.dt.as_secs_f32().recip());
+            _ = write!(fps, "{:.1}", 1.0 / frame.dt.as_secs_f32());
+
             fps.render(&mut frame.buf);
 
-            self.present(cbuf.data_mut());
+            if frame
+                .win
+                .imp
+                .is_key_pressed(Key::F12, KeyRepeat::No)
+            {
+                frame
+                    .buf
+                    .borrow()
+                    .color_buf
+                    .save("screenshot.ppm")
+                    .unwrap();
+                writeln!(frame.win.con, "Took a screenshot!");
+            }
+
+            frame.win.con.render(frame.buf, frame.ctx);
+
+            self.present(&cbuf);
 
             ctx.stats.borrow_mut().frames += 1.0;
         }

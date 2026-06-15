@@ -8,9 +8,9 @@ use re::prelude::*;
 use re::core::{
     geom::Ray,
     math::{ProjMat3, ProjVec3, color::gray, spline::HermiteSpline},
-    render::{Model, ModelToWorld, cam::Fov, shader, text::Console},
+    render::{Model, ModelToWorld, cam::Fov, shader},
 };
-use re::front::{Frame, font_6x10, minifb::Window};
+use re::front::{Frame, minifb::Window};
 use re::geom::{io::read_obj, solids::*};
 
 // Carousel animation for switching between objects.
@@ -64,22 +64,24 @@ fn main() {
         .viewport(pt2(10, h - 10)..pt2(w - 10, 10));
 
     type VertexIn = Vertex3<Normal3>;
-    type VertexOut = Vertex<ProjVec3, Color3f>;
+    type VertexOut = Vertex<ProjVec3, Normal3>;
     type Uniform<'a> = (&'a ProjMat3<Model>, &'a Mat4);
 
     fn vtx_shader(v: VertexIn, (mvp, spin): Uniform) -> VertexOut {
         // Transform vertex normal
         let norm = spin.apply(&v.attrib);
-        // Calculate diffuse shading
-        let diffuse = (norm.z() + 0.2).max(0.2) * 0.8;
-        // Visualize normal by mapping to RGB values
-        let [r, g, b] = (0.45 * (v.attrib + splat(1.1))).0;
-        let col = diffuse * rgb(r, g, b);
-        vertex(mvp.apply(&v.pos), col)
+
+        vertex(mvp.apply(&v.pos), norm)
     }
 
-    fn frag_shader(f: Frag<Color3f>, _: Uniform) -> Color4 {
-        f.var.to_color4()
+    fn frag_shader(f: Frag<Normal3>, _: Uniform) -> Color4 {
+        let n = f.var.normalize_approx();
+        // Calculate diffuse shading
+        let diffuse = (n.z() + 0.2).max(0.2) * 0.8;
+        // Visualize normal by mapping to RGB values
+        let [r, g, b] = (0.45 * (n + splat(1.1))).0;
+        let col = diffuse * rgb(r, g, b);
+        col.to_color4()
     }
 
     let shader = shader::new(vtx_shader, frag_shader);
@@ -90,10 +92,10 @@ fn main() {
     let translate = translate(-3.0 * Vec3::Z);
     let mut carousel = Carousel::default();
 
-    let mut con = Console::new(font_6x10(), pt2(10, 20)..pt2(400, 100));
-
     win.run(|frame| {
         let Frame { t, dt, win, .. } = frame;
+
+        let con = &mut win.con;
 
         // Press Space to trigger carousel animation
 
@@ -115,12 +117,12 @@ fn main() {
                         if key == Key::Comma { (3, 4) } else { (4, 3) };
                     lod = (lod * num / denom).clamp(3, 50);
                     objects = objects_n(lod);
-                    let i = carousel.idx;
+                    let obj = &objects[carousel.idx % objects.len()].1;
                     writeln!(
                         con,
                         "LoD -> {lod} ({} faces, {} verts)",
-                        objects[i].1.faces.len(),
-                        objects[i].1.verts.len()
+                        obj.faces.len(),
+                        obj.verts.len()
                     );
                 }
                 Key::Tab => {
@@ -154,7 +156,7 @@ fn main() {
         }
         .render();
 
-        con.render(&mut frame.buf, frame.ctx);
+        //con.render(&mut frame.buf, frame.ctx);
 
         Continue(())
     });
