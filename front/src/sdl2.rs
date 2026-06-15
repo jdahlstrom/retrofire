@@ -206,14 +206,11 @@ impl<PF: PixelFmt<Pixel = [u8; N]>, const N: usize> Window<PF> {
         let stats = RefCell::new(Stats::new());
         'main: loop {
             self.events.clear();
-            for e in self.ev_pump.poll_iter() {
-                match e {
-                    Event::Quit { .. }
-                    | Event::KeyDown {
-                        keycode: Some(Keycode::Escape), ..
-                    } => break 'main,
-                    e => self.events.push(e),
-                }
+            for ev in self.ev_pump.poll_iter() {
+                if is_quit(&ev) {
+                    break 'main;
+                };
+                self.events.push(ev);
             }
 
             let mut frame_ctx = Context {
@@ -264,6 +261,17 @@ impl<PF: PixelFmt<Pixel = [u8; N]>, const N: usize> Window<PF> {
         println!("{stats}");
         Ok(stats)
     }
+}
+
+fn is_quit(e: &Event) -> bool {
+    matches!(
+        e,
+        Event::Quit { .. }
+            | Event::KeyDown {
+                keycode: Some(Keycode::Escape),
+                ..
+            }
+    )
 }
 
 //
