@@ -109,9 +109,7 @@ impl Text {
 
         let proj: ProjMat3<Model> = orthographic(
             pt3(0.0, 0.0, -1.0),
-            // TODO What??
-            pt3(self.cursor.x(), right_bot.y(), 1.0),
-            //  ^^^^^^^^^^^^^^^
+            pt3(right_bot.x(), right_bot.y(), 1.0),
         )
         .to();
         let pos = pos.to_u();
@@ -128,7 +126,7 @@ impl Text {
     ///
     /// Useful for customized text rendering.
     pub fn batch(&self) -> TextBatch<'_, ()> {
-        super::Batch::new()
+        Batch::new()
             .mesh(&self.geom)
             .shader(self.shader())
     }
