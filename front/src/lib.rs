@@ -6,9 +6,9 @@ extern crate core;
 use core::{cell::RefCell, time::Duration};
 
 use retrofire_core::{
-    math::Color4,
-    render::{Colorbuf, Context, Framebuf},
-    util::{buf::AsMutSlice2, pixfmt::IntoPixel},
+    math::{Color3, Color4},
+    render::{Colorbuf, Context, Framebuf, tex::Atlas},
+    util::{buf::AsMutSlice2, buf::Buf2, pixfmt::IntoPixel, pnm::ReadPnm},
 };
 
 #[cfg(feature = "minifb")]
@@ -20,6 +20,14 @@ pub mod sdl2;
 #[no_std]
 #[cfg(feature = "wasm")]
 pub mod wasm;
+
+pub static FONT_6X10: &[u8] = include_bytes!("../assets/font_6x10.pbm");
+
+/// Returns a 6x10 bitmap font, e.g. for rendering debug messages.
+pub fn font_6x10() -> Atlas<Color3> {
+    let font = Buf2::read(FONT_6X10).expect("font statically included");
+    Atlas::grid((6, 10), font.into())
+}
 
 /// Per-frame state. The window run method passes an instance of `Frame`
 /// to the callback function on every iteration of the main loop.

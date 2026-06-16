@@ -114,22 +114,13 @@ impl<T> Buf2<T> {
     where
         I: IntoIterator<Item = T>,
     {
-        let ww = isize::try_from(w).ok();
-        let hh = isize::try_from(h).ok();
-        let len = ww.and_then(|w| hh.and_then(|h| w.checked_mul(h)));
-        let Some(len) = len else {
-            panic!(
-                "w * h cannot exceed isize::MAX ({w} * {h} > {})",
-                isize::MAX
-            );
+        let len = u64::from(w) * u64::from(h);
+        let max = isize::MAX as usize;
+        let len = match usize::try_from(len) {
+            Ok(len) if len <= max => len,
+            _ => panic!("length cannot exceed isize::MAX ({w} * {h} > {max})"),
         };
-        let data: Vec<_> = init.into_iter().take(len as usize).collect();
-        assert_eq!(
-            data.len(),
-            len as usize,
-            "insufficient items in iterator ({} < {len}",
-            data.len()
-        );
+        let data: Vec<_> = init.into_iter().take(len).collect();
         Self(Inner::new((w, h), w, data))
     }
 
@@ -198,18 +189,6 @@ impl<T> Buf2<T> {
                 Some(res)
             }),
         )
-    }
-
-    /// Returns a view of the backing data of `self`.
-    #[inline]
-    pub fn data(&self) -> &[T] {
-        self.0.data()
-    }
-
-    /// Returns a mutable view of the backing data of `self`.
-    #[inline]
-    pub fn data_mut(&mut self) -> &mut [T] {
-        self.0.data_mut()
     }
 
     /// Reinterprets `self` as a buffer of different dimensions but same area.
@@ -531,9 +510,9 @@ pub mod inner {
             Self { dims, stride, data, _pd: PhantomData }
         }
 
-        /// Returns the data of `self` as a linear slice.
+        /// Returns a view of the data of `self` as a linear slice.
         #[inline]
-        pub(super) fn data(&self) -> &[T] {
+        pub fn data(&self) -> &[T] {
             &self.data
         }
 
@@ -576,7 +555,7 @@ pub mod inner {
         /// First returns the elements on row 0 from left to right, followed by
         /// the elements on row 1, and so on.
         pub fn iter(&self) -> impl Iterator<Item = &'_ T> {
-            self.rows().flatten()
+            self.data.iter()
         }
     }
 
@@ -591,7 +570,7 @@ pub mod inner {
             let size = (h - 1) * stride + w;
             assert!(
                 size as usize <= len,
-                "required size ({size}) > data length ({len})"
+                "required size ({w} * {h}) > data length ({len})"
             );
         }
     }
@@ -605,9 +584,9 @@ pub mod inner {
             MutSlice2(Inner { dims, stride, data, _pd })
         }
 
-        /// Returns the data of `self` as a single mutable slice.
+        /// Returns a mutable view of the data of `self` as a linear slice.
         #[inline]
-        pub(super) fn data_mut(&mut self) -> &mut [T] {
+        pub fn data_mut(&mut self) -> &mut [T] {
             &mut self.data
         }
 
@@ -623,7 +602,7 @@ pub mod inner {
         /// Returns a mutable iterator over all the elements of `self`,
         /// yielded in row-major order.
         pub fn iter_mut(&mut self) -> impl Iterator<Item = &'_ mut T> {
-            self.rows_mut().flatten()
+            self.data.iter_mut()
         }
 
         /// Fills `self` with clones of the value.

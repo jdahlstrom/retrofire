@@ -54,6 +54,7 @@ for custom allocators is planned in order to make `alloc` optional as well.
 * Type-tagged affine and linear transforms and projections
 * Perspective-correct texture mapping
 * Triangle mesh data structure and a library of shapes
+* Point, directional, and spotlight support
 * Cubic Bézier, Hermite, Catmull–Rom, and B-splines
 * Simple random number generation and distributions
 * Simple text rendering with bitmap fonts
@@ -62,15 +63,14 @@ for custom allocators is planned in order to make `alloc` optional as well.
 * Reading and writing pnm image files
 * Reading and writing Wavefront .obj files
 * Minifb, SDL2, and Wasm frontends
+* Procedural noise generation
 * Forever emoji-free README and docs
 * Forever LLM-free code
 
 ## In progress
 
 * Different camera types
-* Builtin light source support
-* Spherical etc UV mapping
-* Procedural noise generation
+* Spherical etc. UV mapping
 * Terminal frontend with ncurses
 * Cube mapping and skyboxes
 

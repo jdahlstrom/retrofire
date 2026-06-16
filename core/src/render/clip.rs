@@ -313,6 +313,9 @@ impl<A: Lerp> Clip for [Edge<ClipVert<A>>] {
     type Item = Edge<ClipVert<A>>;
 
     fn clip(&self, planes: &[ClipPlane], out: &mut Vec<Self::Item>) {
+        // TODO capacity is just a heuristic, should retain vector between calls somehow
+        out.reserve(self.len() / 2);
+
         'lines: for edge @ Edge(a, b) in self {
             let both_outside = a.outcode & b.outcode != 0;
             let neither_outside = a.outcode | b.outcode == 0;
@@ -355,6 +358,9 @@ impl<A: Lerp> Clip for [Tri<ClipVert<A>>] {
 
     fn clip(&self, planes: &[ClipPlane], out: &mut Vec<Self::Item>) {
         debug_assert!(out.is_empty());
+
+        // TODO capacity is just a heuristic, should retain vector between calls somehow
+        out.reserve(self.len() / 2);
 
         // Avoid unnecessary allocations by reusing these
         let mut verts_in = Vec::with_capacity(10);

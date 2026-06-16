@@ -77,6 +77,7 @@ pub mod color;
 pub mod float;
 pub mod grad;
 pub mod mat;
+pub mod noise;
 pub mod param;
 pub mod point;
 pub mod rand;
@@ -150,6 +151,7 @@ pub fn lerp<T: Lerp>(t: f32, from: T, to: T) -> T {
 /// ```
 #[inline]
 pub fn inv_lerp(t: f32, min: f32, max: f32) -> f32 {
+    debug_assert!(!min.approx_eq(&max));
     (t - min) / (max - min)
 }
 
@@ -195,6 +197,12 @@ where
     #[inline]
     fn lerp(&self, other: &Self, t: f32) -> Self {
         self.add(&other.sub(self).mul(t))
+    }
+}
+
+impl<T: Lerp, const N: usize> Lerp for [T; N] {
+    fn lerp(&self, other: &Self, t: f32) -> Self {
+        core::array::from_fn(|i| self[i].lerp(&other[i], t))
     }
 }
 

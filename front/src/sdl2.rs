@@ -1,5 +1,5 @@
 //! Frontend using the `sdl2` crate for window creation and event handling.
-use core::{cell::RefCell, fmt, mem::replace, ops::ControlFlow};
+use core::{cell::RefCell, fmt, fmt::Write, mem::replace, ops::ControlFlow};
 use std::time::Instant;
 
 use sdl2::{
@@ -12,14 +12,14 @@ use sdl2::{
 };
 
 use retrofire_core::math::Color4;
-use retrofire_core::render::{Colorbuf, Context, Stats, target};
+use retrofire_core::render::{Colorbuf, Context, Stats, Text, target};
 use retrofire_core::util::{
     Dims,
     buf::{AsMutSlice2, Buf2, MutSlice2},
     pixfmt::{IntoPixel, Rgb565, Rgba4444, Rgba8888},
 };
 
-use super::{Frame, dims};
+use super::{Frame, dims, font_6x10};
 
 /// Helper trait to support different pixel format types.
 pub trait PixelFmt: Copy + Default {
@@ -196,21 +196,27 @@ impl<PF: PixelFmt<Pixel = [u8; N]>, const N: usize> Window<PF> {
         let mut tex = tc.create_texture_streaming(PF::SDL_FMT, w, h)?;
 
         let mut zbuf = Buf2::new(dims);
-        let mut ctx = self.ctx.clone();
+        let ctx = self.ctx.clone();
+
+        let mut fps = Text::new(font_6x10());
+        fps.anchor = (2.0, 2.0).into();
 
         let start = Instant::now();
-        let mut last = Instant::now();
+        let mut last = start;
+        let stats = RefCell::new(Stats::new());
         'main: loop {
             self.events.clear();
-            for e in self.ev_pump.poll_iter() {
-                match e {
-                    Event::Quit { .. }
-                    | Event::KeyDown {
-                        keycode: Some(Keycode::Escape), ..
-                    } => break 'main,
-                    e => self.events.push(e),
-                }
+            for ev in self.ev_pump.poll_iter() {
+                if is_quit(&ev) {
+                    break 'main;
+                };
+                self.events.push(ev);
             }
+
+            let mut frame_ctx = Context {
+                stats: stats.clone(),
+                ..ctx.clone()
+            };
 
             let cf = tex.with_lock(None, |bytes, pitch| {
                 let bytes = bytes.as_chunks_mut().0;
@@ -228,12 +234,20 @@ impl<PF: PixelFmt<Pixel = [u8; N]>, const N: usize> Window<PF> {
                     dt: replace(&mut last, Instant::now()).elapsed(),
                     buf: &RefCell::new(buf),
                     win: self,
-                    ctx: &mut ctx,
+                    ctx: &mut frame_ctx,
                 };
 
                 frame.clear();
-                frame_fn(frame)
+                let cf = frame_fn(frame);
+
+                fps.clear();
+                _ = write!(fps, "{:>6.1}", frame.dt.as_secs_f32().recip());
+                fps.render(&mut frame.buf);
+
+                cf
             })?;
+
+            *ctx.stats.borrow_mut() += frame_ctx.stats.into_inner();
 
             self.present(&tex)?;
             ctx.stats.borrow_mut().frames += 1.0;
@@ -242,10 +256,22 @@ impl<PF: PixelFmt<Pixel = [u8; N]>, const N: usize> Window<PF> {
                 break;
             }
         }
-        let stats = ctx.stats.into_inner();
+        let mut stats = ctx.stats.into_inner();
+        stats.wall_time = start.elapsed();
         println!("{stats}");
         Ok(stats)
     }
+}
+
+fn is_quit(e: &Event) -> bool {
+    matches!(
+        e,
+        Event::Quit { .. }
+            | Event::KeyDown {
+                keycode: Some(Keycode::Escape),
+                ..
+            }
+    )
 }
 
 //

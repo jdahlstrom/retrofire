@@ -1295,7 +1295,7 @@ pub const fn orthographic(lbn: Point3, rtf: Point3) -> ProjMat3<View> {
 /// A viewport matrix is used to transform points from the NDC space to
 /// screen space for rasterization. NDC coordinates (-1, -1, _) are mapped
 /// to `bounds.start` and NDC coordinates (1, 1, _) to `bounds.end`.
-pub const fn viewport(bounds: Range<Point2u>) -> Mat4<Ndc, Screen> {
+pub const fn viewport(bounds: Range<Point2u<Screen>>) -> Mat4<Ndc, Screen> {
     let Range { start, end } = bounds;
     let [x0, y0] = [start.x() as f32, start.y() as f32];
     let [x1, y1] = [end.x() as f32, end.y() as f32];
@@ -1311,7 +1311,7 @@ pub const fn viewport(bounds: Range<Point2u>) -> Mat4<Ndc, Screen> {
 #[cfg(test)]
 mod tests {
     use crate::assert_approx_eq;
-    use crate::math::pt3;
+    use crate::math::{pt3, splat};
 
     #[cfg(feature = "fp")]
     use crate::math::degs;
@@ -1330,7 +1330,7 @@ mod tests {
     const Y: Vec3 = Vec3::Y;
     const Z: Vec3 = Vec3::Z;
     #[allow(unused)]
-    const O: Vec3 = Vec3::new([0.0; 3]);
+    const O: Vec3 = splat(0.0);
 
     mod mat2 {
         use super::*;

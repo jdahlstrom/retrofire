@@ -1,11 +1,12 @@
 use core::ops::ControlFlow::Continue;
+use std::sync::LazyLock;
 
 use minifb::{Key, KeyRepeat};
 
 use re::prelude::*;
 
 use re::core::{
-    geom::{Polyline, Ray},
+    geom::Ray,
     math::{ProjMat3, ProjVec3, color::gray, spline::HermiteSpline},
     render::{Model, ModelToWorld, cam::Fov, shader},
 };
@@ -63,27 +64,30 @@ fn main() {
         .viewport(pt2(10, h - 10)..pt2(w - 10, 10));
 
     type VertexIn = Vertex3<Normal3>;
-    type VertexOut = Vertex<ProjVec3, Color3f>;
+    type VertexOut = Vertex<ProjVec3, Normal3>;
     type Uniform<'a> = (&'a ProjMat3<Model>, &'a Mat4);
 
     fn vtx_shader(v: VertexIn, (mvp, spin): Uniform) -> VertexOut {
         // Transform vertex normal
         let norm = spin.apply(&v.attrib);
-        // Calculate diffuse shading
-        let diffuse = (norm.z() + 0.2).max(0.2) * 0.8;
-        // Visualize normal by mapping to RGB values
-        let [r, g, b] = (0.45 * (v.attrib + splat(1.1))).0;
-        let col = diffuse * rgb(r, g, b);
-        vertex(mvp.apply(&v.pos), col)
+
+        vertex(mvp.apply(&v.pos), norm)
     }
 
-    fn frag_shader(f: Frag<Color3f>) -> Color4 {
-        f.var.to_color4()
+    fn frag_shader(f: Frag<Normal3>, _: Uniform) -> Color4 {
+        let n = f.var.normalize_approx();
+        // Calculate diffuse shading
+        let diffuse = (n.z() + 0.2).max(0.2) * 0.8;
+        // Visualize normal by mapping to RGB values
+        let [r, g, b] = (0.45 * (n + splat(1.1))).0;
+        let col = diffuse * rgb(r, g, b);
+        col.to_color4()
     }
 
     let shader = shader::new(vtx_shader, frag_shader);
 
-    let objects = objects_n(8);
+    let mut lod = 8;
+    let mut objects = objects_n(lod);
 
     let translate = translate(-3.0 * Vec3::Z);
     let mut carousel = Carousel::default();
@@ -91,9 +95,41 @@ fn main() {
     win.run(|frame| {
         let Frame { t, dt, win, .. } = frame;
 
+        let con = &mut win.con;
+
         // Press Space to trigger carousel animation
-        if win.imp.is_key_pressed(Key::Space, KeyRepeat::No) {
-            carousel.start();
+
+        for key in win.imp.get_keys_pressed(KeyRepeat::No) {
+            match key {
+                Key::Space => {
+                    carousel.start();
+                    let (name, obj) =
+                        &objects[carousel.new_idx % objects.len()];
+                    writeln!(
+                        con,
+                        "{name} ({} faces, {} verts)",
+                        obj.faces.len(),
+                        obj.verts.len()
+                    );
+                }
+                Key::Comma | Key::Period => {
+                    let (num, denom) =
+                        if key == Key::Comma { (3, 4) } else { (4, 3) };
+                    lod = (lod * num / denom).clamp(3, 50);
+                    objects = objects_n(lod);
+                    let obj = &objects[carousel.idx % objects.len()].1;
+                    writeln!(
+                        con,
+                        "LoD -> {lod} ({} faces, {} verts)",
+                        obj.faces.len(),
+                        obj.verts.len()
+                    );
+                }
+                Key::Tab => {
+                    con.open ^= true;
+                }
+                _ => (),
+            }
         }
 
         let theta = rads(t.as_secs_f32());
@@ -107,7 +143,7 @@ fn main() {
             .to::<ModelToWorld>()
             .then(&cam.world_to_project());
 
-        let object = &objects[carousel.idx % objects.len()];
+        let object = &objects[carousel.idx % objects.len()].1;
 
         Batch {
             prims: object.faces.clone(),
@@ -120,41 +156,47 @@ fn main() {
         }
         .render();
 
+        //con.render(&mut frame.buf, frame.ctx);
+
         Continue(())
     });
 }
 
 // Creates the 14 objects exhibited.
 #[rustfmt::skip]
-fn objects_n(res: u32) -> [Mesh<Normal3>; 14] {
-    let segments = res;
-    let sectors = 2 * res;
+fn objects_n(res: u32) -> [(&'static str, Mesh<Normal3>); 14] {
+    assert!(res >= 3);
 
-    let cap_segments = res;
+    let segments = res;
+    let sectors = 3 * res / 2;
+
+    let cap_segments = res / 2;
     let body_segments = res;
 
-    let major_sectors = 3 * res;
-    let minor_sectors = 2 * res;
+    let major_sectors = 2 * res;
+    let minor_sectors = 3 * res / 2;
     [
         // The five Platonic solids
-        Tetrahedron.build(),
-        Cube { side_len: 1.25 }.build(),
-        Octahedron.build(),
-        Dodecahedron.build(),
-        Icosahedron.build(),
+        ("tetrahedron", Tetrahedron.build()),
+        ("cube", Cube { side_len: 1.25 }.build()),
+        ("octahedron", Octahedron.build()),
+        ("dodecahedron", Dodecahedron.build()),
+        ("icosahedron", Icosahedron.build()),
 
         // Surfaces of revolution
-        lathe(sectors),
-        Sphere { radius: 1.0, sectors, segments, }.build(),
-        Cylinder { radius: 0.8, sectors, segments, capped: true }.build(),
-        Cone { base_radius: 1.1, apex_radius: 0.3, sectors, segments, capped: true }.build(),
-        Capsule { radius: 0.5, sectors, body_segments, cap_segments }.build(),
-        Torus { major_radius: 0.9, minor_radius: 0.3, major_sectors, minor_sectors }.build(),
+        ("lathe", lathe(sectors)),
+        ("sphere", Sphere { radius: 1.0, sectors, segments, }.build()),
+        ("cylinder", Cylinder { radius: 0.8, sectors, segments, capped: true }.build()),
+        ("cone", Cone { base_radius: 1.1, apex_radius: 0.3, sectors, segments, capped: true }
+            .build()),
+        ("capsule", Capsule { radius: 0.5, sectors, body_segments, cap_segments }.build()),
+        ("torus", Torus { major_radius: 0.9, minor_radius: 0.3, major_sectors, minor_sectors }
+        .build()),
 
         // Traditional demo models
-        teapot(),
-        bunny(),
-        dragon()
+        ("teapot", teapot().clone()),
+        ("bunny", bunny().clone()),
+        ("dragon", dragon().clone())
     ]
 }
 
@@ -171,39 +213,49 @@ fn lathe(secs: u32) -> Mesh<Normal3> {
         Ray(pt2(0.0, -0.2), vec2(-1.0, 0.0)),
     ]);
 
-    let verts = 0.0.vary_to(1.0, 2 * secs).map(|t| {
-        vertex(spline.eval(t), -spline.velocity(t).normalize().perp())
-    });
-    let pl = Polyline::new(verts);
-    let segs = pl.0.len() as u32;
-    Lathe::new(pl, secs, segs).capped(true).build()
+    let parametric = |t| {
+        let tan = spline.velocity(t).normalize();
+        vertex(spline.eval(t), -tan.perp())
+    };
+    Lathe::new(parametric, secs, 2 * secs)
+        .capped(true)
+        .build()
 }
 
 // Loads the Utah teapot model.
-fn teapot() -> Mesh<Normal3> {
-    static TEAPOT: &[u8] = include_bytes!("../../assets/teapot.obj");
-    read_obj(TEAPOT)
-        .unwrap()
-        .transform(&scale(0.4).then(&translate(-0.5 * Vec3::Y)).to())
-        .build()
+fn teapot() -> &'static Mesh<Normal3> {
+    static TEAPOT: LazyLock<Mesh<Normal3>> = LazyLock::new(|| {
+        let obj: &[_] = include_bytes!("../../assets/teapot.obj");
+        read_obj::<Normal3>(obj)
+            .unwrap()
+            .transform(&scale(0.4).then(&translate(-0.5 * Vec3::Y)).to())
+            .build()
+    });
+    &TEAPOT
 }
 
 // Loads the Stanford bunny model.
-fn bunny() -> Mesh<Normal3> {
-    static BUNNY: &[u8] = include_bytes!("../../assets/bunny.obj");
-    read_obj::<()>(BUNNY)
-        .unwrap()
-        .transform(&scale(0.12).then(&translate(-Vec3::Y)).to())
-        .with_vertex_normals()
-        .build()
+fn bunny() -> &'static Mesh<Normal3> {
+    static BUNNY: LazyLock<Mesh<Normal3>> = LazyLock::new(|| {
+        let obj: &[_] = include_bytes!("../../assets/bunny.obj");
+        read_obj::<()>(obj)
+            .unwrap()
+            .transform(&scale(0.12).then(&translate(-Vec3::Y)).to())
+            .with_vertex_normals()
+            .build()
+    });
+    &BUNNY
 }
 
 // Loads the Stanford dragon model.
-fn dragon() -> Mesh<Normal3> {
-    static DRAGON: &[u8] = include_bytes!("../../assets/dragon.obj");
-    read_obj::<()>(DRAGON)
-        .unwrap()
-        .with_vertex_normals()
-        .transform(&scale(0.18).then(&translate(-0.5 * Vec3::Y)).to())
-        .build()
+fn dragon() -> &'static Mesh<Normal3> {
+    static DRAGON: LazyLock<Mesh<Normal3>> = LazyLock::new(|| {
+        let obj: &[_] = include_bytes!("../../assets/dragon.obj");
+        read_obj::<()>(obj)
+            .unwrap()
+            .with_vertex_normals()
+            .transform(&scale(0.18).then(&translate(-0.5 * Vec3::Y)).to())
+            .build()
+    });
+    &DRAGON
 }

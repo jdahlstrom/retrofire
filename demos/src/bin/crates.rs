@@ -8,7 +8,8 @@ use re::core::render::{
     clip::Status::*,
     scene::Obj,
     shader,
-    tex::SamplerClamp,
+    tex::{Atlas, SamplerClamp},
+    text::Console,
 };
 // Try also Rgb565 or Rgba4444
 use re::core::util::{pixfmt::Rgba8888, pnm::read_pnm};
@@ -16,21 +17,23 @@ use re::core::util::{pixfmt::Rgba8888, pnm::read_pnm};
 use re::front::sdl2::Window;
 use re::geom::solids::{Build, Cube};
 
+static CRATE_TEX: &[u8] = include_bytes!("../../assets/crate.ppm");
+
 fn main() {
     let mut win = Window::builder()
         .title("retrofire//crates")
         .pixel_fmt(Rgba8888)
+        .vsync(false)
         .build()
         .expect("should create window");
 
-    let tex_data = *include_bytes!("../../assets/crate.ppm");
-    let tex = Texture::from(read_pnm(&tex_data[..]).expect("data exists"));
+    let tex = Texture::from(read_pnm(CRATE_TEX).expect("data exists"));
 
     let light_dir = vec3(-2.0, 1.0, -4.0).normalize();
 
     let floor_shader = shader::new(
         |v: Vertex3<_>, mvp: &ProjMat3<_>| vertex(mvp.apply(&v.pos), v.attrib),
-        |frag: Frag<Vec2>| {
+        |frag: Frag<Vec2>, _: &_| {
             let even_odd = (frag.var.x() > 0.5) ^ (frag.var.y() > 0.5);
             gray(if even_odd { 0.8 } else { 0.1 }).to_color4()
         },
@@ -39,7 +42,7 @@ fn main() {
         |v: Vertex3<(Normal3, TexCoord)>, mvp: &ProjMat3<_>| {
             vertex(mvp.apply(&v.pos), v.attrib)
         },
-        |frag: Frag<(Normal3, TexCoord)>| {
+        |frag: Frag<(Normal3, TexCoord)>, _: &_| {
             let (n, uv) = frag.var;
             let kd = lerp(n.dot(&light_dir).max(0.0), 0.4, 1.0);
             let col = SamplerClamp.sample(&tex, uv);
@@ -55,6 +58,11 @@ fn main() {
 
     let floor = floor();
     let crates = crates();
+
+    static FONT: &[u8] = include_bytes!("../../assets/font_6x10.pbm");
+    let font = Atlas::grid((6, 10), read_pnm(FONT).expect("font exists").into());
+
+    let mut con = Console::new(font, pt2(20, 20)..pt2(400, 200));
 
     win.run(|frame| {
         //
@@ -131,6 +139,10 @@ fn main() {
 
             frame.ctx.stats.borrow_mut().objs.o += 1;
         }
+
+        con.clear();
+        write!(con, "{}", frame.ctx.stats.borrow());
+        con.render(frame.buf, frame.ctx);
 
         Continue(())
     })

@@ -3,23 +3,24 @@ use std::{env, fmt::Write, ops::ControlFlow::Continue};
 use re::prelude::*;
 
 use re::core::{
-    render::{Model, Text, World, render, shader, tex::Atlas, tex::Layout},
-    util::pnm::parse_pnm,
+    math::color::hsl,
+    render::{Text, World, tex::Atlas},
+    util::pnm::ReadPnm,
 };
-
 use re_front::{Frame, dims::SVGA_800_600, minifb::Window};
 
-fn main() {
-    let font = *include_bytes!("../../assets/font_16x24.pbm");
-    let font = parse_pnm(font).expect("valid image");
-    let font = Atlas::new(Layout::Grid { sub_dims: (16, 24) }, font.into());
+static FONT: &[u8] = include_bytes!("../../assets/font_16x24.pbm");
 
-    let msg = env::args().nth(1); // Borrow checker...
-    let msg = msg
+fn main() {
+    let font = Buf2::<Color3>::read(FONT).expect("valid image");
+    let font = Atlas::grid((16, 24), font.into());
+
+    let arg = env::args().nth(1); // Borrow checker...
+    let msg = arg
         .as_deref()
         .unwrap_or("   Hello,\nRetrocomputing\n     World!");
 
-    let mut text = Text::new(font);
+    let mut text = Text::new(font.clone());
     write!(text, "{msg}").expect("cannot fail");
 
     let mut win = Window::builder()
@@ -30,14 +31,7 @@ fn main() {
 
     win.ctx.face_cull = None;
 
-    let shader = shader::new(
-        |v: Vertex<_, _>, mvp: &ProjMat3<Model>| {
-            vertex(mvp.apply(&v.pos), v.attrib)
-        },
-        |frag: Frag<TexCoord>| text.sample(frag.var).to_rgba(),
-    );
-
-    let vp: ProjMat3<World> = translate(vec3(0.0, 0.0, 15.0))
+    let world_to_proj: ProjMat3<World> = translate(15.0 * Vec3::Z)
         .to()
         .then(&perspective(1.0, 4.0 / 3.0, 0.1..1000.0));
 
@@ -51,17 +45,19 @@ fn main() {
             .then(&rotate_y(rads(secs * 0.59)))
             .then(&rotate_z(rads((secs * 1.13).sin())))
             .to()
-            .then(&vp);
+            .then(&world_to_proj);
 
-        render(
-            &text.geom.faces,
-            &text.geom.verts,
-            &shader,
-            &mvp,
-            viewport,
-            &mut frame.buf,
-            frame.ctx,
-        );
+        text.color = hsl(secs / 10.0 % 1.0, 0.8, 0.6)
+            .to_rgb()
+            .to_color3();
+
+        text.batch()
+            .uniform(&mvp)
+            .viewport(viewport)
+            .target(&mut frame.buf)
+            .context(frame.ctx)
+            .render();
+
         Continue(())
     });
 }
