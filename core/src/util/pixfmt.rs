@@ -42,7 +42,18 @@ pub struct Rgba4444;
 
 // Impls for Color3
 
-impl IntoPixel<u32, Rgb888> for Color3 {
+impl IntoPixel<u32, Xrgb8888> for Color3 {
+    /// Converts `self` to a `u32` in 0x00_RR_GG_BB format.
+    ///
+    /// # Examples
+    /// ```
+    /// use retrofire_core::math::{rgb, Color3};
+    /// use retrofire_core::util::pixfmt::{IntoPixel, Xrgb8888};
+    ///
+    /// let color: Color3 = rgb(0x33, 0x66, 0x99);
+    ///
+    /// assert_eq!(color.into_pixel_fmt(Xrgb8888), 0x00_33_66_99);
+    /// ```
     #[inline]
     fn into_pixel(self) -> u32 {
         let [r, g, b] = self.0;
@@ -51,6 +62,17 @@ impl IntoPixel<u32, Rgb888> for Color3 {
     }
 }
 impl IntoPixel<[u8; 3], Rgb888> for Color3 {
+    /// Converts `self` to (0xRR, 0xGG, 0xBB) bytes.
+    ///
+    /// # Examples
+    /// ```
+    /// use retrofire_core::math::{rgb, Color3};
+    /// use retrofire_core::util::pixfmt::{IntoPixel, Rgb888};
+    ///
+    /// let color: Color3 = rgb(0x33, 0x66, 0x99);
+    ///
+    /// assert_eq!(color.into_pixel_fmt(Rgb888), [0x33, 0x66, 0x99]);
+    /// ```
     #[inline]
     fn into_pixel(self) -> [u8; 3] {
         self.0
@@ -58,6 +80,18 @@ impl IntoPixel<[u8; 3], Rgb888> for Color3 {
 }
 
 impl IntoPixel<u16, Rgb565> for Color3 {
+    /// Converts `self` to a `u16` in 0bRRRRR_GGGGGG_BBBBB format.
+    ///
+    /// # Examples
+    /// ```
+    /// use retrofire_core::math::{rgb, Color3};
+    /// use retrofire_core::util::pixfmt::{IntoPixel, Rgb565};
+    ///
+    /// let color: Color3 = rgb(0x80, 0x40, 0x20);
+    ///
+    /// let word_565: u16 = color.into_pixel_fmt(Rgb565);
+    /// assert_eq!(word_565, 0x8204); // 0b10000_010000_00100
+    /// ```
     #[inline]
     fn into_pixel(self) -> u16 {
         let [r, g, b] = self.0;
@@ -89,6 +123,18 @@ where
 }
 
 impl IntoPixel<u32, Xrgb8888> for Color4 {
+    /// Converts `self` to a `u32` in 0x0RGB format, discarding the value of
+    /// the alpha channel.
+    ///
+    /// # Examples
+    /// ```
+    /// use retrofire_core::math::{rgba, Color4};
+    /// use retrofire_core::util::pixfmt::{IntoPixel, Xrgb8888};
+    ///
+    /// let color: Color4 = rgba(0x11, 0x22, 0x33, 0x44);
+    ///
+    /// assert_eq!(color.into_pixel_fmt(Xrgb8888), 0x00_11_22_33);
+    /// ```
     #[inline]
     fn into_pixel(self) -> u32 {
         let [r, g, b, _] = self.0;
@@ -97,12 +143,36 @@ impl IntoPixel<u32, Xrgb8888> for Color4 {
     }
 }
 impl IntoPixel<[u8; 4], Rgba8888> for Color4 {
+    /// Converts `self` to (0xRR, 0xGG, 0xBB, 0xAA) bytes.
+    ///
+    /// # Examples
+    /// ```
+    /// use retrofire_core::math::{rgba, Color4};
+    /// use retrofire_core::util::pixfmt::{IntoPixel, Rgba8888};
+    ///
+    /// let color: Color4 = rgba(0x11, 0x22, 0x33, 0x44);
+    /// let rgba: [u8; 4] = color.into_pixel_fmt(Rgba8888);
+    ///
+    /// assert_eq!(rgba, [0x11, 0x22, 0x33, 0x44]);
+    /// ```
     #[inline]
     fn into_pixel(self) -> [u8; 4] {
         self.0
     }
 }
 impl IntoPixel<[u8; 4], Argb8888> for Color4 {
+    /// Converts `self` to (0xAA, 0xRR, 0xGG, 0xBB) bytes.
+    ///
+    /// # Examples
+    /// ```
+    /// use retrofire_core::math::{rgba, Color4};
+    /// use retrofire_core::util::pixfmt::{Argb8888, IntoPixel};
+    ///
+    /// let color: Color4 = rgba(0x11, 0x22, 0x33, 0x44);
+    /// let argb: [u8; 4] = color.into_pixel_fmt(Argb8888);
+    ///
+    /// assert_eq!(argb, [0x44, 0x11, 0x22, 0x33]);
+    /// ```
     #[inline]
     fn into_pixel(self) -> [u8; 4] {
         let [r, g, b, a] = self.0;
@@ -110,6 +180,18 @@ impl IntoPixel<[u8; 4], Argb8888> for Color4 {
     }
 }
 impl IntoPixel<[u8; 4], Bgra8888> for Color4 {
+    /// Converts `self` to (0xBB, 0xGG, 0xRR, 0xAA) bytes.
+    ///
+    /// # Examples
+    /// ```
+    /// use retrofire_core::math::{rgba, Color4};
+    /// use retrofire_core::util::pixfmt::{Bgra8888, IntoPixel};
+    ///
+    /// let color: Color4 = rgba(0x11, 0x22, 0x33, 0x44);
+    /// let bgra: [u8; 4] = color.into_pixel_fmt(Bgra8888);
+    ///
+    /// assert_eq!(bgra, [0x33, 0x22, 0x11, 0x44]);
+    /// ```
     #[inline]
     fn into_pixel(self) -> [u8; 4] {
         let [r, g, b, a] = self.0;
@@ -117,12 +199,14 @@ impl IntoPixel<[u8; 4], Bgra8888> for Color4 {
     }
 }
 impl IntoPixel<[u8; 3], Rgb888> for Color4 {
+    /// Converts `self` to bytes in RGB order, discarding alpha.
     #[inline]
     fn into_pixel(self) -> [u8; 3] {
         [self.r(), self.g(), self.b()]
     }
 }
 impl IntoPixel<[u8; 2], Rgba4444> for Color4 {
+    /// Converts `self` to two bytes, one nibble (four bits) per channel in RGBA order.
     #[inline]
     fn into_pixel(self) -> [u8; 2] {
         let c: u16 = self.into_pixel_fmt(Rgba4444);
@@ -130,6 +214,7 @@ impl IntoPixel<[u8; 2], Rgba4444> for Color4 {
     }
 }
 impl IntoPixel<u16, Rgba4444> for Color4 {
+    /// Converts `self` to a `u16`, one nibble (four bits) per channel in RGBA order.
     #[inline]
     fn into_pixel(self) -> u16 {
         let [r, g, b, a] = self.0;
@@ -165,7 +250,7 @@ mod tests {
 
     #[test]
     fn color3_to_rgb888() {
-        let pix: u32 = COL3.into_pixel_fmt(Rgb888);
+        let pix: u32 = COL3.into_pixel_fmt(Xrgb8888);
         assert_eq!(pix, 0x00_11_22_33);
     }
 
