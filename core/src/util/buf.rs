@@ -20,7 +20,7 @@ use inner::Inner;
 /// A trait for types that can provide a view of their data as a [`Slice2`].
 pub trait AsSlice2 {
     type Elem;
-    /// Returns a borrowed `Slice2` view of `Self`.
+    /// Returns a borrowed `Slice2` view of `self`.
     fn as_slice2(&self) -> Slice2<'_, Self::Elem>;
 }
 
@@ -28,7 +28,7 @@ pub trait AsSlice2 {
 /// as a [`MutSlice2`].
 pub trait AsMutSlice2 {
     type Elem;
-    /// Returns a mutably borrowed `MutSlice2` view of `Self`.
+    /// Returns a mutably borrowed `MutSlice2` view of `self`.
     fn as_mut_slice2(&mut self) -> MutSlice2<'_, Self::Elem>;
 }
 
@@ -65,7 +65,7 @@ pub struct Buf2<T>(Inner<T, Vec<T>>);
 /// An immutable rectangular view to a region of a [`Buf2`], another `Slice2`,
 /// or in general any `&[T]` slice of memory. A two-dimensional analog to `&[T]`.
 ///
-/// A `Slice2` may be non-contiguous:
+/// The backing data of a `Slice2` may be non-contiguous:
 /// ```text
 /// +------stride-----+
 /// |    ____w____    |
@@ -74,6 +74,9 @@ pub struct Buf2<T>(Inner<T, Vec<T>>);
 /// |   |r2_______|   |
 /// +-----------------+
 /// ```
+/// Internally, `Slice2` borrows a contiguous slice of the backing buffer,
+/// but disallows access to any elements not within its 2D extents.
+///
 /// TODO More documentation
 #[derive(Copy, Clone, Eq, PartialEq)]
 #[repr(transparent)]
@@ -108,8 +111,8 @@ impl<T> Buf2<T> {
     /// ```
     ///
     /// # Panics
-    /// * If `w * h > isize::MAX`, or
-    /// * if `init` has fewer than `w * h` elements.
+    /// * If `w` × `h` > `isize::MAX`., or
+    /// * if `init` has fewer than `w` × `h` elements.
     pub fn new_from<I>((w, h): Dims, init: I) -> Self
     where
         I: IntoIterator<Item = T>,
@@ -151,7 +154,7 @@ impl<T> Buf2<T> {
     /// ```
     ///
     /// # Panics
-    /// If `w * h > isize::MAX`.
+    /// If `w` × `h` > `isize::MAX`.
     #[inline]
     pub fn new((w, h): Dims) -> Self
     where
@@ -170,6 +173,9 @@ impl<T> Buf2<T> {
     ///
     /// Does not allocate or call `init_fn` if `w` = 0 or `h` = 0.
     ///
+    /// # Panics
+    /// If `w` × `h` > `isize::MAX`.
+    ///
     /// # Examples
     /// ```
     /// use retrofire_core::util::buf::Buf2;
@@ -179,9 +185,6 @@ impl<T> Buf2<T> {
     ///                         10, 11, 12,
     ///                         20, 21, 22]);
     /// ```
-    ///
-    /// # Panics
-    /// If `w * h > isize::MAX`.
     pub fn new_with<F>((w, h): Dims, mut init_fn: F) -> Self
     where
         F: FnMut(u32, u32) -> T,
@@ -212,11 +215,30 @@ impl<T> Buf2<T> {
         &mut self.0.data
     }
 
-    /// Reinterprets `self` as a buffer of different dimensions but same area.
+    /// Reinterprets `self` as a buffer of different dimensions but the same area.
+    ///
+    /// Does not reallocate or move data.
     ///
     /// # Panics
-    /// If `nw` * `nh` != `cw` * `ch` for the new dimensions (`nw`, `nh`)
+    /// If `nw` × `nh` ≠ `cw` × `ch` for the new dimensions (`nw`, `nh`)
     /// and current dimensions (`cw`, `ch`).
+    ///
+    /// # Examples
+    /// ```
+    /// use retrofire_core::util::buf::Buf2;
+    ///
+    /// let mut buf = Buf2::new_from((3, 2), [1, 2, 3, 4, 5, 6]);
+    ///
+    /// buf.reshape((2, 3));
+    ///
+    /// assert_eq!(buf.stride(), 2);
+    /// assert_eq!(buf.width(), 2);
+    /// assert_eq!(buf.height(), 3);
+    ///
+    /// assert_eq!(buf[0], [1, 2]);
+    /// assert_eq!(buf[1], [3, 4]);
+    /// assert_eq!(buf[2], [5, 6]);
+    /// ```
     pub fn reshape(&mut self, dims: Dims) {
         self.0.reshape(dims);
     }
@@ -374,6 +396,30 @@ impl<T> DerefMut for MutSlice2<'_, T> {
     }
 }
 
+impl<T: Clone, const N: usize> From<&[[T; N]]> for Buf2<T> {
+    /// Creates a `Buf2` from a slice of arrays.
+    ///
+    /// # Examples
+    /// ```
+    /// use retrofire_core::util::buf::Buf2;
+    ///
+    /// let buf = Buf2::from([[1, 2, 3], [4, 5, 6]].as_slice());
+    ///
+    /// assert_eq!(buf.stride(), 3);
+    /// assert_eq!(buf.width(), 3);
+    /// assert_eq!(buf.height(), 2);
+    ///
+    /// assert_eq!(buf[0], [1, 2, 3]);
+    /// assert_eq!(buf[1], [4, 5, 6]);
+    /// ```
+    fn from(slice: &[[T; N]]) -> Self {
+        Self::new_from(
+            (N as u32, slice.len() as u32),
+            slice.as_flattened().iter().cloned(),
+        )
+    }
+}
+
 pub mod inner {
     use core::{
         fmt::Formatter,
@@ -509,7 +555,11 @@ pub mod inner {
 
         pub(super) fn reshape(&mut self, dims: Dims) {
             assert!(self.is_contiguous());
-            assert_eq!(dims.0 * dims.1, self.dims.0 * self.dims.1);
+            assert_eq!(
+                dims.0 as u64 * dims.1 as u64,
+                self.dims.0 as u64 * self.dims.1 as u64
+            );
+            self.stride = dims.0;
             self.dims = dims;
         }
     }
