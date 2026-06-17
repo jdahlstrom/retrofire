@@ -203,13 +203,13 @@ impl<T> Buf2<T> {
     /// Returns a view of the backing data of `self`.
     #[inline]
     pub fn data(&self) -> &[T] {
-        self.0.data()
+        &self.0.data
     }
 
     /// Returns a mutable view of the backing data of `self`.
     #[inline]
     pub fn data_mut(&mut self) -> &mut [T] {
-        self.0.data_mut()
+        &mut self.0.data
     }
 
     /// Reinterprets `self` as a buffer of different dimensions but same area.
@@ -396,7 +396,7 @@ pub mod inner {
     pub struct Inner<T, D> {
         dims: Dims,
         stride: u32,
-        data: D,
+        pub(super) data: D,
         _pd: PhantomData<T>,
     }
 
@@ -531,12 +531,6 @@ pub mod inner {
             Self { dims, stride, data, _pd: PhantomData }
         }
 
-        /// Returns the data of `self` as a linear slice.
-        #[inline]
-        pub(super) fn data(&self) -> &[T] {
-            &self.data
-        }
-
         /// Borrows `self` as a `Slice2`.
         #[inline]
         pub fn as_slice2(&self) -> Slice2<'_, T> {
@@ -603,12 +597,6 @@ pub mod inner {
             #[rustfmt::skip]
             let Self { dims, stride, ref mut data, _pd, } = *self;
             MutSlice2(Inner { dims, stride, data, _pd })
-        }
-
-        /// Returns the data of `self` as a single mutable slice.
-        #[inline]
-        pub(super) fn data_mut(&mut self) -> &mut [T] {
-            &mut self.data
         }
 
         /// Returns an iterator over the rows of this buffer as `&mut [T]`.
@@ -945,7 +933,7 @@ mod tests {
         assert_eq!(slice.width(), 3);
         assert_eq!(slice.height(), 6);
         assert_eq!(slice.stride(), 10);
-        assert_eq!(slice.data().len(), 5 * 10 + 3);
+        assert_eq!(slice.data.len(), 5 * 10 + 3);
     }
 
     #[test]
