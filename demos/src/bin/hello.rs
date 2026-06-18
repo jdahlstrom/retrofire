@@ -5,9 +5,9 @@ use re::prelude::*;
 use re::core::{
     math::color::hsl,
     render::{Text, World, tex::Atlas},
-    util::pnm::read_pnm,
+    util::{dims, pnm::read_pnm},
 };
-use re_front::{Frame, dims::SVGA_800_600, minifb::Window};
+use re_front::{Frame, minifb::Window};
 
 const FONT: &[u8] = include_bytes!("../../assets/font_16x24.pbm");
 
@@ -25,7 +25,7 @@ fn main() {
 
     let mut win = Window::builder()
         .title("retrofire//text")
-        .dims(SVGA_800_600)
+        .dims(dims::SVGA_800_600)
         .build()
         .unwrap();
 

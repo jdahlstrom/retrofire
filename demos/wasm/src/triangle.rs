@@ -5,13 +5,13 @@ use wasm_bindgen::prelude::*;
 use re::prelude::*;
 
 use re::render::{ModelToView, render, shader::Shader};
-use re::util::Dims;
-use re_front::{dims::SVGA_800_600, wasm::Window};
+use re::util::{Dims, dims};
+use re_front::wasm::Window;
 
 // Entry point from JS
 #[wasm_bindgen(start)]
 pub fn start() {
-    const DIMS: Dims = SVGA_800_600;
+    const DIMS: Dims = dims::SVGA_800_600;
 
     console_error_panic_hook::set_once();
 
