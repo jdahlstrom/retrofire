@@ -315,7 +315,7 @@ mod tests {
         assert_approx_eq,
         geom::vertex,
         math::{point::pt3, vary::Vary, vary::ZDiv},
-        util::{Dims, buf::Buf2},
+        util::{Buf2, Dims},
     };
 
     use super::{Scanline, tri_fill};

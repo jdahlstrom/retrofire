@@ -26,12 +26,9 @@ use std::{
 
 use crate::math::{Color3, color::gray};
 
-use super::{Dims, buf::Buf2};
 #[cfg(feature = "std")]
-use super::{
-    buf::AsSlice2,
-    pixfmt::{IntoPixel, Rgb888},
-};
+use super::{AsSlice2, IntoPixel, pixfmt::Rgb888};
+use super::{Buf2, Dims};
 
 use Error::*;
 use Format::*;

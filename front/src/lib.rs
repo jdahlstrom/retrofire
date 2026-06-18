@@ -8,7 +8,7 @@ use core::{cell::RefCell, time::Duration};
 use retrofire_core::{
     math::{Color3, Color4},
     render::{Colorbuf, Context, Framebuf, tex::Atlas},
-    util::{Dims, buf::AsMutSlice2, pixfmt::IntoPixel, pnm::read_pnm},
+    util::{AsMutSlice2, Dims, IntoPixel, pnm::read_pnm},
 };
 
 #[cfg(feature = "minifb")]

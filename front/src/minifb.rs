@@ -12,7 +12,7 @@ use minifb::{Key, WindowOptions};
 
 use retrofire_core::{
     render::{Colorbuf, Context, Stats, Text, target},
-    util::{Dims, buf::Buf2, buf::MutSlice2, pixfmt::Xrgb8888},
+    util::{Buf2, Dims, MutSlice2, pixfmt::Xrgb8888},
 };
 
 use super::{Frame, dims, font_6x10};
