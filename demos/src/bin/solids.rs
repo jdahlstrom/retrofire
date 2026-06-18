@@ -56,7 +56,7 @@ fn main() {
 
     win.ctx.color_clear = Some(gray(0x33).to_rgba());
 
-    let (w, h) = win.dims;
+    let Dims(w, h) = win.dims;
     let cam = Camera::new(win.dims)
         .transform(scale((1.0, -1.0, -1.0)).to())
         .perspective(Fov::Equiv35mm(28.0), 0.1..1000.0)

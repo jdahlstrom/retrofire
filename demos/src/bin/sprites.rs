@@ -43,7 +43,7 @@ fn main() {
             let view_pos = mv.apply(&v.pos) + vertex_pos;
             vertex(proj.apply(&view_pos), v.attrib)
         },
-        |frag: Frag<Vec2<_>>, _: &  _| {
+        |frag: Frag<Vec2<_>>, _: &_| {
             let d2 = frag.var.len_sqr();
             (d2 < 1.0).then(|| {
                 let col = gray(1.0) - d2 * rgb(0.25, 0.5, 1.0);
@@ -52,7 +52,7 @@ fn main() {
         },
     );
 
-    let (w, h) = win.dims;
+    let Dims(w, h) = win.dims;
     let cam = Camera::new(win.dims)
         .transform(translate(0.5 * Vec3::Z).to())
         .perspective(Fov::FocalRatio(1.0), 1e-2..1e3)

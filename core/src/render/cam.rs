@@ -171,20 +171,20 @@ impl<T> Camera<T> {
     /// Sets the viewport bounds of this camera.
     #[must_use]
     pub fn viewport(self, bounds: impl Into<Rect<u32>>) -> Self {
-        let (w, h) = self.dims;
-
         let Rect {
             left: Some(l),
             top: Some(t),
             right: Some(r),
             bottom: Some(b),
-        } = bounds.into().intersect(&(0..w, 0..h).into())
+        } = bounds
+            .into()
+            .intersect(&(0..self.dims.0, 0..self.dims.1).into())
         else {
             unreachable!("bounded ∩ bounded should be bounded")
         };
 
         Self {
-            dims: (r.abs_diff(l), b.abs_diff(t)),
+            dims: Dims(r.abs_diff(l), b.abs_diff(t)),
             viewport: viewport(pt2(l, t)..pt2(r, b)),
             ..self
         }

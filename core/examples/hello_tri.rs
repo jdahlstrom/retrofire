@@ -1,7 +1,5 @@
-use retrofire_core::{
-    prelude::*,
-    render::{Model, render, shader},
-};
+use retrofire_core::prelude::*;
+use retrofire_core::render::{Model, render, shader};
 
 fn main() {
     let verts = [
@@ -29,7 +27,7 @@ fn main() {
         |frag: Frag<Color3f<_>>, _| frag.var.to_color4(),
     );
 
-    let dims @ (w, h) = (640, 480);
+    let dims @ Dims(w, h) = Dims(640, 480);
     let modelview = translate((0.0, 0.0, 2.0)).to();
     let project = perspective(1.0, w as f32 / h as f32, 0.1..1000.0);
     let viewport = viewport(pt2(0, h)..pt2(w, 0));
