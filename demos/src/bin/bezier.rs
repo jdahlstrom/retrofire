@@ -11,7 +11,7 @@ use re::core::{
 use re::front::{Frame, dims, minifb::Window};
 
 fn main() {
-    let dims @ (w, h) = dims::SVGA_800_600;
+    let dims @ Dims(w, h) = dims::SVGA_800_600;
 
     let mut win = Window::builder()
         .title("retrofire//bezier")

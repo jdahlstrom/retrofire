@@ -29,7 +29,7 @@ fn main() {
     };
 
     // Texture with a check pattern
-    let checker = Texture::from(Buf2::new_with((8, 8), |x, y| {
+    let checker = Texture::from(Buf2::new_with(Dims(8, 8), |x, y| {
         let xor = (x ^ y) & 1;
         rgba(xor as u8 * 255, 128, 255 - xor as u8 * 128, 0)
     }));
@@ -39,7 +39,7 @@ fn main() {
         |frag: Frag<_>, _: &_| SamplerClamp.sample(&checker, frag.var),
     );
 
-    let (w, h) = win.dims;
+    let Dims(w, h) = win.dims;
     let projection = perspective(1.0, w as f32 / h as f32, 0.1..1000.0);
     let viewport = viewport(pt2(10, 10)..pt2(w - 10, h - 10));
 

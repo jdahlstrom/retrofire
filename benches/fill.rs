@@ -10,7 +10,7 @@ use retrofire_core::{
     render::{
         Texture, raster::ScreenPt, raster::tri_fill, tex::SamplerRepeatPot, uv,
     },
-    util::{buf::Buf2, pnm::save_ppm},
+    util::{Dims, buf::Buf2, pnm::save_ppm},
 };
 
 const SIZES: [f32; 5] = [4.0, 16.0, 64.0, 256.0, 1024.0];
@@ -20,7 +20,7 @@ const VERTS: [ScreenPt; 3] =
 
 #[divan::bench(args = SIZES)]
 fn flat(b: Bencher, sz: f32) {
-    let mut buf: Buf2<Color3> = Buf2::new((1024, 1024));
+    let mut buf: Buf2<Color3> = Buf2::new(Dims(1024, 1024));
 
     b.with_inputs(|| VERTS.map(|p| vertex(p * sz, ())))
         .input_counter(move |vs| Tri(*vs).area() as usize)
@@ -34,7 +34,7 @@ fn flat(b: Bencher, sz: f32) {
 }
 #[divan::bench(args = SIZES)]
 fn gouraud(b: Bencher, sz: f32) {
-    let mut buf: Buf2<Color3f> = Buf2::new((1024, 1024));
+    let mut buf: Buf2<Color3f> = Buf2::new(Dims(1024, 1024));
 
     b.with_inputs(|| {
         [
@@ -56,17 +56,19 @@ fn gouraud(b: Bencher, sz: f32) {
         });
     });
 
-    let buf =
-        Buf2::new_from((1024, 1024), buf.data().iter().map(|c| c.to_color3()));
+    let buf = Buf2::new_from(
+        Dims(1024, 1024),
+        buf.data().iter().map(|c| c.to_color3()),
+    );
     save_ppm("benches_fill_color.ppm", buf).unwrap();
 }
 
 #[divan::bench(args = SIZES)]
 fn texture(b: Bencher, sz: f32) {
-    let mut buf: Buf2<Color3> = Buf2::new((1024, 1024));
+    let mut buf: Buf2<Color3> = Buf2::new(Dims(1024, 1024));
 
     let tex = Texture::from(Buf2::<Color3>::new_from(
-        (2, 2),
+        Dims(2, 2),
         [gray(0xFF), gray(0x33), gray(0x33), gray(0xFF)],
     ));
     let sampler = SamplerRepeatPot::new(&tex);

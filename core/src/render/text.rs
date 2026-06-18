@@ -7,7 +7,7 @@ use crate::math::{
     Color3, Color4, Point2, ProjMat3, Vec2, color::gray, orthographic, pt2,
     pt3, vec2, vec3, viewport,
 };
-use crate::util::buf::Buf2;
+use crate::util::{Dims, buf::Buf2};
 
 use super::tex::*;
 use super::{BBox, Context, Frag, Model, Shader, Target, shader};
@@ -138,8 +138,8 @@ impl Text {
     fn write_char(&mut self, idx: u32) {
         let Self { font, geom, cursor, .. } = self;
 
-        let Layout::Grid { sub_dims: (gw, gh) } = font.layout;
-        let (glyph_w, glyph_h) = (gw as f32, gh as f32);
+        let Layout::Grid { sub_dims } = font.layout;
+        let (glyph_w, glyph_h) = (sub_dims.0 as f32, sub_dims.1 as f32);
 
         let [tl, tr, bl, br] = font.coords(idx);
         // TODO doesn't work when the text is written in several pieces,
@@ -248,11 +248,11 @@ where
         num_cols = num_cols.max(row.len() as u32);
     }
     if num_rows == 0 || num_cols == 0 {
-        return Buf2::new((0, 0));
+        return Buf2::new(Dims(0, 0));
     }
 
-    let Layout::Grid { sub_dims: (gw, gh) } = font.layout;
-    let mut buf = Buf2::new((num_cols * gw, num_rows * gh));
+    let Layout::Grid { sub_dims: Dims(gw, gh) } = font.layout;
+    let mut buf = Buf2::new(Dims(num_cols * gw, num_rows * gh));
 
     let (mut x, mut y) = (0, 0);
     for row in rows {

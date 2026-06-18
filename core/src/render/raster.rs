@@ -315,7 +315,7 @@ mod tests {
         assert_approx_eq,
         geom::vertex,
         math::{point::pt3, vary::Vary, vary::ZDiv},
-        util::buf::Buf2,
+        util::{Dims, buf::Buf2},
     };
 
     use super::{Scanline, tri_fill};
@@ -324,7 +324,7 @@ mod tests {
 
     #[test]
     fn shared_edge_should_not_have_gaps_or_overdraw() {
-        let mut buf = Buf2::new((20, 10));
+        let mut buf = Buf2::new(Dims(20, 10));
 
         let verts = [
             pt3(8.0, 0.0, 0.0),
