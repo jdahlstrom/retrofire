@@ -11,7 +11,7 @@ use crate::math::{
     Mat4, Point3, ProjMat3, SphericalVec, Vary, orthographic, perspective, pt2,
     translate, viewport,
 };
-use crate::util::{Dims, rect::Rect};
+use crate::util::{Dims, Rect};
 
 use super::{Clip, Context, Ndc, Render, Screen, Shader, Target, View, World};
 

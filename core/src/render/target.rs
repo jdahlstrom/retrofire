@@ -7,10 +7,7 @@
 use core::cell::RefCell;
 
 use crate::math::{Color3, Color4, Vary};
-use crate::util::{
-    buf::{AsMutSlice2, Buf2, MutSlice2},
-    pixfmt::IntoPixel,
-};
+use crate::util::{AsMutSlice2, Buf2, IntoPixel, MutSlice2};
 
 use super::{Context, FragmentShader, raster::Scanline, stats::Throughput};
 

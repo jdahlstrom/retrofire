@@ -4,13 +4,12 @@ use core::hint::black_box;
 
 use divan::Bencher;
 
-use retrofire::core::{
+use retrofire_core::{
     geom::{Plane3, Ray, Sphere},
-    math::{Point3, degs, pt3, rand::*, spherical, vec3},
+    math::{Point3, degs, pt3, rand::*, spherical, splat, vec3},
     render::scene::BBox,
 };
-use retrofire::geom::Intersect;
-use retrofire_core::math::splat;
+use retrofire_geom::Intersect;
 
 #[divan::bench]
 fn ray_plane_hit(b: Bencher) {
