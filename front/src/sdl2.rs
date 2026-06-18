@@ -14,11 +14,11 @@ use sdl2::{
 use retrofire_core::math::Color4;
 use retrofire_core::render::{Colorbuf, Context, Stats, Text, target};
 use retrofire_core::util::{
-    AsMutSlice2, Buf2, Dims, IntoPixel, MutSlice2,
+    AsMutSlice2, Buf2, Dims, IntoPixel, MutSlice2, dims,
     pixfmt::{Rgb565, Rgba4444, Rgba8888},
 };
 
-use super::{Frame, dims, font_6x10};
+use super::{Frame, font_6x10};
 
 /// Helper trait to support different pixel format types.
 pub trait PixelFmt: Copy + Default {

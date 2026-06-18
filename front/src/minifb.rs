@@ -12,10 +12,10 @@ use minifb::{Key, WindowOptions};
 
 use retrofire_core::{
     render::{Colorbuf, Context, Stats, Text, target},
-    util::{Buf2, Dims, MutSlice2, pixfmt::Xrgb8888},
+    util::{Buf2, Dims, MutSlice2, dims, pixfmt::Xrgb8888},
 };
 
-use super::{Frame, dims, font_6x10};
+use super::{Frame, font_6x10};
 
 /// A lightweight wrapper of a `minibuf` window.
 pub struct Window {

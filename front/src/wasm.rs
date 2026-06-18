@@ -20,14 +20,13 @@ use web_sys::{
     js_sys::{Uint8ClampedArray, Uint32Array},
 };
 
-use crate::{Frame, dims::SVGA_800_600};
-
 use retrofire_core::{
     math::color::rgba,
     render::{Colorbuf, Context, Stats, target},
-    util::buf::{AsMutSlice2, Buf2, MutSlice2},
-    util::{Dims, pixfmt::Rgba8888},
+    util::{AsMutSlice2, Buf2, Dims, MutSlice2, dims, pixfmt::Rgba8888},
 };
+
+use super::Frame;
 
 #[wasm_bindgen]
 extern "C" {
@@ -68,7 +67,7 @@ impl Builder {
 
 impl Default for Builder {
     fn default() -> Self {
-        Self { dims: SVGA_800_600 }
+        Self { dims: dims::SVGA_800_600 }
     }
 }
 
