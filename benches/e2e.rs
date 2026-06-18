@@ -9,7 +9,7 @@ use retrofire_core::{
         translate, viewport,
     },
     render::{Context, Frag, Model, debug::dir_to_rgb, render, shader},
-    util::{Dims, buf::Buf2, pnm},
+    util::{Buf2, Dims, pnm},
 };
 use retrofire_geom::solids::{Build, Sphere};
 

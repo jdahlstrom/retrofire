@@ -10,7 +10,7 @@ use retrofire_core::{
     render::{
         Texture, raster::ScreenPt, raster::tri_fill, tex::SamplerRepeatPot, uv,
     },
-    util::{Dims, buf::Buf2, pnm::save_ppm},
+    util::{Buf2, Dims, pnm::save_ppm},
 };
 
 const SIZES: [f32; 5] = [4.0, 16.0, 64.0, 256.0, 1024.0];

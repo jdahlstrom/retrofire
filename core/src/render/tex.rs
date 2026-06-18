@@ -2,10 +2,7 @@
 
 use crate::geom::Normal3;
 use crate::math::{Point2u, Vec2, Vec3, Vector, pt2, splat, vec2};
-use crate::util::{
-    Dims,
-    buf::{AsSlice2, Buf2, Slice2},
-};
+use crate::util::{AsSlice2, Buf2, Dims, Slice2};
 
 /// Basis of the texture space.
 #[derive(Copy, Clone, Debug, Default, Eq, PartialEq)]
@@ -369,7 +366,7 @@ mod tests {
     use alloc::vec;
 
     use crate::math::{Color3, Linear, rgb};
-    use crate::util::buf::Buf2;
+    use crate::util::Buf2;
 
     use super::*;
 

@@ -47,7 +47,7 @@ pub trait AsMutSlice2 {
 ///
 /// # Examples
 /// ```
-/// # use retrofire_core::util::{Dims,buf::Buf2};
+/// # use retrofire_core::util::{Dims, Buf2};
 /// # use retrofire_core::math::point::pt2;
 ///
 /// // Elements initialized with `Default::default()`
@@ -104,7 +104,7 @@ impl<T> Buf2<T> {
     ///
     /// # Examples
     /// ```
-    /// use retrofire_core::util::{Dims, buf::Buf2};
+    /// use retrofire_core::util::{Dims, Buf2};
     ///
     /// let buf = Buf2::new_from(Dims(4, 3), 1..);
     ///
@@ -148,7 +148,7 @@ impl<T> Buf2<T> {
     ///
     /// # Examples
     /// ```
-    /// use retrofire_core::util::{Dims, buf::Buf2};
+    /// use retrofire_core::util::{Dims, Buf2};
     ///
     /// let buf: Buf2<i32> = Buf2::new(Dims(4, 3));
     ///
@@ -184,7 +184,7 @@ impl<T> Buf2<T> {
     ///
     /// # Examples
     /// ```
-    /// use retrofire_core::util::{Dims, buf::Buf2};
+    /// use retrofire_core::util::{Dims, Buf2};
     ///
     /// let buf = Buf2::new_with(Dims(4, 3), |x, y| 10 * y + x);
     ///
@@ -232,7 +232,7 @@ impl<T> Buf2<T> {
     ///
     /// # Examples
     /// ```
-    /// use retrofire_core::util::{Dims, buf::Buf2};
+    /// use retrofire_core::util::{Dims, Buf2};
     ///
     /// let mut buf = Buf2::new_from(Dims(3, 2), [1, 2, 3, 4, 5, 6]);
     ///
@@ -257,7 +257,7 @@ impl<'a, T> Slice2<'a, T> {
     ///
     /// # Examples
     /// ```
-    /// use retrofire_core::util::{Dims, buf::Slice2};
+    /// use retrofire_core::util::{Dims, Slice2};
     ///
     /// let data = &[0, 1, 2, 3, 4, 5, 6];
     /// let slice = Slice2::new(Dims(2, 2), 3, data);
@@ -410,7 +410,7 @@ impl<T: Clone, const N: usize> From<&[[T; N]]> for Buf2<T> {
     ///
     /// # Examples
     /// ```
-    /// use retrofire_core::util::buf::Buf2;
+    /// use retrofire_core::util::Buf2;
     ///
     /// let buf = Buf2::from([[1, 2, 3], [4, 5, 6]].as_slice());
     ///

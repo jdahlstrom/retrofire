@@ -14,9 +14,8 @@ use sdl2::{
 use retrofire_core::math::Color4;
 use retrofire_core::render::{Colorbuf, Context, Stats, Text, target};
 use retrofire_core::util::{
-    Dims,
-    buf::{AsMutSlice2, Buf2, MutSlice2},
-    pixfmt::{IntoPixel, Rgb565, Rgba4444, Rgba8888},
+    AsMutSlice2, Buf2, Dims, IntoPixel, MutSlice2,
+    pixfmt::{Rgb565, Rgba4444, Rgba8888},
 };
 
 use super::{Frame, dims, font_6x10};
