@@ -103,7 +103,7 @@ impl Window {
     /// # Panics
     /// If `fb.len() < self.size.0 * self.size.1`.
     pub fn present(&mut self, fb: &[u32]) {
-        let (w, h) = self.dims;
+        let Dims(w, h) = self.dims;
         self.imp
             .update_with_buffer(fb, w as usize, h as usize)
             .unwrap();
@@ -120,9 +120,8 @@ impl Window {
     where
         F: FnMut(&mut Frame<Window, &RefCell<Framebuf>>) -> ControlFlow<()>,
     {
-        let (w, h) = self.dims;
-        let mut cbuf = Buf2::new((w, h));
-        let mut zbuf = Buf2::new((w, h));
+        let mut cbuf = Buf2::new(self.dims);
+        let mut zbuf = Buf2::new(self.dims);
         let mut ctx = self.ctx.clone();
 
         let mut fps = Text::new(font_6x10());

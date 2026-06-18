@@ -155,7 +155,7 @@ impl<C> Atlas<C> {
     /// of the sub-texture with index `i`.
     fn rect(&self, i: u32) -> [Point2u; 2] {
         match self.layout {
-            Layout::Grid { sub_dims: (sub_w, sub_h) } => {
+            Layout::Grid { sub_dims: Dims(sub_w, sub_h) } => {
                 let subs_per_row = self.texture.data.width() / sub_w;
                 let top_left =
                     pt2(i % subs_per_row * sub_w, i / subs_per_row * sub_h);
@@ -376,7 +376,7 @@ mod tests {
     #[rustfmt::skip]
     fn tex() -> Texture<Buf2<Color3>> {
         Texture::from(Buf2::new_from(
-            (2, 2), vec![
+            Dims(2, 2), vec![
                 rgb(0xFF, 0, 0),
                 rgb(0, 0xFF, 0),
                 rgb(0, 0, 0xFF),

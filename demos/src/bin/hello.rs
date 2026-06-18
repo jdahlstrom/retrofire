@@ -2,9 +2,9 @@ use std::{env, fmt::Write, ops::ControlFlow::Continue};
 
 use re::prelude::*;
 
-use re::core::math::color::hsl;
 use re::core::{
-    render::{Text, World, tex::Atlas, tex::Layout},
+    math::color::hsl,
+    render::{Text, World, tex::Atlas},
     util::pnm::read_pnm,
 };
 use re_front::{Frame, dims::SVGA_800_600, minifb::Window};
@@ -13,7 +13,7 @@ const FONT: &[u8] = include_bytes!("../../assets/font_16x24.pbm");
 
 fn main() {
     let font = read_pnm(FONT).expect("valid image");
-    let font = Atlas::grid((16, 24), font.into());
+    let font = Atlas::grid(Dims(16, 24), font.into());
 
     let arg = env::args().nth(1); // Borrow checker...
     let msg = arg

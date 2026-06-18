@@ -134,10 +134,8 @@ impl<'t, PF: PixelFmt> Builder<'t, PF> {
     }
 
     fn create_window(&self, sdl: &Sdl) -> Result<SdlWindow, Error> {
-        let Self {
-            dims: (w, h), title, fs, hidpi, ..
-        } = *self;
-        let mut win = sdl.video()?.window(title, w, h);
+        let Self { dims, title, fs, hidpi, .. } = *self;
+        let mut win = sdl.video()?.window(title, dims.0, dims.1);
         if hidpi {
             win.allow_highdpi();
         }
@@ -190,7 +188,8 @@ impl<PF: PixelFmt<Pixel = [u8; N]>, const N: usize> Window<PF> {
         ) -> ControlFlow<()>,
         Color4: IntoPixel<PF::Pixel, PF>,
     {
-        let dims @ (w, h) = self.canvas.window().drawable_size();
+        let (w, h) = self.canvas.window().drawable_size();
+        let dims = Dims(w, h);
 
         let tc = self.canvas.texture_creator();
         let mut tex = tc.create_texture_streaming(PF::SDL_FMT, w, h)?;

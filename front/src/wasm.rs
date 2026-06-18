@@ -140,15 +140,15 @@ impl Window {
         web_sys::window()?.document()
     }
 
-    fn create_canvas((w, h): Dims) -> Option<Canvas> {
+    fn create_canvas(dims: Dims) -> Option<Canvas> {
         let cvs: HtmlCanvasElement = Self::document()?
             .create_element("canvas")
             .ok()?
             .dyn_into()
             .ok()?;
 
-        cvs.set_width(w);
-        cvs.set_height(h);
+        cvs.set_width(dims.0);
+        cvs.set_height(dims.1);
         Some(cvs)
     }
 

@@ -3,7 +3,7 @@
 use retrofire_core::{
     prelude::*,
     render::{Model, render, shader, tex::SamplerClamp},
-    util::{self, pixfmt::Xrgb8888, pnm::parse_pnm},
+    util::{self, Dims, pixfmt::Xrgb8888, pnm::parse_pnm},
 };
 
 const VERTS: [Vertex3<TexCoord>; 4] = [
@@ -16,7 +16,7 @@ const FACES: [Tri<usize>; 2] = [tri(0, 1, 2), tri(3, 2, 1)];
 
 #[test]
 fn textured_quad() {
-    let checker = Texture::from(Buf2::new_with((8, 8), |x, y| {
+    let checker = Texture::from(Buf2::new_with(Dims(8, 8), |x, y| {
         let xor = (x ^ y) & 1;
         // Blue if x == y, dark red otherwise.
         rgba(0x7F * xor as u8, 0, 0xFF * (1 - xor) as u8, 0)
@@ -34,7 +34,7 @@ fn textured_quad() {
     let viewport = viewport(pt2(0, 0)..pt2(w, h));
     let mvp = translate((0.0, 0.0, 1.0)).to().then(&project);
 
-    let mut framebuf = Buf2::<Color3>::new((w, h));
+    let mut framebuf = Buf2::<Color3>::new(Dims(w, h));
     let mut ctx = Context::default();
 
     render(FACES, VERTS, &shader, &mvp, viewport, &mut framebuf, &ctx);
