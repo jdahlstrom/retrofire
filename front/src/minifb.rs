@@ -15,7 +15,7 @@ use retrofire_core::{
     util::{Buf2, Dims, MutSlice2, dims, pixfmt::Xrgb8888},
 };
 
-use super::{Frame, font_6x10};
+use super::font_6x10;
 
 #[cfg(feature = "stats")]
 use retrofire_core::render::Stats;
@@ -44,6 +44,8 @@ pub type Framebuf<'a> = target::Framebuf<
     Colorbuf<MutSlice2<'a, u32>, Xrgb8888>,
     MutSlice2<'a, f32>,
 >;
+
+pub type Frame<'a> = super::Frame<'a, Window, &'a RefCell<Framebuf<'a>>>;
 
 impl Default for Builder<'_> {
     fn default() -> Self {
@@ -123,7 +125,7 @@ impl Window {
     /// * the callback returns `ControlFlow::Break`.
     pub fn run<F>(&mut self, mut frame_fn: F) -> Stats
     where
-        F: FnMut(&mut Frame<Window, &RefCell<Framebuf>>) -> ControlFlow<()>,
+        F: FnMut(&mut Frame) -> ControlFlow<()>,
     {
         let mut cbuf = Buf2::new(self.dims);
         let mut zbuf = Buf2::new(self.dims);
