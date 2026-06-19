@@ -10,7 +10,6 @@ use libc::{abort, c_char, c_int, free, malloc, putchar, puts};
 
 use re::prelude::*;
 
-use re::math::mat::ProjMat3;
 use re::render::{Model, render, shader};
 
 #[global_allocator]

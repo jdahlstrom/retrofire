@@ -3,39 +3,33 @@ use std::{env, fmt::Write, ops::ControlFlow::Continue};
 use re::prelude::*;
 
 use re::core::{
-    render::{Model, Text, World, render, shader, tex::Atlas, tex::Layout},
-    util::pnm::parse_pnm,
+    math::color::hsl,
+    render::{Text, World, tex::Atlas},
+    util::{dims, pnm::read_pnm},
 };
+use re_front::{Frame, minifb::Window};
 
-use re_front::{Frame, dims::SVGA_800_600, minifb::Window};
+const FONT: &[u8] = include_bytes!("../../assets/font_16x24.pbm");
 
 fn main() {
-    let font = *include_bytes!("../../assets/font_16x24.pbm");
-    let font = parse_pnm(font).expect("valid image");
-    let font = Atlas::new(Layout::Grid { sub_dims: (16, 24) }, font.into());
+    let font = read_pnm(FONT).expect("valid image");
+    let font = Atlas::grid(Dims(16, 24), font.into());
 
-    let msg = env::args().nth(1); // Borrow checker...
-    let msg = msg
+    let arg = env::args().nth(1); // Borrow checker...
+    let msg = arg
         .as_deref()
         .unwrap_or("   Hello,\nRetrocomputing\n     World!");
 
-    let mut text = Text::new(font);
+    let mut text = Text::new(font.clone());
     write!(text, "{msg}").expect("cannot fail");
 
     let mut win = Window::builder()
         .title("retrofire//text")
-        .dims(SVGA_800_600)
+        .dims(dims::SVGA_800_600)
         .build()
         .unwrap();
 
     win.ctx.face_cull = None;
-
-    let shader = shader::new(
-        |v: Vertex<_, _>, mvp: &ProjMat3<Model>| {
-            vertex(mvp.apply(&v.pos), v.attrib)
-        },
-        |frag: Frag<TexCoord>| text.sample(frag.var).to_rgba(),
-    );
 
     let vp: ProjMat3<World> = translate(vec3(0.0, 0.0, 15.0))
         .to()
@@ -53,15 +47,17 @@ fn main() {
             .to()
             .then(&vp);
 
-        render(
-            &text.geom.faces,
-            &text.geom.verts,
-            &shader,
-            &mvp,
-            viewport,
-            &mut frame.buf,
-            frame.ctx,
-        );
+        text.color = hsl(secs / 10.0 % 1.0, 0.8, 0.6)
+            .to_rgb()
+            .to_color3();
+
+        text.batch()
+            .uniform(&mvp)
+            .viewport(viewport)
+            .target(&mut frame.buf)
+            .context(frame.ctx)
+            .render();
+
         Continue(())
     });
 }

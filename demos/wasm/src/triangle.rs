@@ -5,13 +5,13 @@ use wasm_bindgen::prelude::*;
 use re::prelude::*;
 
 use re::render::{ModelToView, render, shader::Shader};
-use re::util::Dims;
-use re_front::{dims::SVGA_800_600, wasm::Window};
+use re::util::{Dims, dims};
+use re_front::wasm::Window;
 
 // Entry point from JS
 #[wasm_bindgen(start)]
 pub fn start() {
-    const DIMS: Dims = SVGA_800_600;
+    const DIMS: Dims = dims::SVGA_800_600;
 
     console_error_panic_hook::set_once();
 
@@ -37,7 +37,7 @@ pub fn start() {
 
         let sh = Shader::new(
             |v: Vertex3<Color4f>, _| vertex(mvp.apply(&v.pos), v.attrib),
-            |f: Frag<Color4f>| f.var.to_color4(),
+            |f: Frag<Color4f>, _| f.var.to_color4(),
         );
 
         render([tri(0, 1, 2)], vs, &sh, (), vp, &mut frame.buf, frame.ctx);

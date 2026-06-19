@@ -1,3 +1,4 @@
+use core::marker::PhantomData;
 use core::ops::Range;
 
 use super::Lerp;
@@ -13,6 +14,28 @@ pub trait Parametric<T> {
     /// the unit interval as well.
     #[allow(unused)]
     fn eval(&self, t: f32) -> T;
+
+    fn iter(&self, step: f32) -> Iter<'_, T, Self> {
+        Iter {
+            param: self,
+            t: 0.0,
+            step,
+            end: 1.0,
+            _pd: PhantomData,
+        }
+    }
+
+    fn iter_n(&self, n: u32) -> Iter<'_, T, Self> {
+        self.iter(1.0 / n as f32)
+    }
+}
+
+pub struct Iter<'a, T, P: ?Sized> {
+    pub(crate) param: &'a P,
+    pub(crate) t: f32,
+    pub(crate) step: f32,
+    pub(crate) end: f32,
+    pub(crate) _pd: PhantomData<T>,
 }
 
 impl<F: Fn(f32) -> T, T> Parametric<T> for F {
@@ -42,5 +65,17 @@ impl<T: Lerp> Parametric<T> for Range<T> {
     /// ```
     fn eval(&self, t: f32) -> T {
         self.start.lerp(&self.end, t)
+    }
+}
+
+impl<T, P: Parametric<T>> Iterator for Iter<'_, T, P> {
+    type Item = T;
+    fn next(&mut self) -> Option<Self::Item> {
+        let Self { param, t, step, end, .. } = self;
+        (*t <= *end + 0.5 * *step).then(|| {
+            let res = param.eval(*t);
+            *t += *step;
+            res
+        })
     }
 }

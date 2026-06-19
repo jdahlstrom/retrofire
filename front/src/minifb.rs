@@ -2,6 +2,7 @@
 
 use core::{
     cell::RefCell,
+    fmt::Write,
     mem::replace,
     ops::ControlFlow::{self, *},
 };
@@ -10,11 +11,11 @@ use std::time::Instant;
 use minifb::{Key, WindowOptions};
 
 use retrofire_core::{
-    render::{Colorbuf, Context, Stats, target},
-    util::{Dims, buf::Buf2, buf::MutSlice2, pixfmt::Xrgb8888},
+    render::{Colorbuf, Context, Stats, Text, target},
+    util::{Buf2, Dims, MutSlice2, dims, pixfmt::Xrgb8888},
 };
 
-use super::{Frame, dims};
+use super::{Frame, font_6x10};
 
 /// A lightweight wrapper of a `minibuf` window.
 pub struct Window {
@@ -102,7 +103,7 @@ impl Window {
     /// # Panics
     /// If `fb.len() < self.size.0 * self.size.1`.
     pub fn present(&mut self, fb: &[u32]) {
-        let (w, h) = self.dims;
+        let Dims(w, h) = self.dims;
         self.imp
             .update_with_buffer(fb, w as usize, h as usize)
             .unwrap();
@@ -119,10 +120,12 @@ impl Window {
     where
         F: FnMut(&mut Frame<Window, &RefCell<Framebuf>>) -> ControlFlow<()>,
     {
-        let (w, h) = self.dims;
-        let mut cbuf = Buf2::new((w, h));
-        let mut zbuf = Buf2::new((w, h));
+        let mut cbuf = Buf2::new(self.dims);
+        let mut zbuf = Buf2::new(self.dims);
         let mut ctx = self.ctx.clone();
+
+        let mut fps = Text::new(font_6x10());
+        fps.anchor = (2.0, 2.0).into();
 
         let start = Instant::now();
         let mut last = Instant::now();
@@ -146,11 +149,17 @@ impl Window {
             if let Break(_) = frame_fn(frame) {
                 break;
             }
+
+            fps.clear();
+            _ = write!(fps, "{:>6.1}", frame.dt.as_secs_f32().recip());
+            fps.render(&mut frame.buf);
+
             self.present(cbuf.data_mut());
 
             ctx.stats.borrow_mut().frames += 1.0;
         }
-        let stats = ctx.stats.into_inner();
+        let mut stats = ctx.stats.into_inner();
+        stats.wall_time = start.elapsed();
         println!("{stats}");
         stats
     }

@@ -2,10 +2,7 @@
 
 use crate::geom::Normal3;
 use crate::math::{Point2u, Vec2, Vec3, Vector, pt2, splat, vec2};
-use crate::util::{
-    Dims,
-    buf::{AsSlice2, Buf2, Slice2},
-};
+use crate::util::{AsSlice2, Buf2, Dims, Slice2};
 
 /// Basis of the texture space.
 #[derive(Copy, Clone, Debug, Default, Eq, PartialEq)]
@@ -146,11 +143,16 @@ impl<C> Atlas<C> {
         Self { layout, texture }
     }
 
+    /// Creates a texture atlas with a grid layout.
+    pub fn grid(sub_dims: Dims, texture: Texture<Buf2<C>>) -> Self {
+        Self::new(Layout::Grid { sub_dims }, texture)
+    }
+
     /// Returns the top-left and bottom-right pixel coordinates
     /// of the sub-texture with index `i`.
     fn rect(&self, i: u32) -> [Point2u; 2] {
         match self.layout {
-            Layout::Grid { sub_dims: (sub_w, sub_h) } => {
+            Layout::Grid { sub_dims: Dims(sub_w, sub_h) } => {
                 let subs_per_row = self.texture.data.width() / sub_w;
                 let top_left =
                     pt2(i % subs_per_row * sub_w, i / subs_per_row * sub_h);
@@ -364,14 +366,14 @@ mod tests {
     use alloc::vec;
 
     use crate::math::{Color3, Linear, rgb};
-    use crate::util::buf::Buf2;
+    use crate::util::Buf2;
 
     use super::*;
 
     #[rustfmt::skip]
     fn tex() -> Texture<Buf2<Color3>> {
         Texture::from(Buf2::new_from(
-            (2, 2), vec![
+            Dims(2, 2), vec![
                 rgb(0xFF, 0, 0),
                 rgb(0, 0xFF, 0),
                 rgb(0, 0, 0xFF),

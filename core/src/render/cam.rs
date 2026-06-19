@@ -11,7 +11,7 @@ use crate::math::{
     Mat4, Point3, ProjMat3, SphericalVec, Vary, orthographic, perspective, pt2,
     translate, viewport,
 };
-use crate::util::{Dims, rect::Rect};
+use crate::util::{Dims, Rect};
 
 use super::{Clip, Context, Ndc, Render, Screen, Shader, Target, View, World};
 
@@ -171,20 +171,20 @@ impl<T> Camera<T> {
     /// Sets the viewport bounds of this camera.
     #[must_use]
     pub fn viewport(self, bounds: impl Into<Rect<u32>>) -> Self {
-        let (w, h) = self.dims;
-
         let Rect {
             left: Some(l),
             top: Some(t),
             right: Some(r),
             bottom: Some(b),
-        } = bounds.into().intersect(&(0..w, 0..h).into())
+        } = bounds
+            .into()
+            .intersect(&(0..self.dims.0, 0..self.dims.1).into())
         else {
             unreachable!("bounded ∩ bounded should be bounded")
         };
 
         Self {
-            dims: (r.abs_diff(l), b.abs_diff(t)),
+            dims: Dims(r.abs_diff(l), b.abs_diff(t)),
             viewport: viewport(pt2(l, t)..pt2(r, b)),
             ..self
         }
@@ -215,11 +215,15 @@ impl<T> Camera<T> {
     }
 }
 
+// TODO Should probably pass view and projection matrices separately
+pub type CameraUni<'a, B, Uni> = (&'a ProjMat3<B>, Uni);
+
 impl<T: Transform> Camera<T> {
-    /// Returns the camera matrix.
+    /// Returns the camera (view, eye) matrix.
     pub fn world_to_view(&self) -> Mat4<World, View> {
         self.transform.world_to_view()
     }
+
     /// Returns the inverse camera matrix.
     pub fn view_to_world(&self) -> Mat4<View, World> {
         self.world_to_view().inverse()
@@ -244,15 +248,14 @@ impl<T: Transform> Camera<T> {
     ) where
         Prim: Render<Var> + Clone,
         [<Prim>::Clip]: Clip<Item = Prim::Clip>,
-        Shd: for<'a> Shader<Vtx, Var, (&'a ProjMat3<B>, Uni)>,
+        Shd: for<'a> Shader<Vtx, Var, CameraUni<'a, B, Uni>>,
     {
-        let tf = to_world.then(&self.world_to_project());
-
+        let to_proj = to_world.then(&self.world_to_project());
         super::render(
             prims.as_ref(),
             verts.as_ref(),
             shader,
-            (&tf, uniform),
+            (&to_proj, uniform),
             self.viewport,
             target,
             ctx,

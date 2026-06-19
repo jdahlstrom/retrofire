@@ -220,10 +220,11 @@ impl<Sp, const N: usize> Vector<[f32; N], Sp> {
     /// # Examples
     /// ```
     /// use retrofire_core::math::{degs, vec3, Vec3};
+    /// use retrofire_core::assert_approx_eq;
     ///
     /// let a: Vec3 = vec3(0.0, 1.0, 0.0);
     /// let b: Vec3 = vec3(2.0, 0.0, 3.0);
-    /// assert_eq!(a.angle(&b), degs(90.0));
+    /// assert_approx_eq!(a.angle(&b), degs(90.0));
     /// ```
     #[cfg(feature = "fp")]
     #[inline]
@@ -256,6 +257,19 @@ impl<Sp, const N: usize> Vector<[f32; N], Sp> {
     /// Returns `true` if every component of `self` is finite, `false` otherwise.
     ///
     /// See [`f32::is_finite()`].
+    ///
+    /// # Examples
+    /// ```
+    /// use retrofire_core::math::*;
+    ///
+    /// let finite: Vec2 = vec2(0.0, 2.0);
+    /// let has_inf: Vec3 = vec3(0.0, f32::INFINITY, 2.0);
+    /// let has_nan: Vec3 = vec3(0.0, 1.0, f32::NAN);
+    ///
+    /// assert!(finite.is_finite());
+    /// assert!(!has_inf.is_finite());
+    /// assert!(!has_nan.is_finite());
+    /// ```
     pub fn is_finite(&self) -> bool {
         self.0.iter().all(|c| c.is_finite())
     }
@@ -457,6 +471,14 @@ impl<Sc: Copy, B> Vector<[Sc; 2], Real<2, B>> {
     }
 
     /// Converts `self` to a `Vec3`, with z set to 0.
+    ///
+    /// # Examples
+    /// ```
+    /// use retrofire_core::math::vec::*;
+    ///
+    /// let vector: Vec2 = vec2(1.0, 2.0);
+    /// assert_eq!(vector.to_vec3(), vec3(1.0, 2.0, 0.0));
+    /// ```
     pub fn to_vec3(self) -> Vector<[Sc; 3], Real<3, B>>
     where
         Sc: Linear,
@@ -520,8 +542,10 @@ impl<B> Vec2<B> {
     /// assert!   (v.perp_dot(Vec2::Y) > 0.0, "Y is counter-clockwise from v");
     /// ```
     #[inline]
-    pub fn perp_dot(self, other: Self) -> f32 {
-        self.perp().dot(&other)
+    pub const fn perp_dot(self, other: Self) -> f32 {
+        let perp = self.perp();
+        // Manual dot to allow const
+        perp.x() * other.x() + perp.y() * other.y()
     }
 
     /// Returns the angle between `self` and the positive x-axis.
@@ -650,6 +674,14 @@ impl<Sc: Copy> Vector<[Sc; 4], Proj3> {
     }
 
     /// Projects `self` to the real plane by dividing by `w`.
+    ///
+    /// # Examples
+    /// ```
+    /// use retrofire_core::math::*;
+    ///
+    /// let proj = ProjVec3::new([1.0, 2.0, 3.0, 4.0]);
+    /// assert_eq!(proj.to_real::<()>(), pt3(0.25, 0.5, 0.75));
+    /// ```
     #[inline]
     pub fn to_real<B>(&self) -> Point<[Sc; 3], Real<3, B>>
     where
@@ -793,24 +825,61 @@ impl<Sp, Sc: Copy, const N: usize> From<Sc> for Vector<[Sc; N], Sp> {
 
 // Vector <-> tuple conversions
 impl<Sc, Sp> From<(Sc, Sc)> for Vector<[Sc; 2], Sp> {
+    /// Converts a 2-tuple into a 2-vector.
+    ///
+    /// # Examples
+    /// ```
+    /// use retrofire_core::math::vec::*;
+    ///
+    /// assert_eq!(<Vec2>::from((1.0, 2.0)), vec2(1.0, 2.0));
+    /// ```
     #[inline]
     fn from(xy: (Sc, Sc)) -> Self {
         Self::new(xy.into())
     }
 }
 impl<Sc, Sp> From<Vector<[Sc; 2], Sp>> for (Sc, Sc) {
+    /// Converts a 2-vector into a 2-tuple.
+    ///
+    /// # Examples
+    /// ```
+    /// use retrofire_core::math::vec::*;
+    ///
+    /// let vector: Vec2 = vec2(1.0, 2.0);
+    /// let (x, y) = vector.into();
+    /// assert_eq!((x, y), (1.0, 2.0));
+    /// ```
     #[inline]
     fn from(v: Vector<[Sc; 2], Sp>) -> Self {
         v.0.into()
     }
 }
 impl<Sc, Sp> From<(Sc, Sc, Sc)> for Vector<[Sc; 3], Sp> {
+    /// Converts a 3-tuple into a 3-vector.
+    ///
+    /// # Examples
+    /// ```
+    /// use retrofire_core::math::vec::*;
+    ///
+    /// let vector: Vec3 = (1.0, 2.0, 3.0).into();
+    /// assert_eq!(vector, vec3(1.0, 2.0, 3.0));
+    /// ```
     #[inline]
     fn from(xyz: (Sc, Sc, Sc)) -> Self {
         Self::new(xyz.into())
     }
 }
 impl<Sc, Sp> From<Vector<[Sc; 3], Sp>> for (Sc, Sc, Sc) {
+    /// Converts a 3-vector into a 3-tuple.
+    ///
+    /// # Examples
+    /// ```
+    /// use retrofire_core::math::vec::*;
+    ///
+    /// let vector: Vec3 = vec3(1.0, 2.0, 3.0);
+    /// let (x, y, z) = vector.into();
+    /// assert_eq!((x, y, z), (1.0, 2.0, 3.0));
+    /// ```
     #[inline]
     fn from(v: Vector<[Sc; 3], Sp>) -> Self {
         v.0.into()
@@ -1018,29 +1087,31 @@ mod tests {
     mod f32 {
         use super::*;
 
+        const X: Vec2 = Vec2::X;
+        const Y: Vec2 = Vec2::Y;
+
+        const V2: Vec2 = vec2(1.0, -2.0);
+        const V3: Vec3 = vec3(1.0, -2.0, 3.0);
+        const V4: Vector<[f32; 4], Real<4>> = vec4(1.0, -2.0, 3.0, -4.0);
+
         #[test]
         fn length() {
             assert_approx_eq!(vec2(1.0, 1.0).len(), SQRT_2);
             assert_approx_eq!(vec2(-3.0, 4.0).len(), 5.0);
-            assert_approx_eq!(vec3(1.0, -2.0, 3.0).len(), 14.0f32.sqrt());
+            assert_approx_eq!(V3.len(), 14.0f32.sqrt());
         }
 
         #[test]
         fn length_squared() {
-            assert_eq!(vec2(1.0, 1.0).len_sqr(), 2.0);
-            assert_eq!(vec2(-4.0, 3.0).len_sqr(), 25.0);
-            assert_eq!(vec3(1.0, -2.0, 3.0).len_sqr(), 14.0);
+            assert_eq!(V2.len_sqr(), 5.0);
+            assert_eq!(V3.len_sqr(), 14.0);
         }
 
         #[test]
         fn normalize() {
             assert_approx_eq!(vec2(3.0, 4.0).normalize(), vec2(0.6, 0.8));
 
-            let sqrt_14 = 14.0f32.sqrt();
-            assert_approx_eq!(
-                vec3(1.0, 2.0, 3.0).normalize(),
-                vec3(1.0 / sqrt_14, 2.0 / sqrt_14, 3.0 / sqrt_14)
-            );
+            assert_approx_eq!(V3.normalize(), V3.map(|x| x / 14.0f32.sqrt()));
         }
 
         #[test]
@@ -1069,50 +1140,58 @@ mod tests {
 
         #[test]
         fn vector_addition() {
-            assert_eq!(vec2(1.0, 2.0) + vec2(-2.0, 1.0), vec2(-1.0, 3.0));
-            assert_eq!(
-                vec3(1.0, 2.0, 0.0) + vec3(-2.0, 1.0, -1.0),
-                vec3(-1.0, 3.0, -1.0)
-            );
+            assert_eq!(V2 + vec2(-2.0, 3.0), vec2(-1.0, 1.0));
+            let mut v2 = V2;
+            v2 += vec2(-2.0, 3.0);
+            assert_eq!(v2, vec2(-1.0, 1.0));
+
+            assert_eq!(V3 + vec3(-2.0, 1.0, -1.0), vec3(-1.0, -1.0, 2.0));
+            let mut v3 = V3;
+            v3 += vec3(-2.0, 1.0, -1.0);
+            assert_eq!(v3, vec3(-1.0, -1.0, 2.0));
         }
 
         #[test]
         fn scalar_multiplication() {
-            assert_eq!(vec2(1.0, -2.0) * 0.0, vec2(0.0, 0.0));
-            assert_eq!(vec3(1.0, -2.0, 3.0) * 3.0, vec3(3.0, -6.0, 9.0));
-            assert_eq!(3.0 * vec3(1.0, -2.0, 3.0), vec3(3.0, -6.0, 9.0));
-            assert_eq!(
-                vec4(1.0, -2.0, 0.0, -3.0) * 3.0,
-                vec4(3.0, -6.0, 0.0, -9.0)
-            );
-            assert_eq!(
-                3.0 * vec4(1.0, -2.0, 0.0, -3.0),
-                vec4(3.0, -6.0, 0.0, -9.0)
-            );
+            assert_eq!(V2 * 0.0, vec2(0.0, 0.0));
+            assert_eq!(V2 * 2.0, vec2(2.0, -4.0));
+            assert_eq!(-2.0 * V2, vec2(-2.0, 4.0));
+
+            assert_eq!(V3 * 3.0, vec3(3.0, -6.0, 9.0));
+            assert_eq!(-3.0 * V3, vec3(-3.0, 6.0, -9.0));
+
+            assert_eq!(V4 * 2.0, vec4(2.0, -4.0, 6.0, -8.0));
+            assert_eq!(-2.0 * V4, vec4(-2.0, 4.0, -6.0, 8.0));
         }
 
         #[test]
         fn scalar_division() {
-            assert_eq!(vec2(1.0, -2.0) / 1.0, vec2(1.0, -2.0));
-            assert_eq!(vec3(3.0, -6.0, 9.0) / 3.0, vec3(1.0, -2.0, 3.0));
-            assert_eq!(
-                vec4(3.0, -6.0, 0.0, -9.0) / 3.0,
-                vec4(1.0, -2.0, 0.0, -3.0)
-            );
+            assert_eq!(V2 / 1.0, V2);
+            assert_eq!(V2 / -2.0, vec2(-0.5, 1.0));
+
+            assert_eq!(V3 / 0.5, vec3(2.0, -4.0, 6.0));
+
+            let v4 = vec4(3.0, -6.0, 0.0, -9.0);
+            assert_eq!(v4 / 3.0, vec4(1.0, -2.0, 0.0, -3.0));
         }
 
         #[test]
         fn dot_product() {
-            assert_eq!(vec2(1.0, -2.0).dot(&vec2(2.0, 3.0)), -4.0);
-            assert_eq!(vec3(1.0, -2.0, 3.0).dot(&vec3(2.0, 3.0, -1.0)), -7.0);
+            assert_eq!(V2.dot(&V2), 5.0);
+            assert_eq!(V2.dot(&V2.perp()), 0.0);
+            assert_eq!(V2.dot(&vec2(2.0, 3.0)), -4.0);
+
+            assert_eq!(V3.dot(&V3), 14.0);
+            assert_eq!(V3.dot(&-V3), -14.0);
+            assert_eq!(V3.dot(&vec3(2.0, 3.0, -1.0)), -7.0);
         }
 
         #[test]
         fn zero_parallel_to_anything() {
             // Zero vector is parallel with anything
             assert!(vec2(0.0, 0.0).is_parallel_to(&vec2(0.0, 0.0)));
-            assert!(vec2(0.0, 0.0).is_parallel_to(&vec2(1.0, 2.0)));
-            assert!(vec2(0.0, 0.0).is_parallel_to(&vec2(-1.0, 2.0)));
+            assert!(vec2(0.0, 0.0).is_parallel_to(&V2));
+            assert!(vec2(0.0, 0.0).is_parallel_to(&-V2));
         }
 
         #[test]
@@ -1126,11 +1205,11 @@ mod tests {
 
         #[test]
         fn a_b_parallel_to_ka_kb() {
-            // (2, -1) is parallel with any (2·k, -1·k)
-            assert!(vec2(2.0, -1.0).is_parallel_to(&vec2(0.0, 0.0)));
-            assert!(vec2(2.0, -1.0).is_parallel_to(&vec2(2.0, -1.0)));
-            assert!(vec2(2.0, -1.0).is_parallel_to(&vec2(-4.0, 2.0)));
-            assert!(vec2(2.0, -1.0).is_parallel_to(&vec2(1.0, -0.5)));
+            // (1, -2) is parallel with any (k, -2·k)
+            assert!(V2.is_parallel_to(&vec2(0.0, 0.0)));
+            assert!(V2.is_parallel_to(&vec2(-1.0, 2.0)));
+            assert!(V2.is_parallel_to(&vec2(2.0, -4.0)));
+            assert!(V2.is_parallel_to(&vec2(-0.125, 0.25)));
         }
 
         #[test]
@@ -1145,41 +1224,41 @@ mod tests {
 
         #[test]
         fn indexing() {
-            let mut v = vec2(1.0, 2.0);
-            assert_eq!(v[1], 2.0);
+            let mut v = V2;
+            assert_eq!(v[1], -2.0);
             v[0] = 3.0;
-            assert_eq!(v.0, [3.0, 2.0]);
+            assert_eq!(v.0, [3.0, -2.0]);
 
-            let mut v = vec3(1.0, 2.0, 3.0);
-            assert_eq!(v[1], 2.0);
+            let mut v = V3;
+            assert_eq!(v[1], -2.0);
             v[2] = 4.0;
-            assert_eq!(v.0, [1.0, 2.0, 4.0]);
+            assert_eq!(v.0, [1.0, -2.0, 4.0]);
+
+            let mut v = V4;
+            assert_eq!(v[2], 3.0);
+            v[3] = 5.0;
+            assert_eq!(v.0, [1.0, -2.0, 3.0, 5.0]);
         }
 
         #[test]
         fn from_array() {
-            assert_eq!(Vec2::from([1.0, -2.0]), vec2(1.0, -2.0));
-            assert_eq!(Vec3::from([1.0, -2.0, 4.0]), vec3(1.0, -2.0, 4.0));
-            assert_eq!(
-                Vector::from([1.0, -2.0, 4.0, -3.0]),
-                vec4(1.0, -2.0, 4.0, -3.0)
-            );
+            assert_eq!(Vec2::from([1.0, -2.0]), V2);
+            assert_eq!(Vec3::from([1.0, -2.0, 3.0]), V3);
+            assert_eq!(Vector::from([1.0, -2.0, 3.0, -4.0]), V4);
         }
 
         #[test]
         fn perp() {
-            assert_eq!(Vec2::<()>::zero().perp(), Vec2::zero());
-            assert_eq!(Vec2::<()>::X.perp(), Vec2::Y);
-            assert_eq!(vec2(-0.2, -1.5).perp(), vec2(1.5, -0.2));
+            assert_eq!(<Vec2>::zero().perp(), Vec2::zero());
+            assert_eq!(X.perp(), Y);
+            assert_eq!(V2.perp(), vec2(2.0, 1.0));
         }
 
         #[test]
         fn perp_dot() {
-            const X: Vec2 = Vec2::X;
-            const Y: Vec2 = Vec2::Y;
-
             assert_eq!(X.perp_dot(X), 0.0);
             assert_eq!(X.perp_dot(Y), 1.0);
+            assert_eq!(X.perp_dot(-Y), -1.0);
             assert_eq!((2.0 * Y).perp_dot(3.0 * X), -6.0);
         }
     }
@@ -1187,53 +1266,80 @@ mod tests {
     mod i32 {
         use super::*;
 
+        const V2: Vec2i = vec2(1, -2);
+        const V3: Vec3i = vec3(1, -2, 3);
+
         #[test]
         fn vector_addition() {
-            assert_eq!(vec2(1, 2) + vec2(-2, 1), vec2(-1, 3));
-            assert_eq!(vec3(1, 2, 0) + vec3(-2, 1, -1), vec3(-1, 3, -1));
+            assert_eq!(V2 + vec2(-2, 1), vec2(-1, -1));
+
+            let mut v2 = V2;
+            v2 += vec2(2, -3);
+            assert_eq!(v2, vec2(3, -5));
+
+            assert_eq!(V3 + vec3(-2, 1, -1), vec3(-1, -1, 2));
+
+            let mut v3 = V3;
+            v3 += vec3(2, 3, -4);
+            assert_eq!(v3, vec3(3, 1, -1));
         }
 
         #[test]
         fn vector_subtraction() {
-            assert_eq!(vec2(1, 2) - vec2(-2, 3), vec2(3, -1));
-            assert_eq!(vec3(1, 2, 0) - vec3(-2, 1, 2), vec3(3, 1, -2));
+            assert_eq!(V2 - vec2(2, -3), vec2(-1, 1));
+
+            let mut v2 = V2;
+            v2 -= vec2(2, -3);
+            assert_eq!(v2, vec2(-1, 1));
+
+            assert_eq!(V3 - vec3(-2, 1, 2), vec3(3, -3, 1));
+
+            let mut v3 = V3;
+            v3 -= vec3(2, 3, -1);
+            assert_eq!(v3, vec3(-1, -5, 4));
         }
 
         #[test]
         #[allow(clippy::erasing_op)]
         fn scalar_multiplication() {
-            assert_eq!(vec2(1, -2) * 0, vec2(0, 0));
+            assert_eq!(V2 * 0, vec2(0, 0));
+            assert_eq!(V2 * 2, vec2(2, -4));
+            assert_eq!(-2 * V2, vec2(-2, 4));
 
-            assert_eq!(vec3(1, -2, 3) * 3, vec3(3, -6, 9));
-            assert_eq!(3 * vec3(1, -2, 3), vec3(3, -6, 9));
+            let mut v2 = V2;
+            v2 *= 3;
+            assert_eq!(v2, vec2(3, -6));
+
+            assert_eq!(V3 * 3, vec3(3, -6, 9));
+            assert_eq!(-3 * V3, vec3(-3, 6, -9));
 
             assert_eq!(vec4(1, -2, 0, -3) * 3, vec4(3, -6, 0, -9));
-            assert_eq!(3 * vec4(1, -2, 0, -3), vec4(3, -6, 0, -9));
+            assert_eq!(-3 * vec4(1, -2, 0, -3), vec4(-3, 6, 0, 9));
         }
 
         #[test]
         fn dot_product() {
-            assert_eq!(vec2(1, -2).dot(&vec2(2, 3)), -4);
-            assert_eq!(vec3(1, -2, 3).dot(&vec3(2, 3, -1)), -7);
+            assert_eq!(V2.dot(&vec2(2, -3)), 8);
+            assert_eq!(V3.dot(&vec3(2, 3, -1)), -7);
         }
 
         #[test]
         fn indexing() {
-            let mut v = vec2(1, 2);
-            assert_eq!(v[1], 2);
+            let mut v = V2;
+            assert_eq!(v[1], -2);
             v[0] = 3;
-            assert_eq!(v.0, [3, 2]);
+            assert_eq!(v.0, [3, -2]);
 
-            let mut v = vec3(1, 2, 3);
-            assert_eq!(v[1], 2);
+            let mut v = V3;
+            assert_eq!(v[1], -2);
             v[2] = 4;
-            assert_eq!(v.0, [1, 2, 4]);
+            assert_eq!(v.0, [1, -2, 4]);
         }
 
         #[test]
         fn from_array() {
-            assert_eq!(Vec2i::from([1, -2]), vec2(1, -2));
-            assert_eq!(Vec3i::from([1, -2, 3]), vec3(1, -2, 3));
+            assert_eq!(Vec2i::from([1, -2]), V2);
+            assert_eq!(Vec3i::from([1, -2, 3]), V3);
         }
     }
 

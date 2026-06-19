@@ -26,12 +26,9 @@ use std::{
 
 use crate::math::{Color3, color::gray};
 
-use super::{Dims, buf::Buf2};
 #[cfg(feature = "std")]
-use super::{
-    buf::AsSlice2,
-    pixfmt::{IntoPixel, Rgb888},
-};
+use super::{AsSlice2, IntoPixel, pixfmt::Rgb888};
+use super::{Buf2, Dims};
 
 use Error::*;
 use Format::*;
@@ -264,18 +261,19 @@ impl Header {
             it.next().ok_or(UnexpectedEnd)?,
         ];
         let format = magic.try_into()?;
-        let dims = (parse_u16(&mut it)?.into(), parse_u16(&mut it)?.into());
+        let w = parse_u16(&mut it)?.into();
+        let h = parse_u16(&mut it)?.into();
         let max: u16 = match &format {
             TextBitmap | BinaryBitmap => 1,
             _ => parse_u16(&mut it)?,
         };
-        Ok(Self { format, dims, max })
+        Ok(Self { format, dims: Dims(w, h), max })
     }
     /// Writes `self` to `dest` as a valid PNM header,
     /// including a trailing newline.
     #[cfg(feature = "std")]
     fn write(&self, mut dest: impl io::Write) -> io::Result<()> {
-        let Self { format, dims: (w, h), max } = *self;
+        let Self { format, dims: Dims(w, h), max } = *self;
         let max: &dyn Display = match format {
             TextBitmap | BinaryBitmap => &"",
             _ => &max,
@@ -399,7 +397,7 @@ mod tests {
             Header::parse(*b"P6 123\t \n\r321      255 "),
             Ok(Header {
                 format: BinaryPixmap,
-                dims: (123, 321),
+                dims: Dims(123, 321),
                 max: 255,
             })
         );
@@ -411,7 +409,7 @@ mod tests {
             Header::parse(*b"P6 # foo 42\n 123\n#bar\n#baz\n321 255 "),
             Ok(Header {
                 format: BinaryPixmap,
-                dims: (123, 321),
+                dims: Dims(123, 321),
                 max: 255,
             })
         );
@@ -423,7 +421,7 @@ mod tests {
             Header::parse(*b"P2 123 456 789"),
             Ok(Header {
                 format: TextGraymap,
-                dims: (123, 456),
+                dims: Dims(123, 456),
                 max: 789,
             })
         );
@@ -435,7 +433,7 @@ mod tests {
             Header::parse(*b"P3 123 456 789"),
             Ok(Header {
                 format: TextPixmap,
-                dims: (123, 456),
+                dims: Dims(123, 456),
                 max: 789,
             })
         );
@@ -447,7 +445,7 @@ mod tests {
             Header::parse(*b"P4 123 456 "),
             Ok(Header {
                 format: BinaryBitmap,
-                dims: (123, 456),
+                dims: Dims(123, 456),
                 max: 1,
             })
         );
@@ -459,7 +457,7 @@ mod tests {
             Header::parse(*b"P5 123 456 789 "),
             Ok(Header {
                 format: BinaryGraymap,
-                dims: (123, 456),
+                dims: Dims(123, 456),
                 max: 789,
             })
         );
@@ -471,7 +469,7 @@ mod tests {
             Header::parse(*b"P6 123 456 789 "),
             Ok(Header {
                 format: BinaryPixmap,
-                dims: (123, 456),
+                dims: Dims(123, 456),
                 max: 789,
             })
         );
@@ -508,7 +506,7 @@ mod tests {
         let mut out = Vec::new();
         let hdr = Header {
             format: TextBitmap,
-            dims: (123, 456),
+            dims: Dims(123, 456),
             max: 1,
         };
         hdr.write(&mut out).unwrap();
@@ -521,7 +519,7 @@ mod tests {
         let mut out = Vec::new();
         let hdr = Header {
             format: BinaryPixmap,
-            dims: (123, 456),
+            dims: Dims(123, 456),
             max: 789,
         };
         hdr.write(&mut out).unwrap();
@@ -549,7 +547,7 @@ mod tests {
 
         let buf = parse_pnm(data).unwrap();
 
-        assert_eq!(buf.dims(), (2, 2));
+        assert_eq!(buf.dims(), Dims(2, 2));
 
         assert_eq!(buf[[0, 0]], rgb(0, 0, 0));
         assert_eq!(buf[[1, 0]], rgb(123, 0, 42));
@@ -562,7 +560,7 @@ mod tests {
         // 0x69 == 0b0110_1001
         let buf = parse_pnm(*b"P4 4 2\n\x69").unwrap();
 
-        assert_eq!(buf.dims(), (4, 2));
+        assert_eq!(buf.dims(), Dims(4, 2));
 
         let b = rgb(0u8, 0, 0);
         let w = rgb(0xFFu8, 0xFF, 0xFF);
@@ -575,7 +573,7 @@ mod tests {
     fn read_pnm_p5() {
         let buf = parse_pnm(*b"P5 2 2 255\n\x01\x23\x45\x67").unwrap();
 
-        assert_eq!(buf.dims(), (2, 2));
+        assert_eq!(buf.dims(), Dims(2, 2));
 
         assert_eq!(buf[0usize], [rgb(0x01, 0x01, 0x01), rgb(0x23, 0x23, 0x23)]);
         assert_eq!(buf[1usize], [rgb(0x45, 0x45, 0x45), rgb(0x67, 0x67, 0x67)]);
@@ -592,7 +590,7 @@ mod tests {
         )
         .unwrap();
 
-        assert_eq!(buf.dims(), (2, 2));
+        assert_eq!(buf.dims(), Dims(2, 2));
 
         assert_eq!(buf[0usize], [rgb(0x01, 0x12, 0x23), rgb(0x34, 0x45, 0x56)]);
         assert_eq!(buf[1usize], [rgb(0x67, 0x78, 0x89), rgb(0x9A, 0xAB, 0xBC)]);
@@ -610,7 +608,7 @@ mod tests {
         ];
 
         let mut out = vec![];
-        super::write_ppm(&mut out, Buf2::new_from((2, 2), buf)).unwrap();
+        super::write_ppm(&mut out, Buf2::new_from(Dims(2, 2), buf)).unwrap();
 
         assert_eq!(
             &out,

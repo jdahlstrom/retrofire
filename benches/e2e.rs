@@ -2,14 +2,15 @@
 
 use divan::Bencher;
 
-use retrofire_core::geom::{Normal3, Vertex3, tri, vertex};
-use retrofire_core::math::{
-    Color3f, Color4, Color4f, ProjMat3, perspective, pt2, pt3, rgb, rgba,
-    translate, viewport,
+use retrofire_core::{
+    geom::{Normal3, Vertex3, tri, vertex},
+    math::{
+        Color3f, Color4, Color4f, ProjMat3, perspective, pt2, pt3, rgb, rgba,
+        translate, viewport,
+    },
+    render::{Context, Frag, Model, debug::dir_to_rgb, render, shader},
+    util::{Buf2, Dims, dims, pnm},
 };
-use retrofire_core::render::debug::dir_to_rgb;
-use retrofire_core::render::{Context, Frag, Model, render, shader};
-use retrofire_core::util::{buf::Buf2, pnm};
 use retrofire_geom::solids::{Build, Sphere};
 
 #[cfg(false)]
@@ -28,10 +29,10 @@ fn triangle(b: Bencher, n: u32) {
         |v: Vertex3<Color3f>, mvp: &ProjMat3<Model>| {
             vertex(mvp.apply(&v.pos), v.attrib)
         },
-        |frag: Frag<Color3f<_>>| frag.var.to_color4(),
+        |frag: Frag<Color3f<_>>, _: &_| frag.var.to_color4(),
     );
 
-    let dims @ (w, h) = (640, 480);
+    let dims @ Dims(w, h) = dims::VGA_640_480;
     let modelview = translate((0.0, 0.0, 2.0)).to();
     let project = perspective(1.0, w as f32 / h as f32, 0.1..1000.0);
     let viewport = viewport(pt2(0, h)..pt2(w, 0));
@@ -72,10 +73,10 @@ fn sphere(b: Bencher, res: u32) {
         |v: Vertex3<Normal3>, mvp: &ProjMat3<Model>| {
             vertex(mvp.apply(&v.pos), dir_to_rgb(v.attrib))
         },
-        |frag: Frag<Color4f>| frag.var.to_color4(),
+        |frag: Frag<Color4f>, _: &_| frag.var.to_color4(),
     );
 
-    let dims @ (w, h) = (640, 480);
+    let dims @ Dims(w, h) = dims::VGA_640_480;
     let modelview = translate((0.0, 0.0, 2.0)).to();
     let project = perspective(1.0, w as f32 / h as f32, 0.1..1000.0);
     let viewport = viewport(pt2(0, h)..pt2(w, 0));

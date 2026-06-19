@@ -2,21 +2,43 @@ use core::fmt;
 #[cfg(feature = "std")]
 use std::io;
 
-use crate::geom::{Mesh, tri, vertex};
-use crate::math::{Color3, Point2, Vec2, pt2, vec2, vec3};
-use crate::util::buf::Buf2;
+use crate::geom::{Mesh, Tri, Vertex3, tri, vertex};
+use crate::math::{
+    Color3, Color4, Point2, ProjMat3, Vec2, color::gray, orthographic, pt2,
+    pt3, vec2, vec3, viewport,
+};
+use crate::util::{Buf2, Dims};
 
-use super::tex::{Atlas, Layout, SamplerClamp, TexCoord};
+use super::tex::*;
+use super::{BBox, Context, Frag, Model, Shader, Target, shader};
 
 /// Text represented as texture-mapped geometry, one quad per glyph.
 #[derive(Clone)]
 pub struct Text {
     pub font: Atlas<Color3>,
     pub geom: Mesh<TexCoord>,
-    // TODO Private until fixed
-    _anchor: Vec2,
-    cursor: Point2,
+    pub color: Color3,
+    pub anchor: Point2,
+    pub align: Align,
+    cursor: Point2<Model>,
 }
+
+#[derive(Copy, Clone, Debug, Default, Eq, PartialEq)]
+pub enum Align {
+    #[default]
+    TopLeft,
+    TopCenter,
+    TopRight,
+    CenterLeft,
+    Center,
+    CenterRight,
+    BottomLeft,
+    BottomCenter,
+    BottomRight,
+}
+
+pub type Batch<Shd> =
+    super::Batch<Tri<usize>, Vertex3<TexCoord>, (), Shd, (), Context>;
 
 //
 // Inherent impls
@@ -28,23 +50,16 @@ impl Text {
         Self {
             font,
             geom: Mesh::default(),
-            _anchor: Vec2::default(),
+            color: gray(0xFF),
+            anchor: Point2::default(),
+            align: Align::default(),
             cursor: Point2::default(),
         }
     }
 
     /// Sets the anchor point of the text.
-    ///
-    /// The anchor is a vector that determines how the text is aligned relative
-    /// to the (local) origin. The default is (0, 0) which places the origin to
-    /// the top left corner. Use (0.5, 0.5) to center the text vertically and
-    /// horizontally relative to the origin.
-    ///
-    /// Note that this value does not affect how individual lines of text
-    /// are aligned relative to each other.
-    // TODO private until fixed
-    fn _anchor(mut self, x: f32, y: f32) -> Self {
-        self._anchor = vec2(x, y);
+    pub fn anchor(mut self, pt: impl Into<Point2>) -> Self {
+        self.anchor = pt.into();
         self
     }
 
@@ -55,17 +70,76 @@ impl Text {
         self.geom.verts.clear();
     }
 
-    /// Samples the font at `uv`.
-    pub fn sample(&self, uv: TexCoord) -> Color3 {
-        // TODO Figure out why coords go out of bounds -> SamplerOnce panics
-        SamplerClamp.sample(&self.font.texture, uv)
+    /// Returns a shader for rendering text.
+    pub fn shader(
+        &self,
+    ) -> impl Shader<Vertex3<TexCoord>, TexCoord, &ProjMat3<Model>> {
+        shader::new(
+            |v: Vertex3<_>, tf: &ProjMat3<_>| {
+                vertex(tf.apply(&v.pos.to()), v.attrib)
+            },
+            |frag: Frag<TexCoord>, _| self.sample(frag.var),
+        )
+    }
+
+    /// Renders this text to a render target in 2D.
+    ///
+    /// For more customizable rendering, see the [`batch`][Self::batch] function.
+    pub fn render(&self, target: &mut impl Target) {
+        let BBox(_lt, rb) = BBox::of(&self.geom);
+        let [r, b, _] = rb.0;
+
+        use Align::*;
+        let off = match self.align {
+            TopLeft => (0.0, 0.0),
+            TopCenter => (0.5, 0.0),
+            TopRight => (1.0, 0.0),
+            CenterLeft => (0.0, 0.5),
+            Center => (0.5, 0.5),
+            CenterRight => (1.0, 0.5),
+            BottomLeft => (0.0, 1.0),
+            BottomCenter => (0.5, 1.0),
+            BottomRight => (1.0, 1.0),
+        };
+        let pos = self.anchor - Vec2::from(off) * vec2(r, b);
+
+        let proj: ProjMat3<Model> =
+            orthographic(pt3(0.0, 0.0, -1.0), pt3(self.cursor.x(), b, 1.0))
+                .to();
+        let pos = pt2(pos.x() as _, pos.y() as _);
+        let wh = vec2(r as _, b as _);
+        let viewport = viewport(pos..pos + wh);
+
+        self.batch()
+            .uniform(&proj)
+            .viewport(viewport)
+            .target(target)
+            .render();
+    }
+
+    /// Returns a `Batch` with the geometry and shader set to render this text.
+    ///
+    /// Useful for customized text rendering.
+    pub fn batch(
+        &self,
+    ) -> Batch<impl Shader<Vertex3<TexCoord>, TexCoord, &ProjMat3<Model>>> {
+        super::Batch::new()
+            .mesh(&self.geom)
+            .shader(self.shader())
+    }
+
+    /// Samples the font at a texture coordinate.
+    #[inline]
+    fn sample(&self, uv: TexCoord) -> Option<Color4> {
+        let col = SamplerClamp.sample(&self.font.texture, uv);
+        (col != gray(0)).then_some(self.color.to_rgba())
     }
 
     fn write_char(&mut self, idx: u32) {
         let Self { font, geom, cursor, .. } = self;
 
-        let Layout::Grid { sub_dims: (gw, gh) } = font.layout;
-        let (glyph_w, glyph_h) = (gw as f32, gh as f32);
+        let Layout::Grid { sub_dims } = font.layout;
+        let (glyph_w, glyph_h) = (sub_dims.0 as f32, sub_dims.1 as f32);
 
         let [tl, tr, bl, br] = font.coords(idx);
         // TODO doesn't work when the text is written in several pieces,
@@ -174,11 +248,11 @@ where
         num_cols = num_cols.max(row.len() as u32);
     }
     if num_rows == 0 || num_cols == 0 {
-        return Buf2::new((0, 0));
+        return Buf2::new(Dims(0, 0));
     }
 
-    let Layout::Grid { sub_dims: (gw, gh) } = font.layout;
-    let mut buf = Buf2::new((num_cols * gw, num_rows * gh));
+    let Layout::Grid { sub_dims: Dims(gw, gh) } = font.layout;
+    let mut buf = Buf2::new(Dims(num_cols * gw, num_rows * gh));
 
     let (mut x, mut y) = (0, 0);
     for row in rows {

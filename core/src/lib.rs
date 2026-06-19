@@ -67,6 +67,6 @@ pub mod prelude {
         },
         math::re_exports::*,
         render::re_exports::*,
-        util::buf::{AsMutSlice2, AsSlice2, Buf2, MutSlice2, Slice2},
+        util::re_exports::*,
     };
 }

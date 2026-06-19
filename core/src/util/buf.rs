@@ -20,7 +20,7 @@ use inner::Inner;
 /// A trait for types that can provide a view of their data as a [`Slice2`].
 pub trait AsSlice2 {
     type Elem;
-    /// Returns a borrowed `Slice2` view of `Self`.
+    /// Returns a borrowed `Slice2` view of `self`.
     fn as_slice2(&self) -> Slice2<'_, Self::Elem>;
 }
 
@@ -28,7 +28,7 @@ pub trait AsSlice2 {
 /// as a [`MutSlice2`].
 pub trait AsMutSlice2 {
     type Elem;
-    /// Returns a mutably borrowed `MutSlice2` view of `Self`.
+    /// Returns a mutably borrowed `MutSlice2` view of `self`.
     fn as_mut_slice2(&mut self) -> MutSlice2<'_, Self::Elem>;
 }
 
@@ -47,14 +47,18 @@ pub trait AsMutSlice2 {
 ///
 /// # Examples
 /// ```
-/// # use retrofire_core::util::buf::Buf2;
+/// # use retrofire_core::util::{Dims, Buf2};
 /// # use retrofire_core::math::point::pt2;
+///
 /// // Elements initialized with `Default::default()`
-/// let mut buf = Buf2::new((4, 4));
+/// let mut buf = Buf2::new(Dims(4, 4));
+///
 /// // Indexing with a 2D point (x, y) yields element at row y, column x:
 /// buf[pt2(2, 1)] = 123;
-/// // Indexing with an usize i yields row with index i as a slice:
+///
+/// // Indexing with a usize i yields row with index i as a slice:
 /// assert_eq!(buf[1], [0, 0, 123, 0]);
+///
 /// // Thus you can also do this, row first, column second:
 /// assert_eq!(buf[1][2], 123)
 /// ```
@@ -65,7 +69,7 @@ pub struct Buf2<T>(Inner<T, Vec<T>>);
 /// An immutable rectangular view to a region of a [`Buf2`], another `Slice2`,
 /// or in general any `&[T]` slice of memory. A two-dimensional analog to `&[T]`.
 ///
-/// A `Slice2` may be non-contiguous:
+/// The backing data of a `Slice2` may be non-contiguous:
 /// ```text
 /// +------stride-----+
 /// |    ____w____    |
@@ -74,6 +78,9 @@ pub struct Buf2<T>(Inner<T, Vec<T>>);
 /// |   |r2_______|   |
 /// +-----------------+
 /// ```
+/// Internally, `Slice2` borrows a contiguous slice of the backing buffer,
+/// but disallows access to any elements not within its 2D extents.
+///
 /// TODO More documentation
 #[derive(Copy, Clone, Eq, PartialEq)]
 #[repr(transparent)]
@@ -89,28 +96,29 @@ pub struct MutSlice2<'a, T>(Inner<T, &'a mut [T]>);
 //
 
 impl<T> Buf2<T> {
-    /// Returns a buffer of size `w` × `h`, with elements initialized
+    /// Returns a buffer of the given dimensions, with elements initialized
     /// with values yielded by `init`.
     ///
     /// The elements are initialized in row-major order. Does not allocate
-    /// or consume items from `init` if `w` = 0 or `h` = 0.
+    /// or consume items from `init` if either the width or the height is zero.
     ///
     /// # Examples
     /// ```
-    /// use retrofire_core::util::buf::Buf2;
+    /// use retrofire_core::util::{Dims, Buf2};
     ///
-    /// let buf = Buf2::new_from((3, 3), 1..);
+    /// let buf = Buf2::new_from(Dims(4, 3), 1..);
     ///
-    /// assert_eq!(buf.dims(), (3, 3));
-    /// assert_eq!(buf.data(), [1, 2, 3,
-    ///                         4, 5, 6,
-    ///                         7, 8, 9]);
+    /// assert_eq!(buf.width(), 4);
+    /// assert_eq!(buf.height(), 3);
+    /// assert_eq!(buf.data(), [1,  2,  3,  4,
+    ///                         5,  6,  7,  8,
+    ///                         9, 10, 11, 12]);
     /// ```
     ///
     /// # Panics
-    /// * If `w * h > isize::MAX`, or
-    /// * if `init` has fewer than `w * h` elements.
-    pub fn new_from<I>((w, h): Dims, init: I) -> Self
+    /// * If width × height > `isize::MAX`., or
+    /// * if `init` has fewer than width × height elements.
+    pub fn new_from<I>(Dims(w, h): Dims, init: I) -> Self
     where
         I: IntoIterator<Item = T>,
     {
@@ -130,69 +138,71 @@ impl<T> Buf2<T> {
             "insufficient items in iterator ({} < {len}",
             data.len()
         );
-        Self(Inner::new((w, h), w, data))
+        Self(Inner::new(Dims(w, h), w, data))
     }
 
-    /// Returns a buffer of size `w` × `h`, with every element initialized to
-    /// `T::default()`.
+    /// Returns a buffer of the given dimensions, with every element initialized
+    /// to `T::default()`.
     ///
-    /// Does not allocate if `w` = 0 or `h` = 0.
+    /// Does not allocate if either the width or the height is zero.
     ///
     /// # Examples
     /// ```
-    /// use retrofire_core::util::buf::Buf2;
+    /// use retrofire_core::util::{Dims, Buf2};
     ///
-    /// let buf: Buf2<i32> = Buf2::new((3, 3));
+    /// let buf: Buf2<i32> = Buf2::new(Dims(4, 3));
     ///
-    /// assert_eq!(buf.dims(), (3, 3));
-    /// assert_eq!(buf.data(), [0, 0, 0,
-    ///                         0, 0, 0,
-    ///                         0, 0, 0]);
+    /// assert_eq!(buf.width(), 4);
+    /// assert_eq!(buf.height(), 3);
+    /// assert_eq!(buf.data(), [0, 0, 0, 0,
+    ///                         0, 0, 0, 0,
+    ///                         0, 0, 0, 0]);
     /// ```
     ///
     /// # Panics
-    /// If `w * h > isize::MAX`.
+    /// If width × height > `isize::MAX`.
     #[inline]
-    pub fn new((w, h): Dims) -> Self
+    pub fn new(dims: Dims) -> Self
     where
         T: Default + Clone,
     {
-        let data = vec![T::default(); (w * h) as usize];
-        Self(Inner::new((w, h), w, data))
+        let data = vec![T::default(); dims.count()];
+        Self(Inner::new(dims, dims.0, data))
     }
 
-    /// Returns a buffer of size `w` × `h`, initialized by repeatedly calling
-    /// the given function.
+    /// Returns a buffer of the given dimensions, initialized by repeatedly
+    /// calling the given function.
     ///
     /// For each element, `init_fn(x, y)` is invoked, where `x` is the column
     /// index and `y` the row index of the element being initialized. The
     /// elements are initialized in row-major order.
     ///
-    /// Does not allocate or call `init_fn` if `w` = 0 or `h` = 0.
+    /// Does not allocate or call `init_fn` if either the width or the height is zero.
+    ///
+    /// # Panics
+    /// If width × height > `isize::MAX`.
     ///
     /// # Examples
     /// ```
-    /// use retrofire_core::util::buf::Buf2;
+    /// use retrofire_core::util::{Dims, Buf2};
     ///
-    /// let buf = Buf2::new_with((3, 3), |x, y| 10 * y + x);
-    /// assert_eq!(buf.data(), [ 0,  1, 2,
-    ///                         10, 11, 12,
-    ///                         20, 21, 22]);
+    /// let buf = Buf2::new_with(Dims(4, 3), |x, y| 10 * y + x);
+    ///
+    /// assert_eq!(buf.data(), [ 0,  1,  2,  3,
+    ///                         10, 11, 12, 13,
+    ///                         20, 21, 22, 23]);
     /// ```
-    ///
-    /// # Panics
-    /// If `w * h > isize::MAX`.
-    pub fn new_with<F>((w, h): Dims, mut init_fn: F) -> Self
+    pub fn new_with<F>(dims: Dims, mut init_fn: F) -> Self
     where
         F: FnMut(u32, u32) -> T,
     {
         let (mut x, mut y) = (0, 0);
         Self::new_from(
-            (w, h),
+            dims,
             iter::from_fn(|| {
                 let res = init_fn(x, y);
                 x += 1;
-                if x == w {
+                if x == dims.0 {
                     (x, y) = (0, y + 1);
                 }
                 Some(res)
@@ -203,20 +213,39 @@ impl<T> Buf2<T> {
     /// Returns a view of the backing data of `self`.
     #[inline]
     pub fn data(&self) -> &[T] {
-        self.0.data()
+        &self.0.data
     }
 
     /// Returns a mutable view of the backing data of `self`.
     #[inline]
     pub fn data_mut(&mut self) -> &mut [T] {
-        self.0.data_mut()
+        &mut self.0.data
     }
 
-    /// Reinterprets `self` as a buffer of different dimensions but same area.
+    /// Reinterprets `self` as a buffer of different dimensions but the same area.
+    ///
+    /// Does not reallocate or move data.
     ///
     /// # Panics
-    /// If `nw` * `nh` != `cw` * `ch` for the new dimensions (`nw`, `nh`)
+    /// If `nw` × `nh` ≠ `cw` × `ch` for the new dimensions (`nw`, `nh`)
     /// and current dimensions (`cw`, `ch`).
+    ///
+    /// # Examples
+    /// ```
+    /// use retrofire_core::util::{Dims, Buf2};
+    ///
+    /// let mut buf = Buf2::new_from(Dims(3, 2), [1, 2, 3, 4, 5, 6]);
+    ///
+    /// buf.reshape(Dims(2, 3));
+    ///
+    /// assert_eq!(buf.stride(), 2);
+    /// assert_eq!(buf.width(), 2);
+    /// assert_eq!(buf.height(), 3);
+    ///
+    /// assert_eq!(buf[0], [1, 2]);
+    /// assert_eq!(buf[1], [3, 4]);
+    /// assert_eq!(buf[2], [5, 6]);
+    /// ```
     pub fn reshape(&mut self, dims: Dims) {
         self.0.reshape(dims);
     }
@@ -228,9 +257,11 @@ impl<'a, T> Slice2<'a, T> {
     ///
     /// # Examples
     /// ```
-    /// # use retrofire_core::util::buf::Slice2;
+    /// use retrofire_core::util::{Dims, Slice2};
+    ///
     /// let data = &[0, 1, 2, 3, 4, 5, 6];
-    /// let slice = Slice2::new((2, 2), 3, data);
+    /// let slice = Slice2::new(Dims(2, 2), 3, data);
+    ///
     /// assert_eq!(&slice[0], &[0, 1]);
     /// assert_eq!(&slice[1], &[3, 4]);
     /// ```
@@ -374,6 +405,30 @@ impl<T> DerefMut for MutSlice2<'_, T> {
     }
 }
 
+impl<T: Clone, const N: usize> From<&[[T; N]]> for Buf2<T> {
+    /// Creates a `Buf2` from a slice of arrays.
+    ///
+    /// # Examples
+    /// ```
+    /// use retrofire_core::util::Buf2;
+    ///
+    /// let buf = Buf2::from([[1, 2, 3], [4, 5, 6]].as_slice());
+    ///
+    /// assert_eq!(buf.stride(), 3);
+    /// assert_eq!(buf.width(), 3);
+    /// assert_eq!(buf.height(), 2);
+    ///
+    /// assert_eq!(buf[0], [1, 2, 3]);
+    /// assert_eq!(buf[1], [4, 5, 6]);
+    /// ```
+    fn from(slice: &[[T; N]]) -> Self {
+        Self::new_from(
+            Dims(N as u32, slice.len() as u32),
+            slice.as_flattened().iter().cloned(),
+        )
+    }
+}
+
 pub mod inner {
     use core::{
         fmt::Formatter,
@@ -396,7 +451,7 @@ pub mod inner {
     pub struct Inner<T, D> {
         dims: Dims,
         stride: u32,
-        data: D,
+        pub(super) data: D,
         _pd: PhantomData<T>,
     }
 
@@ -429,7 +484,7 @@ pub mod inner {
         /// height is 1, or if it is empty.
         #[inline]
         pub fn is_contiguous(&self) -> bool {
-            let (w, h) = self.dims;
+            let Dims(w, h) = self.dims;
             self.stride == w || h <= 1 || w == 0
         }
         /// Returns whether `self` contains no elements.
@@ -459,14 +514,13 @@ pub mod inner {
         /// or `None` if x or y is out of bounds.
         #[inline]
         fn to_index_checked(&self, x: u32, y: u32) -> Option<usize> {
-            let (w, h) = self.dims;
-            (x < w && y < h).then(|| self.to_index(x, y))
+            (x < self.dims.0 && y < self.dims.1).then(|| self.to_index(x, y))
         }
 
         /// Returns the dimensions and linear range corresponding to the rect.
         #[inline(never)]
         fn resolve_bounds(&self, rect: &Rect<u32>) -> (Dims, Range<usize>) {
-            let (w, h) = self.dims;
+            let Dims(w, h) = self.dims;
 
             let l = rect.left.unwrap_or(0);
             let t = rect.top.unwrap_or(0);
@@ -491,7 +545,7 @@ pub mod inner {
                 // b != 0 because b >= t && b != t
                 self.to_index(r, b - 1)
             };
-            ((r - l, b - t), start..end)
+            (Dims(r - l, b - t), start..end)
         }
 
         /// A helper for implementing `Debug`.
@@ -509,7 +563,11 @@ pub mod inner {
 
         pub(super) fn reshape(&mut self, dims: Dims) {
             assert!(self.is_contiguous());
-            assert_eq!(dims.0 * dims.1, self.dims.0 * self.dims.1);
+            assert_eq!(
+                dims.0 as u64 * dims.1 as u64,
+                self.dims.0 as u64 * self.dims.1 as u64
+            );
+            self.stride = dims.0;
             self.dims = dims;
         }
     }
@@ -517,7 +575,7 @@ pub mod inner {
     #[cold]
     #[track_caller]
     #[inline(never)]
-    fn out_of_bounds((w, h): Dims, x: u32, y: u32) -> ! {
+    fn out_of_bounds(Dims(w, h): Dims, x: u32, y: u32) -> ! {
         panic!("position (x={x}, y={y}) out of bounds (0..{w}, 0..{h})",)
     }
 
@@ -529,12 +587,6 @@ pub mod inner {
         pub(super) fn new(dims: Dims, stride: u32, data: D) -> Self {
             check_preconditions(dims, stride, data.len());
             Self { dims, stride, data, _pd: PhantomData }
-        }
-
-        /// Returns the data of `self` as a linear slice.
-        #[inline]
-        pub(super) fn data(&self) -> &[T] {
-            &self.data
         }
 
         /// Borrows `self` as a `Slice2`.
@@ -580,7 +632,7 @@ pub mod inner {
         }
     }
 
-    fn check_preconditions((w, h): Dims, stride: u32, len: usize) {
+    fn check_preconditions(Dims(w, h): Dims, stride: u32, len: usize) {
         assert!(w <= stride, "width ({w}) > stride ({stride})");
         assert!(
             h <= 1 || stride as usize <= len,
@@ -603,12 +655,6 @@ pub mod inner {
             #[rustfmt::skip]
             let Self { dims, stride, ref mut data, _pd, } = *self;
             MutSlice2(Inner { dims, stride, data, _pd })
-        }
-
-        /// Returns the data of `self` as a single mutable slice.
-        #[inline]
-        pub(super) fn data_mut(&mut self) -> &mut [T] {
-            &mut self.data
         }
 
         /// Returns an iterator over the rows of this buffer as `&mut [T]`.
@@ -776,25 +822,25 @@ mod tests {
 
     #[test]
     fn buf_new_from() {
-        let buf = Buf2::new_from((3, 2), 1..);
+        let buf = Buf2::new_from(Dims(3, 2), 1..);
         assert_eq!(buf.data(), &[1, 2, 3, 4, 5, 6]);
     }
 
     #[test]
     fn buf_new() {
-        let buf: Buf2<i32> = Buf2::new((3, 2));
+        let buf: Buf2<i32> = Buf2::new(Dims(3, 2));
         assert_eq!(buf.data(), &[0, 0, 0, 0, 0, 0]);
     }
 
     #[test]
     fn buf_new_with() {
-        let buf = Buf2::new_with((3, 2), |x, y| x + y);
+        let buf = Buf2::new_with(Dims(3, 2), |x, y| x + y);
         assert_eq!(buf.data(), &[0, 1, 2, 1, 2, 3]);
     }
 
     #[test]
     fn buf_extents() {
-        let buf: Buf2<()> = Buf2::new((4, 5));
+        let buf: Buf2<()> = Buf2::new(Dims(4, 5));
         assert_eq!(buf.width(), 4);
         assert_eq!(buf.height(), 5);
         assert_eq!(buf.stride(), 4);
@@ -802,7 +848,7 @@ mod tests {
 
     #[test]
     fn buf_index_and_get() {
-        let buf = Buf2::new_with((4, 5), |x, y| x * 10 + y);
+        let buf = Buf2::new_with(Dims(4, 5), |x, y| x * 10 + y);
 
         assert_eq!(buf[2usize], [2, 12, 22, 32]);
 
@@ -817,7 +863,7 @@ mod tests {
 
     #[test]
     fn buf_index_mut_and_get_mut() {
-        let mut buf = Buf2::new_with((4, 5), |x, y| x * 10 + y);
+        let mut buf = Buf2::new_with(Dims(4, 5), |x, y| x * 10 + y);
 
         buf[2usize][1] = 123;
         assert_eq!(buf[2usize], [2, 123, 22, 32]);
@@ -834,27 +880,27 @@ mod tests {
     #[test]
     #[should_panic = "position (x=4, y=0) out of bounds (0..4, 0..5)"]
     fn buf_index_x_out_of_bounds_should_panic() {
-        let buf = Buf2::new((4, 5));
+        let buf = Buf2::new(Dims(4, 5));
         let _: i32 = buf[[4, 0]];
     }
 
     #[test]
     #[should_panic = "position (x=0, y=4) out of bounds (0..5, 0..4)"]
     fn buf_index_y_out_of_bounds_should_panic() {
-        let buf = Buf2::new((5, 4));
+        let buf = Buf2::new(Dims(5, 4));
         let _: i32 = buf[[0, 4]];
     }
 
     #[test]
     #[should_panic = "position (x=0, y=5) out of bounds (0..4, 0..5)"]
     fn buf_index_row_out_of_bounds_should_panic() {
-        let buf = Buf2::new((4, 5));
+        let buf = Buf2::new(Dims(4, 5));
         let _: &[i32] = &buf[5usize];
     }
 
     #[test]
     fn buf_slice_range_full() {
-        let buf: Buf2<()> = Buf2::new((4, 5));
+        let buf: Buf2<()> = Buf2::new(Dims(4, 5));
 
         let slice = buf.slice(..);
         assert_eq!(slice.width(), 4);
@@ -869,7 +915,7 @@ mod tests {
 
     #[test]
     fn buf_slice_range_inclusive() {
-        let buf: Buf2<()> = Buf2::new((4, 5));
+        let buf: Buf2<()> = Buf2::new(Dims(4, 5));
         let slice = buf.slice((1..=3, 0..=3));
         assert_eq!(slice.width(), 3);
         assert_eq!(slice.height(), 4);
@@ -878,7 +924,7 @@ mod tests {
 
     #[test]
     fn buf_slice_range_to() {
-        let buf: Buf2<()> = Buf2::new((4, 5));
+        let buf: Buf2<()> = Buf2::new(Dims(4, 5));
 
         let slice = buf.slice((..2, ..4));
         assert_eq!(slice.width(), 2);
@@ -888,7 +934,7 @@ mod tests {
 
     #[test]
     fn buf_slice_range_from() {
-        let buf: Buf2<()> = Buf2::new((4, 5));
+        let buf: Buf2<()> = Buf2::new(Dims(4, 5));
 
         let slice = buf.slice((3.., 2..));
         assert_eq!(slice.width(), 1);
@@ -898,7 +944,7 @@ mod tests {
 
     #[test]
     fn buf_slice_empty_range() {
-        let buf: Buf2<()> = Buf2::new((4, 5));
+        let buf: Buf2<()> = Buf2::new(Dims(4, 5));
 
         let empty = buf.slice(pt2(1, 1)..pt2(1, 3));
         assert_eq!(empty.width(), 0);
@@ -914,43 +960,43 @@ mod tests {
     #[test]
     #[should_panic = "range right (5) > width (4)"]
     fn buf_slice_x_out_of_bounds_should_panic() {
-        let buf: Buf2<()> = Buf2::new((4, 5));
+        let buf: Buf2<()> = Buf2::new(Dims(4, 5));
         buf.slice((0..5, 1..3));
     }
 
     #[test]
     #[should_panic = "range bottom (6) > height (5)"]
     fn buf_slice_y_out_of_bounds_should_panic() {
-        let buf: Buf2<()> = Buf2::new((4, 5));
+        let buf: Buf2<()> = Buf2::new(Dims(4, 5));
         buf.slice((1..3, 0..6));
     }
 
     #[test]
     #[should_panic = "width (4) > stride (3)"]
     fn slice_stride_less_than_width_should_panic() {
-        let _ = Slice2::new((4, 4), 3, &[0; 16]);
+        let _ = Slice2::new(Dims(4, 4), 3, &[0; 16]);
     }
 
     #[test]
     #[should_panic = "required size (19) > data length (16)"]
     fn slice_larger_than_data_should_panic() {
-        let _ = Slice2::new((4, 4), 5, &[0; 16]);
+        let _ = Slice2::new(Dims(4, 4), 5, &[0; 16]);
     }
 
     #[test]
     fn slice_extents() {
-        let buf: Buf2<()> = Buf2::new((10, 10));
+        let buf: Buf2<()> = Buf2::new(Dims(10, 10));
 
         let slice = buf.slice((1..4, 2..8));
         assert_eq!(slice.width(), 3);
         assert_eq!(slice.height(), 6);
         assert_eq!(slice.stride(), 10);
-        assert_eq!(slice.data().len(), 5 * 10 + 3);
+        assert_eq!(slice.data.len(), 5 * 10 + 3);
     }
 
     #[test]
     fn slice_contiguity() {
-        let buf: Buf2<()> = Buf2::new((10, 10));
+        let buf: Buf2<()> = Buf2::new(Dims(10, 10));
         // Buf2 is always contiguous
         assert!(buf.is_contiguous());
 
@@ -972,7 +1018,7 @@ mod tests {
     #[test]
     #[rustfmt::skip]
     fn slice_fill() {
-        let mut buf = Buf2::new((5, 4));
+        let mut buf = Buf2::new(Dims(5, 4));
         let mut slice = buf.slice_mut((2.., 1..3));
 
         slice.fill(1);
@@ -989,7 +1035,7 @@ mod tests {
     #[test]
     #[rustfmt::skip]
     fn slice_fill_with() {
-        let mut buf = Buf2::new((5, 4));
+        let mut buf = Buf2::new(Dims(5, 4));
         let mut slice = buf.slice_mut((2.., 1..3));
 
         slice.fill_with(|x, y| x + y);
@@ -1006,8 +1052,8 @@ mod tests {
     #[test]
     #[rustfmt::skip]
     fn slice_copy_from() {
-        let mut dest = Buf2::new((5, 4));
-        let src = Buf2::new_with((3, 3), |x, y| x + y);
+        let mut dest = Buf2::new(Dims(5, 4));
+        let src = Buf2::new_with(Dims(3, 3), |x, y| x + y);
 
         dest.slice_mut((1..4, 1..)).copy_from(src);
 
@@ -1022,7 +1068,7 @@ mod tests {
 
     #[test]
     fn slice_index() {
-        let buf = Buf2::new_with((5, 4), |x, y| x * 10 + y);
+        let buf = Buf2::new_with(Dims(5, 4), |x, y| x * 10 + y);
         let slice = buf.slice((2.., 1..3));
 
         assert_eq!(slice[[0, 0]], 21);
@@ -1035,7 +1081,7 @@ mod tests {
 
     #[test]
     fn slice_index_mut() {
-        let mut buf = Buf2::new_with((5, 5), |x, y| x * 10 + y);
+        let mut buf = Buf2::new_with(Dims(5, 5), |x, y| x * 10 + y);
         let mut slice = buf.slice_mut((2.., 1..3));
 
         slice[[2, 1]] = 123;
@@ -1051,7 +1097,7 @@ mod tests {
 
     #[test]
     fn slice_rows() {
-        let buf = Buf2::new_with((5, 4), |x, y| x * 10 + y);
+        let buf = Buf2::new_with(Dims(5, 4), |x, y| x * 10 + y);
         let slice = buf.slice((2..4, 1..));
 
         let mut rows = slice.rows();
@@ -1063,7 +1109,7 @@ mod tests {
 
     #[test]
     fn slice_rows_mut() {
-        let mut buf = Buf2::new_with((5, 4), |x, y| x * 10 + y);
+        let mut buf = Buf2::new_with(Dims(5, 4), |x, y| x * 10 + y);
         let mut slice = buf.slice_mut((2..4, 1..));
 
         let mut rows = slice.rows_mut();
@@ -1078,7 +1124,7 @@ mod tests {
         fn foo<T: AsSlice2<Elem = u32>>(buf: T) -> u32 {
             buf.as_slice2().width()
         }
-        let buf = Buf2::new((2, 2));
+        let buf = Buf2::new(Dims(2, 2));
         let w = foo(&buf);
         assert_eq!(w, buf.width());
     }
@@ -1088,7 +1134,7 @@ mod tests {
         fn foo<T: AsMutSlice2<Elem = u32>>(mut buf: T) {
             buf.as_mut_slice2()[[1, 1]] = 42;
         }
-        let mut buf = Buf2::new((2, 2));
+        let mut buf = Buf2::new(Dims(2, 2));
         foo(&mut buf);
         assert_eq!(buf[[1, 1]], 42);
     }

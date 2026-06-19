@@ -1,5 +1,5 @@
 //! Frontend using the `sdl2` crate for window creation and event handling.
-use core::{cell::RefCell, fmt, mem::replace, ops::ControlFlow};
+use core::{cell::RefCell, fmt, fmt::Write, mem::replace, ops::ControlFlow};
 use std::time::Instant;
 
 use sdl2::{
@@ -12,14 +12,13 @@ use sdl2::{
 };
 
 use retrofire_core::math::Color4;
-use retrofire_core::render::{Colorbuf, Context, Stats, target};
+use retrofire_core::render::{Colorbuf, Context, Stats, Text, target};
 use retrofire_core::util::{
-    Dims,
-    buf::{AsMutSlice2, Buf2, MutSlice2},
-    pixfmt::{IntoPixel, Rgb565, Rgba4444, Rgba8888},
+    AsMutSlice2, Buf2, Dims, IntoPixel, MutSlice2, dims,
+    pixfmt::{Rgb565, Rgba4444, Rgba8888},
 };
 
-use super::{Frame, dims};
+use super::{Frame, font_6x10};
 
 /// Helper trait to support different pixel format types.
 pub trait PixelFmt: Copy + Default {
@@ -134,10 +133,8 @@ impl<'t, PF: PixelFmt> Builder<'t, PF> {
     }
 
     fn create_window(&self, sdl: &Sdl) -> Result<SdlWindow, Error> {
-        let Self {
-            dims: (w, h), title, fs, hidpi, ..
-        } = *self;
-        let mut win = sdl.video()?.window(title, w, h);
+        let Self { dims, title, fs, hidpi, .. } = *self;
+        let mut win = sdl.video()?.window(title, dims.0, dims.1);
         if hidpi {
             win.allow_highdpi();
         }
@@ -190,7 +187,8 @@ impl<PF: PixelFmt<Pixel = [u8; N]>, const N: usize> Window<PF> {
         ) -> ControlFlow<()>,
         Color4: IntoPixel<PF::Pixel, PF>,
     {
-        let dims @ (w, h) = self.canvas.window().drawable_size();
+        let (w, h) = self.canvas.window().drawable_size();
+        let dims = Dims(w, h);
 
         let tc = self.canvas.texture_creator();
         let mut tex = tc.create_texture_streaming(PF::SDL_FMT, w, h)?;
@@ -198,8 +196,11 @@ impl<PF: PixelFmt<Pixel = [u8; N]>, const N: usize> Window<PF> {
         let mut zbuf = Buf2::new(dims);
         let mut ctx = self.ctx.clone();
 
+        let mut fps = Text::new(font_6x10());
+        fps.anchor = (2.0, 2.0).into();
+
         let start = Instant::now();
-        let mut last = Instant::now();
+        let mut last = start;
         'main: loop {
             self.events.clear();
             for e in self.ev_pump.poll_iter() {
@@ -232,7 +233,13 @@ impl<PF: PixelFmt<Pixel = [u8; N]>, const N: usize> Window<PF> {
                 };
 
                 frame.clear();
-                frame_fn(frame)
+                let cf = frame_fn(frame);
+
+                fps.clear();
+                _ = write!(fps, "{:>6.1}", frame.dt.as_secs_f32().recip());
+                fps.render(&mut frame.buf);
+
+                cf
             })?;
 
             self.present(&tex)?;
@@ -242,7 +249,8 @@ impl<PF: PixelFmt<Pixel = [u8; N]>, const N: usize> Window<PF> {
                 break;
             }
         }
-        let stats = ctx.stats.into_inner();
+        let mut stats = ctx.stats.into_inner();
+        stats.wall_time = start.elapsed();
         println!("{stats}");
         Ok(stats)
     }

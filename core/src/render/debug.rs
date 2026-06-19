@@ -15,7 +15,7 @@ use crate::math::{Vary, polar, turns, vec3};
 
 use super::{Context, Frag, FragmentShader, VertexShader, scene::BBox};
 
-#[derive(Default)]
+#[derive(Copy, Clone, Default)]
 pub struct Shader;
 
 impl<'a, B> VertexShader<Vertex3<Color4f, B>, &'a ProjMat3<B>> for Shader {
@@ -30,8 +30,12 @@ impl<'a, B> VertexShader<Vertex3<Color4f, B>, &'a ProjMat3<B>> for Shader {
     }
 }
 
-impl FragmentShader<Color4f> for Shader {
-    fn shade_fragment(&self, f: Frag<Color4f>) -> Option<Color4> {
+impl<'a, B> FragmentShader<Color4f, &'a ProjMat3<B>> for Shader {
+    fn shade_fragment(
+        &self,
+        f: Frag<Color4f>,
+        _: &'a ProjMat3<B>,
+    ) -> Option<Color4> {
         Some(f.var.to_color4())
     }
 }

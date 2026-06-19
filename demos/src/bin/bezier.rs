@@ -7,11 +7,12 @@ use re::core::{
     math::rand::{Distrib, Uniform, VectorsOnUnitDisk, Xorshift64},
     math::spline::approximate,
     render::raster::line,
+    util::dims,
 };
-use re::front::{Frame, dims, minifb::Window};
+use re::front::{Frame, minifb::Window};
 
 fn main() {
-    let dims @ (w, h) = dims::SVGA_800_600;
+    let dims @ Dims(w, h) = dims::SVGA_800_600;
 
     let mut win = Window::builder()
         .title("retrofire//bezier")

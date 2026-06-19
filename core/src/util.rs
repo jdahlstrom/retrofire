@@ -1,8 +1,17 @@
 //! Various utility types and functions.
 
-pub mod buf;
+mod buf;
+pub mod dims;
 pub mod pixfmt;
 pub mod pnm;
-pub mod rect;
+mod rect;
 
-pub type Dims = (u32, u32);
+pub(super) mod re_exports {
+    pub use super::{
+        buf::{AsMutSlice2, AsSlice2, Buf2, MutSlice2, Slice2},
+        dims::Dims,
+        pixfmt::IntoPixel,
+        rect::Rect,
+    };
+}
+pub use re_exports::*;

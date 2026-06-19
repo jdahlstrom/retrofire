@@ -104,3 +104,7 @@ harness = false
 [[bench]]
 name = "vec"
 harness = false
+
+[[bench]]
+name = "noise"
+harness = false
