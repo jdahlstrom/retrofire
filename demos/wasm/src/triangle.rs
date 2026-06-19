@@ -24,7 +24,7 @@ pub fn start() {
         vertex(pt3(2.0, 2.0, 0.0), rgba(0.2, 0.9, 0.1, 0.8)),
     ];
 
-    let proj = perspective(1.0, 4.0 / 3.0, 0.1..1000.0);
+    let proj = perspective(1.0, DIMS.aspect(), 0.1..1000.0);
     let vp = viewport(pt2(8, 8)..pt2(DIMS.0 - 8, DIMS.1 - 8));
 
     win.run(move |mut frame| {

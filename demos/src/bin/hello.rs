@@ -31,28 +31,30 @@ fn main() {
 
     win.ctx.face_cull = None;
 
-    let vp: ProjMat3<World> = translate(vec3(0.0, 0.0, 15.0))
+    let dims = win.dims;
+    let world_to_project: ProjMat3<World> = translate(vec3(0.0, 0.0, 15.0))
         .to()
-        .then(&perspective(1.0, 4.0 / 3.0, 0.1..1000.0));
+        .then(&perspective(1.0, dims.aspect(), 0.1..1000.0));
 
-    let viewport = viewport(pt2(10, 10)..pt2(790, 590));
+    let viewport = viewport(pt2(10, 10)..pt2(dims.0 - 10, dims.1 - 10));
 
     win.run(|frame: &mut Frame<_, _>| {
         let secs = frame.t.as_secs_f32();
 
-        let mvp = scale(0.1)
+        let model_to_world = scale(0.1)
             .then(&translate((-10.0, -5.0, 5.0 * secs.sin())))
             .then(&rotate_y(rads(secs * 0.59)))
             .then(&rotate_z(rads((secs * 1.13).sin())))
-            .to()
-            .then(&vp);
+            .to();
+
+        let model_to_project = model_to_world.then(&world_to_project);
 
         text.color = hsl(secs / 10.0 % 1.0, 0.8, 0.6)
             .to_rgb()
             .to_color3();
 
         text.batch()
-            .uniform(&mvp)
+            .uniform(&model_to_project)
             .viewport(viewport)
             .target(&mut frame.buf)
             .context(frame.ctx)
