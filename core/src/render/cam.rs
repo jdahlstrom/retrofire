@@ -149,7 +149,7 @@ impl Camera<()> {
     pub fn new(dims: Dims) -> Self {
         Self {
             dims,
-            viewport: viewport(pt2(0, 0)..pt2(dims.0, dims.1)),
+            viewport: viewport(dims.into()),
             ..Self::default()
         }
     }
@@ -201,8 +201,7 @@ impl<T> Camera<T> {
     /// * If `near_far` is an empty range.
     #[must_use]
     pub fn perspective(mut self, fov: Fov, near_far: Range<f32>) -> Self {
-        let aspect = self.dims.0 as f32 / self.dims.1 as f32;
-
+        let aspect = self.dims.aspect();
         self.project = perspective(fov.focal_ratio(aspect), aspect, near_far);
         self
     }
