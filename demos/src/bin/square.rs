@@ -39,9 +39,9 @@ fn main() {
         |frag: Frag<_>, _: &_| SamplerClamp.sample(&checker, frag.var),
     );
 
-    let Dims(w, h) = win.dims;
-    let projection = perspective(1.0, w as f32 / h as f32, 0.1..1000.0);
-    let viewport = viewport(pt2(10, 10)..pt2(w - 10, h - 10));
+    let dims = win.dims;
+    let projection = perspective(1.0, dims.aspect(), 0.1..1000.0);
+    let viewport = viewport(pt2(10, 10)..pt2(dims.0 - 10, dims.1 - 10));
 
     win.run(|frame| {
         let time = frame.t.as_secs_f32();

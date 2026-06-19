@@ -29,12 +29,12 @@ fn textured_quad() {
         |frag: Frag<_>, _| SamplerClamp.sample(&checker, frag.var),
     );
 
-    let (w, h) = (256, 256);
-    let project = perspective(1.0, 1.0, 0.1..1000.0);
-    let viewport = viewport(pt2(0, 0)..pt2(w, h));
+    let dims = Dims(256, 256);
+    let project = perspective(1.0, dims.aspect(), 0.1..1000.0);
+    let viewport = viewport(dims.into());
     let mvp = translate((0.0, 0.0, 1.0)).to().then(&project);
 
-    let mut framebuf = Buf2::<Color3>::new(Dims(w, h));
+    let mut framebuf = Buf2::<Color3>::new(dims);
     let mut ctx = Context::default();
 
     render(FACES, VERTS, &shader, &mvp, viewport, &mut framebuf, &ctx);

@@ -3,6 +3,13 @@
 
 #![allow(non_upper_case_globals)]
 
+use core::ops::Range;
+
+use crate::math::{Point2u, pt2};
+use crate::util::Rect;
+
+/// A width, height tuple for representing 2D buffer or window dimensions,
+/// screen resolutions, and similar.
 #[derive(Copy, Clone, Debug, Default, Eq, PartialEq)]
 pub struct Dims(pub u32, pub u32);
 
@@ -52,9 +59,32 @@ pub const UWFHD_2560_1080: Dims = Dims(2560, 1080);
 pub const UWQHD_3440_1440: Dims = Dims(3440, 1440);
 
 impl Dims {
+    /// Returns the number of elements in a buffer of this size.
     pub fn count(&self) -> usize {
         (self.0 as u64 * self.1 as u64)
             .try_into()
             .expect("count should fit in usize")
+    }
+
+    /// Returns the width-to-height aspect ratio of `self`.
+    pub fn aspect(&self) -> f32 {
+        self.0 as f32 / self.1 as f32
+    }
+}
+
+impl From<Dims> for Rect {
+    fn from(Dims(w, h): Dims) -> Self {
+        Rect {
+            left: Some(0),
+            top: Some(0),
+            right: Some(w),
+            bottom: Some(h),
+        }
+    }
+}
+
+impl<B> From<Dims> for Range<Point2u<B>> {
+    fn from(Dims(w, h): Dims) -> Self {
+        pt2(0, 0)..pt2(w, h)
     }
 }
