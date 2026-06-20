@@ -4,7 +4,6 @@ use minifb::{Key, KeyRepeat};
 
 use re::prelude::*;
 
-use re::core::geom::Polygon;
 use re::core::{
     geom::{Polyline, Ray},
     math::{ProjMat3, ProjVec3, color::gray, spline::HermiteSpline},
@@ -56,7 +55,6 @@ fn main() {
         .expect("should create window");
 
     win.ctx.color_clear = Some(gray(0x33).to_rgba());
-    win.ctx.face_cull = None;
 
     let Dims(w, h) = win.dims;
     let cam = Camera::new(win.dims)
@@ -87,7 +85,7 @@ fn main() {
 
     let objects = objects_n(8);
 
-    let translate = translate(-5.0 * Vec3::Z);
+    let translate = translate(-3.0 * Vec3::Z);
     let mut carousel = Carousel::default();
 
     win.run(|frame| {
@@ -128,7 +126,7 @@ fn main() {
 
 // Creates the 14 objects exhibited.
 #[rustfmt::skip]
-fn objects_n(res: u32) -> [Mesh<Normal3>; 15] {
+fn objects_n(res: u32) -> [Mesh<Normal3>; 14] {
     let segments = res;
     let sectors = 2 * res;
 
@@ -137,24 +135,7 @@ fn objects_n(res: u32) -> [Mesh<Normal3>; 15] {
 
     let major_sectors = 3 * res;
     let minor_sectors = 2 * res;
-
-    let max = 2 * 360;
-    let prism = Prism {
-        capped: true,
-        points: Polygon::new((0..max).step_by(1).map(|a| {
-            let r = if a > max/2 { 0.5 } else { 0.6 };
-            let a = if a > max/2 { max - a } else { a };
-
-            let r = r + a as f32 * 0.001;
-
-            polar(r, degs(a as f32)).to_cart().to_pt()
-
-        }))
-    }.build();
-
     [
-        prism,
-
         // The five Platonic solids
         Tetrahedron.build(),
         Cube { side_len: 1.25 }.build(),
