@@ -5,11 +5,11 @@ extern crate core;
 #[cfg(feature = "std")]
 extern crate std;
 
-use alloc::vec::Vec;
+use alloc::{vec, vec::Vec};
 use core::fmt::Debug;
-use std::collections::{BTreeMap, BTreeSet, HashSet};
-use std::time::Instant;
-use std::{eprint, eprintln};
+
+use std::mem::take;
+use std::{eprintln, time::Instant};
 
 pub mod io;
 pub mod isect;
@@ -36,43 +36,25 @@ pub fn triangulate<B: Debug + Default>(
 
     let verts: Vec<_> = pts
         .iter()
-        .map(|p| vertex(pt3(p.x(), 0.0, p.y()), ()))
+        .map(|p| pt3(p.x(), 0.0, p.y()).into())
         .collect();
+
     let mut faces = Vec::with_capacity(verts.len() - 2);
 
     let mut ixs: Vec<_> = (0..pts.len()).collect();
 
-    // indices refer to verts, not to ixs!
-    //let mut non_ears = BTreeSet::<[usize; 3]>::new();
-
+    // Tri given in indices to ixs, not to verts!
     let mut is_ear = |tri: Tri<usize>, ixs: &Vec<_>| {
-        // if non_ears.contains(&tri.0) {
-        //     return false;
-        // }
-
-        let tri_vi = tri.map(|i| ixs[i]);
-        let tri_v = tri_vi
-            .map(|i| verts[i])
-            .map(|v: Vertex3<_, _>| vertex(v.pos.xz(), ()));
+        let tri_v = tri.map(|i| pts[ixs[i]]).map(Vertex::from);
 
         if tri_v.winding() != winding {
             // AB-BC is a concave pair of edges, the diagonal AC outside
             // the polygon -> cannot be an ear
-            // non_ears.insert(tri_vi.0);
             return false;
         }
 
-        for i in 0..tri.0[0] {
-            //count += 1;
+        for i in (0..tri.0[0]).chain(tri.0[2] + 1..ixs.len()) {
             if tri_v.contains(pts[ixs[i]]) {
-                // non_ears.insert(tri_vi.0);
-                return false;
-            }
-        }
-        for i in tri.0[2] + 1..ixs.len() {
-            //count += 1;
-            if tri_v.contains(pts[ixs[i]]) {
-                // non_ears.insert(tri_vi.0);
                 return false;
             }
         }
@@ -101,18 +83,14 @@ pub fn triangulate<B: Debug + Default>(
         let j = (n + 1) % il;
         let k = (n + 2) % il;
 
-        n += 1;
-
-        let ai = ixs[i];
-        let bi = ixs[j];
-        let ci = ixs[k];
-
         if is_ear(tri(i, j, k), &ixs) {
             // Valid ear -> clip it
             ixs.remove(j);
-            faces.push(tri(ai, bi, ci));
+            faces.push(tri(ixs[i], ixs[j], ixs[k]));
             //eprint!("!");
         }
+
+        n += 1;
     }
 
     eprintln!(

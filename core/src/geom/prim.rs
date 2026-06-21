@@ -938,6 +938,12 @@ impl<B> Debug for Line2<B> {
         f.write_str(")")
     }
 }
+//
+// impl<P> From<P> for Vertex<P, ()> {
+//     fn from(pos: P) -> Self {
+//         Self { pos, attrib: () }
+//     }
+// }
 
 impl<B> From<Ray<Point2<B>>> for Line2<B> {
     /// Returns the line coincident with the given ray.
