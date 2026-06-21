@@ -10,7 +10,6 @@ use super::{
     Affine, ApproxEq, Linear, Vector,
     space::{Hom, Real},
     vary::ZDiv,
-    vec2,
 };
 
 #[repr(transparent)]

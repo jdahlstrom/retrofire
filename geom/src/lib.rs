@@ -5,11 +5,11 @@ extern crate core;
 #[cfg(feature = "std")]
 extern crate std;
 
-use alloc::{vec, vec::Vec};
+use alloc::vec::Vec;
 use core::fmt::Debug;
 
-use std::mem::take;
-use std::{eprintln, time::Instant};
+use std::collections::HashMap;
+use std::{eprintln, print, time::Instant};
 
 pub mod io;
 pub mod isect;
@@ -17,8 +17,8 @@ pub mod solids;
 
 pub use isect::Intersect;
 
-use retrofire_core::geom::{Mesh, Polygon, Tri, Vertex, Vertex3, tri, vertex};
-use retrofire_core::math::{Point2, pt2, pt3};
+use retrofire_core::geom::{Mesh, Polygon, Tri, tri, vertex};
+use retrofire_core::math::{Point2, pt3};
 
 /// Converts the given polygon into a list of triangles.
 ///
@@ -26,6 +26,14 @@ use retrofire_core::math::{Point2, pt2, pt3};
 pub fn triangulate<B: Debug + Default>(
     poly: &Polygon<Point2<B>>,
 ) -> Mesh<(), B> {
+    #[derive(Copy, Clone, Debug, Eq, PartialEq)]
+    enum Kind {
+        Concave,
+        Contains,
+        Ear,
+        Clipped,
+    }
+
     let start = Instant::now();
 
     let pts = poly.0.clone();
@@ -36,67 +44,102 @@ pub fn triangulate<B: Debug + Default>(
 
     let verts: Vec<_> = pts
         .iter()
-        .map(|p| pt3(p.x(), 0.0, p.y()).into())
+        .map(|p| vertex(pt3(p.x(), 0.0, p.y()), ()))
         .collect();
 
     let mut faces = Vec::with_capacity(verts.len() - 2);
 
     let mut ixs: Vec<_> = (0..pts.len()).collect();
 
-    // Tri given in indices to ixs, not to verts!
-    let mut is_ear = |tri: Tri<usize>, ixs: &Vec<_>| {
-        let tri_v = tri.map(|i| pts[ixs[i]]).map(Vertex::from);
+    let next = |i: usize| if i + 1 < pts.len() { i + 1 } else { 0 };
+    let _prev = |i: usize| if i > 0 { i - 1 } else { pts.len() };
 
-        if tri_v.winding() != winding {
-            // AB-BC is a concave pair of edges, the diagonal AC outside
-            // the polygon -> cannot be an ear
-            return false;
+    let mut kinds = HashMap::<[usize; 3], Kind>::new();
+
+    let mut pt_checks = 0;
+    let mut kind_calls = 0;
+    let mut cache_hits = 0;
+    let mut kind = |ijk: [usize; 3]| {
+        kind_calls += 1;
+
+        if let Some(&kind) = kinds.get(&ijk) {
+            cache_hits += 1;
+            return kind;
         }
 
-        for i in (0..tri.0[0]).chain(tri.0[2] + 1..ixs.len()) {
-            if tri_v.contains(pts[ixs[i]]) {
-                return false;
+        // 25641866
+
+        let tri = Tri(ijk).map(|i| vertex(pts[i], ()));
+        if tri.winding() != winding {
+            kinds.insert(ijk, Kind::Concave);
+            // AB-BC is a concave pair of edges, the diagonal AC is outside
+            // the polygon -> cannot be an ear
+            return Kind::Concave;
+        }
+
+        for l in 0..pts.len() {
+            if ijk.contains(&l) {
+                continue;
+            }
+            pt_checks += 1;
+            if tri.contains(pts[l]) {
+                kinds.insert(ijk, Kind::Contains);
+                //eprintln!("{:?} contains point {l} = {:?}", (i, j, k),
+                // pts[l]);
+                return Kind::Contains;
             }
         }
-
-        true
+        kinds.insert(ijk, Kind::Ear);
+        Kind::Ear
     };
 
-    let mut n = 0;
-    let mut count = 0;
-    loop {
-        count += 1;
+    /*let kinds: Vec<([usize; 3], Kind)> = (0..pts.len())
+        .map(|i| {
+            let j = next(i);
+            let k = next(j);
+            ([i, j, k], kind([i, j, k]))
+        })
+        .collect();
 
+    eprintln!("{:?}", kinds);*/
+
+    let mut n = 0;
+    let mut hits = 0;
+    let mut misses = 0;
+    while faces.len() < verts.len() - 2 {
         debug_assert!(
             n < poly.0.len().pow(2),
             "triangulation stuck, polygon may be self-intersecting"
         );
 
         let il = ixs.len();
-        if il == 3 {
-            // Only one triangle left, we're done
-            faces.push(tri(ixs[0], ixs[1], ixs[2]));
-            break;
-        }
 
         let i = (n + 0) % il;
         let j = (n + 1) % il;
         let k = (n + 2) % il;
 
-        if is_ear(tri(i, j, k), &ixs) {
+        let pts_ijk = [ixs[i], ixs[j], ixs[k]];
+        if kind(pts_ijk) == Kind::Ear {
             // Valid ear -> clip it
+            faces.push(Tri(pts_ijk));
+            //kinds.remove(&pts_ijk); // borrowck
             ixs.remove(j);
-            faces.push(tri(ixs[i], ixs[j], ixs[k]));
-            //eprint!("!");
+            hits += 1;
+        } else {
+            misses += 1;
         }
 
         n += 1;
     }
 
     eprintln!(
-        "Triangulated {}-gon -> {} triangles in {count} iters ({:.3} ms)",
+        "Triangulated {}-gon -> {} triangles in {n} iters, \
+        {kind_calls} kind calls, {cache_hits} cache hits, {pt_checks} pt cont \
+        checks \
+        ({hits} ears, {misses} non-ears {:.2}%, {:.3} ms elapsed)",
         poly.0.len(),
         faces.len(),
+        hits as f32 / (hits + misses) as f32 * 100.0,
         start.elapsed().as_secs_f32() * 1000.0
     );
 

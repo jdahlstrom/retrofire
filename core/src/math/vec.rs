@@ -16,7 +16,7 @@ use core::{
 use super::{
     Affine, ApproxEq, Linear, Point,
     float::fast_recip_sqrt,
-    pt2, pt3,
+    pt3,
     space::{Hom, Proj3, Real},
     vary::ZDiv,
 };

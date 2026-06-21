@@ -317,7 +317,7 @@ impl<A, B> Tri<Vertex3<A, B>> {
 
     /// Returns the winding order of `self`, as projected to the XY plane.
     // TODO is this 3D version meaningful/useful enough?
-    pub fn winding(&self) -> Winding {
+    pub fn winding_xy(&self) -> Winding {
         let [u, v] = self.tangents();
         let z = u.xy().perp_dot(v.xy());
         if z < 0.0 { Winding::Cw } else { Winding::Ccw }
@@ -693,7 +693,7 @@ impl<T> Polygon<T> {
         };
         self.0
             .array_windows()
-            .map(Edge::from)
+            .map(|[a, b]| Edge(a, b))
             .chain(last_first)
     }
 }
