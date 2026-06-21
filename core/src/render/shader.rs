@@ -14,10 +14,7 @@
 //! input any vertex attributes interpolated across the primitive being
 //! rasterized, such as color, texture coordinate, or normal vector.
 
-use crate::{
-    geom::Vertex,
-    math::{Color4, ProjVec3},
-};
+use crate::{geom::Vertex, math::ProjVec3};
 
 use super::Frag;
 
@@ -30,14 +27,15 @@ use super::Frag;
 ///   transform matrices, passed to the shader.
 pub trait VertexShader<In, Uni> {
     /// The type of the output vertex.
-    type Output;
+    type VertexOut;
+
     /// Transforms `vertex` and does performs other per-vertex computations
     /// needed, outputting a new vertex of type `Self::Output`. Custom data
     /// that is not vertex-specific can be passed in the `uniform` parameter.
     ///
     /// # Panics
     /// `shade_vertex` should never panic.
-    fn shade_vertex(&self, vertex: In, uniform: Uni) -> Self::Output;
+    fn shade_vertex(&self, vertex: In, uniform: Uni) -> Self::VertexOut;
 }
 
 /// Trait for fragment shaders, used to compute the color of each individual
@@ -46,19 +44,26 @@ pub trait VertexShader<In, Uni> {
 /// # Type parameters
 /// * `Var`: The varying of the input fragment.
 pub trait FragmentShader<Var, Uni> {
+    /// The type of the output color.
+    type FragmentOut;
+
     /// Computes the color of `frag`. Returns either `Some(color)`, or `None`
     /// if the fragment should be discarded.
     ///
     /// # Panics
     /// `shade_fragment` should never panic.
-    fn shade_fragment(&self, frag: Frag<Var>, uniform: Uni) -> Option<Color4>;
+    fn shade_fragment(
+        &self,
+        frag: Frag<Var>,
+        uniform: Uni,
+    ) -> Option<Self::FragmentOut>;
 }
 
 impl<F, In, Out, Uni> VertexShader<In, Uni> for F
 where
     F: Fn(In, Uni) -> Out,
 {
-    type Output = Out;
+    type VertexOut = Out;
 
     #[inline]
     fn shade_vertex(&self, vertex: In, uniform: Uni) -> Out {
@@ -66,20 +71,21 @@ where
     }
 }
 
-impl<F, Var, Out, Uni> FragmentShader<Var, Uni> for F
+impl<C, F, Var, Uni> FragmentShader<Var, Uni> for F
 where
-    F: Fn(Frag<Var>, Uni) -> Out,
-    Out: Into<Option<Color4>>,
+    F: Fn(Frag<Var>, Uni) -> Option<C>,
 {
+    type FragmentOut = C;
+
     #[inline]
-    fn shade_fragment(&self, frag: Frag<Var>, uniform: Uni) -> Option<Color4> {
-        self(frag, uniform).into()
+    fn shade_fragment(&self, frag: Frag<Var>, uniform: Uni) -> Option<C> {
+        self(frag, uniform)
     }
 }
 
 pub fn new<Vs, Fs, Vtx, Var, Uni>(vs: Vs, fs: Fs) -> Shader<Vs, Fs>
 where
-    Vs: VertexShader<Vtx, Uni, Output = Vertex<ProjVec3, Var>>,
+    Vs: VertexShader<Vtx, Uni, VertexOut = Vertex<ProjVec3, Var>>,
     Fs: FragmentShader<Var, Uni>,
 {
     Shader::new(vs, fs)
@@ -97,7 +103,7 @@ impl<Vs, Fs> Shader<Vs, Fs> {
     /// and `fs` as the fragment shader.
     pub const fn new<In, Uni, Pos, Attr>(vs: Vs, fs: Fs) -> Self
     where
-        Vs: VertexShader<In, Uni, Output = Vertex<Pos, Attr>>,
+        Vs: VertexShader<In, Uni, VertexOut = Vertex<Pos, Attr>>,
         Fs: FragmentShader<Attr, Uni>,
     {
         Self {
@@ -111,10 +117,10 @@ impl<In, Vs, Fs, Uni> VertexShader<In, Uni> for Shader<Vs, Fs>
 where
     Vs: VertexShader<In, Uni>,
 {
-    type Output = Vs::Output;
+    type VertexOut = Vs::VertexOut;
 
     #[inline]
-    fn shade_vertex(&self, vertex: In, uniform: Uni) -> Self::Output {
+    fn shade_vertex(&self, vertex: In, uniform: Uni) -> Self::VertexOut {
         self.vertex_shader.shade_vertex(vertex, uniform)
     }
 }
@@ -123,8 +129,14 @@ impl<Vs, Fs, Var, Uni> FragmentShader<Var, Uni> for Shader<Vs, Fs>
 where
     Fs: FragmentShader<Var, Uni>,
 {
+    type FragmentOut = Fs::FragmentOut;
+
     #[inline]
-    fn shade_fragment(&self, frag: Frag<Var>, uni: Uni) -> Option<Color4> {
+    fn shade_fragment(
+        &self,
+        frag: Frag<Var>,
+        uni: Uni,
+    ) -> Option<Self::FragmentOut> {
         self.fragment_shader.shade_fragment(frag, uni)
     }
 }

@@ -128,30 +128,31 @@ pub type NdcToScreen = RealToReal<3, Ndc, Screen>;
 
 /// Alias for combined vertex+fragment shader types
 pub trait Shader<Vtx, Var, Uni>:
-    VertexShader<Vtx, Uni, Output = Vertex<ProjVec3, Var>>
+    VertexShader<Vtx, Uni, VertexOut = Vertex<ProjVec3, Var>>
     + FragmentShader<Var, Uni>
 {
 }
 impl<S, Vtx, Var, Uni> Shader<Vtx, Var, Uni> for S where
-    S: VertexShader<Vtx, Uni, Output = Vertex<ProjVec3, Var>>
+    S: VertexShader<Vtx, Uni, VertexOut = Vertex<ProjVec3, Var>>
         + FragmentShader<Var, Uni>
 {
 }
 
 /// Renders the given primitives into `target`.
-pub fn render<Prim, Vtx: Clone, Var, Uni: Copy, Shd>(
+pub fn render<Prim, Vtx: Clone, Var, Uni: Copy, Shd, Tgt>(
     prims: impl AsRef<[Prim]>,
     verts: impl AsRef<[Vtx]>,
     shader: &Shd,
     uniform: Uni,
     to_screen: Mat4<Ndc, Screen>,
-    target: &mut impl Target,
+    target: &mut Tgt,
     ctx: &Context,
 ) where
     Prim: Render<Var> + Clone,
     [Prim::Clip]: Clip<Item = Prim::Clip>,
     Var: Vary,
     Shd: Shader<Vtx, Var, Uni>,
+    Tgt: Target<Shd::FragmentOut>,
 {
     // 0. Setup
     let prims = prims.as_ref();
@@ -177,7 +178,7 @@ pub fn render<Prim, Vtx: Clone, Var, Uni: Copy, Shd>(
 
     // 4. Rasterize: Turn visible primitives to fragments
     #[allow(unused_variables)]
-    let (prims_out, verts_out) = rasterize::<Prim, _, _, _>(
+    let (prims_out, verts_out) = rasterize::<Prim, _, _, _, _>(
         clipped, shader, uniform, to_screen, target, ctx,
     );
 
@@ -187,19 +188,20 @@ pub fn render<Prim, Vtx: Clone, Var, Uni: Copy, Shd>(
     }
 }
 
-fn rasterize<Prim, Shd, Var, Uni>(
+fn rasterize<Prim, Var, Uni, Shd, Tgt>(
     clipped: Vec<Prim::Clip>,
     shader: &Shd,
     uniform: Uni,
     to_screen: Mat4<Ndc, Screen>,
-    target: &mut impl Target,
+    target: &mut Tgt,
     ctx: &Context,
 ) -> (usize, usize)
 where
     Prim: Render<Var>,
-    Shd: FragmentShader<Var, Uni>,
     Var: Vary,
     Uni: Copy,
+    Shd: FragmentShader<Var, Uni>,
+    Tgt: Target<Shd::FragmentOut>,
 {
     let mut out = (0, 0);
     for prim in clipped {
@@ -245,7 +247,7 @@ fn vertex_transform<Shd, Vtx: Clone, Var: Vary, Uni: Copy>(
     verts: &[Vtx],
 ) -> Vec<ClipVert<Var>>
 where
-    Shd: VertexShader<Vtx, Uni, Output = Vertex<ProjVec3, Var>>,
+    Shd: VertexShader<Vtx, Uni, VertexOut = Vertex<ProjVec3, Var>>,
 {
     verts
         // verts is borrowed, can't consume

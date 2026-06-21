@@ -19,14 +19,14 @@ fn textured_quad() {
     let checker = Texture::from(Buf2::new_with(Dims(8, 8), |x, y| {
         let xor = (x ^ y) & 1;
         // Blue if x == y, dark red otherwise.
-        rgba(0x7F * xor as u8, 0, 0xFF * (1 - xor) as u8, 0)
+        rgb(0x7F * xor as u8, 0, 0xFF * (1 - xor) as u8)
     }));
 
     let shader = shader::new(
         |v: Vertex3<_>, mvp: &ProjMat3<Model>| {
             vertex(mvp.apply(&v.pos), v.attrib)
         },
-        |frag: Frag<_>, _| SamplerClamp.sample(&checker, frag.var),
+        |frag: Frag<_>, _| Some(SamplerClamp.sample(&checker, frag.var)),
     );
 
     let dims = Dims(256, 256);

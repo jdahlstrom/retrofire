@@ -5,8 +5,8 @@ use divan::Bencher;
 use retrofire_core::{
     geom::{Normal3, Vertex3, tri, vertex},
     math::{
-        Color3f, Color4, Color4f, ProjMat3, perspective, pt3, rgb, rgba,
-        translate, viewport,
+        Color3, Color3f, ProjMat3, perspective, pt3, rgb, rgba, translate,
+        viewport,
     },
     render::{Context, Frag, Model, debug::dir_to_rgb, render, shader},
     util::{Buf2, dims, pnm},
@@ -29,7 +29,7 @@ fn triangle(b: Bencher, n: u32) {
         |v: Vertex3<Color3f>, mvp: &ProjMat3<Model>| {
             vertex(mvp.apply(&v.pos), v.attrib)
         },
-        |frag: Frag<Color3f<_>>, _: &_| frag.var.to_color4(),
+        |frag: Frag<Color3f<_>>, _: &_| Some(frag.var.to_color3()),
     );
 
     let dims = dims::VGA_640_480;
@@ -37,7 +37,7 @@ fn triangle(b: Bencher, n: u32) {
     let project = perspective(1.0, dims.aspect(), 0.1..1000.0);
     let viewport = viewport(dims.into());
 
-    let mut framebuf = Buf2::<Color4>::new(dims);
+    let mut framebuf = Buf2::<Color3>::new(dims);
 
     b.bench_local(|| {
         for _ in 0..n {
@@ -55,7 +55,7 @@ fn triangle(b: Bencher, n: u32) {
 
     let center_pixel = framebuf[[dims.0 / 2, dims.1 / 2]];
 
-    assert_eq!(center_pixel, rgba(151, 128, 187, 255));
+    assert_eq!(center_pixel, rgb(151, 128, 187));
 
     pnm::save_ppm("benches_e2e_triangle.ppm", framebuf).unwrap();
 }
@@ -73,7 +73,7 @@ fn sphere(b: Bencher, res: u32) {
         |v: Vertex3<Normal3>, mvp: &ProjMat3<Model>| {
             vertex(mvp.apply(&v.pos), dir_to_rgb(v.attrib))
         },
-        |frag: Frag<Color4f>, _: &_| frag.var.to_color4(),
+        |frag: Frag<Color3f>, _: &_| Some(frag.var.to_color3()),
     );
 
     let dims = dims::VGA_640_480;
@@ -81,7 +81,7 @@ fn sphere(b: Bencher, res: u32) {
     let project = perspective(1.0, dims.aspect(), 0.1..1000.0);
     let viewport = viewport(dims.into());
 
-    let mut framebuf = Buf2::<Color4>::new(dims);
+    let mut framebuf = Buf2::<Color3>::new(dims);
 
     b.bench_local(|| {
         render(
@@ -97,7 +97,7 @@ fn sphere(b: Bencher, res: u32) {
 
     let center_pixel = framebuf[[dims.0 / 2, dims.1 / 2]];
 
-    assert_eq!(center_pixel, rgba(128, 127, 0, 255));
+    assert_eq!(center_pixel, rgb(128, 127, 0));
 
     pnm::save_ppm("benches_e2e_sphere.ppm", framebuf).unwrap();
 }

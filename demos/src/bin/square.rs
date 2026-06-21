@@ -31,12 +31,12 @@ fn main() {
     // Texture with a check pattern
     let checker = Texture::from(Buf2::new_with(Dims(8, 8), |x, y| {
         let xor = (x ^ y) & 1;
-        rgba(xor as u8 * 255, 128, 255 - xor as u8 * 128, 0)
+        rgb(xor as u8 * 255, 128, 255 - xor as u8 * 128)
     }));
 
     let shader = shader::new(
         |v: Vertex3<_>, mvp: &ProjMat3<_>| vertex(mvp.apply(&v.pos), v.attrib),
-        |frag: Frag<_>, _: &_| SamplerClamp.sample(&checker, frag.var),
+        |frag: Frag<_>, _: &_| Some(SamplerClamp.sample(&checker, frag.var)),
     );
 
     let dims = win.dims;

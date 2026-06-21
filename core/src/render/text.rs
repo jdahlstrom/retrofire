@@ -1,16 +1,15 @@
-use core::fmt;
+use core::fmt::{self, Debug};
 #[cfg(feature = "std")]
 use std::io;
 
 use crate::geom::{Mesh, Tri, Vertex3, tri, vertex};
 use crate::math::{
-    Color3, Color4, Point2, ProjMat3, Vec2, color::gray, orthographic, pt2,
-    pt3, vec2, vec3, viewport,
+    Color3, Point2, ProjMat3, Vec2, color::gray, orthographic, pt2, pt3, vec2,
+    vec3, viewport,
 };
 use crate::util::{Buf2, Dims};
 
-use super::tex::*;
-use super::{BBox, Context, Frag, Model, Shader, Target, shader};
+use super::{BBox, Context, Frag, Model, Shader, Target, shader, tex::*};
 
 /// Text represented as texture-mapped geometry, one quad per glyph.
 #[derive(Clone)]
@@ -80,7 +79,12 @@ impl Text {
     /// Returns a shader for rendering text.
     pub fn shader(
         &self,
-    ) -> impl Shader<Vertex3<TexCoord>, TexCoord, &ProjMat3<Model>> {
+    ) -> impl Shader<
+        Vertex3<TexCoord>,
+        TexCoord,
+        &ProjMat3<Model>,
+        FragmentOut = Color3,
+    > {
         shader::new(
             |v: Vertex3<_>, tf: &ProjMat3<_>| {
                 vertex(tf.apply(&v.pos.to()), v.attrib)
@@ -92,7 +96,7 @@ impl Text {
     /// Renders this text to a render target in 2D.
     ///
     /// For more customizable rendering, see the [`batch`][Self::batch] function.
-    pub fn render(&self, target: &mut impl Target) {
+    pub fn render(&self, target: &mut impl Target<Color3>) {
         let BBox(_lt, rb) = BBox::of(&self.geom);
         let [r, b, _] = rb.0;
 
@@ -129,16 +133,23 @@ impl Text {
     /// Useful for customized text rendering.
     pub fn batch(
         &self,
-    ) -> Batch<'_, impl Shader<Vertex3<TexCoord>, TexCoord, &ProjMat3<Model>>>
-    {
+    ) -> Batch<
+        '_,
+        impl Shader<
+            Vertex3<TexCoord>,
+            TexCoord,
+            &ProjMat3<Model>,
+            FragmentOut = Color3,
+        >,
+    > {
         super::Batch::from(&self.geom).shader(self.shader())
     }
 
     /// Samples the font at a texture coordinate.
     #[inline]
-    fn sample(&self, uv: TexCoord) -> Option<Color4> {
+    fn sample(&self, uv: TexCoord) -> Option<Color3> {
         let col = SamplerClamp.sample(&self.font.texture, uv);
-        (col != gray(0)).then_some(self.color.to_rgba())
+        (col != gray(0)).then_some(self.color)
     }
 
     fn write_char(&mut self, idx: u32) {

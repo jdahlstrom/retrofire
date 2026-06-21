@@ -12,11 +12,15 @@ use crate::util::{AsMutSlice2, Buf2, IntoPixel, MutSlice2};
 use super::{Context, FragmentShader, raster::Scanline};
 
 /// Trait for types that can be used as render targets.
-pub trait Target {
+pub trait Target<Col> {
     /// Writes a single scanline into `self`.
     ///
     /// Returns count of fragments input and output.
-    fn rasterize<V: Vary, U: Copy, Fs: FragmentShader<V, U>>(
+    fn rasterize<
+        V: Vary,
+        U: Copy,
+        Fs: FragmentShader<V, U, FragmentOut = Col>,
+    >(
         &mut self,
         scanline: Scanline<V>,
         frag_shader: &Fs,
@@ -52,9 +56,13 @@ impl<B: AsMutSlice2, F> AsMutSlice2 for Colorbuf<B, F> {
     }
 }
 
-impl<T: Target> Target for &mut T {
+impl<Col, T: Target<Col>> Target<Col> for &mut T {
     #[inline]
-    fn rasterize<V: Vary, U: Copy, Fs: FragmentShader<V, U>>(
+    fn rasterize<
+        V: Vary,
+        U: Copy,
+        Fs: FragmentShader<V, U, FragmentOut = Col>,
+    >(
         &mut self,
         sl: Scanline<V>,
         fs: &Fs,
@@ -64,9 +72,13 @@ impl<T: Target> Target for &mut T {
         (*self).rasterize(sl, fs, uni, ctx);
     }
 }
-impl<T: Target> Target for &RefCell<T> {
+impl<Col, T: Target<Col>> Target<Col> for &RefCell<T> {
     #[inline]
-    fn rasterize<V: Vary, U: Copy, Fs: FragmentShader<V, U>>(
+    fn rasterize<
+        V: Vary,
+        U: Copy,
+        Fs: FragmentShader<V, U, FragmentOut = Col>,
+    >(
         &mut self,
         sl: Scanline<V>,
         fs: &Fs,
@@ -77,16 +89,20 @@ impl<T: Target> Target for &RefCell<T> {
     }
 }
 
-impl<Col, Fmt, Dep> Target for Framebuf<Colorbuf<Col, Fmt>, Dep>
+impl<Col, Cbuf, Fmt, Zbuf> Target<Col> for Framebuf<Colorbuf<Cbuf, Fmt>, Zbuf>
 where
-    Col: AsMutSlice2,
+    Cbuf: AsMutSlice2,
     Fmt: Copy,
-    Dep: AsMutSlice2<Elem = f32>,
-    Color4: IntoPixel<Col::Elem, Fmt>,
+    Zbuf: AsMutSlice2<Elem = f32>,
+    Col: IntoPixel<Cbuf::Elem, Fmt>,
 {
     /// Rasterizes `scanline` into this framebuffer.
     #[inline]
-    fn rasterize<V: Vary, U: Copy, Fs: FragmentShader<V, U>>(
+    fn rasterize<
+        V: Vary,
+        U: Copy,
+        Fs: FragmentShader<V, U, FragmentOut = Col>,
+    >(
         &mut self,
         sl: Scanline<V>,
         fs: &Fs,
@@ -94,36 +110,44 @@ where
         ctx: &Context,
     ) {
         let Self { color_buf, depth_buf } = self;
-        let fmt = color_buf.fmt; // borrowck...
-        let conv = |c: Color4| c.into_pixel(fmt);
-        rasterize_fb(color_buf, depth_buf, sl, fs, uni, conv, ctx);
+        let fmt = color_buf.fmt;
+        let conv = |c: Col| c.into_pixel(fmt);
+        rasterize_fb(color_buf, depth_buf, sl, fs, uni, conv, ctx)
     }
 }
 
-impl<Buf, Fmt> Target for Colorbuf<Buf, Fmt>
+impl<Col, Buf, Fmt> Target<Col> for Colorbuf<Buf, Fmt>
 where
     Buf: AsMutSlice2,
     Fmt: Copy,
-    Color4: IntoPixel<Buf::Elem, Fmt>,
+    Col: IntoPixel<Buf::Elem, Fmt>,
 {
     /// Rasterizes `scanline` into this `u32` color buffer.
     /// Does no z-buffering.
     #[inline]
-    fn rasterize<V: Vary, U: Copy, Fs: FragmentShader<V, U>>(
+    fn rasterize<
+        V: Vary,
+        U: Copy,
+        Fs: FragmentShader<V, U, FragmentOut = Col>,
+    >(
         &mut self,
         sl: Scanline<V>,
         fs: &Fs,
         uni: U,
         ctx: &Context,
     ) {
-        let conv = |c: Color4| c.into_pixel(self.fmt);
-        rasterize(&mut self.buf, sl, fs, uni, conv, ctx);
+        let conv = |c: Col| c.into_pixel(self.fmt);
+        rasterize(&mut self.buf, sl, fs, uni, conv, ctx)
     }
 }
 
-impl Target for Buf2<Color4> {
+impl<Col> Target<Col> for Buf2<Col> {
     #[inline]
-    fn rasterize<V: Vary, U: Copy, Fs: FragmentShader<V, U>>(
+    fn rasterize<
+        V: Vary,
+        U: Copy,
+        Fs: FragmentShader<V, U, FragmentOut = Col>,
+    >(
         &mut self,
         sl: Scanline<V>,
         fs: &Fs,
@@ -134,9 +158,13 @@ impl Target for Buf2<Color4> {
     }
 }
 
-impl Target for Buf2<Color3> {
+impl Target<Color4> for Buf2<Color3> {
     #[inline]
-    fn rasterize<V: Vary, U: Copy, Fs: FragmentShader<V, U>>(
+    fn rasterize<
+        V: Vary,
+        U: Copy,
+        Fs: FragmentShader<V, U, FragmentOut = Color4>,
+    >(
         &mut self,
         sl: Scanline<V>,
         fs: &Fs,
@@ -147,12 +175,12 @@ impl Target for Buf2<Color3> {
     }
 }
 
-pub fn rasterize<B: AsMutSlice2, V: Vary, U: Copy>(
+pub fn rasterize<B: AsMutSlice2, V: Vary, U: Copy, Fs: FragmentShader<V, U>>(
     buf: &mut B,
     mut sl: Scanline<V>,
-    fs: &impl FragmentShader<V, U>,
+    fs: &Fs,
     uni: U,
-    mut conv: impl FnMut(Color4) -> B::Elem,
+    mut conv: impl FnMut(Fs::FragmentOut) -> B::Elem,
     ctx: &Context,
 ) {
     let x0 = sl.xs.start;
@@ -183,13 +211,18 @@ pub fn rasterize<B: AsMutSlice2, V: Vary, U: Copy>(
     };
 }
 
-pub fn rasterize_fb<B: AsMutSlice2, V: Vary, U: Copy>(
+pub fn rasterize_fb<
+    B: AsMutSlice2,
+    V: Vary,
+    U: Copy,
+    Fs: FragmentShader<V, U>,
+>(
     cbuf: &mut B,
     zbuf: &mut impl AsMutSlice2<Elem = f32>,
     mut sl: Scanline<V>,
-    fs: &impl FragmentShader<V, U>,
+    fs: &Fs,
     uni: U,
-    mut conv: impl FnMut(Color4) -> B::Elem,
+    mut conv: impl FnMut(Fs::FragmentOut) -> B::Elem,
     ctx: &Context,
 ) {
     let x0 = sl.xs.start;

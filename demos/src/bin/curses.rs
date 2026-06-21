@@ -48,7 +48,7 @@ fn main() {
         |v: Vertex3<_>, mvp: &ProjMat3<Model>| {
             vertex(mvp.apply(&v.pos), v.attrib)
         },
-        |frag: Frag<Normal3>, _: &_| dir_to_rgb(frag.var).to_color4(),
+        |frag: Frag<Normal3>, _: &_| Some(dir_to_rgb(frag.var).to_color3()),
     );
 
     let torus = Torus {
@@ -110,8 +110,12 @@ fn main() {
     }
 }
 
-impl Target for Win {
-    fn rasterize<V: Vary, U: Copy, Fs: FragmentShader<V, U>>(
+impl Target<Color3> for Win {
+    fn rasterize<
+        V: Vary,
+        U: Copy,
+        Fs: FragmentShader<V, U, FragmentOut = Color3>,
+    >(
         &mut self,
         mut sc: Scanline<V>,
         fs: &Fs,
@@ -125,7 +129,7 @@ impl Target for Win {
                 continue;
             };
             // Map the RGB to the closest color in the 6x6x6 xterm RGB cube
-            let [r, g, b, _] = col.0.map(|c| c / 43);
+            let [r, g, b] = col.0.map(|c| c / 43);
             let col = 16 + 36 * r + 6 * g + b;
             self.0
                 .addch(COLOR_PAIR(col as chtype) | ' ' as chtype);

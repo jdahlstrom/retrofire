@@ -145,7 +145,7 @@ impl<Prims, Verts, Uni, Shd, Tgt, Ctx> Batch<Prims, Verts, Uni, Shd, Tgt, Ctx> {
         Uni: Copy,
         [Prim::Clip]: Clip<Item = Prim::Clip>,
         Shd: Shader<Vtx, Var, Uni>,
-        Tgt: Target,
+        Tgt: Target<Shd::FragmentOut>,
         Ctx: Borrow<Context>
     {
         let Self {

@@ -60,8 +60,8 @@ fn main() {
         let col = diffuse * rgb(r, g, b);
         vertex(mvp.apply(&v.pos), col)
     }
-    fn frag_shader(f: Frag<Color3f>, _: Uniform) -> Color4 {
-        f.var.to_color4()
+    fn frag_shader(f: Frag<Color3f>, _: Uniform) -> Option<Color3> {
+        Some(f.var.to_color3())
     }
     let shader = shader::new(vtx_shader, frag_shader);
 
