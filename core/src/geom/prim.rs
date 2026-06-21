@@ -272,13 +272,8 @@ impl<B, P: Pos<Type = Point2<B>>> Tri<P> {
         // compute which side the point is. If it's on the same side of
         // each line, it is inside the triangle.
 
-        todo!("Sign method missing in this commit")
-
-        /*let [sign_ab, sign_bc, sign_ca] = self
-            .edges()
-            .map(|e| Edge(e.0.pos(), e.1.pos()).sign(pt));
-
-        sign_ab == sign_bc && sign_bc == sign_ca*/
+        let [sign_ab, sign_bc, sign_ca] = self.edges().map(|e| e.sign(pt));
+        sign_ab == sign_bc && sign_bc == sign_ca
     }
 }
 
@@ -693,7 +688,7 @@ impl<T> Polygon<T> {
             .chain(last_first)
     }
 }
-impl<B> Polygon<Point2<B>> {
+impl<B, V: Pos<Type = Point2<B>>> Polygon<V> {
     /// Returns the vertex winding order of `self`.
     ///
     /// # Panics
@@ -723,13 +718,13 @@ impl<B> Polygon<Point2<B>> {
         debug_assert!(len >= 3, "degenerate polygon: winding undefined");
 
         let (left_pt, left_i) = zip(pts, 0..)
-            .min_by(|a, b| a.0.x().total_cmp(&b.0.x()))
+            .min_by(|a, b| a.0.pos().x().total_cmp(&b.0.pos().x()))
             .unwrap();
 
-        let q = *left_pt;
-        let p = pts[if left_i == 0 { len } else { left_i } - 1];
-        let r = pts[(left_i + 1) % len];
-        tri(p, q, r).map(|p| vertex(p, ())).winding()
+        let q = left_pt.pos();
+        let p = pts[if left_i == 0 { len } else { left_i } - 1].pos();
+        let r = pts[(left_i + 1) % len].pos();
+        tri(p, q, r).winding()
     }
 
     /// Returns whether `self` is a convex polygon.
@@ -763,37 +758,35 @@ impl<B> Polygon<Point2<B>> {
         let l = pts.len();
         debug_assert!(l >= 3, "degenerate polygon: convexity undefined");
 
-        let sign = Self::sign([pts[l - 1], pts[0], pts[1]]);
-        let wrap = [[pts[l - 2], pts[l - 1], pts[0]]];
-        pts[1..]
-            .array_windows()
-            .chain(&wrap)
-            .all(|&abc| sign == Self::sign(abc))
+        let sign1 = Self::sign([&pts[l - 2], &pts[l - 1], &pts[0]]);
+        let sign2 = Self::sign([&pts[l - 1], &pts[0], &pts[1]]);
+        sign1 == sign2
+            && pts[1..]
+                .array_windows()
+                .all(|abc| sign1 == Self::sign(abc.each_ref()))
     }
 
     #[inline]
-    fn sign([a, b, c]: [Point2<B>; 3]) -> f32 {
-        (b - a).perp_dot(c - b).signum()
+    fn sign([a, b, c]: [&V; 3]) -> f32 {
+        (*b.pos() - *a.pos())
+            .perp_dot(*c.pos() - *b.pos())
+            .signum()
     }
 }
 
-impl<B> Edge<Point2<B>> {
+impl<B, V: Pos<Type = Point2<B>>> Edge<V> {
     #[inline]
-    pub const fn normal(&self) -> Vec2<B> {
-        let Edge(a, b) = self;
-        vec2(a.y() - b.y(), b.x() - a.x())
+    pub fn normal(&self) -> Vec2<B> {
+        let a = self.0.pos();
+        let b = self.1.pos();
+        (*b - *a).perp()
     }
 
-    /// ASfg
-    ///
-    /// # E
     #[inline]
-    pub const fn sign(&self, pt: Point2<B>) -> f32 {
-        let Self(e0, e1) = self;
-        // Manual sub because of const...
-        let e0_e1: Vec2 = vec2(e1.x() - e0.x(), e1.y() - e0.y());
-        let e0_pt = vec2(pt.x() - e0.x(), pt.y() - e0.y());
-        (e0_e1).perp_dot(e0_pt).signum()
+    pub fn sign(&self, pt: Point2<B>) -> f32 {
+        let a = *self.0.pos();
+        let b = *self.1.pos();
+        (b - a).perp_dot(pt - a).signum()
     }
 }
 
@@ -871,11 +864,11 @@ impl<P, A> Pos for Vertex<P, A> {
         &self.pos
     }
 }
-impl<P, A> Pos for &Vertex<P, A> {
-    type Type = P;
+impl<P: Pos> Pos for &P {
+    type Type = P::Type;
 
     fn pos(&self) -> &Self::Type {
-        &self.pos
+        (*self).pos()
     }
 }
 

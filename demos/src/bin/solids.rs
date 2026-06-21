@@ -5,6 +5,7 @@ use minifb::{Key, KeyRepeat};
 
 use re::prelude::*;
 
+use re::core::geom::Polygon;
 use re::core::{
     geom::{Polyline, Ray},
     math::{ProjVec3, color::gray, spline::HermiteSpline},
@@ -130,7 +131,7 @@ fn main() {
 
 // Creates the 14 objects exhibited.
 #[rustfmt::skip]
-fn objects_n(res: u32) -> [Mesh<Normal3>; 14] {
+fn objects_n(res: u32) -> [Mesh<Normal3>; 15] {
     let segments = res;
     let sectors = 2 * res;
 
@@ -141,6 +142,8 @@ fn objects_n(res: u32) -> [Mesh<Normal3>; 14] {
     let minor_sectors = 2 * res;
 
     [
+        prism(sectors),
+
         // The five Platonic solids
         Tetrahedron.build(),
         Cube { side_len: 1.25 }.build(),
@@ -161,6 +164,28 @@ fn objects_n(res: u32) -> [Mesh<Normal3>; 14] {
         bunny().clone(),
         dragon().clone()
     ]
+}
+
+fn prism(_secs: u32) -> Mesh<Normal3> {
+    let step = 1;
+    let points: Vec<_> = (0..10)
+        .step_by(step as usize)
+        .map(|a| {
+            let a = turns(a as f32 / 10.0);
+            let b = 2.5 * a;
+            let r = 0.5 + b.sin().powi(20) * 0.0;
+
+            let a = a + 0.1 * turns(r);
+            polar(r, a).to_cart().to_pt()
+        })
+        .collect();
+
+    let res = Prism {
+        points: Polygon::new(points),
+        capped: true,
+    };
+
+    res.build()
 }
 
 // Creates a Lathe mesh.
