@@ -54,7 +54,7 @@ pub trait Apply<T> {
 
 /// A change of basis in real vector space of dimension `DIM`.
 #[derive(Copy, Clone, Default, Eq, PartialEq)]
-pub struct RealToReal<const DIM: usize, SrcBasis = (), DstBasis = ()>(
+pub struct RealToReal<const DIM: usize, SrcBasis = (), DstBasis = SrcBasis>(
     Pd<(SrcBasis, DstBasis)>,
 );
 
@@ -459,6 +459,15 @@ impl<Src, Dst> Mat3<Src, Dst, 2> {
         mat![r[0], r[1]; s[0], s[1]]
     }
 
+    pub const fn orientation(&self) -> Mat3<Src, Dst> {
+        let [r, s, _] = self.0;
+        mat![
+            r[0], r[1], 0.0;
+            s[0], s[1], 0.0;
+            0.0, 0.0, 1.0
+        ]
+    }
+
     /// Returns the translation column vector of `self`.
     ///
     /// # Example
@@ -630,6 +639,17 @@ impl<Src, Dst> Mat4<Src, Dst> {
             r[0], r[1], r[2];
             s[0], s[1], s[2];
             t[0], t[1], t[2];
+        ]
+    }
+
+    /// Returns `self` with the translation part zeroed.
+    pub const fn orientation(&self) -> Mat4<Src, Dst, 3> {
+        let [r, s, t, _] = self.0;
+        mat![
+            r[0], r[1], r[2], 0.0;
+            s[0], s[1], s[2], 0.0;
+            t[0], t[1], t[2], 0.0;
+            0.0, 0.0,  0.0, 1.0
         ]
     }
 
