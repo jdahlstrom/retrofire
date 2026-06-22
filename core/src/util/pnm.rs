@@ -19,6 +19,10 @@ use core::{
     num::{IntErrorKind, ParseIntError, TryFromIntError},
 };
 
+use crate::math::{Color3, color::gray};
+
+use super::{Buf2, Dims};
+
 #[cfg(feature = "std")]
 use std::{
     fs::File,
@@ -26,16 +30,14 @@ use std::{
     path::Path,
 };
 
-use crate::math::{Color3, color::gray};
+#[cfg(feature = "std")]
 use crate::render::Colorbuf;
 
+#[cfg(feature = "std")]
 use super::{
-    Buf2, Dims,
+    AsSlice2, IntoPixel,
     pixfmt::{Rgb888, Xrgb8888},
 };
-
-#[cfg(feature = "std")]
-use super::{AsSlice2, IntoPixel};
 
 use Error::*;
 use Format::*;
@@ -46,6 +48,7 @@ use Format::*;
 /// is as easy as:
 /// ```
 /// use retrofire_core::util::{Buf2, Dims, pnm::WritePnm};
+///
 /// let buf = Buf2::new_from(Dims(3, 3), [0u8, 1, 2, 3, 4, 5, 6, 7, 8]);
 ///
 /// buf.save("grays.pgm").unwrap();
@@ -225,7 +228,7 @@ impl Format {
 //
 // Local trait impls
 //
-
+#[cfg(feature = "std")]
 impl<B> WritePnm for Colorbuf<B, Xrgb8888>
 where
     B: AsSlice2<Elem = u32>,
@@ -246,6 +249,7 @@ where
     }
 }
 
+#[cfg(feature = "std")]
 impl<B> WritePnm for B
 where
     B: AsSlice2,
@@ -268,6 +272,8 @@ where
             .try_for_each(|rgb| dest.write_all(&rgb[..]))
     }
 }
+
+#[cfg(feature = "std")]
 impl WritePnm for Buf2<u8> {
     fn write(&self, mut dest: impl io::Write) -> io::Result<()> {
         Header {
@@ -280,6 +286,7 @@ impl WritePnm for Buf2<u8> {
     }
 }
 
+#[cfg(feature = "std")]
 impl WritePnm for Buf2<bool> {
     fn write(&self, mut dest: impl io::Write) -> io::Result<()> {
         let slice = self.as_slice2();
@@ -904,6 +911,7 @@ mod tests {
         assert_eq!(out, b"P4 4 2\n\x69");
     }
 
+    #[cfg(feature = "std")]
     #[test]
     fn write_color3_to_binary_pixmap() {
         use alloc::vec;
