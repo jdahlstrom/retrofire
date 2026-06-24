@@ -24,8 +24,11 @@ documentation.workspace = true
 [dependencies]
 retrofire-core = { version = "0.4.0", path = "../core", default-features = false }
 
+gltf = { version = "1.4", optional = true }
+
 [features]
 std = ["retrofire-core/std"]
+gltf = ["dep:gltf"]
 
 [lints]
 workspace = true

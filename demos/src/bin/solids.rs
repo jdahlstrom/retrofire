@@ -1,4 +1,6 @@
 use core::ops::ControlFlow::Continue;
+use std::env::current_dir;
+use std::fs::File;
 use std::sync::LazyLock;
 
 use minifb::{Key, KeyRepeat};
@@ -11,7 +13,8 @@ use re::core::{
     render::{Model, ModelToWorld, cam::Fov, shader},
 };
 use re::front::{Frame, minifb::Window};
-use re::geom::{io::read_obj, solids::*};
+use re::geom::io::gltf::load_gltf;
+use re::geom::{io::obj::read_obj, solids::*};
 
 // Carousel animation for switching between objects.
 #[derive(Default)]
@@ -150,8 +153,11 @@ fn objects_n(res: u32) -> [Mesh<Normal3>; 14] {
     let major_sectors = 3 * res;
     let minor_sectors = 2 * res;
     [
+        suzanne(),
+
+
         // The five Platonic solids
-        Tetrahedron.build(),
+        //Tetrahedron.build(),
         Cube { side_len: 1.25 }.build(),
         Octahedron.build(),
         Dodecahedron.build(),
@@ -191,6 +197,14 @@ fn lathe(secs: u32) -> Mesh<Normal3> {
     let pl = Polyline::new(verts);
     let segs = pl.0.len() as u32;
     Lathe::new(pl, secs, segs).capped(true).build()
+}
+
+fn suzanne() -> Mesh<Normal3> {
+    eprintln!("{:?}", current_dir());
+
+    File::open("Suzanne.gltf").unwrap();
+
+    load_gltf("Suzanne.gltf").expect("Suzanne should be found")
 }
 
 // Loads the Utah teapot model.

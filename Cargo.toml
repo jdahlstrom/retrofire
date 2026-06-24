@@ -53,6 +53,7 @@ clippy.collapsible_if = "allow"
 default = ["std"]
 std = ["retrofire-core/std", "retrofire-geom/std"]
 stats = ["retrofire-core/stats"]
+gltf = ["retrofire-geom/gltf"]
 
 [dependencies]
 retrofire-core = { version = "0.4.0", path = "core" }
@@ -85,6 +86,9 @@ lto = "fat"
 debug = 0
 strip = true
 panic = "abort" #"immediate-abort" # On nightly only
+
+[profile.test]
+opt-level = 0
 
 [[bench]]
 name = "e2e"
