@@ -3,6 +3,7 @@
 use alloc::vec::Vec;
 use core::ops::Range;
 
+use retrofire_core::geom::mesh::Index;
 use retrofire_core::geom::{
     Mesh, Normal2, Normal3, Polyline, Tri, Vertex, Vertex2, Vertex3, tri,
     vertex,
@@ -105,9 +106,9 @@ impl<P: Parametric<Vertex2<Normal2, ()>>> Lathe<P> {
         self,
         f: &mut dyn FnMut(Point3, Normal3, TexCoord) -> Vertex3<A>,
     ) -> Mesh<A> {
-        let secs = self.sectors as usize;
-        let segs = self.segments as usize;
-        let caps = 2 * self.capped as usize;
+        let secs = self.sectors;
+        let segs = self.segments;
+        let caps = 2 * self.capped as u32;
 
         // Fencepost problem: n + 1 vertices for n segments
         let verts_per_sec = segs + 1;
@@ -116,8 +117,8 @@ impl<P: Parametric<Vertex2<Normal2, ()>>> Lathe<P> {
         let n_faces = segs * secs * 2 + (secs - 2) * caps;
         let n_verts = verts_per_sec * (secs + 1) + secs * caps;
         let mut m = Mesh {
-            faces: Vec::with_capacity(n_faces),
-            verts: Vec::with_capacity(n_verts),
+            faces: Vec::with_capacity(n_faces as usize),
+            verts: Vec::with_capacity(n_verts as usize),
         };
 
         create_faces(secs, verts_per_sec, &mut m.faces);
@@ -132,7 +133,7 @@ impl<P: Parametric<Vertex2<Normal2, ()>>> Lathe<P> {
 
         // Create optional caps
         if self.capped && verts_per_sec > 0 {
-            let l = m.verts.len();
+            let l = m.verts.len() as u32;
             // Duplicate the bottom ring of vertices to make the bottom cap...
             make_cap(&mut m, f, 0..secs, -Vec3::Y);
             // ...and the top vertices to make the top cap
@@ -143,7 +144,7 @@ impl<P: Parametric<Vertex2<Normal2, ()>>> Lathe<P> {
 }
 
 #[inline(never)]
-fn create_faces(secs: usize, verts_per_sec: usize, out: &mut Vec<Tri<usize>>) {
+fn create_faces(secs: u32, verts_per_sec: u32, out: &mut Vec<Tri<u32>>) {
     for j in 1..verts_per_sec {
         let n = secs + 1;
         for i in 1..n {
@@ -166,8 +167,8 @@ fn create_faces(secs: usize, verts_per_sec: usize, out: &mut Vec<Tri<usize>>) {
 fn create_verts<A>(
     f: &mut dyn FnMut(Point3, Normal3, TexCoord) -> Vertex3<A>,
     pts: &dyn Parametric<Vertex2<Normal2, ()>>,
-    secs: usize,
-    verts_per_sec: usize,
+    secs: u32,
+    verts_per_sec: u32,
     az_range: Range<Angle>,
     out: &mut Vec<Vertex3<A>>,
 ) {
@@ -177,7 +178,7 @@ fn create_verts<A>(
 
     // Create vertices
     for (v, Vertex { pos, attrib: n }) in 0.0
-        .vary_to(1.0, verts_per_sec as u32)
+        .vary_to(1.0, verts_per_sec)
         .map(|t| (t, pts.eval(t)))
     {
         let mut pos_xz = start.apply(&pt2(pos.x(), 0.0));
@@ -199,16 +200,16 @@ fn create_verts<A>(
 fn make_cap<A>(
     m: &mut Mesh<A>,
     f: &mut dyn FnMut(Point3, Normal3, TexCoord) -> Vertex3<A>,
-    rg: Range<usize>,
+    rg: Range<u32>,
     n: Normal3,
 ) {
     let verts = &mut m.verts;
-    let secs = rg.len();
-    let l = verts.len();
+    let secs = rg.len() as u32;
+    let l = verts.len() as u32;
 
-    verts.reserve(secs);
+    verts.reserve(secs as usize);
     for i in rg {
-        let p = verts[i].pos.to();
+        let p = verts[i.as_usize()].pos.to();
         let uv = uv(0.0, 0.0); // TODO
         verts.push(f(p, n, uv));
     }

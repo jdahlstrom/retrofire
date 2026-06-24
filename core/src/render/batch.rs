@@ -3,6 +3,7 @@
 use alloc::vec::Vec;
 use core::borrow::Borrow;
 
+use crate::geom::mesh::Index;
 use crate::geom::{Edge, Mesh, Tri, Vertex3};
 use crate::math::{Mat4, Vary};
 
@@ -76,10 +77,10 @@ impl<Prim, Vtx, Uni, Shd, Tgt, Ctx> Batch<Prim, Vtx, Uni, Shd, Tgt, Ctx> {
     }
 
     /// Clones faces and vertices from a mesh to this batch.
-    pub fn mesh<A: Clone>(
+    pub fn mesh<A: Clone, I: Index>(
         self,
-        mesh: &Mesh<A>,
-    ) -> Batch<Tri<usize>, Vertex3<A>, Uni, Shd, Tgt, Ctx> {
+        mesh: &Mesh<A, I>,
+    ) -> Batch<Tri<I>, Vertex3<A>, Uni, Shd, Tgt, Ctx> {
         let prims = mesh.faces.clone();
         let verts = mesh.verts.clone();
         update!(verts prims; self uniform shader viewport target ctx)

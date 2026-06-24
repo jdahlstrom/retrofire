@@ -3,13 +3,13 @@
 
 use core::{array::from_fn, f32::consts::SQRT_2, iter::zip};
 
+use super::Build;
+use retrofire_core::geom::mesh::Index;
 use retrofire_core::{
     geom::{Mesh, Normal3, Vertex3, vertex},
     math::{Lerp, Point3, SQRT_3, Vec3, pt3, vec3},
     render::{Model, TexCoord, uv},
 };
-
-use super::Build;
 
 /// A regular tetrahedron.
 ///
@@ -98,7 +98,7 @@ pub struct Dodecahedron;
 pub struct Icosahedron;
 
 impl Tetrahedron {
-    const FACES: [[usize; 3]; 4] = [[0, 2, 1], [0, 3, 2], [0, 1, 3], [1, 2, 3]];
+    const FACES: [[u32; 3]; 4] = [[0, 2, 1], [0, 3, 2], [0, 1, 3], [1, 2, 3]];
 
     const COORDS: [Vec3; 4] = [
         vec3(0.0, 1.0, 0.0),
@@ -119,9 +119,9 @@ impl Tetrahedron {
         let mut b = Mesh::builder();
         for (vs, i) in zip(Self::FACES, 0..) {
             b.push_face(i * 3, i * 3 + 1, i * 3 + 2);
-            let n = -Self::NORMS[i]; // already unit length
+            let n = -Self::NORMS[i as usize]; // already unit length
             for v in vs {
-                b.push_vert(Self::COORDS[v].to_pt(), n);
+                b.push_vert(Self::COORDS[v.as_usize()].to_pt(), n);
             }
         }
         b.build()
@@ -167,7 +167,7 @@ impl Box {
         (0b111, [5, 0]), (0b011, [5, 1]), (0b101, [5, 2]), (0b001, [5, 3]),
     ];
     #[rustfmt::skip]
-    const FACES: [[usize; 3]; 12] = [
+    const FACES: [[u32; 3]; 12] = [
         // left
         [0, 1, 3], [0, 3, 2],
         // right
@@ -272,7 +272,7 @@ impl Octahedron {
         (3, 6), (4, 6), (5, 6),
         (1, 7), (5, 7), (4, 7),
     ];
-    const FACES: [[usize; 3]; 8] = [
+    const FACES: [[u32; 3]; 8] = [
         [0, 1, 2],
         [3, 4, 5],
         [6, 7, 8],
@@ -291,8 +291,8 @@ impl Build<Normal3> for Octahedron {
         for (vs, i) in zip(&Self::FACES, 0..) {
             b.push_face(i * 3, i * 3 + 1, i * 3 + 2);
             for &vi in vs {
-                let pos = Self::COORDS[Self::VERTS[vi].0];
-                let n = Self::NORMS[i].normalize();
+                let pos = Self::COORDS[Self::VERTS[vi.as_usize()].0];
+                let n = Self::NORMS[i.as_usize()].normalize();
                 b.push_vert(pos, n);
             }
         }
@@ -333,7 +333,7 @@ impl Dodecahedron {
 
     ];
     #[rustfmt::skip]
-    const FACES: [[usize; 5]; 12] = [
+    const FACES: [[u32; 5]; 12] = [
         [ 0,  1, 14, 8, 12], [ 1, 0, 13, 10, 15],
         [ 3,  2, 16, 9, 18], [ 2, 3, 19, 11, 17],
         [ 4,  5, 13, 0, 12], [ 5, 4, 16,  2, 17],
@@ -352,14 +352,14 @@ impl Build<Normal3> for Dodecahedron {
         let mut b = Mesh::builder();
 
         for (face, i) in zip(&Self::FACES, 0..) {
-            let n = Self::NORMALS[i].normalize();
+            let n = Self::NORMALS[i.as_usize()].normalize();
             // Make a pentagon from three triangles
             let i5 = i * 5;
             b.push_face(i5, i5 + 1, i5 + 2);
             b.push_face(i5, i5 + 2, i5 + 3);
             b.push_face(i5, i5 + 3, i5 + 4);
             for &j in face {
-                let pos = Self::COORDS[j].normalize().to_pt();
+                let pos = Self::COORDS[j.as_usize()].normalize().to_pt();
                 b.push_vert(pos, n);
             }
         }
@@ -380,7 +380,7 @@ impl Icosahedron {
         vec3(0.0, -1.0,  PHI), vec3(0.0, 1.0,  PHI), // +Z
     ];
     #[rustfmt::skip]
-    pub(crate) const FACES: [[usize; 3]; 20] = [
+    pub(crate) const FACES: [[u32; 3]; 20] = [
         [0,  4,  1], [0,  1,  6], // -X
         [2,  3,  5], [2,  7,  3], // +X
         [4,  8,  5], [4,  5, 10], // -Y
@@ -404,10 +404,10 @@ impl Build<Normal3> for Icosahedron {
     fn build(self) -> Mesh<Normal3> {
         let mut b = Mesh::builder();
         for (vs, i) in zip(&Self::FACES, 0..) {
-            let n = Self::NORMALS[i].normalize();
+            let n = Self::NORMALS[i.as_usize()].normalize();
             b.push_face(i * 3, i * 3 + 1, i * 3 + 2);
             for &vi in vs {
-                let pos = Self::COORDS[vi].normalize().to_pt();
+                let pos = Self::COORDS[vi.as_usize()].normalize().to_pt();
                 b.push_vert(pos, n);
             }
         }

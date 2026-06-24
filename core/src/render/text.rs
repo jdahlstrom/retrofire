@@ -2,6 +2,7 @@ use core::fmt;
 #[cfg(feature = "std")]
 use std::io;
 
+use crate::geom::mesh::Index;
 use crate::geom::{Mesh, Tri, Vertex3, tri, vertex};
 use crate::math::{
     Color3, Color4, Point2, ProjMat3, Vec2, color::gray, orthographic, pt2,
@@ -38,7 +39,7 @@ pub enum Align {
 }
 
 pub type Batch<Shd> =
-    super::Batch<Tri<usize>, Vertex3<TexCoord>, (), Shd, (), Context>;
+    super::Batch<Tri<u32>, Vertex3<TexCoord>, (), Shd, (), Context>;
 
 //
 // Inherent impls
@@ -151,7 +152,7 @@ impl Text {
         );*/
         let offset = vec2(0.0, 0.0);
         let pos = (*cursor - offset).to_pt3().to();
-        let l = geom.verts.len();
+        let l = geom.verts.len() as u32;
 
         geom.verts.extend([
             vertex(pos, tl),

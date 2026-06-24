@@ -1,20 +1,20 @@
 use core::fmt::{self, Debug, Formatter};
 
+use super::{
+    Model, World,
+    clip::{ClipVert, Status, view_frustum},
+};
+use crate::geom::mesh::Index;
 use crate::{
     geom::{Mesh, vertex},
     math::{Mat4, Point3, ProjMat3, pt3},
 };
 
-use super::{
-    Model, World,
-    clip::{ClipVert, Status, view_frustum},
-};
-
 #[derive(Clone, Debug)]
-pub struct Obj<A> {
-    pub geom: Mesh<A>,
-    pub bbox: BBox<Model>,
-    pub tf: Mat4<Model, World>,
+pub struct Obj<A, I = usize, B: Debug + Default = Model> {
+    pub geom: Mesh<A, I, B>,
+    pub bbox: BBox<B>,
+    pub tf: Mat4<B, World>,
 }
 
 // TODO Decide whether upper bound is inclusive or exclusive
@@ -22,20 +22,20 @@ pub struct Obj<A> {
 #[derive(Copy, Clone, PartialEq)]
 pub struct BBox<B>(pub Point3<B>, pub Point3<B>);
 
-impl<A> Obj<A> {
-    pub fn new(geom: Mesh<A>) -> Self {
+impl<A, I: Index, B: Debug + Default> Obj<A, I, B> {
+    pub fn new(geom: Mesh<A, I, B>) -> Self {
         Self::with_transform(geom, Mat4::identity())
     }
 
     #[must_use]
-    pub fn with_transform(geom: Mesh<A>, tf: Mat4<Model, World>) -> Self {
+    pub fn with_transform(geom: Mesh<A, I, B>, tf: Mat4<B, World>) -> Self {
         let bbox = BBox::of(&geom);
         Self { geom, bbox, tf }
     }
 }
 
 impl<B> BBox<B> {
-    pub fn of<A>(mesh: &Mesh<A, B>) -> Self {
+    pub fn of<A, I>(mesh: &Mesh<A, I, B>) -> Self {
         mesh.verts.iter().map(|v| &v.pos).collect()
     }
 

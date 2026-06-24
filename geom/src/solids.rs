@@ -13,6 +13,7 @@ use retrofire_core::math::{Lerp, Vec3};
 pub use lathe::*;
 
 pub use platonic::*;
+use retrofire_core::geom::mesh::Index;
 
 pub trait Build<A>: Sized {
     fn build(self) -> Mesh<A>;
@@ -29,22 +30,22 @@ impl Build<Normal3> for Icosphere {
         #[derive(Default)]
         struct Tessellator {
             coords: Vec<Vec3>,
-            faces: Vec<Tri<usize>>,
+            faces: Vec<Tri<u32>>,
             #[cfg(feature = "std")]
-            map: std::collections::HashMap<(usize, usize), usize>,
+            map: std::collections::HashMap<(u32, u32), u32>,
             #[cfg(not(feature = "std"))]
-            map: alloc::collections::BTreeMap<(usize, usize), usize>,
+            map: alloc::collections::BTreeMap<(u32, u32), u32>,
         }
         impl Tessellator {
-            fn map_get(&mut self, i: usize, j: usize) -> usize {
+            fn map_get(&mut self, i: u32, j: u32) -> u32 {
                 *self.map.entry((i, j)).or_insert_with(|| {
-                    let a: Vec3 = self.coords[i];
-                    let ab = a.midpoint(&self.coords[j]);
+                    let a: Vec3 = self.coords[i.as_usize()];
+                    let ab = a.midpoint(&self.coords[j.as_usize()]);
                     self.coords.push(ab);
-                    self.coords.len() - 1
+                    self.coords.len() as u32 - 1
                 })
             }
-            fn recurse(&mut self, d: u8, i: usize, j: usize, k: usize) {
+            fn recurse(&mut self, d: u8, i: u32, j: u32, k: u32) {
                 if d == 0 {
                     self.faces.push(tri(i, j, k));
                 } else {

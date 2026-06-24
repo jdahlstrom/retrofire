@@ -43,7 +43,7 @@ pub fn load_gltf(path: impl AsRef<Path>) -> Result<Mesh<Normal3>, Error> {
             let i = indices.next().unwrap();
             let j = indices.next().unwrap();
             let k = indices.next().unwrap();
-            res.push_face(i as usize, j as usize, k as usize);
+            res.push_face(i, j, k);
         }
     }
 

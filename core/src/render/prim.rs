@@ -1,5 +1,6 @@
 //! Render impls for primitives and related items.
 
+use crate::geom::mesh::Index;
 use crate::geom::{Edge, Tri, Vertex, Winding};
 use crate::math::{Mat4, Vary, pt3, vary::ZDiv};
 
@@ -9,14 +10,14 @@ use super::{
     raster::{Scanline, ScreenPt, line, tri_fill},
 };
 
-impl<V: Vary> Render<V> for Tri<usize> {
+impl<V: Vary, I: Index> Render<V> for Tri<I> {
     type Clip = Tri<ClipVert<V>>;
     type Clips = [Tri<ClipVert<V>>];
     type Screen = Tri<Vertex<ScreenPt, V>>;
 
     #[inline]
     fn inline(tri: Self, vs: &[ClipVert<V>]) -> Tri<ClipVert<V>> {
-        tri.map(|i| vs[i].clone())
+        tri.map(|i| vs[i.as_usize()].clone())
     }
 
     #[inline]
@@ -43,7 +44,7 @@ impl<V: Vary> Render<V> for Tri<usize> {
     }
 }
 
-impl<V: Vary> Render<V> for Edge<usize> {
+impl<V: Vary, I: Index> Render<V> for Edge<I> {
     type Clip = Edge<ClipVert<V>>;
 
     type Clips = [Self::Clip];
@@ -51,8 +52,8 @@ impl<V: Vary> Render<V> for Edge<usize> {
     type Screen = Edge<Vertex<ScreenPt, V>>;
 
     #[inline]
-    fn inline(e: Edge<usize>, vs: &[ClipVert<V>]) -> Self::Clip {
-        Edge(vs[e.0].clone(), vs[e.1].clone())
+    fn inline(Edge(a, b): Self, vs: &[ClipVert<V>]) -> Self::Clip {
+        Edge(vs[a.as_usize()].clone(), vs[b.as_usize()].clone())
     }
 
     #[inline]

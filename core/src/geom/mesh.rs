@@ -1,17 +1,25 @@
 //! Triangle meshes.
 
-use alloc::{vec, vec::Vec};
-use core::{
-    fmt::{Debug, Formatter},
-    iter::zip,
-};
-
+use super::{Normal3, Tri, Vertex3, tri, vertex};
 use crate::{
     math::{Linear, Mat4, Point3},
     render::Model,
 };
+use alloc::{vec, vec::Vec};
+use core::{
+    fmt::{Debug, Display, Formatter},
+    iter::zip,
+};
+use std::ops;
 
-use super::{Normal3, Tri, Vertex3, tri, vertex};
+pub trait Index: Copy + Clone + Debug + Display + Eq + PartialEq {
+    fn as_usize(self) -> usize;
+    fn add(self, i: usize) -> Self;
+
+    fn index<I: ops::Index<usize>>(self, slice: &I) -> &I::Output {
+        &slice[self.as_usize()]
+    }
+}
 
 /// A triangle mesh.
 ///
@@ -21,25 +29,25 @@ use super::{Normal3, Tri, Vertex3, tri, vertex};
 /// with 8 vertices and 12 faces. By using many faces, complex curved shapes
 /// can be approximated.
 #[derive(Clone)]
-pub struct Mesh<Attrib, Basis = Model> {
+pub struct Mesh<Attrib, Index = u32, Basis = Model> {
     /// The faces of the mesh, with each face a triplet of indices
     /// to the `verts` vector. Several faces can share a vertex.
-    pub faces: Vec<Tri<usize>>,
+    pub faces: Vec<Tri<Index>>,
     /// The vertices of the mesh.
     pub verts: Vec<Vertex3<Attrib, Basis>>,
 }
 
 /// A builder type for creating meshes.
 #[derive(Clone)]
-pub struct Builder<Attrib = (), Basis = Model> {
-    pub mesh: Mesh<Attrib, Basis>,
+pub struct Builder<Attrib = (), Index = u32, Basis = Model> {
+    pub mesh: Mesh<Attrib, Index, Basis>,
 }
 
 //
 // Inherent impls
 //
 
-impl<A, B> Mesh<A, B> {
+impl<A, I: Index, B> Mesh<A, I, B> {
     /// Creates a new triangle mesh with the given faces and vertices.
     ///
     /// Each face in `faces` is a triplet of indices, referring to
@@ -73,7 +81,7 @@ impl<A, B> Mesh<A, B> {
     /// If any of the vertex indices in `faces` ≥ `verts.len()`.
     pub fn new<F, V>(faces: F, verts: V) -> Self
     where
-        F: IntoIterator<Item = Tri<usize>>,
+        F: IntoIterator<Item = Tri<I>>,
         V: IntoIterator<Item = Vertex3<A, B>>,
     {
         let faces: Vec<_> = faces.into_iter().collect();
@@ -88,7 +96,7 @@ impl<A, B> Mesh<A, B> {
     pub fn faces(&self) -> impl Iterator<Item = Tri<&Vertex3<A, B>>> {
         self.faces
             .iter()
-            .map(|tri| tri.map(|i| &self.verts[i]))
+            .map(|tri| tri.map(|i| i.index(&self.verts)))
     }
 
     /// Returns a mesh with the faces and vertices of both `self` and `other`.
@@ -96,42 +104,44 @@ impl<A, B> Mesh<A, B> {
     pub fn merge(mut self, Self { faces, verts }: Self) -> Self {
         let n = self.verts.len();
         self.verts.extend(verts);
-        self.faces
-            .extend(faces.into_iter().map(|tri| tri.map(|i| i + n)));
+        self.faces.extend(faces.into_iter().map(|tri| {
+            // TODO better overflow handling
+            tri.map(|i| i.add(n))
+        }));
         self
     }
 }
 
 #[inline(never)]
-fn assert_indices_in_bounds(faces: &[Tri<usize>], len: usize) {
+fn assert_indices_in_bounds<I: Index>(faces: &[Tri<I>], len: usize) {
     for (Tri(vs), i) in zip(faces, 0..) {
         assert!(
-            vs.iter().all(|&j| j < len),
+            vs.iter().all(|&j| j.as_usize() < len),
             "vertex index out of bounds at faces[{i}]: {vs:?}"
         );
     }
 }
 
-impl<A> Mesh<A> {
+impl<A, I: Index> Mesh<A, I> {
     /// Returns a new mesh builder.
-    pub fn builder() -> Builder<A> {
+    pub fn builder() -> Builder<A, I> {
         Builder::default()
     }
 
     /// Consumes `self` and returns a mesh builder with the faces and vertices
     ///  of `self`.
-    pub fn into_builder(self) -> Builder<A> {
+    pub fn into_builder(self) -> Builder<A, I> {
         Builder { mesh: self }
     }
 }
 
-impl<A> Builder<A> {
+impl<A, I: Index> Builder<A, I> {
     /// Appends a face with the given vertex indices.
     ///
     /// Invalid indices (referring to vertices not yet added) are permitted,
     /// as long as all indices are valid when the [`build`][Builder::build]
     /// method is called.
-    pub fn push_face(&mut self, a: usize, b: usize, c: usize) {
+    pub fn push_face(&mut self, a: I, b: I, c: I) {
         self.mesh.faces.push(tri(a, b, c));
     }
 
@@ -142,7 +152,7 @@ impl<A> Builder<A> {
     /// the [`build`][Builder::build] method is called.
     pub fn push_faces<Fs>(&mut self, faces: Fs)
     where
-        Fs: IntoIterator<Item = [usize; 3]>,
+        Fs: IntoIterator<Item = [I; 3]>,
     {
         self.mesh.faces.extend(faces.into_iter().map(Tri));
     }
@@ -166,13 +176,13 @@ impl<A> Builder<A> {
     /// # Panics
     /// If any of the vertex indices in `faces` ≥ `verts.len()`.
     #[must_use]
-    pub fn build(self) -> Mesh<A> {
+    pub fn build(self) -> Mesh<A, I> {
         // Sanity checks done by new()
         Mesh::new(self.mesh.faces, self.mesh.verts)
     }
 }
 
-impl<A> Builder<A> {
+impl<A, I: Index> Builder<A, I> {
     /// Applies the given transform to the position of each vertex.
     ///
     /// This is an eager operation, that is, only vertices *currently*
@@ -207,14 +217,14 @@ impl<A> Builder<A> {
     /// to the builder are transformed. The attribute type of the result is
     /// `Normal3`; the vertex type it accepts is changed accordingly.
     #[must_use]
-    pub fn with_vertex_normals(self) -> Builder<Normal3> {
+    pub fn with_vertex_normals(self) -> Builder<Normal3, I> {
         let Mesh { verts, faces } = self.mesh;
 
         // Compute weighted face normals...
         let face_normals = faces.iter().map(|tri| {
             // TODO If n-gonal faces are supported some day, the cross
             //      product is not proportional to area anymore
-            let [a, b, c] = tri.map(|i| verts[i].pos).0;
+            let [a, b, c] = tri.map(|i| verts[i.as_usize()].pos).0;
             (b - a).cross(&(c - a)).to()
         });
         // ...initialize vertex normals to zero...
@@ -225,7 +235,7 @@ impl<A> Builder<A> {
         // ...accumulate normals...
         for (&Tri(vs), n) in zip(&faces, face_normals) {
             for i in vs {
-                verts[i].attrib += n;
+                verts[i.as_usize()].attrib += n;
             }
         }
         // ...and normalize to unit length.
@@ -239,10 +249,61 @@ impl<A> Builder<A> {
 }
 
 //
+// Local trait impls
+//
+
+impl Index for u8 {
+    fn as_usize(self) -> usize {
+        self as usize
+    }
+    fn add(self, i: usize) -> Self {
+        self + i as Self
+    }
+}
+
+impl Index for u16 {
+    fn as_usize(self) -> usize {
+        self as usize
+    }
+    fn add(self, i: usize) -> Self {
+        self + i as Self
+    }
+}
+
+#[cfg(any(target_pointer_width = "32", target_pointer_width = "64"))]
+impl Index for u32 {
+    fn as_usize(self) -> usize {
+        self as usize
+    }
+    fn add(self, i: usize) -> Self {
+        self + i as Self
+    }
+}
+
+#[cfg(target_pointer_width = "64")]
+impl Index for u64 {
+    fn as_usize(self) -> usize {
+        self as usize
+    }
+    fn add(self, i: usize) -> Self {
+        self + i as Self
+    }
+}
+
+impl Index for usize {
+    fn as_usize(self) -> usize {
+        self
+    }
+    fn add(self, i: usize) -> Self {
+        self + i as Self
+    }
+}
+
+//
 // Foreign trait impls
 //
 
-impl<A: Debug, S: Debug + Default> Debug for Mesh<A, S> {
+impl<A: Debug, I: Debug, S: Debug + Default> Debug for Mesh<A, I, S> {
     fn fmt(&self, f: &mut Formatter<'_>) -> core::fmt::Result {
         f.debug_struct("Mesh")
             .field("faces", &self.faces)
@@ -251,7 +312,7 @@ impl<A: Debug, S: Debug + Default> Debug for Mesh<A, S> {
     }
 }
 
-impl<A: Debug, S: Debug + Default> Debug for Builder<A, S> {
+impl<A: Debug, I: Debug, S: Debug + Default> Debug for Builder<A, I, S> {
     fn fmt(&self, f: &mut Formatter<'_>) -> core::fmt::Result {
         f.debug_struct("Builder")
             .field("faces", &self.mesh.faces)
@@ -260,14 +321,14 @@ impl<A: Debug, S: Debug + Default> Debug for Builder<A, S> {
     }
 }
 
-impl<A, S> Default for Mesh<A, S> {
+impl<A, I, B> Default for Mesh<A, I, B> {
     /// Returns an empty mesh.
     fn default() -> Self {
         Self { faces: vec![], verts: vec![] }
     }
 }
 
-impl<A> Default for Builder<A> {
+impl<A, I, B> Default for Builder<A, I, B> {
     /// Returns an empty builder.
     fn default() -> Self {
         Self { mesh: Mesh::default() }

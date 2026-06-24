@@ -278,7 +278,7 @@ impl Obj {
         mut attr_fn: impl FnMut(&Indices) -> Option<A>,
     ) -> Result<Builder<A>> {
         // HashMap not in alloc :(
-        let mut map: BTreeMap<Indices, usize> = BTreeMap::new();
+        let mut map: BTreeMap<Indices, u32> = BTreeMap::new();
 
         let mut faces = Vec::new();
         let mut verts = Vec::new();
@@ -293,7 +293,7 @@ impl Obj {
                         self.coords[v.pos],
                         attr_fn(&v).unwrap(), // TODO
                     ));
-                    verts.len() - 1
+                    verts.len() as u32 - 1
                 })
             });
             faces.push(Tri(indices));
