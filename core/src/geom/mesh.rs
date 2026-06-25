@@ -9,8 +9,8 @@ use alloc::{vec, vec::Vec};
 use core::{
     fmt::{Debug, Display, Formatter},
     iter::zip,
+    ops,
 };
-use std::ops;
 
 pub trait Index: Copy + Clone + Debug + Display + Eq + PartialEq {
     fn as_usize(self) -> usize;
@@ -282,15 +282,28 @@ impl Index for u16 {
 }
 
 #[cfg(any(target_pointer_width = "32", target_pointer_width = "64"))]
-impl Index for u32 {
-    fn as_usize(self) -> usize {
-        self as usize
+mod foo {
+    use super::Index;
+    // Hacky, but type inference defaulting to i32
+    // makes things painful otherwise
+    impl Index for i32 {
+        fn as_usize(self) -> usize {
+            assert!(self >= 0, "indices must be positive (was: {self})");
+            self as usize
+        }
+        fn add(self, i: usize) -> Self {
+            self + i as Self
+        }
     }
-    fn add(self, i: usize) -> Self {
-        self + i as Self
+    impl Index for u32 {
+        fn as_usize(self) -> usize {
+            self as usize
+        }
+        fn add(self, i: usize) -> Self {
+            self + i as Self
+        }
     }
 }
-
 #[cfg(target_pointer_width = "64")]
 impl Index for u64 {
     fn as_usize(self) -> usize {
@@ -380,7 +393,7 @@ mod tests {
             (pt3(1.0, 1.0, 1.0), ()),
             (pt3(2.0, 2.0, 2.0), ()),
         ]);
-        _ = b.build();
+        _ = b.build::<i32>();
     }
 
     #[test]
