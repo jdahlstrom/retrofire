@@ -52,7 +52,7 @@ fn main() {
             .then(&projection);
 
         render(
-            [tri(0, 1, 2), tri(3, 2, 1)],
+            [tri(0u8, 1, 2), tri(3, 2, 1)],
             verts,
             &shader,
             &model_view_project,

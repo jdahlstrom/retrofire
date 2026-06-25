@@ -144,7 +144,7 @@ fn main() {
     .expect("should run");
 }
 
-fn crates() -> Vec<Obj<(Normal3, TexCoord)>> {
+fn crates() -> Vec<Obj<(Normal3, TexCoord), u8>> {
     let obj = Obj::new(Cube { side_len: 2.0 }.build());
 
     let mut res = vec![];

@@ -135,7 +135,7 @@ impl<A, I: Index> Mesh<A, I> {
     }
 }
 
-impl<A, I: Index> Builder<A, I> {
+impl<A, I: Index, B> Builder<A, I, B> {
     /// Appends a face with the given vertex indices.
     ///
     /// Invalid indices (referring to vertices not yet added) are permitted,
@@ -176,7 +176,7 @@ impl<A, I: Index> Builder<A, I> {
     /// # Panics
     /// If any of the vertex indices in `faces` ≥ `verts.len()`.
     #[must_use]
-    pub fn build<J: Index + From<I>>(self) -> Mesh<A, J> {
+    pub fn build<J: Index + From<I>>(self) -> Mesh<A, J, B> {
         // Sanity checks done by new()
         Mesh::new(
             self.mesh
@@ -186,15 +186,13 @@ impl<A, I: Index> Builder<A, I> {
             self.mesh.verts,
         )
     }
-}
 
-impl<A, I: Index> Builder<A, I> {
     /// Applies the given transform to the position of each vertex.
     ///
     /// This is an eager operation, that is, only vertices *currently*
     /// added to the builder are transformed.
     #[must_use]
-    pub fn transform(self, tf: &Mat4<Model, Model>) -> Self {
+    pub fn transform<C>(self, tf: &Mat4<B, C>) -> Builder<A, I, C> {
         self.warp(|v| vertex(tf.apply(&v.pos), v.attrib))
     }
 
@@ -204,9 +202,16 @@ impl<A, I: Index> Builder<A, I> {
     /// twisting or dilation. This is an eager operation, that is, only vertices
     /// *currently* added to the builder are transformed.
     #[must_use]
-    pub fn warp(mut self, f: impl FnMut(Vertex3<A>) -> Vertex3<A>) -> Self {
-        self.mesh.verts = self.mesh.verts.into_iter().map(f).collect();
-        self
+    pub fn warp<C, F>(self, f: F) -> Builder<A, I, C>
+    where
+        F: FnMut(Vertex3<A, B>) -> Vertex3<A, C>,
+    {
+        Builder {
+            mesh: Mesh {
+                faces: self.mesh.faces,
+                verts: self.mesh.verts.into_iter().map(f).collect(),
+            },
+        }
     }
 
     /// Computes a vertex normal for each vertex as an area-weighted average
@@ -223,7 +228,7 @@ impl<A, I: Index> Builder<A, I> {
     /// to the builder are transformed. The attribute type of the result is
     /// `Normal3`; the vertex type it accepts is changed accordingly.
     #[must_use]
-    pub fn with_vertex_normals(self) -> Builder<Normal3, I> {
+    pub fn with_vertex_normals(self) -> Builder<Normal3, I, B> {
         let Mesh { verts, faces } = self.mesh;
 
         // Compute weighted face normals...
@@ -250,7 +255,7 @@ impl<A, I: Index> Builder<A, I> {
         }
 
         // No need to sanity check again
-        Mesh { faces, verts }.into_builder()
+        Builder { mesh: Mesh { faces, verts } }
     }
 }
 
