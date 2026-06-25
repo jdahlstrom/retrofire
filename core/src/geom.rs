@@ -1,7 +1,7 @@
 //! TODO doc
 //!
 
-pub use mesh::{Builder, Mesh};
+pub use mesh::{Builder, Index, Mesh};
 pub use prim::*;
 
 pub mod mesh;

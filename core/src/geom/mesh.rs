@@ -176,9 +176,15 @@ impl<A, I: Index> Builder<A, I> {
     /// # Panics
     /// If any of the vertex indices in `faces` ≥ `verts.len()`.
     #[must_use]
-    pub fn build(self) -> Mesh<A, I> {
+    pub fn build<J: Index + From<I>>(self) -> Mesh<A, J> {
         // Sanity checks done by new()
-        Mesh::new(self.mesh.faces, self.mesh.verts)
+        Mesh::new(
+            self.mesh
+                .faces
+                .into_iter()
+                .map(|tri| tri.map(Into::into)),
+            self.mesh.verts,
+        )
     }
 }
 

@@ -1,6 +1,4 @@
 use core::ops::ControlFlow::Continue;
-use std::env::current_dir;
-use std::fs::File;
 use std::sync::LazyLock;
 
 use minifb::{Key, KeyRepeat};
@@ -155,13 +153,12 @@ fn objects_n(res: u32) -> [Mesh<Normal3>; 14] {
     [
         suzanne(),
 
-
         // The five Platonic solids
         //Tetrahedron.build(),
-        Cube { side_len: 1.25 }.build(),
-        Octahedron.build(),
-        Dodecahedron.build(),
-        Icosahedron.build(),
+        Cube { side_len: 1.25 }.builder().build(),
+        Octahedron.builder().build(),
+        Dodecahedron.builder().build(),
+        Icosahedron.builder().build(),
 
         // Surfaces of revolution
         lathe(sectors),
@@ -200,11 +197,12 @@ fn lathe(secs: u32) -> Mesh<Normal3> {
 }
 
 fn suzanne() -> Mesh<Normal3> {
-    eprintln!("{:?}", current_dir());
-
-    File::open("Suzanne.gltf").unwrap();
-
-    load_gltf("Suzanne.gltf").expect("Suzanne should be found")
+    load_gltf("Suzanne.gltf")
+        .expect("Suzanne should be found")
+        .into_iter()
+        .next()
+        .expect("should have at least one mesh")
+        .build()
 }
 
 // Loads the Utah teapot model.

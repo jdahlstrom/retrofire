@@ -15,17 +15,20 @@ pub use lathe::*;
 pub use platonic::*;
 use retrofire_core::geom::mesh::Index;
 
-pub trait Build<A>: Sized {
-    fn build(self) -> Mesh<A>;
+pub trait Build<A, I: Index = u32>: Sized {
+    fn build(self) -> Mesh<A, I>;
 
-    fn builder(self) -> Builder<A> {
+    fn builder(self) -> Builder<A, I> {
         self.build().into_builder()
     }
 }
 
-pub struct Icosphere(pub f32, pub u8);
+pub struct Icosphere {
+    pub radius: f32,
+    pub depth: u8,
+}
 
-impl Build<Normal3> for Icosphere {
+impl Build<Normal3, u32> for Icosphere {
     fn build(self) -> Mesh<Normal3> {
         #[derive(Default)]
         struct Tessellator {
@@ -39,8 +42,8 @@ impl Build<Normal3> for Icosphere {
         impl Tessellator {
             fn map_get(&mut self, i: u32, j: u32) -> u32 {
                 *self.map.entry((i, j)).or_insert_with(|| {
-                    let a: Vec3 = self.coords[i.as_usize()];
-                    let ab = a.midpoint(&self.coords[j.as_usize()]);
+                    let a: Vec3 = *i.index(&self.coords);
+                    let ab = a.midpoint(j.index(&self.coords));
                     self.coords.push(ab);
                     self.coords.len() as u32 - 1
                 })
@@ -61,19 +64,16 @@ impl Build<Normal3> for Icosphere {
             }
         }
 
-        let mut recurser = Tessellator {
+        let mut tess = Tessellator {
             coords: Icosahedron::COORDS.to_vec(),
             ..Default::default()
         };
-
-        for [i, j, k] in Icosahedron::FACES {
-            recurser.recurse(self.1, i, j, k);
+        for [i, j, k] in Icosahedron::FACES.map(|ixs| ixs.map(u32::from)) {
+            tess.recurse(self.depth, i, j, k);
         }
-
-        let verts = recurser.coords.iter().map(|&p| {
-            vertex((p.normalize() * self.0).to().to_pt(), p.normalize())
+        let verts = tess.coords.iter().map(|&p| {
+            vertex((p.normalize() * self.radius).to().to_pt(), p.normalize())
         });
-
-        Mesh::new(recurser.faces, verts)
+        Mesh::new(tess.faces, verts)
     }
 }

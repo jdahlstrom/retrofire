@@ -2,7 +2,6 @@ use core::fmt;
 #[cfg(feature = "std")]
 use std::io;
 
-use crate::geom::mesh::Index;
 use crate::geom::{Mesh, Tri, Vertex3, tri, vertex};
 use crate::math::{
     Color3, Color4, Point2, ProjMat3, Vec2, color::gray, orthographic, pt2,
