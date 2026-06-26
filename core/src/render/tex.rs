@@ -1,8 +1,21 @@
 //! Textures and texture samplers.
 
 use crate::geom::Normal3;
-use crate::math::{Point2u, Vec2, Vec3, Vector, pt2, splat, vec2};
+use crate::math::{
+    Color3, Point2u, Vec2, Vec3, Vector, lerp, pt2, splat, vec2,
+};
 use crate::util::{AsSlice2, Buf2, Dims, Slice2};
+
+pub trait Sample<D: AsSlice2>: Sized {
+    /// Returns the color in `tex` at `tc` in relative coordinates.
+    #[inline]
+    fn sample(&self, tex: &Texture<D>, tc: TexCoord) -> D::Elem {
+        self.sample_abs(tex, tc * uv(tex.w, tex.h))
+    }
+
+    /// Returns the color in `tex` at `tc` in absolute coordinates.
+    fn sample_abs(&self, tex: &Texture<D>, tc: TexCoord) -> D::Elem;
+}
 
 /// Basis of the texture space.
 #[derive(Copy, Clone, Debug, Default, Eq, PartialEq)]
@@ -217,8 +230,10 @@ impl<'a, C> From<Slice2<'a, C>> for Texture<Slice2<'a, C>> {
 }
 
 /// A texture sampler that repeats the texture infinitely modulo the texture
-/// dimensions. For performance reasons, `SamplerRepeatPot` only accepts
-/// textures with dimensions that are powers of two.
+/// dimensions.
+///
+/// For performance reasons, `SamplerRepeatPot` only accepts textures with
+/// dimensions that are powers of two.
 #[derive(Copy, Clone, Debug)]
 pub struct SamplerRepeatPot {
     w_mask: u32,
@@ -236,32 +251,14 @@ impl SamplerRepeatPot {
         assert!(h.is_power_of_two(), "height must be 2^n, was {h}");
         Self { w_mask: w - 1, h_mask: h - 1 }
     }
-
-    /// Returns the color in `tex` at `tc` in relative coordinates, such that
-    /// coordinates outside `0.0..1.0` are wrapped to the valid range.
+}
+impl<D: AsSlice2<Elem: Copy>> Sample<D> for SamplerRepeatPot {
+    /// Returns the color in `tex` at `tc` in absolute coordinates.
     ///
-    /// Uses nearest neighbor sampling.
+    /// Coordinates outside `0.0..tex.width()` and `0.0..tex.height()` are
+    /// wrapped to the valid range. Uses nearest neighbor sampling.
     #[inline]
-    pub fn sample<D: AsSlice2<Elem: Copy>>(
-        &self,
-        tex: &Texture<D>,
-        tc: TexCoord,
-    ) -> D::Elem {
-        let scaled_uv = uv(tex.width() * tc.u(), tex.height() * tc.v());
-        self.sample_abs(tex, scaled_uv)
-    }
-
-    /// Returns the color in `tex` at `tc` in absolute coordinates, such that
-    /// coordinates outside `0.0..tex.width()` and `0.0..tex.height()` are
-    /// wrapped to the valid range.
-    ///
-    /// Uses nearest neighbor sampling.
-    #[inline]
-    pub fn sample_abs<D: AsSlice2<Elem: Copy>>(
-        &self,
-        tex: &Texture<D>,
-        tc: TexCoord,
-    ) -> D::Elem {
+    fn sample_abs(&self, tex: &Texture<D>, tc: TexCoord) -> D::Elem {
         use crate::math::float::f32;
         // Convert first to signed int to avoid clamping to zero
         let u = f32::floor(tc.u()) as i32 as u32 & self.w_mask;
@@ -276,31 +273,13 @@ impl SamplerRepeatPot {
 #[derive(Copy, Clone, Debug)]
 pub struct SamplerClamp;
 
-impl SamplerClamp {
-    /// Returns the color in `tex` at `tc` such that coordinates outside
-    /// the range `0.0..1.0` are clamped to the range endpoints.
+impl<D: AsSlice2<Elem: Copy>> Sample<D> for SamplerClamp {
+    /// Returns the color in `tex` at `tc` in absolute coordinates.
     ///
-    /// Uses nearest neighbor sampling.
+    /// Coordinates outside `0.0..tex.width()` and `0.0..tex.height()` are
+    /// clamped to the range endpoints. Uses nearest neighbor sampling.
     #[inline]
-    pub fn sample<D: AsSlice2<Elem: Copy>>(
-        &self,
-        tex: &Texture<D>,
-        tc: TexCoord,
-    ) -> D::Elem {
-        self.sample_abs(tex, uv(tc.u() * tex.w, tc.v() * tex.h))
-    }
-
-    /// Returns the color in `tex` at `tc` in absolute coordinates, such that
-    /// coordinates outside `0.0..tex.width()` and `0.0..tex.height()` are
-    /// clamped to the range endpoints.
-    ///
-    /// Uses nearest neighbor sampling.
-    #[inline]
-    pub fn sample_abs<D: AsSlice2<Elem: Copy>>(
-        &self,
-        tex: &Texture<D>,
-        tc: TexCoord,
-    ) -> D::Elem {
+    fn sample_abs(&self, tex: &Texture<D>, tc: TexCoord) -> D::Elem {
         use crate::math::float::f32;
         let u = f32::floor(tc.u().clamp(0.0, tex.w - 1.0)) as u32;
         let v = f32::floor(tc.v().clamp(0.0, tex.h - 1.0)) as u32;
@@ -317,24 +296,7 @@ impl SamplerClamp {
 #[derive(Copy, Clone, Debug)]
 pub struct SamplerOnce;
 
-impl SamplerOnce {
-    /// Returns the color in `tex` at `tc` such that both coordinates are
-    /// assumed to be in the range `0.0..1.0`.
-    ///
-    /// Uses nearest neighbor sampling. Passing out-of-range coordinates
-    /// to this function is sound (not UB) but is not otherwise specified.
-    ///
-    /// # Panics
-    /// May panic if `tc` is not in the valid range.
-    #[inline]
-    pub fn sample<D: AsSlice2<Elem: Copy>>(
-        &self,
-        tex: &Texture<D>,
-        tc: TexCoord,
-    ) -> D::Elem {
-        let scaled_uv = uv(tex.width() * tc.u(), tex.height() * tc.v());
-        self.sample_abs(tex, scaled_uv)
-    }
+impl<D: AsSlice2<Elem: Copy>> Sample<D> for SamplerOnce {
     /// Returns the color in `tex` at `tc` such that the coordinates are
     /// assumed to be in the ranges `0.0..tex.width()` and `0.0..tex.height()`
     /// respectively.
@@ -345,11 +307,7 @@ impl SamplerOnce {
     /// # Panics
     /// May panic if `tc` is not in the valid range.
     #[inline]
-    pub fn sample_abs<D: AsSlice2<Elem: Copy>>(
-        &self,
-        tex: &Texture<D>,
-        tc: TexCoord,
-    ) -> D::Elem {
+    fn sample_abs(&self, tex: &Texture<D>, tc: TexCoord) -> D::Elem {
         let u = tc.u() as u32;
         let v = tc.v() as u32;
 
@@ -358,6 +316,40 @@ impl SamplerOnce {
         debug_assert!(v < d.height(), "v={v}");
 
         d[[u, v]]
+    }
+}
+
+/// Texture sampler with bilinear filtering.
+pub struct SamplerBilinear<S>(pub S);
+
+impl<D: AsSlice2<Elem = Color3>, S: Sample<D>> Sample<D>
+    for SamplerBilinear<S>
+{
+    /// Uses the inner sampler to sample the texture in the four integer
+    /// positions surrounding the given texture coordinate and linearly
+    /// interpolates the returned color value.
+    #[inline]
+    fn sample_abs(&self, tex: &Texture<D>, tc: TexCoord) -> D::Elem {
+        use crate::math::float::f32;
+
+        let u = tc.u().clamp(0.0, tex.w - 1.0);
+        let v = tc.v().clamp(0.0, tex.h - 1.0);
+
+        let u0 = f32::floor(u);
+        let v0 = f32::floor(v);
+        let u1 = u0 + 1.0;
+        let v1 = v0 + 1.0;
+
+        // TODO costly conversion to float and back
+        let c00 = self.0.sample_abs(tex, uv(u0, v0)).to_color3f();
+        let c01 = self.0.sample_abs(tex, uv(u0, v1)).to_color3f();
+        let c10 = self.0.sample_abs(tex, uv(u1, v0)).to_color3f();
+        let c11 = self.0.sample_abs(tex, uv(u1, v1)).to_color3f();
+
+        let c0 = lerp(u - u0, c00, c10);
+        let c1 = lerp(u - u0, c01, c11);
+
+        lerp(v - v0, c0, c1).to_color3()
     }
 }
 

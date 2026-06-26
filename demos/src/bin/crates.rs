@@ -8,7 +8,7 @@ use re::core::render::{
     clip::Status::*,
     scene::Obj,
     shader,
-    tex::SamplerClamp,
+    tex::{Sample, SamplerClamp},
 };
 // Try also Rgb565 or Rgba4444
 use re::core::util::{pixfmt::Rgba8888, pnm::read_pnm};
