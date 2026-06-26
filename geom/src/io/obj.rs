@@ -39,23 +39,17 @@
 
 use alloc::{collections::BTreeMap, string::String, vec::Vec};
 use core::{
+    any::type_name,
     fmt::{self, Display, Formatter},
     num::{ParseFloatError, ParseIntError},
-};
-#[cfg(feature = "std")]
-use std::{
-    fs::File,
-    io::{BufReader, Read},
-    path::Path,
 };
 
 use retrofire_core::{
     geom::{Mesh, Normal3, Tri, mesh::Builder, vertex},
     math::{Point3, Vec3, vec3},
     render::{Model, TexCoord, uv},
+    util::Load,
 };
-
-use Error::*;
 
 /// Represents errors that may occur during reading OBJ data.
 #[derive(Debug)]
@@ -74,8 +68,9 @@ pub enum Error {
     /// Requested vertex attribute not contained in input
     MissingVertexAttribType(&'static str),
 }
+use Error::*;
 
-#[derive(Default)]
+#[derive(Debug, Default)]
 pub struct Obj {
     faces: Vec<Tri<Indices>>,
     coords: Vec<Point3<Model>>,
@@ -84,6 +79,27 @@ pub struct Obj {
 }
 
 pub type Result<T> = core::result::Result<T, Error>;
+
+impl Load for Obj {
+    type Error = Error;
+
+    #[cfg(feature = "std")]
+    fn from_reader(reader: impl std::io::Read) -> Result<Self> {
+        let mut io_res: Result<()> = Ok(());
+        let res = do_parse_obj(&mut reader.bytes().map_while(|r| match r {
+            Err(e) => {
+                io_res = Err(e.into());
+                None
+            }
+            Ok(b) => Some(b),
+        }));
+        io_res.and(res)
+    }
+
+    fn from_slice(slice: &[u8]) -> Result<Self> {
+        do_parse_obj(&mut slice.into_iter().copied())
+    }
+}
 
 #[derive(Copy, Clone, Debug, Default, Eq, PartialEq, Ord, PartialOrd)]
 struct Indices {
@@ -97,7 +113,7 @@ enum Face {
     Tri([Indices; 3]),
     Quad([Indices; 4]),
 }
-
+/*
 /// Loads an OBJ model from a path.
 ///
 /// # Errors
@@ -141,6 +157,7 @@ where
 {
     do_parse_obj(&mut src.into_iter())?.try_into()
 }
+*/
 
 fn do_parse_obj(src: &mut dyn Iterator<Item = u8>) -> Result<Obj> {
     let mut obj = Obj::default();
@@ -285,7 +302,7 @@ impl Obj {
 
         for Tri(indices) in &self.faces {
             if indices.iter().any(|i| attr_fn(i).is_none()) {
-                return Err(MissingVertexAttribType(""));
+                return Err(MissingVertexAttribType(type_name::<A>()));
             }
             let indices = indices.map(|v| {
                 *map.entry(v).or_insert_with(|| {
@@ -433,9 +450,18 @@ mod tests {
         math::point::pt3,
     };
 
+    fn obj_from<A>(slice: &[u8]) -> Result<Mesh<A>>
+    where
+        Builder<A>: TryFrom<Obj, Error = Error>,
+    {
+        Obj::from_slice(slice)
+            .and_then(|obj| Builder::try_from(obj))
+            .map(Builder::build)
+    }
+
     #[test]
     fn input_with_whitespace_and_comments() {
-        let input = *br"
+        let input = br"
 # comment
 f 1 2 4
  f 4 1 3
@@ -446,7 +472,7 @@ v       1.0 0.0 0.0
 v 0.0 -2.0 0.0
         v 1 2 3";
 
-        let m = &parse_obj::<()>(input).unwrap().build();
+        let m = obj_from::<()>(input).unwrap();
 
         assert_eq!(m.faces.len(), 2);
         assert_eq!(m.verts.len(), 4);
@@ -464,7 +490,7 @@ v 0.0 -2.0 0.0
 
     #[test]
     fn float_formats() {
-        let input = *br"
+        let input = br"
             v 1 -2 +3
             v 1.0 -2.0 +3.0
             v .1 -.2 +.3
@@ -472,21 +498,21 @@ v 0.0 -2.0 0.0
             v 1.0e0 -0.2e1  +300.0e-2
             f 1 2 3
             f 3 4 5";
-        let mesh: Mesh<()> = parse_obj(input).unwrap().build();
+        let mesh: Mesh<()> = obj_from(input).unwrap();
         assert_eq!(mesh.verts[0].pos, pt3(1.0, -2.0, 3.0));
         assert_eq!(mesh.verts[4].pos, pt3(1.0, -2.0, 3.0));
     }
 
     #[test]
     fn quads() {
-        let input = *br"
+        let input = br"
             v 0.0 0.0 0.0
             v 1.0 0.0 0.0
             v 1.0 1.0 0.0
             v 0.0 1.0 0.0
             f 1 2 3 4
         ";
-        let mesh: Mesh<()> = parse_obj(input).unwrap().build();
+        let mesh = obj_from::<()>(input).unwrap();
 
         assert_eq!(mesh.faces.len(), 2);
         assert_eq!(mesh.faces, [Tri([0, 1, 2]), Tri([0, 2, 3])]);
@@ -494,7 +520,7 @@ v 0.0 -2.0 0.0
 
     #[test]
     fn positions_and_normals() {
-        let input = *br"
+        let input = br"
             f 1//1 2//3 4//2
             f 4//3 1//1 3//1
 
@@ -506,7 +532,7 @@ v 0.0 -2.0 0.0
             v 1.0 2.0 3.0
             vn 0.0 0.0 -1.0";
 
-        let m: Mesh<Normal3> = parse_obj(input).unwrap().build();
+        let m: Mesh<Normal3> = obj_from(input).unwrap();
 
         assert_eq!(m.faces.len(), 2);
         assert_eq!(m.verts.len(), 5);
@@ -532,7 +558,7 @@ v 0.0 -2.0 0.0
 
     #[test]
     fn positions_and_texcoords() {
-        let input = *br"
+        let input = br"
             f 1/1 2/3 4/2
             f 4/3 1/2 3/1
 
@@ -544,7 +570,7 @@ v 0.0 -2.0 0.0
             v 1.0 2.0 3.0
             vt 1.0 1.0";
 
-        let m: Mesh<TexCoord> = parse_obj(input).unwrap().build();
+        let m: Mesh<TexCoord> = obj_from::<TexCoord>(input).unwrap();
 
         assert_eq!(m.faces.len(), 2);
         assert_eq!(m.verts.len(), 6);
@@ -570,7 +596,7 @@ v 0.0 -2.0 0.0
 
     #[test]
     fn positions_texcoords_and_normals() {
-        let input = *br"
+        let input = br"
             f 1/1/1 2/3/2 3/2/2
             f 4/3/2 1/1/1 3/1/3
 
@@ -585,9 +611,8 @@ v 0.0 -2.0 0.0
             vt 0.0 -1.0
             vn 0.0 0.0 1.0";
 
-        let m = &parse_obj::<(Normal3, TexCoord)>(input)
-            .unwrap()
-            .build();
+        let m = obj_from::<(Normal3, TexCoord)>(input).unwrap();
+
         assert_eq!(m.faces.len(), 2);
         assert_eq!(m.verts.len(), 5);
 
@@ -614,36 +639,30 @@ v 0.0 -2.0 0.0
 
     #[test]
     fn empty_input() {
-        let mesh: Mesh<()> = parse_obj(*b"")
-            .unwrap_or_else(|e| {
-                panic!("empty input should be valid, got {e:?}")
-            })
-            .build();
+        let mesh = obj_from::<()>(b"").expect("empty input should be valid");
         assert!(mesh.faces.is_empty());
         assert!(mesh.verts.is_empty());
     }
 
     #[test]
     fn input_only_whitespace() {
-        let mesh: Mesh<()> = parse_obj(*b"   \n     \n\n ")
-            .expect("white-space only input should be valid")
-            .build();
+        let mesh = obj_from::<()>(b"   \n     \n\n ")
+            .expect("white-space only obj should be valid");
         assert!(mesh.faces.is_empty());
         assert!(mesh.verts.is_empty());
     }
 
     #[test]
     fn input_only_comments() {
-        let mesh: Mesh<()> = parse_obj(*b"# comment\n #another comment")
-            .expect("comment-only input should be valid")
-            .build();
+        let mesh = obj_from::<()>(b"# comment\n #another comment")
+            .expect("comment-only input should be valid");
         assert!(mesh.faces.is_empty());
         assert!(mesh.verts.is_empty());
     }
 
     #[test]
     fn unknown_item() {
-        let result = parse_obj::<()>(*b"f 1 2 3\nxyz 4 5 6");
+        let result = obj_from::<()>(b"f 1 2 3\nxyz 4 5 6");
         assert!(
             matches!(&result, Err(UnsupportedItem(item)) if item == b"xyz"),
             "actual was: {result:?}"
@@ -652,8 +671,8 @@ v 0.0 -2.0 0.0
 
     #[test]
     fn vertex_index_oob() {
-        let input = *b"f 1 2 3\nv 0.0 0.0 0.0\nv 1.0 1.0 1.0";
-        let result = parse_obj::<()>(input);
+        let input = b"f 1 2 3\nv 0.0 0.0 0.0\nv 1.0 1.0 1.0";
+        let result = obj_from::<()>(input);
         assert!(
             matches!(result, Err(IndexOutOfBounds("vertex", 2))),
             "actual was: {result:?}",
@@ -661,8 +680,8 @@ v 0.0 -2.0 0.0
     }
     #[test]
     fn texcoord_index_oob() {
-        let input = *b"f 1/1 1/4 1/2\nv 0.0 0.0 0.0\nvt 0.0 0.0\nvt 0.0 1.0";
-        let result = parse_obj::<()>(input);
+        let input = b"f 1/1 1/4 1/2\nv 0.0 0.0 0.0\nvt 0.0 0.0\nvt 0.0 1.0";
+        let result = obj_from::<()>(input);
         assert!(
             matches!(result, Err(IndexOutOfBounds("texcoord", 3))),
             "actual was: {result:?}",
@@ -671,15 +690,15 @@ v 0.0 -2.0 0.0
 
     #[test]
     fn unexpected_end_of_input() {
-        let input = *b"f";
-        let result = parse_obj::<()>(input);
+        let input = b"f";
+        let result = obj_from::<()>(input);
         assert!(matches!(result, Err(UnexpectedEnd)));
     }
 
     #[test]
     #[cfg(feature = "std")]
     fn io_error() {
-        use std::io::ErrorKind;
+        use std::io::*;
 
         struct R(bool);
         impl Read for R {
@@ -693,13 +712,16 @@ v 0.0 -2.0 0.0
                 }
             }
         }
-
-        let result = read_obj::<()>(R(true));
-
-        if let Err(Io(e)) = result {
-            assert_eq!(e.kind(), ErrorKind::BrokenPipe);
-        } else {
-            panic!("result should be Err(Io), was: {result:?}")
+        impl Seek for R {
+            fn seek(&mut self, _pos: SeekFrom) -> Result<u64> {
+                Ok(0)
+            }
         }
+
+        let res = Obj::from_reader(R(true));
+        assert!(
+            matches!(res, Err(Io(e)) if e.kind() == ErrorKind::BrokenPipe),
+            "result should be Err(Io(kind=BrokenPipe)), was: {other:?}"
+        );
     }
 }

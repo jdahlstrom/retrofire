@@ -4,3 +4,8 @@
 pub mod gltf;
 
 pub mod obj;
+
+#[cfg(feature = "gltf")]
+pub use gltf::Gltf;
+
+pub use obj::Obj;

@@ -5,14 +5,18 @@ use minifb::{Key, KeyRepeat};
 
 use re::prelude::*;
 
+use re::core::util::Load;
 use re::core::{
-    geom::{Polyline, Ray},
+    geom::{Builder, Polyline, Ray},
     math::{ProjVec3, color::gray, spline::HermiteSpline},
     render::{Model, ModelToWorld, cam::Fov, shader},
 };
 use re::front::{Frame, minifb::Window};
-use re::geom::io::gltf::load_gltf;
-use re::geom::{io::obj::read_obj, solids::*};
+
+use re::geom::{
+    io::{Gltf, Obj},
+    solids::*,
+};
 
 // Carousel animation for switching between objects.
 #[derive(Default)]
@@ -197,11 +201,15 @@ fn lathe(secs: u32) -> Mesh<Normal3> {
 }
 
 fn suzanne() -> Mesh<Normal3> {
-    load_gltf("Suzanne.gltf")
+    let meshes: Vec<Builder<_>> = Gltf::from_path("Suzanne.gltf")
         .expect("Suzanne should be found")
+        .try_into()
+        .expect("valid gltf");
+
+    meshes
         .into_iter()
         .next()
-        .expect("should have at least one mesh")
+        .expect("has at least one mesh")
         .build()
 }
 
@@ -209,8 +217,11 @@ fn suzanne() -> Mesh<Normal3> {
 fn teapot() -> &'static Mesh<Normal3> {
     static TEAPOT: LazyLock<Mesh<Normal3>> = LazyLock::new(|| {
         let obj: &[_] = include_bytes!("../../assets/teapot.obj");
-        read_obj::<Normal3>(obj)
-            .unwrap()
+
+        let obj = Obj::from_slice(obj).expect("valid statically included obj");
+
+        Builder::try_from(obj)
+            .expect("valid statically included obj")
             .transform(&scale(0.4).then(&translate(-0.5 * Vec3::Y)).to())
             .build()
     });
@@ -220,9 +231,11 @@ fn teapot() -> &'static Mesh<Normal3> {
 // Loads the Stanford bunny model.
 fn bunny() -> &'static Mesh<Normal3> {
     static BUNNY: LazyLock<Mesh<Normal3>> = LazyLock::new(|| {
-        let obj: &[_] = include_bytes!("../../assets/bunny.obj");
-        read_obj::<()>(obj)
-            .unwrap()
+        static OBJ: &[u8] = include_bytes!("../../assets/bunny.obj");
+        let obj = Obj::from_slice(OBJ).expect("valid statically included obj");
+
+        Builder::<()>::try_from(obj)
+            .expect("")
             .transform(&scale(0.12).then(&translate(-Vec3::Y)).to())
             .with_vertex_normals()
             .build()
@@ -234,7 +247,9 @@ fn bunny() -> &'static Mesh<Normal3> {
 fn dragon() -> &'static Mesh<Normal3> {
     static DRAGON: LazyLock<Mesh<Normal3>> = LazyLock::new(|| {
         let obj: &[_] = include_bytes!("../../assets/dragon.obj");
-        read_obj::<()>(obj)
+        let obj = Obj::from_slice(obj).expect("valid statically included obj");
+
+        Builder::<()>::try_from(obj)
             .unwrap()
             .with_vertex_normals()
             .transform(&scale(0.18).then(&translate(-0.5 * Vec3::Y)).to())

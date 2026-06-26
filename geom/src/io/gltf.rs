@@ -1,15 +1,14 @@
 use alloc::vec::Vec;
-use std::iter;
-#[cfg(feature = "std")]
-use std::path::Path;
-
 use gltf::{
     Buffer, Document, Primitive, buffer, image, import, mesh, mesh::Mode,
 };
+#[cfg(feature = "std")]
+use std::{env::current_dir, io, iter, path::Path};
 
 use retrofire_core::{
     geom::{Builder, Mesh, Normal3, Tri, Vertex3, tri, vertex},
     render::TexCoord,
+    util::Load,
 };
 
 /// Represents a glTF document being loaded.
@@ -22,6 +21,7 @@ pub struct Gltf {
 
 #[derive(Debug)]
 pub enum Error {
+    Io(io::Error),
     Gltf(gltf::Error),
     NoIndicesFound,
     NoAttributesFound(&'static str),
@@ -34,15 +34,45 @@ pub fn load_gltf<A>(path: impl AsRef<Path>) -> Result<Vec<Builder<A>>, Error>
 where
     Gltf: TryInto<Vec<Builder<A>>, Error = Error>,
 {
-    Gltf::load(path)?.try_into()
+    Gltf::from_path(path)?.try_into()
 }
 
-impl Gltf {
-    fn load(path: impl AsRef<Path>) -> Result<Self, Error> {
+impl Load for Gltf {
+    type Error = Error;
+
+    fn from_path(path: impl AsRef<Path>) -> Result<Self, Self::Error> {
         let (doc, bufs, imgs) = import(path).map_err(Gltf)?;
         Ok(Self { doc, bufs, imgs })
     }
 
+    fn from_reader(
+        reader: impl io::Read + io::Seek,
+    ) -> Result<Self, Self::Error> {
+        let doc = gltf::Gltf::from_reader(reader)?.document;
+
+        let cwd = current_dir().ok();
+        let bufs = gltf::import_buffers(&doc, cwd.as_deref(), None)?;
+
+        //let imgs = gltf::import_images(&doc, cwd.as_deref(), &bufs)?;
+        let imgs = Vec::new();
+
+        Ok(Self { doc, bufs, imgs })
+    }
+
+    fn from_slice(slice: &[u8]) -> Result<Self, Self::Error> {
+        let doc = gltf::Gltf::from_slice(slice)?.document;
+
+        let cwd = current_dir().ok();
+        let bufs = gltf::import_buffers(&doc, cwd.as_deref(), None)?;
+
+        //let imgs = gltf::import_images(&doc, cwd.as_deref(), &bufs)?;
+        let imgs = Vec::new();
+
+        Ok(Self { doc, bufs, imgs })
+    }
+}
+
+impl Gltf {
     fn reader<'a>(
         &'a self,
         prim: &'a Primitive,
@@ -51,11 +81,11 @@ impl Gltf {
         prim.reader(|a| Some(&self.bufs[a.index()]))
     }
 
-    fn load_verts<Attribs: Iterator>(
+    fn load_verts<A>(
         &self,
         prim: &Primitive,
-        attribs: Attribs,
-        out: &mut Vec<Vertex3<Attribs::Item>>,
+        attribs: impl Iterator<Item = A>,
+        out: &mut Vec<Vertex3<A>>,
     ) -> Result<(), Error> {
         let positions = self
             .reader(&prim)
@@ -128,6 +158,12 @@ impl Gltf {
 impl From<gltf::Error> for Error {
     fn from(e: gltf::Error) -> Self {
         Gltf(e)
+    }
+}
+
+impl From<io::Error> for Error {
+    fn from(e: io::Error) -> Self {
+        Io(e)
     }
 }
 
