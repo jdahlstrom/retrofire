@@ -9,13 +9,12 @@ use crate::math::{
 };
 use crate::util::{Buf2, Dims};
 
-use super::tex::*;
-use super::{BBox, Context, Frag, Model, Shader, Target, shader};
+use super::{BBox, Context, Frag, Model, Shader, Target, shader, tex::*};
 
 /// Text represented as texture-mapped geometry, one quad per glyph.
 #[derive(Clone)]
 pub struct Text {
-    pub font: Atlas<Color3>,
+    pub font: Atlas<Buf2<Color3>>,
     pub geom: Mesh<TexCoord>,
     pub color: Color3,
     pub anchor: Point2,
@@ -46,7 +45,7 @@ pub type Batch<Shd> =
 
 impl Text {
     /// Creates a new empty text object with the given font.
-    pub fn new(font: Atlas<Color3>) -> Self {
+    pub fn new(font: Atlas<Buf2<Color3>>) -> Self {
         Self {
             font,
             geom: Mesh::default(),
@@ -236,7 +235,7 @@ impl fmt::Write for Text {
 }
 
 /// Renders ("bakes") the byte string into a buffer.
-pub fn bake<T>(s: &[u8], font: &Atlas<T>) -> Buf2<T>
+pub fn bake<T>(s: &[u8], font: &Atlas<Buf2<T>>) -> Buf2<T>
 where
     T: Copy + Default,
 {

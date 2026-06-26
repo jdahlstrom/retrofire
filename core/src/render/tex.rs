@@ -47,9 +47,9 @@ pub struct Texture<D> {
 }
 
 #[derive(Clone, Debug)]
-pub struct Atlas<C> {
+pub struct Atlas<D> {
     pub layout: Layout,
-    pub texture: Texture<Buf2<C>>,
+    pub texture: Texture<D>,
 }
 
 /// Method of arranging sub-textures in an [atlas][Atlas].
@@ -184,14 +184,14 @@ impl<D> Texture<D> {
     }
 }
 
-impl<C> Atlas<C> {
+impl<D: AsSlice2> Atlas<D> {
     /// Creates a new texture atlas from a texture.
-    pub fn new(layout: Layout, texture: Texture<Buf2<C>>) -> Self {
+    pub fn new(layout: Layout, texture: Texture<D>) -> Self {
         Self { layout, texture }
     }
 
     /// Creates a texture atlas with a grid layout.
-    pub fn grid(sub_dims: Dims, texture: Texture<Buf2<C>>) -> Self {
+    pub fn grid(sub_dims: Dims, texture: Texture<D>) -> Self {
         Self::new(Layout::Grid { sub_dims }, texture)
     }
 
@@ -200,23 +200,13 @@ impl<C> Atlas<C> {
     fn rect(&self, i: u32) -> [Point2u; 2] {
         match self.layout {
             Layout::Grid { sub_dims: Dims(sub_w, sub_h) } => {
-                let subs_per_row = self.texture.data.width() / sub_w;
+                let subs_per_row =
+                    self.texture.data.as_slice2().width() / sub_w;
                 let top_left =
                     pt2(i % subs_per_row * sub_w, i / subs_per_row * sub_h);
                 [top_left, top_left + vec2(sub_w as i32, sub_h as i32)]
             }
         }
-    }
-
-    /// Returns the sub-texture with index `i`.
-    ///
-    /// # Panics
-    /// If `i` is out of bounds.
-    // TODO Improve error reporting
-    #[inline]
-    pub fn get(&self, i: u32) -> Texture<Slice2<'_, C>> {
-        let [p0, p1] = self.rect(i);
-        self.texture.data.slice(p0..p1).into()
     }
 
     /// Returns the texture coordinates of the sub-texture with index `i`.
@@ -234,6 +224,19 @@ impl<C> Atlas<C> {
             .rect(i)
             .map(|p| (p.x() as f32 / tex_w, p.y() as f32 / tex_h));
         [uv(x0, y0), uv(x1, y0), uv(x0, y1), uv(x1, y1)]
+    }
+}
+
+impl<T> Atlas<Buf2<T>> {
+    /// Returns the sub-texture with index `i`.
+    ///
+    /// # Panics
+    /// If `i` is out of bounds.
+    // TODO Improve error reporting
+    #[inline]
+    pub fn get(&self, i: u32) -> Texture<Slice2<'_, T>> {
+        let [p0, p1] = self.rect(i);
+        self.texture.data.slice(p0..p1).into()
     }
 }
 
@@ -391,7 +394,7 @@ impl<D: AsSlice2<Elem = Color3>, S: Sample<D>> Sample<D>
 mod tests {
     use alloc::vec;
 
-    use crate::math::{Color3, Linear, rgb};
+    use crate::math::{Color3, Vec3, rgb};
     use crate::util::Buf2;
 
     use super::*;
@@ -450,7 +453,8 @@ mod tests {
 
     #[test]
     fn cube_mapping() {
-        let zero = Vec3::zero();
+        let zero = Point3::origin();
+
         let tc = cube_map(zero, Vec3::X);
         assert_eq!(tc, uv(1.0 / 6.0, 0.25));
         let tc = cube_map(zero, -Vec3::X);
