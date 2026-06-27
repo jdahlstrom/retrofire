@@ -1,8 +1,81 @@
 //! Real and projective vectors.
 //!
-//! TODO
+//! Vectors in Retrofire are parameterized by the "space", or coordinate frame,
+//! that they are defined in. This helps rule out many bugs caused by
+//! accidentally mixing vectors defined in different frames.
 //!
+//! The most commonly used vector types are [`Vec2`] and [`Vec3`] as well as
+//! their integer counterparts [`Vec2i`] and [`Vec3i`]. Unlike most similar
+//! libraries, there's no `Vec4`, and there is in most cases no need to
+//! directly manage homogeneous vectors.
 //!
+//! # Creating vectors
+//! ```
+//! use retrofire_core::math::{Vec3, vec3, splat};
+//!
+//! // The following lines are equivalent:
+//! let x: Vec3 = vec3(1.0, 0.0, 0.0);
+//! let x = <Vec3>::new([1.0, 0.0, 0.0]);
+//! let x: Vec3 = Vec3::X;
+//! let x: Vec3 = [1.0, 0.0, 0.0].into();
+//!
+//! // Use `splat` to broadcast a scalar:
+//! let one: Vec3 = splat(1.0);
+//! assert_eq!(one, vec3(1.0, 1.0, 1.0));
+//! ```
+//!
+//! # Components and properties
+//! ```
+//! # use retrofire_core::math::{Vec3, vec3};
+//! let mut v: Vec3 = vec3(1.0, 2.0, 3.0);
+//!
+//! // Accessing all components (note that .into() does not work with
+//! // assert_eq!() due to type inference ambiguity)
+//! assert_eq!(v.0, [1.0, 2.0, 3.0]);
+//! assert_eq!(<[_;_]>::from(v), [1.0, 2.0, 3.0]);
+//! assert_eq!(<(_,_,_)>::from(v), (1.0, 2.0, 3.0));
+//!
+//! // Accessing an ndividual component
+//! assert_eq!(v.y(), 2.0);
+//! assert_eq!(v[2], 3.0);
+//! v[0] = 4.0;
+//! assert_eq!(v.x(), 4.0);
+//! ```
+//!
+//! # Vector operations
+//! ```
+//! # use retrofire_core::math::*;
+//! let v: Vec3 = vec3(1.0, 2.0, 3.0);
+//!
+//! // Standard overloaded operators are provided:
+//! assert_eq!(v + v, vec3(2.0, 4.0, 6.0));
+//! assert_eq!(-v, vec3(-1.0, -2.0, -3.0));
+//! assert_eq!(1.5 * v, vec3(1.5, 3.0, 4.5));
+//!
+//! // Length and normalization:
+//! assert_eq!(v.len(), f32::sqrt(1.0 + 4.0 + 9.0));
+//! // Use ´len_sqr` to avoid the square root when unneeded:
+//! assert_eq!(v.len_sqr(), 1.0 + 4.0 + 9.0);
+//!
+//! assert_eq!(v.normalize().len(), 0.99999994);
+//! assert_eq!(v.normalize_approx().len(), 0.9998242);
+//!
+//! // Dot and cross products:
+//! assert_eq!(v.dot(&Vec3::Y), 2.0);
+//! assert_eq!(v.cross(&Vec3::Y), vec3(-3.0, 0.0, 1.0));
+//!
+//! // 2D vectors implement the "perp" and "perp dot" operations:
+//! let u: Vec2 = vec2(2.0, 3.0);
+//! assert_eq!(u.perp(), vec2(-3.0, 2.0));
+//! assert_eq!(u.perp_dot(Vec2::Y), 2.0);
+//!
+//! // Projections:
+//! assert_eq!(v.scalar_project(&Vec3::Y), 2.0);
+//! assert_eq!(v.vector_project(&Vec3::Z), 3.0 * Vec3::Z);
+//!
+//! // Mapping components:
+//! assert_eq!(v.map(|c| c * c), vec3(1.0, 4.0, 9.0));
+//! ```
 
 use core::{
     array,
@@ -30,6 +103,7 @@ use super::{Angle, acos};
 
 /// A generic vector type. Represents an element of a vector space.
 ///
+/// For more information, see the [module documentation](self).
 // or a module,
 // a generalization of a vector space where the scalars can be integers
 // (technically, the scalar type can be any *ring*-like type).
