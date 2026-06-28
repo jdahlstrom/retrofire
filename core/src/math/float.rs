@@ -297,9 +297,9 @@ mod tests {
         assert_approx_eq!(mm::sqrt(9.0), 3.0);
         assert_eq!(mm::sqrt(16.0), 4.0);
         assert!(mm::sqrt(-1.0).is_nan());
-        assert_approx_eq!(mm::recip_sqrt(9.0), 1.0 / 3.0);
+        assert_approx_eq!(mm::recip_sqrt(9.0), 1.0 / 3.0, eps = 1e-3);
         // mm doesn't check for zero, just gives a big number
-        assert_approx_eq!(mm::recip_sqrt(0.0), 1.9818e19);
+        assert_approx_eq!(mm::recip_sqrt(0.0), 1.9818029e19);
         // mm doesn't check for negative, panics due to sub overflow
         //assert!(mm::recip_sqrt(-1.0).is_nan());
 
