@@ -13,7 +13,7 @@ use re::core::render::{
 // Try also Rgb565 or Rgba4444
 use re::core::util::{pixfmt::Rgba8888, pnm::read_pnm};
 
-use re::front::sdl2::Window;
+use re::front::sdl3::Window;
 use re::geom::solids::{Build, Cube};
 
 static CRATE_TEX: &[u8] = include_bytes!("../../assets/crate.ppm");
@@ -67,7 +67,7 @@ fn main() {
         let ep = &frame.win.ev_pump;
 
         for key in ep.keyboard_state().pressed_scancodes() {
-            use sdl2::keyboard::Scancode as Sc;
+            use sdl3::keyboard::Scancode as Sc;
             match key {
                 Sc::W => cam_vel[2] += 4.0,
                 Sc::S => cam_vel[2] -= 2.0,

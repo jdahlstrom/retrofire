@@ -16,7 +16,7 @@ jobs:
     steps:
       - uses: actions/checkout@v2
       - name: Install libsdl
-        run: sudo apt-get update && sudo apt-get -y install libsdl2-dev
+        run: sudo apt-get update && sudo apt-get -y install libsdl3-dev
 
       - name: Build core, no features
         run: cargo build -p retrofire-core --verbose --all-targets --no-default-features
