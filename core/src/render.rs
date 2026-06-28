@@ -12,7 +12,6 @@ use crate::math::{
 };
 use alloc::vec::Vec;
 use core::{fmt::Debug, ops::DerefMut};
-use std::dbg;
 
 use self::{
     clip::{ClipVert, view_frustum},
