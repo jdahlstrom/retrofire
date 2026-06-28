@@ -3,7 +3,7 @@
 
 use alloc::vec::Vec;
 
-use crate::geom::{Edge, Pos, Tri, Vertex, Vertex3, vertex};
+use crate::geom::{Edge, Mesh, Pos, Tri, Vertex, Vertex3, vertex};
 use crate::math::{
     Color, Color4, Color4f, Mat4, Point3, Vec3, color::gray, mat::ProjMat3,
     pt3, vec::ProjVec3,
@@ -141,6 +141,24 @@ pub fn cuboid<B>(v0: Point3<B>, v1: Point3<B>) -> DbgBatch<B> {
 pub fn bbox<B>(pts: &[impl Pos<Type = Point3<B>>]) -> DbgBatch<B> {
     let BBox(min, max) = pts.iter().map(Pos::pos).collect();
     cuboid(min, max)
+}
+
+/// Draws a wireframe representation of a mesh.
+pub fn wireframe<A: Clone, B>(mesh: &Mesh<A, B>) -> DbgBatch<B> {
+    let edges: Vec<_> = mesh
+        .faces
+        .iter()
+        .copied()
+        .flat_map(|Tri([i, j, k])| [Edge(i, j), Edge(j, k), Edge(k, i)])
+        .collect();
+
+    DbgBatch::new(
+        edges,
+        mesh.verts
+            .iter()
+            .map(|v| vertex(v.pos, dir_to_rgb(v.pos.to_vec())))
+            .collect::<Vec<_>>(),
+    )
 }
 
 /// Draws a circle on the XY plane with the given center and radius.
