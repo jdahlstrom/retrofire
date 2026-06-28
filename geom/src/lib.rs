@@ -10,6 +10,6 @@ pub mod isect;
 pub mod solids;
 
 mod tri;
-
+s
 pub use isect::Intersect;
 pub use tri::triangulate;

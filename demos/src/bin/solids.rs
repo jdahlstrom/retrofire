@@ -5,11 +5,10 @@ use minifb::{Key, KeyRepeat};
 
 use re::prelude::*;
 
-use re::core::geom::Polygon;
 use re::core::{
     geom::{Polyline, Ray},
-    math::{ProjVec3, color::gray, spline::HermiteSpline},
-    render::{Model, cam::Fov, debug, debug::DbgMesh, shader},
+    math::{ProjMat3, ProjVec3, color::gray, spline::HermiteSpline},
+    render::{self, Model, cam::Fov, debug::DbgMesh, shader},
 };
 use re::front::{Frame, minifb::Window};
 use re::geom::{io::read_obj, solids::*};
@@ -129,7 +128,7 @@ fn main() {
     });
 }
 
-// Creates the 14 objects exhibited.
+// Creates the fifteen objects exhibited.
 #[rustfmt::skip]
 fn objects_n(res: u32) -> [Mesh<Normal3>; 15] {
     let segments = res;
@@ -167,25 +166,28 @@ fn objects_n(res: u32) -> [Mesh<Normal3>; 15] {
 }
 
 fn prism(_secs: u32) -> Mesh<Normal3> {
-    let step = 1;
-    let points: Vec<_> = (0..10)
-        .step_by(step as usize)
+    /*let n = 100;
+    let points: Vec<_> = (0..n)
+    .map(|a| {
+        let a = turns(a as f32 / n as f32);
+        let b = 2.5 * a;
+        let r = 0.4 + b.sin().powi(4) * 0.6;
+
+        let a = a + 0.1 * turns(r);
+        polar(r, a).to_cart().to_pt()
+    })
+    .collect();*/
+
+    let sides = 100;
+    let pts = turns(0.0)
+        .vary_to(turns(1.0), sides + 1)
+        .take(sides as usize)
         .map(|a| {
-            let a = turns(a as f32 / 10.0);
-            let b = 2.5 * a;
-            let r = 0.5 + b.sin().powi(20) * 0.0;
+            let r = 1.0 - 0.8 * (1.5 * a).sin().abs().powf(0.5);
+            polar(r, a + turns(0.1 * r)).to_cart().to_pt()
+        });
 
-            let a = a + 0.1 * turns(r);
-            polar(r, a).to_cart().to_pt()
-        })
-        .collect();
-
-    let res = Prism {
-        points: Polygon::new(points),
-        capped: true,
-    };
-
-    res.build()
+    Prism::new(pts).build()
 }
 
 // Creates a Lathe mesh.
