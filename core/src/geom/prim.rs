@@ -177,7 +177,7 @@ impl<P: Affine, V: Pos<Type = P>> Tri<V> {
         P: Clone,
         P::Diff: Linear<Scalar = f32>,
     {
-        P::centroid(&self.0.map(|v| v.pos().clone()))
+        P::centroid(&self.0.each_ref().map(|v| v.pos().clone()))
     }
 }
 
@@ -254,24 +254,6 @@ impl<B, P: Pos<Type = Point2<B>>> Tri<P> {
         t.perp_dot(u) / 2.0
     }
 
-    /// Returns the (positive) area of `self`.
-    ///
-    /// # Examples
-    /// ```
-    /// use retrofire_core::geom::{vertex, Tri};
-    /// use retrofire_core::math::pt2;
-    ///
-    /// let tri = Tri([
-    ///     vertex(pt2::<_, ()>(0.0, 0.0), ()),
-    ///     vertex(pt2(0.0, 3.0), ()),
-    ///     vertex(pt2(4.0, 0.0), ()),
-    /// ]);
-    /// assert_eq!(tri.area(), 6.0);
-    /// ```
-    pub fn area(&self) -> f32 {
-        self.signed_area().abs()
-    }
-
     /// Returns whether the given point is within the bounds of `self`.
     ///
     /// # Examples TODO broke
@@ -290,11 +272,13 @@ impl<B, P: Pos<Type = Point2<B>>> Tri<P> {
         // compute which side the point is. If it's on the same side of
         // each line, it is inside the triangle.
 
-        let [sign_ab, sign_bc, sign_ca] = self
+        todo!("Sign method missing in this commit")
+
+        /*let [sign_ab, sign_bc, sign_ca] = self
             .edges()
             .map(|e| Edge(e.0.pos(), e.1.pos()).sign(pt));
 
-        sign_ab == sign_bc && sign_bc == sign_ca
+        sign_ab == sign_bc && sign_bc == sign_ca*/
     }
 }
 
@@ -705,37 +689,91 @@ impl<T> Polygon<T> {
         };
         self.0
             .array_windows()
-            .map(Edge::from)
+            .map(|[a, b]| Edge(a, b))
             .chain(last_first)
     }
 }
 impl<B> Polygon<Point2<B>> {
     /// Returns the vertex winding order of `self`.
-    pub fn winding(&self) -> Option<Winding> {
-        if self.0.len() < 3 {
-            return None;
-        }
-
+    ///
+    /// # Panics
+    /// If the polygon is degenerate (that is, has fewer than three vertices).
+    ///
+    /// # Examples
+    /// ```
+    /// use retrofire_core::geom::{Polygon, Winding};
+    /// use retrofire_core::math::{pt2, Point2};
+    ///
+    /// // This is a counter-clockwise polygon:
+    /// let mut tri = Polygon::<Point2>::new([
+    ///     pt2(0.0, 0.0), pt2(3.0, 0.0), pt2(0.0, 2.0)]
+    /// );
+    /// assert_eq!(tri.winding(), Winding::Ccw);
+    ///
+    /// // Swapping two vertices reverts the winding order:
+    /// tri.0.swap(1, 2);
+    /// assert_eq!(tri.winding(), Winding::Cw);
+    /// ```
+    pub fn winding(&self) -> Winding {
         // Find (any) vertex Q on the convex hull of the polygon; the leftmost
-        // one works fine. The winding of the polygon is that of triangle PQR
-        // where P and R are the vertices adjacent to Q.
+        // one works fine. The winding of the polygon is equal to that of
+        // triangle PQR, where P and R are the vertices adjacent to Q.
+        let pts = &self.0;
+        let len = pts.len();
+        debug_assert!(len >= 3, "degenerate polygon: winding undefined");
 
-        let mut min = (&self.0[0], 0);
-        for (p, i) in self.0.iter().zip(0..) {
-            if p.x() < min.0.x() {
-                min = (p, i);
-            }
-        }
+        let (left_pt, left_i) = zip(pts, 0..)
+            .min_by(|a, b| a.0.x().total_cmp(&b.0.x()))
+            .unwrap();
 
-        let b = min.0;
-        let a = if min.1 == 0 {
-            self.0[self.0.len() - 1]
-        } else {
-            self.0[min.1 - 1]
-        };
-        let c = self.0[(min.1 + 1) % self.0.len()];
+        let q = *left_pt;
+        let p = pts[if left_i == 0 { len } else { left_i } - 1];
+        let r = pts[(left_i + 1) % len];
+        tri(p, q, r).map(|p| vertex(p, ())).winding()
+    }
 
-        Some(tri(a, *b, c).map(|p| vertex(p, ())).winding())
+    /// Returns whether `self` is a convex polygon.
+    ///
+    /// A polygon is convex iff all of its internal angles are non-reflex,
+    /// that is, at most 180 degrees. The result of this function does not
+    /// depend on the winding order of `self`. Note that polygons with angles
+    /// very close to 180° may be reported as either convex or non-convex,
+    /// depending on rounding errors.
+    ///
+    /// # Panics
+    /// If the polygon is degenerate (has fewer than three vertices).
+    ///
+    /// # Examples
+    /// ```
+    /// use retrofire_core::{geom::Polygon, math::{Point2, pt2}};
+    ///
+    /// let tri = Polygon::<Point2>::new([
+    ///     pt2(0.0, 0.0), pt2(2.0, 0.0), pt2(1.0, 2.0)]
+    /// );
+    /// assert!(tri.is_convex()); // Triangles are always convex
+    ///
+    /// let quad = Polygon::<Point2>::new([
+    ///     pt2(0.0, 0.0), pt2(2.0, 0.0), pt2(1.0, 1.0), pt2(1.0, 2.0)
+    /// ]);
+    /// assert!(!quad.is_convex()); // This quad has a concave vertex
+    /// ```
+    #[inline]
+    pub fn is_convex(&self) -> bool {
+        let pts = &self.0;
+        let l = pts.len();
+        debug_assert!(l >= 3, "degenerate polygon: convexity undefined");
+
+        let sign = Self::sign([pts[l - 1], pts[0], pts[1]]);
+        let wrap = [[pts[l - 2], pts[l - 1], pts[0]]];
+        pts[1..]
+            .array_windows()
+            .chain(&wrap)
+            .all(|&abc| sign == Self::sign(abc))
+    }
+
+    #[inline]
+    fn sign([a, b, c]: [Point2<B>; 3]) -> f32 {
+        (b - a).perp_dot(c - b).signum()
     }
 }
 
@@ -1072,8 +1110,8 @@ impl<'a, T> From<&'a [T; 2]> for Edge<&'a T> {
     }
 }
 
-impl<P: Affine> FromIterator<P> for Polygon<P> {
-    fn from_iter<I: IntoIterator<Item = P>>(it: I) -> Self {
+impl<B, V: Pos<Type = Point2<B>>> FromIterator<V> for Polygon<V> {
+    fn from_iter<I: IntoIterator<Item = V>>(it: I) -> Self {
         Self::new(it)
     }
 }

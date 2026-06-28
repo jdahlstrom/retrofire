@@ -29,7 +29,7 @@ fn main() {
     let pos = Uniform::<Point2>(min..max);
     let vel = VectorsOnUnitDisk;
 
-    let mut pos_vels: Vec<(Point2, Vec2)> =
+    let mut _pos_vels: Vec<(Point2, Vec2)> =
         (pos, vel).samples(rng).take(32).collect();
 
     // Disable some unneeded things
@@ -70,11 +70,9 @@ fn main() {
 
         let tris = triangulate(&poly);
 
-        for tri in tris {
-            for Edge(&p, &q) in tri.edges() {
-                let a = vertex(p.to_pt3(), ());
-                let b = vertex(q.to_pt3(), ());
-                line([a, b], |sl| {
+        for tri in tris.faces() {
+            for Edge(&&p, &&q) in tri.edges() {
+                line([p, q], |sl| {
                     buf[sl.y][sl.xs].fill(0xFFFF);
                 });
             }
