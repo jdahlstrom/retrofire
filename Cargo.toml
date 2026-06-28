@@ -103,6 +103,10 @@ name = "isect"
 harness = false
 
 [[bench]]
+name = "poly"
+harness = false
+
+[[bench]]
 name = "vec"
 harness = false
 
