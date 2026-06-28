@@ -1,4 +1,4 @@
-use core::{array::from_fn, ops::ControlFlow::Continue};
+use core::ops::ControlFlow::Continue;
 
 use re::prelude::*;
 
@@ -6,29 +6,27 @@ use re::core::math::{
     color::gray,
     rand::{Distrib, PointsInUnitBall, Xorshift64},
 };
-use re::core::render::{Model, View, cam::*, render, shader};
+use re::core::render::{Model, View, cam::*, render_instanced, shader};
 
 use re_front::minifb::Window;
 
 fn main() {
-    let verts: [Vec2<Model>; 4] = [
-        vec2(-1.0, -1.0),
-        vec2(-1.0, 1.0),
-        vec2(1.0, -1.0),
-        vec2(1.0, 1.0),
-    ];
+    let tris = [tri(0, 1, 3), tri(0, 3, 2)];
+
+    let verts: [Vertex3<()>; 4] = [
+        pt3(-1.0f32, -1.0, 0.0),
+        pt3(-1.0, 1.0, 0.0),
+        pt3(1.0, -1.0, 0.0),
+        pt3(1.0, 1.0, 0.0),
+    ]
+    .map(|pos| vertex(pos, ()));
+
     let count = 10000;
     let rng = &mut Xorshift64::default();
 
-    let verts: Vec<Vertex3<Vec2<Model>>> = PointsInUnitBall
+    let positions: Vec<Point3> = PointsInUnitBall
         .samples(rng)
         .take(count)
-        .flat_map(|pos| verts.map(|v| vertex(pos.to(), v)))
-        .collect();
-
-    let tris: Vec<_> = (0..count)
-        .map(|i| from_fn(|j| 4 * i + j))
-        .flat_map(|[a, b, c, d]| [tri(a, b, d), tri(a, d, c)])
         .collect();
 
     let mut win = Window::builder()
@@ -37,13 +35,17 @@ fn main() {
         .expect("should create window");
 
     let shader = shader::new(
-        |v: Vertex3<Vec2<_>>,
-         (mv, proj): &(Mat4<Model, View>, ProjMat3<View>)| {
-            let vertex_pos = 0.008 * v.attrib.to_vec3().to(); // Model->View
-            let view_pos = mv.apply(&v.pos) + vertex_pos;
-            vertex(proj.apply(&view_pos), v.attrib)
+        |v: Vertex3<()>,
+         (inst_id, (mv, proj)): (
+            usize,
+            &(Mat4<Model, View>, ProjMat3<View>),
+        )| {
+            let vertex_pos = 0.008 * v.pos.to_vec().to(); // Model->View
+            let pos = positions[inst_id];
+            let view_pos = mv.apply(&pos.to()) + vertex_pos;
+            vertex(proj.apply(&view_pos), v.pos.to_vec())
         },
-        |frag: Frag<Vec2<_>>, _: &_| {
+        |frag: Frag<Vec3<_>>, _uni: (_, &_)| {
             let d2 = frag.var.len_sqr();
             (d2 < 1.0).then(|| {
                 let col = gray(1.0) - d2 * rgb(0.25, 0.5, 1.0);
@@ -66,12 +68,12 @@ fn main() {
             .to()
             .then(&cam.world_to_view());
 
-        let uniform = (modelview, cam.project);
-        render(
+        render_instanced(
+            count,
             &tris,
             &verts,
             &shader,
-            &uniform,
+            &(modelview, cam.project),
             cam.viewport,
             &mut frame.buf,
             frame.ctx,
