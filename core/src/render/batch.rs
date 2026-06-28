@@ -130,7 +130,7 @@ impl<Prim, Vtx, Uni, Shd, Tgt, Ctx> Batch<Prim, Vtx, Uni, Shd, Tgt, Ctx> {
         Prim: Render<Var> + Clone,
         Vtx: Clone,
         Uni: Copy,
-        [<Prim>::Clip]: Clip<Item= Prim::Clip>,
+        [Prim::Clip]: Clip<Item = Prim::Clip>,
         Shd: Shader<Vtx, Var, Uni>,
         Tgt: Target,
         Ctx: Borrow<Context>
@@ -140,6 +140,30 @@ impl<Prim, Vtx, Uni, Shd, Tgt, Ctx> Batch<Prim, Vtx, Uni, Shd, Tgt, Ctx> {
         } = self;
 
         super::render(
+            prims, verts, shader, *uniform, *viewport,
+            target, (*ctx).borrow(),
+        );
+    }
+
+    /// Renders many instances of this batch of geometry.
+    #[rustfmt::skip]
+    pub fn render_instanced<Var>(&mut self, count: usize)
+    where
+        Var: Vary,
+        Prim: Render<Var> + Clone,
+        Vtx: Clone,
+        Uni: Copy,
+        [Prim::Clip]: Clip<Item = Prim::Clip>,
+        Shd: Shader<Vtx, Var, (usize, Uni)>,
+        Tgt: Target,
+        Ctx: Borrow<Context>
+    {
+        let Self {
+            prims, verts, shader, uniform, viewport, target, ctx,
+        } = self;
+
+        super::render_instanced(
+            count,
             prims, verts, shader, *uniform, *viewport,
             target, (*ctx).borrow(),
         );

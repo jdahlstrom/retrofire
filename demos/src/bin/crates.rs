@@ -4,6 +4,7 @@ use re::prelude::*;
 
 use re::core::math::color::gray;
 use re::core::render::{
+    Model, World,
     cam::{FirstPerson, Fov},
     clip::Status::*,
     scene::Obj,
@@ -37,10 +38,14 @@ fn main() {
         },
     );
     let crate_shader = shader::new(
-        |v: Vertex3<(Normal3, TexCoord)>, mvp: &ProjMat3<_>| {
-            vertex(mvp.apply(&v.pos), v.attrib)
+        |v: Vertex3<(Normal3, TexCoord)>,
+         (inst_id, (tfs, proj)): (
+            usize,
+            (&[Mat4<Model, World>], &ProjMat3<World>),
+        )| {
+            vertex(proj.apply(&tfs[inst_id].apply(&v.pos)), v.attrib)
         },
-        |frag: Frag<(Normal3, TexCoord)>, _: &_| {
+        |frag: Frag<(Normal3, TexCoord)>, _uni: (_, (&_, &_))| {
             let (n, uv) = frag.var;
             let kd = lerp(n.dot(&light_dir).max(0.0), 0.4, 1.0);
             let col = SamplerClamp.sample(&tex, uv);
@@ -112,26 +117,26 @@ fn main() {
 
         // Crates
 
-        for Obj { geom, bbox, tf } in &crates {
+        //for Obj { geom, bbox, tf } in &crates
+        {
             #[cfg(feature = "stats")]
             {
                 frame.ctx.stats.borrow_mut().objs.i += 1;
             }
 
-            let model_to_project = tf.then(world_to_project);
-
             // TODO Also if `Visible`, no further clipping or culling needed
-            if bbox.visibility(&model_to_project) == Hidden {
-                continue;
-            }
+            // if bbox.visibility(&model_to_project) == Hidden {
+            //     continue;
+            // }
 
             batch
                 // TODO Try to get rid of clone
                 .clone()
-                .mesh(geom)
+                .mesh(&crates.geom)
                 .shader(crate_shader)
-                .uniform(&model_to_project)
-                .render();
+                .uniform((&crates.uniforms[..], world_to_project))
+                .render_instanced(crates.uniforms.len());
+            //.render();
 
             #[cfg(feature = "stats")]
             {
@@ -144,21 +149,22 @@ fn main() {
     .expect("should run");
 }
 
-fn crates() -> Vec<Obj<(Normal3, TexCoord)>> {
-    let obj = Obj::new(Cube { side_len: 2.0 }.build());
+struct Instances<A, U> {
+    geom: Mesh<A>,
+    uniforms: Vec<U>,
+}
 
-    let mut res = vec![];
-    let n = 30;
+fn crates() -> Instances<(Normal3, TexCoord), Mat4<Model, World>> {
+    let geom = Cube { side_len: 2.0 }.build();
+
+    let n = 50;
+    let mut uniforms = Vec::new();
     for i in (-n..=n).step_by(5) {
         for j in (-n..=n).step_by(5) {
-            res.push(Obj {
-                tf: translate((i as f32, 0.0, j as f32)).to(),
-                // TODO Same geometry cloned many times
-                ..obj.clone()
-            });
+            uniforms.push(translate((i as f32, 0.0, j as f32)).to());
         }
     }
-    res
+    Instances { geom, uniforms }
 }
 fn floor() -> Obj<Vec2> {
     let mut bld = Mesh::builder();
