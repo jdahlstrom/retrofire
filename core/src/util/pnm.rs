@@ -131,11 +131,27 @@ pub fn parse_pnm(input: impl IntoIterator<Item = u8>) -> Result<Buf2<Color3>> {
         BinaryGraymap => it //
             .map(gray)
             .collect(),
-        BinaryBitmap => it
-            .flat_map(|byte| (0..8).rev().map(move |i| (byte >> i) & 1))
-            // Conventionally in PBM 0 is white, 1 is black
-            .map(|bit| gray((1 - bit) * 0xFF))
-            .collect(),
+        BinaryBitmap => {
+            // In P4, pixel values are packed in bytes, most significant bit first.
+            // Each row is padded to the next byte boundary, taking ⌈width/8⌉ bytes.
+            // For example, a 3x3 image takes three bytes, but a 9x1 image
+            // only takes two.
+            let w = h.dims.0 as usize;
+            let mut data = Vec::new();
+            let mut it = it.peekable();
+            while it.peek().is_some() {
+                // For each row
+                (&mut it)
+                    .take(w.div_ceil(8))
+                    .flat_map(|byte| (0..8).rev().map(move |i| (byte >> i) & 1))
+                    .take(w)
+                    .for_each(|bit| {
+                        // Conventionally in PBM 0 is white, 1 is black
+                        data.push(gray((1 - bit) * 0xFF));
+                    });
+            }
+            data
+        }
         TextPixmap => {
             let mut col = [0u8; 3];
             (0..3)
@@ -557,13 +573,16 @@ mod tests {
 
     #[test]
     fn read_pnm_p4() {
-        // 0x69 == 0b0110_1001
-        let buf = parse_pnm(*b"P4 4 2\n\x69").unwrap();
+        // In P4 each row is padded to the next byte boundary
+        // -> 0110
+        //    1001
+        // = 0b0110_0000 0b1001_0000 = 0x60 0x90
+        let buf = parse_pnm(*b"P4 4 2\n\x60\x90").unwrap();
 
         assert_eq!(buf.dims(), Dims(4, 2));
 
-        let b = rgb(0u8, 0, 0);
-        let w = rgb(0xFFu8, 0xFF, 0xFF);
+        let b = gray(0x00_u8);
+        let w = gray(0xFF_u8);
 
         assert_eq!(buf[0usize], [w, b, b, w]);
         assert_eq!(buf[1usize], [b, w, w, b]);
