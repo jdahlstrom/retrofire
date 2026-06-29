@@ -19,41 +19,41 @@ pub trait IntoPixel<T, F>: Sized {
 // RGB
 
 /// Eight-bit channels in X,R,G,B order, where X is unused.
-#[derive(Copy, Clone, Default)]
+#[derive(Copy, Clone, Debug, Default)]
 pub struct Xrgb8888;
 
 /// Eight-bit channels in R,G,B order.
-#[derive(Copy, Clone, Default)]
+#[derive(Copy, Clone, Debug, Default)]
 pub struct Rgb888;
 /// 5,6,5-bit channels in R,G,B order.
-#[derive(Copy, Clone, Default)]
+#[derive(Copy, Clone, Debug, Default)]
 pub struct Rgb565;
 /// 3,3,2-bit channels in R,G,B order.
-#[derive(Copy, Clone, Default)]
+#[derive(Copy, Clone, Debug, Default)]
 pub struct Rgb332;
 
 // RGBA
 
 /// Eight-bit channels in R,G,B,A order.
-#[derive(Copy, Clone, Default)]
+#[derive(Copy, Clone, Debug, Default)]
 pub struct Rgba8888;
 /// Eight-bit channels in A,R,G,B order.
-#[derive(Copy, Clone, Default)]
+#[derive(Copy, Clone, Debug, Default)]
 pub struct Argb8888;
 /// Eight-bit channels in B,G,R,A order.
-#[derive(Copy, Clone, Default)]
+#[derive(Copy, Clone, Debug, Default)]
 pub struct Bgra8888;
 
 /// Four-bit channels in R,G,B,A order.
-#[derive(Copy, Clone, Default)]
+#[derive(Copy, Clone, Debug, Default)]
 pub struct Rgba4444;
 
 /// 5-bit RGB channels and 1-bit alpha.
-#[derive(Copy, Clone, Default)]
+#[derive(Copy, Clone, Debug, Default)]
 pub struct Rgba5551;
 
 //
-// IntoPixel Impl for Color3
+// IntoPixel impl for Color3
 //
 
 impl<T, F> IntoPixel<T, F> for Color3
