@@ -80,6 +80,7 @@ impl<T: Target> Target for &RefCell<T> {
 impl<Col, Fmt, Dep> Target for Framebuf<Colorbuf<Col, Fmt>, Dep>
 where
     Col: AsMutSlice2,
+    Fmt: Copy,
     Dep: AsMutSlice2<Elem = f32>,
     Color4: IntoPixel<Col::Elem, Fmt>,
 {
@@ -93,13 +94,16 @@ where
         ctx: &Context,
     ) {
         let Self { color_buf, depth_buf } = self;
-        rasterize_fb(color_buf, depth_buf, sl, fs, uni, Color4::into_pixel, ctx)
+        let fmt = color_buf.fmt; // borrowck...
+        let conv = |c: Color4| c.into_pixel(fmt);
+        rasterize_fb(color_buf, depth_buf, sl, fs, uni, conv, ctx)
     }
 }
 
 impl<Buf, Fmt> Target for Colorbuf<Buf, Fmt>
 where
     Buf: AsMutSlice2,
+    Fmt: Copy,
     Color4: IntoPixel<Buf::Elem, Fmt>,
 {
     /// Rasterizes `scanline` into this `u32` color buffer.
@@ -112,7 +116,8 @@ where
         uni: U,
         ctx: &Context,
     ) {
-        rasterize(&mut self.buf, sl, fs, uni, Color4::into_pixel, ctx)
+        let conv = |c: Color4| c.into_pixel(self.fmt);
+        rasterize(&mut self.buf, sl, fs, uni, conv, ctx)
     }
 }
 
