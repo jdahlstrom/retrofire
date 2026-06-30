@@ -57,11 +57,9 @@ where
     /// is enabled.
     pub fn clear(&mut self) {
         if let Some(c) = self.ctx.color_clear {
-            self.buf
-                .borrow_mut()
-                .color_buf
-                .as_mut_slice2()
-                .fill(c.into_pixel());
+            let cbuf = &mut self.buf.borrow_mut().color_buf;
+            let fmt = cbuf.fmt;
+            cbuf.as_mut_slice2().fill(c.into_pixel(fmt));
         }
         if let Some(z) = self.ctx.depth_clear {
             // Depth buffer contains reciprocal depth values

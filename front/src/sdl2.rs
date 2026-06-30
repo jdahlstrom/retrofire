@@ -34,7 +34,7 @@ pub trait PixelFmt: Copy + Default {
 
     #[inline]
     fn encode<C: IntoPixel<Self::Pixel, Self>>(self, color: C) -> Self::Pixel {
-        color.into_pixel_fmt(self)
+        color.into_pixel(self)
     }
 }
 
