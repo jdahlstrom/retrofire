@@ -44,6 +44,11 @@ pub struct Rgba4444;
 #[derive(Copy, Clone, Debug, Default)]
 pub struct Rgba5551;
 
+// Indexed
+
+#[derive(Copy, Clone)]
+pub struct Indexed8<C>(pub [C; 256]);
+
 //
 // IntoPixel impl for Color3
 //
