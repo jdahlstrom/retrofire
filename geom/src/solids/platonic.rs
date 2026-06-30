@@ -4,7 +4,7 @@
 use core::{array::from_fn, f32::consts::SQRT_2, iter::zip};
 
 use retrofire_core::{
-    geom::{Mesh, Normal3, Vertex3, vertex},
+    geom::{Mesh, Normal3, Vertex3, mesh::Index, vertex},
     math::{Lerp, Point3, SQRT_3, Vec3, pt3, vec3},
     render::{Model, TexCoord, uv},
 };
@@ -116,7 +116,7 @@ impl Tetrahedron {
 
     /// Builds the tetrahedral mesh.
     pub fn build(self) -> Mesh<Normal3> {
-        let mut b = Mesh::builder();
+        let mut b = Mesh::builder(Index::U8);
         for (vs, i) in zip(Self::FACES, 0..) {
             b.push_face(i * 3, i * 3 + 1, i * 3 + 2);
             let n = -Self::NORMS[i]; // already unit length
@@ -192,7 +192,7 @@ impl Box {
         self,
         mut f: impl FnMut(Point3<Model>, Normal3, TexCoord) -> Vertex3<A>,
     ) -> Mesh<A> {
-        let mut b = Mesh::builder();
+        let mut b = Mesh::builder(Index::U8);
         b.push_faces(Self::FACES);
         for (pos_i, [norm_i, uv_i]) in Self::VERTS {
             let pos = from_fn(|i| {
@@ -287,7 +287,7 @@ impl Octahedron {
 impl Build<Normal3> for Octahedron {
     /// Builds the octahedral mesh.
     fn build(self) -> Mesh<Normal3> {
-        let mut b = Mesh::builder();
+        let mut b = Mesh::builder(Index::U8);
         for (vs, i) in zip(&Self::FACES, 0..) {
             b.push_face(i * 3, i * 3 + 1, i * 3 + 2);
             for &vi in vs {
@@ -349,7 +349,7 @@ impl Dodecahedron {
 impl Build<Normal3> for Dodecahedron {
     /// Builds the dodecahedral mesh.
     fn build(self) -> Mesh<Normal3> {
-        let mut b = Mesh::builder();
+        let mut b = Mesh::builder(Index::U8);
 
         for (face, i) in zip(&Self::FACES, 0..) {
             let n = Self::NORMALS[i].normalize();
@@ -402,7 +402,7 @@ impl Icosahedron {
 impl Build<Normal3> for Icosahedron {
     /// Builds the icosahedral mesh.
     fn build(self) -> Mesh<Normal3> {
-        let mut b = Mesh::builder();
+        let mut b = Mesh::builder(Index::U8);
         for (vs, i) in zip(&Self::FACES, 0..) {
             let n = Self::NORMALS[i].normalize();
             b.push_face(i * 3, i * 3 + 1, i * 3 + 2);

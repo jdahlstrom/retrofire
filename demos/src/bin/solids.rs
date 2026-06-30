@@ -124,7 +124,7 @@ fn main() {
         let object = &objects[carousel.idx % objects.len()];
 
         Batch {
-            prims: object.faces.clone(),
+            prims: object.faces.iter().collect(),
             verts: object.verts.clone(),
             uniform: (&model_view_project, &spin),
             shader: shader,

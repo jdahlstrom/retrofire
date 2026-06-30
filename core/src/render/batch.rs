@@ -80,7 +80,7 @@ impl<Prim, Vtx, Uni, Shd, Tgt, Ctx> Batch<Prim, Vtx, Uni, Shd, Tgt, Ctx> {
         self,
         mesh: &Mesh<A>,
     ) -> Batch<Tri<usize>, Vertex3<A>, Uni, Shd, Tgt, Ctx> {
-        let prims = mesh.faces.clone();
+        let prims = mesh.faces.iter().collect();
         let verts = mesh.verts.clone();
         update!(verts prims; self uniform shader viewport target ctx)
     }

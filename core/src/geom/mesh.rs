@@ -356,7 +356,7 @@ mod tri_indices_tests {
 pub struct Mesh<Attrib, Basis = Model> {
     /// The faces of the mesh, with each face a triplet of indices
     /// to the `verts` vector. Several faces can share a vertex.
-    pub faces: Vec<Tri<usize>>,
+    pub faces: TriIndices,
     /// The vertices of the mesh.
     pub verts: Vec<Vertex3<Attrib, Basis>>,
 }
@@ -408,10 +408,15 @@ impl<A, B> Mesh<A, B> {
         F: IntoIterator<Item = Tri<usize>>,
         V: IntoIterator<Item = Vertex3<A, B>>,
     {
-        let faces: Vec<_> = faces.into_iter().collect();
+        let faces_: Vec<_> = faces.into_iter().collect();
         let verts: Vec<_> = verts.into_iter().collect();
 
-        assert_indices_in_bounds(&faces, verts.len());
+        assert_indices_in_bounds(&faces_, verts.len());
+
+        let mut faces =
+            TriIndices::with_max_and_capacity(verts.len(), faces_.len());
+        faces.extend(faces_);
+
         Self { faces, verts }
     }
 
@@ -446,8 +451,12 @@ fn assert_indices_in_bounds(faces: &[Tri<usize>], len: usize) {
 
 impl<A> Mesh<A> {
     /// Returns a new mesh builder.
-    pub fn builder() -> Builder<A> {
-        Builder::default()
+    pub fn builder(index_type: Index) -> Builder<A> {
+        Mesh {
+            faces: TriIndices::new(index_type),
+            ..Mesh::default()
+        }
+        .into_builder()
     }
 
     /// Consumes `self` and returns a mesh builder with the faces and vertices
@@ -500,7 +509,7 @@ impl<A> Builder<A> {
     #[must_use]
     pub fn build(self) -> Mesh<A> {
         // Sanity checks done by new()
-        Mesh::new(self.mesh.faces, self.mesh.verts)
+        Mesh::new(&self.mesh.faces, self.mesh.verts)
     }
 }
 
@@ -555,14 +564,14 @@ impl<A> Builder<A> {
             .map(|v| vertex(v.pos, Normal3::zero()))
             .collect();
         // ...accumulate normals...
-        for (&Tri(vs), n) in zip(&faces, face_normals) {
+        for (Tri(vs), n) in zip(&faces, face_normals) {
             for i in vs {
                 verts[i].attrib += n;
             }
         }
         // ...and normalize to unit length.
         for v in &mut verts {
-            v.attrib = v.attrib.normalize();
+            v.attrib = v.attrib.normalize_or_zero();
         }
 
         // No need to sanity check again
@@ -595,7 +604,10 @@ impl<A: Debug, S: Debug + Default> Debug for Builder<A, S> {
 impl<A, S> Default for Mesh<A, S> {
     /// Returns an empty mesh.
     fn default() -> Self {
-        Self { faces: vec![], verts: vec![] }
+        Self {
+            faces: TriIndices::new(Index::U32),
+            verts: Vec::new(),
+        }
     }
 }
 

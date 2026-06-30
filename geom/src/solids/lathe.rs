@@ -3,9 +3,9 @@
 use alloc::vec::Vec;
 use core::ops::Range;
 
+use retrofire_core::geom::mesh::TriIndices;
 use retrofire_core::geom::{
-    Mesh, Normal2, Normal3, Polyline, Tri, Vertex, Vertex2, Vertex3, tri,
-    vertex,
+    Mesh, Normal2, Normal3, Polyline, Vertex, Vertex2, Vertex3, tri, vertex,
 };
 use retrofire_core::math::{
     Angle, Lerp, Parametric, Point3, Vary, Vec3, polar, pt2, pt3, rotate2,
@@ -116,7 +116,7 @@ impl<P: Parametric<Vertex2<Normal2, ()>>> Lathe<P> {
         let n_faces = segs * secs * 2 + (secs - 2) * caps;
         let n_verts = verts_per_sec * (secs + 1) + secs * caps;
         let mut m = Mesh {
-            faces: Vec::with_capacity(n_faces),
+            faces: TriIndices::with_max_and_capacity(n_verts - 1, n_faces),
             verts: Vec::with_capacity(n_verts),
         };
 
@@ -143,7 +143,7 @@ impl<P: Parametric<Vertex2<Normal2, ()>>> Lathe<P> {
 }
 
 #[inline(never)]
-fn create_faces(secs: usize, verts_per_sec: usize, out: &mut Vec<Tri<usize>>) {
+fn create_faces(secs: usize, verts_per_sec: usize, out: &mut TriIndices) {
     for j in 1..verts_per_sec {
         let n = secs + 1;
         for i in 1..n {
