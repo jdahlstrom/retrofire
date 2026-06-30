@@ -221,11 +221,9 @@ where
     }
     .write(&mut out)?;
 
-    // Appease the borrow checker
     slice
-        .rows()
-        .flatten()
-        .map(|c| c.into_pixel())
+        .iter()
+        .map(|c| c.into_pixel(Rgb888))
         .try_for_each(|rgb| out.write_all(&rgb[..]))
 }
 
