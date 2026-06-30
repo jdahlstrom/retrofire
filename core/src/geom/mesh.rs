@@ -44,13 +44,13 @@ impl Index {
     /// Returns the smallest index type that can fit the given value.
     pub fn from_max(max: usize) -> Self {
         use Index::*;
-        if max < U8.max() {
+        if max <= U8.max() {
             U8
-        } else if max < U16.max() {
+        } else if max <= U16.max() {
             U16
-        } else if max < U32.max() {
+        } else if max <= U32.max() {
             U32
-        } else if max < U64.max() {
+        } else if max <= U64.max() {
             U64
         } else {
             Usize // unreachable in practice
