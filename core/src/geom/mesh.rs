@@ -42,6 +42,13 @@ pub enum Index {
 
 impl Index {
     /// Returns the smallest index type that can fit the given value.
+    ///
+    /// # Examples
+    /// ```
+    /// use retrofire_core::geom::mesh::Index;
+    ///
+    /// assert_eq!(Index::from_max(1234), Index::U16);
+    /// ```
     pub fn from_max(max: usize) -> Self {
         use Index::*;
         if max <= U8.max() {
@@ -155,16 +162,31 @@ impl TriIndices {
         }
     }
 
+    /// Removes all entries from `self`.
     #[inline]
     pub fn clear(&mut self) {
         self.indices.clear();
     }
 
+    /// Returns the number of entries (index triples) that `self` contains.
     #[inline]
     pub fn len(&self) -> usize {
         self.iter().len()
     }
 
+    /// Returns the capacity of the index vector in number of index triples.
+    #[inline]
+    pub fn capacity(&self) -> usize {
+        self.indices.capacity() / self.bytes_per_tri()
+    }
+
+    /// Returns true iff `self` contains no entries.
+    #[inline]
+    pub fn is_empty(&self) -> bool {
+        self.indices.is_empty()
+    }
+
+    /// Returns an iterator over the triangles contained by `self`.
     #[inline]
     pub fn iter(&self) -> TriIndicesIter<'_> {
         TriIndicesIter {
