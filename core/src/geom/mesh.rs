@@ -482,16 +482,6 @@ impl<A, B> Mesh<A, B> {
     }
 }
 
-#[inline(never)]
-fn assert_indices_in_bounds(faces: &[Tri<usize>], len: usize) {
-    for (Tri(vs), i) in zip(faces, 0..) {
-        assert!(
-            vs.iter().all(|&j| j < len),
-            "vertex index out of bounds at faces[{i}]: {vs:?}"
-        );
-    }
-}
-
 impl<A> Mesh<A> {
     /// Returns a new mesh builder.
     pub fn builder(index_type: Index) -> Builder<A> {
