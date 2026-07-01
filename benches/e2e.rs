@@ -85,7 +85,7 @@ fn sphere(b: Bencher, res: u32) {
 
     b.bench_local(|| {
         render(
-            &sphere.faces,
+            sphere.faces.iter().collect::<Vec<_>>(),
             &sphere.verts,
             &shader,
             &modelview.then(&project),

@@ -489,7 +489,10 @@ v 0.0 -2.0 0.0
         let mesh: Mesh<()> = parse_obj(input).unwrap().build();
 
         assert_eq!(mesh.faces.len(), 2);
-        assert_eq!(mesh.faces, [Tri([0, 1, 2]), Tri([0, 2, 3])]);
+        assert_eq!(
+            mesh.faces.iter().collect::<Vec<_>>(),
+            [Tri([0, 1, 2]), Tri([0, 2, 3])]
+        );
     }
 
     #[test]

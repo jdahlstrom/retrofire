@@ -84,7 +84,7 @@ fn main() {
             .then(&project);
 
         render(
-            &torus.faces,
+            &torus.faces.iter().collect::<Vec<_>>(),
             &torus.verts,
             &shader,
             &mvp,

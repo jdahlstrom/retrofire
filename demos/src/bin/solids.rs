@@ -98,7 +98,19 @@ fn main() {
 
         for key in win.imp.get_keys_pressed(KeyRepeat::No) {
             match key {
-                Key::Space => carousel.start(),
+                Key::Space => {
+                    carousel.start();
+                    let o = &objects[carousel.new_idx];
+                    eprintln!(
+                        "Now showing obj {}: {} faces, {} verts, {} bytes per\
+                         face, {} bytes total",
+                        carousel.new_idx,
+                        o.faces.len(),
+                        o.verts.len(),
+                        o.faces.bytes_per_tri(),
+                        o.faces.size_in_bytes(),
+                    )
+                }
 
                 Key::Comma | Key::Period => {
                     let (num, denom) =
@@ -124,7 +136,7 @@ fn main() {
         let object = &objects[carousel.idx % objects.len()];
 
         Batch {
-            prims: object.faces.clone(),
+            prims: object.faces.iter().collect(),
             verts: object.verts.clone(),
             uniform: (&model_view_project, &spin),
             shader: shader,
