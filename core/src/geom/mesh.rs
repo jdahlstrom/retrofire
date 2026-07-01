@@ -430,14 +430,26 @@ impl<A, B> Mesh<A, B> {
         F: IntoIterator<Item = Tri<usize>>,
         V: IntoIterator<Item = Vertex3<A, B>>,
     {
-        let faces_: Vec<_> = faces.into_iter().collect();
         let verts: Vec<_> = verts.into_iter().collect();
+        let verts_len = verts.len();
 
-        assert_indices_in_bounds(&faces_, verts.len());
+        let faces_iter = faces
+            .into_iter()
+            .zip(0..)
+            .inspect(|(Tri(ixs), i)| {
+                assert!(
+                    ixs.iter().all(|&j| j < verts_len),
+                    "vertex index out of bounds at faces[{i}]:\
+                one of {ixs:?} > {verts_len}"
+                );
+            })
+            .map(|(tri, _)| tri);
 
-        let mut faces =
-            TriIndices::with_max_and_capacity(verts.len(), faces_.len());
-        faces.extend(faces_);
+        let mut faces = TriIndices::with_max_and_capacity(
+            verts_len,
+            faces_iter.size_hint().0,
+        );
+        faces.extend(faces_iter);
 
         Self { faces, verts }
     }
