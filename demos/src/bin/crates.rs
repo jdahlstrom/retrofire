@@ -2,7 +2,6 @@ use core::ops::ControlFlow::*;
 
 use re::prelude::*;
 
-use re::core::math::color::gray;
 use re::core::render::{
     cam::{FirstPerson, Fov},
     clip::Status::*,
@@ -10,7 +9,11 @@ use re::core::render::{
     shader,
     tex::SamplerClamp,
 };
-use re::core::util::{pixfmt, pnm::read_pnm};
+use re::core::{
+    geom::mesh::Index,
+    math::color::gray,
+    util::{pixfmt, pnm::read_pnm},
+};
 
 use re::front::sdl2::Window;
 use re::geom::solids::{Build, Cube};

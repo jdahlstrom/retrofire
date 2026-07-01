@@ -214,11 +214,50 @@ impl Iterator for TriIndicesIter<'_> {
 
     fn next(&mut self) -> Option<Self::Item> {
         let chunk = self.chunks.next()?;
+
+        /*match self.index_size {
+            1 => {
+                let &[i, j, k] = chunk.as_array().expect("cannot fail");
+                Some(tri(i as usize, j as usize, k as usize))
+            }
+            2 => {
+                let (ijk, _) = chunk.as_chunks::<2>();
+                let ijk = ijk.as_array().expect("cannot fail");
+                Some(Tri(ijk.map(|i| u16::from_le_bytes(i) as usize)))
+            }
+            4 => {
+                let (ijk, _) = chunk.as_chunks::<4>();
+                let ijk = ijk.as_array().expect("cannot fail");
+                Some(Tri(ijk.map(|i| u32::from_le_bytes(i) as usize)))
+            }
+            8 => {
+                let (ijk, _) = chunk.as_chunks::<8>();
+                let ijk = ijk.as_array().expect("cannot fail");
+                Some(Tri(ijk.map(|i| u64::from_le_bytes(i) as usize)))
+            }
+            0 => {
+                let (ijk, _) = chunk.as_chunks::<{ size_of::<usize>() }>();
+                let ijk = ijk.as_array().expect("cannot fail");
+                Some(Tri(ijk.map(|i| usize::from_le_bytes(i))))
+            }
+
+            _ => unreachable!(),
+        }*/
+
         let mut le_bytes = [[0u8; size_of::<usize>()]; 3];
-        let mut ics = chunk.chunks_exact(self.index_size);
-        for index in &mut le_bytes {
-            index[0..self.index_size].copy_from_slice(ics.next().unwrap());
-        }
+
+        //let mut ics = chunk.chunks_exact(self.index_size);
+
+        let sz = self.index_size;
+
+        let i = &chunk[..sz];
+        let j = &chunk[sz..2 * sz];
+        let k = &chunk[2 * sz..];
+
+        le_bytes[0][0..sz].copy_from_slice(i);
+        le_bytes[1][0..sz].copy_from_slice(j);
+        le_bytes[2][0..sz].copy_from_slice(k);§
+
         Some(Tri(le_bytes.map(|i| usize::from_le_bytes(i))))
     }
 
