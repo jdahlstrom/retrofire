@@ -454,6 +454,14 @@ impl<A, B> Mesh<A, B> {
         Self { faces, verts }
     }
 
+    /// Creates an empty mesh with the given index type.
+    pub fn with_index(i: Index) -> Self {
+        Self {
+            faces: TriIndices::new(i),
+            ..Default::default()
+        }
+    }
+
     /// Returns an iterator over the faces of `self`, mapping the vertex indices
     /// to references to the corresponding vertices.
     pub fn faces(&self) -> impl Iterator<Item = Tri<&Vertex3<A, B>>> {
@@ -462,7 +470,8 @@ impl<A, B> Mesh<A, B> {
             .map(|tri| tri.map(|i| &self.verts[i]))
     }
 
-    /// Returns a mesh with the faces and vertices of both `self` and `other`.
+    /// Returns a mesh with the faces and vertices of another mesh appended
+    /// to `self`.
     #[must_use]
     pub fn merge(mut self, Self { faces, verts }: Self) -> Self {
         let n = self.verts.len();
@@ -486,11 +495,7 @@ fn assert_indices_in_bounds(faces: &[Tri<usize>], len: usize) {
 impl<A> Mesh<A> {
     /// Returns a new mesh builder.
     pub fn builder(index_type: Index) -> Builder<A> {
-        Mesh {
-            faces: TriIndices::new(index_type),
-            ..Mesh::default()
-        }
-        .into_builder()
+        Mesh::with_index(index_type).into_builder()
     }
 
     /// Consumes `self` and returns a mesh builder with the faces and vertices
