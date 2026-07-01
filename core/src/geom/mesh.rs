@@ -674,7 +674,7 @@ mod tests {
     #[test]
     #[should_panic]
     fn mesh_builder_panics_if_vertex_index_oob() {
-        let mut b = Mesh::builder();
+        let mut b = Mesh::builder(Index::U8);
         b.push_faces([[0, 1, 2], [1, 2, 3]]);
         b.push_verts([
             (pt3(0.0, 0.0, 0.0), ()),
@@ -688,7 +688,7 @@ mod tests {
     fn vertex_normal_generation() {
         // TODO Doesn't test weighting by area
 
-        let mut b = Mesh::builder();
+        let mut b = Mesh::builder(Index::U8);
         b.push_faces([[0, 2, 1], [0, 1, 3], [0, 3, 2]]);
         b.push_verts([
             (pt3(0.0, 0.0, 0.0), ()),

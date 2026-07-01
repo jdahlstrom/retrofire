@@ -163,7 +163,7 @@ fn crates() -> Vec<Obj<(Normal3, TexCoord)>> {
     res
 }
 fn floor() -> Obj<Vec2> {
-    let mut bld = Mesh::builder();
+    let mut bld = Mesh::builder(Index::U16);
 
     let size = 50;
     for j in -size..=size {
