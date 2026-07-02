@@ -1,9 +1,7 @@
 //! Routines for drawing wireframe visualizations of geometric objects
 //! for debugging purposes. Includes normals, bounding boxes, and more.
 
-#[cfg(feature = "fp")]
 use alloc::vec::Vec;
-use core::fmt::Debug;
 
 use crate::geom::{Edge, Tri, Vertex, Vertex3, vertex};
 use crate::math::{
@@ -40,8 +38,14 @@ impl<'a, B> FragmentShader<Color4f, &'a ProjMat3<B>> for Shader {
     }
 }
 
-pub type DbgBatch<B> =
-    super::Batch<Edge<usize>, Vertex3<Color4f, B>, (), Shader, (), Context>;
+pub type DbgBatch<B> = super::Batch<
+    Vec<Edge<usize>>,
+    Vec<Vertex3<Color4f, B>>,
+    (),
+    Shader,
+    (),
+    Context,
+>;
 
 /// Returns a color visualizing the direction of a vector.
 ///
@@ -85,15 +89,13 @@ pub fn ray<B>(o: Point3<B>, dir: Vec3<B>) -> DbgBatch<B> {
         [2, 4], [2, 5], [3, 4], [3, 5],
     ].map(Edge::from);
 
-    DbgBatch::new(&edges, &verts)
+    DbgBatch::new(edges.to_vec(), verts.to_vec())
 }
 
 /// Draws a unit-length ray denoting the normal vector of a triangle.
 ///
 /// The ray originates from the triangle's centroid.
-pub fn face_normal<A, B: Debug + Default>(
-    tri: &Tri<Vertex3<A, B>>,
-) -> DbgBatch<B> {
+pub fn face_normal<A, B>(tri: &Tri<Vertex3<A, B>>) -> DbgBatch<B> {
     ray(tri.centroid(), tri.normal().to())
 }
 
@@ -132,7 +134,7 @@ pub fn cuboid<B>(v0: Point3<B>, v1: Point3<B>) -> DbgBatch<B> {
         [0, 4], [1, 5], [2, 6], [3, 7],
     ].map(Edge::from);
 
-    DbgBatch::new(&edges, &verts)
+    DbgBatch::new(edges.to_vec(), verts.to_vec())
 }
 
 /// Draws the smallest axis-aligned box that contains a set of vertices.
@@ -156,7 +158,7 @@ pub fn circle<B>(o: Point3<B>, r: f32) -> DbgBatch<B> {
 
     let edges: Vec<_> = (0..RES).map(|i| Edge(i, i + 1)).collect();
 
-    DbgBatch::new(&edges, &verts)
+    DbgBatch::new(edges, verts)
 }
 
 /// Draws a wireframe sphere with the given center and radius.
@@ -186,11 +188,11 @@ pub fn sphere<B>(o: Point3<B>, r: f32) -> DbgBatch<B> {
         })
         .collect();
 
-    DbgBatch::new(&edges, &verts)
+    DbgBatch::new(edges, verts)
 }
 
 impl<B> DbgBatch<B> {
-    fn new(prims: &[Edge<usize>], verts: &[Vertex3<Color4f, B>]) -> Self {
+    fn new(prims: Vec<Edge<usize>>, verts: Vec<Vertex3<Color4f, B>>) -> Self {
         DbgBatch::<B>::default()
             .primitives(prims)
             .vertices(verts)

@@ -124,8 +124,8 @@ fn main() {
         let object = &objects[carousel.idx % objects.len()];
 
         Batch {
-            prims: object.faces.clone(),
-            verts: object.verts.clone(),
+            prims: &object.faces,
+            verts: &object.verts,
             uniform: (&model_view_project, &spin),
             shader: shader,
             viewport: cam.viewport,
