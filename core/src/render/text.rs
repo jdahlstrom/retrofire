@@ -37,8 +37,14 @@ pub enum Align {
     BottomRight,
 }
 
-pub type Batch<Shd> =
-    super::Batch<Tri<usize>, Vertex3<TexCoord>, (), Shd, (), Context>;
+pub type Batch<'a, Shd> = super::Batch<
+    &'a [Tri<usize>],
+    &'a [Vertex3<TexCoord>],
+    (),
+    Shd,
+    (),
+    Context,
+>;
 
 //
 // Inherent impls
@@ -122,10 +128,9 @@ impl Text {
     /// Useful for customized text rendering.
     pub fn batch(
         &self,
-    ) -> Batch<impl Shader<Vertex3<TexCoord>, TexCoord, &ProjMat3<Model>>> {
-        super::Batch::new()
-            .mesh(&self.geom)
-            .shader(self.shader())
+    ) -> Batch<'_, impl Shader<Vertex3<TexCoord>, TexCoord, &ProjMat3<Model>>>
+    {
+        super::Batch::from(&self.geom).shader(self.shader())
     }
 
     /// Samples the font at a texture coordinate.
