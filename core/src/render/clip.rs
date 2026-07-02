@@ -170,26 +170,27 @@ impl ClipPlane {
         verts_in: &[ClipVert<A>],
         verts_out: &mut Vec<ClipVert<A>>,
     ) {
-        let mut verts = verts_in.iter().chain(&verts_in[..1]);
-
-        let Some(mut v0) = verts.next() else {
+        let [fst, .., lst] = verts_in else {
             return;
         };
+        let edges = verts_in
+            .array_windows()
+            .map(|[v0, v1]| Edge(v0, v1))
+            .chain([Edge(lst, fst)]);
 
-        for v1 in verts {
+        for Edge(v0, v1) in edges {
             if self.is_inside(v0) {
-                // v0 is inside; emit it as-is. If v1 is also inside, we don't
-                // have to do anything; it is emitted on the next iteration.
-                verts_out.push((*v0).clone());
+                // v0 is inside; emit it as-is. If v1 is also inside, no need
+                // to do anything; it will be emitted on the next iteration.
+                verts_out.push(v0.clone());
             } else {
-                // v0 is outside, discard it. If v1 is also outside, we don't
-                // have to do anything; it is discarded on the next iteration.
+                // v0 is outside, discard it. If v1 is also outside, no need
+                // to do anything; it will be discarded on the next iteration.
             }
 
             if let Some(v) = self.intersect([v0, v1]) {
                 verts_out.push(v);
             }
-            v0 = v1;
         }
     }
 }
@@ -288,8 +289,8 @@ pub fn clip_simple_polygon<'a, A: Lerp>(
 ) {
     debug_assert!(verts_out.is_empty());
 
-    for (p, i) in zip(planes, 0..) {
-        p.clip_simple_polygon(verts_in, verts_out);
+    for (plane, i) in zip(planes, 0..) {
+        plane.clip_simple_polygon(verts_in, verts_out);
         verts_in.clear();
         if verts_out.is_empty() {
             // Nothing left to clip; the polygon was fully outside
@@ -316,39 +317,48 @@ impl<A: Lerp> Clip for [Edge<ClipVert<A>>] {
         // TODO capacity is just a heuristic, should retain vector between calls somehow
         out.reserve(self.len() / 2);
 
-        'lines: for edge @ Edge(a, b) in self {
-            let both_outside = a.outcode & b.outcode != 0;
-            let neither_outside = a.outcode | b.outcode == 0;
+        'edges: for edge in self {
+            // Bitset of planes that both ends are outside
+            let both_outside = edge.0.outcode & edge.1.outcode;
+            // Bitset of planes that at least one end is outside
+            let either_outside = edge.0.outcode | edge.1.outcode;
 
-            //let mut a = a.clone();
-            //let mut b = b.clone();
-
-            let mut e = edge.clone();
-
-            if both_outside {
+            if both_outside != 0 {
+                // There is at least one plane outside which both ends are.
+                // The edge must be fully outside and can be discarded.
                 continue;
             }
-            if neither_outside {
-                out.push(e);
+            if either_outside == 0 {
+                // Neither end is outside any plane. The edge is fully visible,
+                // no clipping needed.
+                out.push(edge.clone());
                 continue;
             }
-            // Otherwise, clipping is needed
-            for p in planes {
-                let a_in = p.is_inside(&e.0);
-                let b_in = p.is_inside(&e.1);
-                // TODO Why not handled by both_outside check?
-                if !a_in && !b_in {
-                    continue 'lines;
+
+            // Otherwise, either only one endpoint is inside all planes, *or*
+            // the two endpoints are outside *different* planes. Clipping is
+            // needed to compute the fully-inside segment of the edge *if any*.
+            let Edge(mut v0, mut v1) = edge.clone();
+            for plane in planes {
+                let v0_inside = plane.is_inside(&v0);
+                let v1_inside = plane.is_inside(&v1);
+
+                if !v0_inside && !v1_inside {
+                    // We know the original edge was not outside any *single*
+                    // plane, but if it *was* outside the bounding volume as
+                    // a whole, clipping will eventually result in a remainder
+                    // that is fully outside a plane and can be discarded.
+                    continue 'edges;
                 }
-                if let Some(v) = p.intersect([&e.0, &e.1]) {
-                    if a_in {
-                        e.1 = v;
-                    } else if b_in {
-                        e.0 = v;
+                if let Some(v) = plane.intersect([&v0, &v1]) {
+                    if v0_inside {
+                        v1 = v;
+                    } else if v1_inside {
+                        v0 = v;
                     }
                 }
             }
-            out.push(e);
+            out.push(Edge(v0, v1));
         }
     }
 }
