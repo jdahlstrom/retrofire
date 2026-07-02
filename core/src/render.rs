@@ -149,7 +149,7 @@ pub fn render<Prim, Vtx: Clone, Var, Uni: Copy, Shd>(
     ctx: &Context,
 ) where
     Prim: Render<Var> + Clone,
-    [<Prim>::Clip]: Clip<Item = Prim::Clip>,
+    [Prim::Clip]: Clip<Item = Prim::Clip>,
     Var: Vary,
     Shd: Shader<Vtx, Var, Uni>,
 {
