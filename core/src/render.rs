@@ -38,6 +38,7 @@ pub(super) mod re_exports {
         text::Text,
     };
 }
+use crate::util::pixfmt::{IntoPixel, Xrgb8888};
 pub use re_exports::*;
 
 pub mod batch;
@@ -296,7 +297,15 @@ pub fn render_<Vtx: Clone, Var, Uni: Copy, Shd>(
             stats.verts.o += 3; // TODO Get number of verts in prim somehow
         }
 
-        tri_fill_(prim.0, shader, &mut target.as_mut_slice2(), ctx);
+        tri_fill_(
+            prim.0,
+            &|frag| {
+                let col = shader.shade_fragment(frag).unwrap();
+                col.into_pixel_fmt(Xrgb8888)
+            },
+            &mut target.as_mut_slice2(),
+            ctx,
+        );
     }
 
     #[cfg(feature = "stats")]

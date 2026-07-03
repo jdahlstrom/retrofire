@@ -198,9 +198,9 @@ where
     }
 }
 
-impl Lerp for () {
-    fn lerp(&self, _: &Self, _: f32) {}
-}
+//impl Lerp for () {
+//    fn lerp(&self, _: &Self, _: f32) {}
+//}
 
 impl<U: Lerp, V: Lerp> Lerp for (U, V) {
     #[inline]

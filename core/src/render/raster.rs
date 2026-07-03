@@ -315,7 +315,7 @@ pub fn scan<V: Vary>(
 
 pub fn tri_fill_<V>(
     mut verts: [Vertex<ScreenPt, V>; 3],
-    shd: &impl FragmentShader<V>,
+    shd: &impl Fn(Frag<V>) -> u32,
     buf: &mut MutSlice2<u32>,
     ctx: &Context,
 ) where
@@ -396,11 +396,8 @@ pub fn tri_fill_<V>(
         let slice = &mut buf[y as usize][(x_l as usize)..(x_r as usize)];
         let mut v = var;
         for p in slice {
-            let frag = Frag { pos: v.0, var: v.1 };
-            if let Some(col) = shd.shade_fragment(frag)
-                && ctx.color_write
-            {
-                *p = col.into_pixel_fmt(Xrgb8888)
+            if ctx.color_write {
+                *p = shd(Frag { pos: v.0, var: v.1 })
             }
 
             v = (v.0.add(&dv_dx.0), v.1.add(&dv_dx.1));
@@ -455,11 +452,8 @@ pub fn tri_fill_<V>(
         let slice = &mut buf[y as usize][(x_l as usize)..(x_r as usize)];
         let mut v = var;
         for p in slice {
-            let frag = Frag { pos: v.0, var: v.1 };
-            if let Some(col) = shd.shade_fragment(frag)
-                && ctx.color_write
-            {
-                *p = col.into_pixel_fmt(Xrgb8888);
+            if ctx.color_write {
+                *p = shd(Frag { pos: v.0, var: v.1 })
             }
             v = (v.0.add(&dv_dx.0), v.1.add(&dv_dx.1));
         }

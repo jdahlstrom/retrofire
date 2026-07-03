@@ -63,6 +63,8 @@ pub struct Builder<'title, PF> {
 pub type Framebuf<'a, Pix, Fmt> =
     target::Framebuf<Colorbuf<MutSlice2<'a, Pix>, Fmt>, MutSlice2<'a, f32>>;
 
+#[cfg(feature = "stats")]
+use retrofire_core::render::Stats;
 #[cfg(not(feature = "stats"))]
 pub type Stats = ();
 

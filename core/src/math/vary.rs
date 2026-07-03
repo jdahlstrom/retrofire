@@ -91,7 +91,7 @@ pub struct Iter<T: Vary> {
     pub n: Option<u32>,
 }
 
-impl Vary for () {
+/*impl Vary for () {
     type Iter = Iter<()>;
     type Diff = ();
 
@@ -100,7 +100,7 @@ impl Vary for () {
     }
     fn dv_dt(&self, _: &Self, _: f32) {}
     fn step(&self, _: &Self::Diff) {}
-}
+}*/
 impl ZDiv for () {}
 
 impl<T: Vary, U: Vary> Vary for (T, U) {

@@ -111,6 +111,20 @@ pub struct Proj3;
 #[derive(Copy, Clone, Debug, Default, Eq, PartialEq)]
 pub struct Hom<const DIM: usize, Basis = ()>(PhantomData<Basis>);
 
+impl Affine for () {
+    type Space = ();
+    type Diff = ();
+    const DIM: usize = 0;
+    fn add(&self, _: &Self::Diff) {}
+    fn sub(&self, _: &Self) {}
+}
+
+impl Linear for () {
+    type Scalar = f32;
+    fn zero() {}
+    fn mul(&self, _: Self::Scalar) {}
+}
+
 impl Affine for f32 {
     type Space = ();
     type Diff = Self;
