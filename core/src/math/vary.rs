@@ -3,12 +3,13 @@
 //! Common varying types include colors, texture coordinates,
 //! and vertex normals.
 
-use core::mem;
-
 use super::Lerp;
+use crate::geom::{Vertex, vertex};
+use core::{fmt::Debug, mem};
 
 pub trait ZDiv: Sized {
     #[must_use]
+    #[inline]
     fn z_div(self, _z: f32) -> Self {
         self
     }
@@ -24,7 +25,7 @@ pub trait Vary: Lerp + ZDiv {
     /// The iterator returned by the [vary][Self::vary] method.
     type Iter: Iterator<Item = Self>;
     /// The difference type of `Self`.
-    type Diff: Clone;
+    type Diff: Clone + Debug;
 
     /// Returns an iterator that yields values such that the first value
     /// equals `self`, and each subsequent value is offset by `step` from its
@@ -91,16 +92,50 @@ pub struct Iter<T: Vary> {
     pub n: Option<u32>,
 }
 
+impl<P: ZDiv, A: ZDiv> ZDiv for Vertex<P, A> {
+    #[inline]
+    fn z_div(self, z: f32) -> Self {
+        vertex(self.pos.z_div(z), self.attrib.z_div(z))
+    }
+}
+
+impl<P: Vary, A: Vary> Vary for Vertex<P, A> {
+    type Iter = Iter<Self>;
+    type Diff = Vertex<P::Diff, A::Diff>;
+
+    #[inline]
+    fn vary(self, step: Self::Diff, n: Option<u32>) -> Self::Iter {
+        Iter { val: self, step, n }
+    }
+
+    #[inline]
+    fn dv_dt(&self, other: &Self, recip_dt: f32) -> Self::Diff {
+        vertex(
+            self.pos.dv_dt(&other.pos, recip_dt),
+            self.attrib.dv_dt(&other.attrib, recip_dt),
+        )
+    }
+
+    #[inline]
+    fn step(&self, delta: &Self::Diff) -> Self {
+        vertex(self.pos.step(&delta.pos), self.attrib.step(&delta.attrib))
+    }
+}
+
 impl Vary for () {
     type Iter = Iter<()>;
     type Diff = ();
 
+    #[inline]
     fn vary(self, (): (), n: Option<u32>) -> Iter<()> {
         Iter { val: (), step: (), n }
     }
+    #[inline]
     fn dv_dt(&self, (): &(), _: f32) {}
+    #[inline]
     fn step(&self, (): &()) {}
 }
+
 impl ZDiv for () {}
 
 impl<T: Vary, U: Vary> Vary for (T, U) {
