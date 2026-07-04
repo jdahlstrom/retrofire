@@ -17,6 +17,12 @@ use inner::Inner;
 // Traits
 //
 
+pub trait Rectangular {
+    fn dims(&self) -> Dims;
+    fn width(&self) -> u32;
+    fn height(&self) -> u32;
+}
+
 /// A trait for types that can provide a view of their data as a [`Slice2`].
 pub trait AsSlice2 {
     type Elem;
@@ -96,6 +102,35 @@ pub struct MutSlice2<'a, T>(Inner<T, &'a mut [T]>);
 //
 
 impl<T> Buf2<T> {
+    /// Returns a buffer of the given dimensions, with every element initialized
+    /// to `T::default()`.
+    ///
+    /// Does not allocate if either the width or the height is zero.
+    ///
+    /// # Examples
+    /// ```
+    /// use retrofire_core::util::{Dims, Buf2};
+    ///
+    /// let buf: Buf2<i32> = Buf2::new(Dims(4, 3));
+    ///
+    /// assert_eq!(buf.width(), 4);
+    /// assert_eq!(buf.height(), 3);
+    /// assert_eq!(buf.data(), [0, 0, 0, 0,
+    ///                         0, 0, 0, 0,
+    ///                         0, 0, 0, 0]);
+    /// ```
+    ///
+    /// # Panics
+    /// If width × height > `isize::MAX`.
+    #[inline]
+    pub fn new(dims: Dims) -> Self
+    where
+        T: Default + Clone,
+    {
+        let data = vec![T::default(); dims.count()];
+        Self(Inner::new(dims, dims.0, data))
+    }
+
     /// Returns a buffer of the given dimensions, with elements initialized
     /// with values yielded by `init`.
     ///
@@ -139,35 +174,6 @@ impl<T> Buf2<T> {
             data.len()
         );
         Self(Inner::new(Dims(w, h), w, data))
-    }
-
-    /// Returns a buffer of the given dimensions, with every element initialized
-    /// to `T::default()`.
-    ///
-    /// Does not allocate if either the width or the height is zero.
-    ///
-    /// # Examples
-    /// ```
-    /// use retrofire_core::util::{Dims, Buf2};
-    ///
-    /// let buf: Buf2<i32> = Buf2::new(Dims(4, 3));
-    ///
-    /// assert_eq!(buf.width(), 4);
-    /// assert_eq!(buf.height(), 3);
-    /// assert_eq!(buf.data(), [0, 0, 0, 0,
-    ///                         0, 0, 0, 0,
-    ///                         0, 0, 0, 0]);
-    /// ```
-    ///
-    /// # Panics
-    /// If width × height > `isize::MAX`.
-    #[inline]
-    pub fn new(dims: Dims) -> Self
-    where
-        T: Default + Clone,
-    {
-        let data = vec![T::default(); dims.count()];
-        Self(Inner::new(dims, dims.0, data))
     }
 
     /// Returns a buffer of the given dimensions, initialized by repeatedly
@@ -220,6 +226,12 @@ impl<T> Buf2<T> {
     #[inline]
     pub fn data_mut(&mut self) -> &mut [T] {
         &mut self.0.data
+    }
+
+    /// Returns the elements of `self` as a slice of arrays if the array
+    /// length matches the width of `self`, or `None` otherwise.
+    pub fn as_rows<const W: usize>(&self) -> Option<&[[T; W]]> {
+        (W == self.width() as usize).then(|| self.data.as_chunks().0)
     }
 
     /// Reinterprets `self` as a buffer of different dimensions but the same area.
@@ -355,6 +367,23 @@ impl<T> AsMutSlice2 for MutSlice2<'_, T> {
     }
 }
 
+impl<T: AsSlice2> Rectangular for T {
+    #[inline]
+    fn dims(&self) -> Dims {
+        self.as_slice2().0.dims()
+    }
+
+    #[inline]
+    fn width(&self) -> u32 {
+        self.as_slice2().0.width()
+    }
+
+    #[inline]
+    fn height(&self) -> u32 {
+        self.as_slice2().0.height()
+    }
+}
+
 //
 // Foreign trait impls
 //
@@ -405,14 +434,18 @@ impl<T> DerefMut for MutSlice2<'_, T> {
     }
 }
 
-impl<T: Clone, const N: usize> From<&[[T; N]]> for Buf2<T> {
+impl<Rows, T: Clone, const N: usize> From<Rows> for Buf2<T>
+where
+    Rows: IntoIterator<Item = [T; N]>,
+    Rows::IntoIter: ExactSizeIterator,
+{
     /// Creates a `Buf2` from a slice of arrays.
     ///
     /// # Examples
     /// ```
     /// use retrofire_core::util::Buf2;
     ///
-    /// let buf = Buf2::from([[1, 2, 3], [4, 5, 6]].as_slice());
+    /// let buf = Buf2::from([[1, 2, 3], [4, 5, 6]]);
     ///
     /// assert_eq!(buf.stride(), 3);
     /// assert_eq!(buf.width(), 3);
@@ -421,11 +454,19 @@ impl<T: Clone, const N: usize> From<&[[T; N]]> for Buf2<T> {
     /// assert_eq!(buf[0], [1, 2, 3]);
     /// assert_eq!(buf[1], [4, 5, 6]);
     /// ```
-    fn from(slice: &[[T; N]]) -> Self {
-        Self::new_from(
-            Dims(N as u32, slice.len() as u32),
-            slice.as_flattened().iter().cloned(),
-        )
+    fn from(rows: Rows) -> Self {
+        let elems = rows.into_iter();
+        let dims = Dims(N as u32, elems.len() as u32);
+        Self::new_from(dims, elems.flatten())
+    }
+}
+
+impl<T> IntoIterator for Buf2<T> {
+    type Item = T;
+    type IntoIter = vec::IntoIter<T>;
+
+    fn into_iter(self) -> Self::IntoIter {
+        self.0.data.into_iter()
     }
 }
 
@@ -617,8 +658,12 @@ pub mod inner {
         /// Returns an iterator over the rows of `self` as `&[T]` slices.
         ///
         /// The length of each slice equals [`self.width()`](Self::width).
+        #[inline]
         pub fn rows(&self) -> impl Iterator<Item = &[T]> {
             self.data
+                // Cannot use chunks_exact because if the last row of a slice
+                // is also the last row of the backing buffer, there may not
+                // be `stride` elements left.
                 .chunks(self.stride as usize)
                 .map(|row| &row[..self.dims.0 as usize])
         }
@@ -627,11 +672,13 @@ pub mod inner {
         ///
         /// First returns the elements on row 0 from left to right, followed by
         /// the elements on row 1, and so on.
+        #[inline]
         pub fn iter(&self) -> impl Iterator<Item = &'_ T> {
             self.rows().flatten()
         }
     }
 
+    #[inline(never)]
     fn check_preconditions(Dims(w, h): Dims, stride: u32, len: usize) {
         assert!(w <= stride, "width ({w}) > stride ({stride})");
         assert!(
