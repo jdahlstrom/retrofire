@@ -38,7 +38,7 @@ pub struct Colorbuf<B, F> {
     pub fmt: F,
 }
 
-impl<B, F: Default> Colorbuf<B, F> {
+impl<B: AsMutSlice2, F: Default> Colorbuf<B, F> {
     pub fn new(buf: B) -> Self {
         Self { buf, fmt: F::default() }
     }
@@ -180,7 +180,7 @@ pub fn rasterize<B: AsMutSlice2, V: Vary, U: Copy>(
     {
         ctx.stats.borrow_mut().frags +=
             super::stats::Throughput { i: x1 - x0, o: frags_out };
-    };
+    }
 }
 
 pub fn rasterize_fb<B: AsMutSlice2, V: Vary, U: Copy>(

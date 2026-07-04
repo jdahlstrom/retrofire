@@ -196,7 +196,8 @@ impl Affine for u32 {
 
 impl<V: Clone + Debug> Vary for V
 where
-    Self: Affine<Diff: Linear<Scalar = f32> + Clone> + ZDiv,
+    Self: Affine + ZDiv,
+    <Self as Affine>::Diff: Linear<Scalar = f32> + Clone + Debug,
 {
     type Iter = Iter<Self>;
     type Diff = <Self as Affine>::Diff;

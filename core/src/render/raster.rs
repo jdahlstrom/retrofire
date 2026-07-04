@@ -11,16 +11,11 @@
 //! passes the depth test, a color is computed by the fragment shader and
 //! written into the framebuffer. Fragments that fail the test are discarded.
 
-use core::{
-    fmt::{Debug, Formatter},
-    iter::zip,
-    mem::swap,
-    ops::Range,
-};
+use core::{fmt::Debug, mem::swap, ops::Range};
 
 use crate::{
-    geom::Vertex,
-    math::{Lerp, Vary, point::Point3},
+    geom::Vertex3,
+    math::{Lerp, Vary, inv_lerp, point::Point3},
     render::Screen,
 };
 
@@ -32,85 +27,37 @@ pub struct Frag<V> {
 }
 
 /// A horizontal, 1-pixel-thick "slice" of a primitive being rasterized.
+#[derive(Clone, Debug)]
 pub struct Scanline<V: Vary> {
     /// The y coordinate of the line.
     pub y: usize,
     /// The range of x coordinates spanned by the line.
     pub xs: Range<usize>,
-    /// Iterator emitting the varyings on the line.
-    pub vs: <Varyings<V> as Vary>::Iter,
-}
-
-/// Iterator emitting scanlines, linearly interpolating values between the
-/// left and right endpoints as it goes.
-pub struct ScanlineIter<V: Vary> {
-    y: f32,
-    left: <Varyings<V> as Vary>::Iter,
-    right: <f32 as Vary>::Iter,
-    dv_dx: <Varyings<V> as Vary>::Diff,
-    n: u32,
+    /// The leftmost varying value on the line.
+    pub left: ScreenVert<V>,
+    /// The varying step per x increment.
+    pub d_dx: <ScreenVert<V> as Vary>::Diff,
 }
 
 /// Point in screen space.
 /// `x` and `y` are viewport pixel coordinates, `z` is depth.
 pub type ScreenPt = Point3<Screen>;
 
-/// Values to interpolate across a rasterized primitive.
-pub type Varyings<V> = (ScreenPt, V);
+/// Vertex in screen space.
+pub type ScreenVert<A> = Vertex3<A, Screen>;
 
 impl<V: Vary> Scanline<V> {
-    pub fn fragments(&mut self) -> impl Iterator<Item = Frag<V>> + '_ {
-        self.vs.by_ref().map(|(pos, var)| {
-            // Perspective correct varyings
-            // TODO optimization: only every 16 or so pixels
-            let var = var.z_div(pos.z());
-            Frag { pos, var }
-        })
-    }
-}
-
-impl<V: Vary> Debug for Scanline<V> {
-    fn fmt(&self, f: &mut Formatter<'_>) -> core::fmt::Result {
-        f.debug_struct("Scanline")
-            .field("y", &self.y)
-            .field("xs", &self.xs)
-            .finish_non_exhaustive()
-    }
-}
-
-impl<V: Vary> Iterator for ScanlineIter<V> {
-    type Item = Scanline<V>;
-
     #[inline]
-    fn next(&mut self) -> Option<Self::Item> {
-        if self.n == 0 {
-            return None;
-        }
-        let v0 = self.left.next()?;
-        let x1 = self.right.next()?;
-
-        // Find the next pixel centers to the right
-        //
-        // If left.pos.x().fract() < 0.5, the pixel is covered and thus drawn;
-        // otherwise it's not, and we skip to the next pixel.
-        //
-        // Similarly, if x_right.fract() < 0.5 that's the "one-past-the-end"
-        // pixel, otherwise it's the last covered pixel and the next one is
-        // the actual one-past-the-end pixel.
-        let (x0, x1) = (round_up_to_half(v0.0.x()), round_up_to_half(x1));
-
-        // Adjust v0 to match the rounded x0
-        let v0 = v0.lerp(&v0.step(&self.dv_dx), x0 - v0.0.x());
-
-        let vs = v0.vary(self.dv_dx.clone(), Some((x1 - x0) as u32));
-
-        let y = self.y as usize;
-        let xs = x0 as usize..x1 as usize;
-
-        self.y += 1.0;
-        self.n -= 1;
-
-        Some(Scanline { y, xs, vs })
+    pub fn fragments(&mut self) -> impl Iterator<Item = Frag<V>> + '_ {
+        self.left
+            .clone()
+            .vary(self.d_dx.clone(), None)
+            // TODO Optimize eg. only one div per 16 pixels
+            .map(|v| Frag {
+                pos: v.pos,
+                var: v.attrib.z_div(v.pos.z()),
+            })
+            .take(self.xs.len())
     }
 }
 
@@ -120,7 +67,7 @@ impl<V: Vary> Iterator for ScanlineIter<V> {
 ///
 // TODO Optimize for cases where >1 pixels are drawn for each line
 // TODO Guarantee subpixel precision
-pub fn line<V, F>([mut v0, mut v1]: [Vertex<ScreenPt, V>; 2], mut scan_fn: F)
+pub fn line<V, F>([mut v0, mut v1]: [ScreenVert<V>; 2], mut scan_fn: F)
 where
     V: Vary,
     F: FnMut(Scanline<V>),
@@ -140,21 +87,20 @@ where
         let x1 = round_up_to_half(v1.pos.x());
 
         let dy_dx = dy / dx;
-        // Adjust y0 to match the rounded x0
-        let y0 = v0.pos.y() + dy_dx * (x0 - v0.pos.x());
+        let dv_dx = v0.dv_dt(&v1, 1.0 / dx.abs());
 
-        let vs =
-            (v0.pos, v0.attrib).vary_to((v1.pos, v1.attrib), dx.abs() as u32);
-
-        let (xs, mut y) = (x0 as usize..x1 as usize, y0);
-        for (x, v) in zip(xs, vs) {
-            let vs = v.clone().vary_to(v, 1); // TODO a bit silly
+        // Adjust y to match the rounded x0
+        let mut y = v0.pos.y() + dy_dx * (x0 - v0.pos.x());
+        let mut v = v0;
+        for x in x0 as usize..x1 as usize {
             scan_fn(Scanline {
                 y: y as usize,
                 xs: x..x + 1,
-                vs,
+                left: v.clone(),
+                d_dx: dv_dx.clone(),
             });
             y += dy_dx;
+            v = v.step(&dv_dx);
         }
     } else {
         // More tall than wide
@@ -162,21 +108,21 @@ where
         let y1 = round_up_to_half(v1.pos.y());
 
         let dx_dy = dx / dy;
+        let dv_dy = v0.dv_dt(&v1, 1.0 / dy);
+
         // Adjust x0 to match the rounded y0
-        let x0 = v0.pos.x() + dx_dy * (y0 - v0.pos.y());
-
-        let vs = (v0.pos, v0.attrib).vary_to((v1.pos, v1.attrib), dy as u32);
-
-        let mut x = x0;
-        let ys = y0 as usize..y1 as usize;
-        for (y, v) in zip(ys, vs) {
-            let vs = v.clone().vary_to(v, 1); // silly...
+        let mut x = v0.pos.x() + dx_dy * (y0 - v0.pos.y());
+        let mut v = v0;
+        for y in y0 as usize..y1 as usize {
             scan_fn(Scanline {
                 y,
                 xs: x as usize..x as usize + 1,
-                vs,
+                left: v.clone(),
+                // arbitrary, just one pixel drawn at time
+                d_dx: dv_dy.clone(),
             });
             x += dx_dy;
+            v = v.step(&dv_dy)
         }
     }
 }
@@ -187,26 +133,31 @@ where
 /// for each scanline. The scanlines are guaranteed to cover exactly those
 /// pixels whose center point lies inside the triangle. For more information
 /// on the scanline conversion, see [`scan`].
-pub fn tri_fill<V, F>(mut verts: [Vertex<ScreenPt, V>; 3], mut scanline_fn: F)
+pub fn tri_fill<V, F>(verts: [ScreenVert<V>; 3], mut scanline_fn: F)
 where
     V: Vary,
     F: FnMut(Scanline<V>),
 {
+    let [mut a, mut b, mut c] = verts;
+
     // Sort by y coordinate, start from the top
-    verts.sort_by(|a, b| a.pos.y().total_cmp(&b.pos.y()));
-    let [a, b, c] = verts;
-    let [top, mid0, bot] =
-        [(a.pos, a.attrib), (b.pos, b.attrib), (c.pos, c.attrib)];
+    let sort2 = |a: &mut ScreenVert<V>, b: &mut ScreenVert<V>| {
+        if a.pos.y() > b.pos.y() {
+            swap(a, b);
+        }
+    };
+    sort2(&mut a, &mut b);
+    sort2(&mut b, &mut c);
+    sort2(&mut a, &mut b);
 
-    let [top_y, mid_y, bot_y] = [a.pos.y(), b.pos.y(), c.pos.y()];
+    let [top, mut mid0, bot] = [a, b, c];
 
-    // Find the point on the "long" edge at the same line as `mid0`
-    let mid1 = top.lerp(&bot, (mid_y - top_y) / (bot_y - top_y));
+    // Find the point on the "long" edge at the same y as `mid0`
+    let t = inv_lerp(mid0.pos.y(), top.pos.y(), bot.pos.y());
+    let mut mid1 = top.lerp(&bot, t);
 
-    let (left, right) = if mid0.0.x() < mid1.0.x() {
-        (mid0, mid1)
-    } else {
-        (mid1, mid0)
+    if mid0.pos.x() > mid1.pos.x() {
+        swap(&mut mid0, &mut mid1);
     };
 
     //                       X <--top
@@ -214,60 +165,75 @@ where
     //                   ******
     //                 ********
     //               ** upper **
-    // mid0/left--> X**********X <--right/mid1
+    // mid0/left--> X==========X <--right/mid1
     //                ** lower **
     //                   ********
     //                      ******
     //                         ***
     //                            X <--bot
 
+    // dv/dx is constant over the whole triangle; precompute it
+    let dv_dx = mid0.dv_dt(&mid1, 1.0 / (mid1.pos.x() - mid0.pos.x()));
+
+    let top = {
+        let x = top.pos.x();
+        (top, x)
+    };
+    let mid = (mid0, mid1.pos.x());
+    let bot = {
+        let x = bot.pos.x();
+        (bot, x)
+    };
+
     // Rasterize the upper half triangle...
-    scan(top_y..mid_y, &top..&left, &top..&right).for_each(&mut scanline_fn);
+    //                       X
+    //                     ***
+    //                   ******
+    //                 ********
+    //               ** upper **
+    scan(top, mid.clone(), &dv_dx, &mut scanline_fn);
 
     // ...and the lower half triangle
-    scan(mid_y..bot_y, &left..&bot, &right..&bot).for_each(&mut scanline_fn);
+    //               X*********X
+    //                ** lower **
+    //                   ********
+    //                      ******
+    //                         ***
+    //                            X
+    scan(mid, bot, &dv_dx, &mut scanline_fn);
 }
 
-/// Returns an iterator that emits a scanline for each line from `y0` to `y1`,
-/// interpolating varyings from `l0` to `l1` on the left and from `r0` to `r1`
-/// on the right side.
+/// Calls a function for every *scanline* in a range.
 ///
-/// The three input ranges define a *trapezoid* with horizontal bases, or, in
-/// the special case where `l0 == r0` or `l1 == r1`, a triangle:
+/// The inputs define a *trapezoid* with horizontal bases, or, in
+/// the special case where TODO, a triangle:
 /// ```text
-///            l0___________ r0
-/// y0        _|____________|     .next()
-///         _|_______________|    .next()
-///       _|__________________|     ...
-///      |_____________________|    ...
+///             l0___________ r0
+/// y0         _|____________|
+///          _|_______________|
+///        _|__________________|
+///       |_____________________|
 /// y1   l1                     r1
 /// ```
-/// Any convex polygon can be converted into scanlines by dividing it into
-/// trapezoidal segments and calling this function for each segment.
+/// Any y-monotonous polygon can be converted into scanlines by dividing it
+/// into trapezoidal segments and calling this function for each segment.
 ///
 /// The exact pixels that are drawn are determined by whether the vector shape
 /// *covers* a pixel or not. A pixel is covered, and drawn, if and only if its
 /// center point lies inside the shape. This ensures that if two polygons
 /// share an edge, or several share a vertex, each pixel at the boundary will
 /// be drawn by exactly one of the polygons, with no gaps or overdrawn pixels.
-pub fn scan<V: Vary>(
-    Range { start: y0, end: y1 }: Range<f32>,
-    Range { start: l0, end: l1 }: Range<&Varyings<V>>,
-    Range { start: r0, end: r1 }: Range<&Varyings<V>>,
-) -> ScanlineIter<V> {
-    let recip_dy = (y1 - y0).recip();
+pub fn scan<V: Vary, F: FnMut(Scanline<V>)>(
+    from: (ScreenVert<V>, f32),
+    to: (ScreenVert<V>, f32),
+    d_dx: &<ScreenVert<V> as Vary>::Diff,
+    scanline_fn: &mut F,
+) {
+    let y0 = from.0.pos.y();
+    let y1 = to.0.pos.y();
 
-    // dv/dy for the left edge
-    let dl_dy = l0.dv_dt(l1, recip_dy);
-    // dv/dy for the right edge
-    let dr_dy = r0.dv_dt(r1, recip_dy);
-
-    // dv/dx is constant for the whole polygon; precompute it
-    let dv_dx = {
-        let (l0, r0) = (l0.step(&dl_dy), r0.step(&dr_dy));
-        let dx = r0.0.x() - l0.0.x();
-        l0.dv_dt(&r0, dx.recip())
-    };
+    // (delta-v, delta-x) per y-step
+    let d_dy = from.dv_dt(&to, (y1 - y0).recip());
 
     // Find the y value of the next pixel center (.5) vertically
     //
@@ -284,25 +250,34 @@ pub fn scan<V: Vary>(
     //   +-----/-----+           +---------/-+           +-----------+
     //   |    /······|           |        /··|           |     ·     |
     //   |   p·+·····| p.y=0.5   |     + p···| p.y=0.5   |  ·  +  ·  |
-    //   |  /········|           |      /····|           |   p-------- p.y>0.5
-    //   +-/---------+           +-----/-----+           +--/--------+
+    //   |  /········|           |      /····|           |  p--------- p.y>0.5
+    //   +-/---------+           +-----/-----+           +-/---------+
     //    p.x<0.5                    p.x>0.5              p.x<0.5
     //
     let y0_rounded = round_up_to_half(y0);
     let y1_rounded = round_up_to_half(y1);
 
-    let y_tweak = y0_rounded - y0;
-
     // Adjust varyings to correspond to the aligned y value
-    let l0 = l0.lerp(&l0.step(&dl_dy), y_tweak);
-    let r0 = r0.0.x() + dr_dy.0.x() * y_tweak;
+    let y_tweak = y0_rounded - y0;
+    let (mut left, mut x_right) = from.lerp(&from.step(&d_dy), y_tweak);
 
-    ScanlineIter {
-        y: y0_rounded,
-        left: l0.vary(dl_dy, None),
-        right: r0.vary(dr_dy.0.x(), None),
-        dv_dx,
-        n: (y1_rounded - y0_rounded) as u32, // saturates to 0
+    for y in y0_rounded as usize..y1_rounded as usize {
+        let x_left = left.pos.x();
+
+        let x_left_rounded = round_up_to_half(x_left);
+        let x_right_rounded = round_up_to_half(x_right);
+        // Adjust v0 to match the rounded x0
+        let left_tweaked =
+            left.lerp(&left.step(&d_dx), x_left_rounded - x_left);
+
+        scanline_fn(Scanline {
+            y,
+            xs: x_left_rounded as usize..x_right_rounded as usize,
+            left: left_tweaked,
+            d_dx: d_dx.clone(),
+        });
+
+        (left, x_right) = (left, x_right).step(&d_dy);
     }
 }
 
@@ -407,17 +382,16 @@ mod tests {
 
     #[test]
     fn scanline_fragments_iter() {
-        let w0 = 2.0;
-        let w1 = 4.0;
-        let mut sl = Scanline {
-            y: 42,
-            xs: 8..16,
-            vs: Vary::vary_to(
-                (pt3(8.0, 42.0, 1.0 / w0), 3.0f32.z_div(w0)),
-                (pt3(16.0, 42.0, 1.0 / w1), 5.0f32.z_div(w1)),
-                9,
-            ),
-        };
+        let w_left = 2.0;
+        let w_right = 4.0;
+
+        let left = vertex(pt3(8.0, 42.0, 1.0 / w_left), 3.0f32.z_div(w_left));
+        let right =
+            vertex(pt3(16.0, 42.0, 1.0 / w_right), 5.0f32.z_div(w_right));
+
+        let d_dx = left.dv_dt(&right, 1.0 / 8.0);
+
+        let mut sl = Scanline { y: 42, xs: 8..16, left, d_dx };
 
         // Perspective correct values
         let zs = [
@@ -436,7 +410,6 @@ mod tests {
 
             x += 1.0;
         }
-        // vary_to is inclusive
-        assert_eq!(x, 17.0);
+        assert_eq!(x, 16.0);
     }
 }
