@@ -10,11 +10,10 @@ use re::core::render::{
     tex::SamplerClamp,
 };
 use re::core::{
-    geom::mesh::Index,
+    geom::mesh::IndexType,
     math::color::gray,
     util::{pixfmt, pnm::read_pnm},
 };
-
 use re::front::sdl2::Window;
 use re::geom::solids::{Build, Cube};
 
@@ -166,7 +165,7 @@ fn crates() -> Vec<Obj<(Normal3, TexCoord)>> {
     res
 }
 fn floor() -> Obj<Vec2> {
-    let mut bld = Mesh::builder(Index::U16);
+    let mut bld = Mesh::builder(IndexType::U16);
 
     let size = 50;
     for j in -size..=size {

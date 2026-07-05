@@ -86,9 +86,18 @@ impl TriIndices {
     fn expand(&mut self) {
         use TriIndices::*;
         *self = match self {
-            U8(v) => U16(v.into_iter().map(Into::into).collect()),
-            U16(v) => U32(v.into_iter().map(Into::into).collect()),
-            U32(v) => U64(v.into_iter().map(Into::into).collect()),
+            U8(v) => U16(v
+                .into_iter()
+                .map(|tri| tri.map(Into::into))
+                .collect()),
+            U16(v) => U32(v
+                .into_iter()
+                .map(|tri| tri.map(Into::into))
+                .collect()),
+            U32(v) => U64(v
+                .into_iter()
+                .map(|tri| tri.map(Into::into))
+                .collect()),
             _ => panic!("cannot expand further"),
         }
     }
@@ -111,10 +120,7 @@ impl TriIndices {
     }
 
     #[inline]
-    pub fn extend<I>(&mut self, tris: I)
-    where
-        I: IntoIterator<Item = Tri<usize>>,
-    {
+    pub fn extend<I: IntoIterator<Item = Tri<usize>>>(&mut self, tris: I) {
         for tri in tris {
             self.push(tri)
         }
