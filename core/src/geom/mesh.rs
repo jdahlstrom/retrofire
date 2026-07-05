@@ -2,9 +2,8 @@
 
 use alloc::vec::Vec;
 use core::{
-    fmt::{Debug, Formatter, from_fn},
+    fmt::{Debug, Formatter},
     iter::zip,
-    slice::ChunksExact,
 };
 
 use crate::{
@@ -19,102 +18,79 @@ use super::{Normal3, Tri, Vertex3, tri, vertex};
 /// For example, if a mesh contains fewer than 256 vertices, a container of
 /// this type can be set to encode each index in a byte, using one eighth the
 /// space that a naive vector of `Tri<usize>` would use.
-#[derive(Clone)]
-pub struct TriIndices {
-    index_type: Index,
-    indices: Vec<u8>,
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub enum TriIndices {
+    U8(Vec<Tri<u8>>),
+    U16(Vec<Tri<u16>>),
+    U32(Vec<Tri<u32>>),
+    U64(Vec<Tri<u64>>),
+    Usize(Vec<Tri<usize>>),
 }
 
-#[derive(Copy, Clone, Debug, Eq, PartialEq)]
-#[repr(u8)]
-pub enum Index {
-    U8 = size_of::<u8>() as u8,
-    U16 = size_of::<u16>() as u8,
-
-    #[cfg(not(target_pointer_width = "16"))]
-    U32 = size_of::<u32>() as u8,
-
-    #[cfg(not(any(target_pointer_width = "16", target_pointer_width = "32")))]
-    U64 = size_of::<u64>() as u8,
-
-    Usize = 0,
+pub enum IndexType {
+    U8,
+    U16,
+    U32,
+    U64,
+    Usize,
 }
 
-impl Index {
-    /// Returns the smallest index type that can fit the given value.
-    ///
-    /// # Examples
-    /// ```
-    /// use retrofire_core::geom::mesh::Index;
-    ///
-    /// assert_eq!(Index::from_max(1234), Index::U16);
-    /// ```
-    pub fn from_max(max: usize) -> Self {
-        use Index::*;
-        if max <= U8.max() {
-            U8
-        } else if max <= U16.max() {
-            U16
-        } else if max <= U32.max() {
-            U32
-        } else if max <= U64.max() {
-            U64
-        } else {
-            Usize // unreachable in practice
+macro_rules! mi {
+    ($this:expr , $v:ident => $expr:expr) => {{
+        use TriIndices::*;
+        match $this {
+            U8($v) => $expr,
+            U16($v) => $expr,
+            U32($v) => $expr,
+            U64($v) => $expr,
+            Usize($v) => $expr,
         }
-    }
-
-    /// Returns the maximum value of an index of this type.
-    ///
-    /// # Examples
-    /// ```
-    /// use retrofire_core::geom::mesh::Index;
-    ///
-    /// assert_eq!(Index::U16.max(), 65535);
-    /// ```
-    #[inline]
-    pub const fn max(self) -> usize {
-        match self {
-            Index::Usize => usize::MAX,
-            _ => !0 >> 8 * (8 - self as u8),
-        }
-    }
-
-    /// Returns the size in bytes of an index of this type.
-    ///
-    /// # Examples
-    /// ```
-    /// use retrofire_core::geom::mesh::Index;
-    ///
-    /// assert_eq!(Index::U32.size(), 4);
-    /// ```
-    #[inline]
-    pub const fn size(self) -> usize {
-        match self {
-            Index::Usize => size_of::<usize>(),
-            _ => self as u8 as usize,
-        }
-    }
+    }};
 }
 
 impl TriIndices {
-    pub const fn new(index_type: Index) -> Self {
-        Self {
-            index_type,
-            indices: Vec::new(),
+    pub fn new(ty: IndexType) -> Self {
+        use IndexType::*;
+        match ty {
+            U8 => Self::U8(Vec::new()),
+            U16 => Self::U16(Vec::new()),
+            U32 => Self::U32(Vec::new()),
+            U64 => Self::U64(Vec::new()),
+            Usize => Self::Usize(Vec::new()),
         }
     }
 
-    /// Creates a `TriIndices` able to contain indices equal to or greater
-    /// than `max`, allocating space for at least `cap` triangles.
-    pub fn with_max_and_capacity(
-        max_index: usize,
-        triangle_cap: usize,
-    ) -> Self {
-        let index_type = Index::from_max(max_index);
-        let byte_cap = 3 * index_type.size() * triangle_cap;
-        let indices = Vec::with_capacity(byte_cap);
-        Self { index_type, indices }
+    pub fn with_max_and_capacity(max: usize, cap: usize) -> Self {
+        use TriIndices::*;
+        let log = max.ilog2() / 8;
+        match log {
+            0 => U8(Vec::with_capacity(cap)),
+            1 => U16(Vec::with_capacity(cap)),
+            2 => U32(Vec::with_capacity(cap)),
+            3 => U64(Vec::with_capacity(cap)),
+            _ => Usize(Vec::with_capacity(cap)),
+        }
+    }
+
+    fn max(&self) -> usize {
+        use TriIndices::*;
+        match self {
+            U8(_) => u8::MAX as usize,
+            U16(_) => u16::MAX as usize,
+            U32(_) => u32::MAX as usize,
+            U64(_) => u64::MAX as usize,
+            Usize(_) => usize::MAX,
+        }
+    }
+
+    fn expand(&mut self) {
+        use TriIndices::*;
+        *self = match self {
+            U8(v) => U16(v.into_iter().map(Into::into).collect()),
+            U16(v) => U32(v.into_iter().map(Into::into).collect()),
+            U32(v) => U64(v.into_iter().map(Into::into).collect()),
+            _ => panic!("cannot expand further"),
+        }
     }
 
     /// Inserts an index triple into `self`.
@@ -122,34 +98,16 @@ impl TriIndices {
     /// # Panics
     /// If any of the indices is outside the range of the index type of `self`.
     pub fn push(&mut self, Tri([i, j, k]): Tri<usize>) {
-        let max = self.index_type.max();
-        assert!(i <= max && j <= max && k <= max);
-        match self.index_type {
-            Index::U8 => {
-                self.indices.extend([i as u8, j as u8, k as u8]);
-            }
-            Index::U16 => {
-                let bytes = [i, j, k].map(|i| (i as u16).to_le_bytes());
-                self.indices.extend(bytes.as_flattened());
-            }
-            #[cfg(not(target_pointer_width = "16"))]
-            Index::U32 => {
-                let bytes = [i, j, k].map(|i| (i as u32).to_le_bytes());
-                self.indices.extend(bytes.as_flattened());
-            }
-            #[cfg(not(any(
-                target_pointer_width = "16",
-                target_pointer_width = "32"
-            )))]
-            Index::U64 => {
-                let bytes = [i, j, k].map(|i| (i as u64).to_le_bytes());
-                self.indices.extend(bytes.as_flattened());
-            }
-            Index::Usize => {
-                let bytes = [i, j, k].map(|i| i.to_le_bytes());
-                self.indices.extend(bytes.as_flattened());
-            }
+        // TODO error handling
+        let max = self.max();
+        if i > max || j > max || k > max {
+            self.expand();
         }
+        mi! { self, v => v.push(tri(
+            i.try_into().unwrap(),
+            j.try_into().unwrap(),
+            k.try_into().unwrap()
+        ))}
     }
 
     #[inline]
@@ -165,104 +123,58 @@ impl TriIndices {
     /// Removes all entries from `self`.
     #[inline]
     pub fn clear(&mut self) {
-        self.indices.clear();
+        mi! { self, v => v.clear() }
     }
 
     /// Returns the number of entries (index triples) that `self` contains.
     #[inline]
     pub fn len(&self) -> usize {
-        self.iter().len()
+        mi! { self, v => v.len() }
     }
 
     /// Returns the capacity of the index vector in number of index triples.
     #[inline]
     pub fn capacity(&self) -> usize {
-        self.indices.capacity() / self.bytes_per_tri()
+        mi! { self, v => v.capacity() }
     }
 
     /// Returns true iff `self` contains no entries.
     #[inline]
     pub fn is_empty(&self) -> bool {
-        self.indices.is_empty()
+        mi! { self, v => v.is_empty() }
     }
 
     /// Returns an iterator over the triangles contained by `self`.
     #[inline]
     pub fn iter(&self) -> TriIndicesIter<'_> {
-        TriIndicesIter {
-            index_size: self.index_type.size(),
-            chunks: self.indices.chunks_exact(self.bytes_per_tri()),
-        }
+        TriIndicesIter(self, 0)
     }
 
     pub fn size_in_bytes(&self) -> usize {
-        self.indices.len()
+        todo!()
     }
 
     pub fn bytes_per_tri(&self) -> usize {
-        3 * self.index_type.size()
+        todo!()
     }
 }
 
-pub struct TriIndicesIter<'a> {
-    index_size: usize,
-    chunks: ChunksExact<'a, u8>,
-}
+pub struct TriIndicesIter<'a>(&'a TriIndices, usize);
 
-impl Iterator for TriIndicesIter<'_> {
+impl<'a> Iterator for TriIndicesIter<'a> {
     type Item = Tri<usize>;
 
     fn next(&mut self) -> Option<Self::Item> {
-        let chunk = self.chunks.next()?;
-
-        /*match self.index_size {
-            1 => {
-                let &[i, j, k] = chunk.as_array().expect("cannot fail");
-                Some(tri(i as usize, j as usize, k as usize))
-            }
-            2 => {
-                let (ijk, _) = chunk.as_chunks::<2>();
-                let ijk = ijk.as_array().expect("cannot fail");
-                Some(Tri(ijk.map(|i| u16::from_le_bytes(i) as usize)))
-            }
-            4 => {
-                let (ijk, _) = chunk.as_chunks::<4>();
-                let ijk = ijk.as_array().expect("cannot fail");
-                Some(Tri(ijk.map(|i| u32::from_le_bytes(i) as usize)))
-            }
-            8 => {
-                let (ijk, _) = chunk.as_chunks::<8>();
-                let ijk = ijk.as_array().expect("cannot fail");
-                Some(Tri(ijk.map(|i| u64::from_le_bytes(i) as usize)))
-            }
-            0 => {
-                let (ijk, _) = chunk.as_chunks::<{ size_of::<usize>() }>();
-                let ijk = ijk.as_array().expect("cannot fail");
-                Some(Tri(ijk.map(|i| usize::from_le_bytes(i))))
-            }
-
-            _ => unreachable!(),
-        }*/
-
-        let mut le_bytes = [[0u8; size_of::<usize>()]; 3];
-
-        //let mut ics = chunk.chunks_exact(self.index_size);
-
-        let sz = self.index_size;
-
-        let i = &chunk[..sz];
-        let j = &chunk[sz..2 * sz];
-        let k = &chunk[2 * sz..];
-
-        le_bytes[0][0..sz].copy_from_slice(i);
-        le_bytes[1][0..sz].copy_from_slice(j);
-        le_bytes[2][0..sz].copy_from_slice(k);§
-
-        Some(Tri(le_bytes.map(|i| usize::from_le_bytes(i))))
+        let tri = mi!(self.0, v => {
+             let [i, j, k] = v.get(self.1)?.0;
+                tri(i as _, j as _, k as _)
+        });
+        self.1 += 1;
+        Some(tri)
     }
 
     fn size_hint(&self) -> (usize, Option<usize>) {
-        let len = self.chunks.len();
+        let len = self.0.len();
         (len, Some(len))
     }
 
@@ -276,133 +188,12 @@ impl Iterator for TriIndicesIter<'_> {
 
 impl ExactSizeIterator for TriIndicesIter<'_> {}
 
-/*
-impl IntoIterator for TriIndices {
-    type Item = Tri<usize>;
-    type IntoIter = TriIndicesIter<'static>;
-
-    fn into_iter(self) -> Self::IntoIter {
-        self.iter()
-    }
-}*/
-
 impl<'a> IntoIterator for &'a TriIndices {
     type Item = Tri<usize>;
     type IntoIter = TriIndicesIter<'a>;
 
     fn into_iter(self) -> Self::IntoIter {
         self.iter()
-    }
-}
-
-impl Debug for TriIndices {
-    fn fmt(&self, f: &mut Formatter<'_>) -> core::fmt::Result {
-        let indices = from_fn(|f| f.debug_list().entries(self.iter()).finish());
-
-        f.debug_struct("TriIndices")
-            .field("size", &self.index_type)
-            .field("indices", &indices)
-            .finish()
-    }
-}
-
-#[cfg(test)]
-mod tri_indices_tests {
-    use std::format;
-
-    use super::*;
-
-    #[test]
-    fn index_max() {
-        assert_eq!(Index::U8.max(), u8::MAX as usize);
-        assert_eq!(Index::U16.max(), u16::MAX as usize);
-        assert_eq!(Index::U32.max(), u32::MAX as usize);
-        assert_eq!(Index::U64.max(), u64::MAX as usize);
-    }
-
-    #[test]
-    fn tri_indices_debug() {
-        let mut ics = TriIndices::new(Index::U16);
-
-        ics.push(tri(0, 1, 2));
-        ics.push(tri(100, 16000, 65535));
-
-        let dbg = format!("{:?}", ics);
-        assert_eq!(
-            dbg,
-            "TriIndices { \
-                size: U16, \
-                indices: [Tri([0, 1, 2]), Tri([100, 16000, 65535])] \
-            }"
-        );
-    }
-
-    #[test]
-    fn tri_indices_u8() {
-        let mut ics = TriIndices::new(Index::U8);
-
-        ics.push(tri(0, 1, 2));
-        ics.push(tri(100, 200, 255));
-
-        assert_eq!(ics.indices, [0, 1, 2, 100, 200, 255]);
-
-        let mut iter = ics.iter();
-
-        assert_eq!(iter.next(), Some(tri(0, 1, 2)));
-        assert_eq!(iter.next(), Some(tri(100, 200, 255)));
-        assert_eq!(iter.next(), None);
-    }
-
-    #[test]
-    #[rustfmt::skip]
-    fn tri_indices_u16() {
-        let mut ics = TriIndices::new(Index::U16);
-
-        ics.push(tri(0, 1, 2));
-        ics.push(tri(0xFF, 0x20_30, 0xFF_FF));
-
-        assert!(matches!(
-            ics.indices.as_chunks(), ([
-                [0x00, 0x00],
-                [0x01, 0x00],
-                [0x02, 0x00],
-                [0xFF, 0x00],
-                [0x30, 0x20],
-                [0xFF, 0xFF],
-            ], [])
-        ));
-
-        let mut iter = ics.iter();
-
-        assert_eq!(iter.next(), Some(tri(0, 1, 2)));
-        assert_eq!(iter.next(), Some(tri(0xFF, 0x20_30, 0xFF_FF)));
-        assert_eq!(iter.next(), None);
-    }
-
-    #[test]
-    #[rustfmt::skip]
-    fn tri_indices_u32() {
-        let mut ics = TriIndices::new(Index::U32);
-
-        ics.push(tri(0, 1, 2));
-        ics.push(tri(0xFF, 0x20_30_40, 0xFF_FF_FF_FF));
-
-        assert!(matches!(
-            ics.indices.as_chunks(), ([
-                [0x00, 0x00, 0x00, 0x00],
-                [0x01, 0x00, 0x00, 0x00],
-                [0x02, 0x00, 0x00, 0x00],
-                [0xFF, 0x00, 0x00, 0x00],
-                [0x40, 0x30, 0x20, 0x00],
-                [0xFF, 0xFF, 0xFF, 0xFF],
-            ], [])
-        ));
-
-        let mut iter = ics.iter();
-
-        assert_eq!(iter.next(), Some(tri(0, 1, 2)));
-        assert_eq!(iter.next(), Some(tri(0xFF, 0x20_30_40, 0xFF_FF_ff_FF)));
-        assert_eq!(iter.next(), None);
     }
 }
 
@@ -494,9 +285,9 @@ impl<A, B> Mesh<A, B> {
     }
 
     /// Creates an empty mesh with the given index type.
-    pub fn with_index(i: Index) -> Self {
+    pub fn with_index(ty: IndexType) -> Self {
         Self {
-            faces: TriIndices::new(i),
+            faces: TriIndices::new(ty),
             ..Default::default()
         }
     }
@@ -523,8 +314,8 @@ impl<A, B> Mesh<A, B> {
 
 impl<A> Mesh<A> {
     /// Returns a new mesh builder.
-    pub fn builder(index_type: Index) -> Builder<A> {
-        Mesh::with_index(index_type).into_builder()
+    pub fn builder(ty: IndexType) -> Builder<A> {
+        Mesh::with_index(ty).into_builder()
     }
 
     /// Consumes `self` and returns a mesh builder with the faces and vertices
@@ -673,7 +464,7 @@ impl<A, S> Default for Mesh<A, S> {
     /// Returns an empty mesh.
     fn default() -> Self {
         Self {
-            faces: TriIndices::new(Index::U32),
+            faces: TriIndices::U32(Vec::new()),
             verts: Vec::new(),
         }
     }
@@ -713,7 +504,7 @@ mod tests {
     #[test]
     #[should_panic]
     fn mesh_builder_panics_if_vertex_index_oob() {
-        let mut b = Mesh::builder(Index::U8);
+        let mut b = Mesh::builder(IndexType::U8);
         b.push_faces([[0, 1, 2], [1, 2, 3]]);
         b.push_verts([
             (pt3(0.0, 0.0, 0.0), ()),
@@ -727,7 +518,7 @@ mod tests {
     fn vertex_normal_generation() {
         // TODO Doesn't test weighting by area
 
-        let mut b = Mesh::builder(Index::U8);
+        let mut b = Mesh::builder(IndexType::U8);
         b.push_faces([[0, 2, 1], [0, 1, 3], [0, 3, 2]]);
         b.push_verts([
             (pt3(0.0, 0.0, 0.0), ()),
