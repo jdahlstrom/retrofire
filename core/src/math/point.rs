@@ -341,6 +341,15 @@ impl<R: PartialEq, S> PartialEq for Point<R, S> {
     }
 }
 
+impl<Sc, B> From<Point<[Sc; 2], Real<2, B>>> for Point<[Sc; 3], Real<3, B>>
+where
+    Sc: Linear + Copy,
+{
+    fn from(pt: Point<[Sc; 2], Real<2, B>>) -> Self {
+        pt.to_pt3()
+    }
+}
+
 // Point <-> repr conversions
 impl<R, Sp> From<R> for Point<R, Sp> {
     #[inline]
