@@ -71,7 +71,7 @@ fn sphere(b: Bencher, res: u32) {
 
     let shader = shader::new(
         |v: Vertex3<Normal3>, mvp: &ProjMat3<Model>| {
-            vertex(mvp.apply(&v.pos), dir_to_rgb(v.attrib))
+            vertex(mvp.apply(&v.pos), dir_to_rgb(*v.normal()))
         },
         |frag: Frag<Color4f>, _: &_| frag.var.to_color4(),
     );

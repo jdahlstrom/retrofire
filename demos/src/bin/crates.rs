@@ -32,7 +32,9 @@ fn main() {
     let light_dir = vec3(-2.0, 1.0, -4.0).normalize();
 
     let floor_shader = shader::new(
-        |v: Vertex3<_>, mvp: &ProjMat3<_>| vertex(mvp.apply(&v.pos), v.attrib),
+        |v: Vertex3<_>, mvp: &ProjMat3<_>| {
+            vertex(mvp.apply(&v.pos), v.tex_coord())
+        },
         |frag: Frag<Vec2>, _: &_| {
             let even_odd = (frag.var.x() > 0.5) ^ (frag.var.y() > 0.5);
             gray(if even_odd { 0.8 } else { 0.1 }).to_color4()

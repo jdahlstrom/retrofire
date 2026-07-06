@@ -6,13 +6,13 @@ use alloc::vec::Vec;
 use core::fmt::{self, Debug, Formatter};
 
 use crate::math::{
-    Affine, ApproxEq, Lerp, Linear, Mat4, Parametric, Point, Point2, Point3,
-    Vec2, Vec3, Vector,
+    Affine, Apply, ApproxEq, Color, Lerp, Linear, Mat4, Parametric, Point,
+    Point2, Point3, Vec2, Vec3, Vector,
     space::{Hom, Real},
     vec::dot,
     vec2, vec3,
 };
-use crate::render::Model;
+use crate::render::{Model, TexCoord};
 
 /// A trait for types that have a position. Primarily useful for APIs such as
 /// `Tri` that can handle either points or vertices.
@@ -22,6 +22,13 @@ pub trait Pos {
 
     /// Returns the position of `self`.
     fn pos(&self) -> &Self::Type;
+}
+
+pub trait Attrib<T> {
+    type Type;
+
+    /// Returns the vertex attribute of this type.
+    fn attrib(&self) -> &Self::Type;
 }
 
 /// Vertex with a position and arbitrary other attributes.
@@ -125,6 +132,52 @@ pub const fn tri<P>(a: P, b: P, c: P) -> Tri<P> {
 //
 // Inherent impls
 //
+
+impl<P, A> Vertex<P, A>
+where
+    Self: Attrib<Normal3, Type = Normal3>,
+{
+    /// Returns the vertex normal attribute of `self`.
+    #[inline]
+    pub fn normal(&self) -> &Normal3 {
+        self.attrib()
+    }
+}
+
+impl<P, A> Vertex<P, A>
+where
+    Self: Attrib<Normal2, Type = Normal2>,
+{
+    /// Returns the vertex normal attribute of `self`.
+    #[inline]
+    pub fn normal(&self) -> &Normal2 {
+        self.attrib()
+    }
+}
+
+impl<P, A> Vertex<P, A> {
+    pub fn transform_pos<T: Apply<P>>(self, tf: T) -> Vertex<T::Output, A> {
+        vertex(tf.apply(&self.pos), self.attrib)
+    }
+
+    /// Returns the color attribute of `self`.
+    #[inline]
+    pub fn color<R, Sp>(&self) -> &Color<R, Sp>
+    where
+        Self: Attrib<Color<R, Sp>, Type = Color<R, Sp>>,
+    {
+        self.attrib()
+    }
+
+    /// Returns the texture coordinate of `self`
+    #[inline]
+    pub fn tex_coord(&self) -> &TexCoord
+    where
+        Self: Attrib<TexCoord, Type = TexCoord>,
+    {
+        self.attrib()
+    }
+}
 
 impl<V> Tri<V> {
     /// Given a triangle ABC, returns the edges [AB, BC, CA].
@@ -730,6 +783,7 @@ impl<B> Line2<B> {
 impl<P, A> Pos for Vertex<P, A> {
     type Type = P;
 
+    #[inline]
     fn pos(&self) -> &Self::Type {
         &self.pos
     }
@@ -739,8 +793,19 @@ impl<R, Sp> Pos for Point<R, Sp> {
     type Type = Self;
 
     /// Returns `self` itself.
+    #[inline]
     fn pos(&self) -> &Self {
         self
+    }
+}
+
+impl<P, A> Attrib<A> for Vertex<P, A> {
+    type Type = A;
+
+    /// Returns the vertex attribute of the given type.
+    #[inline]
+    fn attrib(&self) -> &Self::Type {
+        &self.attrib
     }
 }
 
@@ -748,6 +813,7 @@ impl<T> Parametric<T> for Ray<T>
 where
     T: Affine<Diff: Linear<Scalar = f32>>,
 {
+    #[inline]
     fn eval(&self, t: f32) -> T {
         self.0.add(&self.1.mul(t))
     }
@@ -804,6 +870,7 @@ impl<T: Lerp> Parametric<T> for Polyline<T> {
 }
 
 impl<P: Lerp, A: Lerp> Lerp for Vertex<P, A> {
+    #[inline]
     fn lerp(&self, other: &Self, t: f32) -> Self {
         vertex(
             self.pos.lerp(&other.pos, t),
@@ -898,17 +965,20 @@ impl<B> From<Ray<Point2<B>>> for Line2<B> {
 
 impl<B> From<Edge<Point2<B>>> for Line2<B> {
     /// Returns the line coincident with the given edge.
+    #[inline]
     fn from(e: Edge<Point2<B>>) -> Self {
         Ray(e.0, e.1 - e.0).into()
     }
 }
 
 impl<T> From<[T; 2]> for Edge<T> {
+    #[inline]
     fn from([a, b]: [T; 2]) -> Self {
         Edge(a, b)
     }
 }
 impl<'a, T> From<&'a [T; 2]> for Edge<&'a T> {
+    #[inline]
     fn from([a, b]: &'a [T; 2]) -> Self {
         Edge(a, b)
     }
@@ -919,8 +989,7 @@ mod tests {
     use alloc::{format, vec};
     use core::f32::consts::*;
 
-    use crate::math::*;
-    use crate::{assert_approx_eq, mat};
+    use crate::{assert_approx_eq, mat, math::*};
 
     use super::*;
 

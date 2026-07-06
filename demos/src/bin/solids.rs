@@ -72,11 +72,11 @@ fn main() {
 
     fn vtx_shader(v: VertexIn, (mvp, spin): Uniform) -> VertexOut {
         // Transform vertex normal
-        let norm = spin.apply(&v.attrib);
+        let n = spin.apply(&v.normal());
         // Calculate diffuse shading
-        let diffuse = (norm.z() + 0.2).max(0.2) * 0.8;
+        let diffuse = (n.z() + 0.2).max(0.2) * 0.8;
         // Visualize normal by mapping to RGB values
-        let [r, g, b] = (0.45 * (v.attrib + splat(1.1))).0;
+        let [r, g, b] = (0.45 * (v.normal() + splat(1.1))).0;
         let col = diffuse * rgb(r, g, b);
         vertex(mvp.apply(&v.pos), col)
     }
