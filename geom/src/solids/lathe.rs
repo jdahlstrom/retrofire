@@ -176,10 +176,12 @@ fn create_verts<A>(
     let start = rotate2(start);
 
     // Create vertices
-    for (v, Vertex { pos, attrib: n }) in 0.0
+    for (v, vert) in 0.0
         .vary_to(1.0, verts_per_sec as u32)
         .map(|t| (t, pts.eval(t)))
     {
+        let pos = vert.pos;
+        let n = vert.normal();
         let mut pos_xz = start.apply(&pt2(pos.x(), 0.0));
         let mut n_xz = start.apply(&vec2(n.x(), 0.0));
 
@@ -369,8 +371,9 @@ impl Capsule {
 
         let top_pts = bottom_pts
             .iter()
-            .map(|Vertex { pos, attrib: n }| {
-                vertex(pt2(pos.x(), -pos.y()), vec2(n.x(), -n.y()))
+            .map(|v| {
+                let n = v.normal();
+                vertex(pt2(v.pos.x(), -v.pos.y()), vec2(n.x(), -n.y()))
             })
             .rev();
 

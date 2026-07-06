@@ -6,13 +6,13 @@ use alloc::vec::Vec;
 use core::fmt::{self, Debug, Formatter};
 
 use crate::math::{
-    Affine, ApproxEq, Lerp, Linear, Mat4, Parametric, Point, Point2, Point3,
-    Vec2, Vec3, Vector,
+    Affine, Apply, ApproxEq, Color, Lerp, Linear, Mat4, Parametric, Point,
+    Point2, Point3, Vec2, Vec3, Vector,
     space::{Hom, Real},
     vec::dot,
     vec2, vec3,
 };
-use crate::render::Model;
+use crate::render::{Model, TexCoord};
 
 /// A trait for types that have a position. Primarily useful for APIs such as
 /// `Tri` that can handle either points or vertices.
@@ -22,6 +22,13 @@ pub trait Pos {
 
     /// Returns the position of `self`.
     fn pos(&self) -> &Self::Type;
+}
+
+pub trait Attrib<T> {
+    type Type;
+
+    /// Returns the vertex attribute of this type.
+    fn attrib(&self) -> &Self::Type;
 }
 
 /// Vertex with a position and arbitrary other attributes.
@@ -125,6 +132,48 @@ pub const fn tri<P>(a: P, b: P, c: P) -> Tri<P> {
 //
 // Inherent impls
 //
+
+impl<P, A> Vertex<P, A>
+where
+    Self: Attrib<Normal3, Type = Normal3>,
+{
+    /// Returns the vertex normal attribute of `self`.
+    pub fn normal(&self) -> &Normal3 {
+        self.attrib()
+    }
+}
+
+impl<P, A> Vertex<P, A>
+where
+    Self: Attrib<Normal2, Type = Normal2>,
+{
+    /// Returns the vertex normal attribute of `self`.
+    pub fn normal(&self) -> &Normal2 {
+        self.attrib()
+    }
+}
+
+impl<P, A> Vertex<P, A> {
+    pub fn transform_pos<T: Apply<P>>(self, tf: T) -> Vertex<T::Output, A> {
+        vertex(tf.apply(&self.pos), self.attrib)
+    }
+
+    /// Returns the color attribute of `self`.
+    pub fn color<R, Sp>(&self) -> &Color<R, Sp>
+    where
+        Self: Attrib<Color<R, Sp>, Type = Color<R, Sp>>,
+    {
+        self.attrib()
+    }
+
+    /// Returns the texture coordinate of `self`
+    pub fn tex_coord(&self) -> &TexCoord
+    where
+        Self: Attrib<TexCoord, Type = TexCoord>,
+    {
+        self.attrib()
+    }
+}
 
 impl<V> Tri<V> {
     /// Given a triangle ABC, returns the edges [AB, BC, CA].
@@ -744,6 +793,15 @@ impl<R, Sp> Pos for Point<R, Sp> {
     }
 }
 
+impl<P, A> Attrib<A> for Vertex<P, A> {
+    type Type = A;
+
+    /// Returns the vertex attribute of the given type.
+    fn attrib(&self) -> &Self::Type {
+        &self.attrib
+    }
+}
+
 impl<T> Parametric<T> for Ray<T>
 where
     T: Affine<Diff: Linear<Scalar = f32>>,
@@ -919,8 +977,7 @@ mod tests {
     use alloc::{format, vec};
     use core::f32::consts::*;
 
-    use crate::math::*;
-    use crate::{assert_approx_eq, mat};
+    use crate::{assert_approx_eq, mat, math::*};
 
     use super::*;
 
