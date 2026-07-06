@@ -3,7 +3,7 @@
 
 use alloc::vec::Vec;
 
-use crate::geom::{Edge, Tri, Vertex, Vertex3, vertex};
+use crate::geom::{Edge, Pos, Tri, Vertex, Vertex3, vertex};
 use crate::math::{
     Color, Color4, Color4f, Mat4, Point3, Vec3, color::gray, mat::ProjMat3,
     pt3, vec::ProjVec3,
@@ -138,8 +138,8 @@ pub fn cuboid<B>(v0: Point3<B>, v1: Point3<B>) -> DbgBatch<B> {
 }
 
 /// Draws the smallest axis-aligned box that contains a set of vertices.
-pub fn bbox<A, B>(vs: &[Vertex3<A, B>]) -> DbgBatch<B> {
-    let BBox(min, max) = vs.iter().map(|v| &v.pos).collect();
+pub fn bbox<B>(pts: &[impl Pos<Type = Point3<B>>]) -> DbgBatch<B> {
+    let BBox(min, max) = pts.iter().map(Pos::pos).collect();
     cuboid(min, max)
 }
 

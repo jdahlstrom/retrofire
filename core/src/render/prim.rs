@@ -26,7 +26,7 @@ impl<V: Vary> Render<V> for Tri<usize> {
 
     #[inline]
     fn is_backface(tri: &Self::Screen) -> bool {
-        tri.winding() == Winding::Cw
+        tri.winding_xy() == Winding::Cw
     }
 
     #[inline]

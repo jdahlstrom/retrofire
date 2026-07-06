@@ -49,19 +49,6 @@ impl<B> LineIntersect<B> {
 }
 
 //
-// Trait impls
-//
-
-impl<B: Debug + Default> Debug for LineIntersect<B> {
-    fn fmt(&self, f: &mut Formatter<'_>) -> core::fmt::Result {
-        match self {
-            Self::Point(p) => write!(f, "Point({p:?})"),
-            Self::Coincident => f.write_str("Coincident"),
-        }
-    }
-}
-
-//
 // 3D Intersect impls
 //
 
@@ -131,7 +118,7 @@ impl<B> Intersect<Plane3<B>> for Ray3<B> {
     }
 }
 
-impl<B: Debug + Default> Intersect<BBox<B>> for Ray3<B> {
+impl<B> Intersect<BBox<B>> for Ray3<B> {
     type Result = RayIntersect3<B>; // Only closest for now
 
     /// Returns the nearest intersection point of `self` and a box,
@@ -493,6 +480,19 @@ impl<B> Intersect<Self> for Edge<Point2<B>> {
         match ray.intersect(edge) {
             Some((t, pt)) if t <= 1.0 => Some(pt),
             _ => None,
+        }
+    }
+}
+
+//
+// Foreign trait impls
+//
+
+impl<B: Debug + Default> Debug for LineIntersect<B> {
+    fn fmt(&self, f: &mut Formatter<'_>) -> core::fmt::Result {
+        match self {
+            Self::Point(p) => write!(f, "Point({p:.3?})"),
+            Self::Coincident => f.write_str("Coincident"),
         }
     }
 }
