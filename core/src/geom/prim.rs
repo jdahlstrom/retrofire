@@ -257,12 +257,12 @@ impl<B, P: Pos<Type = Point2<B>>> Tri<P> {
     /// # Examples
     /// ```
     /// use retrofire_core::geom::{Tri, vertex, Winding};
-    /// use retrofire_core::math::pt2;
+    /// use retrofire_core::math::{pt2, Point2};
     ///
-    /// let mut tri = Tri([
-    ///     vertex(pt2::<_, ()>(0.0, 0.0), ()),
-    ///     vertex(pt2(0.0, 3.0), ()),
-    ///     vertex(pt2(4.0, 0.0), ()),
+    /// let mut tri = Tri::<Point2>([
+    ///     pt2(0.0, 0.0),
+    ///     pt2(0.0, 3.0),
+    ///     pt2(4.0, 0.0),
     /// ]);
     /// assert_eq!(tri.winding(), Winding::Cw);
     ///
@@ -285,12 +285,12 @@ impl<B, P: Pos<Type = Point2<B>>> Tri<P> {
     /// # Examples
     /// ```
     /// use retrofire_core::geom::{Tri, vertex};
-    /// use retrofire_core::math::pt2;
+    /// use retrofire_core::math::{pt2, Point2};
     ///
-    /// let tri = Tri([
-    ///     vertex(pt2::<_, ()>(0.0, 0.0), ()),
-    ///     vertex(pt2(0.0, 3.0), ()),
-    ///     vertex(pt2(4.0, 0.0), ()),
+    /// let tri = Tri::<Point2>([
+    ///     pt2(0.0, 0.0),
+    ///     pt2(0.0, 3.0),
+    ///     pt2(4.0, 0.0),
     /// ]);
     /// assert_eq!(tri.signed_area(), -6.0);
     /// ```
@@ -312,13 +312,13 @@ impl<B, P: Pos<Type = Point3<B>>> Tri<P> {
     ///
     /// use retrofire_core::assert_approx_eq;
     /// use retrofire_core::geom::{Tri, vertex};
-    /// use retrofire_core::math::{pt3, vec3};
+    /// use retrofire_core::math::{pt3, vec3, Point3};
     ///
     /// // Triangle lying in a 45° angle
-    /// let tri = Tri([
-    ///     vertex(pt3::<_, ()>(0.0, 0.0, 0.0), ()),
-    ///     vertex(pt3(0.0, 3.0, 3.0), ()),
-    ///     vertex(pt3(4.0, 0.0,0.0), ()),
+    /// let tri = Tri::<Point3>([
+    ///     pt3(0.0, 0.0, 0.0),
+    ///     pt3(0.0, 3.0, 3.0),
+    ///     pt3(4.0, 0.0,0.0),
     /// ]);
     /// assert_approx_eq!(tri.normal(), vec3(0.0, FRAC_1_SQRT_2, -FRAC_1_SQRT_2));
     /// ```
@@ -333,12 +333,12 @@ impl<B, P: Pos<Type = Point3<B>>> Tri<P> {
     /// # Examples
     /// ```
     /// use retrofire_core::geom::{Tri, Plane3, vertex};
-    /// use retrofire_core::math::{pt3, Vec3};
+    /// use retrofire_core::math::{Point3, Vec3, pt3};
     ///
-    /// let tri = Tri([
-    ///     vertex(pt3::<f32, ()>(0.0, 0.0, 2.0), ()),
-    ///     vertex(pt3(1.0, 0.0, 2.0), ()),
-    ///     vertex(pt3(0.0, 1.0, 2.0), ())
+    /// let tri = Tri::<Point3>([
+    ///     pt3(0.0, 0.0, 2.0),
+    ///     pt3(1.0, 0.0, 2.0),
+    ///     pt3(0.0, 1.0, 2.0)
     /// ]);
     /// assert_eq!(tri.plane().normal(), Vec3::Z);
     /// assert_eq!(tri.plane().offset(), 2.0);
