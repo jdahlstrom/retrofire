@@ -513,7 +513,7 @@ v 0.0 -2.0 0.0
 
         assert_eq!(
             m.faces()
-                .map(|tri| tri.0.map(|&Vertex { pos, attrib: n }| (pos, n)))
+                .map(|tri| tri.0.map(|v| (v.pos, v.attrib)))
                 .collect::<Vec<_>>(),
             [
                 [
@@ -551,7 +551,7 @@ v 0.0 -2.0 0.0
 
         assert_eq!(
             m.faces()
-                .map(|tri| tri.0.map(|&Vertex { pos, attrib: uv }| (pos, uv)))
+                .map(|tri| tri.0.map(|v| (v.pos, v.attrib)))
                 .collect::<Vec<_>>(),
             [
                 [

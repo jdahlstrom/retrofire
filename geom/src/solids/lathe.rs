@@ -224,11 +224,14 @@ fn make_cap<A>(
 // Local trait impls
 //
 
+// TODO impl Build<()>
+
 impl<P: Parametric<Vertex2<Normal2, ()>>> Build<Normal3> for Lathe<P> {
     fn build(self) -> Mesh<Normal3> {
         self.build_with(&mut |p, n, _| vertex(p.to(), n))
     }
 }
+// TODO Shouldn't need parametric with normal if normal not used
 impl<P: Parametric<Vertex2<Normal2, ()>>> Build<TexCoord> for Lathe<P> {
     fn build(self) -> Mesh<TexCoord> {
         self.build_with(&mut |p, _, tc| vertex(p.to(), tc))
