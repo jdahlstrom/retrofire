@@ -805,6 +805,15 @@ impl<R: Debug, Sp: Debug + Default> Debug for Vector<R, Sp> {
     }
 }
 
+impl<Sc, B> From<Vector<[Sc; 2], Real<2, B>>> for Vector<[Sc; 3], Real<3, B>>
+where
+    Sc: Linear + Copy,
+{
+    fn from(v: Vector<[Sc; 2], Real<2, B>>) -> Self {
+        v.to_vec3()
+    }
+}
+
 // Vector <-> repr conversions
 impl<R, Sp> From<R> for Vector<R, Sp> {
     #[inline]
