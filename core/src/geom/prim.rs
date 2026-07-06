@@ -14,6 +14,16 @@ use crate::math::{
 };
 use crate::render::Model;
 
+/// A trait for types that have a position. Primarily useful for APIs such as
+/// `Tri` that can handle either points or vertices.
+pub trait Pos {
+    /// The position type.
+    type Type;
+
+    /// Returns the position of `self`.
+    fn pos(&self) -> &Self::Type;
+}
+
 /// Vertex with a position and arbitrary other attributes.
 #[derive(Copy, Clone, Debug, Default, Eq, PartialEq)]
 pub struct Vertex<P, A> {
@@ -108,7 +118,7 @@ pub const fn vertex<P, A>(pos: P, attrib: A) -> Vertex<P, A> {
 
 /// Creates a [`Tri`] with the given vertices.
 #[inline]
-pub const fn tri<V>(a: V, b: V, c: V) -> Tri<V> {
+pub const fn tri<P>(a: P, b: P, c: P) -> Tri<P> {
     Tri([a, b, c])
 }
 
@@ -147,38 +157,63 @@ impl<V> Tri<V> {
     }
 }
 
-impl<P: Affine, A> Tri<Vertex<P, A>> {
+impl<T: Affine, P: Pos<Type = T>> Tri<P> {
     /// Given a triangle ABC, returns the vectors [AB, AC].
     #[inline]
-    pub fn tangents(&self) -> [P::Diff; 2] {
+    pub fn tangents(&self) -> [T::Diff; 2] {
         let [a, b, c] = &self.0;
-        [b.pos.sub(&a.pos), c.pos.sub(&a.pos)]
+        [b.pos().sub(&a.pos()), c.pos().sub(&a.pos())]
     }
 
     /// Returns the geometric center, or "balance point", of `self`.
     ///
     /// The centroid is simply the average of the three vertex positions.
-    pub fn centroid(&self) -> P
+    pub fn centroid(&self) -> T
     where
-        P::Diff: Linear<Scalar = f32>,
+        T::Diff: Linear<Scalar = f32>,
     {
         let [ab, ac] = self.tangents();
-        self.0[0].pos.add(&ab.add(&ac).mul(1.0 / 3.0))
+        self.0[0].pos().add(&ab.add(&ac).mul(1.0 / 3.0))
     }
 }
 
-impl<A, B> Tri<Vertex2<A, B>> {
+impl<P> Tri<P> {
+    /// Returns the area of `self`.
+    ///
+    /// # Examples
+    /// ```
+    /// use retrofire_core::geom::{tri, vertex};
+    /// use retrofire_core::math::{Point3, pt3};
+    ///
+    /// let tri = tri::<Point3>(
+    ///     pt3(0.0, 0.0, 0.0),
+    ///     pt3(4.0, 0.0, 0.0),
+    ///     pt3(0.0, 3.0, 0.0),
+    /// );
+    /// assert_eq!(tri.area(), 6.0);
+    /// ```
+    pub fn area<B>(&self) -> f32
+    where
+        P: Pos<Type: Into<Point3<B>> + Clone>,
+    {
+        let [a, b, c] = self.0.each_ref().map(|p| p.pos().clone().into());
+        let [t, u] = tri(a, b, c).tangents();
+        t.cross(&u).len() / 2.0
+    }
+}
+
+impl<B, P: Pos<Type = Point2<B>>> Tri<P> {
     /// Returns the winding order of `self`.
     ///
     /// # Examples
     /// ```
     /// use retrofire_core::geom::{Tri, vertex, Winding};
-    /// use retrofire_core::math::pt2;
+    /// use retrofire_core::math::{pt2, Point2};
     ///
-    /// let mut tri = Tri([
-    ///     vertex(pt2::<_, ()>(0.0, 0.0), ()),
-    ///     vertex(pt2(0.0, 3.0), ()),
-    ///     vertex(pt2(4.0, 0.0), ()),
+    /// let mut tri = Tri::<Point2>([
+    ///     pt2(0.0, 0.0),
+    ///     pt2(0.0, 3.0),
+    ///     pt2(4.0, 0.0),
     /// ]);
     /// assert_eq!(tri.winding(), Winding::Cw);
     ///
@@ -201,12 +236,12 @@ impl<A, B> Tri<Vertex2<A, B>> {
     /// # Examples
     /// ```
     /// use retrofire_core::geom::{Tri, vertex};
-    /// use retrofire_core::math::pt2;
+    /// use retrofire_core::math::{pt2, Point2};
     ///
-    /// let tri = Tri([
-    ///     vertex(pt2::<_, ()>(0.0, 0.0), ()),
-    ///     vertex(pt2(0.0, 3.0), ()),
-    ///     vertex(pt2(4.0, 0.0), ()),
+    /// let tri = Tri::<Point2>([
+    ///     pt2(0.0, 0.0),
+    ///     pt2(0.0, 3.0),
+    ///     pt2(4.0, 0.0),
     /// ]);
     /// assert_eq!(tri.signed_area(), -6.0);
     /// ```
@@ -214,27 +249,9 @@ impl<A, B> Tri<Vertex2<A, B>> {
         let [t, u] = self.tangents();
         t.perp_dot(u) / 2.0
     }
-
-    /// Returns the (positive) area of `self`.
-    ///
-    /// # Examples
-    /// ```
-    /// use retrofire_core::geom::{vertex, Tri};
-    /// use retrofire_core::math::pt2;
-    ///
-    /// let tri = Tri([
-    ///     vertex(pt2::<_, ()>(0.0, 0.0), ()),
-    ///     vertex(pt2(0.0, 3.0), ()),
-    ///     vertex(pt2(4.0, 0.0), ()),
-    /// ]);
-    /// assert_eq!(tri.area(), 6.0);
-    /// ```
-    pub fn area(&self) -> f32 {
-        self.signed_area().abs()
-    }
 }
 
-impl<A, B> Tri<Vertex3<A, B>> {
+impl<B, P: Pos<Type = Point3<B>>> Tri<P> {
     /// Returns the normal vector of `self`.
     ///
     /// The result is normalized to unit length. If self is degenerate and
@@ -246,13 +263,13 @@ impl<A, B> Tri<Vertex3<A, B>> {
     ///
     /// use retrofire_core::assert_approx_eq;
     /// use retrofire_core::geom::{Tri, vertex};
-    /// use retrofire_core::math::{pt3, vec3};
+    /// use retrofire_core::math::{pt3, vec3, Point3};
     ///
     /// // Triangle lying in a 45° angle
-    /// let tri = Tri([
-    ///     vertex(pt3::<_, ()>(0.0, 0.0, 0.0), ()),
-    ///     vertex(pt3(0.0, 3.0, 3.0), ()),
-    ///     vertex(pt3(4.0, 0.0,0.0), ()),
+    /// let tri = Tri::<Point3>([
+    ///     pt3(0.0, 0.0, 0.0),
+    ///     pt3(0.0, 3.0, 3.0),
+    ///     pt3(4.0, 0.0,0.0),
     /// ]);
     /// assert_approx_eq!(tri.normal(), vec3(0.0, FRAC_1_SQRT_2, -FRAC_1_SQRT_2));
     /// ```
@@ -267,49 +284,27 @@ impl<A, B> Tri<Vertex3<A, B>> {
     /// # Examples
     /// ```
     /// use retrofire_core::geom::{Tri, Plane3, vertex};
-    /// use retrofire_core::math::{pt3, Vec3};
+    /// use retrofire_core::math::{Point3, Vec3, pt3};
     ///
-    /// let tri = Tri([
-    ///     vertex(pt3::<f32, ()>(0.0, 0.0, 2.0), ()),
-    ///     vertex(pt3(1.0, 0.0, 2.0), ()),
-    ///     vertex(pt3(0.0, 1.0, 2.0), ())
+    /// let tri = Tri::<Point3>([
+    ///     pt3(0.0, 0.0, 2.0),
+    ///     pt3(1.0, 0.0, 2.0),
+    ///     pt3(0.0, 1.0, 2.0)
     /// ]);
     /// assert_eq!(tri.plane().normal(), Vec3::Z);
     /// assert_eq!(tri.plane().offset(), 2.0);
     /// ```
     pub fn plane(&self) -> Plane3<B> {
         let [a, b, c] = &self.0;
-        let [p, q, r] = [a.pos, b.pos, c.pos];
-        Plane::from_points(p, q, r)
+        Plane::from_points(*a.pos(), *b.pos(), *c.pos())
     }
 
     /// Returns the winding order of `self`, as projected to the XY plane.
     // TODO is this 3D version meaningful/useful enough?
-    pub fn winding(&self) -> Winding {
-        // TODO better way to xyz->xy...
+    pub fn winding_xy(&self) -> Winding {
         let [u, v] = self.tangents();
-        let ([ux, uy, _], [vx, vy, _]) = (u.0, v.0);
-        let z = vec2::<_, ()>(ux, uy).perp_dot(vec2(vx, vy));
+        let z = u.xy().perp_dot(v.xy());
         if z < 0.0 { Winding::Cw } else { Winding::Ccw }
-    }
-
-    /// Returns the area of `self`.
-    ///
-    /// # Examples
-    /// ```
-    /// use retrofire_core::geom::{tri, vertex};
-    /// use retrofire_core::math::pt3;
-    ///
-    /// let tri = tri(
-    ///     vertex(pt3::<_, ()>(0.0, 0.0, 0.0), ()),
-    ///     vertex(pt3(4.0, 0.0, 0.0), ()),
-    ///     vertex(pt3(0.0, 3.0, 0.0), ()),
-    /// );
-    /// assert_eq!(tri.area(), 6.0);
-    /// ```
-    pub fn area(&self) -> f32 {
-        let [t, u] = self.tangents();
-        t.cross(&u).len() / 2.0
     }
 }
 
@@ -582,7 +577,7 @@ impl<T> Polyline<T> {
     /// assert_eq!(edges.next(), None);
     /// ```
     pub fn edges(&self) -> impl Iterator<Item = Edge<&T>> + '_ {
-        self.0.array_windows().map(|[a, b]| Edge(a, b))
+        self.0.array_windows().map(Edge::from)
     }
 
     /// Returns the sum of the lengths of the edges using a custom metric.
@@ -731,6 +726,23 @@ impl<B> Line2<B> {
 //
 // Local trait impls
 //
+
+impl<P, A> Pos for Vertex<P, A> {
+    type Type = P;
+
+    fn pos(&self) -> &Self::Type {
+        &self.pos
+    }
+}
+
+impl<R, Sp> Pos for Point<R, Sp> {
+    type Type = Self;
+
+    /// Returns `self` itself.
+    fn pos(&self) -> &Self {
+        self
+    }
+}
 
 impl<T> Parametric<T> for Ray<T>
 where
@@ -896,6 +908,11 @@ impl<T> From<[T; 2]> for Edge<T> {
         Edge(a, b)
     }
 }
+impl<'a, T> From<&'a [T; 2]> for Edge<&'a T> {
+    fn from([a, b]: &'a [T; 2]) -> Self {
+        Edge(a, b)
+    }
+}
 
 #[cfg(test)]
 mod tests {
@@ -907,48 +924,44 @@ mod tests {
 
     use super::*;
 
-    type Pt<const N: usize> = Point<[f32; N], Real<N>>;
-
-    fn tri<const N: usize>(
-        a: Pt<N>,
-        b: Pt<N>,
-        c: Pt<N>,
-    ) -> Tri<Vertex<Pt<N>, ()>> {
-        Tri([a, b, c]).map(|p| vertex(p, ()))
-    }
-
     #[test]
     fn triangle_winding_2_cw() {
-        let tri = tri(pt2(-1.0, 0.0), pt2(0.0, 1.0), pt2(1.0, -1.0));
+        let tri = tri::<Point2>(pt2(-1.0, 0.0), pt2(0.0, 1.0), pt2(1.0, -1.0));
         assert_eq!(tri.winding(), Winding::Cw);
     }
     #[test]
     fn triangle_winding_2_ccw() {
-        let tri = tri(pt2(-2.0, 0.0), pt2(1.0, 0.0), pt2(0.0, 1.0));
+        let tri = tri::<Point2>(pt2(-2.0, 0.0), pt2(1.0, 0.0), pt2(0.0, 1.0));
         assert_eq!(tri.winding(), Winding::Ccw);
     }
     #[test]
     fn triangle_winding_3_cw() {
-        let tri =
-            tri(pt3(-1.0, 0.0, 0.0), pt3(0.0, 1.0, 1.0), pt3(1.0, -1.0, 0.0));
-        assert_eq!(tri.winding(), Winding::Cw);
+        let tri = tri::<Point3>(
+            pt3(-1.0, 0.0, 0.0),
+            pt3(0.0, 1.0, 1.0),
+            pt3(1.0, -1.0, 0.0),
+        );
+        assert_eq!(tri.winding_xy(), Winding::Cw);
     }
     #[test]
     fn triangle_winding_3_ccw() {
-        let tri =
-            tri(pt3(-1.0, 0.0, 0.0), pt3(1.0, 0.0, 0.0), pt3(0.0, 1.0, -1.0));
-        assert_eq!(tri.winding(), Winding::Ccw);
+        let tri = tri::<Point3>(
+            pt3(-1.0, 0.0, 0.0),
+            pt3(1.0, 0.0, 0.0),
+            pt3(0.0, 1.0, -1.0),
+        );
+        assert_eq!(tri.winding_xy(), Winding::Ccw);
     }
 
     #[test]
     fn triangle_area_2() {
-        let tri = tri(pt2(-1.0, 0.0), pt2(2.0, 0.0), pt2(2.0, 1.0));
+        let tri = tri::<Point2>(pt2(-1.0, 0.0), pt2(2.0, 0.0), pt2(2.0, 1.0));
         assert_eq!(tri.area(), 1.5);
     }
     #[test]
     fn triangle_area_3() {
         // base = 3, height = 2
-        let tri = tri(
+        let tri = tri::<Point3>(
             pt3(-1.0, 0.0, -1.0),
             pt3(2.0, 0.0, -1.0),
             pt3(0.0, 0.0, 1.0),
@@ -958,7 +971,7 @@ mod tests {
 
     #[test]
     fn triangle_plane() {
-        let tri = tri(
+        let tri = tri::<Point3>(
             pt3(-1.0, -2.0, -1.0),
             pt3(2.0, -2.0, -1.0),
             pt3(0.0, -2.0, 1.0),
