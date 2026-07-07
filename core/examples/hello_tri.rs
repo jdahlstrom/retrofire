@@ -23,7 +23,7 @@ fn main() {
         |v: Vertex3<Color3f>, mvp: &ProjMat3<Model>| {
             // Transform vertex position from model to projection space
             // Interpolate vertex colors in normal sRGB color space
-            vertex(mvp.apply(&v.pos), v.attrib)
+            v.transform_pos(mvp)
         },
         |frag: Frag<Color3f<_>>, _| frag.var.to_color4(),
     );

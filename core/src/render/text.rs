@@ -81,9 +81,7 @@ impl Text {
         &self,
     ) -> impl Shader<Vertex3<TexCoord>, TexCoord, &ProjMat3<Model>> {
         shader::new(
-            |v: Vertex3<_>, tf: &ProjMat3<_>| {
-                vertex(tf.apply(&v.pos.to()), v.attrib)
-            },
+            |v: Vertex3<_>, tf: &ProjMat3<_>| v.transform_pos(tf),
             |frag: Frag<TexCoord>, _| self.sample(frag.var),
         )
     }
