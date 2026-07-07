@@ -10,7 +10,7 @@ use crate::math::{
     Point2, Point3, Vec2, Vec3, Vector,
     space::{Hom, Real},
     vec::dot,
-    vec2, vec3,
+    vec2,
 };
 use crate::render::{Model, TexCoord};
 
@@ -89,11 +89,15 @@ pub struct Sphere<B = ()>(pub Point3<B>, pub f32);
 #[derive(Copy, Clone, PartialEq)]
 pub struct Line2<B = ()>(Vector<[f32; 3], Hom<2, B>>);
 
+/// Tag type for normal space.
+#[derive(Copy, Clone, Debug, Default, Eq, PartialEq)]
+pub struct Norm;
+
 /// A surface normal in 3D.
-// TODO Use distinct type rather than alias
-pub type Normal3 = Vec3;
+pub type Normal3 = Vector<[f32; 3], Norm>;
+
 /// A surface normal in 2D.
-pub type Normal2 = Vec2;
+pub type Normal2 = Vector<[f32; 2], Norm>;
 
 /// Polygon winding order.
 ///
@@ -346,7 +350,7 @@ impl<B, P: Pos<Type = Point3<B>>> Tri<P> {
     ///     pt3(1.0, 0.0, 2.0),
     ///     pt3(0.0, 1.0, 2.0)
     /// ]);
-    /// assert_eq!(tri.plane().normal(), Vec3::Z);
+    /// assert_eq!(tri.plane().normal(), <Vec3>::Z.to());
     /// assert_eq!(tri.plane().offset(), 2.0);
     /// ```
     pub fn plane(&self) -> Plane3<B> {
@@ -397,7 +401,7 @@ impl<B> Plane3<B> {
     /// use retrofire_core::{geom::Plane3, math::Vec3};
     ///
     /// let p = <Plane3>::new(1.0, 0.0, 0.0, -2.0);
-    /// assert_eq!(p.normal(), Vec3::X);
+    /// assert_eq!(p.normal(), <Vec3>::X.to());
     /// assert_eq!(p.offset(), -2.0);
     ///
     /// ```
@@ -445,8 +449,9 @@ impl<B> Plane3<B> {
     /// ```
     /// use retrofire_core::{geom::Plane3, math::{Vec3, pt3, vec3}};
     ///
-    /// let p = <Plane3>::from_point_and_normal(pt3(1.0, 2.0, 3.0), Vec3::Z);
-    /// assert_eq!(p.normal(), Vec3::Z);
+    /// let n = vec3(0.0, 0.0, 1.0);
+    /// let p = <Plane3>::from_point_and_normal(pt3(1.0, 2.0, 3.0), n);
+    /// assert_eq!(p.normal(), n);
     /// assert_eq!(p.offset(), 3.0);
     ///
     /// ```
@@ -464,14 +469,14 @@ impl<B> Plane3<B> {
     /// ```
     /// use retrofire_core::{geom::Plane3, math::Vec3};
     ///
-    /// assert_eq!(<Plane3>::XY.normal(), Vec3::Z);
-    /// assert_eq!(<Plane3>::YZ.normal(), Vec3::X);
+    /// assert_eq!(<Plane3>::XY.normal(), <Vec3>::Z.to());
+    /// assert_eq!(<Plane3>::YZ.normal(), <Vec3>::X.to());
     #[inline]
     pub fn normal(&self) -> Normal3 {
         let [a, b, c, _] = self.0.0;
-        let n = vec3(a, b, c);
+        let n = <Vec3>::from([a, b, c]);
         debug_assert!(n.len_sqr().approx_eq(&1.0));
-        n
+        n.to()
     }
 
     /// Returns the signed distance of `self` from the origin.
@@ -1089,7 +1094,8 @@ mod tests {
     }
     #[test]
     fn plane_is_point_inside_xz() {
-        let p = <Plane3>::from_point_and_normal(pt3(1.0, 2.0, 3.0), Vec3::Y);
+        let p =
+            <Plane3>::from_point_and_normal(pt3(1.0, 2.0, 3.0), <Vec3>::Y.to());
 
         // Inside
         assert!(p.is_inside(pt3(0.0, 0.0, 0.0)));
@@ -1102,7 +1108,10 @@ mod tests {
     }
     #[test]
     fn plane_is_point_inside_neg_xz() {
-        let p = <Plane3>::from_point_and_normal(pt3(1.0, 2.0, 3.0), -Vec3::Y);
+        let p = <Plane3>::from_point_and_normal(
+            pt3(1.0, 2.0, 3.0),
+            -<Vec3>::Y.to(),
+        );
 
         // Outside
         assert!(!p.is_inside(pt3(0.0, 0.0, 0.0)));
@@ -1130,7 +1139,8 @@ mod tests {
 
     #[test]
     fn plane_project_point() {
-        let p = <Plane3>::from_point_and_normal(pt3(0.0, 2.0, 0.0), Vec3::Y);
+        let p =
+            <Plane3>::from_point_and_normal(pt3(0.0, 2.0, 0.0), <Vec3>::Y.to());
 
         // Outside
         assert_approx_eq!(p.project(pt3(5.0, 10.0, -3.0)), pt3(5.0, 2.0, -3.0));

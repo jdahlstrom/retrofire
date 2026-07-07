@@ -617,6 +617,7 @@ impl<D: Distrib, E: Distrib> Distrib for (D, E) {
 #[cfg(test)]
 #[allow(clippy::manual_range_contains)]
 mod tests {
+    use crate::math::space::Real;
     use crate::math::vec3;
 
     use super::*;
@@ -661,8 +662,9 @@ mod tests {
 
     #[test]
     fn uniform_vec3() {
-        let dist =
-            Uniform(vec3::<f32, ()>(-2.0, 0.0, -1.0)..vec3(1.0, 2.0, 3.0));
+        let dist = Uniform(
+            vec3::<f32, Real<3, ()>>(-2.0, 0.0, -1.0)..vec3(1.0, 2.0, 3.0),
+        );
 
         let mean = dist
             .samples(&mut rng())
