@@ -6,7 +6,9 @@ mod platonic;
 
 use alloc::vec::Vec;
 
-use retrofire_core::geom::{Mesh, Normal3, Tri, mesh::Builder, tri, vertex};
+use retrofire_core::geom::{
+    Mesh, Mesh3, Normal3, Tri, Vertex3, mesh::Builder, tri, vertex,
+};
 use retrofire_core::math::{Lerp, Vec3};
 
 #[cfg(feature = "std")]
@@ -14,18 +16,18 @@ pub use lathe::*;
 
 pub use platonic::*;
 
-pub trait Build<A>: Sized {
-    fn build(self) -> Mesh<A>;
+pub trait Build<V>: Sized {
+    fn build(self) -> Mesh<V>;
 
-    fn builder(self) -> Builder<A> {
+    fn builder(self) -> Builder<V> {
         self.build().into_builder()
     }
 }
 
 pub struct Icosphere(pub f32, pub u8);
 
-impl Build<Normal3> for Icosphere {
-    fn build(self) -> Mesh<Normal3> {
+impl Build<Vertex3<Normal3>> for Icosphere {
+    fn build(self) -> Mesh3<Normal3> {
         #[derive(Default)]
         struct Tessellator {
             coords: Vec<Vec3>,

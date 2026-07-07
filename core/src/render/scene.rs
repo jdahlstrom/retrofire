@@ -1,18 +1,18 @@
 use core::fmt::{self, Debug, Formatter};
 
-use crate::{
-    geom::{Mesh, vertex},
-    math::{Mat4, Point3, ProjMat3, pt3},
-};
-
 use super::{
     Model, World,
     clip::{ClipVert, Status, view_frustum},
 };
+use crate::geom::mesh::Mesh3;
+use crate::{
+    geom::vertex,
+    math::{Mat4, Point3, ProjMat3, pt3},
+};
 
 #[derive(Clone, Debug)]
 pub struct Obj<A> {
-    pub geom: Mesh<A>,
+    pub geom: Mesh3<A>,
     pub bbox: BBox<Model>,
     pub tf: Mat4<Model, World>,
 }
@@ -23,19 +23,19 @@ pub struct Obj<A> {
 pub struct BBox<B>(pub Point3<B>, pub Point3<B>);
 
 impl<A> Obj<A> {
-    pub fn new(geom: Mesh<A>) -> Self {
+    pub fn new(geom: Mesh3<A>) -> Self {
         Self::with_transform(geom, Mat4::identity())
     }
 
     #[must_use]
-    pub fn with_transform(geom: Mesh<A>, tf: Mat4<Model, World>) -> Self {
+    pub fn with_transform(geom: Mesh3<A>, tf: Mat4<Model, World>) -> Self {
         let bbox = BBox::of(&geom);
         Self { geom, bbox, tf }
     }
 }
 
 impl<B> BBox<B> {
-    pub fn of<A>(mesh: &Mesh<A, B>) -> Self {
+    pub fn of<A>(mesh: &Mesh3<A, B>) -> Self {
         mesh.verts.iter().map(|v| &v.pos).collect()
     }
 

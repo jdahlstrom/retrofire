@@ -3,7 +3,7 @@
 use alloc::vec::Vec;
 use core::borrow::Borrow;
 
-use crate::geom::{Edge, Mesh, Tri, Vertex3};
+use crate::geom::{Edge, Mesh, Tri};
 use crate::math::{Mat4, Vary};
 
 use super::{Clip, Context, Ndc, Render, Screen, Shader, Target};
@@ -68,14 +68,14 @@ impl<Prims, Verts, Uni, Shd, Tgt, Ctx> Batch<Prims, Verts, Uni, Shd, Tgt, Ctx> {
         update!(verts; self prims uniform shader viewport target ctx)
     }
 
-    /// Clones faces and vertices from a mesh to this batch.
+    /// Borrows the faces and vertices from a mesh to this batch.
     ///
     /// You can also create a new batch from a moved or borrowed mesh
     /// directly using the `From<Mesh>` or `From<&Mesh>` impls.
-    pub fn mesh<A: Clone>(
+    pub fn mesh<V>(
         self,
-        mesh: &Mesh<A>,
-    ) -> Batch<&[Tri<usize>], &[Vertex3<A>], Uni, Shd, Tgt, Ctx> {
+        mesh: &Mesh<V>,
+    ) -> Batch<&[Tri<usize>], &[V], Uni, Shd, Tgt, Ctx> {
         let prims = &mesh.faces;
         let verts = &mesh.verts;
         update!(verts prims; self uniform shader viewport target ctx)
@@ -181,18 +181,16 @@ impl<Vtx, Uni, Shd, Tgt, Ctx>
 // Foreign trait impls
 //
 
-impl<A, B> From<Mesh<A, B>>
-    for Batch<Vec<Tri<usize>>, Vec<Vertex3<A, B>>, (), (), (), Context>
-{
-    fn from(m: Mesh<A, B>) -> Self {
+impl<V> From<Mesh<V>> for Batch<Vec<Tri<usize>>, Vec<V>, (), (), (), Context> {
+    fn from(m: Mesh<V>) -> Self {
         Batch::new().primitives(m.faces).vertices(m.verts)
     }
 }
 
-impl<'a, A, B> From<&'a Mesh<A, B>>
-    for Batch<&'a [Tri<usize>], &'a [Vertex3<A, B>], (), (), (), Context>
+impl<'a, V> From<&'a Mesh<V>>
+    for Batch<&'a [Tri<usize>], &'a [V], (), (), (), Context>
 {
-    fn from(m: &'a Mesh<A, B>) -> Self {
+    fn from(m: &'a Mesh<V>) -> Self {
         Batch::new()
             .primitives(m.faces.as_slice())
             .vertices(m.verts.as_slice())

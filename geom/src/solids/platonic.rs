@@ -1,10 +1,10 @@
 //! The five Platonic solids: tetrahedron, cube, octahedron, dodecahedron,
 //! and icosahedron.
 
-use core::{array::from_fn, f32::consts::SQRT_2, iter::zip};
+use core::{array::from_fn, f32::consts::*, iter::zip};
 
 use retrofire_core::{
-    geom::{Mesh, Normal3, Vertex3, vertex},
+    geom::{Mesh, Mesh3, Normal3, Vertex3, vertex},
     math::{Lerp, Point3, SQRT_3, Vec3, pt3, vec3},
     render::{Model, TexCoord, uv},
 };
@@ -115,13 +115,13 @@ impl Tetrahedron {
     ];
 
     /// Builds the tetrahedral mesh.
-    pub fn build(self) -> Mesh<Normal3> {
+    pub fn build(self) -> Mesh3<Normal3> {
         let mut b = Mesh::builder();
         for (vs, i) in zip(Self::FACES, 0..) {
             b.push_face(i * 3, i * 3 + 1, i * 3 + 2);
             let n = -Self::NORMS[i]; // already unit length
             for v in vs {
-                b.push_vert(Self::COORDS[v].to_pt(), n);
+                b.push_vert(Self::COORDS[v].to_pt().to(), n);
             }
         }
         b.build()
@@ -191,7 +191,7 @@ impl Box {
     pub fn build_with<A>(
         self,
         mut f: impl FnMut(Point3<Model>, Normal3, TexCoord) -> Vertex3<A>,
-    ) -> Mesh<A> {
+    ) -> Mesh3<A> {
         let mut b = Mesh::builder();
         b.push_faces(Self::FACES);
         for (pos_i, [norm_i, uv_i]) in Self::VERTS {
@@ -209,18 +209,18 @@ impl Box {
     }
 }
 
-impl Build<Normal3> for Box {
-    fn build(self) -> Mesh<Normal3> {
+impl Build<Vertex3<Normal3>> for Box {
+    fn build(self) -> Mesh3<Normal3> {
         self.build_with(|p, n, _| vertex(p, n))
     }
 }
-impl Build<TexCoord> for Box {
-    fn build(self) -> Mesh<TexCoord> {
+impl Build<Vertex3<TexCoord>> for Box {
+    fn build(self) -> Mesh3<TexCoord> {
         self.build_with(|p, _, uv| vertex(p, uv))
     }
 }
-impl Build<(Normal3, TexCoord)> for Box {
-    fn build(self) -> Mesh<(Normal3, TexCoord)> {
+impl Build<Vertex3<(Normal3, TexCoord)>> for Box {
+    fn build(self) -> Mesh3<(Normal3, TexCoord)> {
         self.build_with(|p, n, uv| vertex(p, (n, uv)))
     }
 }
@@ -284,16 +284,16 @@ impl Octahedron {
     ];
 }
 
-impl Build<Normal3> for Octahedron {
+impl Build<Vertex3<Normal3>> for Octahedron {
     /// Builds the octahedral mesh.
-    fn build(self) -> Mesh<Normal3> {
+    fn build(self) -> Mesh3<Normal3> {
         let mut b = Mesh::builder();
         for (vs, i) in zip(&Self::FACES, 0..) {
             b.push_face(i * 3, i * 3 + 1, i * 3 + 2);
             for &vi in vs {
                 let pos = Self::COORDS[Self::VERTS[vi].0];
                 let n = Self::NORMS[i].normalize();
-                b.push_vert(pos, n);
+                b.push_vert(pos.to(), n);
             }
         }
         b.build()
@@ -301,7 +301,7 @@ impl Build<Normal3> for Octahedron {
 }
 
 /// The golden ratio constant φ.
-const PHI: f32 = 1.618034_f32;
+const PHI: f32 = GOLDEN_RATIO;
 /// Reciprocal of φ.
 const R_PHI: f32 = 1.0 / PHI;
 
@@ -346,9 +346,9 @@ impl Dodecahedron {
     const NORMALS: [Vec3; 12] = Icosahedron::COORDS;
 }
 
-impl Build<Normal3> for Dodecahedron {
+impl Build<Vertex3<Normal3>> for Dodecahedron {
     /// Builds the dodecahedral mesh.
-    fn build(self) -> Mesh<Normal3> {
+    fn build(self) -> Mesh3<Normal3> {
         let mut b = Mesh::builder();
 
         for (face, i) in zip(&Self::FACES, 0..) {
@@ -359,7 +359,7 @@ impl Build<Normal3> for Dodecahedron {
             b.push_face(i5, i5 + 2, i5 + 3);
             b.push_face(i5, i5 + 3, i5 + 4);
             for &j in face {
-                let pos = Self::COORDS[j].normalize().to_pt();
+                let pos = Self::COORDS[j].normalize().to_pt().to();
                 b.push_vert(pos, n);
             }
         }
@@ -399,15 +399,15 @@ impl Icosahedron {
     const NORMALS: [Vec3; 20] = Dodecahedron::COORDS;
 }
 
-impl Build<Normal3> for Icosahedron {
+impl Build<Vertex3<Normal3>> for Icosahedron {
     /// Builds the icosahedral mesh.
-    fn build(self) -> Mesh<Normal3> {
+    fn build(self) -> Mesh3<Normal3> {
         let mut b = Mesh::builder();
         for (vs, i) in zip(&Self::FACES, 0..) {
             let n = Self::NORMALS[i].normalize();
             b.push_face(i * 3, i * 3 + 1, i * 3 + 2);
             for &vi in vs {
-                let pos = Self::COORDS[vi].normalize().to_pt();
+                let pos = Self::COORDS[vi].normalize().to_pt().to();
                 b.push_vert(pos, n);
             }
         }

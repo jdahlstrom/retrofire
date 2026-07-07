@@ -56,6 +56,7 @@ use retrofire_core::{
 };
 
 use Error::*;
+use retrofire_core::geom::Vertex3;
 
 /// Represents errors that may occur during reading OBJ data.
 #[derive(Debug)]
@@ -103,9 +104,9 @@ enum Face {
 /// # Errors
 /// Returns [`Error`] if I/O or OBJ parsing fails.
 #[cfg(feature = "std")]
-pub fn load_obj<A>(path: impl AsRef<Path>) -> Result<Builder<A>>
+pub fn load_obj<A>(path: impl AsRef<Path>) -> Result<Builder<Vertex3<A>>>
 where
-    Builder<A>: TryFrom<Obj, Error = Error>,
+    Builder<Vertex3<A>>: TryFrom<Obj, Error = Error>,
 {
     read_obj(File::open(path)?)
 }
@@ -115,9 +116,9 @@ where
 /// # Errors
 /// Returns [`Error`] if I/O or OBJ parsing fails.
 #[cfg(feature = "std")]
-pub fn read_obj<A>(input: impl Read) -> Result<Builder<A>>
+pub fn read_obj<A>(input: impl Read) -> Result<Builder<Vertex3<A>>>
 where
-    Builder<A>: TryFrom<Obj, Error = Error>,
+    Builder<Vertex3<A>>: TryFrom<Obj, Error = Error>,
 {
     let input = BufReader::new(input);
     let mut io_res: Result<()> = Ok(());
@@ -135,9 +136,11 @@ where
 ///
 /// # Errors
 /// Returns [`self::Error`][Error] if OBJ parsing fails.
-pub fn parse_obj<A>(src: impl IntoIterator<Item = u8>) -> Result<Builder<A>>
+pub fn parse_obj<A>(
+    src: impl IntoIterator<Item = u8>,
+) -> Result<Builder<Vertex3<A>>>
 where
-    Builder<A>: TryFrom<Obj, Error = Error>,
+    Builder<Vertex3<A>>: TryFrom<Obj, Error = Error>,
 {
     do_parse_obj(&mut src.into_iter())?.try_into()
 }
@@ -228,14 +231,14 @@ fn do_parse_obj(src: &mut dyn Iterator<Item = u8>) -> Result<Obj> {
     Ok(obj)
 }
 
-impl TryFrom<Obj> for Builder<()> {
+impl TryFrom<Obj> for Builder<Vertex3<()>> {
     type Error = Error;
 
     fn try_from(o: Obj) -> Result<Self> {
         o.try_into_with(|_| Some(()))
     }
 }
-impl TryFrom<Obj> for Builder<Normal3> {
+impl TryFrom<Obj> for Builder<Vertex3<Normal3>> {
     type Error = Error;
 
     fn try_from(o: Obj) -> Result<Self> {
@@ -245,7 +248,7 @@ impl TryFrom<Obj> for Builder<Normal3> {
         o.try_into_with(|i| i.n.map(|ti| o.norms[ti]))
     }
 }
-impl TryFrom<Obj> for Builder<TexCoord> {
+impl TryFrom<Obj> for Builder<Vertex3<TexCoord>> {
     type Error = Error;
 
     fn try_from(o: Obj) -> Result<Self> {
@@ -255,7 +258,7 @@ impl TryFrom<Obj> for Builder<TexCoord> {
         o.try_into_with(|i| i.uv.map(|ti| o.texcs[ti]))
     }
 }
-impl TryFrom<Obj> for Builder<(Normal3, TexCoord)> {
+impl TryFrom<Obj> for Builder<Vertex3<(Normal3, TexCoord)>> {
     type Error = Error;
 
     fn try_from(o: Obj) -> Result<Self> {
@@ -276,7 +279,7 @@ impl Obj {
     fn try_into_with<A>(
         &self,
         mut attr_fn: impl FnMut(&Indices) -> Option<A>,
-    ) -> Result<Builder<A>> {
+    ) -> Result<Builder<Vertex3<A>>> {
         // HashMap not in alloc :(
         let mut map: BTreeMap<Indices, usize> = BTreeMap::new();
 
@@ -428,6 +431,7 @@ impl From<ParseIntError> for Error {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use retrofire_core::geom::Mesh3;
     use retrofire_core::{
         geom::{Tri, Vertex},
         math::point::pt3,
@@ -472,7 +476,7 @@ v 0.0 -2.0 0.0
             v 1.0e0 -0.2e1  +300.0e-2
             f 1 2 3
             f 3 4 5";
-        let mesh: Mesh<()> = parse_obj(input).unwrap().build();
+        let mesh: Mesh3<()> = parse_obj(input).unwrap().build();
         assert_eq!(mesh.verts[0].pos, pt3(1.0, -2.0, 3.0));
         assert_eq!(mesh.verts[4].pos, pt3(1.0, -2.0, 3.0));
     }
@@ -486,7 +490,7 @@ v 0.0 -2.0 0.0
             v 0.0 1.0 0.0
             f 1 2 3 4
         ";
-        let mesh: Mesh<()> = parse_obj(input).unwrap().build();
+        let mesh: Mesh3<()> = parse_obj(input).unwrap().build();
 
         assert_eq!(mesh.faces.len(), 2);
         assert_eq!(mesh.faces, [Tri([0, 1, 2]), Tri([0, 2, 3])]);
@@ -506,7 +510,7 @@ v 0.0 -2.0 0.0
             v 1.0 2.0 3.0
             vn 0.0 0.0 -1.0";
 
-        let m: Mesh<Normal3> = parse_obj(input).unwrap().build();
+        let m: Mesh3<Normal3> = parse_obj(input).unwrap().build();
 
         assert_eq!(m.faces.len(), 2);
         assert_eq!(m.verts.len(), 5);
@@ -544,7 +548,7 @@ v 0.0 -2.0 0.0
             v 1.0 2.0 3.0
             vt 1.0 1.0";
 
-        let m: Mesh<TexCoord> = parse_obj(input).unwrap().build();
+        let m: Mesh3<TexCoord> = parse_obj(input).unwrap().build();
 
         assert_eq!(m.faces.len(), 2);
         assert_eq!(m.verts.len(), 6);
@@ -614,7 +618,7 @@ v 0.0 -2.0 0.0
 
     #[test]
     fn empty_input() {
-        let mesh: Mesh<()> = parse_obj(*b"")
+        let mesh: Mesh3<()> = parse_obj(*b"")
             .unwrap_or_else(|e| {
                 panic!("empty input should be valid, got {e:?}")
             })
@@ -625,7 +629,7 @@ v 0.0 -2.0 0.0
 
     #[test]
     fn input_only_whitespace() {
-        let mesh: Mesh<()> = parse_obj(*b"   \n     \n\n ")
+        let mesh: Mesh3<()> = parse_obj(*b"   \n     \n\n ")
             .expect("white-space only input should be valid")
             .build();
         assert!(mesh.faces.is_empty());
@@ -634,7 +638,7 @@ v 0.0 -2.0 0.0
 
     #[test]
     fn input_only_comments() {
-        let mesh: Mesh<()> = parse_obj(*b"# comment\n #another comment")
+        let mesh: Mesh3<()> = parse_obj(*b"# comment\n #another comment")
             .expect("comment-only input should be valid")
             .build();
         assert!(mesh.faces.is_empty());

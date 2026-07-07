@@ -5,8 +5,9 @@ use minifb::{Key, KeyRepeat};
 
 use re::prelude::*;
 
+use re::core::math::mat::RealToReal;
 use re::core::{
-    geom::{Polyline, Ray},
+    geom::{Mesh3, Polyline, Ray},
     math::{ProjVec3, color::gray, spline::HermiteSpline},
     render::{Model, ModelToWorld, cam::Fov, shader},
 };
@@ -140,7 +141,7 @@ fn main() {
 
 // Creates the 14 objects exhibited.
 #[rustfmt::skip]
-fn objects_n(res: u32) -> [Mesh<Normal3>; 14] {
+fn objects_n(res: u32) -> [Mesh3<Normal3>; 14] {
     let segments = res;
     let sectors = 2 * res;
 
@@ -173,7 +174,7 @@ fn objects_n(res: u32) -> [Mesh<Normal3>; 14] {
 }
 
 // Creates a Lathe mesh.
-fn lathe(secs: u32) -> Mesh<Normal3> {
+fn lathe(secs: u32) -> Mesh3<Normal3> {
     let spline = HermiteSpline::new([
         Ray(pt2(0.6, -1.0), vec2(0.0, 0.3)),
         Ray(pt2(0.1, -0.8), vec2(0.0, 0.3)),
@@ -194,24 +195,32 @@ fn lathe(secs: u32) -> Mesh<Normal3> {
 }
 
 // Loads the Utah teapot model.
-fn teapot() -> &'static Mesh<Normal3> {
-    static TEAPOT: LazyLock<Mesh<Normal3>> = LazyLock::new(|| {
+fn teapot() -> &'static Mesh3<Normal3> {
+    static TEAPOT: LazyLock<Mesh3<Normal3>> = LazyLock::new(|| {
         let obj: &[_] = include_bytes!("../../assets/teapot.obj");
         read_obj::<Normal3>(obj)
             .unwrap()
-            .transform(&scale(0.4).then(&translate(-0.5 * Vec3::Y)).to())
+            .transform(
+                &scale(0.4)
+                    .then(&translate(-0.5 * Vec3::Y))
+                    .to::<RealToReal<3, Model, Model>>(),
+            )
             .build()
     });
     &TEAPOT
 }
 
 // Loads the Stanford bunny model.
-fn bunny() -> &'static Mesh<Normal3> {
-    static BUNNY: LazyLock<Mesh<Normal3>> = LazyLock::new(|| {
+fn bunny() -> &'static Mesh3<Normal3> {
+    static BUNNY: LazyLock<Mesh3<Normal3>> = LazyLock::new(|| {
         let obj: &[_] = include_bytes!("../../assets/bunny.obj");
         read_obj::<()>(obj)
             .unwrap()
-            .transform(&scale(0.12).then(&translate(-Vec3::Y)).to())
+            .transform(
+                &scale(0.12)
+                    .then(&translate(-Vec3::Y))
+                    .to::<RealToReal<3, Model, Model>>(),
+            )
             .with_vertex_normals()
             .build()
     });
@@ -219,13 +228,17 @@ fn bunny() -> &'static Mesh<Normal3> {
 }
 
 // Loads the Stanford dragon model.
-fn dragon() -> &'static Mesh<Normal3> {
-    static DRAGON: LazyLock<Mesh<Normal3>> = LazyLock::new(|| {
+fn dragon() -> &'static Mesh3<Normal3> {
+    static DRAGON: LazyLock<Mesh3<Normal3>> = LazyLock::new(|| {
         let obj: &[_] = include_bytes!("../../assets/dragon.obj");
         read_obj::<()>(obj)
             .unwrap()
             .with_vertex_normals()
-            .transform(&scale(0.18).then(&translate(-0.5 * Vec3::Y)).to())
+            .transform(
+                &scale(0.18)
+                    .then(&translate(-0.5 * Vec3::Y))
+                    .to::<RealToReal<3, Model, Model>>(),
+            )
             .build()
     });
     &DRAGON

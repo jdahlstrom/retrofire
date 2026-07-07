@@ -2,21 +2,20 @@ use core::fmt;
 #[cfg(feature = "std")]
 use std::io;
 
-use crate::geom::{Mesh, Tri, Vertex3, tri, vertex};
+use crate::geom::{Mesh, Mesh3, Tri, Vertex3, tri, vertex};
 use crate::math::{
     Color3, Color4, Point2, ProjMat3, Vec2, color::gray, orthographic, pt2,
     pt3, vec2, vec3, viewport,
 };
 use crate::util::{Buf2, Dims};
 
-use super::tex::*;
-use super::{BBox, Context, Frag, Model, Shader, Target, shader};
+use super::{BBox, Context, Frag, Model, Shader, Target, shader, tex::*};
 
 /// Text represented as texture-mapped geometry, one quad per glyph.
 #[derive(Clone)]
 pub struct Text {
     pub font: Atlas<Color3>,
-    pub geom: Mesh<TexCoord>,
+    pub geom: Mesh3<TexCoord>,
     pub color: Color3,
     pub anchor: Point2,
     pub align: Align,

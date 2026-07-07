@@ -4,8 +4,8 @@ use alloc::vec::Vec;
 use core::ops::Range;
 
 use retrofire_core::geom::{
-    Mesh, Normal2, Normal3, Polyline, Tri, Vertex, Vertex2, Vertex3, tri,
-    vertex,
+    Mesh, Mesh3, Normal2, Normal3, Polyline, Tri, Vertex, Vertex2, Vertex3,
+    tri, vertex,
 };
 use retrofire_core::math::{
     Angle, Lerp, Parametric, Point3, Vary, Vec3, polar, pt2, pt3, rotate2,
@@ -104,7 +104,7 @@ impl<P: Parametric<Vertex2<Normal2, ()>>> Lathe<P> {
     pub fn build_with<A>(
         self,
         f: &mut dyn FnMut(Point3, Normal3, TexCoord) -> Vertex3<A>,
-    ) -> Mesh<A> {
+    ) -> Mesh3<A> {
         let secs = self.sectors as usize;
         let segs = self.segments as usize;
         let caps = 2 * self.capped as usize;
@@ -197,7 +197,7 @@ fn create_verts<A>(
 
 #[inline(never)]
 fn make_cap<A>(
-    m: &mut Mesh<A>,
+    m: &mut Mesh3<A>,
     f: &mut dyn FnMut(Point3, Normal3, TexCoord) -> Vertex3<A>,
     rg: Range<usize>,
     n: Normal3,
@@ -226,21 +226,23 @@ fn make_cap<A>(
 
 // TODO impl Build<()>
 
-impl<P: Parametric<Vertex2<Normal2, ()>>> Build<Normal3> for Lathe<P> {
-    fn build(self) -> Mesh<Normal3> {
+impl<P: Parametric<Vertex2<Normal2, ()>>> Build<Vertex3<Normal3>> for Lathe<P> {
+    fn build(self) -> Mesh3<Normal3> {
         self.build_with(&mut |p, n, _| vertex(p.to(), n))
     }
 }
 // TODO Shouldn't need parametric with normal if normal not used
-impl<P: Parametric<Vertex2<Normal2, ()>>> Build<TexCoord> for Lathe<P> {
-    fn build(self) -> Mesh<TexCoord> {
+impl<P: Parametric<Vertex2<Normal2, ()>>> Build<Vertex3<TexCoord>>
+    for Lathe<P>
+{
+    fn build(self) -> Mesh3<TexCoord> {
         self.build_with(&mut |p, _, tc| vertex(p.to(), tc))
     }
 }
-impl<P: Parametric<Vertex2<Normal2, ()>>> Build<(Normal3, TexCoord)>
+impl<P: Parametric<Vertex2<Normal2, ()>>> Build<Vertex3<(Normal3, TexCoord)>>
     for Lathe<P>
 {
-    fn build(self) -> Mesh<(Normal3, TexCoord)> {
+    fn build(self) -> Mesh3<(Normal3, TexCoord)> {
         self.build_with(&mut |p, n, tc| vertex(p.to(), (n, tc)))
     }
 }
@@ -257,15 +259,15 @@ impl Sphere {
     }
 }
 
-impl Build<Normal3> for Sphere {
+impl Build<Vertex3<Normal3>> for Sphere {
     /// Builds a spherical mesh with normals.
-    fn build(self) -> Mesh<Normal3> {
+    fn build(self) -> Mesh3<Normal3> {
         self.lathe().build()
     }
 }
-impl Build<TexCoord> for Sphere {
+impl Build<Vertex3<TexCoord>> for Sphere {
     /// Builds a spherical mesh with texture coordinates.
-    fn build(self) -> Mesh<TexCoord> {
+    fn build(self) -> Mesh3<TexCoord> {
         self.lathe().build()
     }
 }
@@ -280,22 +282,22 @@ impl Torus {
         Lathe::new(pts, self.major_sectors, self.minor_sectors)
     }
 }
-impl Build<Normal3> for Torus {
+impl Build<Vertex3<Normal3>> for Torus {
     /// Builds the toroidal mesh.
-    fn build(self) -> Mesh<Normal3> {
+    fn build(self) -> Mesh3<Normal3> {
         self.lathe().build()
     }
 }
-impl Build<TexCoord> for Torus {
+impl Build<Vertex3<TexCoord>> for Torus {
     /// Builds the toroidal mesh.
-    fn build(self) -> Mesh<TexCoord> {
+    fn build(self) -> Mesh3<TexCoord> {
         self.lathe().build()
     }
 }
 
-impl Build<Normal3> for Cylinder {
+impl Build<Vertex3<Normal3>> for Cylinder {
     /// Builds the cylindrical mesh.
-    fn build(self) -> Mesh<Normal3> {
+    fn build(self) -> Mesh3<Normal3> {
         #[rustfmt::skip]
         let Self { sectors, segments, capped, radius } = self;
         Cone {
@@ -308,9 +310,9 @@ impl Build<Normal3> for Cylinder {
         .build()
     }
 }
-impl Build<TexCoord> for Cylinder {
+impl Build<Vertex3<TexCoord>> for Cylinder {
     /// Builds the cylindrical mesh.
-    fn build(self) -> Mesh<TexCoord> {
+    fn build(self) -> Mesh3<TexCoord> {
         #[rustfmt::skip]
         let Self { sectors, segments, capped, radius } = self;
         Cone {
@@ -339,15 +341,15 @@ impl Cone {
         Lathe::new(pts, self.sectors, self.segments).capped(self.capped)
     }
 }
-impl Build<Normal3> for Cone {
+impl Build<Vertex3<Normal3>> for Cone {
     /// Builds the conical mesh.
-    fn build(self) -> Mesh<Normal3> {
+    fn build(self) -> Mesh3<Normal3> {
         self.lathe().build()
     }
 }
-impl Build<TexCoord> for Cone {
+impl Build<Vertex3<TexCoord>> for Cone {
     /// Builds the conical mesh.
-    fn build(self) -> Mesh<TexCoord> {
+    fn build(self) -> Mesh3<TexCoord> {
         self.lathe().build()
     }
 }
@@ -390,15 +392,15 @@ impl Capsule {
     }
 }
 
-impl Build<Normal3> for Capsule {
+impl Build<Vertex3<Normal3>> for Capsule {
     /// Builds the capsule mesh.
-    fn build(self) -> Mesh<Normal3> {
+    fn build(self) -> Mesh3<Normal3> {
         self.lathe().build()
     }
 }
-impl Build<TexCoord> for Capsule {
+impl Build<Vertex3<TexCoord>> for Capsule {
     /// Builds the capsule mesh.
-    fn build(self) -> Mesh<TexCoord> {
+    fn build(self) -> Mesh3<TexCoord> {
         self.lathe().build()
     }
 }
@@ -407,7 +409,7 @@ impl Build<TexCoord> for Capsule {
 mod tests {
     use super::*;
 
-    type Mesh = super::Mesh<Normal3>;
+    type Mesh = super::Mesh3<Normal3>;
 
     #[test]
     fn sphere_verts_faces() {
