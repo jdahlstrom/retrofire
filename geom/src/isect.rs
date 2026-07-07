@@ -139,29 +139,20 @@ impl<B, P: Pos<Type = Point3<B>>> Intersect<Tri<P>> for Ray3<B> {
     /// assert_eq!(ray.intersect(&t), None);
     /// ```
     fn intersect(&self, tri: &Tri<P>) -> Self::Result {
-        /*
-            tri ABC
-            tangents ab = B-A, ac = C-A
-            ray P = O + t * d
-
-            triangle plane parametric:
-            P = a + u * ab + v * ac
-
-            solve linear equation:
-            O + t * d  =  a + u * ab + v * ac
-
-            O - a = t * -d + u * ab + v * ac
-
-                                   ( t )
-            O - a = ( -d  ab  ac ) ( u )
-                                   ( v )
-
-                    ( -d_x ab_x ac_x ) ( t )
-            O - a = ( -d_y ab_y ac_y ) ( u )
-                    ( -d_z ab_z ac_z ) ( v )
-
-           inside triangle iff 0 <= t && 0 <= u && 0 <= v && u + v <= 1
-        */
+        //  tri ABC, ab = B-A, ac = C-A
+        //  ray P = O + t * d
+        //
+        //  triangle plane parametric:
+        //  P = A + u * ab + v * ac
+        //
+        //  solve linear equation for (t, u, v):
+        //  O + t * d  =  a + u * ab + v * ac
+        //
+        //                               ( t )
+        //  <=> O - A  =  ( -d  ab  ac ) ( u )
+        //                               ( v )
+        //
+        // inside triangle iff 0 <= t && 0 <= u && 0 <= v && u + v <= 1
 
         struct Plane;
 
