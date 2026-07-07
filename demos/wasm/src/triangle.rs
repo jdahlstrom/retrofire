@@ -36,7 +36,7 @@ pub fn start() {
         let mvp = mv.then(&proj);
 
         let sh = Shader::new(
-            |v: Vertex3<Color4f>, _| v.transform_pos(mvp),
+            |v: Vertex3<Color4f>, _| v.transform_pos(&mvp),
             |f: Frag<Color4f>, _| f.var.to_color4(),
         );
 

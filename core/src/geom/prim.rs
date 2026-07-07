@@ -158,6 +158,8 @@ where
 }
 
 impl<P, A> Vertex<P, A> {
+    #[inline]
+    #[must_use]
     pub fn transform_pos<T: Apply<P>>(self, tf: &T) -> Vertex<T::Output, A> {
         vertex(tf.apply(&self.pos), self.attrib)
     }
