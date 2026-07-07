@@ -142,6 +142,7 @@ where
     Self: Attrib<Normal3, Type = Normal3>,
 {
     /// Returns the vertex normal attribute of `self`.
+    #[inline]
     pub fn normal(&self) -> &Normal3 {
         self.attrib()
     }
@@ -152,6 +153,7 @@ where
     Self: Attrib<Normal2, Type = Normal2>,
 {
     /// Returns the vertex normal attribute of `self`.
+    #[inline]
     pub fn normal(&self) -> &Normal2 {
         self.attrib()
     }
@@ -165,6 +167,7 @@ impl<P, A> Vertex<P, A> {
     }
 
     /// Returns the color attribute of `self`.
+    #[inline]
     pub fn color<R, Sp>(&self) -> &Color<R, Sp>
     where
         Self: Attrib<Color<R, Sp>, Type = Color<R, Sp>>,
@@ -173,6 +176,7 @@ impl<P, A> Vertex<P, A> {
     }
 
     /// Returns the texture coordinate of `self`
+    #[inline]
     pub fn tex_coord(&self) -> &TexCoord
     where
         Self: Attrib<TexCoord, Type = TexCoord>,
@@ -786,6 +790,7 @@ impl<B> Line2<B> {
 impl<P, A> Pos for Vertex<P, A> {
     type Type = P;
 
+    #[inline]
     fn pos(&self) -> &Self::Type {
         &self.pos
     }
@@ -795,6 +800,7 @@ impl<R, Sp> Pos for Point<R, Sp> {
     type Type = Self;
 
     /// Returns `self` itself.
+    #[inline]
     fn pos(&self) -> &Self {
         self
     }
@@ -804,6 +810,7 @@ impl<P, A> Attrib<A> for Vertex<P, A> {
     type Type = A;
 
     /// Returns the vertex attribute of the given type.
+    #[inline]
     fn attrib(&self) -> &Self::Type {
         &self.attrib
     }
@@ -813,6 +820,7 @@ impl<T> Parametric<T> for Ray<T>
 where
     T: Affine<Diff: Linear<Scalar = f32>>,
 {
+    #[inline]
     fn eval(&self, t: f32) -> T {
         self.0.add(&self.1.mul(t))
     }
@@ -869,6 +877,7 @@ impl<T: Lerp> Parametric<T> for Polyline<T> {
 }
 
 impl<P: Lerp, A: Lerp> Lerp for Vertex<P, A> {
+    #[inline]
     fn lerp(&self, other: &Self, t: f32) -> Self {
         vertex(
             self.pos.lerp(&other.pos, t),
@@ -963,17 +972,20 @@ impl<B> From<Ray<Point2<B>>> for Line2<B> {
 
 impl<B> From<Edge<Point2<B>>> for Line2<B> {
     /// Returns the line coincident with the given edge.
+    #[inline]
     fn from(e: Edge<Point2<B>>) -> Self {
         Ray(e.0, e.1 - e.0).into()
     }
 }
 
 impl<T> From<[T; 2]> for Edge<T> {
+    #[inline]
     fn from([a, b]: [T; 2]) -> Self {
         Edge(a, b)
     }
 }
 impl<'a, T> From<&'a [T; 2]> for Edge<&'a T> {
+    #[inline]
     fn from([a, b]: &'a [T; 2]) -> Self {
         Edge(a, b)
     }
