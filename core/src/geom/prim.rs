@@ -474,9 +474,9 @@ impl<B> Plane3<B> {
     #[inline]
     pub fn normal(&self) -> Normal3 {
         let [a, b, c, _] = self.0.0;
-        let n = <Vec3>::from([a, b, c]);
+        let n = Normal3::from([a, b, c]);
         debug_assert!(n.len_sqr().approx_eq(&1.0));
-        n.to()
+        n
     }
 
     /// Returns the signed distance of `self` from the origin.
