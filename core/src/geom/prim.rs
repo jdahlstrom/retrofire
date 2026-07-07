@@ -6,8 +6,8 @@ use alloc::vec::Vec;
 use core::fmt::{self, Debug, Formatter};
 
 use crate::math::{
-    Affine, ApproxEq, Lerp, Linear, Mat4, Parametric, Point, Point2, Point3,
-    Vec2, Vec3, Vector,
+    Affine, ApproxEq, Lerp, Linear, Mat3, Mat4, Parametric, Point, Point2,
+    Point3, Vec2, Vec3, Vector, pt2,
     space::{Hom, Real},
     vec::dot,
     vec2, vec3,
@@ -199,6 +199,38 @@ impl<P> Tri<P> {
         let [a, b, c] = self.0.each_ref().map(|p| p.pos().clone().into());
         let [t, u] = tri(a, b, c).tangents();
         t.cross(&u).len() / 2.0
+    }
+
+    /// Returns whether a point is within the bounds of `self`.
+    ///
+    /// # Examples
+    /// ```
+    /// use retrofire_core::{geom::{Tri}, math::{Point2, pt2}};
+    ///
+    /// let tri: Tri<Point2> = Tri([pt2(-2.0, 0.0), pt2(3.0, 0.0), pt2(0.0, 4.0)]);
+    ///
+    /// assert!(tri.contains(pt2(0.0, 2.0)));
+    ///
+    /// assert!(!tri.contains(pt2(0.0, -1.0)));
+    /// assert!(!tri.contains(pt2(2.0, 3.0)));
+    /// ```
+    pub fn contains<B>(&self, pt: P::Type) -> bool
+    where
+        P: Pos<Type: Into<Point3<B>> + Clone>,
+    {
+        let [x, y, _] = pt.into().0;
+        let pt = pt2(x, y);
+
+        let [a, b, c] = self.0.each_ref().map(|p| p.pos().clone().into());
+
+        // TODO xy may be a bad choice
+        let [u, v] = [(b - a).xy(), (c - a).xy()];
+
+        let to_barycentric: Mat3<B, ()> =
+            Mat3::from_affine(u, v, pt2(a.x(), a.y())).inverse();
+        let [x, y] = to_barycentric.apply(&pt).0;
+
+        x >= 0.0 && y >= 0.0 && x + y <= 1.0
     }
 }
 
@@ -897,7 +929,7 @@ impl<B> From<Ray<Point2<B>>> for Line2<B> {
 impl<B> From<Edge<Point2<B>>> for Line2<B> {
     /// Returns the line coincident with the given edge.
     fn from(e: Edge<Point2<B>>) -> Self {
-        Ray(e.0, e.1 - e.0).into()
+        Self::from(Ray(e.0, e.1 - e.0))
     }
 }
 
