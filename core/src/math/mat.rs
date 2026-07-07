@@ -652,8 +652,8 @@ impl<Src, Dst> Mat4<Src, Dst> {
     /// ```
     /// use retrofire_core::math::*;
     ///
-    /// let trans = vec3(1.0, 2.0, 3.0);
-    /// let m = scale(5.0).then(&translate(trans));
+    /// let m = scale(5.0).then(&translate((1.0, 2.0, 3.0)));
+    ///
     /// assert_eq!(m.origin(), pt3(1.0, 2.0, 3.0));
     pub const fn origin(&self) -> Point3<Dst> {
         self.translation().to_pt()
@@ -1102,7 +1102,7 @@ pub fn scale(factor: impl Into<Vec3>) -> Mat4 {
 /// ```
 /// use retrofire_core::math::{Apply, pt3, vec3, translate};
 ///
-/// let m = translate(vec3(1.0, -2.0, 3.0));
+/// let m = translate((1.0, -2.0, 3.0));
 ///
 /// // Points are moved
 /// assert_eq!(m.apply(&pt3(1.0, 1.0, 1.0)), pt3(2.0, -1.0, 4.0));
@@ -1427,8 +1427,11 @@ mod tests {
 
         #[test]
         fn row_col_vecs() {
-            assert_eq!(MAT.row_vec(2), vec3::<_, B1>(20.0, 21.0, 22.0));
-            assert_eq!(MAT.col_vec(2), vec3::<_, B2>(2.0, 12.0, 22.0));
+            assert_eq!(
+                MAT.row_vec(2),
+                vec3::<_, Real<3, B1>>(20.0, 21.0, 22.0)
+            );
+            assert_eq!(MAT.col_vec(2), vec3::<_, Real<3, B2>>(2.0, 12.0, 22.0));
         }
 
         #[test]

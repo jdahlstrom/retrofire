@@ -1,6 +1,5 @@
 //! Textures and texture samplers.
 
-use crate::geom::Normal3;
 use crate::math::{Point2u, Vec2, Vec3, Vector, pt2, splat, vec2};
 use crate::util::{AsSlice2, Buf2, Dims, Slice2};
 
@@ -77,7 +76,7 @@ pub const fn uv(u: f32, v: f32) -> TexCoord {
 ///   1 +------+------+------+
 ///
 /// ```
-pub fn cube_map(pos: Vec3, dir: Normal3) -> TexCoord {
+pub fn cube_map(pos: Vec3, dir: Vec3) -> TexCoord {
     // -1.0..1.0 -> 0.0..1.0
     let [x, y, z] = (0.5 * pos + splat(0.5))
         .clamp(&splat(0.0), &splat(1.0))

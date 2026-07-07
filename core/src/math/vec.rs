@@ -70,7 +70,7 @@ pub const fn vec2<Sc, B>(x: Sc, y: Sc) -> Vector<[Sc; 2], Real<2, B>> {
 
 /// Returns a real 3-vector with components `x`, `y`, and `z`.
 #[inline]
-pub const fn vec3<Sc, B>(x: Sc, y: Sc, z: Sc) -> Vector<[Sc; 3], Real<3, B>> {
+pub const fn vec3<Sc, Sp>(x: Sc, y: Sc, z: Sc) -> Vector<[Sc; 3], Sp> {
     Vector([x, y, z], Pd)
 }
 
