@@ -179,7 +179,7 @@ impl<A> Builder<A> {
     /// added to the builder are transformed.
     #[must_use]
     pub fn transform(self, tf: &Mat4<Model, Model>) -> Self {
-        self.warp(|v| vertex(tf.apply(&v.pos), v.attrib))
+        self.warp(|v| v.transform_pos(tf))
     }
 
     /// Applies an arbitrary mapping to each vertex.
