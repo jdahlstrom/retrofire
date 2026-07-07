@@ -368,13 +368,13 @@ impl<B, P: Pos<Type = Point3<B>>> Tri<P> {
 }
 
 impl<B> Plane3<B> {
-    /// The x = 0 coordinate plane.
+    /// The x = 0 coordinate plane with normal (1, 0, 0).
     pub const YZ: Self = Self::new(1.0, 0.0, 0.0, 0.0);
 
-    /// The y = 0 coordinate plane.
+    /// The y = 0 coordinate plane with normal (0, 1, 0).
     pub const XZ: Self = Self::new(0.0, 1.0, 0.0, 0.0);
 
-    /// The z = 0 coordinate plane.
+    /// The z = 0 coordinate plane with normal (0, 0, 1).
     pub const XY: Self = Self::new(0.0, 0.0, 1.0, 0.0);
 
     /// Creates a new plane with the given coefficients.
@@ -533,18 +533,20 @@ impl<B> Plane3<B> {
 
     /// Returns the signed distance of a point to `self`.
     ///
+    /// The absolute value of the return value is the perpendicular distance
+    /// of `pt` to `self`. The sign is positive if `pt` is outside the
+    /// half-space defined by `self` (that is, at the side of the plane the
+    /// normal vector points to) and negative if inside the half-space.
+    ///
     /// # Examples
     /// ```
     /// use retrofire_core::geom::Plane3;
     /// use retrofire_core::math::{Point3, pt3, Vec3};
     ///
-    /// let pt: Point3 = pt3(1.0, 2.0, -3.0);
+    /// let xy_plane = <Plane3>::XY;
     ///
-    /// assert_eq!(<Plane3>::XZ.signed_dist(pt), 2.0);
-    /// assert_eq!(<Plane3>::XY.signed_dist(pt), -3.0);
-    ///
-    /// let p = <Plane3>::new(-1.0, 0.0, 0.0, 2.0);
-    /// assert_eq!(p.signed_dist(pt), -3.0);
+    /// assert_eq!(xy_plane.signed_dist(pt3(1.0, 2.0, 3.0)), 3.0);
+    /// assert_eq!(xy_plane.signed_dist(pt3(1.0, 2.0, -3.0)), -3.0);
     /// ```
     #[inline]
     pub fn signed_dist(&self, pt: Point3<B>) -> f32 {
@@ -608,6 +610,7 @@ impl<B> Plane3<B> {
         Mat4::from_affine(right, up, fwd, origin.to_pt())
     }
 
+    /// Returns the coefficients of the plane equation of `self`.
     #[inline]
     pub fn coeffs(&self) -> [f32; 4] {
         self.0.0
