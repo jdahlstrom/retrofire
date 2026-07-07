@@ -501,13 +501,13 @@ impl<B> Plane3<B> {
     /// In other words, returns *P'*, the point on the plane closest to *P*.
     ///
     /// ```text
-    ///          ^        P
-    ///         /         ·
-    ///        /          ·
-    ///       / · · · · · P'
-    ///      /           ·
-    ///     /           ·
-    ///    O------------------>
+    ///          ^      P
+    ///         /       ·
+    ///        /        ·
+    ///       / · · · · P'
+    ///      /         ·
+    ///     /         ·
+    ///    O---------------->
     /// ```
     ///
     /// # Examples
@@ -517,10 +517,10 @@ impl<B> Plane3<B> {
     ///
     /// let pt: Point3 = pt3(1.0, 2.0, -3.0);
     ///
-    /// assert_eq!(<Plane3>::XZ.project(pt), pt3(1.0, 0.0, -3.0));
-    /// assert_eq!(<Plane3>::XY.project(pt), pt3(1.0, 2.0, 0.0));
+    /// assert_eq!(Plane3::XZ.project(pt), pt3(1.0, 0.0, -3.0));
+    /// assert_eq!(Plane3::XY.project(pt), pt3(1.0, 2.0, 0.0));
     ///
-    /// assert_eq!(<Plane3>::new(0.0, 0.0, 1.0, 2.0).project(pt), pt3(1.0, 2.0, 2.0));
+    /// assert_eq!(Plane3::new(0.0, 0.0, 1.0, 2.0).project(pt), pt3(1.0, 2.0, 2.0));
     /// ```
     #[must_use]
     pub fn project(&self, pt: Point3<B>) -> Point3<B> {
@@ -529,6 +529,37 @@ impl<B> Plane3<B> {
         let t = -self.signed_dist(pt);
         let dir = self.normal();
         pt + t * dir.to()
+    }
+
+    /// Returns the reflection of a point across `self`.
+    ///
+    /// In other words, returns point *P'* perpendicularly opposite to *P* on
+    /// the other side of the plane.
+    ///
+    /// ```text
+    ///                O------------->
+    ///              /   P     ·
+    ///            /     ·   ·
+    ///          /       · ·
+    ///        / · · · · x
+    ///      /           ·
+    ///     v            ·
+    ///                  P'
+    /// ```
+    ///
+    /// # Examples
+    /// ```
+    /// use retrofire_core::geom::Plane3;
+    /// use retrofire_core::math::{Point3, pt3};
+    ///
+    /// let pt: Point3 = pt3(1.0, 2.0, -3.0);
+    ///
+    /// assert_eq!(Plane3::XZ.reflect(pt), pt3(1.0, -2.0, -3.0));
+    /// assert_eq!(Plane3::XY.reflect(pt), pt3(1.0, 2.0, 3.0));
+    /// ```
+    #[must_use]
+    pub fn reflect(&self, pt: Point3<B>) -> Point3<B> {
+        pt + 2.0 * (self.project(pt) - pt)
     }
 
     /// Returns the signed distance of a point to `self`.
