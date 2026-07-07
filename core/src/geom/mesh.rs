@@ -179,7 +179,7 @@ impl<A> Builder<A> {
     /// added to the builder are transformed.
     #[must_use]
     pub fn transform(self, tf: &Mat4<Model, Model>) -> Self {
-        self.warp(|v| vertex(tf.apply(&v.pos), v.attrib))
+        self.warp(|v| v.transform_pos(tf))
     }
 
     /// Applies an arbitrary mapping to each vertex.
@@ -280,7 +280,7 @@ mod tests {
 
     use crate::{
         geom::vertex,
-        math::{SQRT_3, pt3, splat, vec3},
+        math::{SQRT_3, Vec3, pt3, splat, vec3},
     };
 
     use super::*;
@@ -325,7 +325,7 @@ mod tests {
         ]);
         let b = b.with_vertex_normals();
 
-        let expected = [
+        let expected: [Vec3; _] = [
             splat(-1.0 / SQRT_3),
             vec3(0.0, -FRAC_1_SQRT_2, -FRAC_1_SQRT_2),
             vec3(-FRAC_1_SQRT_2, 0.0, -FRAC_1_SQRT_2),
@@ -333,7 +333,7 @@ mod tests {
         ];
 
         for (a, e) in zip(b.mesh.verts, expected) {
-            crate::assert_approx_eq!(a.attrib, e);
+            crate::assert_approx_eq!(a.attrib, e.to());
         }
     }
 }

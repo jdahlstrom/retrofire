@@ -6,13 +6,13 @@ use alloc::vec::Vec;
 use core::fmt::{self, Debug, Formatter};
 
 use crate::math::{
-    Affine, ApproxEq, Lerp, Linear, Mat4, Parametric, Point, Point2, Point3,
-    Vec2, Vec3, Vector,
+    Affine, Apply, ApproxEq, Color, Lerp, Linear, Mat4, Parametric, Point,
+    Point2, Point3, Vec2, Vec3, Vector,
     space::{Hom, Real},
     vec::dot,
-    vec2, vec3,
+    vec2,
 };
-use crate::render::Model;
+use crate::render::{Model, TexCoord};
 
 /// A trait for types that have a position. Primarily useful for APIs such as
 /// `Tri` that can handle either points or vertices.
@@ -22,6 +22,13 @@ pub trait Pos {
 
     /// Returns the position of `self`.
     fn pos(&self) -> &Self::Type;
+}
+
+pub trait Attrib<T> {
+    type Type;
+
+    /// Returns the vertex attribute of this type.
+    fn attrib(&self) -> &Self::Type;
 }
 
 /// Vertex with a position and arbitrary other attributes.
@@ -82,11 +89,15 @@ pub struct Sphere<B = ()>(pub Point3<B>, pub f32);
 #[derive(Copy, Clone, PartialEq)]
 pub struct Line2<B = ()>(Vector<[f32; 3], Hom<2, B>>);
 
+/// Tag type for normal space.
+#[derive(Copy, Clone, Debug, Default, Eq, PartialEq)]
+pub struct Norm;
+
 /// A surface normal in 3D.
-// TODO Use distinct type rather than alias
-pub type Normal3 = Vec3;
+pub type Normal3 = Vector<[f32; 3], Norm>;
+
 /// A surface normal in 2D.
-pub type Normal2 = Vec2;
+pub type Normal2 = Vector<[f32; 2], Norm>;
 
 /// Polygon winding order.
 ///
@@ -125,6 +136,54 @@ pub const fn tri<P>(a: P, b: P, c: P) -> Tri<P> {
 //
 // Inherent impls
 //
+
+impl<P, A> Vertex<P, A>
+where
+    Self: Attrib<Normal3, Type = Normal3>,
+{
+    /// Returns the vertex normal attribute of `self`.
+    #[inline]
+    pub fn normal(&self) -> &Normal3 {
+        self.attrib()
+    }
+}
+
+impl<P, A> Vertex<P, A>
+where
+    Self: Attrib<Normal2, Type = Normal2>,
+{
+    /// Returns the vertex normal attribute of `self`.
+    #[inline]
+    pub fn normal(&self) -> &Normal2 {
+        self.attrib()
+    }
+}
+
+impl<P, A> Vertex<P, A> {
+    #[inline]
+    #[must_use]
+    pub fn transform_pos<T: Apply<P>>(self, tf: &T) -> Vertex<T::Output, A> {
+        vertex(tf.apply(&self.pos), self.attrib)
+    }
+
+    /// Returns the color attribute of `self`.
+    #[inline]
+    pub fn color<R, Sp>(&self) -> &Color<R, Sp>
+    where
+        Self: Attrib<Color<R, Sp>, Type = Color<R, Sp>>,
+    {
+        self.attrib()
+    }
+
+    /// Returns the texture coordinate of `self`
+    #[inline]
+    pub fn tex_coord(&self) -> &TexCoord
+    where
+        Self: Attrib<TexCoord, Type = TexCoord>,
+    {
+        self.attrib()
+    }
+}
 
 impl<V> Tri<V> {
     /// Given a triangle ABC, returns the edges [AB, BC, CA].
@@ -208,12 +267,12 @@ impl<B, P: Pos<Type = Point2<B>>> Tri<P> {
     /// # Examples
     /// ```
     /// use retrofire_core::geom::{Tri, vertex, Winding};
-    /// use retrofire_core::math::pt2;
+    /// use retrofire_core::math::{pt2, Point2};
     ///
-    /// let mut tri = Tri([
-    ///     vertex(pt2::<_, ()>(0.0, 0.0), ()),
-    ///     vertex(pt2(0.0, 3.0), ()),
-    ///     vertex(pt2(4.0, 0.0), ()),
+    /// let mut tri = Tri::<Point2>([
+    ///     pt2(0.0, 0.0),
+    ///     pt2(0.0, 3.0),
+    ///     pt2(4.0, 0.0),
     /// ]);
     /// assert_eq!(tri.winding(), Winding::Cw);
     ///
@@ -236,12 +295,12 @@ impl<B, P: Pos<Type = Point2<B>>> Tri<P> {
     /// # Examples
     /// ```
     /// use retrofire_core::geom::{Tri, vertex};
-    /// use retrofire_core::math::pt2;
+    /// use retrofire_core::math::{pt2, Point2};
     ///
-    /// let tri = Tri([
-    ///     vertex(pt2::<_, ()>(0.0, 0.0), ()),
-    ///     vertex(pt2(0.0, 3.0), ()),
-    ///     vertex(pt2(4.0, 0.0), ()),
+    /// let tri = Tri::<Point2>([
+    ///     pt2(0.0, 0.0),
+    ///     pt2(0.0, 3.0),
+    ///     pt2(4.0, 0.0),
     /// ]);
     /// assert_eq!(tri.signed_area(), -6.0);
     /// ```
@@ -263,13 +322,13 @@ impl<B, P: Pos<Type = Point3<B>>> Tri<P> {
     ///
     /// use retrofire_core::assert_approx_eq;
     /// use retrofire_core::geom::{Tri, vertex};
-    /// use retrofire_core::math::{pt3, vec3};
+    /// use retrofire_core::math::{pt3, vec3, Point3};
     ///
     /// // Triangle lying in a 45° angle
-    /// let tri = Tri([
-    ///     vertex(pt3::<_, ()>(0.0, 0.0, 0.0), ()),
-    ///     vertex(pt3(0.0, 3.0, 3.0), ()),
-    ///     vertex(pt3(4.0, 0.0,0.0), ()),
+    /// let tri = Tri::<Point3>([
+    ///     pt3(0.0, 0.0, 0.0),
+    ///     pt3(0.0, 3.0, 3.0),
+    ///     pt3(4.0, 0.0,0.0),
     /// ]);
     /// assert_approx_eq!(tri.normal(), vec3(0.0, FRAC_1_SQRT_2, -FRAC_1_SQRT_2));
     /// ```
@@ -284,14 +343,14 @@ impl<B, P: Pos<Type = Point3<B>>> Tri<P> {
     /// # Examples
     /// ```
     /// use retrofire_core::geom::{Tri, Plane3, vertex};
-    /// use retrofire_core::math::{pt3, Vec3};
+    /// use retrofire_core::math::{Point3, Vec3, pt3};
     ///
-    /// let tri = Tri([
-    ///     vertex(pt3::<f32, ()>(0.0, 0.0, 2.0), ()),
-    ///     vertex(pt3(1.0, 0.0, 2.0), ()),
-    ///     vertex(pt3(0.0, 1.0, 2.0), ())
+    /// let tri = Tri::<Point3>([
+    ///     pt3(0.0, 0.0, 2.0),
+    ///     pt3(1.0, 0.0, 2.0),
+    ///     pt3(0.0, 1.0, 2.0)
     /// ]);
-    /// assert_eq!(tri.plane().normal(), Vec3::Z);
+    /// assert_eq!(tri.plane().normal(), <Vec3>::Z.to());
     /// assert_eq!(tri.plane().offset(), 2.0);
     /// ```
     pub fn plane(&self) -> Plane3<B> {
@@ -342,7 +401,7 @@ impl<B> Plane3<B> {
     /// use retrofire_core::{geom::Plane3, math::Vec3};
     ///
     /// let p = <Plane3>::new(1.0, 0.0, 0.0, -2.0);
-    /// assert_eq!(p.normal(), Vec3::X);
+    /// assert_eq!(p.normal(), <Vec3>::X.to());
     /// assert_eq!(p.offset(), -2.0);
     ///
     /// ```
@@ -390,8 +449,9 @@ impl<B> Plane3<B> {
     /// ```
     /// use retrofire_core::{geom::Plane3, math::{Vec3, pt3, vec3}};
     ///
-    /// let p = <Plane3>::from_point_and_normal(pt3(1.0, 2.0, 3.0), Vec3::Z);
-    /// assert_eq!(p.normal(), Vec3::Z);
+    /// let n = vec3(0.0, 0.0, 1.0);
+    /// let p = <Plane3>::from_point_and_normal(pt3(1.0, 2.0, 3.0), n);
+    /// assert_eq!(p.normal(), n);
     /// assert_eq!(p.offset(), 3.0);
     ///
     /// ```
@@ -409,14 +469,14 @@ impl<B> Plane3<B> {
     /// ```
     /// use retrofire_core::{geom::Plane3, math::Vec3};
     ///
-    /// assert_eq!(<Plane3>::XY.normal(), Vec3::Z);
-    /// assert_eq!(<Plane3>::YZ.normal(), Vec3::X);
+    /// assert_eq!(<Plane3>::XY.normal(), <Vec3>::Z.to());
+    /// assert_eq!(<Plane3>::YZ.normal(), <Vec3>::X.to());
     #[inline]
     pub fn normal(&self) -> Normal3 {
         let [a, b, c, _] = self.0.0;
-        let n = vec3(a, b, c);
+        let n = <Vec3>::from([a, b, c]);
         debug_assert!(n.len_sqr().approx_eq(&1.0));
-        n
+        n.to()
     }
 
     /// Returns the signed distance of `self` from the origin.
@@ -730,6 +790,7 @@ impl<B> Line2<B> {
 impl<P, A> Pos for Vertex<P, A> {
     type Type = P;
 
+    #[inline]
     fn pos(&self) -> &Self::Type {
         &self.pos
     }
@@ -739,8 +800,19 @@ impl<R, Sp> Pos for Point<R, Sp> {
     type Type = Self;
 
     /// Returns `self` itself.
+    #[inline]
     fn pos(&self) -> &Self {
         self
+    }
+}
+
+impl<P, A> Attrib<A> for Vertex<P, A> {
+    type Type = A;
+
+    /// Returns the vertex attribute of the given type.
+    #[inline]
+    fn attrib(&self) -> &Self::Type {
+        &self.attrib
     }
 }
 
@@ -748,6 +820,7 @@ impl<T> Parametric<T> for Ray<T>
 where
     T: Affine<Diff: Linear<Scalar = f32>>,
 {
+    #[inline]
     fn eval(&self, t: f32) -> T {
         self.0.add(&self.1.mul(t))
     }
@@ -804,6 +877,7 @@ impl<T: Lerp> Parametric<T> for Polyline<T> {
 }
 
 impl<P: Lerp, A: Lerp> Lerp for Vertex<P, A> {
+    #[inline]
     fn lerp(&self, other: &Self, t: f32) -> Self {
         vertex(
             self.pos.lerp(&other.pos, t),
@@ -898,17 +972,20 @@ impl<B> From<Ray<Point2<B>>> for Line2<B> {
 
 impl<B> From<Edge<Point2<B>>> for Line2<B> {
     /// Returns the line coincident with the given edge.
+    #[inline]
     fn from(e: Edge<Point2<B>>) -> Self {
         Ray(e.0, e.1 - e.0).into()
     }
 }
 
 impl<T> From<[T; 2]> for Edge<T> {
+    #[inline]
     fn from([a, b]: [T; 2]) -> Self {
         Edge(a, b)
     }
 }
 impl<'a, T> From<&'a [T; 2]> for Edge<&'a T> {
+    #[inline]
     fn from([a, b]: &'a [T; 2]) -> Self {
         Edge(a, b)
     }
@@ -919,8 +996,7 @@ mod tests {
     use alloc::{format, vec};
     use core::f32::consts::*;
 
-    use crate::math::*;
-    use crate::{assert_approx_eq, mat};
+    use crate::{assert_approx_eq, mat, math::*};
 
     use super::*;
 
@@ -1018,7 +1094,8 @@ mod tests {
     }
     #[test]
     fn plane_is_point_inside_xz() {
-        let p = <Plane3>::from_point_and_normal(pt3(1.0, 2.0, 3.0), Vec3::Y);
+        let p =
+            <Plane3>::from_point_and_normal(pt3(1.0, 2.0, 3.0), <Vec3>::Y.to());
 
         // Inside
         assert!(p.is_inside(pt3(0.0, 0.0, 0.0)));
@@ -1031,7 +1108,10 @@ mod tests {
     }
     #[test]
     fn plane_is_point_inside_neg_xz() {
-        let p = <Plane3>::from_point_and_normal(pt3(1.0, 2.0, 3.0), -Vec3::Y);
+        let p = <Plane3>::from_point_and_normal(
+            pt3(1.0, 2.0, 3.0),
+            -<Vec3>::Y.to(),
+        );
 
         // Outside
         assert!(!p.is_inside(pt3(0.0, 0.0, 0.0)));
@@ -1059,7 +1139,8 @@ mod tests {
 
     #[test]
     fn plane_project_point() {
-        let p = <Plane3>::from_point_and_normal(pt3(0.0, 2.0, 0.0), Vec3::Y);
+        let p =
+            <Plane3>::from_point_and_normal(pt3(0.0, 2.0, 0.0), <Vec3>::Y.to());
 
         // Outside
         assert_approx_eq!(p.project(pt3(5.0, 10.0, -3.0)), pt3(5.0, 2.0, -3.0));

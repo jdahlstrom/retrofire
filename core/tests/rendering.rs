@@ -1,5 +1,6 @@
 #![allow(unused)]
 
+use retrofire_core::geom::Attrib;
 use retrofire_core::{
     prelude::*,
     render::{Model, render, shader, tex::SamplerClamp},
@@ -23,10 +24,8 @@ fn textured_quad() {
     }));
 
     let shader = shader::new(
-        |v: Vertex3<_>, mvp: &ProjMat3<Model>| {
-            vertex(mvp.apply(&v.pos), v.attrib)
-        },
-        |frag: Frag<_>, _| SamplerClamp.sample(&checker, frag.var),
+        |v: Vertex3<_>, mvp: &ProjMat3<Model>| v.transform_pos(mvp),
+        |frag: Frag<_>, _: &_| SamplerClamp.sample(&checker, frag.var),
     );
 
     let dims = Dims(256, 256);

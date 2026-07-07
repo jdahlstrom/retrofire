@@ -26,9 +26,7 @@ fn triangle(b: Bencher, n: u32) {
     ];
 
     let shader = shader::new(
-        |v: Vertex3<Color3f>, mvp: &ProjMat3<Model>| {
-            vertex(mvp.apply(&v.pos), v.attrib)
-        },
+        |v: Vertex3<Color3f>, mvp: &ProjMat3<Model>| v.transform_pos(mvp),
         |frag: Frag<Color3f<_>>, _: &_| frag.var.to_color4(),
     );
 
@@ -71,7 +69,7 @@ fn sphere(b: Bencher, res: u32) {
 
     let shader = shader::new(
         |v: Vertex3<Normal3>, mvp: &ProjMat3<Model>| {
-            vertex(mvp.apply(&v.pos), dir_to_rgb(v.attrib))
+            vertex(mvp.apply(&v.pos), dir_to_rgb(*v.normal()))
         },
         |frag: Frag<Color4f>, _: &_| frag.var.to_color4(),
     );
