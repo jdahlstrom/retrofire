@@ -13,6 +13,7 @@
 
 use core::{
     fmt::{Debug, Formatter},
+    iter::zip,
     mem::swap,
     ops::Range,
 };
@@ -142,10 +143,12 @@ where
         // Adjust y0 to match the rounded x0
         let y0 = v0.pos.y() + dy_dx * (x0 - v0.pos.x());
 
+        let vs =
+            (v0.pos, v0.attrib).vary_to((v1.pos, v1.attrib), dx.abs() as u32);
+
         let (xs, mut y) = (x0 as usize..x1 as usize, y0);
-        for x in xs {
-            let vs = (v0.pos, v0.attrib.clone());
-            let vs = vs.clone().vary_to(vs, 1); // TODO a bit silly
+        for (x, v) in zip(xs, vs) {
+            let vs = v.clone().vary_to(v, 1); // TODO a bit silly
             scan_fn(Scanline {
                 y: y as usize,
                 xs: x..x + 1,
@@ -162,10 +165,12 @@ where
         // Adjust x0 to match the rounded y0
         let x0 = v0.pos.x() + dx_dy * (y0 - v0.pos.y());
 
+        let vs = (v0.pos, v0.attrib).vary_to((v1.pos, v1.attrib), dy as u32);
+
         let mut x = x0;
-        for y in y0 as usize..y1 as usize {
-            let vs = (v0.pos, v0.attrib.clone());
-            let vs = vs.clone().vary_to(vs.clone(), 1);
+        let ys = y0 as usize..y1 as usize;
+        for (y, v) in zip(ys, vs) {
+            let vs = v.clone().vary_to(v, 1); // silly...
             scan_fn(Scanline {
                 y,
                 xs: x as usize..x as usize + 1,
