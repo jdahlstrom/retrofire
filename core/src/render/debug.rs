@@ -3,7 +3,7 @@
 
 use alloc::vec::Vec;
 
-use crate::geom::{Edge, Mesh, Pos, Tri, Vertex, Vertex3, vertex};
+use crate::geom::{Edge, Mesh, Normal3, Pos, Tri, Vertex, Vertex3, vertex};
 use crate::math::{
     Color, Color4, Color4f, Mat4, Point3, Vec3, color::gray, mat::ProjMat3,
     pt3, vec::ProjVec3,
@@ -16,27 +16,15 @@ use super::{Context, Frag, FragmentShader, VertexShader, scene::BBox};
 #[derive(Default)]
 pub struct Shader;
 
-impl<'a, B> VertexShader<Vertex3<Color4f, B>, &'a ProjMat3<B>> for Shader {
-    type Output = Vertex<ProjVec3, Color4f>;
-
-    fn shade_vertex(
-        &self,
-        v: Vertex3<Color4f, B>,
-        m: &'a ProjMat3<B>,
-    ) -> Self::Output {
-        vertex(m.apply(&v.pos), v.attrib)
-    }
-}
-
-impl<'a, B> FragmentShader<Color4f, &'a ProjMat3<B>> for Shader {
-    fn shade_fragment(
-        &self,
-        f: Frag<Color4f>,
-        _: &'a ProjMat3<B>,
-    ) -> Option<Color4> {
-        Some(f.var.to_color4())
-    }
-}
+/// A type used to draw debug visualizations of meshes.
+///
+/// Various mesh properties can be visualized:
+/// * Edges ("wireframe" rendering)
+/// * Face normals
+/// * Vertex normals (if any)
+/// * Bounding box
+/// * Model-space origin and coordinate axes.
+pub struct DbgMesh<'a, A, B>(&'a Mesh<A, B>, DbgBatch<B>);
 
 pub type DbgBatch<B> = super::Batch<
     Vec<Edge<usize>>,
@@ -76,7 +64,7 @@ pub fn ray<B>(o: Point3<B>, dir: Vec3<B>) -> DbgBatch<B> {
     let b = b.normalize_or_zero();
     let c = dir.cross(&b).normalize_or_zero();
 
-    let (head_w, head_h) = (0.04, 0.1);
+    let (head_w, head_h) = (0.02, 0.04);
     let a = o + dir - head_h * dir.normalize_or_zero();
     let b = head_w * b;
     let c = head_w * c;
@@ -92,11 +80,16 @@ pub fn ray<B>(o: Point3<B>, dir: Vec3<B>) -> DbgBatch<B> {
     DbgBatch::new(edges.to_vec(), verts.to_vec())
 }
 
+/// Draws a unit-length ray denoting the normal vector of a vertex.
+pub fn vertex_normal<B>(v: &Vertex3<Normal3, B>, scale: f32) -> DbgBatch<B> {
+    ray(v.pos, scale * v.attrib.to())
+}
+
 /// Draws a unit-length ray denoting the normal vector of a triangle.
 ///
 /// The ray originates from the triangle's centroid.
-pub fn face_normal<A, B>(tri: &Tri<Vertex3<A, B>>) -> DbgBatch<B> {
-    ray(tri.centroid(), tri.normal().to())
+pub fn face_normal<A, B>(tri: &Tri<Vertex3<A, B>>, scale: f32) -> DbgBatch<B> {
+    ray(tri.centroid(), scale * tri.normal().to())
 }
 
 /// Draws a visualization of an affine basis.
@@ -143,7 +136,74 @@ pub fn bbox<B>(pts: &[impl Pos<Type = Point3<B>>]) -> DbgBatch<B> {
     cuboid(min, max)
 }
 
+/// Creates a `DbgMesh` object from a mesh.
+pub fn mesh<A: Clone, B>(mesh: &Mesh<A, B>) -> DbgMesh<A, B> {
+    DbgMesh(mesh, DbgBatch::default())
+}
+
+//
+// Inherent impls
+//
+
+impl<'a, A: Clone, B> DbgMesh<'a, A, B> {
+    /// Enables drawing the edges as a wireframe representation.
+    #[must_use]
+    pub fn edges(mut self) -> Self {
+        self.1.append(wireframe(self.0));
+        self
+    }
+
+    /// Enables drawing the normal vectors of the faces.
+    #[must_use]
+    pub fn face_normals(mut self, scale: f32) -> Self {
+        for tri in self.0.faces() {
+            // TODO inefficient
+            self.1
+                .append(face_normal(&tri.map(|v| v.clone()), scale));
+        }
+        self
+    }
+
+    /// Enables drawing the local-space bounding box of the mesh.
+    #[must_use]
+    pub fn bbox(mut self) -> Self {
+        self.1.append(bbox(&self.0.verts));
+        self
+    }
+
+    /// Enables drawing the coordinate axes of the local space.
+    #[must_use]
+    pub fn basis(mut self) -> Self {
+        self.1.append(basis(Mat4::<B>::identity()));
+        self
+    }
+
+    /// Returns a batch for rendering the enabled visualizations.
+    #[must_use]
+    pub fn batch(self) -> DbgBatch<B> {
+        self.1
+    }
+}
+
+impl<'a, B> DbgMesh<'a, Normal3, B> {
+    #[must_use]
+    pub fn normals(mut self, scale: f32) -> Self {
+        for v in &self.0.verts {
+            // TODO inefficient
+            self.1.append(vertex_normal(v, scale));
+        }
+        self
+    }
+}
+
 /// Draws a wireframe representation of a mesh.
+///
+/// This is a convenience shortcut for
+/// ```text
+/// # use retrofire_core::render::debug;
+/// debug::mesh(mesh).edges().patch()
+/// ```
+#[must_use]
 pub fn wireframe<A: Clone, B>(mesh: &Mesh<A, B>) -> DbgBatch<B> {
     let edges: Vec<_> = mesh
         .faces
@@ -215,5 +275,31 @@ impl<B> DbgBatch<B> {
             .primitives(prims)
             .vertices(verts)
             .shader(Shader)
+    }
+}
+
+//
+// Trait impls
+//
+
+impl<'a, B> VertexShader<Vertex3<Color4f, B>, &'a ProjMat3<B>> for Shader {
+    type Output = Vertex<ProjVec3, Color4f>;
+
+    fn shade_vertex(
+        &self,
+        v: Vertex3<Color4f, B>,
+        m: &'a ProjMat3<B>,
+    ) -> Self::Output {
+        vertex(m.apply(&v.pos), v.attrib)
+    }
+}
+
+impl<'a, B> FragmentShader<Color4f, &'a ProjMat3<B>> for Shader {
+    fn shade_fragment(
+        &self,
+        f: Frag<Color4f>,
+        _: &'a ProjMat3<B>,
+    ) -> Option<Color4> {
+        Some(f.var.to_color4())
     }
 }
