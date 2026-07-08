@@ -5,6 +5,7 @@ extern crate core;
 #[cfg(feature = "std")]
 extern crate std;
 
+pub mod bvh;
 pub mod io;
 pub mod isect;
 pub mod solids;
