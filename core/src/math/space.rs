@@ -96,6 +96,13 @@ pub trait Linear: Affine<Diff = Self> {
     /// ```
     #[must_use]
     fn mul(&self, scalar: Self::Scalar) -> Self;
+
+    fn div(&self, divisor: f32) -> Self
+    where
+        Self: Linear<Scalar = f32>,
+    {
+        self.mul(divisor.recip())
+    }
 }
 
 /// Tag type for real vector spaces and Euclidean spaces.

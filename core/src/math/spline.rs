@@ -236,7 +236,8 @@ fn do_approx<T: Affine<Diff: Linear<Scalar = f32>>>(
     let bp = c.eval(b);
 
     let real = c.eval(mid);
-    let approx = ap.add(&bp.sub(&ap).mul(0.5));
+    // TODO Lerp has additional T: Clone + Debug bounds
+    let approx = ap.add(&bp.sub(&ap).div(2.0));
 
     if max_dep == 0 || halt(&real.sub(&approx)) {
         accum.push(ap);
@@ -629,7 +630,7 @@ impl<T: AffineF32> CatmullRomSpline<T> {
         let v01 = p1.sub(p0).mul(b1);
         let v02 = p2.sub(p0).mul(b2);
         let v03 = p3.sub(p0).mul(b3);
-        p0.add(&v01.add(&v02).add(&v03).mul(1.0 / 2.0))
+        p0.add(&v01.add(&v02).add(&v03).div(2.0))
     }
 
     /// Returns the velocity vector of `self` at the given *t* value.
@@ -659,7 +660,7 @@ impl<T: AffineF32> CatmullRomSpline<T> {
         let v01 = p1.sub(p0).mul(b1);
         let v02 = p2.sub(p0).mul(b2);
         let v03 = p3.sub(p0).mul(b3);
-        v01.add(&v02).add(&v03).mul(1.0 / 2.0)
+        v01.add(&v02).add(&v03).div(2.0)
     }
 }
 
@@ -701,7 +702,7 @@ impl<T: AffineF32> BSpline<T> {
         let v01 = p1.sub(p0).mul(b1);
         let v02 = p2.sub(p0).mul(b2);
         let v03 = p3.sub(p0).mul(b3);
-        p0.add(&v01.add(&v02).add(&v03).mul(1.0 / 6.0))
+        p0.add(&v01.add(&v02).add(&v03).div(6.0))
     }
 
     /// Returns the velocity vector of `self` at the given *t* value.
@@ -731,7 +732,7 @@ impl<T: AffineF32> BSpline<T> {
         let v01 = p1.sub(p0).mul(b1);
         let v02 = p2.sub(p0).mul(b2);
         let v03 = p3.sub(p0).mul(b3);
-        v01.add(&v02).add(&v03).mul(1.0 / 6.0)
+        v01.add(&v02).add(&v03).div(6.0)
     }
 }
 

@@ -934,7 +934,7 @@ where
     fn div_assign(&mut self, rhs: f32) {
         use crate::math::ApproxEq;
         debug_assert!(!rhs.approx_eq(&0.0));
-        *self = Linear::mul(&*self, rhs.recip());
+        *self = Linear::div(&*self, rhs);
     }
 }
 
