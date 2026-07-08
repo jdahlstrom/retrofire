@@ -8,7 +8,7 @@ use re::prelude::*;
 use re::core::{
     geom::{Polyline, Ray},
     math::{ProjVec3, color::gray, spline::HermiteSpline},
-    render::{Model, ModelToWorld, cam::Fov, shader},
+    render::{Model, cam::Fov, debug, shader},
 };
 use re::front::{Frame, minifb::Window};
 use re::geom::{io::read_obj, solids::*};
@@ -93,19 +93,27 @@ fn main() {
     let translate = translate(-3.0 * Vec3::Z);
     let mut carousel = Carousel::default();
 
+    let mut debug = [true, false, false, false, false, false];
+
     win.run(|frame| {
         let Frame { t, dt, win, .. } = frame;
 
         for key in win.imp.get_keys_pressed(KeyRepeat::No) {
+            use Key::*;
             match key {
-                Key::Space => carousel.start(),
+                Space => carousel.start(),
 
-                Key::Comma | Key::Period => {
+                Comma | Period => {
                     let (num, denom) =
-                        if key == Key::Comma { (3, 4) } else { (4, 3) };
+                        if key == Comma { (3, 4) } else { (4, 3) };
                     lod = (lod * num / denom).clamp(3, 50);
                     objects = objects_n(lod);
                 }
+
+                digit @ (Key0 | Key1 | Key2 | Key3 | Key4 | Key5) => {
+                    debug[digit as usize] ^= true;
+                }
+
                 _ => (),
             }
         }
@@ -118,21 +126,47 @@ fn main() {
         let model_view_project: ProjMat3<Model> = spin
             .then(&translate)
             .then(&carouse)
-            .to::<ModelToWorld>()
+            .to()
             .then(&cam.world_to_project());
 
         let object = &objects[carousel.idx % objects.len()];
 
-        Batch {
-            prims: &object.faces,
-            verts: &object.verts,
-            uniform: (&model_view_project, &spin),
-            shader: shader,
-            viewport: cam.viewport,
-            target: frame.buf,
-            ctx: &*frame.ctx,
+        // TODO only needs creating on change
+        let mut dbg = debug::mesh(object);
+        if debug[1] {
+            dbg = dbg.edges();
         }
-        .render();
+        if debug[2] {
+            dbg = dbg.face_normals(0.2);
+        }
+        if debug[3] {
+            dbg = dbg.vertex_normals(0.2);
+        }
+        if debug[4] {
+            dbg = dbg.bbox();
+        }
+        if debug[5] {
+            dbg = dbg.basis();
+        }
+
+        dbg.batch()
+            .uniform(&model_view_project)
+            .viewport(cam.viewport)
+            .target(frame.buf)
+            .render();
+
+        if debug[0] {
+            Batch {
+                prims: &object.faces,
+                verts: &object.verts,
+                uniform: (&model_view_project, &spin),
+                shader: shader,
+                viewport: cam.viewport,
+                target: frame.buf,
+                ctx: &*frame.ctx,
+            }
+            .render();
+        }
 
         Continue(())
     });
