@@ -7,7 +7,7 @@ use core::fmt::{self, Debug, Formatter};
 
 use crate::math::{
     Affine, ApproxEq, Lerp, Linear, Mat4, Parametric, Point, Point2, Point3,
-    Vec2, Vec3, Vector, pt2,
+    Vec2, Vec3, Vector,
     space::{Hom, Real},
     vec::dot,
     vec2, vec3,
@@ -726,6 +726,13 @@ impl<B> Line2<B> {
 //
 
 impl<P, A> Pos for Vertex<P, A> {
+    type Type = P;
+
+    fn pos(&self) -> &Self::Type {
+        &self.pos
+    }
+}
+impl<P, A> Pos for &Vertex<P, A> {
     type Type = P;
 
     fn pos(&self) -> &Self::Type {
