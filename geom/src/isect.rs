@@ -1,10 +1,13 @@
-use core::fmt::{Debug, Formatter};
+use core::{
+    fmt::{Debug, Formatter},
+    iter::zip,
+};
 
+use retrofire_core::{assert_approx_eq, mat};
 use retrofire_core::{
-    geom::{Edge, Line2, Plane3, Pos, Ray, Ray2, Ray3, Tri},
-    mat,
+    geom::{Edge, Line2, Mesh, Plane3, Pos, Ray, Ray2, Ray3, Tri},
     math::{ApproxEq, Mat2, Mat3, Point2, Point3, vec2, vec3},
-    render::scene::BBox,
+    render::{Model, Obj, World, scene::BBox},
 };
 
 #[cfg(feature = "std")]
@@ -354,6 +357,46 @@ impl<B> Intersect<Sphere<B>> for Ray3<B> {
     }
 }
 
+pub type RayMeshIntersect3<B> = Option<(f32, Point3<B>, usize)>;
+
+impl<A: Clone, B> Intersect<Mesh<A, B>> for Ray3<B> {
+    type Result = RayMeshIntersect3<B>;
+
+    /// Returns the closest intersection of `self` and a mesh, or `None` if
+    /// they do not intersect.
+    fn intersect(&self, mesh: &Mesh<A, B>) -> Self::Result {
+        zip(mesh.faces(), 0..)
+            .filter_map(|(face, i)| {
+                let (t, pt) = self.intersect(&face)?;
+                Some((t, pt, i))
+            })
+            .min_by(|(t, ..), (u, ..)| t.total_cmp(u))
+    }
+}
+
+impl<A: Clone> Intersect<Obj<A>> for Ray3<World> {
+    type Result = RayMeshIntersect3<World>;
+
+    /// Returns the closest intersection of `self` and an `Obj`, or `None` if
+    /// they do not intersect.
+    fn intersect(&self, obj: &Obj<A>) -> Self::Result {
+        let inv_tf = obj.tf.inverse();
+
+        let ray: Ray3<Model> =
+            Ray(inv_tf.apply(&self.0), inv_tf.apply(&self.1));
+
+        ray.intersect(&obj.bbox)?;
+        let (_, model_pt, face) = ray.intersect(&obj.geom)?;
+
+        let world_pt = obj.tf.apply(&model_pt);
+        let t = (world_pt - self.0).len() / self.1.len();
+
+        assert_approx_eq!(self.0 + t * self.1, world_pt, eps = 1e-4);
+
+        Some((t, world_pt, face))
+    }
+}
+
 //
 // 2D intersection
 //
@@ -507,11 +550,9 @@ impl<B> Intersect<Edge<Point2<B>>> for Ray2<B> {
             return None;
         }
         let t1 = (edge.1 - pt).dot(&self.1);
-        if t0 <= t1 {
-            Some((t0 / self.1.len_sqr(), edge.0))
-        } else {
-            Some((t1 / self.1.len_sqr(), edge.1))
-        }
+
+        let (t, pt) = if t0 <= t1 { (t0, edge.0) } else { (t1, edge.1) };
+        Some((t / self.1.len_sqr(), pt))
     }
 }
 
@@ -776,5 +817,102 @@ mod tests {
             assert_eq!(ray.intersect(&SPHERE), None);
         }
     }
+
+    mod ray_mesh {
+        use retrofire_core::geom::Normal3;
+
+        use super::*;
+        use crate::solids::{Build, Cube};
+
+        #[test]
+        fn ray_hits_cube_from_outside() {
+            let cube: Mesh<Normal3> = Cube { side_len: 1.0 }.build();
+
+            let along_z = Ray(pt3(0.2, -0.1, -3.0), vec3(0.0, 0.0, 1.0));
+            assert_eq!(
+                along_z.intersect(&cube),
+                Some((2.5, pt3(0.2, -0.1, -0.5), 8))
+            );
+
+            let along_y = Ray(pt3(0.0, 10.0, 0.0), vec3(0.0, -2.0, 0.0));
+            assert_eq!(
+                along_y.intersect(&cube),
+                Some((4.75, pt3(0.0, 0.5, 0.0), 6))
+            );
+
+            let diagonal = Ray(pt3(4.0, -4.0, 4.0), vec3(-1.0, 1.0, -1.0));
+            assert_eq!(
+                diagonal.intersect(&cube),
+                Some((3.5, pt3(0.5, -0.5, 0.5), 2))
+            );
+        }
+        #[test]
+        fn ray_hits_cube_from_inside() {
+            let cube: Mesh<Normal3> = Cube { side_len: 1.0 }.build();
+
+            let from_origin = Ray(pt3(0.0, 0.0, 0.0), vec3(-0.5, 0.25, -1.0));
+            assert_eq!(
+                from_origin.intersect(&cube),
+                Some((0.5, pt3(-0.25, 0.125, -0.5), 9))
+            );
+
+            let along_z = Ray(pt3(0.2, 0.3, 0.25), vec3(0.0, 0.0, 2.0));
+            assert_eq!(
+                along_z.intersect(&cube),
+                Some((0.125, pt3(0.2, 0.3, 0.5), 10))
+            );
+        }
+        #[test]
+        fn ray_misses_cube() {
+            let cube: Mesh<Normal3> = Cube { side_len: 1.0 }.build();
+
+            let passes_cube = Ray(pt3(1.0, 0.0, -3.0), vec3(0.0, 0.0, 1.0));
+            assert_eq!(passes_cube.intersect(&cube), None);
+
+            let opposite_dir = Ray(pt3(0.0, 0.0, 1.0), vec3(0.0, 0.0, 1.0));
+            assert_eq!(opposite_dir.intersect(&cube), None);
+        }
+
+        #[test]
+        #[ignore = "TODO"]
+        #[cfg(feature = "std")]
+        fn torus() {
+            let torus: Mesh<Normal3> = crate::solids::Torus {
+                major_radius: 1.0,
+                minor_radius: 0.3,
+                major_sectors: 16,
+                minor_sectors: 8,
+            }
+            .build();
+
+            let ray = Ray(pt3(0.0, 0.0, -3.0), vec3(0.0, 0.0, 1.0));
+            let ip = ray.intersect(&torus);
+
+            assert_eq!(ip, None);
+        }
+    }
+
+    mod ray_obj {
+        use retrofire_core::{geom::Normal3, math::translate};
+
+        use super::*;
+        use crate::solids::{Build, Cube};
+
+        #[test]
+        #[ignore = "TODO"]
+        fn obj() {
+            let cube = Obj::<Normal3>::with_transform(
+                Cube { side_len: 1.0 }.build(),
+                translate((1.0, 2.0, 3.0)).to(),
+            );
+
+            let ray = Ray(pt3(1.0, 2.0, 1.0), vec3(0.0, 0.0, 2.0));
+            assert_eq!(ray.intersect(&cube), None /* TODO */);
+
+            let ray = Ray(pt3(0.0, 0.0, -3.0), vec3(0.0, 0.0, 1.0));
+            assert_eq!(ray.intersect(&cube), None);
+        }
+    }
+
     // TODO 2D tests from stash
 }
