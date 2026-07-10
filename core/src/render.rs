@@ -139,7 +139,7 @@ pub fn render<Prim, Vtx, Var, Uni, Shd>(
     let verts = vertex_transform(shader, uniform, verts);
 
     // 2. Primitive assembly: map vertex indices to actual vertices
-    let prims: Vec<_> = primitive_assembly(prims, &verts);
+    let prims = primitive_assembly(prims, &verts);
 
     // 3. Clipping: clip against the view frustum
     let clipped = Clip::clip(prims, &view_frustum::PLANES);
@@ -209,13 +209,11 @@ where
 fn primitive_assembly<Prim: Primitive<Var> + Clone, Var: Vary>(
     prims: &[Prim],
     verts: &[ClipVert<Var>],
-) -> Vec<Prim::Clip> {
+) -> impl Iterator<Item = Prim::Clip> {
     prims
         .iter()
         .cloned()
         .map(|prim| Prim::inline(prim, verts))
-        // Collect needed because clip takes a slice... TODO Not anymore!
-        .collect()
 }
 
 #[inline]
