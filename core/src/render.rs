@@ -8,7 +8,7 @@
 use alloc::vec::Vec;
 use core::{fmt::Debug, ops::DerefMut};
 
-use crate::geom::{Mesh, Tri, Vertex, Vertex3};
+use crate::geom::Vertex;
 use crate::math::{Mat4, ProjVec3, Vary};
 
 use self::{clip::view_frustum, ctx::DepthSort};
@@ -51,9 +51,12 @@ pub mod text;
 #[cfg(feature = "stats")]
 pub mod stats;
 
+mod impls;
+
 pub trait Render<Var: Vary + 'static, Prim: Primitive<Var>, Vert> {
     type InClipSpace;
 
+    // TODO These aren't needed for anything except stats anymore
     fn primitives(&self) -> impl AsRef<[Prim]>;
     fn vertices(&self) -> impl AsRef<[Vert]>;
 
@@ -68,115 +71,9 @@ pub trait Render<Var: Vary + 'static, Prim: Primitive<Var>, Vert> {
     fn primitive_assembly(this: &Self::InClipSpace) -> Vec<Prim::Clip>;
 }
 
-/*
-impl<V, P, A> Render<V, Self, Vertex<P, A>> for Tri<Vertex<P, A>>
-where
-    Vertex<P, A>: Clone,
-{
-    type InClipSpace = Tri<ClipVert<V>>;
-
-    fn primitives(&self) -> impl AsRef<[Self]> {
-        [self.clone()]
-    }
-
-    fn vertices(&self) -> impl AsRef<[Vertex<P, A>]> {
-        self.0.clone()
-    }
-
-    fn transform_to_clip<Shd, Uni: Copy>(
-        &self,
-        shader: &Shd,
-        uniform: Uni,
-    ) -> Self::InClipSpace
-    where
-        Shd: VertexShader<Vertex<P, A>, Uni, Output = Vertex<ProjVec3, V>>,
-    {
-        self.clone()
-            .map(|v| ClipVert::new(shader.shade_vertex(v, uniform)))
-    }
-
-    fn primitive_assembly(this: &Self::InClipSpace) -> Vec<Self::InClipSpace> {
-        //vec![this.clone()]
-        todo!()
-    }
-}
-*/
-
-impl<V, A, B> Render<V, Tri<usize>, Vertex3<A, B>> for Mesh<A, B>
-where
-    V: Vary + 'static,
-    Vertex3<A, B>: Clone,
-{
-    type InClipSpace = Indexed<Vec<Tri<usize>>, Vec<ClipVert<V>>>;
-
-    fn primitives(&self) -> impl AsRef<[Tri<usize>]> {
-        &self.faces
-    }
-    fn vertices(&self) -> impl AsRef<[Vertex3<A, B>]> {
-        &self.verts
-    }
-
-    fn transform_to_clip<Shd, Uni: Copy>(
-        &self,
-        shader: &Shd,
-        uniform: Uni,
-    ) -> Self::InClipSpace
-    where
-        Shd: VertexShader<Vertex3<A, B>, Uni, Output = Vertex<ProjVec3, V>>,
-    {
-        Indexed {
-            prims: self.faces.clone(),
-            verts: vertex_transform(shader, uniform, &self.verts),
-        }
-    }
-
-    fn primitive_assembly(
-        this: &Self::InClipSpace,
-    ) -> Vec<<Tri<usize> as Primitive<V>>::Clip> {
-        todo!()
-    }
-}
-
 pub struct Indexed<Prims, Verts> {
     pub prims: Prims,
     pub verts: Verts,
-}
-
-impl<'a, V, Prim, Vert> Render<V, Prim, Vert>
-    for Indexed<&'a [Prim], &'a [Vert]>
-where
-    V: Vary + 'static,
-    Prim: Primitive<V> + Clone,
-    Vert: Clone,
-{
-    type InClipSpace = Indexed<&'a [Prim], Vec<ClipVert<V>>>;
-
-    fn primitives(&self) -> impl AsRef<[Prim]> {
-        self.prims
-    }
-    fn vertices(&self) -> impl AsRef<[Vert]> {
-        self.verts
-    }
-
-    fn transform_to_clip<Shd, Uni: Copy>(
-        &self,
-        shader: &Shd,
-        uniform: Uni,
-    ) -> Self::InClipSpace
-    where
-        Shd: VertexShader<Vert, Uni, Output = Vertex<ProjVec3, V>>,
-    {
-        Indexed {
-            prims: self.prims,
-            verts: vertex_transform(shader, uniform, &self.verts),
-        }
-    }
-
-    fn primitive_assembly(
-        this: &Self::InClipSpace,
-    ) -> Vec<<Prim as Primitive<V>>::Clip> {
-        primitive_assembly(this.prims, &this.verts).collect()
-    }
 }
 
 /// Alias for combined vertex+fragment shader types
@@ -224,14 +121,12 @@ pub fn render<Prim, Vert, Geom, Var, Uni, Shd>(
     Shd: Shader<Vert, Var, Uni>,
 {
     // 0. Setup
-    let ps = geometry.primitives();
-    let vs = geometry.vertices();
-
-    let prims = ps.as_ref();
-    let verts = vs.as_ref();
 
     #[cfg(feature = "stats")]
-    let stats = Stats::start_call(prims.len(), verts.len());
+    let stats = Stats::start_call(
+        geometry.primitives().as_ref().len(),
+        geometry.vertices().as_ref().len(),
+    );
 
     // 1. Vertex shader: transform vertices to clip space
     //let verts = vertex_transform(shader, uniform, verts);
