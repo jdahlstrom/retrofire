@@ -118,17 +118,6 @@ impl<Repr, Map> Matrix<Repr, Map> {
         Self(els, Pd)
     }
 
-    /// Returns a matrix equal to `self` but with mapping `M`.
-    ///
-    /// This method can be used to coerce a matrix to a different
-    /// mapping in case it is needed to make types match.
-    #[inline]
-    pub const fn to<M>(&self) -> Matrix<Repr, M>
-    where
-        Repr: Copy,
-    {
-        Matrix::new(self.0)
-    }
     #[inline]
     pub fn apply<T>(&self, t: &T) -> <Self as Apply<T>>::Output
     where
@@ -179,9 +168,21 @@ where
         Vector::new(self.0.map(|row| row[i]))
     }
 }
-impl<Sc: Copy, const N: usize, const DIM: usize, S, D>
-    Matrix<[[Sc; N]; N], RealToReal<DIM, S, D>>
+impl<Sc: Copy, const N: usize, const DIM: usize, Src, Dst>
+    Matrix<[[Sc; N]; N], RealToReal<DIM, Src, Dst>>
 {
+    /// Returns a matrix equal to `self` but mapping from `S` to `D`.
+    ///
+    /// This method can be used to coerce a matrix to a different mapping
+    /// in cases where it is needed to make types match.
+    #[must_use]
+    #[inline]
+    pub const fn to<S, D>(
+        &self,
+    ) -> Matrix<[[Sc; N]; N], RealToReal<DIM, S, D>> {
+        Matrix::new(self.0)
+    }
+
     /// Returns `self` with its rows and columns swapped.
     ///
     /// # Examples
@@ -193,9 +194,10 @@ impl<Sc: Copy, const N: usize, const DIM: usize, S, D>
     /// assert_eq!(m.transpose(), mat![1.0, 3.0;
     ///                                2.0, 4.0]);
     #[must_use]
+    #[inline]
     pub const fn transpose(
         mut self,
-    ) -> Matrix<[[Sc; N]; N], RealToReal<DIM, D, S>> {
+    ) -> Matrix<[[Sc; N]; N], RealToReal<DIM, Dst, Src>> {
         const { assert!(N >= DIM, "map dimension >= matrix dimension") }
         transpose(&mut self.0);
         self.to()
@@ -1037,7 +1039,7 @@ impl<Src> Apply<Point3<Src>> for ProjMat3<Src> {
 
 impl<R: Copy + Clone, M> Clone for Matrix<R, M> {
     fn clone(&self) -> Self {
-        self.to()
+        Self::new(self.0)
     }
 }
 
@@ -1365,9 +1367,6 @@ mod tests {
     #[derive(Debug, Default, Eq, PartialEq)]
     struct B2;
 
-    type Map<const N: usize = 3> = RealToReal<N, B1, B2>;
-    type InvMap<const N: usize = 3> = RealToReal<N, B2, B1>;
-
     const X: Vec3 = Vec3::X;
     const Y: Vec3 = Vec3::Y;
     const Z: Vec3 = Vec3::Z;
@@ -1582,8 +1581,8 @@ mod tests {
 
         #[test]
         fn composition() {
-            let tr = translate((1.0, 2.0, 3.0)).to::<Map>();
-            let sc = scale((3.0, 2.0, 1.0)).to::<InvMap>();
+            let tr = translate((1.0, 2.0, 3.0)).to::<B1, B2>();
+            let sc = scale((3.0, 2.0, 1.0)).to::<B2, B1>();
 
             let tr_sc = tr.then(&sc);
             let sc_tr = sc.then(&tr);

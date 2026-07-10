@@ -4,8 +4,8 @@ use std::io;
 
 use crate::geom::{Mesh, Tri, Vertex3, tri, vertex};
 use crate::math::{
-    Color3, Color4, Point2, ProjMat3, Vec2, color::gray, orthographic, pt2,
-    pt3, vec2, vec3, viewport,
+    Color3, Color4, Mat4, Point2, ProjMat3, Vec2, color::gray, orthographic,
+    pt2, pt3, vec2, vec3, viewport,
 };
 use crate::util::{Buf2, Dims};
 
@@ -109,9 +109,10 @@ impl Text {
         };
         let pos = self.anchor - Vec2::from(off) * vec2(r, b);
 
-        let proj: ProjMat3<Model> =
-            orthographic(pt3(0.0, 0.0, -1.0), pt3(self.cursor.x(), b, 1.0))
-                .to();
+        let proj: ProjMat3<Model> = Mat4::identity().then(&orthographic(
+            pt3(0.0, 0.0, -1.0),
+            pt3(self.cursor.x(), b, 1.0),
+        ));
         let pos = pt2(pos.x() as _, pos.y() as _);
         let wh = vec2(r as _, b as _);
         let viewport = viewport(pos..pos + wh);

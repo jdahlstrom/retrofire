@@ -8,7 +8,7 @@ use re::prelude::*;
 use re::core::{
     geom::{Polyline, Ray},
     math::{ProjVec3, color::gray, spline::HermiteSpline},
-    render::{Model, ModelToWorld, cam::Fov, shader},
+    render::{Model, World, cam::Fov, shader},
 };
 use re::front::{Frame, minifb::Window};
 use re::geom::{io::read_obj, solids::*};
@@ -118,7 +118,7 @@ fn main() {
         let model_view_project: ProjMat3<Model> = spin
             .then(&translate)
             .then(&carouse)
-            .to::<ModelToWorld>()
+            .to::<Model, World>()
             .then(&cam.world_to_project());
 
         let object = &objects[carousel.idx % objects.len()];
