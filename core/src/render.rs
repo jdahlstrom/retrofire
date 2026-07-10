@@ -174,12 +174,11 @@ where
 fn primitive_assembly<Prim: Primitive<Var> + Clone, Var: Vary>(
     prims: &[Prim],
     verts: &[ClipVert<Var>],
-) -> Vec<Prim::Clip> {
+) -> impl Iterator<Item = Prim::Clip> {
     prims
         .iter()
         .cloned()
         .map(|prim| Prim::inline(prim, verts))
-        .collect::<Vec<_>>()
 }
 
 #[inline]
