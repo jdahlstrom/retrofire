@@ -1,13 +1,18 @@
 use retrofire_core::prelude::*;
-use retrofire_core::render::{Model, render, shader};
+use retrofire_core::render::{Model, TriFan, render, shader};
 use retrofire_core::util::dims;
 
 fn main() {
-    let verts = [
-        vertex(pt3(1.0, 1.0, 0.0), rgb(1.0, 0.2, 0.0)),
-        vertex(pt3(-1.0, 1.0, 0.0), rgb(0.0, 0.8, 0.2)),
-        vertex(pt3(0.0, -1.0, 0.0), rgb(0.4, 0.4, 1.0)),
-    ];
+    let tri = TriFan(
+        [
+            vertex(pt3(1.0, 1.0, 0.0), rgb(1.0, 0.2, 0.0)),
+            vertex(pt3(-1.0, 1.0, 0.0), rgb(0.0, 0.8, 0.2)),
+            vertex(pt3(0.0, -1.0, 0.0), rgb(0.4, 0.4, 1.0)),
+            vertex(pt3(2.0, -0.8, 0.0), rgb(0.9, 0.4, 1.0)),
+            vertex(pt3(1.5, 1.0, 0.0), rgb(0.9, 0.4, 0.0)),
+        ]
+        .to_vec(),
+    );
 
     #[cfg(feature = "fp")]
     let shader = shader::new(
@@ -36,8 +41,7 @@ fn main() {
     let mut framebuf = Buf2::<Color4>::new(dims);
 
     render(
-        [tri(0, 1, 2)],
-        verts,
+        tri,
         &shader,
         &modelview.then(&project),
         viewport,

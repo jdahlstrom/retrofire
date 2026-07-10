@@ -12,7 +12,9 @@ use crate::math::{
 };
 use crate::util::{Dims, Rect};
 
-use super::{Clip, Context, Ndc, Primitive, Screen, Shader, Target, View, World};
+use super::{
+    Context, Ndc, Primitive, Render, Screen, Shader, Target, View, World,
+};
 
 /// Trait for different modes of camera motion.
 pub trait Transform {
@@ -234,23 +236,24 @@ impl<T: Transform> Camera<T> {
 
     /// Renders the given geometry from the viewpoint of this camera.
     #[allow(clippy::too_many_arguments)]
-    pub fn render<B, Prim, Vtx: Clone, Var: Vary, Uni: Copy, Shd>(
+    pub fn render<B, Prim, Vtx, Var, Uni, Shd>(
         &self,
-        prims: impl AsRef<[Prim]>,
-        verts: impl AsRef<[Vtx]>,
+        geom: &impl Render<Var, Prim, Vtx>,
         to_world: &Mat4<B, World>,
         shader: &Shd,
         uniform: Uni,
         target: &mut impl Target,
         ctx: &Context,
     ) where
-        Prim: Primitive<Var, Clip: Clip> + Clone,
+        Prim: Primitive<Var> + Clone,
+        Vtx: Clone,
+        Var: Vary + 'static,
+        Uni: Copy,
         Shd: for<'a> Shader<Vtx, Var, CameraUni<'a, B, Uni>>,
     {
         let to_proj = to_world.then(&self.world_to_project());
         super::render(
-            prims.as_ref(),
-            verts.as_ref(),
+            geom,
             shader,
             (&to_proj, uniform),
             self.viewport,

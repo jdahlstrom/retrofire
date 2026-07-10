@@ -6,7 +6,7 @@ use core::borrow::Borrow;
 use crate::geom::{Edge, Mesh, Tri, Vertex3};
 use crate::math::{Mat4, Vary};
 
-use super::{Clip, Context, Ndc, Primitive, Screen, Shader, Target};
+use super::{Clip, Context, Indexed, Ndc, Primitive, Screen, Shader, Target};
 
 /// A builder for rendering a chunk of geometry as a batch.
 ///
@@ -135,7 +135,7 @@ impl<Prims, Verts, Uni, Shd, Tgt, Ctx> Batch<Prims, Verts, Uni, Shd, Tgt, Ctx> {
     #[rustfmt::skip]
     pub fn render<Prim, Vtx, Var>(&mut self)
     where
-        Var: Vary,
+        Var: Vary + 'static,
         Prim: Primitive<Var, Clip: Clip> + Clone,
         Vtx: Clone,
 
@@ -152,10 +152,10 @@ impl<Prims, Verts, Uni, Shd, Tgt, Ctx> Batch<Prims, Verts, Uni, Shd, Tgt, Ctx> {
         } = self;
 
         super::render(
-            prims, verts, shader, *uniform, *viewport,
-            target, (*ctx).borrow(),
+            &Indexed { prims: prims.as_ref(), verts: verts.as_ref() },
+            shader, *uniform, *viewport, target, (*ctx).borrow(),
         );
-    }
+}
 }
 
 impl<Vtx, Uni, Shd, Tgt, Ctx>

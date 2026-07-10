@@ -6,7 +6,7 @@ use re::core::math::{
     color::gray,
     rand::{Distrib, PointsInUnitBall, Xorshift64},
 };
-use re::core::render::{Model, View, cam::*, render, shader};
+use re::core::render::{Indexed, Model, View, cam::*, render, shader};
 
 use re_front::minifb::Window;
 
@@ -68,8 +68,10 @@ fn main() {
 
         let uniform = (modelview, cam.project);
         render(
-            &tris,
-            &verts,
+            Indexed {
+                prims: tris.as_slice(),
+                verts: verts.as_slice(),
+            },
             &shader,
             &uniform,
             cam.viewport,

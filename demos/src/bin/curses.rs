@@ -83,15 +83,7 @@ fn main() {
             .to()
             .then(&project);
 
-        render(
-            &torus.faces,
-            &torus.verts,
-            &shader,
-            &mvp,
-            viewport,
-            &mut win,
-            &ctx,
-        );
+        render(torus.clone(), &shader, &mvp, viewport, &mut win, &ctx);
 
         win.0.refresh();
         napms(10);

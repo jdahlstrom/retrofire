@@ -2,11 +2,10 @@
 
 use divan::Bencher;
 
-use retrofire_core::math::pt2;
 use retrofire_core::{
-    geom::{Normal3, Vertex3, tri, vertex},
+    geom::{Normal3, Tri, Vertex3, vertex},
     math::{
-        Color3f, Color4, Color4f, ProjMat3, perspective, pt3, rgb, rgba,
+        Color3f, Color4, Color4f, ProjMat3, perspective, pt2, pt3, rgb, rgba,
         translate, viewport,
     },
     render::{Context, Frag, Model, debug::dir_to_rgb, render, shader},
@@ -39,11 +38,10 @@ fn triangle(b: Bencher, n: u32) {
 
     let mut framebuf = Buf2::<Color4>::new(dims);
 
-    b.bench_local(|| {
+    b.counter(n).bench_local(|| {
         for _ in 0..n {
             render(
-                [tri(0, 1, 2)],
-                verts,
+                Tri(verts),
                 &shader,
                 &modelview.then(&project),
                 viewport,
@@ -84,8 +82,7 @@ fn sphere(b: Bencher, res: u32) {
 
     b.counter(sphere.faces.len()).bench_local(|| {
         render(
-            &sphere.faces,
-            &sphere.verts,
+            sphere.clone(),
             &shader,
             &modelview.then(&project),
             viewport,

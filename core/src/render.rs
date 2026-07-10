@@ -51,6 +51,27 @@ pub mod text;
 #[cfg(feature = "stats")]
 pub mod stats;
 
+mod impls;
+
+pub trait Render<Var: Vary + 'static, Prim: Primitive<Var>, Vert> {
+    fn to_primitives<Shd, Uni: Copy>(
+        &self,
+        shader: &Shd,
+        uniform: Uni,
+    ) -> impl Iterator<Item = Prim::Clip>
+    where
+        Shd: VertexShader<Vert, Uni, Output = Vertex<ProjVec3, Var>>;
+}
+
+pub struct Indexed<Prims, Verts> {
+    pub prims: Prims,
+    pub verts: Verts,
+}
+
+pub struct TriFan<V>(pub Vec<V>);
+
+pub struct TriStrip<V>(pub Vec<V>);
+
 /// Alias for combined vertex+fragment shader types
 pub trait Shader<Vtx, Var, Uni>:
     VertexShader<Vtx, Uni, Output = Vertex<ProjVec3, Var>>
@@ -79,33 +100,39 @@ pub struct Ndc;
 pub struct Screen;
 
 /// Renders the given primitives into `target`.
-pub fn render<Prim, Vtx, Var, Uni, Shd>(
-    prims: impl AsRef<[Prim]>,
-    verts: impl AsRef<[Vtx]>,
+pub fn render<Prim, Vert, Geom, Var, Uni, Shd>(
+    geometry: &Geom,
     shader: &Shd,
     uniform: Uni,
     to_screen: Mat4<Ndc, Screen>,
     target: &mut impl Target,
     ctx: &Context,
 ) where
+    // FIXME Primitive currently tacitly assumes indexed representation!
     Prim: Primitive<Var> + Clone,
-    Vtx: Clone,
-    Var: Vary,
+    Vert: Clone,
+    Geom: Render<Var, Prim, Vert>,
+    Var: Vary + 'static,
     Uni: Copy,
-    Shd: Shader<Vtx, Var, Uni>,
+    Shd: Shader<Vert, Var, Uni>,
 {
     // 0. Setup
-    let prims = prims.as_ref();
-    let verts = verts.as_ref();
 
-    #[cfg(feature = "stats")]
-    let stats = Stats::start_call(prims.len(), verts.len());
+    // #[cfg(feature = "stats")]
+    // let stats = Stats::start_call(
+    //     geometry.primitives().as_ref().len(),
+    //     geometry.vertices().as_ref().len(),
+    // );
 
     // 1. Vertex shader: transform vertices to clip space
-    let verts = vertex_transform(shader, uniform, verts);
+    //let verts = vertex_transform(shader, uniform, verts);
+
+    //let geom_in_clip = geometry.transform_to_clip(shader, uniform);
 
     // 2. Primitive assembly: map vertex indices to actual vertices
-    let prims = primitive_assembly(prims, &verts);
+    //let prims = primitive_assembly(prims, &verts);
+
+    let prims = geometry.to_primitives(shader, uniform);
 
     // 3. Clipping: clip against the view frustum
     let clipped = Clip::clip(prims, &view_frustum::PLANES);
@@ -126,10 +153,10 @@ pub fn render<Prim, Vtx, Var, Uni, Shd>(
         )
     };
 
-    #[cfg(feature = "stats")]
-    {
-        *ctx.stats.borrow_mut() += stats.finish_call(prims_out, verts_out);
-    }
+    // #[cfg(feature = "stats")]
+    // {
+    //     *ctx.stats.borrow_mut() += stats.finish_call(prims_out, verts_out);
+    // }
 }
 
 fn rasterize<Prim, Shd, Var, Uni>(
@@ -171,31 +198,18 @@ where
 }
 
 #[inline]
-fn primitive_assembly<Prim: Primitive<Var> + Clone, Var: Vary>(
-    prims: &[Prim],
-    verts: &[ClipVert<Var>],
-) -> impl Iterator<Item = Prim::Clip> {
-    prims
-        .iter()
-        .cloned()
-        .map(|prim| Prim::inline(prim, verts))
-}
-
-#[inline]
-fn vertex_transform<Shd, Vtx: Clone, Var: Vary, Uni: Copy>(
+fn vertex_transform<'a, Shd, Vtx: Clone + 'a, Var: Vary, Uni: Copy>(
     shader: &Shd,
     uniform: Uni,
-    verts: &[Vtx],
+    verts: impl IntoIterator<Item = &'a Vtx>,
 ) -> Vec<ClipVert<Var>>
 where
     Shd: VertexShader<Vtx, Uni, Output = Vertex<ProjVec3, Var>>,
 {
     verts
-        // verts is borrowed, can't consume
-        .iter()
+        .into_iter()
         // TODO Pass vertex as ref to shader
-        .cloned()
-        .map(|v| shader.shade_vertex(v, uniform))
+        .map(|v| shader.shade_vertex(v.clone(), uniform))
         .map(ClipVert::new)
         .collect()
 }
