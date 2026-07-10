@@ -245,8 +245,7 @@ impl<T: Transform> Camera<T> {
         target: &mut impl Target,
         ctx: &Context,
     ) where
-        Prim: Render<Var> + Clone,
-        [<Prim>::Clip]: Clip<Item = Prim::Clip>,
+        Prim: Render<Var, Clip: Clip> + Clone,
         Shd: for<'a> Shader<Vtx, Var, CameraUni<'a, B, Uni>>,
     {
         let to_proj = to_world.then(&self.world_to_project());
