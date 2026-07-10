@@ -362,23 +362,24 @@ impl<A: Lerp> Clip for Tri<ClipVert<A>> {
         tris: I,
         planes: &[ClipPlane],
     ) -> impl Iterator<Item = Self> {
-        //debug_assert!(out.is_empty());
+        // Avoid unnecessary allocations by reusing these.
+        //
+        // Clipping an N-gon against M planes can result in a polygon of at most
+        // N+M sides, so for a triangle against a frustum the result is at most
+        // a 9-gon and when triangulated, at most seven triangles.
+        let mut verts_in = Vec::with_capacity(9);
+        let mut verts_out = Vec::with_capacity(9);
+        let mut tris_out = Vec::with_capacity(7);
 
-        // TODO capacity is just a heuristic, should retain vector between calls somehow
-        //let out = Vec::with_capacity(tris.len() / 2);
-        let mut out = Vec::new();
-
-        // Avoid unnecessary allocations by reusing these
-        let mut verts_in = Vec::with_capacity(10);
-        let mut verts_out = Vec::with_capacity(10);
-
-        for tri in tris {
+        tris.into_iter().flat_map(move |tri| {
+            tris_out.clear();
             match status(&tri.0) {
                 Status::Visible => {
-                    out.push(tri.clone());
-                    continue;
+                    // FIXME avoid cloning each time
+                    tris_out.push(tri);
+                    return tris_out.clone().into_iter();
                 }
-                Status::Hidden => continue,
+                Status::Hidden => return Vec::new().into_iter(),
                 Status::Clipped => { /* go on and clip */ }
             }
 
@@ -404,15 +405,17 @@ impl<A: Lerp> Clip for Tri<ClipVert<A>> {
                 //             |
                 //             |
                 //
-                out.extend(
+                tris_out.extend(
                     rest.array_windows()
                         .cloned()
                         .map(|[a, b]| Tri([p.clone(), a, b])),
                 );
             }
             verts_out.clear();
-        }
-        out.into_iter()
+
+            // FIXME Avoid cloning each time
+            tris_out.clone().into_iter()
+        })
     }
 }
 
