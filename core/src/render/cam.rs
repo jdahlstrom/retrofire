@@ -2,14 +2,13 @@
 
 use core::ops::Range;
 
-use crate::math::space::Real;
 #[cfg(feature = "fp")]
 use crate::math::{
     Angle, Vec3, orient_z, rotate_pyr, rotate_x, rotate_y, spherical, turns,
 };
 use crate::math::{
     Mat4, Point3, ProjMat3, SphericalVec, Vary, orthographic, perspective, pt2,
-    translate, viewport,
+    space::Real, translate, viewport,
 };
 use crate::util::{Dims, Rect};
 
@@ -450,13 +449,13 @@ impl Transform for PitchYawRoll {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
-
     #[cfg(feature = "fp")]
     use crate::{
         assert_approx_eq,
         math::{SQRT_3, degs},
     };
+
+    use super::*;
 
     use Fov::*;
 

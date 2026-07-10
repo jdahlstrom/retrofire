@@ -6,10 +6,38 @@ use crate::{
 };
 
 use super::{
-    Ndc, Primitive, Screen,
+    Clip, Ndc, Screen,
     clip::ClipVert,
     raster::{Scanline, ScreenPt, line, tri_fill},
 };
+
+/// Renderable geometric primitive.
+pub trait Primitive<V: Vary> {
+    /// The type of this primitive in clip space
+    type Clip: Clip;
+
+    /// The type of this primitive in screen space.
+    type Screen;
+
+    /// Maps the indices of the argument to vertices.
+    fn inline(ixd: Self, vs: &[ClipVert<V>]) -> Self::Clip;
+
+    /// Returns the (average) depth of the argument.
+    fn depth(_clip: &Self::Clip) -> f32 {
+        f32::INFINITY
+    }
+
+    /// Returns whether the argument is facing away from the camera.
+    fn is_backface(_: &Self::Screen) -> bool {
+        false
+    }
+
+    /// Transforms the argument from NDC to screen space.
+    fn to_screen(clip: Self::Clip, tf: &Mat4<Ndc, Screen>) -> Self::Screen;
+
+    /// Rasterizes the argument by calling the function for each scanline.
+    fn rasterize<F: FnMut(Scanline<V>)>(scr: Self::Screen, scanline_fn: F);
+}
 
 impl<V: Vary + 'static> Primitive<V> for Tri<usize> {
     type Clip = Tri<ClipVert<V>>;

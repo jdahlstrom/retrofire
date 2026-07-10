@@ -11,19 +11,16 @@ use core::fmt::Debug;
 use crate::geom::Vertex;
 use crate::math::{Mat4, ProjVec3, Vary};
 
-use self::{
-    clip::{ClipVert, view_frustum},
-    ctx::DepthSort,
-    raster::Scanline,
-};
+use self::{clip::view_frustum, ctx::DepthSort};
 
 pub(super) mod re_exports {
     pub use super::{
         batch::Batch,
         cam::Camera,
-        clip::Clip,
+        clip::{Clip, ClipVert},
         ctx::Context,
         light::Light,
+        prim::Primitive,
         raster::Frag,
         scene::{BBox, Obj},
         shader::{FragmentShader, VertexShader},
@@ -53,34 +50,6 @@ pub mod text;
 
 #[cfg(feature = "stats")]
 pub mod stats;
-
-/// Renderable geometric primitive.
-pub trait Primitive<V: Vary> {
-    /// The type of this primitive in clip space
-    type Clip: Clip;
-
-    /// The type of this primitive in screen space.
-    type Screen;
-
-    /// Maps the indexes of the argument to vertices.
-    fn inline(ixd: Self, vs: &[ClipVert<V>]) -> Self::Clip;
-
-    /// Returns the (average) depth of the argument.
-    fn depth(_clip: &Self::Clip) -> f32 {
-        f32::INFINITY
-    }
-
-    /// Returns whether the argument is facing away from the camera.
-    fn is_backface(_: &Self::Screen) -> bool {
-        false
-    }
-
-    /// Transforms the argument from NDC to screen space.
-    fn to_screen(clip: Self::Clip, tf: &Mat4<Ndc, Screen>) -> Self::Screen;
-
-    /// Rasterizes the argument by calling the function for each scanline.
-    fn rasterize<F: FnMut(Scanline<V>)>(scr: Self::Screen, scanline_fn: F);
-}
 
 /// Alias for combined vertex+fragment shader types
 pub trait Shader<Vtx, Var, Uni>:
