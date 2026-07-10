@@ -6,12 +6,12 @@ use crate::{
 };
 
 use super::{
-    Ndc, Render, Screen,
+    Ndc, Primitive, Screen,
     clip::ClipVert,
     raster::{Scanline, ScreenPt, line, tri_fill},
 };
 
-impl<V: Vary + 'static> Render<V> for Tri<usize> {
+impl<V: Vary + 'static> Primitive<V> for Tri<usize> {
     type Clip = Tri<ClipVert<V>>;
     type Screen = Tri<Vertex<ScreenPt, V>>;
 
@@ -44,7 +44,7 @@ impl<V: Vary + 'static> Render<V> for Tri<usize> {
     }
 }
 
-impl<V: Vary> Render<V> for Edge<usize> {
+impl<V: Vary> Primitive<V> for Edge<usize> {
     type Clip = Edge<ClipVert<V>>;
     type Screen = Edge<Vertex<ScreenPt, V>>;
 

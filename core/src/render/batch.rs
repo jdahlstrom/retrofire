@@ -6,7 +6,7 @@ use core::borrow::Borrow;
 use crate::geom::{Edge, Mesh, Tri, Vertex3};
 use crate::math::{Mat4, Vary};
 
-use super::{Clip, Context, Ndc, Render, Screen, Shader, Target};
+use super::{Clip, Context, Ndc, Primitive, Screen, Shader, Target};
 
 /// A builder for rendering a chunk of geometry as a batch.
 ///
@@ -136,7 +136,7 @@ impl<Prims, Verts, Uni, Shd, Tgt, Ctx> Batch<Prims, Verts, Uni, Shd, Tgt, Ctx> {
     pub fn render<Prim, Vtx, Var>(&mut self)
     where
         Var: Vary,
-        Prim: Render<Var, Clip: Clip> + Clone,
+        Prim: Primitive<Var, Clip: Clip> + Clone,
         Vtx: Clone,
 
         Prims: AsRef<[Prim]>,
