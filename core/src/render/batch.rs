@@ -128,14 +128,13 @@ impl<Prims, Verts, Uni, Shd, Tgt, Ctx> Batch<Prims, Verts, Uni, Shd, Tgt, Ctx> {
     pub fn render<Prim, Vtx, Var>(&mut self)
     where
         Var: Vary,
-        Prim: Render<Var> + Clone,
+        Prim: Render<Var, Clip: Clip> + Clone,
         Vtx: Clone,
 
         Prims: AsRef<[Prim]>,
         Verts: AsRef<[Vtx]>,
 
         Uni: Copy,
-        [Prim::Clip]: Clip<Item = Prim::Clip>,
         Shd: Shader<Vtx, Var, Uni>,
         Tgt: Target,
         Ctx: Borrow<Context>

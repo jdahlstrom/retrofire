@@ -11,7 +11,6 @@ use super::{
 
 impl<V: Vary> Render<V> for Tri<usize> {
     type Clip = Tri<ClipVert<V>>;
-    type Clips = [Tri<ClipVert<V>>];
     type Screen = Tri<Vertex<ScreenPt, V>>;
 
     #[inline]
@@ -45,9 +44,6 @@ impl<V: Vary> Render<V> for Tri<usize> {
 
 impl<V: Vary> Render<V> for Edge<usize> {
     type Clip = Edge<ClipVert<V>>;
-
-    type Clips = [Self::Clip];
-
     type Screen = Edge<Vertex<ScreenPt, V>>;
 
     #[inline]

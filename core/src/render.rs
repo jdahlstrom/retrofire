@@ -60,10 +60,7 @@ pub mod stats;
 /// Renderable geometric primitive.
 pub trait Render<V: Vary> {
     /// The type of this primitive in clip space
-    type Clip;
-
-    /// The type for which `Clip` is implemented.
-    type Clips: Clip<Item = Self::Clip> + ?Sized;
+    type Clip: Clip;
 
     /// The type of this primitive in screen space.
     type Screen;
@@ -149,7 +146,6 @@ pub fn render<Prim, Vtx: Clone, Var, Uni: Copy, Shd>(
     ctx: &Context,
 ) where
     Prim: Render<Var> + Clone,
-    [Prim::Clip]: Clip<Item = Prim::Clip>,
     Var: Vary,
     Shd: Shader<Vtx, Var, Uni>,
 {
@@ -167,19 +163,28 @@ pub fn render<Prim, Vtx: Clone, Var, Uni: Copy, Shd>(
     let prims: Vec<_> = primitive_assembly(prims, &verts);
 
     // 3. Clipping: clip against the view frustum
-    let mut clipped = Vec::new();
-    view_frustum::clip(prims.as_slice(), &mut clipped);
 
-    // Optional depth sorting for use cases such as transparency
-    if let Some(d) = ctx.depth_sort {
-        depth_sort::<Prim, _>(&mut clipped, d);
-    }
+    let clipped = <Prim::Clip as Clip>::clip(prims, &view_frustum::PLANES);
+
+    //let mut clipped = Vec::new();
+    //view_frustum::clip(prims.as_slice(), &mut clipped);
 
     // 4. Rasterize: Turn visible primitives to fragments
+
+    // Optional depth sorting for use cases such as transparency
     #[allow(unused_variables)]
-    let (prims_out, verts_out) = rasterize::<Prim, _, _, _>(
-        clipped, shader, uniform, to_screen, target, ctx,
-    );
+    let (prims_out, verts_out) = if let Some(d) = ctx.depth_sort {
+        // Only materialize to a vector if depth sort is enabled
+        let mut clipped = clipped.collect::<Vec<_>>();
+        depth_sort::<Prim, _>(&mut clipped, d);
+        rasterize::<Prim, _, _, _>(
+            clipped, shader, uniform, to_screen, target, ctx,
+        )
+    } else {
+        rasterize::<Prim, _, _, _>(
+            clipped, shader, uniform, to_screen, target, ctx,
+        )
+    };
 
     #[cfg(feature = "stats")]
     {
@@ -188,7 +193,7 @@ pub fn render<Prim, Vtx: Clone, Var, Uni: Copy, Shd>(
 }
 
 fn rasterize<Prim, Shd, Var, Uni>(
-    clipped: Vec<Prim::Clip>,
+    clipped: impl IntoIterator<Item = Prim::Clip>,
     shader: &Shd,
     uniform: Uni,
     to_screen: Mat4<Ndc, Screen>,
@@ -234,7 +239,7 @@ fn primitive_assembly<Prim: Render<Var> + Clone, Var: Vary>(
     prims
         .iter()
         .cloned()
-        .map(|prim| Prim::inline(prim, &verts))
+        .map(|prim| Prim::inline(prim, verts))
         // Collect needed because clip takes a slice...
         .collect()
 }
