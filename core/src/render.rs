@@ -168,12 +168,7 @@ where
     {
         Indexed {
             prims: self.prims,
-            verts: self
-                .verts
-                .iter()
-                .cloned()
-                .map(|v| ClipVert::new(shader.shade_vertex(v, uniform)))
-                .collect(),
+            verts: vertex_transform(shader, uniform, &self.verts),
         }
     }
 
