@@ -1,7 +1,9 @@
 //! Render impls for primitives and related items.
 
-use crate::geom::{Edge, Tri, Vertex, Winding};
-use crate::math::{Mat4, Vary, pt3, vary::ZDiv};
+use crate::{
+    geom::{Edge, Tri, Vertex, Winding},
+    math::{Mat4, Vary, pt3, vary::ZDiv},
+};
 
 use super::{
     Ndc, Render, Screen,
@@ -9,9 +11,8 @@ use super::{
     raster::{Scanline, ScreenPt, line, tri_fill},
 };
 
-impl<V: Vary> Render<V> for Tri<usize> {
+impl<V: Vary + 'static> Render<V> for Tri<usize> {
     type Clip = Tri<ClipVert<V>>;
-    type Clips = [Tri<ClipVert<V>>];
     type Screen = Tri<Vertex<ScreenPt, V>>;
 
     #[inline]
@@ -45,9 +46,6 @@ impl<V: Vary> Render<V> for Tri<usize> {
 
 impl<V: Vary> Render<V> for Edge<usize> {
     type Clip = Edge<ClipVert<V>>;
-
-    type Clips = [Self::Clip];
-
     type Screen = Edge<Vertex<ScreenPt, V>>;
 
     #[inline]
