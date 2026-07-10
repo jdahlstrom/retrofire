@@ -58,7 +58,7 @@ pub mod text;
 pub mod stats;
 
 /// Renderable geometric primitive.
-pub trait Render<V: Vary> {
+pub trait Primitive<V: Vary> {
     /// The type of this primitive in clip space
     type Clip: Clip;
 
@@ -85,6 +85,13 @@ pub trait Render<V: Vary> {
     fn rasterize<F: FnMut(Scanline<V>)>(scr: Self::Screen, scanline_fn: F);
 }
 
+/// Alias for combined vertex+fragment shader types
+pub trait Shader<Vtx, Var, Uni>:
+    VertexShader<Vtx, Uni, Output = Vertex<ProjVec3, Var>>
+    + FragmentShader<Var, Uni>
+{
+}
+
 /// Model space coordinate basis.
 #[derive(Copy, Clone, Debug, Default, Eq, PartialEq)]
 pub struct Model;
@@ -105,18 +112,6 @@ pub struct Ndc;
 #[derive(Copy, Clone, Debug, Default, Eq, PartialEq)]
 pub struct Screen;
 
-/// Alias for combined vertex+fragment shader types
-pub trait Shader<Vtx, Var, Uni>:
-    VertexShader<Vtx, Uni, Output = Vertex<ProjVec3, Var>>
-    + FragmentShader<Var, Uni>
-{
-}
-impl<S, Vtx, Var, Uni> Shader<Vtx, Var, Uni> for S where
-    S: VertexShader<Vtx, Uni, Output = Vertex<ProjVec3, Var>>
-        + FragmentShader<Var, Uni>
-{
-}
-
 /// Renders the given primitives into `target`.
 pub fn render<Prim, Vtx, Var, Uni, Shd>(
     prims: impl AsRef<[Prim]>,
@@ -127,7 +122,7 @@ pub fn render<Prim, Vtx, Var, Uni, Shd>(
     target: &mut impl Target,
     ctx: &Context,
 ) where
-    Prim: Render<Var> + Clone,
+    Prim: Primitive<Var> + Clone,
     Vtx: Clone,
     Var: Vary,
     Uni: Copy,
@@ -180,7 +175,7 @@ fn rasterize<Prim, Shd, Var, Uni>(
     ctx: &Context,
 ) -> (usize, usize)
 where
-    Prim: Render<Var>,
+    Prim: Primitive<Var>,
     Shd: FragmentShader<Var, Uni>,
     Var: Vary,
     Uni: Copy,
@@ -211,7 +206,7 @@ where
 }
 
 #[inline]
-fn primitive_assembly<Prim: Render<Var> + Clone, Var: Vary>(
+fn primitive_assembly<Prim: Primitive<Var> + Clone, Var: Vary>(
     prims: &[Prim],
     verts: &[ClipVert<Var>],
 ) -> Vec<Prim::Clip> {
@@ -242,7 +237,7 @@ where
         .collect()
 }
 
-fn depth_sort<P: Render<V>, V: Vary>(prims: &mut [P::Clip], d: DepthSort) {
+fn depth_sort<P: Primitive<V>, V: Vary>(prims: &mut [P::Clip], d: DepthSort) {
     prims.sort_unstable_by(|t, u| {
         let z = P::depth(t);
         let w = P::depth(u);
@@ -252,4 +247,10 @@ fn depth_sort<P: Render<V>, V: Vary>(prims: &mut [P::Clip], d: DepthSort) {
             w.total_cmp(&z)
         }
     });
+}
+
+impl<S, Vtx, Var, Uni> Shader<Vtx, Var, Uni> for S where
+    S: VertexShader<Vtx, Uni, Output = Vertex<ProjVec3, Var>>
+        + FragmentShader<Var, Uni>
+{
 }
