@@ -14,7 +14,7 @@
 //!
 
 use alloc::vec::Vec;
-use core::{iter::zip, mem::swap};
+use core::{iter, mem::swap};
 
 use crate::geom::{Edge, Tri, Vertex, vertex};
 use crate::math::{Lerp, ProjVec3};
@@ -31,20 +31,16 @@ use view_frustum::{outcode, status};
 /// Implementations should avoid creating degenerate primitives, such as
 /// triangles with only two unique vertices.
 pub trait Clip {
-    /// Clips `self` against `planes`, returning the resulting zero or more
-    /// primitives in the out parameter `out`.
+    /// Clips primitives against a set of planes, returning the resulting
+    /// zero or more primitives as an iterator.
     ///
     /// If a primitive being clipped lies entirely within the bounding volume,
     /// it is emitted as it is. If it is entirely outside the volume, it is
     /// skipped. If it is partially inside, it is clipped such that no points
     /// outside the volume remain in the result.
-    ///
-    /// The result is unspecified if `out` is nonempty.
-    ///
-    /// TODO Investigate returning an iterator
-    fn clip<I: IntoIterator<Item = Self>>(
+    fn clip<'a, I: IntoIterator<Item = Self, IntoIter: 'a>>(
         items: I,
-        planes: &[ClipPlane],
+        planes: &'a [ClipPlane],
     ) -> impl Iterator<Item = Self>;
 }
 
@@ -279,7 +275,7 @@ pub fn clip_simple_polygon<'a, A: Lerp>(
 ) {
     debug_assert!(verts_out.is_empty());
 
-    for (plane, i) in zip(planes, 0..) {
+    for (plane, i) in iter::zip(planes, 0..) {
         plane.clip_simple_polygon(verts_in, verts_out);
         verts_in.clear();
         if verts_out.is_empty() {
@@ -301,13 +297,13 @@ impl<V> ClipVert<V> {
 }
 
 impl<A: Lerp> Clip for Edge<ClipVert<A>> {
-    fn clip<I: IntoIterator<Item = Self>>(
+    fn clip<'a, I>(
         edges: I,
-        planes: &[ClipPlane],
-    ) -> impl Iterator<Item = Self> {
-        // TODO capacity is just a heuristic, should retain vector between calls somehow
-        //out.reserve(self.len() / 2);
-
+        planes: &'a [ClipPlane],
+    ) -> impl Iterator<Item = Self>
+    where
+        I: IntoIterator<Item = Self, IntoIter: 'a>,
+    {
         let mut out = Vec::new();
 
         'edges: for edge in edges {
@@ -357,11 +353,14 @@ impl<A: Lerp> Clip for Edge<ClipVert<A>> {
     }
 }
 
-impl<A: Lerp> Clip for Tri<ClipVert<A>> {
-    fn clip<I: IntoIterator<Item = Self>>(
+impl<A: Lerp + 'static> Clip for Tri<ClipVert<A>> {
+    fn clip<'a, I>(
         tris: I,
-        planes: &[ClipPlane],
-    ) -> impl Iterator<Item = Self> {
+        planes: &'a [ClipPlane],
+    ) -> impl Iterator<Item = Self>
+    where
+        I: IntoIterator<Item = Self, IntoIter: 'a>,
+    {
         // Avoid unnecessary allocations by reusing these.
         //
         // Clipping an N-gon against M planes can result in a polygon of at most
@@ -371,22 +370,36 @@ impl<A: Lerp> Clip for Tri<ClipVert<A>> {
         let mut verts_out = Vec::with_capacity(9);
         let mut tris_out = Vec::with_capacity(7);
 
-        tris.into_iter().flat_map(move |tri| {
-            tris_out.clear();
-            match status(&tri.0) {
-                Status::Visible => {
-                    // FIXME avoid cloning each time
-                    tris_out.push(tri);
-                    return tris_out.clone().into_iter();
+        let mut tris_in = tris.into_iter();
+        // TODO Could use a custom named iterator type
+        iter::from_fn(move || {
+            'next_tri: loop {
+                // If there are buffered output triangles pending, just pop and
+                // return one. The order does not matter, LIFO is fine.
+                if let tri_out @ Some(_) = tris_out.pop() {
+                    return tri_out;
                 }
-                Status::Hidden => return Vec::new().into_iter(),
-                Status::Clipped => { /* go on and clip */ }
-            }
 
-            verts_in.extend(tri.0);
-            clip_simple_polygon(planes, &mut verts_in, &mut verts_out);
+                // Otherwise, get the next input tri; if there are none,
+                // we're done because there are no pending output tris either.
+                let Some(tri_in) = tris_in.next() else {
+                    return None;
+                };
 
-            if let [p, rest @ ..] = &verts_out[..] {
+                // TODO This status check could be moved to clip_simple_polygon
+                match status(&tri_in.0) {
+                    // If the input tri is fully visible, just return it
+                    Status::Visible => return Some(tri_in),
+                    // Otherwise if it's fully hidden, ignore it and try the
+                    // next one
+                    Status::Hidden => continue 'next_tri,
+                    // Otherwise, it needs clipping
+                    Status::Clipped => { /* go ahead and clip */ }
+                }
+
+                verts_in.extend(tri_in.0);
+                clip_simple_polygon(planes, &mut verts_in, &mut verts_out);
+
                 // Clipping a triangle results in an n-gon, where n depends on
                 // how many planes the triangle intersects. For example, here
                 // clipping triangle ABC generated three new vertices, resulting
@@ -405,16 +418,15 @@ impl<A: Lerp> Clip for Tri<ClipVert<A>> {
                 //             |
                 //             |
                 //
-                tris_out.extend(
-                    rest.array_windows()
-                        .cloned()
-                        .map(|[a, b]| Tri([p.clone(), a, b])),
-                );
+                if let [p, rest @ ..] = &verts_out[..] {
+                    tris_out.extend(
+                        rest.array_windows()
+                            .cloned()
+                            .map(|[a, b]| Tri([p.clone(), a, b])),
+                    );
+                }
+                verts_out.clear();
             }
-            verts_out.clear();
-
-            // FIXME Avoid cloning each time
-            tris_out.clone().into_iter()
         })
     }
 }

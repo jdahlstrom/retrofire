@@ -147,17 +147,12 @@ pub fn render<Prim, Vtx, Var, Uni, Shd>(
     let prims: Vec<_> = primitive_assembly(prims, &verts);
 
     // 3. Clipping: clip against the view frustum
-
-    let clipped = <Prim::Clip as Clip>::clip(prims, &view_frustum::PLANES);
-
-    //let mut clipped = Vec::new();
-    //view_frustum::clip(prims.as_slice(), &mut clipped);
+    let clipped = Clip::clip(prims, &view_frustum::PLANES);
 
     // 4. Rasterize: Turn visible primitives to fragments
-
-    // Optional depth sorting for use cases such as transparency
     #[allow(unused_variables)]
     let (prims_out, verts_out) = if let Some(d) = ctx.depth_sort {
+        // Optional depth sorting for use cases such as transparency
         // Only materialize to a vector if depth sort is enabled
         let mut clipped = clipped.collect::<Vec<_>>();
         depth_sort::<Prim, _>(&mut clipped, d);
@@ -224,7 +219,7 @@ fn primitive_assembly<Prim: Render<Var> + Clone, Var: Vary>(
         .iter()
         .cloned()
         .map(|prim| Prim::inline(prim, verts))
-        // Collect needed because clip takes a slice...
+        // Collect needed because clip takes a slice... TODO Not anymore!
         .collect()
 }
 

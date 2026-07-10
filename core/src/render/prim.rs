@@ -9,7 +9,7 @@ use super::{
     raster::{Scanline, ScreenPt, line, tri_fill},
 };
 
-impl<V: Vary> Render<V> for Tri<usize> {
+impl<V: Vary + 'static> Render<V> for Tri<usize> {
     type Clip = Tri<ClipVert<V>>;
     type Screen = Tri<Vertex<ScreenPt, V>>;
 
