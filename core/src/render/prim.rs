@@ -39,6 +39,23 @@ pub trait Primitive<V: Vary> {
     fn rasterize<F: FnMut(Scanline<V>)>(scr: Self::Screen, scanline_fn: F);
 }
 
+impl<V: Vary + 'static, P, A> Primitive<V> for Tri<Vertex<P, A>> {
+    type Clip = Tri<ClipVert<V>>;
+    type Screen = Tri<Vertex<ScreenPt, V>>;
+
+    fn inline(_: Self, _: &[ClipVert<V>]) -> Self::Clip {
+        unimplemented!("should never be called for this impl")
+    }
+
+    fn to_screen(clip: Self::Clip, tf: &Mat4<Ndc, Screen>) -> Self::Screen {
+        Tri(to_screen(clip.0, tf))
+    }
+
+    fn rasterize<F: FnMut(Scanline<V>)>(scr: Self::Screen, scanline_fn: F) {
+        tri_fill(scr.0, scanline_fn);
+    }
+}
+
 impl<V: Vary + 'static> Primitive<V> for Tri<usize> {
     type Clip = Tri<ClipVert<V>>;
     type Screen = Tri<Vertex<ScreenPt, V>>;
