@@ -9,10 +9,7 @@ use alloc::vec::Vec;
 use core::fmt::Debug;
 
 use crate::geom::Vertex;
-use crate::math::{
-    Mat4, ProjVec3, Vary,
-    mat::{RealToProj, RealToReal},
-};
+use crate::math::{Mat4, ProjVec3, Vary};
 
 use self::{
     clip::{ClipVert, view_frustum},
@@ -105,24 +102,6 @@ pub struct Ndc;
 #[derive(Copy, Clone, Debug, Default, Eq, PartialEq)]
 pub struct Screen;
 
-// Mapping from model space to world space.
-pub type ModelToWorld = RealToReal<3, Model, World>;
-
-// Mapping from world space to view space.
-pub type WorldToView = RealToReal<3, World, View>;
-
-/// Mapping from model space to view space.
-pub type ModelToView = RealToReal<3, Model, View>;
-
-/// Mapping from model space to view space.
-pub type ModelToProj = RealToProj<Model>;
-
-/// Mapping from view space to projective space.
-pub type ViewToProj = RealToProj<View>;
-
-/// Mapping from NDC space to screen space.
-pub type NdcToScreen = RealToReal<3, Ndc, Screen>;
-
 /// Alias for combined vertex+fragment shader types
 pub trait Shader<Vtx, Var, Uni>:
     VertexShader<Vtx, Uni, Output = Vertex<ProjVec3, Var>>
@@ -136,7 +115,7 @@ impl<S, Vtx, Var, Uni> Shader<Vtx, Var, Uni> for S where
 }
 
 /// Renders the given primitives into `target`.
-pub fn render<Prim, Vtx: Clone, Var, Uni: Copy, Shd>(
+pub fn render<Prim, Vtx, Var, Uni, Shd>(
     prims: impl AsRef<[Prim]>,
     verts: impl AsRef<[Vtx]>,
     shader: &Shd,
@@ -146,7 +125,9 @@ pub fn render<Prim, Vtx: Clone, Var, Uni: Copy, Shd>(
     ctx: &Context,
 ) where
     Prim: Render<Var> + Clone,
+    Vtx: Clone,
     Var: Vary,
+    Uni: Copy,
     Shd: Shader<Vtx, Var, Uni>,
 {
     // 0. Setup

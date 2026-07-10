@@ -4,7 +4,7 @@ use wasm_bindgen::prelude::*;
 
 use re::prelude::*;
 
-use re::render::{ModelToView, render, shader::Shader};
+use re::render::{Model, View, render, shader::Shader};
 use re::util::{Dims, dims};
 use re_front::wasm::Window;
 
@@ -32,7 +32,7 @@ pub fn start() {
 
         let mv = rotate_z(rads(t))
             .then(&translate((3.0 + 2.0 * t.sin()) * Vec3::Z))
-            .to::<ModelToView>();
+            .to::<Model, View>();
         let mvp = mv.then(&proj);
 
         let sh = Shader::new(
