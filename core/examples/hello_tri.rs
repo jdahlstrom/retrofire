@@ -36,8 +36,7 @@ fn main() {
     let mut framebuf = Buf2::<Color4>::new(dims);
 
     render(
-        [tri(0, 1, 2)],
-        verts,
+        Tri(verts),
         &shader,
         &modelview.then(&project),
         viewport,

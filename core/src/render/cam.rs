@@ -13,7 +13,9 @@ use crate::math::{
 };
 use crate::util::{Dims, Rect};
 
-use super::{Clip, Context, Ndc, Primitive, Screen, Shader, Target, View, World};
+use super::{
+    Clip, Context, Ndc, Primitive, Screen, Shader, Target, View, World,
+};
 
 /// Trait for different modes of camera motion.
 pub trait Transform {
@@ -248,7 +250,7 @@ impl<T: Transform> Camera<T> {
         Prim: Primitive<Var, Clip: Clip> + Clone,
         Shd: for<'a> Shader<Vtx, Var, CameraUni<'a, B, Uni>>,
     {
-        let to_proj = to_world.then(&self.world_to_project());
+        /*let to_proj = to_world.then(&self.world_to_project());
         super::render(
             prims.as_ref(),
             verts.as_ref(),
@@ -257,7 +259,8 @@ impl<T: Transform> Camera<T> {
             self.viewport,
             target,
             ctx,
-        );
+        );*/
+        todo!()
     }
 }
 

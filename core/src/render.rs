@@ -5,13 +5,11 @@
 //! [texturing][tex], [rasterizing][raster], and [outputting][target] basic
 //! geometric shapes such as triangles.
 
+use crate::geom::{Mesh, Tri, Vertex, Vertex3};
+use crate::math::{Mat4, ProjVec3, Vary};
 use alloc::vec::Vec;
-use core::{fmt::Debug, ops::DerefMut};
-
-use crate::geom::Vertex;
-use crate::math::{
-    Mat4, ProjVec3, Vary,
-};
+use core::{fmt::Debug, ops::DerefMut, slice};
+use std::vec;
 
 use self::{
     clip::{ClipVert, view_frustum},
@@ -56,6 +54,138 @@ pub mod text;
 #[cfg(feature = "stats")]
 pub mod stats;
 
+pub trait Render<Var: Vary + 'static, Prim: Primitive<Var>, Vert> {
+    type InClipSpace;
+
+    fn primitives(&self) -> impl AsRef<[Prim]>;
+    fn vertices(&self) -> impl AsRef<[Vert]>;
+
+    fn transform_to_clip<Shd, Uni: Copy>(
+        &self,
+        shader: &Shd,
+        uniform: Uni,
+    ) -> Self::InClipSpace
+    where
+        Shd: VertexShader<Vert, Uni, Output = Vertex<ProjVec3, Var>>;
+
+    fn primitive_assembly(this: &Self::InClipSpace) -> Vec<Prim::Clip>;
+}
+
+/*
+impl<V, P, A> Render<V, Self, Vertex<P, A>> for Tri<Vertex<P, A>>
+where
+    Vertex<P, A>: Clone,
+{
+    type InClipSpace = Tri<ClipVert<V>>;
+
+    fn primitives(&self) -> impl AsRef<[Self]> {
+        [self.clone()]
+    }
+
+    fn vertices(&self) -> impl AsRef<[Vertex<P, A>]> {
+        self.0.clone()
+    }
+
+    fn transform_to_clip<Shd, Uni: Copy>(
+        &self,
+        shader: &Shd,
+        uniform: Uni,
+    ) -> Self::InClipSpace
+    where
+        Shd: VertexShader<Vertex<P, A>, Uni, Output = Vertex<ProjVec3, V>>,
+    {
+        self.clone()
+            .map(|v| ClipVert::new(shader.shade_vertex(v, uniform)))
+    }
+
+    fn primitive_assembly(this: &Self::InClipSpace) -> Vec<Self::InClipSpace> {
+        //vec![this.clone()]
+        todo!()
+    }
+}
+*/
+
+impl<V, A, B> Render<V, Tri<usize>, Vertex3<A, B>> for Mesh<A, B>
+where
+    V: Vary + 'static,
+    Vertex3<A, B>: Clone,
+{
+    type InClipSpace = Indexed<Vec<Tri<usize>>, Vec<ClipVert<V>>>;
+
+    fn primitives(&self) -> impl AsRef<[Tri<usize>]> {
+        &self.faces
+    }
+    fn vertices(&self) -> impl AsRef<[Vertex3<A, B>]> {
+        &self.verts
+    }
+
+    fn transform_to_clip<Shd, Uni: Copy>(
+        &self,
+        shader: &Shd,
+        uniform: Uni,
+    ) -> Self::InClipSpace
+    where
+        Shd: VertexShader<Vertex3<A, B>, Uni, Output = Vertex<ProjVec3, V>>,
+    {
+        Indexed {
+            prims: self.faces.clone(),
+            verts: vertex_transform(shader, uniform, &self.verts),
+        }
+    }
+
+    fn primitive_assembly(
+        this: &Self::InClipSpace,
+    ) -> Vec<<Tri<usize> as Primitive<V>>::Clip> {
+        todo!()
+    }
+}
+
+pub struct Indexed<Prims, Verts> {
+    pub prims: Prims,
+    pub verts: Verts,
+}
+
+impl<'a, V, Prim, Vert> Render<V, Prim, Vert>
+    for Indexed<&'a [Prim], &'a [Vert]>
+where
+    V: Vary + 'static,
+    Prim: Primitive<V> + Clone,
+    Vert: Clone,
+{
+    type InClipSpace = Indexed<&'a [Prim], Vec<ClipVert<V>>>;
+
+    fn primitives(&self) -> impl AsRef<[Prim]> {
+        self.prims
+    }
+    fn vertices(&self) -> impl AsRef<[Vert]> {
+        self.verts
+    }
+
+    fn transform_to_clip<Shd, Uni: Copy>(
+        &self,
+        shader: &Shd,
+        uniform: Uni,
+    ) -> Self::InClipSpace
+    where
+        Shd: VertexShader<Vert, Uni, Output = Vertex<ProjVec3, V>>,
+    {
+        Indexed {
+            prims: self.prims,
+            verts: self
+                .verts
+                .iter()
+                .cloned()
+                .map(|v| ClipVert::new(shader.shade_vertex(v, uniform)))
+                .collect(),
+        }
+    }
+
+    fn primitive_assembly(
+        this: &Self::InClipSpace,
+    ) -> Vec<<Prim as Primitive<V>>::Clip> {
+        primitive_assembly(this.prims, &this.verts).collect()
+    }
+}
 /// Renderable geometric primitive.
 pub trait Primitive<V: Vary> {
     /// The type of this primitive in clip space
@@ -64,7 +194,7 @@ pub trait Primitive<V: Vary> {
     /// The type of this primitive in screen space.
     type Screen;
 
-    /// Maps the indexes of the argument to vertices.
+    /// Maps the indices of the argument to vertices.
     fn inline(ixd: Self, vs: &[ClipVert<V>]) -> Self::Clip;
 
     /// Returns the (average) depth of the argument.
@@ -112,33 +242,41 @@ pub struct Ndc;
 pub struct Screen;
 
 /// Renders the given primitives into `target`.
-pub fn render<Prim, Vtx, Var, Uni, Shd>(
-    prims: impl AsRef<[Prim]>,
-    verts: impl AsRef<[Vtx]>,
+pub fn render<Prim, Vert, Geom, Var, Uni, Shd>(
+    geometry: Geom,
     shader: &Shd,
     uniform: Uni,
     to_screen: Mat4<Ndc, Screen>,
     target: &mut impl Target,
     ctx: &Context,
 ) where
+    // FIXME Primitive currently tacitly assumes indexed representation!
     Prim: Primitive<Var> + Clone,
-    Vtx: Clone,
-    Var: Vary,
+    Vert: Clone,
+    Geom: Render<Var, Prim, Vert>,
+    Var: Vary + 'static,
     Uni: Copy,
-    Shd: Shader<Vtx, Var, Uni>,
+    Shd: Shader<Vert, Var, Uni>,
 {
     // 0. Setup
-    let prims = prims.as_ref();
-    let verts = verts.as_ref();
+    let ps = geometry.primitives();
+    let vs = geometry.vertices();
+
+    let prims = ps.as_ref();
+    let verts = vs.as_ref();
 
     #[cfg(feature = "stats")]
     let stats = Stats::start_call(prims.len(), verts.len());
 
     // 1. Vertex shader: transform vertices to clip space
-    let verts = vertex_transform(shader, uniform, verts);
+    //let verts = vertex_transform(shader, uniform, verts);
+
+    let geom_in_clip = geometry.transform_to_clip(shader, uniform);
 
     // 2. Primitive assembly: map vertex indices to actual vertices
-    let prims = primitive_assembly(prims, &verts);
+    //let prims = primitive_assembly(prims, &verts);
+
+    let prims = Geom::primitive_assembly(&geom_in_clip);
 
     // 3. Clipping: clip against the view frustum
     let clipped = Clip::clip(prims, &view_frustum::PLANES);
@@ -205,10 +343,10 @@ where
 }
 
 #[inline]
-fn primitive_assembly<Prim: Primitive<Var> + Clone, Var: Vary>(
-    prims: &[Prim],
-    verts: &[ClipVert<Var>],
-) -> impl Iterator<Item = Prim::Clip> {
+fn primitive_assembly<'a, Prim: Primitive<Var> + Clone, Var: Vary>(
+    prims: &'a [Prim],
+    verts: &'a [ClipVert<Var>],
+) -> impl Iterator<Item = Prim::Clip> + use<'a, Prim, Var> {
     prims
         .iter()
         .cloned()
