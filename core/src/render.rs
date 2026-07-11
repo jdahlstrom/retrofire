@@ -61,6 +61,15 @@ pub trait Render<Var: Vary + 'static, Prim: Primitive<Var>, Vert> {
     ) -> impl Iterator<Item = Prim::Clip>
     where
         Shd: VertexShader<Vert, Uni, Output = Vertex<ProjVec3, Var>>;
+
+    /// Can be overridden if there's a more optimized implementation,
+    /// e.g. checking a bounding box first
+    fn clip_against_frustum<I>(prims: I) -> impl Iterator<Item = Prim::Clip>
+    where
+        I: IntoIterator<Item = Prim::Clip, IntoIter: 'static>,
+    {
+        Clip::clip(prims, &view_frustum::PLANES)
+    }
 }
 
 pub struct Indexed<Prims, Verts> {
@@ -118,24 +127,18 @@ pub fn render<Prim, Vert, Geom, Var, Uni, Shd>(
 {
     // 0. Setup
 
-    #[cfg(feature = "stats")]
-    let stats = Stats::start_call(
-        geometry.primitives().as_ref().len(),
-        geometry.vertices().as_ref().len(),
-    );
+    // #[cfg(feature = "stats")]
+    // let stats = Stats::start_call(
+    //     geometry.primitives().as_ref().len(),
+    //     geometry.vertices().as_ref().len(),
+    // );
 
     // 1. Vertex shader: transform vertices to clip space
-    //let verts = vertex_transform(shader, uniform, verts);
-
-    //let geom_in_clip = geometry.transform_to_clip(shader, uniform);
-
     // 2. Primitive assembly: map vertex indices to actual vertices
-    //let prims = primitive_assembly(prims, &verts);
-
     let prims = geometry.to_primitives(shader, uniform);
 
     // 3. Clipping: clip against the view frustum
-    let clipped = Clip::clip(prims, &view_frustum::PLANES);
+    let clipped = Geom::clip_against_frustum(prims);
 
     // 4. Rasterize: Turn visible primitives to fragments
     #[allow(unused_variables)]
@@ -153,10 +156,10 @@ pub fn render<Prim, Vert, Geom, Var, Uni, Shd>(
         )
     };
 
-    #[cfg(feature = "stats")]
-    {
-        *ctx.stats.borrow_mut() += stats.finish_call(prims_out, verts_out);
-    }
+    // #[cfg(feature = "stats")]
+    // {
+    //     *ctx.stats.borrow_mut() += stats.finish_call(prims_out, verts_out);
+    // }
 }
 
 fn rasterize<Prim, Shd, Var, Uni>(
