@@ -1,12 +1,13 @@
-use alloc::{vec, vec::Vec};
+use alloc::vec::Vec;
+use core::{iter, mem::replace};
 
 use crate::{
-    geom::{Mesh, Tri, Vertex, Vertex3},
+    geom::{Edge, Mesh, Polyline, Tri, Vertex, Vertex3, tri},
     math::{ProjVec3, Vary},
 };
 
 use super::{
-    ClipVert, Indexed, Primitive, Render, VertexShader, primitive_assembly,
+    ClipVert, Indexed, Primitive, Render, TriFan, VertexShader,
     vertex_transform,
 };
 
@@ -15,30 +16,19 @@ where
     V: Vary + 'static,
     Vertex<P, A>: Clone,
 {
-    type InClipSpace = Tri<ClipVert<V>>;
-
-    fn primitives(&self) -> impl AsRef<[Self]> {
-        [self.clone()]
-    }
-
-    fn vertices(&self) -> impl AsRef<[Vertex<P, A>]> {
-        self.0.clone()
-    }
-
-    fn transform_to_clip<Shd, Uni: Copy>(
+    fn to_primitives<Shd, Uni>(
         &self,
         shader: &Shd,
         uniform: Uni,
-    ) -> Self::InClipSpace
+    ) -> impl Iterator<Item = Tri<ClipVert<V>>>
     where
         Shd: VertexShader<Vertex<P, A>, Uni, Output = Vertex<ProjVec3, V>>,
+        Uni: Copy,
     {
-        self.clone()
-            .map(|v| ClipVert::new(shader.shade_vertex(v, uniform)))
-    }
-
-    fn primitive_assembly(this: &Self::InClipSpace) -> Vec<Self::InClipSpace> {
-        vec![this.clone()]
+        iter::once(
+            self.clone()
+                .map(|v| ClipVert::new(shader.shade_vertex(v, uniform))),
+        )
     }
 }
 
@@ -48,35 +38,78 @@ where
     V: Vary + 'static,
     Vertex<P, A>: Clone,
 {
-    type InClipSpace = Vec<Tri<ClipVert<V>>>;
-
-    fn primitives(&self) -> impl AsRef<[Tri<Vertex<P, A>>]> {
-        self
-    }
-
-    fn vertices(&self) -> impl AsRef<[Vertex<P, A>]> {
-        unimplemented!();
-        []
-    }
-
-    fn transform_to_clip<Shd, Uni: Copy>(
+    fn to_primitives<Shd, Uni>(
         &self,
         shader: &Shd,
         uniform: Uni,
-    ) -> Self::InClipSpace
+    ) -> impl Iterator<Item = Tri<ClipVert<V>>>
     where
         Shd: VertexShader<Vertex<P, A>, Uni, Output = Vertex<ProjVec3, V>>,
+        Uni: Copy,
     {
-        self.iter()
-            .map(|tri| {
-                tri.clone()
-                    .map(|v| ClipVert::new(shader.shade_vertex(v, uniform)))
-            })
-            .collect()
+        self.iter().map(move |tri| {
+            tri.clone()
+                .map(move |v| ClipVert::new(shader.shade_vertex(v, uniform)))
+        })
     }
+}
 
-    fn primitive_assembly(this: &Self::InClipSpace) -> Self::InClipSpace {
-        this.clone()
+impl<V, P, A> Render<V, Tri<Vertex<P, A>>, Vertex<P, A>>
+    for TriFan<Vertex<P, A>>
+where
+    V: Vary + 'static,
+    Vertex<P, A>: Clone,
+{
+    fn to_primitives<Shd, Uni>(
+        &self,
+        shader: &Shd,
+        uniform: Uni,
+    ) -> impl Iterator<Item = Tri<ClipVert<V>>>
+    where
+        Shd: VertexShader<Vertex<P, A>, Uni, Output = Vertex<ProjVec3, V>>,
+        Uni: Copy,
+    {
+        let verts = vertex_transform(shader, uniform, &self.0);
+        let mut it = verts.into_iter();
+
+        let a = it.next().unwrap();
+        let mut b = it.next().unwrap();
+        iter::from_fn(move || {
+            let c = it.next()?;
+            let b = replace(&mut b, c.clone());
+            Some(tri(a.clone(), b, c))
+        })
+    }
+}
+
+impl<V, P, A> Render<V, Edge<Vertex<P, A>>, Vertex<P, A>>
+    for Polyline<Vertex<P, A>>
+where
+    V: Vary + 'static,
+    Vertex<P, A>: Clone,
+{
+    fn to_primitives<Shd, Uni>(
+        &self,
+        shader: &Shd,
+        uniform: Uni,
+    ) -> impl Iterator<Item = Edge<ClipVert<V>>>
+    where
+        Shd: VertexShader<Vertex<P, A>, Uni, Output = Vertex<ProjVec3, V>>,
+        Uni: Copy,
+    {
+        let mut it = self
+            .0
+            .iter()
+            .cloned()
+            .map(move |v| ClipVert::new(shader.shade_vertex(v, uniform)));
+        // Collect to avoid lifetime bound on Uni
+
+        let mut a = it.next().unwrap();
+        iter::from_fn(move || {
+            let b = it.next()?;
+            let a = replace(&mut a, b.clone());
+            Some(Edge(a.clone(), b))
+        })
     }
 }
 
@@ -85,33 +118,20 @@ where
     V: Vary + 'static,
     Vertex3<A, B>: Clone,
 {
-    type InClipSpace = Indexed<Vec<Tri<usize>>, Vec<ClipVert<V>>>;
-
-    fn primitives(&self) -> impl AsRef<[Tri<usize>]> {
-        &self.faces
-    }
-    fn vertices(&self) -> impl AsRef<[Vertex3<A, B>]> {
-        &self.verts
-    }
-
-    fn transform_to_clip<Shd, Uni: Copy>(
+    fn to_primitives<Shd, Uni>(
         &self,
         shader: &Shd,
         uniform: Uni,
-    ) -> Self::InClipSpace
+    ) -> impl Iterator<Item = Tri<ClipVert<V>>>
     where
         Shd: VertexShader<Vertex3<A, B>, Uni, Output = Vertex<ProjVec3, V>>,
+        Uni: Copy,
     {
-        Indexed {
-            prims: self.faces.clone(),
-            verts: vertex_transform(shader, uniform, &self.verts),
-        }
-    }
-
-    fn primitive_assembly(
-        this: &Self::InClipSpace,
-    ) -> Vec<<Tri<usize> as Primitive<V>>::Clip> {
-        primitive_assembly(&this.prims, &this.verts).collect()
+        let verts = vertex_transform(shader, uniform, &self.verts);
+        self.faces
+            .iter()
+            .cloned()
+            .map(move |prim| Tri::inline(prim, &verts))
     }
 }
 
@@ -122,32 +142,19 @@ where
     Prim: Primitive<V> + Clone,
     Vert: Clone,
 {
-    type InClipSpace = Indexed<&'a [Prim], Vec<ClipVert<V>>>;
-
-    fn primitives(&self) -> impl AsRef<[Prim]> {
-        self.prims
-    }
-    fn vertices(&self) -> impl AsRef<[Vert]> {
-        self.verts
-    }
-
-    fn transform_to_clip<Shd, Uni: Copy>(
+    fn to_primitives<Shd, Uni>(
         &self,
         shader: &Shd,
         uniform: Uni,
-    ) -> Self::InClipSpace
+    ) -> impl Iterator<Item = Prim::Clip>
     where
         Shd: VertexShader<Vert, Uni, Output = Vertex<ProjVec3, V>>,
+        Uni: Copy,
     {
-        Indexed {
-            prims: self.prims,
-            verts: vertex_transform(shader, uniform, &self.verts),
-        }
-    }
-
-    fn primitive_assembly(
-        this: &Self::InClipSpace,
-    ) -> Vec<<Prim as Primitive<V>>::Clip> {
-        primitive_assembly(this.prims, &this.verts).collect()
+        let verts = vertex_transform(shader, uniform, self.verts);
+        self.prims
+            .iter()
+            .cloned()
+            .map(move |prim| Prim::inline(prim, &verts))
     }
 }

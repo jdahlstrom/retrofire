@@ -94,9 +94,7 @@ fn main() {
     let mut carousel = Carousel::default();
 
     win.run(|frame| {
-        let Frame { t, dt, win, .. } = frame;
-
-        for key in win.imp.get_keys_pressed(KeyRepeat::No) {
+        for key in frame.win.imp.get_keys_pressed(KeyRepeat::No) {
             match key {
                 Key::Space => carousel.start(),
 
@@ -110,9 +108,9 @@ fn main() {
             }
         }
 
-        let theta = rads(t.as_secs_f32());
+        let theta = rads(frame.t.as_secs_f32());
         let spin = rotate_x(theta * 0.37).then(&rotate_y(theta * 0.51));
-        let carouse = carousel.update(dt.as_secs_f32());
+        let carouse = carousel.update(frame.dt.as_secs_f32());
 
         // Compose transform stack
         let model_view_project: ProjMat3<Model> = spin

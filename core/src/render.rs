@@ -54,27 +54,23 @@ pub mod stats;
 mod impls;
 
 pub trait Render<Var: Vary + 'static, Prim: Primitive<Var>, Vert> {
-    type InClipSpace;
-
-    // TODO These aren't needed for anything except stats anymore
-    fn primitives(&self) -> impl AsRef<[Prim]>;
-    fn vertices(&self) -> impl AsRef<[Vert]>;
-
-    fn transform_to_clip<Shd, Uni: Copy>(
+    fn to_primitives<Shd, Uni: Copy>(
         &self,
         shader: &Shd,
         uniform: Uni,
-    ) -> Self::InClipSpace
+    ) -> impl Iterator<Item = Prim::Clip>
     where
         Shd: VertexShader<Vert, Uni, Output = Vertex<ProjVec3, Var>>;
-
-    fn primitive_assembly(this: &Self::InClipSpace) -> Vec<Prim::Clip>;
 }
 
 pub struct Indexed<Prims, Verts> {
     pub prims: Prims,
     pub verts: Verts,
 }
+
+pub struct TriFan<V>(pub Vec<V>);
+
+pub struct TriStrip<V>(pub Vec<V>);
 
 /// Alias for combined vertex+fragment shader types
 pub trait Shader<Vtx, Var, Uni>:
@@ -131,12 +127,12 @@ pub fn render<Prim, Vert, Geom, Var, Uni, Shd>(
     // 1. Vertex shader: transform vertices to clip space
     //let verts = vertex_transform(shader, uniform, verts);
 
-    let geom_in_clip = geometry.transform_to_clip(shader, uniform);
+    //let geom_in_clip = geometry.transform_to_clip(shader, uniform);
 
     // 2. Primitive assembly: map vertex indices to actual vertices
     //let prims = primitive_assembly(prims, &verts);
 
-    let prims = Geom::primitive_assembly(&geom_in_clip);
+    let prims = geometry.to_primitives(shader, uniform);
 
     // 3. Clipping: clip against the view frustum
     let clipped = Clip::clip(prims, &view_frustum::PLANES);
@@ -203,31 +199,18 @@ where
 }
 
 #[inline]
-fn primitive_assembly<'a, Prim: Primitive<Var> + Clone, Var: Vary>(
-    prims: &'a [Prim],
-    verts: &'a [ClipVert<Var>],
-) -> impl Iterator<Item = Prim::Clip> + use<'a, Prim, Var> {
-    prims
-        .iter()
-        .cloned()
-        .map(|prim| Prim::inline(prim, verts))
-}
-
-#[inline]
-fn vertex_transform<Shd, Vtx: Clone, Var: Vary, Uni: Copy>(
+fn vertex_transform<'a, Shd, Vtx: Clone + 'a, Var: Vary, Uni: Copy>(
     shader: &Shd,
     uniform: Uni,
-    verts: &[Vtx],
+    verts: impl IntoIterator<Item = &'a Vtx>,
 ) -> Vec<ClipVert<Var>>
 where
     Shd: VertexShader<Vtx, Uni, Output = Vertex<ProjVec3, Var>>,
 {
     verts
-        // verts is borrowed, can't consume
-        .iter()
+        .into_iter()
         // TODO Pass vertex as ref to shader
-        .cloned()
-        .map(|v| shader.shade_vertex(v, uniform))
+        .map(|v| shader.shade_vertex(v.clone(), uniform))
         .map(ClipVert::new)
         .collect()
 }

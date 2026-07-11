@@ -1,4 +1,5 @@
 //! Render impls for primitives and related items.
+use alloc::vec::Vec;
 
 use crate::geom::{Edge, Tri, Vertex, Winding};
 use crate::math::{Mat4, Vary, pt3, vary::ZDiv};
@@ -51,6 +52,23 @@ impl<V: Vary + 'static, P, A> Primitive<V> for Tri<Vertex<P, A>> {
 
     fn rasterize<F: FnMut(Scanline<V>)>(scr: Self::Screen, scanline_fn: F) {
         tri_fill(scr.0, scanline_fn);
+    }
+}
+
+impl<V: Vary + 'static, P, A> Primitive<V> for Edge<Vertex<P, A>> {
+    type Clip = Edge<ClipVert<V>>;
+    type Screen = Edge<Vertex<ScreenPt, V>>;
+
+    fn inline(_: Self, _: &[ClipVert<V>]) -> Self::Clip {
+        unimplemented!("should never be called for this impl")
+    }
+
+    fn to_screen(clip: Self::Clip, tf: &Mat4<Ndc, Screen>) -> Self::Screen {
+        to_screen([clip.0, clip.1], tf).into()
+    }
+
+    fn rasterize<F: FnMut(Scanline<V>)>(scr: Self::Screen, scanline_fn: F) {
+        line([scr.0, scr.1], scanline_fn);
     }
 }
 
