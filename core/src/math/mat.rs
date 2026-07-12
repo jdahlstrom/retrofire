@@ -7,6 +7,7 @@
 use core::{
     array,
     fmt::{self, Debug, Formatter},
+    hint::cold_path,
     marker::PhantomData as Pd,
     ops::Range,
 };
@@ -397,6 +398,24 @@ impl<Src, Dst> Mat2<Src, Dst> {
         self.checked_inverse()
             .expect("matrix cannot be singular or near-singular")
     }
+
+    /// Returns the affine 3x3 matrix corresponding to `self`.
+    ///
+    /// # Examples
+    /// ```
+    /// use retrofire_core::{mat, math::Mat2};
+    ///
+    /// let m: Mat2 = mat![0.0, 2.0; 3.0, 0.0];
+    ///
+    /// assert_eq!(m.to_affine(), mat![
+    ///     0.0, 2.0, 0.0;
+    ///     3.0, 0.0, 0.0;
+    ///     0.0, 0.0, 1.0
+    /// ]);
+    /// ```
+    pub const fn to_affine(&self) -> Mat3<Src, Dst, 2> {
+        Mat3::from_affine(self.col_vec(0), self.col_vec(1), pt2(0.0, 0.0))
+    }
 }
 
 impl<Src, Dst> Mat3<Src, Dst, 2> {
@@ -503,6 +522,29 @@ impl<Src, Dst> Mat3<Src, Dst, 2> {
     /// ```
     pub const fn origin(&self) -> Point2<Dst> {
         self.translation().to_pt()
+    }
+}
+
+impl<Src, Dst> Mat3<Src, Dst, 3> {
+    /// Returns the 4x4 affine equivalent of `self`.
+    pub const fn to_affine(&self) -> Mat4<Src, Dst, 3> {
+        let [[a, b, c], [d, e, f], [g, h, i]] = self.0;
+        mat![
+             a,   b,   c,  0.0;
+             d,   e,   f,  0.0;
+             g,   h,   i,  0.0;
+            0.0, 0.0, 0.0, 1.0;
+        ]
+    }
+}
+
+impl<Src, Dst, const DIM: usize> Mat3<Src, Dst, DIM> {
+    #[inline]
+    const fn is_affine(&self) -> bool {
+        let [g, h, i] = self.0[2];
+        let affine = g == 0.0 && h == 0.0 && i == 1.0;
+
+        if DIM == 2 { likely(affine) } else { affine }
     }
 
     /// Returns the determinant of `self`.
@@ -805,6 +847,20 @@ impl<Src, Dst> Mat4<Src, Dst> {
         debug_assert!(inv.is_finite());
         inv.to()
     }
+
+    #[inline]
+    const fn is_affine(&self) -> bool {
+        let [a, b, c, d] = self.0[3];
+        likely(a == 0.0 && b == 0.0 && c == 0.0 && d == 1.0)
+    }
+}
+
+#[inline]
+const fn likely(cond: bool) -> bool {
+    if !cond {
+        cold_path()
+    }
+    cond
 }
 
 //
