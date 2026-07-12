@@ -156,8 +156,10 @@ where
     ///
     /// let m: Mat2 = mat![1.0, 2.0; 3.0, 4.0];
     /// assert_eq!(m.row_vec(0), vec2(1.0, 2.0));
+    /// assert_eq!(m.row_vec(1), vec2(3.0, 4.0));
+    /// ```
     #[inline]
-    pub fn row_vec(&self, i: usize) -> Vector<[Sc; N], Map::Source> {
+    pub const fn row_vec(&self, i: usize) -> Vector<[Sc; N], Map::Source> {
         Vector::new(self.0[i])
     }
 
@@ -173,10 +175,19 @@ where
     /// use retrofire_core::{mat, math::{vec2, Mat2}};
     ///
     /// let m: Mat2 = mat![1.0, 2.0; 3.0, 4.0];
+    /// assert_eq!(m.col_vec(0), vec2(1.0, 3.0));
     /// assert_eq!(m.col_vec(1), vec2(2.0, 4.0));
+    /// ```
     #[inline]
-    pub fn col_vec(&self, i: usize) -> Vector<[Sc; M], Map::Dest> {
-        Vector::new(self.0.map(|row| row[i]))
+    pub const fn col_vec(&self, i: usize) -> Vector<[Sc; M], Map::Dest> {
+        // Manual loop for constness...
+        let mut res = [self.0[0][i]; M]; // No traits in const
+        let mut j = 1;
+        while j < M {
+            res[j] = self.0[j][i];
+            j += 1;
+        }
+        Vector::new(res)
     }
 }
 impl<Sc: Copy, const N: usize, const DIM: usize, S, D>
