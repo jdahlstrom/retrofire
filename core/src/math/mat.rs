@@ -397,6 +397,7 @@ impl<Src, Dst> Mat2<Src, Dst> {
     /// // This will panic
     /// let _ = singular.inverse();
     /// ```
+    #[inline]
     #[must_use]
     pub const fn inverse(&self) -> Mat2<Dst, Src> {
         self.checked_inverse()
@@ -417,6 +418,7 @@ impl<Src, Dst> Mat2<Src, Dst> {
     ///     0.0, 0.0, 1.0
     /// ]);
     /// ```
+    #[inline]
     pub const fn to_affine(&self) -> Mat3<Src, Dst, 2> {
         Mat3::from_affine(self.col_vec(0), self.col_vec(1), pt2(0.0, 0.0))
     }
@@ -508,6 +510,7 @@ impl<Src, Dst> Mat3<Src, Dst, 2> {
     /// ];
     /// assert_eq!(m.translation(), vec2(3.0, 4.0));
     /// ```
+    #[inline]
     pub const fn translation(&self) -> Vec2<Dst> {
         let [r, s, _] = self.0;
         vec2(r[2], s[2])
@@ -529,6 +532,7 @@ impl<Src, Dst> Mat3<Src, Dst, 2> {
     /// assert_eq!(m.origin(), pt2(3.0, 4.0));
     /// ```
     /// [1]: Self::translation
+    #[inline]
     pub const fn origin(&self) -> Point2<Dst> {
         self.translation().to_pt()
     }
@@ -550,23 +554,22 @@ impl<Src, Dst> Mat3<Src, Dst, 3> {
 impl<Src, Dst, const DIM: usize> Mat3<Src, Dst, DIM> {
     #[inline]
     const fn is_affine(&self) -> bool {
-        let [g, h, i] = self.0[2];
-        let affine = g == 0.0 && h == 0.0 && i == 1.0;
-
+        // No array == in const...
+        let affine = matches!(self.0[2], [0.0, 0.0, 1.0]);
         if DIM == 2 { likely(affine) } else { affine }
     }
 
     /// Returns the determinant of `self`.
-    pub const fn determinant(&self) -> f32 {
-        let [a, b, c] = self.0[0];
-
-        // assert!(g == 0.0 && h == 0.0 && i == 1.0);
-        // TODO If affine (as should be), reduces to:
-        // a * e - b * d
-
-        a * self.cofactor(0, 0)
-            + b * self.cofactor(0, 1)
-            + c * self.cofactor(0, 2)
+    #[inline]
+    pub fn determinant(&self) -> f32 {
+        let [[a, b, c], [d, e, _], _] = self.0;
+        if self.is_affine() {
+            a * e - b * d
+        } else {
+            a * self.cofactor(0, 0)
+                + b * self.cofactor(0, 1)
+                + c * self.cofactor(0, 2)
+        }
     }
 
     /// Returns the cofactor of the element at the given row and column.
@@ -588,6 +591,8 @@ impl<Src, Dst, const DIM: usize> Mat3<Src, Dst, DIM> {
         m[r1][c1] * m[r2][c2] - m[r1][c2] * m[r2][c1]
     }
 
+    // TODO separate impls for DIM 2 and 3
+
     /// Returns the inverse of `self`, or `None` if `self` is singular.
     ///
     /// # Examples
@@ -606,39 +611,55 @@ impl<Src, Dst, const DIM: usize> Mat3<Src, Dst, DIM> {
     /// ]));
     /// ```
     #[must_use]
-    pub const fn checked_inverse(&self) -> Option<Mat3<Dst, Src, 2>> {
+    pub fn checked_inverse(&self) -> Option<Mat3<Dst, Src, DIM>> {
         let det = self.determinant();
         if det.abs() < 1e-6 {
             return None;
         }
-
-        // Inverse is transpose of cofactor matrix divided by determinant
-        let mut res = [[0.0; 3]; 3];
         let r_det = 1.0 / det;
-        let mut i = 0;
-        while i < 3 {
-            res[i][0] = r_det * self.cofactor(0, i);
-            res[i][1] = r_det * self.cofactor(1, i);
-            res[i][2] = r_det * self.cofactor(2, i);
-            i += 1;
-        }
-        /*let c_a = self.cofactor(0, 0); // = e
-        let c_b = self.cofactor(0, 1); // = d
-        let c_c = self.cofactor(0, 2); // = 0
-        let c_d = self.cofactor(1, 0); // = b
-        let c_e = self.cofactor(1, 1); // = a
-        let c_f = self.cofactor(1, 2); // = 0
-        let c_g = self.cofactor(2, 0); // = b * f - c * e
-        let c_h = self.cofactor(2, 1); // = a * f - c * d
-        let c_i = self.cofactor(2, 2); // = a * e - b * d*/
 
-        Some(Mat3::new(res))
+        // Inverse is transpose of cofactor matrix divided by determinant:
+        //
+        //  1   ( co(a) co(d) co(g) )
+        // ---  ( co(b) co(e) co(h) )
+        // det  ( co(c) co(f) co(i) )
+
+        if self.is_affine() {
+            // When (g, h, i) = (0, 0, 1), simplifies to:
+            //  1   (  e -b  bf-ce )
+            // ---  ( -d  a  cd-af )
+            // det  (  0  0  ae-bd )
+            //               ^^^^^--- = 1 after div by det
+
+            let [[a, b, c], [d, e, f], _] = self.0;
+            let a_ = a * r_det;
+            let b_ = b * r_det;
+            let d_ = d * r_det;
+            let e_ = e * r_det;
+            Some(mat![
+                 e_, -b_,  b_ * f - c * e_;
+                -d_,  a_,  c * d_ - a_ * f;
+                0.0, 0.0,              1.0;
+            ])
+        } else {
+            // No for or from_fn in const :(
+            let mut res = [[0.0; 3]; 3];
+            let mut i = 0;
+            while i < 3 {
+                res[i][0] = r_det * self.cofactor(0, i);
+                res[i][1] = r_det * self.cofactor(1, i);
+                res[i][2] = r_det * self.cofactor(2, i);
+                i += 1;
+            }
+            Some(Mat3::new(res))
+        }
     }
 
     /// Returns the inverse of self.
     ///
     /// # Panics
     /// If the inverse does not exist (the matrix is singular or near-singular).
+    #[inline]
     #[must_use]
     pub fn inverse(&self) -> Mat3<Dst, Src, DIM> {
         self.checked_inverse()
@@ -688,6 +709,7 @@ impl<Src, Dst> Mat4<Src, Dst> {
     /// // Only scaling is applied because translation is not linear
     /// assert_approx_eq!(m.linear().apply(&pt), pt3(5.0, -5.0, 2.5));
     /// ```
+    #[inline]
     pub const fn linear(&self) -> Mat3<Src, Dst, 3> {
         let [r, s, t, _] = self.0;
         mat![
@@ -709,6 +731,7 @@ impl<Src, Dst> Mat4<Src, Dst> {
     /// let m = scale(5.0).then(&translate(trans));
     /// assert_eq!(m.translation(), trans);
     /// ```
+    #[inline]
     pub const fn translation(&self) -> Vec3<Dst> {
         vec3(self.0[0][3], self.0[1][3], self.0[2][3])
     }
@@ -726,6 +749,7 @@ impl<Src, Dst> Mat4<Src, Dst> {
     /// assert_eq!(m.origin(), pt3(1.0, 2.0, 3.0));
     /// ```
     /// [1]: Self::translation
+    #[inline]
     pub const fn origin(&self) -> Point3<Dst> {
         self.translation().to_pt()
     }
@@ -751,14 +775,17 @@ impl<Src, Dst> Mat4<Src, Dst> {
     ///              ⎜ j k l ⎜                           ⎜ i k l ⎜   ⎜ i k l ⎜
     /// ```
     pub fn determinant(&self) -> f32 {
-        let [[a, b, c, d], r, s, t] = self.0;
-
-        let det2 = |m, n| s[m] * t[n] - s[n] * t[m];
-        let det3 =
-            |j, k, l| r[j] * det2(k, l) - r[k] * det2(j, l) + r[l] * det2(j, k);
-
-        a * det3(1, 2, 3) - b * det3(0, 2, 3) + c * det3(0, 1, 3)
-            - d * det3(0, 1, 2)
+        if self.is_affine() {
+            self.linear().determinant()
+        } else {
+            let [[a, b, c, d], r, s, t] = self.0;
+            let det2 = |m, n| s[m] * t[n] - s[n] * t[m];
+            let det3 = |j, k, l| {
+                r[j] * det2(k, l) - r[k] * det2(j, l) + r[l] * det2(j, k)
+            };
+            a * det3(1, 2, 3) - b * det3(0, 2, 3) + c * det3(0, 1, 3)
+                - d * det3(0, 1, 2)
+        }
     }
 
     #[must_use]
@@ -786,8 +813,8 @@ impl<Src, Dst> Mat4<Src, Dst> {
     ///
     /// # Panics
     /// If debug assertions are enabled, panics if `self` is singular or
-    /// near-singular. If not enabled, the return value is unspecified and
-    /// may contain non-finite values (infinities and NaNs).
+    /// near-singular. Otherwise, the return value is unspecified and may
+    /// contain non-finite values (infinities and NaNs).
     // TODO example
     #[must_use]
     pub fn inverse(&self) -> Mat4<Dst, Src> {
@@ -816,6 +843,14 @@ impl<Src, Dst> Mat4<Src, Dst> {
                 "a singular, near-singular, or non-finite matrix does not \
                  have a well-defined inverse (determinant = {det})"
             );
+        }
+
+        if self.is_affine() {
+            let lin: Mat3<(), (), 3> = self.linear().to();
+            let trans: Vec3 = self.translation().to();
+            return translate(-trans)
+                .then(&lin.inverse().to_affine())
+                .to();
         }
 
         // This algorithm attempts to reduce `this` to the identity matrix
@@ -851,9 +886,9 @@ impl<Src, Dst> Mat4<Src, Dst> {
         }
         // now in upper echelon form, back-substitute variables
         for &idx in &[3, 2, 1] {
-            let diag = this.0[idx][idx];
+            let r_diag = this.0[idx][idx].recip();
             for r in 0..idx {
-                let x = this.0[r][idx] / diag;
+                let x = this.0[r][idx] * r_diag;
 
                 sub_row(this, idx, r, x);
                 sub_row(inv, idx, r, x);
@@ -1693,6 +1728,27 @@ mod tests {
         }
 
         #[test]
+        fn inversion() {
+            let sc = scale((1.0, -2.0, 5.0));
+            assert_eq!(sc.inverse(), scale((1.0, -0.5, 0.2)));
+
+            let rot = rotate_x(degs(123.0));
+            assert_approx_eq!(rot.inverse(), rotate_x(degs(-123.0)));
+
+            let tr = translate((1.0, 2.0, -3.0));
+            assert_eq!(tr.inverse(), translate((-1.0, -2.0, 3.0)));
+
+            let sc_rot_trans = sc.then(&rot).then(&tr);
+
+            assert_approx_eq!(
+                sc_rot_trans.inverse(),
+                translate((-1.0, -2.0, 3.0))
+                    .then(&rotate_x(degs(-123.0)))
+                    .then(&scale((1.0, -0.5, 0.2)))
+            );
+        }
+
+        #[test]
         fn scaling() {
             let m = scale((1.0, -2.0, 3.0));
 
@@ -1947,6 +2003,12 @@ mod tests {
     }
 
     #[test]
+    fn determinant_of_translation_is_one() {
+        let trans = translate((2.0, 3.0, 4.0));
+        assert_eq!(trans.determinant(), 1.0);
+    }
+
+    #[test]
     fn matrix_composed_with_inverse_is_identity() {
         let m: Mat4<B1, B2> = translate((1.0e3, -2.0e2, 0.0))
             .then(&scale((0.5, 100.0, 42.0)))
@@ -1954,8 +2016,8 @@ mod tests {
 
         let m_inv: Mat4<B2, B1> = m.inverse();
 
-        assert_eq!(m.compose(&m_inv), Mat4::identity());
-        assert_eq!(m_inv.compose(&m), Mat4::identity());
+        assert_eq!(m.then(&m_inv), <Mat4<B1, B1>>::identity());
+        assert_eq!(m.compose(&m_inv), <Mat4<B2, B2>>::identity());
     }
 
     #[test]
