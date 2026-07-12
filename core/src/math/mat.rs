@@ -191,6 +191,7 @@ where
         Vector::new(res)
     }
 }
+
 impl<Sc: Copy, const N: usize, const DIM: usize, S, D>
     Matrix<[[Sc; N]; N], RealToReal<DIM, S, D>>
 {
@@ -318,12 +319,15 @@ impl<Src, Dst> Mat2<Src, Dst> {
     ///
     /// # Examples
     /// ```
-    /// use retrofire_core::math::Mat2;
+    /// use retrofire_core::{mat, math::Mat2};
     ///
-    /// let double: Mat2 = [[2.0, 0.0], [0.0, 2.0]].into();
+    /// let double: Mat2 = mat![2.0, 0.0; 0.0, 2.0];
     /// assert_eq!(double.determinant(), 4.0);
     ///
-    /// let singular: Mat2 = [[1.0, 0.0], [2.0, 0.0]].into();
+    /// let flip_y: Mat2 = mat![1.0, 0.0; 0.0, -1.0];
+    /// assert_eq!(flip_y.determinant(), -1.0);
+    ///
+    /// let singular: Mat2 = mat![1.0, 0.0; 2.0, 0.0];
     /// assert_eq!(singular.determinant(), 0.0);
     /// ```
     #[inline]
@@ -475,13 +479,13 @@ impl<Src, Dst> Mat3<Src, Dst, 2> {
     /// use retrofire_core::{mat, math::*};
     ///
     /// let m: Mat3 = mat![
-    ///     2.0, 0.0, 4.0;
-    ///     0.0, 3.0, 5.0;
+    ///     1.0, 0.0, 3.0;
+    ///     0.0, 2.0, 4.0;
     ///     0.0, 0.0, 1.0;
     /// ];
     /// assert_eq!(m.linear(), mat![
-    ///     2.0, 0.0;
-    ///     0.0, 3.0;
+    ///     1.0, 0.0;
+    ///     0.0, 2.0
     /// ]);
     /// ```
     pub const fn linear(&self) -> Mat2<Src, Dst> {
@@ -491,16 +495,18 @@ impl<Src, Dst> Mat3<Src, Dst, 2> {
 
     /// Returns the translation column vector of `self`.
     ///
-    /// # Example
+    /// Use [`origin`][Self::origin] to get the translation as a point.
+    ///
+    /// # Examples
     /// ```
     /// use retrofire_core::{mat, math::*};
     ///
     /// let m: Mat3 = mat![
-    ///     2.0, 0.0, 4.0;
-    ///     0.0, 3.0, 5.0;
+    ///     1.0, 0.0, 3.0;
+    ///     0.0, 2.0, 4.0;
     ///     0.0, 0.0, 1.0;
     /// ];
-    /// assert_eq!(m.translation(), vec2(4.0, 5.0));
+    /// assert_eq!(m.translation(), vec2(3.0, 4.0));
     /// ```
     pub const fn translation(&self) -> Vec2<Dst> {
         let [r, s, _] = self.0;
@@ -509,17 +515,20 @@ impl<Src, Dst> Mat3<Src, Dst, 2> {
 
     /// Returns the translation column vector of `self` as a point.
     ///
+    /// Use [`translation`][1] to get the translation as a vector.
+    ///
     /// # Example
     /// ```
     /// use retrofire_core::{mat, math::*};
     ///
     /// let m: Mat3 = mat![
-    ///     2.0, 0.0, 4.0;
-    ///     0.0, 3.0, 5.0;
+    ///     1.0, 0.0, 3.0;
+    ///     0.0, 2.0, 4.0;
     ///     0.0, 0.0, 1.0;
     /// ];
-    /// assert_eq!(m.origin(), pt2(4.0, 5.0));
+    /// assert_eq!(m.origin(), pt2(3.0, 4.0));
     /// ```
+    /// [1]: Self::translation
     pub const fn origin(&self) -> Point2<Dst> {
         self.translation().to_pt()
     }
@@ -567,7 +576,7 @@ impl<Src, Dst, const DIM: usize> Mat3<Src, Dst, DIM> {
     ///
     /// 1. Remove the given row and column from `self` to get a 2x2 submatrix;
     /// 2. Compute its determinant;
-    /// 3. If exactly one of `row` and `col` is even, multiply by -1.
+    /// 3. If `row` is even XOR `col` is even, multiply by -1.
     #[inline]
     const fn cofactor(&self, row: usize, col: usize) -> f32 {
         // This automatically takes care of the negation
@@ -575,7 +584,8 @@ impl<Src, Dst, const DIM: usize> Mat3<Src, Dst, DIM> {
         let r2 = (row + 2) % 3;
         let c1 = (col + 1) % 3;
         let c2 = (col + 2) % 3;
-        self.0[r1][c1] * self.0[r2][c2] - self.0[r1][c2] * self.0[r2][c1]
+        let m = self.0;
+        m[r1][c1] * m[r2][c2] - m[r1][c2] * m[r2][c1]
     }
 
     /// Returns the inverse of `self`, or `None` if `self` is singular.
@@ -625,12 +635,12 @@ impl<Src, Dst, const DIM: usize> Mat3<Src, Dst, DIM> {
         Some(Mat3::new(res))
     }
 
-    /// TODO
+    /// Returns the inverse of self.
     ///
     /// # Panics
-    /// If the matrix is singular or near-singular.
+    /// If the inverse does not exist (the matrix is singular or near-singular).
     #[must_use]
-    pub fn inverse(&self) -> Mat3<Dst, Src> {
+    pub fn inverse(&self) -> Mat3<Dst, Src, DIM> {
         self.checked_inverse()
             .expect("matrix cannot be singular or near-singular")
     }
@@ -675,8 +685,9 @@ impl<Src, Dst> Mat4<Src, Dst> {
     /// let m = scale(5.0).then(&translate((1.0, 2.0, 3.0)));
     /// let pt = pt3(1.0, -1.0, 0.5);
     ///
-    /// // Only the scale is applied because the translate is not linear
+    /// // Only scaling is applied because translation is not linear
     /// assert_approx_eq!(m.linear().apply(&pt), pt3(5.0, -5.0, 2.5));
+    /// ```
     pub const fn linear(&self) -> Mat3<Src, Dst, 3> {
         let [r, s, t, _] = self.0;
         mat![
@@ -688,6 +699,8 @@ impl<Src, Dst> Mat4<Src, Dst> {
 
     /// Returns the translation column vector of `self`.
     ///
+    /// Use [`origin`][Self::origin] to get the translation as a point.
+    ///
     /// # Example
     /// ```
     /// use retrofire_core::math::*;
@@ -695,11 +708,14 @@ impl<Src, Dst> Mat4<Src, Dst> {
     /// let trans = vec3(1.0, 2.0, 3.0);
     /// let m = scale(5.0).then(&translate(trans));
     /// assert_eq!(m.translation(), trans);
+    /// ```
     pub const fn translation(&self) -> Vec3<Dst> {
         vec3(self.0[0][3], self.0[1][3], self.0[2][3])
     }
 
     /// Returns the translation column vector of `self` as a point.
+    ///
+    /// Use [`translation`][1] to get the translation as a vector.
     ///
     /// # Example
     /// ```
@@ -708,6 +724,8 @@ impl<Src, Dst> Mat4<Src, Dst> {
     /// let trans = vec3(1.0, 2.0, 3.0);
     /// let m = scale(5.0).then(&translate(trans));
     /// assert_eq!(m.origin(), pt3(1.0, 2.0, 3.0));
+    /// ```
+    /// [1]: Self::translation
     pub const fn origin(&self) -> Point3<Dst> {
         self.translation().to_pt()
     }
@@ -721,13 +739,16 @@ impl<Src, Dst> Mat4<Src, Dst> {
     ///         ⎜ i  j  k  l ⎟
     ///         ⎝ m  n  o  p ⎠
     /// ```
-    /// its determinant can be computed by multiplying each element *e* on row 0
-    /// with its *minors*: the determinant of the submatrix obtained by removing
-    /// the row and column of *e*:
+    /// its determinant can be computed by multiplying each element *x* on some
+    /// row *n* with the determinant of its *minor*, the submatrix obtained by
+    /// removing the row and column of *x*.
+    ///
+    /// When M is affine, its determinant is exactly the determinant of its
+    /// top-right 3x3 submatrix. This is easy to show by choosing *n* = 3:
     /// ```text
-    ///              ⎜ f g h ⎜       ⎜ e g h ⎜
-    /// det(M) = a · ⎜ j k l ⎜ - b · ⎜ i k l ⎜  + c * ··· - d * ···
-    ///              ⎜ n o p ⎜       ⎜ m o p ⎜
+    ///              ⎜ b c d ⎜                           ⎜ a c d ⎜   ⎜ a c d ⎜
+    /// det(M) = 0 · ⎜ f g h ⎜ + 0 · ··· - 0 * ··· + 1 · ⎜ e g h ⎜ = ⎜ e g h ⎜
+    ///              ⎜ j k l ⎜                           ⎜ i k l ⎜   ⎜ i k l ⎜
     /// ```
     pub fn determinant(&self) -> f32 {
         let [[a, b, c, d], r, s, t] = self.0;
@@ -897,10 +918,12 @@ impl<Repr, E, M> ApproxEq<E> for Matrix<Repr, M>
 where
     Repr: ApproxEq<E>,
 {
+    #[inline]
     fn approx_eq_eps(&self, other: &Self, rel_eps: &E) -> bool {
         self.0.approx_eq_eps(&other.0, rel_eps)
     }
 
+    #[inline]
     fn relative_epsilon() -> E {
         Repr::relative_epsilon()
     }
@@ -1384,6 +1407,7 @@ pub const fn perspective(
 /// # Parameters
 /// * `lbn`: The left-bottom-near corner of the projection box.
 /// * `rtf`: The right-bottom-far corner of the projection box.
+// TODO Take a Range like `viewport` does? Or have `viewport` take separate?
 pub const fn orthographic(lbn: Point3, rtf: Point3) -> ProjMat3<View> {
     // Done manually due until const traits are stable
     let [x0, y0, z0] = lbn.0;
