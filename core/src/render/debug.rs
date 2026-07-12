@@ -13,9 +13,10 @@ use crate::math::{Vary, polar, turns, vec3};
 
 use super::{Context, Frag, FragmentShader, VertexShader, scene::BBox};
 
-#[derive(Default)]
+#[derive(Copy, Clone, Default)]
 pub struct Shader;
 
+#[derive(Clone, Default)]
 /// A type used to draw debug visualizations of meshes.
 ///
 /// Various mesh properties can be visualized:
@@ -24,7 +25,7 @@ pub struct Shader;
 /// * Vertex normals (if any)
 /// * Bounding box
 /// * Model-space origin and coordinate axes.
-pub struct DbgMesh<'a, A, B>(&'a Mesh<A, B>, DbgBatch<B>);
+pub struct DbgMesh<A, B>(Mesh<A, B>, DbgBatch<B>);
 
 pub type DbgBatch<B> = super::Batch<
     Vec<Edge<usize>>,
@@ -119,7 +120,7 @@ pub fn bbox<B>(pts: &[impl Pos<Type = Point3<B>>]) -> DbgBatch<B> {
 }
 
 /// Creates a `DbgMesh` object from a mesh.
-pub fn mesh<A: Clone, B>(mesh: &Mesh<A, B>) -> DbgMesh<'_, A, B> {
+pub fn mesh<A: Clone, B>(mesh: Mesh<A, B>) -> DbgMesh<A, B> {
     DbgMesh(mesh, DbgBatch::default())
 }
 
@@ -127,11 +128,11 @@ pub fn mesh<A: Clone, B>(mesh: &Mesh<A, B>) -> DbgMesh<'_, A, B> {
 // Inherent impls
 //
 
-impl<'a, A: Clone, B> DbgMesh<'a, A, B> {
+impl<A: Clone, B> DbgMesh<A, B> {
     /// Enables drawing the edges as a wireframe representation.
     #[must_use]
     pub fn edges(mut self) -> Self {
-        let Mesh { faces, verts } = self.0;
+        let Mesh { faces, verts } = &self.0;
 
         let n_verts = self.1.verts.len();
         let edges = faces
@@ -173,12 +174,12 @@ impl<'a, A: Clone, B> DbgMesh<'a, A, B> {
 
     /// Returns a batch for rendering the enabled visualizations.
     #[must_use]
-    pub fn batch(self) -> DbgBatch<B> {
-        self.1
+    pub fn batch(&self) -> &DbgBatch<B> {
+        &self.1
     }
 }
 
-impl<'a, B> DbgMesh<'a, Normal3, B> {
+impl<B> DbgMesh<Normal3, B> {
     #[must_use]
     pub fn vertex_normals(mut self, scale: f32) -> Self {
         for v in &self.0.verts {
@@ -196,8 +197,8 @@ impl<'a, B> DbgMesh<'a, Normal3, B> {
 /// debug::mesh(mesh).edges().patch()
 /// ```
 #[must_use]
-pub fn wireframe<A: Clone, B>(msh: &Mesh<A, B>) -> DbgBatch<B> {
-    mesh(msh).edges().batch()
+pub fn wireframe<A: Clone, B>(m: Mesh<A, B>) -> DbgBatch<B> {
+    mesh(m).edges().batch().clone()
 }
 
 /// Draws a circle on the XY plane with the given center and radius.

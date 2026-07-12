@@ -8,49 +8,29 @@ use re::prelude::*;
 use re::core::{
     geom::{Polyline, Ray},
     math::{ProjVec3, color::gray, spline::HermiteSpline},
-    render::{Model, cam::Fov, debug, shader},
+    render::{Model, cam::Fov, debug, debug::DbgMesh, shader},
 };
 use re::front::{Frame, minifb::Window};
 use re::geom::{io::read_obj, solids::*};
 
-// Carousel animation for switching between objects.
 #[derive(Default)]
-struct Carousel {
+struct State {
+    lod: u32,
+    objects: [Mesh<Normal3>; 14],
+    debug_mesh: DbgMesh<Normal3, Model>,
+    debug_flags: [bool; 6],
+
     idx: usize,
     new_idx: usize,
-    t: Option<f32>,
-}
-
-impl Carousel {
-    fn start(&mut self) {
-        if self.t.is_none() {
-            self.t = Some(0.0);
-            self.new_idx = self.idx + 1;
-        } else {
-            // If already started, skip to next
-            self.new_idx += 1;
-        }
-    }
-    fn update(&mut self, dt: f32) -> Mat4 {
-        let Some(t) = self.t.as_mut() else {
-            return Mat4::identity();
-        };
-        *t += dt;
-        let t = *t;
-        if t >= 0.5 {
-            self.idx = self.new_idx;
-        }
-        if t >= 1.0 {
-            self.t = None
-        }
-        rotate_y(turns(smootherstep(t)))
-    }
+    anim_t: Option<f32>,
 }
 
 fn main() {
     eprintln!(
-        "Press <space> to cycle between objects, \
-        <.> and <,> to adjust level of detail..."
+        "[Space]     : cycle between objects\n\
+         [.] and [,] : adjust level of detail\n\
+         [0]         : toggle mesh rendering\n\
+         [1] to [5]  : toggle visualizations"
     );
 
     let mut win = Window::builder()
@@ -80,38 +60,30 @@ fn main() {
         let col = diffuse * rgb(r, g, b);
         vertex(mvp.apply(&v.pos), col)
     }
-
     fn frag_shader(f: Frag<Color3f>, _: Uniform) -> Color4 {
         f.var.to_color4()
     }
-
     let shader = shader::new(vtx_shader, frag_shader);
 
-    let mut lod = 10;
-    let mut objects = objects_n(lod);
-
     let translate = translate(-3.0 * Vec3::Z);
-    let mut carousel = Carousel::default();
 
-    let mut debug = [true, false, false, false, false, false];
-
+    let mut state = State::new();
     win.run(|frame| {
         let Frame { t, dt, win, .. } = frame;
 
         for key in win.imp.get_keys_pressed(KeyRepeat::No) {
             use Key::*;
             match key {
-                Space => carousel.start(),
+                Space => state.start_carousel(),
 
                 Comma | Period => {
                     let (num, denom) =
                         if key == Comma { (3, 4) } else { (4, 3) };
-                    lod = (lod * num / denom).clamp(3, 50);
-                    objects = objects_n(lod);
+                    state.set_lod((state.lod * num / denom).clamp(3, 50));
                 }
 
                 digit @ (Key0 | Key1 | Key2 | Key3 | Key4 | Key5) => {
-                    debug[digit as usize] ^= true;
+                    state.toggle_flag(digit as usize);
                 }
 
                 _ => (),
@@ -120,7 +92,7 @@ fn main() {
 
         let theta = rads(t.as_secs_f32());
         let spin = rotate_x(theta * 0.37).then(&rotate_y(theta * 0.51));
-        let carouse = carousel.update(dt.as_secs_f32());
+        let carouse = state.update(dt.as_secs_f32());
 
         // Compose transform stack
         let model_view_project: ProjMat3<Model> = spin
@@ -129,33 +101,17 @@ fn main() {
             .to()
             .then(&cam.world_to_project());
 
-        let object = &objects[carousel.idx % objects.len()];
-
-        // TODO only needs creating on change
-        let mut dbg = debug::mesh(object);
-        if debug[1] {
-            dbg = dbg.edges();
-        }
-        if debug[2] {
-            dbg = dbg.face_normals(0.2);
-        }
-        if debug[3] {
-            dbg = dbg.vertex_normals(0.2);
-        }
-        if debug[4] {
-            dbg = dbg.bbox();
-        }
-        if debug[5] {
-            dbg = dbg.basis();
-        }
-
-        dbg.batch()
+        state
+            .debug_mesh
+            .batch()
+            .clone()
             .uniform(&model_view_project)
             .viewport(cam.viewport)
             .target(frame.buf)
             .render();
 
-        if debug[0] {
+        if state.debug_flags[0] {
+            let object = state.object();
             Batch {
                 prims: &object.faces,
                 verts: &object.verts,
@@ -263,4 +219,77 @@ fn dragon() -> &'static Mesh<Normal3> {
             .build()
     });
     &DRAGON
+}
+
+impl State {
+    fn new() -> Self {
+        let mut state = State::default();
+        state.lod = 10;
+        state.objects = objects_n(state.lod);
+        state.debug_flags[0] = true;
+        state
+    }
+
+    fn object(&self) -> &Mesh<Normal3> {
+        &self.objects[self.idx]
+    }
+
+    fn set_lod(&mut self, lod: u32) {
+        self.lod = lod;
+        self.objects = objects_n(lod);
+        self.build_debug_mesh();
+    }
+
+    fn toggle_flag(&mut self, flag: usize) {
+        self.debug_flags[flag] ^= true;
+        self.build_debug_mesh();
+    }
+
+    fn start_carousel(&mut self) {
+        if self.anim_t.is_none() {
+            self.anim_t = Some(0.0);
+            self.new_idx = self.idx + 1;
+        } else {
+            // If already started, skip to next
+            self.new_idx += 1;
+        }
+        self.new_idx %= self.objects.len();
+    }
+
+    fn update(&mut self, dt: f32) -> Mat4 {
+        let Some(t) = self.anim_t.as_mut() else {
+            return Mat4::identity();
+        };
+        *t += dt;
+        let t = *t;
+        if t >= 0.5 && self.idx != self.new_idx {
+            self.idx = self.new_idx;
+            self.build_debug_mesh();
+        }
+        if t >= 1.0 {
+            self.anim_t = None
+        }
+        rotate_y(turns(smootherstep(t)))
+    }
+
+    fn build_debug_mesh(&mut self) {
+        let [_, ed, fns, vns, bb, bas] = self.debug_flags;
+        let mut dm = debug::mesh(self.objects[self.idx].clone());
+        if ed {
+            dm = dm.edges();
+        }
+        if fns {
+            dm = dm.face_normals(0.2);
+        }
+        if vns {
+            dm = dm.vertex_normals(0.2);
+        }
+        if bb {
+            dm = dm.bbox();
+        }
+        if bas {
+            dm = dm.basis();
+        }
+        self.debug_mesh = dm;
+    }
 }
