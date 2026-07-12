@@ -1,9 +1,9 @@
 use core::fmt::{Debug, Formatter};
 
 use retrofire_core::{
-    geom::{Edge, Line2, Plane3, Ray, Ray2, Ray3},
+    geom::{Edge, Line2, Plane3, Pos, Ray, Ray2, Ray3, Tri},
     mat,
-    math::{ApproxEq, Mat2, Point2, Point3, pt2, vec3},
+    math::{ApproxEq, Mat2, Mat3, Point2, Point3, vec2, vec3},
     render::scene::BBox,
 };
 
@@ -115,6 +115,96 @@ impl<B> Intersect<Plane3<B>> for Ray3<B> {
         } else {
             None
         }
+    }
+}
+
+impl<B, P: Pos<Type = Point3<B>>> Intersect<Tri<P>> for Ray3<B> {
+    type Result = RayIntersect3<B>;
+
+    /// Returns the intersection of `self` and a triangle, or `None` if they
+    /// do not intersect.
+    ///
+    /// # Examples
+    /// ```
+    /// use retrofire_core::geom::{tri, Ray, Ray3};
+    /// use retrofire_core::math::{pt3, vec3};
+    /// use retrofire_geom::Intersect;
+    ///
+    /// let t = tri(pt3(0.0, 0.0, 0.0), pt3(2.0, 0.0, 0.0), pt3(0.0, 2.0, 0.0));
+    ///
+    /// let ray: Ray3 = Ray(pt3(1.0, 0.5, 4.0), vec3(0.0, 0.0, -1.0));
+    /// assert_eq!(ray.intersect(&t), Some((4.0, pt3(1.0, 0.5, 0.0))));
+    ///
+    /// let ray: Ray3 = Ray(pt3(0.0, 0.0, 4.0), vec3(0.0, -1.0, -1.0));
+    /// assert_eq!(ray.intersect(&t), None);
+    /// ```
+    fn intersect(&self, tri: &Tri<P>) -> Self::Result {
+        /*
+            tri ABC
+            tangents ab = B-A, ac = C-A
+            ray P = O + t * d
+
+            triangle plane parametric:
+            P = a + u * ab + v * ac
+
+            solve linear equation:
+            O + t * d  =  a + u * ab + v * ac
+
+            O - a = t * -d + u * ab + v * ac
+
+                                   ( t )
+            O - a = ( -d  ab  ac ) ( u )
+                                   ( v )
+
+                    ( -d_x ab_x ac_x ) ( t )
+            O - a = ( -d_y ab_y ac_y ) ( u )
+                    ( -d_z ab_z ac_z ) ( v )
+
+           inside triangle iff 0 <= t && 0 <= u && 0 <= v && u + v <= 1
+        */
+
+        struct Plane;
+
+        let &Ray(orig, dir) = self;
+        let &a = tri.0[0].pos();
+        let [ab, ac] = tri.tangents();
+
+        let m = Mat3::<Plane, B, 3>::from_linear(-dir, ab, ac);
+        let [t, u, v] = m.solve(orig - a)?.0;
+
+        // If inside the triangle
+        (t >= 0.0 && u >= 0.0 && v >= 0.0 && u + v <= 1.0)
+            .then(|| (t, orig + t * dir))
+    }
+}
+
+impl<B, P: Pos<Type = Point2<B>>> Intersect<Tri<P>> for Ray2<B> {
+    type Result = RayIntersect2<B>;
+
+    /// Returns the intersection of `self` and a triangle, or `None` if they
+    /// do not intersect.
+    ///
+    /// # Examples
+    /// ```
+    /// use retrofire_core::geom::{tri, Ray, Ray2};
+    /// use retrofire_core::math::{pt2, vec2};
+    /// use retrofire_geom::Intersect;
+    ///
+    /// let t = tri(pt2(0.0, 0.0), pt2(2.0, 0.0), pt2(0.0, 2.0));
+    ///
+    /// let ray: Ray2 = Ray(pt2(-2.0, 1.0), vec2(1.0, 0.0));
+    /// assert_eq!(ray.intersect(&t), Some((2.0, pt2(0.0, 1.0))));
+    ///
+    /// let ray: Ray2 = Ray(pt2(-2.0, 1.0), vec2(1.0, 11.0));
+    /// assert_eq!(ray.intersect(&t), None);
+    /// ```
+    fn intersect(&self, tri: &Tri<P>) -> Self::Result {
+        let tri = Tri(tri.0.each_ref().map(|p| p.pos().clone()));
+
+        tri.edges()
+            .iter()
+            .filter_map(|e| self.intersect(&Edge(*e.0, *e.1)))
+            .min_by(|(t, _), (u, _)| t.total_cmp(u))
     }
 }
 
@@ -289,16 +379,18 @@ impl<B> Intersect<Self> for Line2<B> {
     ///
     /// # Examples
     /// ```
+    /// use core::assert_matches;
+    ///
     /// use retrofire_core::{
-    ///     assert_approx_eq, geom::{Ray, Line2}, math::{pt2, vec2},
+    ///     geom::{Ray, Line2}, math::{pt2, vec2, ApproxEq},
     /// };
     /// use retrofire_geom::{Intersect, isect::LineIntersect::*};
     ///
     /// let horiz: Line2 = Ray(pt2(0.0, 2.0), vec2(1.0, 0.0)).into();
     /// let vert: Line2 = Ray(pt2(3.0, 0.0), vec2(0.0, 1.0)).into();
     ///
-    /// let isect = horiz.intersect(&vert).and_then(|i| i.point());
-    /// assert_approx_eq!(isect, Some(pt2(3.0, 2.0)));
+    /// let isect = horiz.intersect(&vert);
+    /// assert_matches!(isect, Some(Point(p)) if p.approx_eq(&pt2(3.0, 2.0)));
     ///
     /// let horiz2 = <Line2>::from(Ray(pt2(0.0, 3.0), vec2(1.0, 0.0)));
     /// assert_eq!(horiz.intersect(&horiz2), None);
@@ -314,23 +406,9 @@ impl<B> Intersect<Self> for Line2<B> {
         // Solve the system of equations for x and y:
         //    ax + by + c = 0   // self
         //    dx + ey + f = 0   // other
-        //
-        // Write in matrix form and solve:
-        //    (a b) (x) = (-c)
-        //    (d e) (y)   (-f)
-        //
-        //               -1
-        //    (x) = (a b)   (-c)
-        //    (y)   (d e)   (-f)
-        let abde: Mat2<B> = mat![
-            a, b;
-            d, e;
-        ];
-        match abde.checked_inverse() {
-            Some(inv) => {
-                let res = inv.apply(&pt2(-c, -f));
-                Some(LineIntersect::Point(res))
-            }
+        let abde: Mat2<B> = mat![a, b; d, e];
+        match abde.solve(vec2(-c, -f)) {
+            Some(res) => Some(LineIntersect::Point(res.to_pt())),
             None if [a, b, c].approx_eq(&[d, e, f]) => {
                 Some(LineIntersect::Coincident)
             }
@@ -491,7 +569,7 @@ impl<B> Intersect<Self> for Edge<Point2<B>> {
 impl<B: Debug + Default> Debug for LineIntersect<B> {
     fn fmt(&self, f: &mut Formatter<'_>) -> core::fmt::Result {
         match self {
-            Self::Point(p) => write!(f, "Point({p:.3?})"),
+            Self::Point(p) => Debug::fmt(p, f),
             Self::Coincident => f.write_str("Coincident"),
         }
     }
