@@ -565,6 +565,38 @@ impl<Src, Dst> Mat2<Src, Dst> {
         det2(a, b, c, d)
     }
 
+    /// Solves the system of linear equations
+    /// ```text
+    /// ⎛ a b ⎞ ⎛ x ⎞ = ⎛ u ⎞
+    /// ⎝ c d ⎠ ⎝ y ⎠ = ⎝ v ⎠,
+    /// ```
+    /// that is,
+    /// ```text
+    /// ax + by = u
+    /// cx + dy = v,
+    /// ```
+    /// for x and y. Returns None if no unique solution exists.
+    ///
+    /// Uses Cramer's rule:
+    /// ```text
+    /// x = det ⎛ u b ⎞ / det A = (ud - bv) / (ad - bc)
+    ///         ⎝ v d ⎠
+    /// y = det ⎛ a u ⎞ / det A = (av - uc) / (ad - bc)
+    ///         ⎝ c v ⎠
+    /// ```
+    pub fn solve(&self, uv: Vec2<Dst>) -> Option<Vec2<Src>> {
+        let det = self.determinant();
+        if det.approx_eq(&0.0) {
+            return None;
+        }
+        let [u, v] = uv.0;
+        let [[a, b], [c, d]] = self.0;
+        let x = (u * d - b * v) / det;
+        let y = (a * v - u * c) / det;
+
+        Some(vec2(x, y))
+    }
+
     /// Returns the [inverse][Self::inverse] of `self`, or `None` if `self`
     /// is not invertible.
     ///
@@ -768,6 +800,13 @@ impl<Src, Dst> Mat3<Src, Dst, 2> {
 }
 
 impl<Src, Dst> Mat3<Src, Dst, 3> {
+    pub const fn from_linear(i: Vec3<Dst>, j: Vec3<Dst>, k: Vec3<Dst>) -> Self {
+        mat![
+            i.x(), j.x(), k.x();
+            i.y(), j.y(), k.y();
+            i.z(), j.z(), k.z();
+        ]
+    }
     /// Returns the 4x4 affine equivalent of `self`.
     pub const fn to_affine(&self) -> Mat4<Src, Dst, 3> {
         let [[a, b, c], [d, e, f], [g, h, i]] = self.0;
@@ -777,6 +816,42 @@ impl<Src, Dst> Mat3<Src, Dst, 3> {
              g,   h,   i,  0.0;
             0.0, 0.0, 0.0, 1.0;
         ]
+    }
+
+    /// Solves the system of linear equations
+    /// ```text
+    /// ⎛ a b c ⎞ ⎛ x ⎞ = ⎛ t ⎞
+    /// ⎜ d e f ⎟ ⎜ y ⎟ = ⎜ u ⎟
+    /// ⎝ g h i ⎠ ⎝ z ⎠ = ⎝ v ⎠,
+    /// ```
+    /// that is,
+    /// ```text
+    /// ax + by + cz = t
+    /// dx + ey + fz = u
+    /// gx + hy + iz = v,
+    /// ```
+    /// for x, y, and z. Returns None if no unique solution exists.
+    ///
+    /// Uses Cramer's rule:
+    ///
+    /// ```text
+    ///                   ⎛ t b c ⎞      ⎛ a t c ⎞      ⎛ a b t ⎞
+    /// (x, y, z) = ( det ⎜ u e f ⎟, det ⎜ d u f ⎟, det ⎜ d e u ⎟ ) / det A
+    ///                   ⎝ v h i ⎠      ⎝ g v i ⎠      ⎝ g h v ⎠
+    /// ```
+    pub fn solve(&self, tuv: Vec3<Dst>) -> Option<Vec3<Src>> {
+        let det = self.determinant();
+        if det.approx_eq(&0.0) {
+            return None;
+        }
+        let [t, u, v] = tuv.0;
+        let [[a, b, c], [d, e, f], [g, h, i]] = self.0;
+
+        let ax: Self = mat![t, b, c; u, e, f; v, h, i];
+        let ay: Self = mat![a, t, c; d, u, f; g, v, i];
+        let az: Self = mat![a, b, t; d, e, u; g, h, v];
+
+        Some(vec3(ax.determinant(), ay.determinant(), az.determinant()) / det)
     }
 }
 
@@ -1766,7 +1841,7 @@ mod tests {
         }
         #[test]
         fn determinant_of_reflection_is_negative_one() {
-            let refl: Mat2 = [[0.0, 1.0], [1.0, 0.0]].into();
+            let refl: Mat2 = mat![0.0, 1.0; 1.0, 0.0];
             assert_eq!(refl.determinant(), -1.0);
         }
 
@@ -1777,24 +1852,57 @@ mod tests {
         }
         #[test]
         fn inverse_of_inverse_is_original() {
-            let m: Mat2<B1, B2> = [[0.5, 1.5], [1.0, -0.5]].into();
+            let m: Mat2<B1, B2> = mat![0.5, 1.5; 1.0, -0.5];
             let m_inv: Mat2<B2, B1> = m.inverse();
             assert_approx_eq!(m_inv.inverse(), m);
         }
         #[test]
         fn inverse_of_singular_does_not_exist() {
-            let singular: Mat2 = mat![
-                1.0, 0.0;
-                2.0, 0.0;
-            ];
+            let singular: Mat2 = mat![1.0, 0.0; 2.0, 0.0];
             assert_eq!(singular.checked_inverse(), None);
         }
         #[test]
         fn composition_of_inverse_is_identity() {
-            let m: Mat2<B1, B2> = [[0.5, 1.5], [1.0, -0.5]].into();
+            let m: Mat2<B1, B2> = mat![0.5, 1.5; 1.0, -0.5];
             let m_inv: Mat2<B2, B1> = m.inverse();
             assert_approx_eq!(m.compose(&m_inv), Mat2::identity());
             assert_approx_eq!(m.then(&m_inv), Mat2::identity());
+        }
+
+        #[test]
+        fn solve_identity() {
+            // 1*x + 0*y = 4
+            // 0*x + 1*y = -5
+            let m: Mat2 = Mat2::identity();
+            assert_eq!(m.solve(vec2(4.0, -5.0)), Some(vec2(4.0, -5.0)));
+        }
+        #[test]
+        fn solve_scale() {
+            // 2*x + 0*y = 4
+            // 0*x - 3*y = 6
+            let m: Mat2 = mat![2.0, 0.0; 0.0, -3.0];
+            assert_eq!(m.solve(vec2(4.0, 6.0)), Some(vec2(2.0, -2.0)));
+        }
+        #[test]
+        fn solve_flip() {
+            // 0*x + 1*y = 2
+            // 1*x + 0*y = 3
+            let m: Mat2 = mat![0.0, 1.0; 1.0, 0.0];
+            assert_eq!(m.solve(vec2(2.0, 3.0)), Some(vec2(3.0, 2.0)));
+        }
+        #[test]
+        fn solve_mixed() {
+            // 2*x - 3*y = 4
+            // 5*x + 6*y = 7
+            // <=>
+            // -4*x + 6*y =  -8
+            //  5*x + 6*y =   7
+            // ----------------
+            // -9*x       = -15
+            // x = 15/9
+            // 3y = 2x - 4 <=> y = (2*15/9 - 4)/3 = (10 - 12)/9 = -2/9
+            let m: Mat2 = mat![2.0, -3.0; 5.0, 6.0];
+            assert_eq!(m.solve(vec2(4.0, 7.0)), Some(vec2(15.0, -2.0) / 9.0));
         }
     }
 
@@ -1913,6 +2021,33 @@ mod tests {
             ];
 
             assert_approx_eq!(singular.checked_inverse(), None);
+        }
+
+        #[test]
+        fn solve_identity() {
+            // 1*x + 0*y + 0*z = 3
+            // 0*x + 1*y + 0*z = -4
+            // 0*x + 0*y + 1*z = 5
+            let m = Mat3::<(), (), 3>::identity();
+            assert_eq!(
+                m.solve(vec3(3.0, -4.0, 5.0)),
+                Some(vec3(3.0, -4.0, 5.0))
+            );
+        }
+        #[test]
+        fn solve_scale() {
+            // 2*x + 0*y + 0*z = 1
+            // 0*x - 3*y + 0*z = 3
+            // 0*x + 0*y + 4*z = 2
+            let m: Mat3<(), (), 3> = mat![
+                2.0,  0.0,  0.0;
+                0.0, -3.0,  0.0;
+                0.0,  0.0,  4.0;
+            ];
+            assert_eq!(
+                m.solve(vec3(1.0, 3.0, 2.0)),
+                Some(vec3(0.5, -1.0, 0.5))
+            );
         }
 
         #[test]
