@@ -1,8 +1,7 @@
-use core::ops::ControlFlow::*;
+use core::{cell::Cell, ops::ControlFlow::*};
 
 use re::prelude::*;
 
-use re::core::math::color::gray;
 use re::core::render::{
     cam::{FirstPerson, Fov},
     clip::Status::*,
@@ -10,10 +9,18 @@ use re::core::render::{
     shader,
     tex::SamplerClamp,
 };
-use re::core::util::{pixfmt, pnm::read_pnm};
+use re::core::{
+    geom::Ray,
+    math::color::gray,
+    util::{pixfmt, pnm::read_pnm},
+};
 
 use re::front::sdl2::Window;
-use re::geom::solids::{Build, Cube};
+use re::geom::{
+    Intersect,
+    isect::RayMeshIntersect3,
+    solids::{Build, Cube},
+};
 
 static CRATE_TEX: &[u8] = include_bytes!("../../assets/crate.ppm");
 
@@ -31,6 +38,14 @@ fn main() {
 
     let light_dir = vec3(-2.0, 1.0, -4.0).normalize();
 
+    let Dims(w, h) = win.dims;
+    let mut cam = Camera::new(win.dims)
+        .transform(FirstPerson::default())
+        .viewport((10..w - 10, h - 10..10))
+        .perspective(Fov::Diagonal(degs(90.0)), 0.1..1000.0);
+
+    let isect: Cell<RayMeshIntersect3<_>> = Cell::new(None);
+
     let floor_shader = shader::new(
         |v: Vertex3<_>, mvp: &ProjMat3<_>| vertex(mvp.apply(&v.pos), v.attrib),
         |frag: Frag<Vec2>, _: &_| {
@@ -38,23 +53,6 @@ fn main() {
             gray(if even_odd { 0.8 } else { 0.1 }).to_color4()
         },
     );
-    let crate_shader = shader::new(
-        |v: Vertex3<(Normal3, TexCoord)>, mvp: &ProjMat3<_>| {
-            vertex(mvp.apply(&v.pos), v.attrib)
-        },
-        |frag: Frag<(Normal3, TexCoord)>, _: &_| {
-            let (n, uv) = frag.var;
-            let kd = lerp(n.dot(&light_dir).max(0.0), 0.4, 1.0);
-            let col = SamplerClamp.sample(&tex, uv);
-            (col.to_color3f() * kd).to_color4()
-        },
-    );
-
-    let Dims(w, h) = win.dims;
-    let mut cam = Camera::new(win.dims)
-        .transform(FirstPerson::default())
-        .viewport((10..w - 10, h - 10..10))
-        .perspective(Fov::Diagonal(degs(90.0)), 0.1..1000.0);
 
     let floor = floor();
     let crates = crates();
@@ -79,13 +77,24 @@ fn main() {
             }
         }
 
-        let ms = ep.relative_mouse_state();
-        cam.transform.rotate(
-            turns(ms.x() as f32) * 0.001,
-            turns(ms.y() as f32) * -0.001,
+        let crate_shader = shader::new(
+            |v: Vertex3<(Normal3, TexCoord)>, mvp: &ProjMat3<_>| {
+                vertex(mvp.apply(&v.pos), v.attrib)
+            },
+            |frag: Frag<(Normal3, TexCoord)>, _: &_| {
+                /*if let Some((t, pt, face_i)) = isect.get() {
+                    let pt = cam.to_screen(pt);
+                    if pt.distance_sqr(&frag.pos) < 100.0 {
+                        return rgba(0xFF, 0, 0, 0);
+                    }
+                }*/
+
+                let (n, uv) = frag.var;
+                let kd = lerp(n.dot(&light_dir).max(0.0), 0.4, 1.0);
+                let col = SamplerClamp.sample(&tex, uv);
+                (col.to_color3f() * kd).to_color4()
+            },
         );
-        cam.transform
-            .translate(cam_vel.mul(frame.dt.as_secs_f32()));
 
         //
         // Render
@@ -114,7 +123,7 @@ fn main() {
 
         // Crates
 
-        for Obj { geom, bbox, tf } in &crates {
+        for obj @ Obj { geom, bbox, tf } in &crates {
             #[cfg(feature = "stats")]
             {
                 frame.ctx.stats.borrow_mut().objs.i += 1;
@@ -125,6 +134,27 @@ fn main() {
             // TODO Also if `Visible`, no further clipping or culling needed
             if bbox.visibility(&model_to_project) == Hidden {
                 continue;
+            }
+
+            let ray = Ray(cam.transform.pos, cam.transform.heading.to_cart());
+
+            let i = ray.intersect(obj);
+            isect.set(i);
+
+            if let Some((t, _pt, face_i)) = i {
+                let face = geom.faces().nth(face_i).unwrap();
+
+                if t < 0.5 {
+                    let n_model = face.0[0].attrib.0;
+
+                    let n_world = tf.apply(&n_model.to());
+                    let n_view = cam.world_to_view().apply(&n_world);
+
+                    if cam_vel.dot(&n_view) <= 0.0 {
+                        let n_component = cam_vel.vector_project(&n_view);
+                        cam_vel -= n_component;
+                    }
+                }
             }
 
             batch
@@ -140,6 +170,16 @@ fn main() {
                 frame.ctx.stats.borrow_mut().objs.o += 1;
             }
         }
+
+        // Update
+
+        let ms = ep.relative_mouse_state();
+        cam.transform.rotate(
+            turns(ms.x() as f32) * 0.001,
+            turns(ms.y() as f32) * -0.001,
+        );
+        cam.transform
+            .translate(cam_vel.mul(frame.dt.as_secs_f32()));
 
         Continue(())
     })

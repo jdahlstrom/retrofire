@@ -3,14 +3,16 @@
 use core::ops::Range;
 
 use crate::math::space::Real;
+use crate::math::vary::ZDiv;
 #[cfg(feature = "fp")]
 use crate::math::{
     Angle, Vec3, orient_z, rotate_pyr, rotate_x, rotate_y, spherical, turns,
 };
 use crate::math::{
     Mat4, Point3, ProjMat3, SphericalVec, Vary, orthographic, perspective, pt2,
-    translate, viewport,
+    pt3, translate, viewport,
 };
+use crate::render::raster::ScreenPt;
 use crate::util::{Dims, Rect};
 
 use super::{Clip, Context, Ndc, Render, Screen, Shader, Target, View, World};
@@ -231,6 +233,13 @@ impl<T: Transform> Camera<T> {
     /// Returns the composed camera and projection matrix.
     pub fn world_to_project(&self) -> ProjMat3<World> {
         self.world_to_view().then(&self.project)
+    }
+
+    pub fn to_screen(&self, world_pt: Point3<World>) -> ScreenPt {
+        let proj_pt = self.world_to_project().apply(&world_pt);
+
+        let [x, y, z, _] = proj_pt.z_div(proj_pt.w()).0;
+        self.viewport.apply(&pt3(x, y, z))
     }
 
     /// Renders the given geometry from the viewpoint of this camera.
