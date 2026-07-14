@@ -257,6 +257,7 @@ impl<Sp, const N: usize> Vector<[f32; N], Sp> {
     /// assert_eq!(normalized.len(), 0.99844766);
     /// ```
     #[inline]
+    #[must_use]
     pub fn normalize_approx(&self) -> Self {
         *self * fast_recip_sqrt(self.len_sqr())
     }
@@ -579,6 +580,7 @@ impl<B> Vec2<B> {
     /// assert_eq!(<Vec2>::Y.perp(), -Vec2::X);
     /// ```
     #[inline]
+    #[must_use]
     pub const fn perp(self) -> Self {
         vec2(-self.y(), self.x())
     }
@@ -698,6 +700,7 @@ where
     ///     t  | /               /
     ///        +--------------- > self
     /// ```
+    #[must_use]
     pub fn cross(&self, other: &Self) -> Self
     where
         Sc: Linear<Scalar = Sc>,

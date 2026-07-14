@@ -162,7 +162,7 @@ impl<T: Affine, P: Pos<Type = T>> Tri<P> {
     #[inline]
     pub fn tangents(&self) -> [T::Diff; 2] {
         let [a, b, c] = &self.0;
-        [b.pos().sub(&a.pos()), c.pos().sub(&a.pos())]
+        [b.pos().sub(a.pos()), c.pos().sub(a.pos())]
     }
 
     /// Returns the geometric center, or "balance point", of `self`.
@@ -697,15 +697,13 @@ impl<B> Line2<B> {
     pub const fn slope_intercept(&self) -> Option<(f32, f32)> {
         // ax + by + c = 0
         let [a, b, c] = self.coeffs();
-
-        if b != 0.0 {
-            // by = -ax - c  <=>  y = -a/b x - c/b
-            let m = -a / b; // slope
-            let y0 = -c / b; // y intercept
-            Some((m, y0))
-        } else {
-            None
+        if b == 0.0 {
+            return None;
         }
+        // by = -ax - c  <=>  y = -a/b x - c/b
+        let m = -a / b; // slope
+        let y0 = -c / b; // y intercept
+        Some((m, y0))
     }
 
     /// Returns

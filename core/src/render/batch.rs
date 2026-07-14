@@ -53,6 +53,7 @@ impl Batch<(), (), (), (), (), Context> {
 
 impl<Prims, Verts, Uni, Shd, Tgt, Ctx> Batch<Prims, Verts, Uni, Shd, Tgt, Ctx> {
     /// Sets the primitives to be rendered.
+    #[must_use]
     pub fn primitives<Ps: IntoIterator>(
         self,
         prims: Ps,
@@ -61,6 +62,7 @@ impl<Prims, Verts, Uni, Shd, Tgt, Ctx> Batch<Prims, Verts, Uni, Shd, Tgt, Ctx> {
     }
 
     /// Sets the vertices to be rendered.
+    #[must_use]
     pub fn vertices<Vs: IntoIterator>(
         self,
         verts: Vs,
@@ -72,6 +74,7 @@ impl<Prims, Verts, Uni, Shd, Tgt, Ctx> Batch<Prims, Verts, Uni, Shd, Tgt, Ctx> {
     ///
     /// You can also create a new batch from a moved or borrowed mesh
     /// directly using the `From<Mesh>` or `From<&Mesh>` impls.
+    #[must_use]
     pub fn mesh<A: Clone>(
         self,
         mesh: &Mesh<A>,
@@ -82,6 +85,7 @@ impl<Prims, Verts, Uni, Shd, Tgt, Ctx> Batch<Prims, Verts, Uni, Shd, Tgt, Ctx> {
     }
 
     /// Sets the uniform data to be passed to the vertex shaders.
+    #[must_use]
     pub fn uniform<U: Copy>(
         self,
         uniform: U,
@@ -90,6 +94,7 @@ impl<Prims, Verts, Uni, Shd, Tgt, Ctx> Batch<Prims, Verts, Uni, Shd, Tgt, Ctx> {
     }
 
     /// Sets the combined vertex and fragment shader.
+    #[must_use]
     pub fn shader<Vtx, Var, U, S>(
         self,
         shader: S,
@@ -103,17 +108,20 @@ impl<Prims, Verts, Uni, Shd, Tgt, Ctx> Batch<Prims, Verts, Uni, Shd, Tgt, Ctx> {
     }
 
     /// Sets the viewport matrix.
+    #[must_use]
     pub fn viewport(self, viewport: Mat4<Ndc, Screen>) -> Self {
         update!(viewport; self verts prims uniform shader target ctx)
     }
 
     /// Sets the render target.
     // TODO what bound for T?
+    #[must_use]
     pub fn target<T>(self, target: T) -> Batch<Prims, Verts, Uni, Shd, T, Ctx> {
         update!(target; self verts prims uniform shader viewport ctx)
     }
 
     /// Sets the rendering context.
+    #[must_use]
     pub fn context(
         self,
         ctx: &Context,

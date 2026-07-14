@@ -26,11 +26,13 @@ pub trait Affine: Sized {
     /// Adds `diff` to `self` component-wise.
     ///
     /// `add` is commutative and associative.
+    #[must_use]
     fn add(&self, diff: &Self::Diff) -> Self;
 
     /// Subtracts `other` from `self`, returning the (signed) difference.
     ///
     /// `sub` is anti-commutative: `v.sub(w) == w.sub(v).neg()`.
+    #[must_use]
     fn sub(&self, other: &Self) -> Self::Diff;
 
     /// Returns an affine combination of points.
@@ -75,6 +77,7 @@ pub trait Linear: Affine<Diff = Self> {
 
     /// Returns the additive inverse of `self`.
     #[inline]
+    #[must_use]
     fn neg(&self) -> Self {
         Self::zero().sub(self)
     }
@@ -91,6 +94,7 @@ pub trait Linear: Affine<Diff = Self> {
     /// v.mul(a).add(&w.mul(a)) == v.add(&w).mul(a);
     /// v.mul(a).sub(&w.mul(a)) == v.add(&w).sub(&a);
     /// ```
+    #[must_use]
     fn mul(&self, scalar: Self::Scalar) -> Self;
 }
 

@@ -95,11 +95,11 @@ impl Vary for () {
     type Iter = Iter<()>;
     type Diff = ();
 
-    fn vary(self, _: Self::Diff, n: Option<u32>) -> Self::Iter {
+    fn vary(self, (): (), n: Option<u32>) -> Iter<()> {
         Iter { val: (), step: (), n }
     }
-    fn dv_dt(&self, _: &Self, _: f32) {}
-    fn step(&self, _: &Self::Diff) {}
+    fn dv_dt(&self, (): &(), _: f32) {}
+    fn step(&self, (): &()) {}
 }
 impl ZDiv for () {}
 
