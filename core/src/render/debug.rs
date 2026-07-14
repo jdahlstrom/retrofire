@@ -5,8 +5,8 @@ use alloc::vec::Vec;
 
 use crate::geom::{Edge, Mesh, Normal3, Pos, Tri, Vertex, Vertex3, vertex};
 use crate::math::{
-    Color, Color4, Color4f, Mat4, Point3, Vec3, color::gray, mat::ProjMat3,
-    pt3, vec::ProjVec3,
+    Color, Color3f, Color4, Color4f, Mat4, Point3, Vec3, color::gray,
+    mat::ProjMat3, pt3, vec::ProjVec3,
 };
 #[cfg(feature = "fp")]
 use crate::math::{Vary, polar, turns, vec3};
@@ -93,7 +93,7 @@ pub fn basis<S, D>(m: Mat4<S, D>) -> DbgBatch<D> {
 }
 
 /// Draws an axis-aligned box with the given opposite vertices.
-pub fn cuboid<B>(v0: Point3<B>, v1: Point3<B>) -> DbgBatch<B> {
+pub fn cuboid<B>(v0: Point3<B>, v1: Point3<B>, c: Color3f) -> DbgBatch<B> {
     let [x0, y0, z0] = v0.0;
     let [x1, y1, z1] = v1.0;
     #[rustfmt::skip]
@@ -102,7 +102,7 @@ pub fn cuboid<B>(v0: Point3<B>, v1: Point3<B>) -> DbgBatch<B> {
         pt3(x0, y1, z1), pt3(x0, y1, z0),
         pt3(x1, y0, z0), pt3(x1, y0, z1),
         v1, pt3(x1, y1, z0),
-    ].map(|p| vertex(p, dir_to_rgb(p.to_vec())));
+    ].map(|p| vertex(p, c.to_rgba())); //dir_to_rgb(p.to_vec())));
     #[rustfmt::skip]
     let edges = [
         [0, 1], [1, 2], [2, 3], [3, 0],
@@ -116,7 +116,7 @@ pub fn cuboid<B>(v0: Point3<B>, v1: Point3<B>) -> DbgBatch<B> {
 /// Draws the smallest axis-aligned box that contains a set of vertices.
 pub fn bbox<B>(pts: &[impl Pos<Type = Point3<B>>]) -> DbgBatch<B> {
     let BBox(min, max) = pts.iter().map(Pos::pos).collect();
-    cuboid(min, max)
+    cuboid(min, max, gray(1.))
 }
 
 /// Creates a `DbgMesh` object from a mesh.

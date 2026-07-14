@@ -1071,7 +1071,7 @@ where
     #[inline]
     fn div_assign(&mut self, rhs: f32) {
         debug_assert!(!rhs.approx_eq(&0.0), "divisor {rhs} < epsilon");
-        *self = Linear::mul(&*self, rhs.recip());
+        *self = Linear::div(&*self, rhs);
     }
 }
 

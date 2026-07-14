@@ -1,17 +1,17 @@
-use core::ops::ControlFlow::Continue;
+use core::{f32::consts, ops::ControlFlow::Continue};
 use std::sync::LazyLock;
 
-use minifb::{Key, KeyRepeat};
+use minifb::{Key, KeyRepeat, MouseMode};
 
 use re::prelude::*;
 
 use re::core::{
     geom::{Polyline, Ray},
-    math::{ProjVec3, color::gray, spline::HermiteSpline},
+    math::{ProjVec3, color::gray, color::hsl, spline::HermiteSpline},
     render::{Model, cam::Fov, debug, debug::DbgMesh, shader},
 };
 use re::front::{Frame, minifb::Window};
-use re::geom::{io::read_obj, solids::*};
+use re::geom::{bvh::Bvh, io::read_obj, solids::*};
 
 #[derive(Default)]
 struct State {
@@ -94,6 +94,19 @@ fn main() {
         let spin = rotate_x(theta * 0.37).then(&rotate_y(theta * 0.51));
         let carouse = state.update(dt.as_secs_f32());
 
+        /*  //let theta = 0.1 * rads(t.as_secs_f32());
+
+                let az = degs(win.imp.get_mouse_pos(MouseMode::Clamp).unwrap().0);
+                let alt =
+                    degs(w as f32 - win.imp.get_mouse_pos(MouseMode::Clamp).unwrap().1);
+
+                //let spin = rotate_x(theta * 0.37).then(&rotate_y(theta * 0.51));
+
+                let spin = rotate_x(alt).compose(&rotate_y(az));
+
+                //let spin = rotate_y(az);
+                //let spin = rotate_x(alt);
+        */
         // Compose transform stack
         let model_view_project: ProjMat3<Model> = spin
             .then(&translate)
@@ -110,8 +123,8 @@ fn main() {
             .target(frame.buf)
             .render();
 
+        let object = state.object();
         if state.debug_flags[0] {
-            let object = state.object();
             Batch {
                 prims: &object.faces,
                 verts: &object.verts,
@@ -122,6 +135,37 @@ fn main() {
                 ctx: &*frame.ctx,
             }
             .render();
+        }
+
+        let bvh = Bvh::new(object);
+
+        let mut stack = Vec::new();
+        stack.push((&bvh.root, 0));
+
+        let mut hue = 0f32;
+        while let Some((node, lev)) = stack.pop() {
+            let le = lev as f32;
+            let lo = node.bbox.0 + splat(0.003 * le);
+            let up = node.bbox.1 - splat(0.003 * le);
+            debug::cuboid(
+                lo,
+                up,
+                hsl(hue, 0.8, 1.0 / (le / 4.0 + 1.0)).to_rgb(),
+            )
+            .uniform(&model_view_project)
+            .viewport(cam.viewport)
+            .target(frame.buf)
+            .context(&*frame.ctx)
+            .render();
+
+            hue = (hue + 1.0 / consts::GOLDEN_RATIO) % 1.0;
+
+            if let Some(l) = &node.left {
+                stack.push((l, lev + 1));
+            }
+            if let Some(l) = &node.right {
+                stack.push((l, lev + 1));
+            }
         }
 
         Continue(())

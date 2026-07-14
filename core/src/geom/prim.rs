@@ -173,7 +173,7 @@ impl<T: Affine, P: Pos<Type = T>> Tri<P> {
         T::Diff: Linear<Scalar = f32>,
     {
         let [ab, ac] = self.tangents();
-        self.0[0].pos().add(&ab.add(&ac).mul(1.0 / 3.0))
+        self.0[0].pos().add(&ab.add(&ac).div(3.0))
     }
 }
 
@@ -254,7 +254,7 @@ impl<B, P: Pos<Type = Point2<B>>> Tri<P> {
 impl<B, P: Pos<Type = Point3<B>>> Tri<P> {
     /// Returns the normal vector of `self`.
     ///
-    /// The result is normalized to unit length. If self is degenerate and
+    /// The result is normalized to unit length. If `self` is degenerate and
     /// has no normal, returns a zero vector.
     ///
     /// # Examples

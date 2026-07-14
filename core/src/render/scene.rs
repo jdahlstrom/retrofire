@@ -2,7 +2,7 @@ use core::fmt::{self, Debug, Formatter};
 
 use crate::{
     geom::{Mesh, vertex},
-    math::{Mat4, Point3, ProjMat3, pt3},
+    math::{Mat4, Point3, ProjMat3, Vec3, pt3},
 };
 
 use super::{
@@ -35,6 +35,10 @@ impl<A> Obj<A> {
 }
 
 impl<B> BBox<B> {
+    pub fn empty() -> Self {
+        Self([f32::INFINITY; 3].into(), [f32::NEG_INFINITY; 3].into())
+    }
+
     pub fn of<A>(mesh: &Mesh<A, B>) -> Self {
         mesh.verts.iter().map(|v| &v.pos).collect()
     }
@@ -46,15 +50,92 @@ impl<B> BBox<B> {
         *upp = upp.zip_map(*pt, f32::max);
     }
 
+    /// Returns whether `self` contains at least one point.
     pub fn is_empty(&self) -> bool {
-        let BBox(low, upp) = self;
-        (0..3).any(|i| low[i] >= upp[i])
+        let [x, y, z] = self.dims().0;
+        x < 0.0 || y < 0.0 || z < 0.0
+    }
+
+    /// Returns the width, height, and depth of self.
+    ///
+    /// Note that if self is empty, at least one of the dimensions is negative.
+    pub fn dims(&self) -> Vec3<B> {
+        self.1 - self.0
     }
 
     /// Returns whether a point is within the bounds of `self`.
     pub fn contains(&self, pt: &Point3<B>) -> bool {
         let BBox(low, upp) = self;
         (0..3).all(|i| low[i] <= pt[i] && pt[i] <= upp[i])
+    }
+
+    /// Returns whether `self` contains any common points with another bbox.
+    pub fn overlaps(&self, other: &Self) -> bool {
+        !self.intersect(other).is_empty()
+    }
+
+    /// Returns the smallest bounding box that contains both `self` and another
+    /// bounding box.
+    ///
+    /// Bounding boxes constitute a partially ordered set (poset), with
+    /// ordering imposed by containment. This function computes the least upper
+    /// bound (lub), also called *join* or *supremum*, of two bboxes in that
+    /// ordering.
+    ///
+    /// Note that this method is not called "union" because in general, the
+    /// result contains points outside both of the input bboxes.
+    ///
+    /// # Examples
+    /// ```
+    /// use retrofire_core::{math::pt3, render::BBox};
+    ///
+    /// let a = BBox::<()>(pt3(0.0, 0.0, 0.0), pt3(3.0, 1.0, 1.0));
+    /// let b = BBox::<()>(pt3(1.0, 0.0, 0.0), pt3(2.0, 2.0, 2.0));
+    ///
+    /// assert_eq!(a.merge(&b), BBox(pt3(0.0, 0.0, 0.0), pt3(3.0, 2.0, 2.0)));
+    /// ```
+    pub fn merge(&self, other: &Self) -> Self {
+        let low = self.0.zip_map(other.0, f32::min);
+        let upp = self.1.zip_map(other.1, f32::max);
+        BBox(low, upp)
+    }
+
+    /// Returns the largest bounding box contained by both `self` and another
+    /// bounding box.
+    ///
+    /// Bounding boxes constitute a partially ordered set (poset), with
+    /// ordering imposed by containment. This function computes the greatest
+    /// lower bound (glb), also called *meet* or *infimum*, of two bboxes in
+    /// that ordering.
+    ///
+    /// # Examples
+    /// ```
+    /// use retrofire_core::{math::pt3, render::BBox};
+    ///
+    /// let a = BBox::<()>(pt3(0.0, 0.0, 0.0), pt3(3.0, 1.0, 1.0));
+    /// let b = BBox::<()>(pt3(1.0, 0.0, 0.0), pt3(2.0, 2.0, 1.0));
+    ///
+    /// assert_eq!(a.intersect(&b), BBox(pt3(1.0, 0.0, 0.0), pt3(2.0, 1.0, 1.0)));
+    ///
+    /// // The intersection of disjoint bboxes is empty:
+    ///
+    /// let a = BBox::<()>(pt3(0.0, 0.0, 0.0), pt3(1.0, 1.0, 1.0));
+    /// let b = BBox::<()>(pt3(2.0, 0.0, 0.0), pt3(3.0, 1.0, 1.0));
+    ///
+    /// assert!(a.intersect(&b).is_empty());
+    ///
+    /// // The intersection of bboxes sharing (a part of) a face, edge,
+    /// // or an individual vertex is still nonempty:
+    ///
+    /// let a = BBox::<()>(pt3(0.0, 0.0, 0.0), pt3(1.0, 1.0, 1.0));
+    /// let b = BBox::<()>(pt3(1.0, 0.0, 0.0), pt3(2.0, 1.0, 1.0));
+    ///
+    /// assert!(a.intersect(&b).contains(&pt3(1.0, 0.5, 0.5)));
+    /// ```
+    pub fn intersect(&self, other: &Self) -> Self {
+        let low = self.0.zip_map(other.0, f32::max);
+        let upp = self.1.zip_map(other.1, f32::min);
+        BBox(low, upp)
     }
 
     #[rustfmt::skip]
@@ -91,10 +172,12 @@ impl<B> BBox<B> {
 
 impl<B: Debug + Default> Debug for BBox<B> {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
-        f.debug_tuple("BBox")
-            .field(&self.0)
-            .field(&self.1)
-            .finish()
+        f.write_str("BBox<")?;
+        Debug::fmt(&B::default(), f)?;
+        f.write_str(">(")?;
+        Debug::fmt(&self.0.0, f)?;
+        Debug::fmt(&self.1.0, f)?;
+        f.write_str(")")
     }
 }
 
@@ -112,7 +195,7 @@ impl<A> Default for Obj<A> {
 impl<B> Default for BBox<B> {
     /// Returns an empty `BBox`.
     fn default() -> Self {
-        BBox([f32::INFINITY; 3].into(), [f32::NEG_INFINITY; 3].into())
+        Self::empty()
     }
 }
 
