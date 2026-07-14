@@ -54,14 +54,14 @@ impl Stats {
         Self {
             #[cfg(feature = "std")]
             start: Instant::now(),
-            wall_time: Default::default(),
-            render_time: Default::default(),
+            wall_time: Duration::default(),
+            render_time: Duration::default(),
             calls: 0.0,
             frames: 0.0,
-            objs: Default::default(),
-            prims: Default::default(),
-            verts: Default::default(),
-            frags: Default::default(),
+            objs: Throughput::default(),
+            prims: Throughput::default(),
+            verts: Throughput::default(),
+            frags: Throughput::default(),
         }
     }
 
@@ -74,6 +74,7 @@ impl Stats {
         }
     }
 
+    #[must_use]
     pub fn finish(self) -> Self {
         Self {
             #[cfg(feature = "std")]
@@ -98,6 +99,7 @@ impl Stats {
     }
 
     /// Returns the average throughput in items per second.
+    #[must_use]
     pub fn per_render_sec(&self) -> Self {
         let secs = if self.render_time.is_zero() {
             1.0
@@ -120,6 +122,7 @@ impl Stats {
         }
     }
 
+    #[must_use]
     pub fn per_wall_sec(&self) -> Self {
         let secs = if self.wall_time.is_zero() {
             1.0
@@ -141,7 +144,9 @@ impl Stats {
             frags,
         }
     }
+
     /// Returns the average throughput in items per frame.
+    #[must_use]
     pub fn per_frame(&self) -> Self {
         let frames = self.frames.max(1.0) as u32;
         let [objs, prims, verts, frags] = self
@@ -183,6 +188,12 @@ impl Throughput {
             i: self.i / frames as usize,
             o: self.o / frames as usize,
         }
+    }
+}
+
+impl Default for Stats {
+    fn default() -> Self {
+        Self::new()
     }
 }
 

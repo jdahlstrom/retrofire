@@ -31,11 +31,9 @@ pub enum Kind<B> {
 impl<B: Copy> Light<B> {
     /// Creates a new light source of the given color and kind.
     pub fn new(color: Color3f, mut kind: Kind<B>) -> Self {
-        match &mut kind {
-            Kind::Directional(dir) => *dir = dir.normalize(),
-            Kind::Spot { dir, .. } => *dir = dir.normalize(),
-            _ => {}
-        };
+        if let Kind::Directional(dir) | Kind::Spot { dir, .. } = &mut kind {
+            *dir = dir.normalize();
+        }
         Self { color, kind, ..Self::default() }
     }
 
@@ -43,9 +41,10 @@ impl<B: Copy> Light<B> {
     #[inline]
     pub fn direction(&self, pt: Point3<B>) -> Vec3<B> {
         match self.kind {
-            Kind::Point(pos) => (pos - pt).normalize_approx(),
+            Kind::Point(pos) | Kind::Spot { pos, .. } => {
+                (pos - pt).normalize_approx()
+            }
             Kind::Directional(dir) => dir,
-            Kind::Spot { pos, .. } => (pos - pt).normalize_approx(),
         }
     }
 
@@ -53,8 +52,7 @@ impl<B: Copy> Light<B> {
     pub fn eval(&self, pt: Point3<B>) -> (Color3f, Vec3<B>) {
         let pt_dir = self.direction(pt);
         let color = match self.kind {
-            Kind::Point(_) => self.color,
-            Kind::Directional(_) => self.color,
+            Kind::Point(_) | Kind::Directional(_) => self.color,
             Kind::Spot { dir, radii, .. } => {
                 let dot = pt_dir.dot(&dir);
                 let (r0, r1) = (1.0 - radii.0, 1.0 - radii.1);
@@ -82,7 +80,7 @@ impl<B: Copy> Light<B> {
                 radii,
             },
         };
-        Light { kind, color, falloff }
+        Light { color, kind, falloff }
     }
 }
 

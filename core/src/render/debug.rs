@@ -153,7 +153,7 @@ impl<A: Clone, B> DbgMesh<A, B> {
     #[must_use]
     pub fn face_normals(mut self, scale: f32) -> Self {
         for tri in self.0.faces() {
-            self.1.face_normal(&tri.map(|v| v.clone()), scale);
+            self.1.face_normal(&tri.map(Clone::clone), scale);
         }
         self
     }

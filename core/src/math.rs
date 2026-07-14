@@ -106,6 +106,7 @@ pub trait Lerp: Clone + Debug + Sized {
     ///
     /// assert_eq!(f32::lerp(&1.0, &5.0, 0.25), 2.0);
     /// ```
+    #[must_use]
     fn lerp(&self, other: &Self, t: f32) -> Self;
 
     /// Returns the (unweighted) average of `self` and `other`.
@@ -118,6 +119,7 @@ pub trait Lerp: Clone + Debug + Sized {
     /// let b = pt2(3.0, -2.0);
     /// assert_eq!(a.midpoint(&b), pt2(1.0, 0.0));
     /// ```
+    #[must_use]
     fn midpoint(&self, other: &Self) -> Self {
         self.lerp(other, 0.5)
     }
@@ -156,7 +158,7 @@ pub fn inv_lerp(t: f32, min: f32, max: f32) -> f32 {
 }
 
 /// The square root of three.
-pub const SQRT_3: f32 = 1.7320508;
+pub const SQRT_3: f32 = 1.732_050_8;
 
 impl<T> Lerp for T
 where
@@ -207,7 +209,7 @@ impl<T: Lerp, const N: usize> Lerp for [T; N] {
 }
 
 impl Lerp for () {
-    fn lerp(&self, _: &Self, _: f32) {}
+    fn lerp(&self, (): &(), _: f32) {}
 }
 
 impl<U: Lerp, V: Lerp> Lerp for (U, V) {

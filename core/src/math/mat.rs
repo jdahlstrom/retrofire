@@ -1145,7 +1145,7 @@ impl<Src, Dst> Mat4<Src, Dst> {
 #[inline]
 const fn likely(cond: bool) -> bool {
     if !cond {
-        cold_path()
+        cold_path();
     }
     cond
 }
@@ -1234,7 +1234,7 @@ impl<Src, Dst> Apply<Point2<Src>> for Mat2<Src, Dst> {
     ///  Mp  =  ⎛ M00 M01 ⎞ ⎛ v0 ⎞  =  ⎛ v0' ⎞
     ///         ⎝ M10 M11 ⎠ ⎝ v1 ⎠     ⎝ v1' ⎠
     /// ```
-    #[inline(always)]
+    #[inline]
     fn apply(&self, pt: &Point2<Src>) -> Point2<Dst> {
         self.apply(&pt.to_vec()).to_pt()
     }
@@ -1318,7 +1318,7 @@ impl<Src, Dst> Apply<Point3<Src>> for Mat3<Src, Dst, 3> {
     ///  M·P  =  ⎜ x1 y1 z1 ⎟ ⎜ p1 ⎟  =  ⎜ p1' ⎟
     ///          ⎝ x2 y2 z2 ⎠ ⎝ p2 ⎠     ⎝ p2' ⎠
     /// ```
-    #[inline(always)]
+    #[inline]
     fn apply(&self, p: &Point3<Src>) -> Point3<Dst> {
         self.apply(&p.to_vec()).to_pt()
     }

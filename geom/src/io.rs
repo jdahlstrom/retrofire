@@ -355,11 +355,11 @@ fn parse_indices(param: &str) -> Result<Indices> {
     let pos = next(indices).and_then(parse_index)?;
     // Texcoord and normal are optional
     let uv = if let Some(uv) = indices.next() {
-        if !uv.is_empty() {
-            Some(parse_index(uv)?)
-        } else {
+        if uv.is_empty() {
             // `1//2`: only position and normal
             None
+        } else {
+            Some(parse_index(uv)?)
         }
     } else {
         None

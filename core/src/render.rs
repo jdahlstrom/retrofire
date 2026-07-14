@@ -6,7 +6,7 @@
 //! geometric shapes such as triangles.
 
 use alloc::vec::Vec;
-use core::{fmt::Debug, ops::DerefMut};
+use core::fmt::Debug;
 
 use crate::geom::Vertex;
 use crate::math::{
@@ -192,7 +192,7 @@ fn rasterize<Prim, Shd, Var, Uni>(
     shader: &Shd,
     uniform: Uni,
     to_screen: Mat4<Ndc, Screen>,
-    mut target: &mut impl Target,
+    target: &mut impl Target,
     ctx: &Context,
 ) -> (usize, usize)
 where
@@ -217,7 +217,6 @@ where
         out.1 += 3; // TODO Get number of verts in prim somehow
 
         // 4. Fragment shader and rasterization
-        let target = target.deref_mut();
         Prim::rasterize(prim, |scanline| {
             // Convert to fragments, shade, and draw to target
             target.rasterize(scanline, shader, uniform, ctx);
@@ -234,7 +233,7 @@ fn primitive_assembly<Prim: Render<Var> + Clone, Var: Vary>(
     prims
         .iter()
         .cloned()
-        .map(|prim| Prim::inline(prim, &verts))
+        .map(|prim| Prim::inline(prim, verts))
         // Collect needed because clip takes a slice...
         .collect()
 }

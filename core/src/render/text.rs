@@ -64,6 +64,7 @@ impl Text {
     }
 
     /// Sets the anchor point of the text.
+    #[must_use]
     pub fn anchor(mut self, pt: impl Into<Point2>) -> Self {
         self.anchor = pt.into();
         self

@@ -61,7 +61,7 @@ impl<T: Target> Target for &mut T {
         uni: U,
         ctx: &Context,
     ) {
-        (*self).rasterize(sl, fs, uni, ctx)
+        (*self).rasterize(sl, fs, uni, ctx);
     }
 }
 impl<T: Target> Target for &RefCell<T> {
@@ -73,7 +73,7 @@ impl<T: Target> Target for &RefCell<T> {
         uni: U,
         ctx: &Context,
     ) {
-        RefCell::borrow_mut(self).rasterize(sl, fs, uni, ctx)
+        RefCell::borrow_mut(self).rasterize(sl, fs, uni, ctx);
     }
 }
 
@@ -96,7 +96,7 @@ where
         let Self { color_buf, depth_buf } = self;
         let fmt = color_buf.fmt; // borrowck...
         let conv = |c: Color4| c.into_pixel(fmt);
-        rasterize_fb(color_buf, depth_buf, sl, fs, uni, conv, ctx)
+        rasterize_fb(color_buf, depth_buf, sl, fs, uni, conv, ctx);
     }
 }
 
@@ -117,7 +117,7 @@ where
         ctx: &Context,
     ) {
         let conv = |c: Color4| c.into_pixel(self.fmt);
-        rasterize(&mut self.buf, sl, fs, uni, conv, ctx)
+        rasterize(&mut self.buf, sl, fs, uni, conv, ctx);
     }
 }
 
@@ -130,7 +130,7 @@ impl Target for Buf2<Color4> {
         uni: U,
         ctx: &Context,
     ) {
-        rasterize(self, sl, fs, uni, |c| c, ctx)
+        rasterize(self, sl, fs, uni, |c| c, ctx);
     }
 }
 
@@ -143,7 +143,7 @@ impl Target for Buf2<Color3> {
         uni: U,
         ctx: &Context,
     ) {
-        rasterize(self, sl, fs, uni, |c| c.to_rgb(), ctx)
+        rasterize(self, sl, fs, uni, |c| c.to_rgb(), ctx);
     }
 }
 

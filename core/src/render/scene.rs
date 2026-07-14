@@ -102,9 +102,9 @@ impl<A> Default for Obj<A> {
     /// Returns an empty `Obj`.
     fn default() -> Self {
         Self {
-            geom: Default::default(),
-            bbox: Default::default(),
-            tf: Default::default(),
+            geom: Mesh::default(),
+            bbox: BBox::default(),
+            tf: Mat4::default(),
         }
     }
 }

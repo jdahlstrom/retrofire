@@ -1,7 +1,11 @@
 //! The five Platonic solids: tetrahedron, cube, octahedron, dodecahedron,
 //! and icosahedron.
 
-use core::{array::from_fn, f32::consts::SQRT_2, iter::zip};
+use core::{
+    array::from_fn,
+    f32::consts::{GOLDEN_RATIO, SQRT_2},
+    iter::zip,
+};
 
 use retrofire_core::{
     geom::{Mesh, Normal3, Vertex3, vertex},
@@ -301,7 +305,7 @@ impl Build<Normal3> for Octahedron {
 }
 
 /// The golden ratio constant φ.
-const PHI: f32 = 1.618034_f32;
+const PHI: f32 = GOLDEN_RATIO;
 /// Reciprocal of φ.
 const R_PHI: f32 = 1.0 / PHI;
 

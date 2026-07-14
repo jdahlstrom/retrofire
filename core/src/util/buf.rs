@@ -576,7 +576,7 @@ pub mod inner {
     #[track_caller]
     #[inline(never)]
     fn out_of_bounds(Dims(w, h): Dims, x: u32, y: u32) -> ! {
-        panic!("position (x={x}, y={y}) out of bounds (0..{w}, 0..{h})",)
+        panic!("position (x={x}, y={y}) out of bounds (0..{w}, 0..{h})")
     }
 
     impl<T, D: Deref<Target = [T]>> Inner<T, D> {
