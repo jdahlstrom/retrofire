@@ -1,6 +1,6 @@
 //! Pseudo-random number generation and distributions.
 
-use core::{array, fmt::Debug, ops::Range};
+use core::{array, cell::Cell, fmt::Debug, ops::Range};
 
 use super::{Angle, Color, Point, Point2, Point3, Vec2, Vec3, Vector, rads};
 
@@ -10,7 +10,8 @@ use super::{Angle, Color, Point, Point2, Point3, Vec2, Vec3, Vector, rads};
 
 pub type DefaultRng = Xorshift64;
 
-pub const DEFAULT_RNG: DefaultRng = Xorshift64(Xorshift64::DEFAULT_SEED);
+pub const DEFAULT_RNG: DefaultRng =
+    Xorshift64(Cell::new(Xorshift64::DEFAULT_SEED));
 
 /// Trait for generating values sampled from a probability distribution.
 pub trait Distrib {
@@ -25,11 +26,11 @@ pub trait Distrib {
     /// use retrofire_core::math::rand::*;
     ///
     /// // Simulate rolling a six-sided die
-    /// let rng = &mut DefaultRng::default();
-    /// let d6 = Uniform(1..7).sample(rng);
+    /// let rng = DefaultRng::default();
+    /// let d6 = Uniform(1..7).sample(&rng);
     /// assert_eq!(d6, 3);
     /// ```
-    fn sample(&self, rng: &mut DefaultRng) -> Self::Sample;
+    fn sample(&self, rng: &DefaultRng) -> Self::Sample;
 
     /// Returns an iterator that yields samples from `self` indefinitely.
     ///
@@ -38,17 +39,14 @@ pub trait Distrib {
     /// use retrofire_core::math::rand::*;
     ///
     /// // Simulate rolling a six-sided die three times
-    /// let rng = &mut DefaultRng::default();
-    /// let mut iter = Uniform(1u32..7).samples(rng);
+    /// let rng = DefaultRng::default();
+    /// let mut iter = Uniform(1u32..7).samples(&rng);
     ///
     /// assert_eq!(iter.next(), Some(1));
     /// assert_eq!(iter.next(), Some(2));
     /// assert_eq!(iter.next(), Some(4));
     /// ```
-    fn samples<'a>(
-        &self,
-        rng: &'a mut DefaultRng,
-    ) -> Samples<Self, &'a mut DefaultRng>
+    fn samples<'a>(&self, rng: &'a DefaultRng) -> Samples<Self, &'a DefaultRng>
     where
         Self: Clone + Sized,
     {
@@ -66,9 +64,9 @@ pub trait Distrib {
 ///
 /// [^1]: Marsaglia, G. (2003). Xorshift RNGs. Journal of Statistical Software,
 ///     8(14), 1–6. <https://doi.org/10.18637/jss.v008.i14>
-#[derive(Copy, Clone, Debug)]
+#[derive(Clone, Debug)]
 #[repr(transparent)]
-pub struct Xorshift64(pub u64);
+pub struct Xorshift64(pub Cell<u64>);
 
 /// A uniform distribution of values in a range.
 #[derive(Clone, Debug)]
@@ -134,7 +132,7 @@ impl Xorshift64 {
     /// ```
     /// use retrofire_core::math::rand::Xorshift64;
     ///
-    /// let mut g = Xorshift64::from_seed(11223344556677889900);
+    /// let g = Xorshift64::from_seed(11223344556677889900);
     /// assert_eq!(g.next_bits(), 7782624861773764242);
     /// assert_eq!(g.next_bits(), 6203733934162558527);
     /// assert_eq!(g.next_bits(), 13009646309496342147);
@@ -145,7 +143,7 @@ impl Xorshift64 {
     /// If `seed` equals 0.
     pub const fn from_seed(seed: u64) -> Self {
         assert!(seed != 0, "xorshift seed cannot be zero");
-        Self(seed)
+        Self(Cell::new(seed))
     }
 
     /// Returns a new `Xorshift64` seeded by the current system time.
@@ -159,9 +157,9 @@ impl Xorshift64 {
     /// use std::thread;
     /// use retrofire_core::math::rand::Xorshift64;
     ///
-    /// let mut g = Xorshift64::from_time();
+    /// let g = Xorshift64::from_time();
     /// thread::sleep_ms(1); // Just to be sure
-    /// let mut h = Xorshift64::from_time();
+    /// let h = Xorshift64::from_time();
     /// assert_ne!(g.next_bits(), h.next_bits());
     /// ```
     #[cfg(feature = "std")]
@@ -170,7 +168,7 @@ impl Xorshift64 {
             .elapsed()
             // If for some strange reason the system time < epoch...
             .unwrap_or_else(|e| e.duration());
-        Self(d.as_micros() as u64)
+        Self::from_seed(d.as_micros() as u64)
     }
 
     /// Returns 64 bits of pseudo-randomness.
@@ -179,21 +177,22 @@ impl Xorshift64 {
     /// every value in the interval [1, 2<sup>64</sup>) exactly once before
     /// starting to repeat the sequence.
     #[inline]
-    pub const fn next_bits(&mut self) -> u64 {
-        let Self(x) = self;
-        *x ^= *x << 13;
-        *x ^= *x >> 7;
-        *x ^= *x << 17;
-        *x
+    pub fn next_bits(&self) -> u64 {
+        let mut x = self.0.get();
+        x ^= x << 13;
+        x ^= x >> 7;
+        x ^= x << 17;
+        self.0.set(x);
+        x
     }
 
     #[inline]
-    pub fn next<D: Distrib>(&mut self, dist: D) -> D::Sample {
+    pub fn next<D: Distrib>(&self, dist: D) -> D::Sample {
         dist.sample(self)
     }
 
     #[inline]
-    pub fn iter<'a, D>(&'a mut self, dist: D) -> Samples<D, &'a mut Self>
+    pub fn iter<'a, D>(&'a self, dist: D) -> Samples<D, &'a Self>
     where
         Self: Sized,
         D: Distrib + Clone + 'a,
@@ -206,7 +205,7 @@ impl Xorshift64 {
 // Foreign trait impls
 //
 
-impl<D: Distrib> Iterator for Samples<D, &'_ mut DefaultRng> {
+impl<D: Distrib> Iterator for Samples<D, &'_ DefaultRng> {
     type Item = D::Sample;
 
     /// Returns the next pseudorandom sample from this iterator.
@@ -225,7 +224,7 @@ impl Default for Xorshift64 {
     /// ```
     /// use retrofire_core::math::rand::Xorshift64;
     ///
-    /// let mut g = Xorshift64::default();
+    /// let g = Xorshift64::default();
     /// assert_eq!(g.next_bits(), 11039719294064252060);
     /// ```
     fn default() -> Self {
@@ -241,7 +240,7 @@ impl<D: Distrib + ?Sized> Distrib for &D {
     type Sample = D::Sample;
 
     #[inline]
-    fn sample(&self, rng: &mut DefaultRng) -> Self::Sample {
+    fn sample(&self, rng: &DefaultRng) -> Self::Sample {
         (*self).sample(rng)
     }
 }
@@ -255,14 +254,14 @@ impl Distrib for Uniform<i32> {
     /// # Examples
     /// ```
     /// use retrofire_core::math::rand::*;
-    /// let rng = &mut DefaultRng::default();
+    /// let rng = DefaultRng::default();
     ///
-    /// let mut iter = (-5i32..6).samples(rng);
+    /// let mut iter = (-5i32..6).samples(&rng);
     /// assert_eq!(iter.next(), Some(0));
     /// assert_eq!(iter.next(), Some(4));
     /// assert_eq!(iter.next(), Some(5));
     /// ```
-    fn sample(&self, rng: &mut DefaultRng) -> i32 {
+    fn sample(&self, rng: &DefaultRng) -> i32 {
         let bits = rng.next_bits() as i32;
         // TODO rem introduces slight bias
         bits.rem_euclid(self.0.end - self.0.start) + self.0.start
@@ -277,16 +276,16 @@ impl Distrib for Uniform<u32> {
     /// # Examples
     /// ```
     /// use retrofire_core::math::rand::*;
-    /// let rng = &mut DefaultRng::from_seed(1234);
+    /// let rng = DefaultRng::from_seed(1234);
     ///
     /// // Simulate rolling a six-sided die
-    /// let mut rolls: Vec<_>  = Uniform(1u32..7)
-    ///     .samples(rng)
+    /// let rolls: Vec<_>  = Uniform(1u32..7)
+    ///     .samples(&rng)
     ///     .take(6)
     ///     .collect();
     /// assert_eq!(rolls, [2, 4, 6, 6, 3, 1]);
     /// ```
-    fn sample(&self, rng: &mut DefaultRng) -> u32 {
+    fn sample(&self, rng: &DefaultRng) -> u32 {
         let bits = rng.next_bits() as u32;
         // TODO rem introduces slight bias
         bits.rem_euclid(self.0.end - self.0.start) + self.0.start
@@ -302,19 +301,19 @@ impl Distrib for Uniform<usize> {
     /// # Examples
     /// ```
     /// use retrofire_core::math::rand::*;
-    /// let rng = &mut DefaultRng::default();
+    /// let rng = DefaultRng::default();
     ///
     /// // Randomly sample elements from a list (with replacement)
     /// let beverages = ["water", "tea", "coffee", "Coke", "Red Bull"];
-    /// let mut x: Vec<_> = Uniform(0..beverages.len())
-    ///     .samples(rng)
+    /// let x: Vec<_> = Uniform(0..beverages.len())
+    ///     .samples(&rng)
     ///     .take(3)
     ///     .map(|i| beverages[i])
     ///     .collect();
     ///
     /// assert_eq!(x, ["water", "tea", "Red Bull"]);
     /// ```
-    fn sample(&self, rng: &mut DefaultRng) -> usize {
+    fn sample(&self, rng: &DefaultRng) -> usize {
         let bits = rng.next_bits() as usize;
         // TODO rem introduces slight bias
         bits.rem_euclid(self.0.end - self.0.start) + self.0.start
@@ -330,15 +329,15 @@ impl Distrib for Uniform<f32> {
     /// # Examples
     /// ```
     /// use retrofire_core::math::rand::*;
-    /// let rng = &mut DefaultRng::default();
+    /// let rng = DefaultRng::default();
     ///
     /// // Floats in the interval [-1, 1)
-    /// let mut iter = Uniform(-1.0..1.0).samples(rng);
+    /// let mut iter = Uniform(-1.0..1.0).samples(&rng);
     /// assert_eq!(iter.next(), Some(0.19692874));
     /// assert_eq!(iter.next(), Some(-0.7686298));
     /// assert_eq!(iter.next(), Some(0.91969657));
     /// ```
-    fn sample(&self, rng: &mut DefaultRng) -> f32 {
+    fn sample(&self, rng: &DefaultRng) -> f32 {
         let Range { start, end } = self.0;
         // Bit repr of a random f32 in range 1.0..2.0
         // Leaves a lot of precision unused near zero, but it's okay.
@@ -357,16 +356,16 @@ impl Distrib for Uniform<Angle> {
     /// # Examples
     /// ```
     /// use retrofire_core::math::{degs, rand::*};
-    /// let rng = &mut DefaultRng::default();
+    /// let rng = DefaultRng::default();
     ///
     /// // Angles in the interval [45°, 90°]
     /// let range = Uniform(degs(45.0)..degs(90.0));
-    /// let mut iter = range.samples(rng);
+    /// let mut iter = range.samples(&rng);
     /// assert_eq!(iter.next(), Some(degs(71.9309)));
     /// assert_eq!(iter.next(), Some(degs(50.205833)));
     /// assert_eq!(iter.next(), Some(degs(88.19318)));
     /// ```
-    fn sample(&self, rng: &mut DefaultRng) -> Angle {
+    fn sample(&self, rng: &DefaultRng) -> Angle {
         let Range { start, end } = self.0;
         rads((start.to_rads()..end.to_rads()).sample(rng))
     }
@@ -379,7 +378,7 @@ where
     type Sample = S;
 
     #[inline]
-    fn sample(&self, rng: &mut DefaultRng) -> Self::Sample {
+    fn sample(&self, rng: &DefaultRng) -> Self::Sample {
         Uniform(self.clone()).sample(rng)
     }
 }
@@ -397,11 +396,11 @@ impl<T: Clone> Distrib for [T] {
     /// use retrofire_core::math::rand::{DefaultRng, Distrib};
     ///
     /// let pets = ["cat", "dog", "bird", "fish", "turtle"];
-    /// let rng = &mut DefaultRng::default();
+    /// let rng = DefaultRng::default();
     ///
-    /// assert_eq!(pets.sample(rng), "cat");
+    /// assert_eq!(pets.sample(&rng), "cat");
     /// ```
-    fn sample(&self, rng: &mut DefaultRng) -> Self::Sample {
+    fn sample(&self, rng: &DefaultRng) -> Self::Sample {
         self[Uniform(0..self.len()).sample(rng)].clone()
     }
 }
@@ -419,17 +418,17 @@ where
     /// # Examples
     /// ```
     /// use retrofire_core::math::rand::*;
-    /// let rng = &mut DefaultRng::default();
+    /// let rng = DefaultRng::default();
     ///
     /// // Pairs of integers [X, Y] such that 0 <= X < 4 and -2 <= Y <= 3
-    /// let mut int_pairs = Uniform([0, -2]..[4, 3]).samples(rng);
+    /// let mut int_pairs = Uniform([0, -2]..[4, 3]).samples(&rng);
     ///
     /// assert_eq!(int_pairs.next(), Some([0, -1]));
     /// assert_eq!(int_pairs.next(), Some([1, 0]));
     /// assert_eq!(int_pairs.next(), Some([3, 1]));
     /// ```
     #[inline]
-    fn sample(&self, rng: &mut DefaultRng) -> [T; N] {
+    fn sample(&self, rng: &DefaultRng) -> [T; N] {
         let Range { start, end } = self.0;
         array::from_fn(|i| Uniform(start[i]..end[i]).sample(rng))
     }
@@ -445,7 +444,7 @@ where
 
     /// Returns a vector uniformly sampled from the rectangular volume
     /// bounded by `self.0`.
-    fn sample(&self, rng: &mut DefaultRng) -> Self::Sample {
+    fn sample(&self, rng: &DefaultRng) -> Self::Sample {
         Uniform(self.0.start.0..self.0.end.0)
             .sample(rng)
             .into()
@@ -462,7 +461,7 @@ where
 
     /// Returns a point uniformly sampled from the rectangular volume
     /// bounded by `self.0`.
-    fn sample(&self, rng: &mut DefaultRng) -> Self::Sample {
+    fn sample(&self, rng: &DefaultRng) -> Self::Sample {
         Uniform(self.0.start.0..self.0.end.0)
             .sample(rng)
             .into()
@@ -478,7 +477,7 @@ where
 
     /// Returns a point uniformly sampled from the rectangular volume
     /// bounded by `self.0`.
-    fn sample(&self, rng: &mut DefaultRng) -> Self::Sample {
+    fn sample(&self, rng: &DefaultRng) -> Self::Sample {
         Uniform(self.0.start.0..self.0.end.0)
             .sample(rng)
             .into()
@@ -493,12 +492,12 @@ impl Distrib for UnitCircle {
     /// # Example
     /// ```
     /// use retrofire_core::math::{ApproxEq, rand::*};
-    /// let rng = &mut DefaultRng::default();
+    /// let rng = DefaultRng::default();
     ///
-    /// let vec = UnitCircle.sample(rng);
+    /// let vec = UnitCircle.sample(&rng);
     /// assert!(vec.len_sqr().approx_eq(&1.0));
     /// ```
-    fn sample(&self, rng: &mut DefaultRng) -> Vec2 {
+    fn sample(&self, rng: &DefaultRng) -> Vec2 {
         let d = Uniform([-1.0; 2]..[1.0; 2]);
         // Normalization preserves uniformity
         Vec2::from(d.sample(rng)).normalize()
@@ -513,12 +512,12 @@ impl Distrib for VectorsOnUnitDisk {
     /// # Example
     /// ```
     /// use retrofire_core::math::rand::*;
-    /// let rng = &mut DefaultRng::default();
+    /// let rng = DefaultRng::default();
     ///
-    /// let vec = VectorsOnUnitDisk.sample(rng);
+    /// let vec = VectorsOnUnitDisk.sample(&rng);
     /// assert!(vec.len() <= 1.0);
     /// ```
-    fn sample(&self, rng: &mut DefaultRng) -> Vec2 {
+    fn sample(&self, rng: &DefaultRng) -> Vec2 {
         let d = Uniform([-1.0f32; 2]..[1.0; 2]);
         loop {
             // Rejection sampling
@@ -539,12 +538,12 @@ impl Distrib for UnitSphere {
     /// ```
     /// use retrofire_core::assert_approx_eq;
     /// use retrofire_core::math::rand::*;
-    /// let rng = &mut DefaultRng::default();
+    /// let rng = DefaultRng::default();
     ///
-    /// let vec = UnitSphere.sample(rng);
+    /// let vec = UnitSphere.sample(&rng);
     /// assert_approx_eq!(vec.len(), 1.0);
     /// ```
-    fn sample(&self, rng: &mut DefaultRng) -> Vec3 {
+    fn sample(&self, rng: &DefaultRng) -> Vec3 {
         let d = Uniform([-1.0; 3]..[1.0; 3]);
         Vec3::from(d.sample(rng)).normalize()
     }
@@ -558,12 +557,12 @@ impl Distrib for VectorsInUnitBall {
     /// # Example
     /// ```
     /// use retrofire_core::math::rand::*;
-    /// let rng = &mut DefaultRng::default();
+    /// let rng = DefaultRng::default();
     ///
-    /// let vec = VectorsInUnitBall.sample(rng);
+    /// let vec = VectorsInUnitBall.sample(&rng);
     /// assert!(vec.len_sqr() <= 1.0);
     /// ```
-    fn sample(&self, rng: &mut DefaultRng) -> Vec3 {
+    fn sample(&self, rng: &DefaultRng) -> Vec3 {
         let d = Uniform([-1.0; 3]..[1.0; 3]);
         loop {
             // Rejection sampling
@@ -581,7 +580,7 @@ impl Distrib for PointsOnUnitDisk {
     /// Returns a 2-point uniformly sampled from the unit disk.
     ///
     /// See [`VectorsOnUnitDisk::sample`].
-    fn sample(&self, rng: &mut DefaultRng) -> Point2 {
+    fn sample(&self, rng: &DefaultRng) -> Point2 {
         VectorsOnUnitDisk.sample(rng).to_pt()
     }
 }
@@ -592,7 +591,7 @@ impl Distrib for PointsInUnitBall {
     /// Returns a 3-point uniformly sampled from the unit ball.
     ///
     /// See [`VectorsInUnitBall::sample`].
-    fn sample(&self, rng: &mut DefaultRng) -> Point3 {
+    fn sample(&self, rng: &DefaultRng) -> Point3 {
         VectorsInUnitBall.sample(rng).to_pt()
     }
 }
@@ -609,14 +608,14 @@ impl Distrib for Bernoulli {
     /// ```
     /// use core::array;
     /// use retrofire_core::math::rand::*;
-    /// let rng = &mut DefaultRng::default();
+    /// let rng = DefaultRng::default();
     ///
     /// let bern = Bernoulli(0.6); // P(true) = 0.6
-    /// let bools = array::from_fn(|_| bern.sample(rng));
+    /// let bools = array::from_fn(|_| bern.sample(&rng));
     /// assert_eq!(bools, [true, true, false, true, false, true]);
     /// ```
     #[inline]
-    fn sample(&self, rng: &mut DefaultRng) -> bool {
+    fn sample(&self, rng: &DefaultRng) -> bool {
         Uniform(0.0f32..1.0).sample(rng) < self.0
     }
 }
@@ -626,7 +625,7 @@ impl<D: Distrib, E: Distrib> Distrib for (D, E) {
 
     /// Returns a pair of samples, sampled from two separate distributions.
     #[inline]
-    fn sample(&self, rng: &mut DefaultRng) -> Self::Sample {
+    fn sample(&self, rng: &DefaultRng) -> Self::Sample {
         (self.0.sample(rng), self.1.sample(rng))
     }
 }
@@ -647,7 +646,7 @@ mod tests {
     #[test]
     fn uniform_i32() {
         let dist = Uniform(-123i32..456);
-        for r in dist.samples(&mut rng()).take(COUNT) {
+        for r in dist.samples(&rng()).take(COUNT) {
             assert!(-123 <= r && r < 456);
         }
     }
@@ -655,7 +654,7 @@ mod tests {
     #[test]
     fn uniform_f32() {
         let dist = Uniform(-1.23..4.56);
-        for r in dist.samples(&mut rng()).take(COUNT) {
+        for r in dist.samples(&rng()).take(COUNT) {
             assert!(-1.23 <= r && r < 4.56);
         }
     }
@@ -665,7 +664,7 @@ mod tests {
         let dist = Uniform([0, -10]..[10, 15]);
 
         let sum = dist
-            .samples(&mut rng())
+            .samples(&rng())
             .take(COUNT)
             .inspect(|&[x, y]| {
                 assert!(0 <= x && x < 10);
@@ -682,7 +681,7 @@ mod tests {
             Uniform(vec3::<f32, ()>(-2.0, 0.0, -1.0)..vec3(1.0, 2.0, 3.0));
 
         let mean = dist
-            .samples(&mut rng())
+            .samples(&rng())
             .take(COUNT)
             .inspect(|v| {
                 assert!(-2.0 <= v.x() && v.x() < 1.0);
@@ -697,7 +696,7 @@ mod tests {
 
     #[test]
     fn bernoulli() {
-        let rng = &mut rng();
+        let rng = &rng();
         let bools = Bernoulli(0.1).samples(rng).take(COUNT);
         let approx_100 = bools.filter(|&b| b).count();
         assert_eq!(approx_100, 82);
@@ -706,14 +705,14 @@ mod tests {
     #[test]
     fn unit_circle() {
         use crate::assert_approx_eq;
-        for v in UnitCircle.samples(&mut rng()).take(COUNT) {
+        for v in UnitCircle.samples(&rng()).take(COUNT) {
             assert_approx_eq!(v.len_sqr(), 1.0, "non-unit vector: {v:?}");
         }
     }
 
     #[test]
     fn vectors_on_unit_disk() {
-        for v in VectorsOnUnitDisk.samples(&mut rng()).take(COUNT) {
+        for v in VectorsOnUnitDisk.samples(&rng()).take(COUNT) {
             assert!(v.len_sqr() <= 1.0, "vector of len > 1.0: {v:?}");
         }
     }
@@ -721,21 +720,21 @@ mod tests {
     #[test]
     fn unit_sphere() {
         use crate::assert_approx_eq;
-        for v in UnitSphere.samples(&mut rng()).take(COUNT) {
+        for v in UnitSphere.samples(&rng()).take(COUNT) {
             assert_approx_eq!(v.len_sqr(), 1.0, "non-unit vector: {v:?}");
         }
     }
 
     #[test]
     fn vectors_in_unit_ball() {
-        for v in VectorsInUnitBall.samples(&mut rng()).take(COUNT) {
+        for v in VectorsInUnitBall.samples(&rng()).take(COUNT) {
             assert!(v.len_sqr() <= 1.0, "vector of len > 1.0: {v:?}");
         }
     }
 
     #[test]
     fn zipped_pair() {
-        let rng = &mut rng();
+        let rng = &rng();
         let dist = (Bernoulli(0.8), Uniform(0..4));
         assert_eq!(dist.sample(rng), (true, 1));
         assert_eq!(dist.sample(rng), (false, 3));
