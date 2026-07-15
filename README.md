@@ -115,8 +115,8 @@ The `retrofire-demos` package depends on `retrofire`.
 
 # Screenshots
 
-The classic Stanford bunny.
-![The classic Stanford bunny 3D model.](docs/bunny.jpg)
+The classic Stanford dragon.
+![A detailed 3D model of a dragon sculpture.](docs/dragon.jpg)
 
 A first-person mouse-and-keyboard scene with many "Rust crates" strewn on a
 checkered floor.
@@ -124,6 +124,9 @@ checkered floor.
 
 Ten thousand spherical particles positioned randomly in a sphere.
 ![Ten thousand spherical particles in random positions.](docs/sprites.jpg)
+
+A colorful torus rendered in a terminal.
+![A torus rendered in a terminal using block characters.](docs/curses.png)
 
 # License
 
