@@ -1,4 +1,4 @@
-//! Triangle clipping benchmarks.
+//! Vector operations benchmarks.
 
 use divan::Bencher;
 
