@@ -89,12 +89,12 @@ pub trait WritePnm {
 /// use retrofire_core::math::Color3;
 /// use retrofire_core::util::{Buf2, pnm::ReadPnm};
 ///
-/// let rgb_buf: Buf2<Color3> = Buf2::load("image.ppm").unwrap();
+/// let rgb_buf: Buf2<Color3> = Buf2::from_file("image.ppm").unwrap();
 /// ```
 /// or
 /// ```should_panic
 /// # use retrofire_core::util::{Buf2, pnm::ReadPnm};
-/// let gray_buf: Buf2<u8> = Buf2::load("image.pgm").unwrap();
+/// let gray_buf: Buf2<u8> = Buf2::from_file("image.pgm").unwrap();
 /// ```
 ///
 /// If the `std` feature is not enabled, this trait only supports reading from
@@ -102,11 +102,11 @@ pub trait WritePnm {
 /// `io::Read` or `Path` instances.
 pub trait ReadPnm: Sized {
     /// Decodes a PNM-formatted image from a byte stream.
-    fn decode(src: impl IntoIterator<Item = u8>) -> Result<Self>;
+    fn from_iter(src: impl IntoIterator<Item = u8>) -> Result<Self>;
 
     /// Reads a PNM-formatted image from a reader.
     #[cfg(feature = "std")]
-    fn read(src: impl io::Read) -> Result<Self> {
+    fn from_reader(src: impl io::Read) -> Result<Self> {
         struct Reader<R> {
             iter: Bytes<R>,
             res: Result<()>,
@@ -123,15 +123,15 @@ pub trait ReadPnm: Sized {
             }
         }
         let mut reader = Reader { iter: src.bytes(), res: Ok(()) };
-        let decode_res = Self::decode(reader.by_ref());
+        let decode_res = Self::from_iter(reader.by_ref());
         reader.res.and(decode_res)
     }
 
     /// Reads a PNM-formatted image from a file path.
     #[cfg(feature = "std")]
-    fn load(path: impl AsRef<Path>) -> Result<Self> {
+    fn from_file(path: impl AsRef<Path>) -> Result<Self> {
         let file = File::open(path)?;
-        Self::read(BufReader::new(file))
+        Self::from_reader(BufReader::new(file))
     }
 }
 
@@ -344,7 +344,7 @@ impl ReadPnm for Buf2<Color3> {
     /// For all the non-bitmap formats, the maximum color or channel value
     /// in the header must be exactly 255. For more information on the PNM
     /// formats, see the [module documentation](self).
-    fn decode(src: impl IntoIterator<Item = u8>) -> Result<Self> {
+    fn from_iter(src: impl IntoIterator<Item = u8>) -> Result<Self> {
         decode_pnm(src)
     }
 }
@@ -360,7 +360,7 @@ impl ReadPnm for Buf2<u8> {
     ///     In PBM conventionally zero means white and one means black.
     ///
     /// Read more about the formats in the [module docs][self].
-    fn decode(src: impl IntoIterator<Item = u8>) -> Result<Self> {
+    fn from_iter(src: impl IntoIterator<Item = u8>) -> Result<Self> {
         let mut it = src.into_iter();
         let h = Header::parse(it.by_ref())?;
 
@@ -392,7 +392,7 @@ impl ReadPnm for Buf2<bool> {
     ///
     /// Currently only supports binary bitmaps (P4).
     /// Read more about the formats in the [module docs][self].
-    fn decode(src: impl IntoIterator<Item = u8>) -> Result<Self> {
+    fn from_iter(src: impl IntoIterator<Item = u8>) -> Result<Self> {
         let mut it = src.into_iter();
         let h = Header::parse(it.by_ref())?;
 
@@ -748,7 +748,7 @@ mod tests {
     #[test]
     fn parse_pnm_truncated() {
         let data = *b"P3 2 2 256 \n 0 0 0   123 0 42   0 64 128";
-        assert_eq!(Buf2::<Color3>::decode(data), Err(UnexpectedEnd));
+        assert_eq!(Buf2::<Color3>::from_iter(data), Err(UnexpectedEnd));
     }
 
     #[cfg(feature = "std")]
@@ -781,7 +781,7 @@ mod tests {
     fn read_text_graymap_to_u8() {
         let data = *b"P2 2 2 255 \n 12 34 56 78";
 
-        let buf: Buf2<u8> = Buf2::decode(data).unwrap();
+        let buf: Buf2<u8> = Buf2::from_iter(data).unwrap();
 
         assert_eq!(buf.width(), 2);
         assert_eq!(buf.height(), 2);
@@ -797,7 +797,7 @@ mod tests {
         let data = *b"P2 2 2 128 \n 12 34 56 78";
 
         assert_eq!(
-            Buf2::<u8>::decode(data),
+            Buf2::<u8>::from_iter(data),
             Err(UnexpectedFormat(TextGraymap, 128))
         );
     }
@@ -806,7 +806,7 @@ mod tests {
     fn read_text_graymap_to_color3() {
         let data = *b"P2 2 2 128 \n 12 34 56 78";
 
-        let buf: Buf2<Color3> = Buf2::decode(data).unwrap();
+        let buf: Buf2<Color3> = Buf2::from_iter(data).unwrap();
 
         assert_eq!(buf.width(), 2);
         assert_eq!(buf.height(), 2);
@@ -821,7 +821,7 @@ mod tests {
     fn read_text_pixmap_to_rgb() {
         let data = *b"P3 2 2 256 \n 0 0 0   123 0 42   0 64 128   255 255 255";
 
-        let buf: Buf2<Color3> = Buf2::decode(data).unwrap();
+        let buf: Buf2<Color3> = Buf2::from_iter(data).unwrap();
 
         assert_eq!(buf.dims(), Dims(2, 2));
 
@@ -837,7 +837,7 @@ mod tests {
         // -> 0110
         //    1001
         // = 0b0110_0000 0b1001_0000 = 0x60 0x90
-        let buf: Buf2<u8> = Buf2::decode(*b"P4 4 2\n\x60\x90").unwrap();
+        let buf: Buf2<u8> = Buf2::from_iter(*b"P4 4 2\n\x60\x90").unwrap();
 
         assert_eq!(buf.dims(), Dims(4, 2));
 
@@ -848,7 +848,7 @@ mod tests {
     #[test]
     fn read_binary_bitmap_to_bool() {
         // 0x69 == 0b0110_1001
-        let buf: Buf2<bool> = Buf2::decode(*b"P4 4 2\n\x69").unwrap();
+        let buf: Buf2<bool> = Buf2::from_iter(*b"P4 4 2\n\x69").unwrap();
 
         assert_eq!(buf.dims(), Dims(4, 2));
 
@@ -859,7 +859,7 @@ mod tests {
     #[test]
     fn read_binary_graymap_to_color3() {
         let buf: Buf2<Color3> =
-            Buf2::decode(*b"P5 2 2 255\n\x01\x23\x45\x67").unwrap();
+            Buf2::from_iter(*b"P5 2 2 255\n\x01\x23\x45\x67").unwrap();
 
         assert_eq!(buf.dims(), Dims(2, 2));
 
@@ -869,7 +869,7 @@ mod tests {
 
     #[test]
     fn read_binary_pixmap_to_color3() {
-        let buf: Buf2<Color3> = Buf2::decode(
+        let buf: Buf2<Color3> = Buf2::from_iter(
             *b"P6 2 2 255\n\
             \x01\x12\x23\
             \x34\x45\x56\

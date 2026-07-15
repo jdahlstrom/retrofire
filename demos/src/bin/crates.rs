@@ -32,7 +32,7 @@ fn main() {
         .build()
         .expect("should create window");
 
-    let tex = Buf2::<Color3>::read(CRATE_TEX)
+    let tex = Buf2::<Color3>::from_reader(CRATE_TEX)
         .expect("statically included valid ppm")
         .into();
 

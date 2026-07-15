@@ -44,7 +44,7 @@ fn textured_quad() {
     assert_eq!(framebuf[0][255], rgb(0x7F, 0, 0));
 
     static COMP: &[u8] = include_bytes!("textured_quad.ppm");
-    let comp = Buf2::<Color3>::decode(COMP.iter().copied())
+    let comp = Buf2::<Color3>::from_iter(COMP.iter().copied())
         .expect("should be a valid ppm");
 
     assert_eq!(framebuf, comp);

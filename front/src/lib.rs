@@ -25,7 +25,7 @@ pub static FONT_6X10: &[u8] = include_bytes!("../assets/font_6x10.pbm");
 
 /// Returns a 6x10 bitmap font, e.g. for rendering debug messages.
 pub fn font_6x10() -> Atlas<Color3> {
-    let font = Buf2::read(FONT_6X10).expect("font statically included");
+    let font = Buf2::from_reader(FONT_6X10).expect("font statically included");
     Atlas::grid(Dims(6, 10), font.into())
 }
 

@@ -13,7 +13,7 @@ static FONT: &[u8] = include_bytes!("../../assets/font_16x24.pbm");
 
 fn main() {
     let font: Buf2<Color3> =
-        Buf2::read(FONT).expect("valid statically included image");
+        Buf2::from_reader(FONT).expect("valid statically included image");
     let font = Atlas::grid(Dims(16, 24), font.into());
 
     let arg = env::args().nth(1); // Borrow checker...
