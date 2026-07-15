@@ -431,31 +431,6 @@ fn bits(bytes: impl Iterator<Item = u8>) -> impl Iterator<Item = bool> {
     bytes.flat_map(|byte| (0..8).rev().map(move |i| (byte >> i) & 1 == 1))
 }
 
-/// Writes an image to `out` in PPM format, P6 sub-format
-/// (binary 8-bits-per-channel RGB).
-///
-/// # Errors
-/// Returns [`std::io::Error`] if an error occurs while writing.
-#[cfg(feature = "std")]
-pub fn write_ppm<D>(mut out: impl io::Write, data: D) -> io::Result<()>
-where
-    D: AsSlice2,
-    D::Elem: IntoPixel<[u8; 3], Rgb888> + Copy,
-{
-    let slice = data.as_slice2();
-    Header {
-        format: BinaryPixmap,
-        dims: slice.dims(),
-        max: 255,
-    }
-    .write(&mut out)?;
-
-    slice
-        .iter()
-        .map(|c| c.into_pixel(Rgb888))
-        .try_for_each(|rgb| out.write_all(&rgb[..]))
-}
-
 fn parse_text_pixmap(
     count: usize,
     mut it: impl Iterator<Item = u8>,
