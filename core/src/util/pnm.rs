@@ -275,6 +275,7 @@ where
 
 #[cfg(feature = "std")]
 impl WritePnm for Buf2<u8> {
+    /// Writes a buffer of bytes as a binary graymap (P5).
     fn write(&self, mut dest: impl io::Write) -> io::Result<()> {
         Header {
             format: BinaryGraymap,
@@ -283,6 +284,21 @@ impl WritePnm for Buf2<u8> {
         }
         .write(&mut dest)?;
         dest.write_all(self.data())
+    }
+}
+
+#[cfg(feature = "std")]
+impl WritePnm for Buf2<[u8; 3]> {
+    /// Writes a buffer of byte triplets, interpreted as RGB colors, as a
+    /// binary pixmap (P6).
+    fn write(&self, mut dest: impl io::Write) -> io::Result<()> {
+        Header {
+            format: BinaryPixmap,
+            dims: self.dims(),
+            max: 255,
+        }
+        .write(&mut dest)?;
+        dest.write_all(self.data().as_flattened())
     }
 }
 
