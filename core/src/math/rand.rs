@@ -46,10 +46,13 @@ pub trait Distrib {
     /// assert_eq!(iter.next(), Some(4));
     /// ```
     fn samples<'a>(
-        &'a self,
+        &self,
         rng: &'a mut DefaultRng,
-    ) -> impl Iterator<Item = Self::Sample> + 'a {
-        Samples(self, rng)
+    ) -> Samples<Self, &'a mut DefaultRng>
+    where
+        Self: Clone + Sized,
+    {
+        Samples(self.clone(), rng)
     }
 }
 
@@ -109,7 +112,7 @@ pub struct Bernoulli(pub f32);
 ///
 /// This type is returned by [`Distrib::samples`].
 #[derive(Copy, Clone, Debug)]
-struct Samples<D, R>(D, R);
+pub struct Samples<Dist, Rng>(Dist, Rng);
 
 //
 // Inherent impls
@@ -182,6 +185,20 @@ impl Xorshift64 {
         *x ^= *x >> 7;
         *x ^= *x << 17;
         *x
+    }
+
+    #[inline]
+    pub fn next<D: Distrib>(&mut self, dist: D) -> D::Sample {
+        dist.sample(self)
+    }
+
+    #[inline]
+    pub fn iter<'a, D>(&'a mut self, dist: D) -> Samples<D, &'a mut Self>
+    where
+        Self: Sized,
+        D: Distrib + Clone + 'a,
+    {
+        dist.samples(self)
     }
 }
 
