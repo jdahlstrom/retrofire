@@ -9,7 +9,7 @@ use retrofire_core::{
         translate, viewport,
     },
     render::{Context, Frag, Model, debug::dir_to_rgb, render, shader},
-    util::{Buf2, dims, pnm},
+    util::{Buf2, dims, pnm::WritePnm},
 };
 use retrofire_geom::solids::{Build, Sphere};
 
@@ -57,7 +57,7 @@ fn triangle(b: Bencher, n: u32) {
 
     assert_eq!(center_pixel, rgba(151, 128, 187, 255));
 
-    pnm::save_ppm("benches_e2e_triangle.ppm", framebuf).unwrap();
+    framebuf.save("benches_e2e_triangle.ppm").unwrap();
 }
 
 #[divan::bench(args=[4, 16, 64, 256, 1024], min_time=5, max_time=5)]
@@ -99,7 +99,7 @@ fn sphere(b: Bencher, res: u32) {
 
     assert_eq!(center_pixel, rgba(128, 127, 0, 255));
 
-    pnm::save_ppm("benches_e2e_sphere.ppm", framebuf).unwrap();
+    framebuf.save("benches_e2e_sphere.ppm").unwrap();
 }
 
 fn main() {

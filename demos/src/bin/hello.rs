@@ -5,14 +5,15 @@ use re::prelude::*;
 use re::core::{
     math::color::hsl,
     render::{Text, World, tex::Atlas},
-    util::{dims, pnm::read_pnm},
+    util::{dims, pnm::ReadPnm},
 };
 use re_front::{Frame, minifb::Window};
 
-const FONT: &[u8] = include_bytes!("../../assets/font_16x24.pbm");
+static FONT: &[u8] = include_bytes!("../../assets/font_16x24.pbm");
 
 fn main() {
-    let font = read_pnm(FONT).expect("valid image");
+    let font: Buf2<Color3> =
+        Buf2::from_reader(FONT).expect("valid statically included image");
     let font = Atlas::grid(Dims(16, 24), font.into());
 
     let arg = env::args().nth(1); // Borrow checker...
@@ -32,7 +33,7 @@ fn main() {
     win.ctx.face_cull = None;
 
     let dims = win.dims;
-    let world_to_project: ProjMat3<World> = translate(vec3(0.0, 0.0, 15.0))
+    let world_to_proj: ProjMat3<World> = translate(15.0 * Vec3::Z)
         .to()
         .then(&perspective(1.0, dims.aspect(), 0.1..1000.0));
 
@@ -44,17 +45,16 @@ fn main() {
         let model_to_world = scale(0.1)
             .then(&translate((-10.0, -5.0, 5.0 * secs.sin())))
             .then(&rotate_y(rads(secs * 0.59)))
-            .then(&rotate_z(rads((secs * 1.13).sin())))
-            .to();
+            .then(&rotate_z(rads((secs * 1.13).sin())));
 
-        let model_to_project = model_to_world.then(&world_to_project);
+        let model_to_proj = model_to_world.to().then(&world_to_proj);
 
         text.color = hsl(secs / 10.0 % 1.0, 0.8, 0.6)
             .to_rgb()
             .to_color3();
 
         text.batch()
-            .uniform(&model_to_project)
+            .uniform(&model_to_proj)
             .viewport(viewport)
             .target(&mut frame.buf)
             .context(frame.ctx)
