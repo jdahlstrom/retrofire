@@ -427,10 +427,6 @@ fn decode_pnm(input: impl IntoIterator<Item = u8>) -> Result<Buf2<Color3>> {
     Ok(Buf2::new_from(h.dims, data))
 }
 
-fn bits(bytes: impl Iterator<Item = u8>) -> impl Iterator<Item = bool> {
-    bytes.flat_map(|byte| (0..8).rev().map(move |i| (byte >> i) & 1 == 1))
-}
-
 fn parse_text_pixmap(
     count: usize,
     mut it: impl Iterator<Item = u8>,
