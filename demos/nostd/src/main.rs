@@ -4,9 +4,9 @@
 extern crate alloc;
 
 use alloc::alloc::*;
-use core::{ffi::c_void, panic::PanicInfo};
+use core::{ffi::CStr, ffi::c_void, panic::PanicInfo};
 
-use libc::{abort, c_char, c_int, free, malloc, putchar, puts};
+use libc::{abort, c_int, free, malloc, putchar, puts};
 
 use re::prelude::*;
 
@@ -28,30 +28,32 @@ unsafe impl GlobalAlloc for Malloc {
 
 #[panic_handler]
 unsafe fn panic(_info: &PanicInfo) -> ! {
-    unsafe { abort(); _info.message(). }
+    unsafe {
+        abort();
+    }
 }
 
 #[unsafe(no_mangle)]
 fn main() -> i32 {
     let verts = [
         vertex(pt3(-1.0, -1.0, 0.0), rgb(1.0, 0.0, 0.0)),
-        vertex(pt3(0.0, 1.0, 0.0), rgb(0.4, 0.4, 1.0)),
-        vertex(pt3(1.0, -1.0, 0.0), rgb(0.0, 0.8, 0.0)),
+        vertex(pt3(0.0, 1.0, 0.0), rgb(1.0, 0.0, 0.0)),
+        vertex(pt3(1.0, -1.0, 0.0), rgb(1.0, 0.0, 0.0)),
     ];
 
     let shader = shader::new(
         |v: Vertex3<Color3f>, mvp: &ProjMat3<Model>| {
             vertex(mvp.apply(&v.pos), v.attrib)
         },
-        |frag: Frag<Color3f<_>>| frag.var.to_color4(),
+        |frag: Frag<Color3f<_>>, _: &_| Some(frag.var.to_color3()),
     );
 
-    let dims @ (w, h) = (640, 480);
-    let modelview = translate3(0.0, 0.0, 2.0).to();
+    let dims @ Dims(w, h) = Dims(640, 480);
+    let modelview = translate((0.0, 0.0, 2.0)).to();
     let project = perspective(1.0, w as f32 / h as f32, 0.1..1000.0);
     let viewport = viewport(pt2(0, h)..pt2(w, 0));
 
-    let mut framebuf = Buf2::<Color4>::new(dims);
+    let mut framebuf = Buf2::<Color3>::new(dims);
 
     render(
         [tri(0, 1, 2)],
@@ -63,8 +65,9 @@ fn main() -> i32 {
         &Context::default(),
     );
 
+    let header = CStr::from_bytes_with_nul(b"P6\n640 480 255\0").unwrap();
     unsafe {
-        puts("P6\n640 480 255\n\0".as_ptr() as *const c_char);
+        puts(header.as_ptr()); // Appends a newline
     }
     for &col in framebuf.data() {
         unsafe {

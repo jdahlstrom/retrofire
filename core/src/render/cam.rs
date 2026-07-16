@@ -235,19 +235,19 @@ impl<T: Transform> Camera<T> {
 
     /// Renders the given geometry from the viewpoint of this camera.
     #[allow(clippy::too_many_arguments)]
-    pub fn render<B, Prim, Vtx: Clone, Var: Vary, Uni: Copy, Shd>(
+    pub fn render<B, C, Prim, Vtx: Clone, Var: Vary, Uni: Copy, Shd>(
         &self,
         prims: impl AsRef<[Prim]>,
         verts: impl AsRef<[Vtx]>,
         to_world: &Mat4<B, World>,
         shader: &Shd,
         uniform: Uni,
-        target: &mut impl Target,
+        target: &mut impl Target<C>,
         ctx: &Context,
     ) where
         Prim: Render<Var> + Clone,
         [<Prim>::Clip]: Clip<Item = Prim::Clip>,
-        Shd: for<'a> Shader<Vtx, Var, CameraUni<'a, B, Uni>>,
+        Shd: for<'a> Shader<Vtx, Var, CameraUni<'a, B, Uni>, FragmentOut = C>,
     {
         let to_proj = to_world.then(&self.world_to_project());
         super::render(

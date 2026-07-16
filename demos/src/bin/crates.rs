@@ -35,7 +35,7 @@ fn main() {
         |v: Vertex3<_>, mvp: &ProjMat3<_>| vertex(mvp.apply(&v.pos), v.attrib),
         |frag: Frag<Vec2>, _: &_| {
             let even_odd = (frag.var.x() > 0.5) ^ (frag.var.y() > 0.5);
-            gray(if even_odd { 0.8 } else { 0.1 }).to_color4()
+            Some(gray(if even_odd { 0xDD } else { 0x22 }))
         },
     );
     let crate_shader = shader::new(
@@ -46,7 +46,7 @@ fn main() {
             let (n, uv) = frag.var;
             let kd = lerp(n.dot(&light_dir).max(0.0), 0.4, 1.0);
             let col = SamplerClamp.sample(&tex, uv);
-            (col.to_color3f() * kd).to_color4()
+            Some((col.to_color3f() * kd).to_color3()) // TODO silly conversion
         },
     );
 

@@ -47,7 +47,7 @@ fn main() {
             let d2 = frag.var.len_sqr();
             (d2 < 1.0).then(|| {
                 let col = gray(1.0) - d2 * rgb(0.25, 0.5, 1.0);
-                col.to_color4()
+                col.to_color3()
             })
         },
     );

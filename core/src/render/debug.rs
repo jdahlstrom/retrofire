@@ -5,8 +5,8 @@ use alloc::vec::Vec;
 
 use crate::geom::{Edge, Mesh, Normal3, Pos, Tri, Vertex, Vertex3, vertex};
 use crate::math::{
-    Color, Color4, Color4f, Mat4, Point3, Vec3, color::gray, mat::ProjMat3,
-    pt3, vec::ProjVec3,
+    Color3, Color3f, Mat4, Point3, Vec3, inv_lerp, mat::ProjMat3, pt3,
+    vec::ProjVec3,
 };
 #[cfg(feature = "fp")]
 use crate::math::{Vary, polar, turns, vec3};
@@ -16,7 +16,6 @@ use super::{Context, Frag, FragmentShader, VertexShader, scene::BBox};
 #[derive(Copy, Clone, Default)]
 pub struct Shader;
 
-#[derive(Clone, Default)]
 /// A type used to draw debug visualizations of meshes.
 ///
 /// Various mesh properties can be visualized:
@@ -25,11 +24,12 @@ pub struct Shader;
 /// * Vertex normals (if any)
 /// * Bounding box
 /// * Model-space origin and coordinate axes.
+#[derive(Clone, Default)]
 pub struct DbgMesh<A, B>(Mesh<A, B>, DbgBatch<B>);
 
 pub type DbgBatch<B> = super::Batch<
     Vec<Edge<usize>>,
-    Vec<Vertex3<Color4f, B>>,
+    Vec<Vertex3<Color3f, B>>,
     (),
     Shader,
     (),
@@ -40,20 +40,19 @@ pub type DbgBatch<B> = super::Batch<
 ///
 /// # Examples
 /// ```
-/// use retrofire_core::math::{Vec3, rgba, vec3};
+/// use retrofire_core::math::{Vec3, rgb, vec3};
 /// use retrofire_core::render::debug::dir_to_rgb;
 ///
 /// let right: Vec3 = vec3(1.0, 0.0, 0.0);
-/// assert_eq!(dir_to_rgb(right), rgba(1.0, 0.5, 0.5, 1.0));
+/// assert_eq!(dir_to_rgb(right), rgb(1.0, 0.5, 0.5));
 ///
 /// let down: Vec3 = vec3(0.0, -1.0, 0.0);
-/// assert_eq!(dir_to_rgb(down), rgba(0.5, 0.0, 0.5, 1.0));
+/// assert_eq!(dir_to_rgb(down), rgb(0.5, 0.0, 0.5));
 ///
 /// ```
-pub fn dir_to_rgb<B>(v: Vec3<B>) -> Color4f {
-    (0.5 * Color::new(v.0) + gray(0.5))
-        .clamp(&gray(0.0), &gray(1.0))
-        .to_rgba()
+pub fn dir_to_rgb<B>(v: Vec3<B>) -> Color3f {
+    v.0.map(|c| inv_lerp(c, -1.0, 1.0).clamp(0.0, 1.0))
+        .into()
 }
 
 /// Draws an illustration of a ray.
@@ -254,7 +253,7 @@ impl<B> DbgBatch<B> {
         DbgBatch::<B>::default()
     }
 
-    fn with(prims: Vec<Edge<usize>>, verts: Vec<Vertex3<Color4f, B>>) -> Self {
+    fn with(prims: Vec<Edge<usize>>, verts: Vec<Vertex3<Color3f, B>>) -> Self {
         DbgBatch::<B>::default()
             .primitives(prims)
             .vertices(verts)
@@ -310,24 +309,26 @@ impl<B> DbgBatch<B> {
 // Trait impls
 //
 
-impl<'a, B> VertexShader<Vertex3<Color4f, B>, &'a ProjMat3<B>> for Shader {
-    type Output = Vertex<ProjVec3, Color4f>;
+impl<'a, B> VertexShader<Vertex3<Color3f, B>, &'a ProjMat3<B>> for Shader {
+    type VertexOut = Vertex<ProjVec3, Color3f>;
 
     fn shade_vertex(
         &self,
-        v: Vertex3<Color4f, B>,
+        v: Vertex3<Color3f, B>,
         m: &'a ProjMat3<B>,
-    ) -> Self::Output {
+    ) -> Self::VertexOut {
         vertex(m.apply(&v.pos), v.attrib)
     }
 }
 
-impl<'a, B> FragmentShader<Color4f, &'a ProjMat3<B>> for Shader {
+impl<'a, B> FragmentShader<Color3f, &'a ProjMat3<B>> for Shader {
+    type FragmentOut = Color3;
+
     fn shade_fragment(
         &self,
-        f: Frag<Color4f>,
+        f: Frag<Color3f>,
         _: &'a ProjMat3<B>,
-    ) -> Option<Color4> {
-        Some(f.var.to_color4())
+    ) -> Option<Color3> {
+        Some(f.var.to_color3())
     }
 }
