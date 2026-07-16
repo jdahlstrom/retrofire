@@ -995,6 +995,7 @@ impl<V> Index<isize> for Polygon<V> {
     /// assert_eq!(poly[-1], pt2(0.0, 1.0));
     /// assert_eq!(poly[3], pt2(0.0, 0.0));
     /// ```
+    #[inline]
     fn index(&self, index: isize) -> &Self::Output {
         &self.0[index.rem_euclid(self.0.len() as isize) as usize]
     }
