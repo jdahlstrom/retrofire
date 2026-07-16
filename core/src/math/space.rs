@@ -56,6 +56,18 @@ pub trait Affine: Sized {
         zip(&weights[1..], &points[1..])
             .fold(p0.clone(), |res, (w, q)| res.add(&q.sub(p0).mul(*w)))
     }
+
+    fn centroid(pts: impl AsRef<[Self]>) -> Self
+    where
+        Self: Clone,
+        Self::Diff: Linear<Scalar = f32>,
+    {
+        let [pt, rest @ ..] = pts.as_ref() else {
+            panic!("Empty set has no centroid")
+        };
+        let weight = 1.0 / pts.as_ref().len() as f32;
+        pt.combine(rest.iter().cloned().map(|pt| (pt, weight)))
+    }
 }
 
 /// Trait for types representing elements of a linear space (vector space).
