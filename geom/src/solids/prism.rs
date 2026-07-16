@@ -1,79 +1,132 @@
 use alloc::vec::Vec;
 
-use retrofire_core::{
-    geom::{Mesh, Normal3, Polygon, tri, vertex},
-    math::{Point2, pt3},
+use retrofire_core::geom::{
+    Mesh, Normal2, Normal3, Polygon, Pos, Tri, Vertex2, Vertex3, tri, vertex,
 };
+use retrofire_core::math::{Parametric, Point2, Vary, Vec3, param, pt3, vec3};
 
 use crate::{solids::Build, triangulate};
 
 #[derive(Clone, Debug, Default, PartialEq)]
-pub struct Prism {
-    pub points: Polygon<Point2>,
+pub struct Prism<P> {
+    pub points: P,
+    pub sides: usize,
     pub capped: bool,
 }
 
-impl Prism {
-    pub fn new<I>(points: I) -> Self
+impl<P> Prism<P> {
+    pub fn new<V: Pos<Type = Point2>>(sides: usize, points: P) -> Self
     where
-        I: IntoIterator<Item = Point2>,
+        P: Parametric<V>,
     {
-        Self {
-            points: points.into_iter().collect(),
-            capped: true,
-        }
+        Self { points, sides, capped: true }
     }
     pub fn capped(self, capped: bool) -> Self {
         Self { capped, ..self }
     }
+
+    fn make_caps(
+        self,
+        poly: &Polygon<Point2>,
+        verts: &mut Vec<Vertex3<()>>,
+        faces: &mut Vec<Tri<usize>>,
+    ) {
+        let cap_faces = triangulate(&poly);
+
+        let bot_start = verts.len();
+        for i in 0..poly.0.len() {
+            verts.push(verts[i]);
+        }
+        // top cap verts
+        let top_start = verts.len();
+        for i in poly.0.len()..2 * poly.0.len() {
+            verts.push(verts[i]);
+        }
+
+        for tri in &cap_faces {
+            faces.push(tri.map(|i| bot_start + i));
+        }
+        for Tri([i, j, k]) in cap_faces {
+            // Invert winding order
+            faces.push(tri(i, k, j).map(|l| top_start + l));
+        }
+    }
 }
 
-impl Build<()> for Prism {
+impl<P: Parametric<Vertex2<()>>> Build<()> for Prism<P> {
     fn build(self) -> Mesh<()> {
-        let verts: Vec<_> = self
-            .points
-            .0
-            .iter()
-            .flat_map(|pt| {
+        let pts = param::iter(&self.points, self.sides);
+
+        let bottom_verts = pts
+            .clone()
+            .map(|pt| vertex(pt3(pt.pos().x(), 0.0, pt.pos().y()), ()));
+        let top_verts =
+            pts.map(|pt| vertex(pt3(pt.pos().x(), 1.0, pt.pos().y()), ()));
+
+        // Bottom verts = 0..pts.len
+        // Top verts = pts.len..2*pts.len
+        let mut verts: Vec<_> = bottom_verts.chain(top_verts).collect();
+
+        let mut faces = Vec::with_capacity(verts.len());
+
+        let len = self.sides;
+        for i in 0..len {
+            let j = (i + 1) % len;
+            let k = i + len;
+            let l = j + len;
+            if i % 2 == 0 {
+                //  k - l
+                //  | / |
+                //  i - j
+                faces.push(tri(i, k, l));
+                faces.push(tri(i, l, j));
+            } else {
+                //  k - l
+                //  | \ |
+                //  i - j
+                faces.push(tri(i, k, j));
+                faces.push(tri(j, k, l));
+            }
+        }
+
+        if self.capped {
+            //self.make_caps(&mut verts, &mut faces);
+        }
+
+        Mesh { faces, verts }
+    }
+}
+
+impl<P: Parametric<Vertex2<Normal2>>> Build<Normal3> for Prism<P> {
+    fn build(self) -> Mesh<Normal3> {
+        let l = self.sides;
+        let pts: Vec<_> = 0f32
+            .vary_to(1.0, l as u32)
+            .map(|t| self.points.eval(t))
+            .collect();
+
+        let mut verts: Vec<_> = (0..l)
+            .map(|i| [i, (i + 1) % l, (i + 2) % l])
+            .map(|ijk| ijk.map(|i| pts[i].pos))
+            .flat_map(|[a, b, c]| {
+                let n = ((b - a).perp() + (c - b).perp()).normalize_or_zero();
+                let n = -vec3(n.x(), 0.0, n.y());
                 [
-                    vertex(pt3(pt.x(), 0.0, pt.y()), ()), // bottom
-                    vertex(pt3(pt.x(), 1.0, pt.y()), ()), // top
+                    vertex(pt3(b.x(), 0.0, b.y()), n), // bottom
+                    vertex(pt3(b.x(), 1.0, b.y()), n), // top
                 ]
             })
             .collect();
 
-        let mut faces = Vec::new();
+        let mut faces = Vec::with_capacity(verts.len());
 
-        let l = verts.len();
-        for i in (0..l).step_by(2) {
-            faces.push(tri(i, (i + 1) % l, (i + 3) % l));
-            faces.push(tri(i, (i + 3) % l, (i + 2) % l));
-        }
-
-        let res = Mesh { faces, verts };
+        todo!();
 
         if self.capped {
-            let bottom = triangulate(&self.points);
-
-            let mut top = bottom.clone();
-
-            for v in &mut top.verts {
-                v.pos[1] = 1.0;
-            }
-            for f in &mut top.faces {
-                *f = tri(f.0[0], f.0[2], f.0[1]);
-            }
-
-            return res.merge(bottom).merge(top);
+            todo!()
+            //self.make_caps_n(&mut verts, &mut faces);
         }
-        res
-    }
-}
 
-impl Build<Normal3> for Prism {
-    fn build(self) -> Mesh<Normal3> {
-        Build::<()>::builder(self)
-            .with_vertex_normals()
-            .build()
+        Mesh { faces, verts }
     }
 }

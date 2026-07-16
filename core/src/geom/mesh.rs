@@ -226,8 +226,10 @@ impl<A> Builder<A> {
         let face_normals = faces.iter().map(|tri| {
             // TODO If n-gonal faces are supported some day, the cross
             //      product is not proportional to area anymore
-            let [a, b, c] = tri.map(|i| verts[i].pos).0;
-            (b - a).cross(&(c - a)).to()
+            //let [a, b, c] = tri.map(|i| verts[i].pos).0;
+            //(b - a).cross(&(c - a)).to()
+
+            tri.map(|i| &verts[i]).normal()
         });
         // ...initialize vertex normals to zero...
         let mut verts: Vec<_> = verts

@@ -5,10 +5,11 @@ use minifb::{Key, KeyRepeat};
 
 use re::prelude::*;
 
+use re::core::geom::Polygon;
 use re::core::{
     geom::{Polyline, Ray},
     math::{ProjMat3, ProjVec3, color::gray, spline::HermiteSpline},
-    render::{self, Model, cam::Fov, debug::DbgMesh, shader},
+    render::{Model, cam::Fov, debug, debug::DbgMesh, shader},
 };
 use re::front::{Frame, minifb::Window};
 use re::geom::{io::read_obj, solids::*};
@@ -16,7 +17,7 @@ use re::geom::{io::read_obj, solids::*};
 #[derive(Default)]
 struct State {
     lod: u32,
-    objects: [Mesh<Normal3>; 14],
+    objects: [Mesh<Normal3>; 15],
     debug_mesh: DbgMesh<Normal3, Model>,
     debug_flags: [bool; 6],
 
@@ -165,29 +166,20 @@ fn objects_n(res: u32) -> [Mesh<Normal3>; 15] {
     ]
 }
 
-fn prism(_secs: u32) -> Mesh<Normal3> {
-    /*let n = 100;
-    let points: Vec<_> = (0..n)
-    .map(|a| {
-        let a = turns(a as f32 / n as f32);
-        let b = 2.5 * a;
-        let r = 0.4 + b.sin().powi(4) * 0.6;
-
-        let a = a + 0.1 * turns(r);
-        polar(r, a).to_cart().to_pt()
-    })
-    .collect();*/
-
-    let sides = 100;
+fn prism(secs: u32) -> Mesh<Normal3> {
     let pts = turns(0.0)
-        .vary_to(turns(1.0), sides + 1)
-        .take(sides as usize)
+        .vary_to(turns(1.0), secs + 1)
+        .take(secs as usize)
         .map(|a| {
-            let r = 1.0 - 0.8 * (1.5 * a).sin().abs().powf(0.5);
+            let r = 1.0 - 0.8 * (1.5 * a).sin().abs();
             polar(r, a + turns(0.1 * r)).to_cart().to_pt()
         });
 
-    Prism::new(pts).build()
+    let poly = Polygon::new(pts).with_vertex_normals();
+
+    Build::builder(Prism::new(poly.0.len(), poly))
+        .transform(&translate((0.0, -0.5, 0.0)).to())
+        .build()
 }
 
 // Creates a Lathe mesh.

@@ -16,8 +16,8 @@ pub fn triangulate<B, V>(poly: &Polygon<V>) -> Vec<Tri<usize>>
 where
     V: Pos<Type = Point2<B>> + Clone,
 {
-    let pts = &poly.0;
-    let len = pts.len();
+    let points = &poly.0;
+    let len = points.len();
     if len < 3 {
         cold_path();
         return Default::default();
@@ -31,7 +31,7 @@ where
     }
 
     let mut clipper = Clipper {
-        points: &pts,
+        points: points.as_slice(),
         indices: (0..len).collect(),
         winding: poly.winding(),
     };
@@ -58,13 +58,13 @@ where
 }
 
 /// Helper type for implementing the ear clipping triangulation algorithm.
-struct Clipper<'a, B> {
-    points: &'a [Point2<B>],
+struct Clipper<'a, V> {
+    points: &'a [V],
     indices: Vec<usize>,
     winding: Winding,
 }
 
-impl<B> Clipper<'_, B> {
+impl<B, V: Pos<Type = Point2<B>>> Clipper<'_, V> {
     fn clip_if_ear(&mut self, i: usize) -> Option<Tri<usize>> {
         let j = self.next(i);
         if self.is_convex(j) && !self.contains_point(j) {
@@ -90,13 +90,7 @@ impl<B> Clipper<'_, B> {
     /// Assumes that the indices are valid.
     fn winding(&self, i: usize, j: usize, k: usize) -> Winding {
         let Self { points: pts, indices: ixs, .. } = &self;
-        let ij = pts[ixs[j]] - pts[ixs[i]];
-        let jk = pts[ixs[k]] - pts[ixs[j]];
-        if ij.perp_dot(jk) < 0.0 {
-            Winding::Cw
-        } else {
-            Winding::Ccw
-        }
+        tri(&pts[ixs[i]], &pts[ixs[j]], &pts[ixs[k]]).winding()
     }
 
     /// Returns true iff the triangle at ixs[j] contains any other
@@ -110,7 +104,7 @@ impl<B> Clipper<'_, B> {
         let i = self.prev(j);
         let k = self.next(j);
 
-        let tri = Tri([i, j, k].map(|h| pts[ixs[h]]));
+        let tri = Tri([i, j, k].map(|h| *pts[ixs[h]].pos()));
 
         for h in 0..ixs.len() {
             if [i, j, k].contains(&h) {
@@ -121,7 +115,7 @@ impl<B> Clipper<'_, B> {
             if self.is_convex(h) {
                 continue;
             }
-            if tri.contains(pts[ixs[h]]) {
+            if tri.contains(pts[ixs[h]].pos().clone()) {
                 return true;
             }
         }
