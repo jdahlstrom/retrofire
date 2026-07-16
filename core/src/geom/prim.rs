@@ -808,6 +808,56 @@ impl<T: Lerp> Parametric<T> for Polyline<T> {
     }
 }
 
+impl<T: Lerp> Parametric<T> for Polygon<T> {
+    /// Returns the point on `self` at the given *t* value.
+    ///
+    /// If the number of vertices in `self` is *n* > 1, the vertex at index
+    /// *k* < *n* corresponds to *t* = *k* / *n*. Intermediate values
+    /// of *t* are linearly interpolated between the two closest vertices.
+    /// Values *t* < 0 and *t* >= 1 "wrap around" to the range [0, 1); in
+    /// particular, *t* = 1 maps to the first vertex. A polygon with a single
+    /// vertex returns the value of that vertex for any value of *t*.
+    ///
+    /// # Panics
+    /// If `self` has no vertices.
+    ///
+    /// # Examples
+    /// ```
+    /// use retrofire_core::geom::{Polygon, Edge};
+    /// use retrofire_core::math::{pt2, Point2, Parametric};
+    ///
+    /// let pl = Polygon::<Point2>(
+    ///     vec![pt2(0.0, 0.0), pt2(1.0, 2.0), pt2(2.0, 1.0)]);
+    ///
+    /// assert_eq!(pl.eval(0.0), pl.0[0]);
+    /// assert_eq!(pl.eval(1.0/3.0), pl.0[1]);
+    /// assert_eq!(pl.eval(2.0/3.0), pl.0[2]);
+    /// assert_eq!(pl.eval(1.0), pl.0[0]);
+    ///
+    /// // Values not corresponding to a vertex are interpolated:
+    /// assert_eq!(pl.eval(0.5), pt2(1.5, 1.5));
+    ///
+    /// // Values of t outside 0.0..=1.0 wrap around:
+    /// assert_eq!(pl.eval(-1.25), pl.eval(0.75));
+    /// assert_eq!(pl.eval(3.0), pl.eval(0.0));
+    /// ```
+    fn eval(&self, t: f32) -> T {
+        let pts = &self.0;
+        assert!(!pts.is_empty(), "cannot eval an empty polyline");
+
+        let max = pts.len();
+        let i = t.rem_euclid(1.0) * max as f32;
+        let t_rem = i % 1.0;
+        let i = i as usize;
+
+        if i == max {
+            pts[0].clone()
+        } else {
+            pts[i].lerp(&pts[(i + 1) % pts.len()], t_rem)
+        }
+    }
+}
+
 impl<P: Lerp, A: Lerp> Lerp for Vertex<P, A> {
     fn lerp(&self, other: &Self, t: f32) -> Self {
         vertex(
