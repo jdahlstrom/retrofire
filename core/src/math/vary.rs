@@ -152,6 +152,15 @@ impl<T: Vary> Iterator for Iter<T> {
         let new = self.val.step(&self.step);
         Some(mem::replace(&mut self.val, new))
     }
+
+    #[inline]
+    fn size_hint(&self) -> (usize, Option<usize>) {
+        if let Some(n) = self.n {
+            (n as usize, Some(n as usize))
+        } else {
+            (0, None)
+        }
+    }
 }
 
 #[cfg(test)]

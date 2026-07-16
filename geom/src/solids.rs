@@ -4,6 +4,8 @@
 mod lathe;
 mod platonic;
 
+mod prism;
+
 use alloc::vec::Vec;
 
 use retrofire_core::geom::{Mesh, Normal3, Tri, mesh::Builder, tri, vertex};
@@ -13,6 +15,8 @@ use retrofire_core::math::{Lerp, Vec3};
 pub use lathe::*;
 
 pub use platonic::*;
+
+pub use prism::*;
 
 pub trait Build<A>: Sized {
     fn build(self) -> Mesh<A>;

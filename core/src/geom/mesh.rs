@@ -100,6 +100,18 @@ impl<A, B> Mesh<A, B> {
             .extend(faces.into_iter().map(|tri| tri.map(|i| i + n)));
         self
     }
+
+    #[must_use]
+    pub fn to<C>(self) -> Mesh<A, C> {
+        Mesh {
+            faces: self.faces,
+            verts: self
+                .verts
+                .into_iter()
+                .map(|v| vertex(v.pos.to(), v.attrib))
+                .collect(),
+        }
+    }
 }
 
 #[inline(never)]
@@ -214,8 +226,10 @@ impl<A> Builder<A> {
         let face_normals = faces.iter().map(|tri| {
             // TODO If n-gonal faces are supported some day, the cross
             //      product is not proportional to area anymore
-            let [a, b, c] = tri.map(|i| verts[i].pos).0;
-            (b - a).cross(&(c - a)).to()
+            //let [a, b, c] = tri.map(|i| verts[i].pos).0;
+            //(b - a).cross(&(c - a)).to()
+
+            tri.map(|i| &verts[i]).normal()
         });
         // ...initialize vertex normals to zero...
         let mut verts: Vec<_> = verts
@@ -230,7 +244,7 @@ impl<A> Builder<A> {
         }
         // ...and normalize to unit length.
         for v in &mut verts {
-            v.attrib = v.attrib.normalize();
+            v.attrib = v.attrib.normalize_or_zero();
         }
 
         // No need to sanity check again

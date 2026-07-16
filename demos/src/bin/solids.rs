@@ -5,9 +5,10 @@ use minifb::{Key, KeyRepeat};
 
 use re::prelude::*;
 
+use re::core::geom::Polygon;
 use re::core::{
     geom::{Polyline, Ray},
-    math::{ProjVec3, color::gray, spline::HermiteSpline},
+    math::{ProjMat3, ProjVec3, color::gray, spline::HermiteSpline},
     render::{Model, cam::Fov, debug, debug::DbgMesh, shader},
 };
 use re::front::{Frame, minifb::Window};
@@ -16,7 +17,7 @@ use re::geom::{io::read_obj, solids::*};
 #[derive(Default)]
 struct State {
     lod: u32,
-    objects: [Mesh<Normal3>; 14],
+    objects: [Mesh<Normal3>; 15],
     debug_mesh: DbgMesh<Normal3, Model>,
     debug_flags: [bool; 6],
 
@@ -66,8 +67,8 @@ fn main() {
     let shader = shader::new(vtx_shader, frag_shader);
 
     let translate = translate(-3.0 * Vec3::Z);
-
     let mut state = State::new();
+
     win.run(|frame| {
         let Frame { t, dt, win, .. } = frame;
 
@@ -128,9 +129,9 @@ fn main() {
     });
 }
 
-// Creates the 14 objects exhibited.
+// Creates the fifteen objects exhibited.
 #[rustfmt::skip]
-fn objects_n(res: u32) -> [Mesh<Normal3>; 14] {
+fn objects_n(res: u32) -> [Mesh<Normal3>; 15] {
     let segments = res;
     let sectors = 2 * res;
 
@@ -139,7 +140,10 @@ fn objects_n(res: u32) -> [Mesh<Normal3>; 14] {
 
     let major_sectors = 3 * res;
     let minor_sectors = 2 * res;
+
     [
+        prism(sectors),
+
         // The five Platonic solids
         Tetrahedron.build(),
         Cube { side_len: 1.25 }.build(),
@@ -160,6 +164,22 @@ fn objects_n(res: u32) -> [Mesh<Normal3>; 14] {
         bunny().clone(),
         dragon().clone()
     ]
+}
+
+fn prism(secs: u32) -> Mesh<Normal3> {
+    let pts = turns(0.0)
+        .vary_to(turns(1.0), secs + 1)
+        .take(secs as usize)
+        .map(|a| {
+            let r = 1.0 - 0.8 * (1.5 * a).sin().abs();
+            polar(r, a + turns(0.1 * r)).to_cart().to_pt()
+        });
+
+    let poly = Polygon::new(pts).with_vertex_normals();
+
+    Build::builder(Prism::new(poly.0.len(), poly))
+        .transform(&translate((0.0, -0.5, 0.0)).to())
+        .build()
 }
 
 // Creates a Lathe mesh.
