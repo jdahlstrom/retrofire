@@ -1,10 +1,10 @@
 use core::ops::ControlFlow::Continue;
 use minifb::{MouseButton, MouseMode};
+
 use re::prelude::*;
 
-use re::core::geom::Polygon;
 use re::core::{
-    geom::Edge,
+    geom::{Edge, Polygon},
     math::rand::{Distrib, Uniform, VectorsOnUnitDisk, Xorshift64},
     render::raster::line,
     util::dims,

@@ -100,6 +100,18 @@ impl<A, B> Mesh<A, B> {
             .extend(faces.into_iter().map(|tri| tri.map(|i| i + n)));
         self
     }
+
+    #[must_use]
+    pub fn to<C>(self) -> Mesh<A, C> {
+        Mesh {
+            faces: self.faces,
+            verts: self
+                .verts
+                .into_iter()
+                .map(|v| vertex(v.pos.to(), v.attrib))
+                .collect(),
+        }
+    }
 }
 
 #[inline(never)]

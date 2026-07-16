@@ -8,7 +8,7 @@ use retrofire_core::{
     geom::Polygon,
     math::{Point2, Vary, polar, pt2, turns},
 };
-use retrofire_geom::triangulate;
+use retrofire_geom::tri::triangulate;
 
 static SIDES: [u32; 5] = [6, 10, 20, 100, 1000];
 
