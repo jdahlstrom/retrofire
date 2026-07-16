@@ -8,8 +8,8 @@ use retrofire_core::geom::{
     vertex,
 };
 use retrofire_core::math::{
-    Angle, Lerp, Parametric, Point3, Vary, Vec3, polar, pt2, pt3, rotate2,
-    turns, vec2, vec3,
+    Angle, Lerp, Parametric, Point3, Vary, Vec3, param, polar, pt2, pt3,
+    rotate2, turns, vec2, vec3,
 };
 use retrofire_core::render::{TexCoord, uv};
 
@@ -176,9 +176,8 @@ fn create_verts<A>(
     let start = rotate2(start);
 
     // Create vertices
-    for (v, Vertex { pos, attrib: n }) in 0.0
-        .vary_to(1.0, verts_per_sec as u32)
-        .map(|t| (t, pts.eval(t)))
+    for (v, Vertex { pos, attrib: n }) in
+        param::iter(&(0.0..1.0), verts_per_sec).map(|t| (t, pts.eval(t)))
     {
         let mut pos_xz = start.apply(&pt2(pos.x(), 0.0));
         let mut n_xz = start.apply(&vec2(n.x(), 0.0));

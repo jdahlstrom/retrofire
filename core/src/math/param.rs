@@ -1,6 +1,6 @@
-use core::ops::Range;
+use core::ops::{Range, RangeInclusive};
 
-use super::Lerp;
+use super::{Lerp, Vary};
 
 /// Represents a single-variable parametric curve.
 // TODO More documentation
@@ -11,8 +11,28 @@ pub trait Parametric<T> {
     /// The "canonical" domain of this function is `t` ∈ [0.0, 1.0],
     /// but implementations should return "reasonable" values outside
     /// the unit interval as well.
-    #[allow(unused)]
     fn eval(&self, t: f32) -> T;
+}
+
+/// Returns an iterator that yields values from a parametric for a sequence
+/// of regularly spaced *t* values in the (inclusive) range [0, 1].
+pub fn iter<T, P: Parametric<T>>(
+    param: &P,
+    n: usize,
+) -> impl Iterator<Item = T> + Clone {
+    iter_range(param, n, 0.0..=1.0)
+}
+
+/// Returns an iterator that yields values from a parametric for a sequence
+/// of regularly spaced *t* values in the given inclusive range.
+pub fn iter_range<T, P: Parametric<T>>(
+    param: &P,
+    n: usize,
+    r: RangeInclusive<f32>,
+) -> impl Iterator<Item = T> + Clone {
+    r.start()
+        .vary_to(*r.end(), n as _)
+        .map(|t| param.eval(t))
 }
 
 impl<F: Fn(f32) -> T, T> Parametric<T> for F {
