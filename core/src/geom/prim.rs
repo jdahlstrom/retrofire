@@ -3,7 +3,10 @@
 //! Includes vertices, polygons, planes, rays, and more.
 
 use alloc::vec::Vec;
-use core::fmt::{self, Debug, Formatter};
+use core::{
+    fmt::{self, Debug, Formatter},
+    ops::Index,
+};
 
 use crate::math::{
     Affine, ApproxEq, Lerp, Linear, Mat4, Parametric, Point, Point2, Point3,
@@ -759,7 +762,7 @@ where
 }
 
 impl<T: Lerp> Parametric<T> for Polyline<T> {
-    /// Returns the point on `self` at *t*.
+    /// Returns the point on `self` at the given *t* value.
     ///
     /// If the number of vertices in `self` is *n* > 1, the vertex at index
     /// *k* < *n* corresponds to `t` = *k* / (*n* - 1). Intermediate values
@@ -842,19 +845,15 @@ impl<T: Lerp> Parametric<T> for Polygon<T> {
     /// assert_eq!(pl.eval(3.0), pl.eval(0.0));
     /// ```
     fn eval(&self, t: f32) -> T {
-        let pts = &self.0;
-        assert!(!pts.is_empty(), "cannot eval an empty polyline");
+        use crate::math::float::f32;
+        assert!(!self.0.is_empty(), "cannot eval an empty polygon");
 
-        let max = pts.len();
-        let i = t.rem_euclid(1.0) * max as f32;
-        let t_rem = i % 1.0;
-        let i = i as usize;
+        let t = t * self.0.len() as f32;
+        let t_int = f32::floor(t);
+        let t_fract = t - t_int;
+        let i = t_int as isize;
 
-        if i == max {
-            pts[0].clone()
-        } else {
-            pts[i].lerp(&pts[(i + 1) % pts.len()], t_rem)
-        }
+        self[i].lerp(&self[i + 1], t_fract)
     }
 }
 
@@ -966,6 +965,44 @@ impl<T> From<[T; 2]> for Edge<T> {
 impl<'a, T> From<&'a [T; 2]> for Edge<&'a T> {
     fn from([a, b]: &'a [T; 2]) -> Self {
         Edge(a, b)
+    }
+}
+
+impl<P: Affine> FromIterator<P> for Polygon<P> {
+    fn from_iter<I: IntoIterator<Item = P>>(it: I) -> Self {
+        Self::new(it)
+    }
+}
+
+impl<V> Index<isize> for Polygon<V> {
+    type Output = V;
+
+    /// Returns the vertex at an index modulo the number of vertices.
+    ///
+    /// # Examples
+    /// ```
+    /// use retrofire_core::geom::Polygon;
+    /// use retrofire_core::math::{pt2, Point2};
+    ///
+    /// let poly = Polygon::<Point2>::new([
+    ///     pt2(0.0, 0.0),
+    ///     pt2(1.0, 0.0),
+    ///     pt2(0.0, 1.0)
+    /// ]);
+    ///
+    /// assert_eq!(poly[1], pt2(1.0, 0.0));
+    /// // Out-of-range indices "wrap around":
+    /// assert_eq!(poly[-1], pt2(0.0, 1.0));
+    /// assert_eq!(poly[3], pt2(0.0, 0.0));
+    /// ```
+    fn index(&self, index: isize) -> &Self::Output {
+        &self.0[index.rem_euclid(self.0.len() as isize) as usize]
+    }
+}
+
+impl<P: Affine> FromIterator<P> for Polyline<P> {
+    fn from_iter<I: IntoIterator<Item = P>>(it: I) -> Self {
+        Self::new(it)
     }
 }
 
