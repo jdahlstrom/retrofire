@@ -13,7 +13,10 @@ use crate::math::{
 };
 use crate::util::{Dims, Rect};
 
-use super::{Clip, Context, Ndc, Render, Screen, Shader, Target, View, World};
+use super::{Context, Ndc, Render, Screen, Shader, Target, View, World};
+
+#[cfg(feature = "alloc")]
+use super::Clip;
 
 /// Trait for different modes of camera motion.
 pub trait Transform {
@@ -234,6 +237,7 @@ impl<T: Transform> Camera<T> {
     }
 
     /// Renders the given geometry from the viewpoint of this camera.
+    #[cfg(feature = "alloc")]
     #[allow(clippy::too_many_arguments)]
     pub fn render<B, Prim, Vtx: Clone, Var: Vary, Uni: Copy, Shd>(
         &self,

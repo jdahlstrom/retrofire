@@ -2,7 +2,9 @@
 //!
 //! Includes vertices, polygons, planes, rays, and more.
 
+#[cfg(feature = "alloc")]
 use alloc::vec::Vec;
+
 use core::{
     fmt::{self, Debug, Formatter},
     ops::Index,
@@ -64,6 +66,7 @@ pub type Ray3<B = ()> = Ray<Point3<B>>;
 ///
 /// The polyline is represented as a list of points, or vertices, with each
 /// pair of consecutive vertices sharing an edge.
+#[cfg(feature = "alloc")]
 #[derive(Clone, Debug, Default, Eq, PartialEq)]
 pub struct Polyline<T>(pub Vec<T>);
 
@@ -71,6 +74,7 @@ pub struct Polyline<T>(pub Vec<T>);
 ///
 /// The polygon is represented as a list of points, or vertices, with each pair
 /// of consecutive vertices, as well as the first and last vertex, sharing an edge.
+#[cfg(feature = "alloc")]
 #[derive(Clone, Debug, Default, Eq, PartialEq)]
 pub struct Polygon<T>(pub Vec<T>);
 
@@ -557,6 +561,7 @@ impl<B> Plane3<B> {
     }
 }
 
+#[cfg(feature = "alloc")]
 impl<T> Polyline<T> {
     /// Creates a new polyline from an iterator of vertex points.
     pub fn new(verts: impl IntoIterator<Item = T>) -> Self {
@@ -609,6 +614,7 @@ impl<T> Polyline<T> {
     }
 }
 
+#[cfg(feature = "alloc")]
 impl<const N: usize, B> Polyline<Point<[f32; N], Real<N, B>>> {
     /// Returns the sum of the lengths of the edges of `self`.
     ///
@@ -627,6 +633,7 @@ impl<const N: usize, B> Polyline<Point<[f32; N], Real<N, B>>> {
     }
 }
 
+#[cfg(feature = "alloc")]
 impl<T> Polygon<T> {
     /// Creates a new polygon from an iterator of vertex points.
     pub fn new(verts: impl IntoIterator<Item = T>) -> Self {
@@ -761,6 +768,7 @@ where
     }
 }
 
+#[cfg(feature = "alloc")]
 impl<T: Lerp> Parametric<T> for Polyline<T> {
     /// Returns the point on `self` at the given *t* value.
     ///
@@ -811,6 +819,7 @@ impl<T: Lerp> Parametric<T> for Polyline<T> {
     }
 }
 
+#[cfg(feature = "alloc")]
 impl<T: Lerp> Parametric<T> for Polygon<T> {
     /// Returns the point on `self` at the given *t* value.
     ///
@@ -968,12 +977,14 @@ impl<'a, T> From<&'a [T; 2]> for Edge<&'a T> {
     }
 }
 
+#[cfg(feature = "alloc")]
 impl<P: Affine> FromIterator<P> for Polygon<P> {
     fn from_iter<I: IntoIterator<Item = P>>(it: I) -> Self {
         Self::new(it)
     }
 }
 
+#[cfg(feature = "alloc")]
 impl<V> Index<isize> for Polygon<V> {
     type Output = V;
 
@@ -1001,6 +1012,7 @@ impl<V> Index<isize> for Polygon<V> {
     }
 }
 
+#[cfg(feature = "alloc")]
 impl<P: Affine> FromIterator<P> for Polyline<P> {
     fn from_iter<I: IntoIterator<Item = P>>(it: I) -> Self {
         Self::new(it)
@@ -1009,7 +1021,9 @@ impl<P: Affine> FromIterator<P> for Polyline<P> {
 
 #[cfg(test)]
 mod tests {
+    #[cfg(feature = "alloc")]
     use alloc::{format, vec};
+
     use core::f32::consts::*;
 
     use crate::math::*;
@@ -1207,6 +1221,7 @@ mod tests {
         assert_eq!(format!("{:?}", l), "Line(y = -3)");
     }
 
+    #[cfg(feature = "alloc")]
     #[test]
     fn polyline_eval_f32() {
         let pl = Polyline(vec![0.0, 1.0, -0.5]);

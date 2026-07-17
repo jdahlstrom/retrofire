@@ -193,7 +193,7 @@ where
     F: FnMut(Scanline<V>),
 {
     // Sort by y coordinate, start from the top
-    verts.sort_by(|a, b| a.pos.y().total_cmp(&b.pos.y()));
+    verts.sort_unstable_by(|a, b| a.pos.y().total_cmp(&b.pos.y()));
     let [a, b, c] = verts;
     let [top, mid0, bot] =
         [(a.pos, a.attrib), (b.pos, b.attrib), (c.pos, c.attrib)];

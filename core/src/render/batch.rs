@@ -1,12 +1,19 @@
 //! Builder for setting up geometry for rendering.
 
+#[cfg(feature = "alloc")]
 use alloc::vec::Vec;
 use core::borrow::Borrow;
 
-use crate::geom::{Edge, Mesh, Tri, Vertex3};
+use crate::geom::{Edge, Tri, Vertex3};
 use crate::math::{Mat4, Vary};
 
-use super::{Clip, Context, Ndc, Render, Screen, Shader, Target};
+#[cfg(feature = "alloc")]
+use crate::geom::Mesh;
+
+use super::{Context, Ndc, Render, Screen, Shader, Target};
+
+#[cfg(feature = "alloc")]
+use super::Clip;
 
 /// A builder for rendering a chunk of geometry as a batch.
 ///
@@ -74,6 +81,7 @@ impl<Prims, Verts, Uni, Shd, Tgt, Ctx> Batch<Prims, Verts, Uni, Shd, Tgt, Ctx> {
     ///
     /// You can also create a new batch from a moved or borrowed mesh
     /// directly using the `From<Mesh>` or `From<&Mesh>` impls.
+    #[cfg(feature = "alloc")]
     #[must_use]
     pub fn mesh<A: Clone>(
         self,
@@ -130,6 +138,7 @@ impl<Prims, Verts, Uni, Shd, Tgt, Ctx> Batch<Prims, Verts, Uni, Shd, Tgt, Ctx> {
     }
 }
 
+#[cfg(feature = "alloc")]
 impl<Prims, Verts, Uni, Shd, Tgt, Ctx> Batch<Prims, Verts, Uni, Shd, Tgt, Ctx> {
     /// Renders this batch of geometry.
     #[rustfmt::skip]
@@ -159,6 +168,7 @@ impl<Prims, Verts, Uni, Shd, Tgt, Ctx> Batch<Prims, Verts, Uni, Shd, Tgt, Ctx> {
     }
 }
 
+#[cfg(feature = "alloc")]
 impl<Vtx, Uni, Shd, Tgt, Ctx>
     Batch<Vec<Edge<usize>>, Vec<Vtx>, Uni, Shd, Tgt, Ctx>
 {
@@ -172,6 +182,7 @@ impl<Vtx, Uni, Shd, Tgt, Ctx>
     }
 }
 
+#[cfg(feature = "alloc")]
 impl<Vtx, Uni, Shd, Tgt, Ctx>
     Batch<Vec<Tri<usize>>, Vec<Vtx>, Uni, Shd, Tgt, Ctx>
 {
@@ -189,6 +200,7 @@ impl<Vtx, Uni, Shd, Tgt, Ctx>
 // Foreign trait impls
 //
 
+#[cfg(feature = "alloc")]
 impl<A, B> From<Mesh<A, B>>
     for Batch<Vec<Tri<usize>>, Vec<Vertex3<A, B>>, (), (), (), Context>
 {
@@ -197,6 +209,7 @@ impl<A, B> From<Mesh<A, B>>
     }
 }
 
+#[cfg(feature = "alloc")]
 impl<'a, A, B> From<&'a Mesh<A, B>>
     for Batch<&'a [Tri<usize>], &'a [Vertex3<A, B>], (), (), (), Context>
 {

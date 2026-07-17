@@ -35,10 +35,14 @@ pub(super) mod re_exports {
         param::Parametric,
         point::{Point, Point2, Point2u, Point3, pt2, pt3},
         space::{Affine, Linear},
-        spline::{BezierSpline, CubicBezier, smootherstep, smoothstep},
+        spline::{CubicBezier, smootherstep, smoothstep},
         vary::Vary,
         vec::{ProjVec3, Vec2, Vec2i, Vec3, Vec3i, Vector, splat, vec2, vec3},
     };
+
+    #[cfg(feature = "alloc")]
+    pub use super::spline::BezierSpline;
+
     #[cfg(feature = "fp")]
     pub use super::{
         angle::{acos, asin, atan2},
@@ -75,6 +79,7 @@ pub mod angle;
 pub mod approx;
 pub mod color;
 pub mod float;
+#[cfg(feature = "alloc")]
 pub mod grad;
 pub mod mat;
 pub mod noise;

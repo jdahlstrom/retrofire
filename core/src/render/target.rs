@@ -7,7 +7,10 @@
 use core::cell::RefCell;
 
 use crate::math::{Color3, Color4, Vary};
-use crate::util::{AsMutSlice2, Buf2, IntoPixel, MutSlice2};
+use crate::util::{AsMutSlice2, IntoPixel, MutSlice2};
+
+#[cfg(feature = "alloc")]
+use crate::util::Buf2;
 
 use super::{Context, FragmentShader, raster::Scanline};
 
@@ -121,6 +124,7 @@ where
     }
 }
 
+#[cfg(feature = "alloc")]
 impl Target for Buf2<Color4> {
     #[inline]
     fn rasterize<V: Vary, U: Copy, Fs: FragmentShader<V, U>>(
@@ -134,6 +138,7 @@ impl Target for Buf2<Color4> {
     }
 }
 
+#[cfg(feature = "alloc")]
 impl Target for Buf2<Color3> {
     #[inline]
     fn rasterize<V: Vary, U: Copy, Fs: FragmentShader<V, U>>(

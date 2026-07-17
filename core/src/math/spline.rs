@@ -2,9 +2,11 @@
 
 #![allow(clippy::just_underscores_and_digits)]
 
+#[cfg(feature = "alloc")]
 use alloc::vec::Vec;
 use core::{array::from_fn, fmt::Debug, marker::PhantomData};
 
+#[cfg(feature = "alloc")]
 use crate::geom::{Polyline, Ray};
 use crate::mat;
 
@@ -61,20 +63,24 @@ pub struct CubicBezier<T>(pub [T; 4]);
 pub struct CubicHermite<P, D>(pub [P; 2], pub [D; 2]);
 
 /// A piecewise curve composed of concatenated [cubic Bézier curves][CubicBezier].
+#[cfg(feature = "alloc")]
 #[derive(Debug, Clone, Eq, PartialEq)]
 pub struct BezierSpline<T>(Vec<T>);
 
 /// A piecewise curve composed of concatenated [cubic Hermite curves][CubicHermite].
+#[cfg(feature = "alloc")]
 #[derive(Debug, Clone, Eq, PartialEq)]
 // HACK: The PhantomData field only exists to force the derive impls
 //       to include the correct `T::Diff: Trait` bounds
 pub struct HermiteSpline<T: Affine>(Vec<Ray<T>>, PhantomData<T::Diff>);
 
 /// A piecewise curve composed of concatenated cubic curves.
+#[cfg(feature = "alloc")]
 #[derive(Debug, Clone, Eq, PartialEq)]
 pub struct CatmullRomSpline<T>(Vec<T>);
 
 /// A piecewise curve composed of concatenated cubic curves.
+#[cfg(feature = "alloc")]
 #[derive(Debug, Clone, Eq, PartialEq)]
 pub struct BSpline<T>(Vec<T>);
 
@@ -88,6 +94,7 @@ pub struct BSpline<T>(Vec<T>);
 /// Because arc-length parameterization is not generally possible in closed form,
 /// this implementation uses a look-up table to map *s* values to *t* values,
 /// interpolating linearly between entries.
+#[cfg(feature = "alloc")]
 pub struct Euclidean<Spl>(Spl, Vec<(f32, f32)>);
 
 /// Interpolates smoothly from 0.0 to 1.0 as `t` goes from 0.0 to 1.0.
@@ -159,6 +166,7 @@ where
 ///
 /// # Panics
 /// If `err` ≤ 0.
+#[cfg(feature = "alloc")]
 pub fn approximate<T, Sp, const DIM: usize>(
     curve: &impl Parametric<T>,
     error: f32,
@@ -212,6 +220,7 @@ where
 /// // Number of line segments used by the approximation
 /// assert_eq!(approx.0.len(), 17);
 /// ```
+#[cfg(feature = "alloc")]
 pub fn approximate_with<T: Affine<Diff: Linear<Scalar = f32>>>(
     curve: &impl Parametric<T>,
     halt: impl Fn(&T::Diff) -> bool,
@@ -222,6 +231,7 @@ pub fn approximate_with<T: Affine<Diff: Linear<Scalar = f32>>>(
     Polyline(res)
 }
 
+#[cfg(feature = "alloc")]
 fn do_approx<T: Affine<Diff: Linear<Scalar = f32>>>(
     c: &impl Parametric<T>,
     a: f32,
@@ -432,6 +442,7 @@ where
     }
 }
 
+#[cfg(feature = "alloc")]
 impl<T: AffineF32> BezierSpline<T> {
     /// Creates a Bézier spline from the given control points.
     ///
@@ -523,6 +534,7 @@ impl<T: AffineF32> BezierSpline<T> {
     }
 }
 
+#[cfg(feature = "alloc")]
 impl<T: AffineF32> HermiteSpline<T> {
     /// Creates a new Hermite spline from a sequence of rays.
     ///
@@ -583,6 +595,7 @@ impl<T: AffineF32> HermiteSpline<T> {
     }
 }
 
+#[cfg(feature = "alloc")]
 impl<T: AffineF32> CatmullRomSpline<T> {
     const _CHAR_MAT: Mat4 = mat![
          0.0,  1.0,  0.0,  0.0;
@@ -663,6 +676,7 @@ impl<T: AffineF32> CatmullRomSpline<T> {
     }
 }
 
+#[cfg(feature = "alloc")]
 impl<T: AffineF32> BSpline<T> {
     const _CHAR_MAT: Mat4 = {
         const _1_6: f32 = 1.0 / 6.0;
@@ -749,6 +763,7 @@ fn crb_segment<T: Clone>(pts: &[T], t: f32) -> (f32, &[T; 4]) {
     (u, pts)
 }
 
+#[cfg(feature = "alloc")]
 impl<Spl> Euclidean<Spl> {
     /// Creates a new `Euclidean` wrapper of the given spline.
     pub fn new<B, const N: usize>(spline: Spl) -> Self
@@ -820,6 +835,7 @@ impl<T: AffineF32> Parametric<T> for CubicHermite<T, T::Diff> {
     }
 }
 
+#[cfg(feature = "alloc")]
 impl<T: AffineF32> Parametric<T> for BezierSpline<T> {
     #[inline]
     fn eval(&self, t: f32) -> T {
@@ -827,6 +843,7 @@ impl<T: AffineF32> Parametric<T> for BezierSpline<T> {
     }
 }
 
+#[cfg(feature = "alloc")]
 impl<T: AffineF32> Parametric<T> for HermiteSpline<T> {
     #[inline]
     fn eval(&self, t: f32) -> T {
@@ -834,6 +851,7 @@ impl<T: AffineF32> Parametric<T> for HermiteSpline<T> {
     }
 }
 
+#[cfg(feature = "alloc")]
 impl<T: AffineF32> Parametric<T> for CatmullRomSpline<T> {
     #[inline]
     fn eval(&self, t: f32) -> T {
@@ -841,6 +859,7 @@ impl<T: AffineF32> Parametric<T> for CatmullRomSpline<T> {
     }
 }
 
+#[cfg(feature = "alloc")]
 impl<T: AffineF32> Parametric<T> for BSpline<T> {
     #[inline]
     fn eval(&self, t: f32) -> T {
@@ -848,6 +867,7 @@ impl<T: AffineF32> Parametric<T> for BSpline<T> {
     }
 }
 
+#[cfg(feature = "alloc")]
 impl<T, Spl: Parametric<T>> Parametric<T> for Euclidean<Spl> {
     #[inline]
     fn eval(&self, s: f32) -> T {

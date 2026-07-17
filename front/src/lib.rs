@@ -7,9 +7,11 @@ use core::{cell::RefCell, time::Duration};
 
 use retrofire_core::{
     math::{Color3, Color4},
-    render::{Colorbuf, Context, Framebuf, tex::Atlas},
-    util::{AsMutSlice2, Dims, IntoPixel, pnm::read_pnm},
+    render::{Colorbuf, Context, Framebuf},
+    util::{AsMutSlice2, Dims, IntoPixel},
 };
+
+use retrofire_core::{render::tex::Atlas, util::pnm::read_pnm};
 
 #[cfg(feature = "minifb")]
 pub mod minifb;

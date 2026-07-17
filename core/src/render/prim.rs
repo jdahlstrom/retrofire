@@ -31,10 +31,10 @@ impl<V: Vary> Render<V> for Tri<usize> {
 
     #[inline]
     fn to_screen(
-        clip: Tri<ClipVert<V>>,
+        clip: &Tri<ClipVert<V>>,
         tf: &Mat4<Ndc, Screen>,
     ) -> Self::Screen {
-        Tri(to_screen(clip.0, tf))
+        Tri(to_screen(&clip.0, tf))
     }
 
     #[inline]
@@ -56,8 +56,8 @@ impl<V: Vary> Render<V> for Edge<usize> {
     }
 
     #[inline]
-    fn to_screen(e: Self::Clip, tf: &Mat4<Ndc, Screen>) -> Self::Screen {
-        to_screen([e.0, e.1], tf).into()
+    fn to_screen(e: &Self::Clip, tf: &Mat4<Ndc, Screen>) -> Self::Screen {
+        to_screen(&[e.0.clone(), e.1.clone()], tf).into()
     }
 
     #[inline]
@@ -67,11 +67,11 @@ impl<V: Vary> Render<V> for Edge<usize> {
 }
 
 #[inline]
-pub fn to_screen<V: ZDiv, const N: usize>(
-    vs: [ClipVert<V>; N],
+pub fn to_screen<V: ZDiv + Clone, const N: usize>(
+    vs: &[ClipVert<V>; N],
     tf: &Mat4<Ndc, Screen>,
 ) -> [Vertex<ScreenPt, V>; N] {
-    vs.map(|v| {
+    vs.each_ref().map(|v| {
         let [x, y, _, w] = v.pos.0;
         // Perspective division (projection to the real plane)
         //
@@ -90,7 +90,7 @@ pub fn to_screen<V: ZDiv, const N: usize>(
             // Viewport transform
             pos: tf.apply(&pos),
             // Perspective correction
-            attrib: v.attrib.z_div(w),
+            attrib: v.attrib.clone().z_div(w),
         }
     })
 }

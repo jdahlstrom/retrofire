@@ -51,7 +51,9 @@
 extern crate std;
 
 // TODO make alloc optional
+#[cfg(feature = "alloc")]
 extern crate alloc;
+
 extern crate core;
 
 pub mod geom;
@@ -61,10 +63,10 @@ pub mod util;
 
 /// Prelude module exporting many frequently used items.
 pub mod prelude {
+    #[cfg(feature = "alloc")]
+    pub use crate::geom::Mesh;
     pub use crate::{
-        geom::{
-            Mesh, Normal2, Normal3, Tri, Vertex, Vertex2, Vertex3, tri, vertex,
-        },
+        geom::{Normal2, Normal3, Tri, Vertex, Vertex2, Vertex3, tri, vertex},
         math::re_exports::*,
         render::re_exports::*,
         util::re_exports::*,

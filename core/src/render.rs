@@ -5,6 +5,7 @@
 //! [texturing][tex], [rasterizing][raster], and [outputting][target] basic
 //! geometric shapes such as triangles.
 
+#[cfg(feature = "alloc")]
 use alloc::vec::Vec;
 use core::fmt::Debug;
 
@@ -14,11 +15,9 @@ use crate::math::{
     mat::{RealToProj, RealToReal},
 };
 
-use self::{
-    clip::{ClipVert, view_frustum},
-    ctx::DepthSort,
-    raster::Scanline,
-};
+use self::{ctx::DepthSort, raster::Scanline};
+
+use clip::{ClipVert, view_frustum};
 
 pub(super) mod re_exports {
     pub use super::{
@@ -28,12 +27,14 @@ pub(super) mod re_exports {
         ctx::Context,
         light::Light,
         raster::Frag,
-        scene::{BBox, Obj},
+        scene::BBox,
         shader::{FragmentShader, VertexShader},
         target::{Colorbuf, Framebuf, Target},
         tex::{TexCoord, Texture, uv},
-        text::Text,
     };
+
+    #[cfg(feature = "alloc")]
+    pub use super::{scene::Obj, text::Text};
 
     #[cfg(feature = "stats")]
     pub use super::stats::Stats;
@@ -44,6 +45,7 @@ pub mod batch;
 pub mod cam;
 pub mod clip;
 pub mod ctx;
+#[cfg(feature = "alloc")]
 pub mod debug;
 pub mod light;
 pub mod prim;
@@ -52,6 +54,7 @@ pub mod scene;
 pub mod shader;
 pub mod target;
 pub mod tex;
+#[cfg(feature = "alloc")]
 pub mod text;
 
 #[cfg(feature = "stats")]
@@ -82,7 +85,7 @@ pub trait Render<V: Vary> {
     }
 
     /// Transforms the argument from NDC to screen space.
-    fn to_screen(clip: Self::Clip, tf: &Mat4<Ndc, Screen>) -> Self::Screen;
+    fn to_screen(clip: &Self::Clip, tf: &Mat4<Ndc, Screen>) -> Self::Screen;
 
     /// Rasterizes the argument by calling the function for each scanline.
     fn rasterize<F: FnMut(Scanline<V>)>(scr: Self::Screen, scanline_fn: F);
@@ -139,6 +142,7 @@ impl<S, Vtx, Var, Uni> Shader<Vtx, Var, Uni> for S where
 }
 
 /// Renders the given primitives into `target`.
+#[cfg(feature = "alloc")]
 pub fn render<Prim, Vtx: Clone, Var, Uni: Copy, Shd>(
     prims: impl AsRef<[Prim]>,
     verts: impl AsRef<[Vtx]>,
@@ -178,7 +182,7 @@ pub fn render<Prim, Vtx: Clone, Var, Uni: Copy, Shd>(
     // 4. Rasterize: Turn visible primitives to fragments
     #[allow(unused_variables)]
     let (prims_out, verts_out) = rasterize::<Prim, _, _, _>(
-        clipped, shader, uniform, to_screen, target, ctx,
+        &clipped, shader, uniform, to_screen, target, ctx,
     );
 
     #[cfg(feature = "stats")]
@@ -188,7 +192,7 @@ pub fn render<Prim, Vtx: Clone, Var, Uni: Copy, Shd>(
 }
 
 fn rasterize<Prim, Shd, Var, Uni>(
-    clipped: Vec<Prim::Clip>,
+    clipped: &[Prim::Clip],
     shader: &Shd,
     uniform: Uni,
     to_screen: Mat4<Ndc, Screen>,
@@ -225,6 +229,7 @@ where
     out
 }
 
+#[cfg(feature = "alloc")]
 #[inline]
 fn primitive_assembly<Prim: Render<Var> + Clone, Var: Vary>(
     prims: &[Prim],
@@ -238,6 +243,7 @@ fn primitive_assembly<Prim: Render<Var> + Clone, Var: Vary>(
         .collect()
 }
 
+#[cfg(feature = "alloc")]
 #[inline]
 fn vertex_transform<Shd, Vtx: Clone, Var: Vary, Uni: Copy>(
     shader: &Shd,

@@ -2,7 +2,10 @@
 
 use crate::geom::Normal3;
 use crate::math::{Point2u, Vec2, Vec3, Vector, pt2, splat, vec2};
-use crate::util::{AsSlice2, Buf2, Dims, Slice2};
+use crate::util::{AsSlice2, Dims, Slice2};
+
+#[cfg(feature = "alloc")]
+use crate::util::Buf2;
 
 /// Basis of the texture space.
 #[derive(Copy, Clone, Debug, Default, Eq, PartialEq)]
@@ -33,6 +36,7 @@ pub struct Texture<D> {
     data: D,
 }
 
+#[cfg(feature = "alloc")]
 #[derive(Clone)]
 pub struct Atlas<C> {
     pub layout: Layout,
@@ -137,6 +141,7 @@ impl<D> Texture<D> {
     }
 }
 
+#[cfg(feature = "alloc")]
 impl<C> Atlas<C> {
     /// Creates a new texture atlas from a texture.
     pub fn new(layout: Layout, texture: Texture<Buf2<C>>) -> Self {
@@ -194,6 +199,7 @@ impl<C> Atlas<C> {
 // Trait impls
 //
 
+#[cfg(feature = "alloc")]
 impl<C> From<Buf2<C>> for Texture<Buf2<C>> {
     /// Creates a new texture from owned pixel data.
     fn from(data: Buf2<C>) -> Self {

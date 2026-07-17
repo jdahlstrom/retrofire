@@ -13,7 +13,9 @@
 //! doing it for every scanline individually.
 //!
 
+#[cfg(feature = "alloc")]
 use alloc::vec::Vec;
+
 use core::{iter::zip, mem::swap};
 
 use crate::geom::{Edge, Tri, Vertex, vertex};
@@ -46,6 +48,7 @@ pub trait Clip {
     /// The result is unspecified if `out` is nonempty.
     ///
     /// TODO Investigate returning an iterator
+    #[cfg(feature = "alloc")]
     fn clip(&self, planes: &[ClipPlane], out: &mut Vec<Self::Item>);
 }
 
@@ -165,6 +168,7 @@ impl ClipPlane {
     ///               `---__   \
     ///                     `---B
     /// ```
+    #[cfg(feature = "alloc")]
     pub fn clip_simple_polygon<A: Lerp>(
         &self,
         verts_in: &[ClipVert<A>],
@@ -228,6 +232,7 @@ pub mod view_frustum {
     /// Returns the part that is within the frustum in the out parameter `out`.
     ///
     /// This is the main entry point to clipping.
+    #[cfg(feature = "alloc")]
     pub fn clip<G: Clip + ?Sized>(geom: &G, out: &mut Vec<G::Item>) {
         geom.clip(&PLANES, out);
     }
@@ -268,7 +273,6 @@ pub mod view_frustum {
         }
     }
 }
-
 /// Computes the intersection of a simple polygon and a convex volume.
 ///
 /// Returns the part of the polygon that is inside all planes, if any, in
@@ -282,6 +286,7 @@ pub mod view_frustum {
 ///
 /// [^1]: Ivan Sutherland, Gary W. Hodgman: Reentrant Polygon Clipping.
 ///        Communications of the ACM, vol. 17, pp. 32–42, 1974
+#[cfg(feature = "alloc")]
 pub fn clip_simple_polygon<'a, A: Lerp>(
     planes: &[ClipPlane],
     verts_in: &'a mut Vec<ClipVert<A>>,
@@ -313,6 +318,7 @@ impl<V> ClipVert<V> {
 impl<A: Lerp> Clip for [Edge<ClipVert<A>>] {
     type Item = Edge<ClipVert<A>>;
 
+    #[cfg(feature = "alloc")]
     fn clip(&self, planes: &[ClipPlane], out: &mut Vec<Self::Item>) {
         // TODO capacity is just a heuristic, should retain vector between calls somehow
         out.reserve(self.len() / 2);
@@ -366,6 +372,7 @@ impl<A: Lerp> Clip for [Edge<ClipVert<A>>] {
 impl<A: Lerp> Clip for [Tri<ClipVert<A>>] {
     type Item = Tri<ClipVert<A>>;
 
+    #[cfg(feature = "alloc")]
     fn clip(&self, planes: &[ClipPlane], out: &mut Vec<Self::Item>) {
         debug_assert!(out.is_empty());
 

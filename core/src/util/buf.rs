@@ -2,7 +2,9 @@
 //!
 //! Useful for storing pixel data of any kind, among other things.
 
+#[cfg(feature = "alloc")]
 use alloc::{vec, vec::Vec};
+
 use core::{
     fmt::{self, Debug, Formatter},
     iter,
@@ -62,6 +64,7 @@ pub trait AsMutSlice2 {
 /// // Thus you can also do this, row first, column second:
 /// assert_eq!(buf[1][2], 123)
 /// ```
+#[cfg(feature = "alloc")]
 #[derive(Clone, Eq, PartialEq)]
 #[repr(transparent)]
 pub struct Buf2<T>(Inner<T, Vec<T>>);
@@ -95,6 +98,7 @@ pub struct MutSlice2<'a, T>(Inner<T, &'a mut [T]>);
 // Inherent impls
 //
 
+#[cfg(feature = "alloc")]
 impl<T> Buf2<T> {
     /// Returns a buffer of the given dimensions, with elements initialized
     /// with values yielded by `init`.
@@ -304,6 +308,7 @@ impl<'a, T> MutSlice2<'a, T> {
 // Local trait impls
 //
 
+#[cfg(feature = "alloc")]
 impl<T> AsSlice2 for Buf2<T> {
     type Elem = T;
     #[inline]
@@ -311,6 +316,7 @@ impl<T> AsSlice2 for Buf2<T> {
         self.0.as_slice2()
     }
 }
+#[cfg(feature = "alloc")]
 impl<T> AsSlice2 for &Buf2<T> {
     type Elem = T;
     #[inline]
@@ -333,6 +339,7 @@ impl<T> AsSlice2 for MutSlice2<'_, T> {
     }
 }
 
+#[cfg(feature = "alloc")]
 impl<T> AsMutSlice2 for Buf2<T> {
     type Elem = T;
     #[inline]
@@ -340,6 +347,7 @@ impl<T> AsMutSlice2 for Buf2<T> {
         self.0.as_mut_slice2()
     }
 }
+#[cfg(feature = "alloc")]
 impl<T> AsMutSlice2 for &mut Buf2<T> {
     type Elem = T;
     #[inline]
@@ -359,6 +367,7 @@ impl<T> AsMutSlice2 for MutSlice2<'_, T> {
 // Foreign trait impls
 //
 
+#[cfg(feature = "alloc")]
 impl<T> Debug for Buf2<T> {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         self.0.debug_fmt(f, "Buf2")
@@ -375,6 +384,7 @@ impl<T> Debug for MutSlice2<'_, T> {
     }
 }
 
+#[cfg(feature = "alloc")]
 impl<T> Deref for Buf2<T> {
     type Target = Inner<T, Vec<T>>;
     fn deref(&self) -> &Self::Target {
@@ -394,6 +404,7 @@ impl<'a, T> Deref for MutSlice2<'a, T> {
     }
 }
 
+#[cfg(feature = "alloc")]
 impl<T> DerefMut for Buf2<T> {
     fn deref_mut(&mut self) -> &mut Self::Target {
         &mut self.0
@@ -405,6 +416,7 @@ impl<T> DerefMut for MutSlice2<'_, T> {
     }
 }
 
+#[cfg(feature = "alloc")]
 impl<T: Clone, const N: usize> From<&[[T; N]]> for Buf2<T> {
     /// Creates a `Buf2` from a slice of arrays.
     ///

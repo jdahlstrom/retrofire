@@ -1,15 +1,19 @@
 use core::fmt::{self, Debug, Formatter};
 
 use crate::{
-    geom::{Mesh, vertex},
+    geom::vertex,
     math::{Mat4, Point3, ProjMat3, pt3},
 };
 
-use super::{
-    Model, World,
-    clip::{ClipVert, Status, view_frustum},
-};
+#[cfg(feature = "alloc")]
+use crate::geom::Mesh;
 
+use super::{Model, World};
+
+#[cfg(feature = "alloc")]
+use super::clip::{ClipVert, Status, view_frustum};
+
+#[cfg(feature = "alloc")]
 #[derive(Clone, Debug)]
 pub struct Obj<A> {
     pub geom: Mesh<A>,
@@ -22,6 +26,7 @@ pub struct Obj<A> {
 #[derive(Copy, Clone, PartialEq)]
 pub struct BBox<B>(pub Point3<B>, pub Point3<B>);
 
+#[cfg(feature = "alloc")]
 impl<A> Obj<A> {
     pub fn new(geom: Mesh<A>) -> Self {
         Self::with_transform(geom, Mat4::identity())
@@ -35,6 +40,7 @@ impl<A> Obj<A> {
 }
 
 impl<B> BBox<B> {
+    #[cfg(feature = "alloc")]
     pub fn of<A>(mesh: &Mesh<A, B>) -> Self {
         mesh.verts.iter().map(|v| &v.pos).collect()
     }
@@ -67,6 +73,7 @@ impl<B> BBox<B> {
         ]
     }
 
+    #[cfg(feature = "alloc")]
     /// Returns whether `self` intersects the view frustum.
     ///
     /// Given a real-to-projection transform, tests this bounding box against
@@ -98,6 +105,7 @@ impl<B: Debug + Default> Debug for BBox<B> {
     }
 }
 
+#[cfg(feature = "alloc")]
 impl<A> Default for Obj<A> {
     /// Returns an empty `Obj`.
     fn default() -> Self {

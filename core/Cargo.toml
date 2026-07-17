@@ -24,8 +24,10 @@ documentation.workspace = true
 [features]
 default = ["std"]
 
+# Enables the use of the standard alloc crate.
+alloc = []
 # Use std fp functions, enable I/O and timing support.
-std = ["fp"]
+std = ["fp", "alloc"]
 # Use fp functions from the libm crate.
 libm = ["fp", "dep:libm"]
 # Use fp functions from the micromath crate.
