@@ -2,15 +2,17 @@ use core::fmt;
 #[cfg(feature = "std")]
 use std::io;
 
-use crate::geom::{Mesh, Tri, Vertex3, tri, vertex};
+use crate::geom::{Mesh, Tri, Vertex, Vertex3, tri, vertex};
 use crate::math::{
-    Color3, Color4, Point2, ProjMat3, Vec2, color::gray, orthographic, pt2,
-    pt3, vec2, vec3, viewport,
+    Color3, Color4, Point2, ProjMat3, ProjVec3, Vec2, color::gray,
+    orthographic, pt2, pt3, rand::Distrib, vec2, vec3, viewport,
 };
 use crate::util::{Buf2, Dims};
 
-use super::tex::*;
-use super::{BBox, Context, Frag, Model, Shader, Target, shader};
+use super::{
+    BBox, Context, Frag, FragmentShader, Model, Shader, Target, VertexShader,
+    tex::*,
+};
 
 /// Text represented as texture-mapped geometry, one quad per glyph.
 #[derive(Clone)]
@@ -36,6 +38,8 @@ pub enum Align {
     BottomCenter,
     BottomRight,
 }
+
+pub struct TextShader<'a>(&'a Text);
 
 pub type Batch<'a, Shd> = super::Batch<
     &'a [Tri<usize>],
@@ -78,15 +82,8 @@ impl Text {
     }
 
     /// Returns a shader for rendering text.
-    pub fn shader(
-        &self,
-    ) -> impl Shader<Vertex3<TexCoord>, TexCoord, &ProjMat3<Model>> {
-        shader::new(
-            |v: Vertex3<_>, tf: &ProjMat3<_>| {
-                vertex(tf.apply(&v.pos.to()), v.attrib)
-            },
-            |frag: Frag<TexCoord>, _| self.sample(frag.var),
-        )
+    pub fn shader(&self) -> TextShader {
+        TextShader(self)
     }
 
     /// Renders this text to a render target in 2D.
@@ -172,9 +169,62 @@ impl Text {
     }
 }
 
+/// Renders ("bakes") the byte string into a buffer.
+pub fn bake<T>(s: &[u8], font: &Atlas<T>) -> Buf2<T>
+where
+    T: Copy + Default,
+{
+    let rows = s.split(|&c| c == b'\n');
+    let (mut num_rows, mut num_cols) = (0, 0);
+
+    for row in rows.clone() {
+        num_rows += 1;
+        num_cols = num_cols.max(row.len() as u32);
+    }
+    if num_rows == 0 || num_cols == 0 {
+        return Buf2::new(Dims(0, 0));
+    }
+
+    let Layout::Grid { sub_dims: Dims(gw, gh) } = font.layout;
+    let mut buf = Buf2::new(Dims(num_cols * gw, num_rows * gh));
+
+    let (mut x, mut y) = (0, 0);
+    for row in rows {
+        for ch in row {
+            let dest = (x..x + gw, y..y + gh);
+            buf.slice_mut(dest)
+                .copy_from(*font.get((*ch).into()).data());
+            x += gw;
+        }
+        (x, y) = (0, y + gh);
+    }
+    buf
+}
+
 //
 // Trait impls
 //
+
+impl<B> VertexShader<Vertex3<TexCoord>, &ProjMat3<B>> for TextShader<'_> {
+    type Output = Vertex<ProjVec3, TexCoord>;
+
+    fn shade_vertex(
+        &self,
+        v: Vertex3<TexCoord>,
+        tf: &ProjMat3<B>,
+    ) -> Self::Output {
+        vertex(tf.apply(&v.pos.to()), v.attrib)
+    }
+}
+impl<B> FragmentShader<TexCoord, &ProjMat3<B>> for TextShader<'_> {
+    fn shade_fragment(
+        &self,
+        frag: Frag<TexCoord>,
+        uni: &ProjMat3<B>,
+    ) -> Option<Color4> {
+        self.0.sample(frag.var)
+    }
+}
 
 #[cfg(feature = "std")]
 impl io::Write for Text {
@@ -239,36 +289,4 @@ impl fmt::Write for Text {
         }
         Ok(())
     }
-}
-
-/// Renders ("bakes") the byte string into a buffer.
-pub fn bake<T>(s: &[u8], font: &Atlas<T>) -> Buf2<T>
-where
-    T: Copy + Default,
-{
-    let rows = s.split(|&c| c == b'\n');
-    let (mut num_rows, mut num_cols) = (0, 0);
-
-    for row in rows.clone() {
-        num_rows += 1;
-        num_cols = num_cols.max(row.len() as u32);
-    }
-    if num_rows == 0 || num_cols == 0 {
-        return Buf2::new(Dims(0, 0));
-    }
-
-    let Layout::Grid { sub_dims: Dims(gw, gh) } = font.layout;
-    let mut buf = Buf2::new(Dims(num_cols * gw, num_rows * gh));
-
-    let (mut x, mut y) = (0, 0);
-    for row in rows {
-        for ch in row {
-            let dest = (x..x + gw, y..y + gh);
-            buf.slice_mut(dest)
-                .copy_from(*font.get((*ch).into()).data());
-            x += gw;
-        }
-        (x, y) = (0, y + gh);
-    }
-    buf
 }
