@@ -1,18 +1,19 @@
 use core::fmt::{self, Debug, Formatter};
 
-use crate::{
-    geom::{Mesh, vertex},
-    math::{Mat4, Point3, ProjMat3, pt3},
-};
-
 use super::{
     Model, World,
     clip::{ClipVert, Status, view_frustum},
 };
 
+use crate::{
+    geom::{Mesh, Pos, VecMesh, vertex},
+    math::{Mat4, Point3, ProjMat3, pt3},
+    util::seq::AsSlice,
+};
+
 #[derive(Clone, Debug)]
 pub struct Obj<A> {
-    pub geom: Mesh<A>,
+    pub geom: VecMesh<A>,
     pub bbox: BBox<Model>,
     pub tf: Mat4<Model, World>,
 }
@@ -23,20 +24,27 @@ pub struct Obj<A> {
 pub struct BBox<B>(pub Point3<B>, pub Point3<B>);
 
 impl<A> Obj<A> {
-    pub fn new(geom: Mesh<A>) -> Self {
+    pub fn new(geom: VecMesh<A>) -> Self {
         Self::with_transform(geom, Mat4::identity())
     }
 
     #[must_use]
-    pub fn with_transform(geom: Mesh<A>, tf: Mat4<Model, World>) -> Self {
+    pub fn with_transform(geom: VecMesh<A>, tf: Mat4<Model, World>) -> Self {
         let bbox = BBox::of(&geom);
         Self { geom, bbox, tf }
     }
 }
 
 impl<B> BBox<B> {
-    pub fn of<A>(mesh: &Mesh<A, B>) -> Self {
-        mesh.verts.iter().map(|v| &v.pos).collect()
+    pub fn of<Fs, Vs>(mesh: &Mesh<Fs, Vs>) -> Self
+    where
+        Vs: AsSlice<Elem: Pos<Type = Point3<B>>>,
+    {
+        mesh.verts
+            .as_slice()
+            .iter()
+            .map(Pos::pos)
+            .collect()
     }
 
     /// If needed, enlarges `self` so that a point is just contained.

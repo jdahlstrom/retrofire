@@ -1,17 +1,17 @@
 //! Triangle meshes.
 
-use alloc::{vec, vec::Vec};
+use alloc::vec::Vec;
 use core::{
     fmt::{Debug, Formatter},
     iter::zip,
 };
 
+use super::{Normal3, Tri, Vertex3, tri, vertex};
+use crate::util::seq::AsSlice;
 use crate::{
     math::{Linear, Mat4, Point3},
     render::Model,
 };
-
-use super::{Normal3, Tri, Vertex3, tri, vertex};
 
 /// A triangle mesh.
 ///
@@ -21,25 +21,27 @@ use super::{Normal3, Tri, Vertex3, tri, vertex};
 /// with 8 vertices and 12 faces. By using many faces, complex curved shapes
 /// can be approximated.
 #[derive(Clone)]
-pub struct Mesh<Attrib, Basis = Model> {
-    /// The faces of the mesh, with each face a triplet of indices
-    /// to the `verts` vector. Several faces can share a vertex.
-    pub faces: Vec<Tri<usize>>,
+pub struct Mesh<Faces, Verts> {
+    /// The faces of the mesh, each face being a triplet of indices
+    /// to `self.verts`. Several faces can share a vertex.
+    pub faces: Faces,
     /// The vertices of the mesh.
-    pub verts: Vec<Vertex3<Attrib, Basis>>,
+    pub verts: Verts,
 }
+
+pub type VecMesh<A, B = Model> = Mesh<Vec<Tri<usize>>, Vec<Vertex3<A, B>>>;
 
 /// A builder type for creating meshes.
 #[derive(Clone)]
-pub struct Builder<Attrib = (), Basis = Model> {
-    pub mesh: Mesh<Attrib, Basis>,
+pub struct Builder<A, B = Model> {
+    pub mesh: VecMesh<A, B>,
 }
 
 //
 // Inherent impls
 //
 
-impl<A, B> Mesh<A, B> {
+impl<A, B> VecMesh<A, B> {
     /// Creates a new triangle mesh with the given faces and vertices.
     ///
     /// Each face in `faces` is a triplet of indices, referring to
@@ -82,15 +84,21 @@ impl<A, B> Mesh<A, B> {
         assert_indices_in_bounds(&faces, verts.len());
         Self { faces, verts }
     }
+}
 
+impl<Fs: AsSlice<Elem = Tri<usize>>, Vs: AsSlice> Mesh<Fs, Vs> {
     /// Returns an iterator over the faces of `self`, mapping the vertex indices
     /// to references to the corresponding vertices.
-    pub fn faces(&self) -> impl Iterator<Item = Tri<&Vertex3<A, B>>> {
+    pub fn faces(&self) -> impl Iterator<Item = Tri<&Vs::Elem>> {
+        let verts = self.verts.as_slice();
         self.faces
+            .as_slice()
             .iter()
-            .map(|tri| tri.map(|i| &self.verts[i]))
+            .map(|tri| tri.map(|i| &verts[i]))
     }
+}
 
+impl<A, B> VecMesh<A, B> {
     /// Returns a mesh with the faces and vertices of both `self` and `other`.
     #[must_use]
     pub fn merge(mut self, Self { faces, verts }: Self) -> Self {
@@ -112,7 +120,7 @@ fn assert_indices_in_bounds(faces: &[Tri<usize>], len: usize) {
     }
 }
 
-impl<A> Mesh<A> {
+impl<A> Mesh<Vec<Tri<usize>>, Vec<Vertex3<A>>> {
     /// Returns a new mesh builder.
     pub fn builder() -> Builder<A> {
         Builder::default()
@@ -166,7 +174,7 @@ impl<A> Builder<A> {
     /// # Panics
     /// If any of the vertex indices in `faces` ≥ `verts.len()`.
     #[must_use]
-    pub fn build(self) -> Mesh<A> {
+    pub fn build(self) -> Mesh<Vec<Tri<usize>>, Vec<Vertex3<A>>> {
         // Sanity checks done by new()
         Mesh::new(self.mesh.faces, self.mesh.verts)
     }
@@ -260,10 +268,13 @@ impl<A: Debug, S: Debug + Default> Debug for Builder<A, S> {
     }
 }
 
-impl<A, S> Default for Mesh<A, S> {
+impl<Fs: Default, Vs: Default> Default for Mesh<Fs, Vs> {
     /// Returns an empty mesh.
     fn default() -> Self {
-        Self { faces: vec![], verts: vec![] }
+        Self {
+            faces: Fs::default(),
+            verts: Vs::default(),
+        }
     }
 }
 
@@ -288,7 +299,7 @@ mod tests {
     #[test]
     #[should_panic]
     fn mesh_new_panics_if_vertex_index_oob() {
-        let _: Mesh<()> = Mesh::new(
+        let _ = VecMesh::<_, ()>::new(
             [tri(0, 1, 2), tri(1, 2, 3)],
             [
                 vertex(pt3(0.0, 0.0, 0.0), ()),

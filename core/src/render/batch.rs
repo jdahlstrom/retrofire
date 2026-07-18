@@ -3,10 +3,10 @@
 use alloc::vec::Vec;
 use core::borrow::Borrow;
 
-use crate::geom::{Edge, Mesh, Tri, Vertex3};
-use crate::math::{Mat4, Vary};
-
 use super::{Clip, Context, Ndc, Render, Screen, Shader, Target};
+use crate::geom::{Edge, Mesh, Tri, Vertex3, mesh::VecMesh};
+use crate::math::{Mat4, Vary};
+use crate::util::seq::AsSlice;
 
 /// A builder for rendering a chunk of geometry as a batch.
 ///
@@ -77,7 +77,7 @@ impl<Prims, Verts, Uni, Shd, Tgt, Ctx> Batch<Prims, Verts, Uni, Shd, Tgt, Ctx> {
     #[must_use]
     pub fn mesh<A: Clone>(
         self,
-        mesh: &Mesh<A>,
+        mesh: &VecMesh<A>,
     ) -> Batch<&[Tri<usize>], &[Vertex3<A>], Uni, Shd, Tgt, Ctx> {
         let prims = &mesh.faces;
         let verts = &mesh.verts;
@@ -188,18 +188,20 @@ impl<Vtx, Uni, Shd, Tgt, Ctx>
 // Foreign trait impls
 //
 
-impl<A, B> From<Mesh<A, B>>
-    for Batch<Vec<Tri<usize>>, Vec<Vertex3<A, B>>, (), (), (), Context>
+/* FIXME
+impl<Fs: AsSlice<Elem = Tri<usize>>, Vs: AsSlice> From<Mesh<Fs, Vs>>
+    for Batch<Fs, Vs, (), (), (), Context>
 {
-    fn from(m: Mesh<A, B>) -> Self {
+    fn from(m: Mesh<Fs, Vs>) -> Self {
         Batch::new().primitives(m.faces).vertices(m.verts)
     }
 }
+*/
 
-impl<'a, A, B> From<&'a Mesh<A, B>>
-    for Batch<&'a [Tri<usize>], &'a [Vertex3<A, B>], (), (), (), Context>
+impl<'a, Fs: AsSlice<Elem = Tri<usize>>, Vs: AsSlice> From<&'a Mesh<Fs, Vs>>
+    for Batch<&'a [Tri<usize>], &'a [Vs::Elem], (), (), (), Context>
 {
-    fn from(m: &'a Mesh<A, B>) -> Self {
+    fn from(m: &'a Mesh<Fs, Vs>) -> Self {
         Batch::new()
             .primitives(m.faces.as_slice())
             .vertices(m.verts.as_slice())

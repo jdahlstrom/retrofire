@@ -3,7 +3,9 @@
 
 use alloc::vec::Vec;
 
-use crate::geom::{Edge, Mesh, Normal3, Pos, Tri, Vertex, Vertex3, vertex};
+use crate::geom::{
+    Edge, Normal3, Pos, Tri, Vertex, Vertex3, mesh::VecMesh, vertex,
+};
 use crate::math::{
     Color, Color4, Color4f, Mat4, Point3, Vec3, color::gray, mat::ProjMat3,
     pt3, vec::ProjVec3,
@@ -25,7 +27,7 @@ pub struct Shader;
 /// * Vertex normals (if any)
 /// * Bounding box
 /// * Model-space origin and coordinate axes.
-pub struct DbgMesh<A, B>(Mesh<A, B>, DbgBatch<B>);
+pub struct DbgMesh<A, B>(VecMesh<A, B>, DbgBatch<B>);
 
 pub type DbgBatch<B> = super::Batch<
     Vec<Edge<usize>>,
@@ -120,7 +122,7 @@ pub fn bbox<B>(pts: &[impl Pos<Type = Point3<B>>]) -> DbgBatch<B> {
 }
 
 /// Creates a `DbgMesh` object from a mesh.
-pub fn mesh<A: Clone, B>(mesh: Mesh<A, B>) -> DbgMesh<A, B> {
+pub fn mesh<A: Clone, B>(mesh: VecMesh<A, B>) -> DbgMesh<A, B> {
     DbgMesh(mesh, DbgBatch::default())
 }
 
@@ -132,7 +134,7 @@ impl<A: Clone, B> DbgMesh<A, B> {
     /// Enables drawing the edges as a wireframe representation.
     #[must_use]
     pub fn edges(mut self) -> Self {
-        let Mesh { faces, verts } = &self.0;
+        let VecMesh { faces, verts } = &self.0;
 
         let n_verts = self.1.verts.len();
         let edges = faces
@@ -197,7 +199,7 @@ impl<B> DbgMesh<Normal3, B> {
 /// debug::mesh(mesh).edges().patch()
 /// ```
 #[must_use]
-pub fn wireframe<A: Clone, B>(m: Mesh<A, B>) -> DbgBatch<B> {
+pub fn wireframe<A: Clone, B>(m: VecMesh<A, B>) -> DbgBatch<B> {
     mesh(m).edges().batch().clone()
 }
 
