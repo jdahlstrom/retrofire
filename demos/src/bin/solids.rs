@@ -5,6 +5,7 @@ use minifb::{Key, KeyRepeat};
 
 use re::prelude::*;
 
+use re::core::render::text::Align;
 use re::core::{
     geom::{Polyline, Ray},
     math::{ProjVec3, color::gray, spline::HermiteSpline},
@@ -95,27 +96,46 @@ fn main() {
         let carouse = state.update(dt.as_secs_f32());
 
         // Compose transform stack
-        let model_view_project: ProjMat3<Model> = spin
+        let model_to_view = spin
             .then(&translate)
             .then(&carouse)
             .to()
-            .then(&cam.world_to_project());
+            .then(&cam.world_to_view());
 
+        let text_ctx = Context {
+            depth_test: None,
+            depth_write: false,
+            face_cull: None,
+            ..frame.ctx.clone()
+        };
+        let text_modelview = model_to_view;
+        let mut text = debug::text("Foo bar text 123!");
+
+        text.anchor = pt3(0.0, 1.0, 0.0);
+        text.align = Align::BottomRight;
+        text.batch()
+            .uniform((&text_modelview, &cam.project))
+            .viewport(cam.viewport)
+            .target(frame.buf)
+            .context(&text_ctx)
+            .render();
+
+        let model_to_project = model_to_view.then(&cam.project);
         state
             .debug_mesh
             .batch()
             .clone()
-            .uniform(&model_view_project)
+            .uniform(&model_to_project)
             .viewport(cam.viewport)
             .target(frame.buf)
             .render();
 
-        if state.debug_flags[0] {
+        if !state.debug_flags[0] {
             let object = state.object();
             Batch {
                 prims: &object.faces,
                 verts: &object.verts,
-                uniform: (&model_view_project, &spin),
+                uniform: (&model_to_project, &spin),
                 shader: shader,
                 viewport: cam.viewport,
                 target: frame.buf,
