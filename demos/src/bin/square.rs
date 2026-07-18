@@ -2,7 +2,7 @@ use core::ops::ControlFlow::*;
 
 use re::prelude::*;
 
-use re::core::render::{render, shader, tex::SamplerClamp};
+use re::core::render::{Indexed, render, shader, tex::SamplerClamp};
 use re::front::minifb::Window;
 
 fn main() {
@@ -52,8 +52,10 @@ fn main() {
             .then(&projection);
 
         render(
-            [tri(0, 1, 2), tri(3, 2, 1)],
-            verts,
+            Indexed {
+                prims: [tri(0, 1, 2), tri(3, 2, 1)].as_slice(),
+                verts: verts.as_slice(),
+            },
             &shader,
             &model_view_project,
             viewport,

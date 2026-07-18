@@ -1,5 +1,6 @@
 #![allow(unused)]
 
+use retrofire_core::render::Indexed;
 use retrofire_core::{
     prelude::*,
     render::{Model, render, shader, tex::SamplerClamp},
@@ -37,7 +38,17 @@ fn textured_quad() {
     let mut framebuf = Buf2::<Color3>::new(dims);
     let mut ctx = Context::default();
 
-    render(FACES, VERTS, &shader, &mvp, viewport, &mut framebuf, &ctx);
+    render(
+        &Indexed {
+            prims: FACES.as_slice(),
+            verts: VERTS.as_slice(),
+        },
+        &shader,
+        &mvp,
+        viewport,
+        &mut framebuf,
+        &ctx,
+    );
 
     assert_eq!(framebuf[0][0], rgb(0, 0, 0xFF));
     assert_eq!(framebuf[255][0], rgb(0x7F, 0, 0));

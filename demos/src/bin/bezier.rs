@@ -2,11 +2,13 @@ use core::ops::ControlFlow::Continue;
 
 use re::prelude::*;
 
+use re::core::render::View;
 use re::core::{
-    geom::Ray,
+    geom::{Polyline, Ray},
+    math::color::gray,
     math::rand::{Distrib, Uniform, VectorsOnUnitDisk, Xorshift64},
     math::spline::approximate,
-    render::raster::line,
+    render::{render, shader},
     util::dims,
 };
 use re::front::{Frame, minifb::Window};
@@ -20,26 +22,36 @@ fn main() {
         .build()
         .expect("should create window");
 
-    let (min, max) =
-        (pt2(100.0, 100.0), pt2(w as f32 - 100.0, h as f32 - 100.0));
+    let (min, max) = (pt2(0.0, 0.0), pt2(w as f32, h as f32));
 
     let rng = &mut Xorshift64::from_time();
-    let pos = Uniform::<Point2>(min..max);
+    let pos = Uniform::<Point2<_>>(min..max);
     let vel = VectorsOnUnitDisk;
 
-    let mut pos_vels: Vec<(Point2, Vec2)> =
-        (pos, vel).samples(rng).take(32).collect();
+    let mut pos_vels: Vec<(Point2<_>, Vec2<View>)> = (pos, vel)
+        .samples(rng)
+        .take(32)
+        .map(|(p, v)| (p, v.to()))
+        .collect();
 
     // Disable some unneeded things
     win.ctx.color_clear = None;
     win.ctx.depth_clear = None;
 
-    win.run(|Frame { dt, buf, .. }| {
-        let buf = &mut buf.borrow_mut().color_buf.buf;
+    let proj = orthographic(
+        pt3(100.0, h as f32 - 100.0, -1.0),
+        pt3(w as f32 - 100.0, 100.0, 1.0),
+    );
+    let vp = viewport(pt2(100, 100)..pt2(w - 100, h - 100));
+
+    win.run(|Frame { dt, buf, ctx, .. }| {
+        let buf = &mut buf.borrow_mut().color_buf;
 
         // Fade out previous frame a bit
-        buf.iter_mut()
-            .for_each(|c| *c = c.saturating_sub(0x08_08_02));
+        buf.buf
+            .slice_mut(pt2(100, 100)..pt2(w - 100, h - 100))
+            .iter_mut()
+            .for_each(|c| *c = c.saturating_sub(0x10_10_04));
 
         let rays: Vec<Ray<_>> = pos_vels
             .chunks(2)
@@ -50,12 +62,18 @@ fn main() {
         // Stop once error is less than one pixel
         let approx = approximate(&b, 1.0);
 
-        for e in approx.edges() {
-            let vs = [e.0, e.1].map(|p| vertex(p.to_pt3().to(), ()));
-            line(vs, |sl| {
-                buf[sl.y][sl.xs].fill(0xFF_FF_FF);
-            })
-        }
+        let approx = Polyline::new(
+            approx
+                .0
+                .into_iter()
+                .map(|v| vertex(v.to_pt3(), ())),
+        );
+
+        let shader = shader::new(
+            |v: Vertex<_, _>, tf: &ProjMat3<_>| vertex(tf.apply(&v.pos), ()),
+            |_f, _| gray(0xFFu8).to_rgba(),
+        );
+        render(approx, &shader, &proj, vp, buf, ctx);
 
         let dt = dt.as_secs_f32();
         for (pos, vel) in &mut pos_vels {

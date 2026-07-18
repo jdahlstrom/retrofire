@@ -147,6 +147,32 @@ impl Target for Buf2<Color3> {
     }
 }
 
+impl Target for MutSlice2<'_, Color4> {
+    #[inline]
+    fn rasterize<V: Vary, U: Copy, Fs: FragmentShader<V, U>>(
+        &mut self,
+        sl: Scanline<V>,
+        fs: &Fs,
+        uni: U,
+        ctx: &Context,
+    ) {
+        rasterize(self, sl, fs, uni, |c| c, ctx)
+    }
+}
+
+impl Target for MutSlice2<'_, Color3> {
+    #[inline]
+    fn rasterize<V: Vary, U: Copy, Fs: FragmentShader<V, U>>(
+        &mut self,
+        sl: Scanline<V>,
+        fs: &Fs,
+        uni: U,
+        ctx: &Context,
+    ) {
+        rasterize(self, sl, fs, uni, |c| c.to_rgb(), ctx)
+    }
+}
+
 pub fn rasterize<B: AsMutSlice2, V: Vary, U: Copy>(
     buf: &mut B,
     mut sl: Scanline<V>,

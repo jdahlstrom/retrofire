@@ -9,24 +9,18 @@ use alloc::vec::Vec;
 use core::fmt::Debug;
 
 use crate::geom::Vertex;
-use crate::math::{
-    Mat4, ProjVec3, Vary,
-    mat::{RealToProj, RealToReal},
-};
+use crate::math::{Mat4, ProjVec3, Vary};
 
-use self::{
-    clip::{ClipVert, view_frustum},
-    ctx::DepthSort,
-    raster::Scanline,
-};
+use self::{clip::view_frustum, ctx::DepthSort};
 
 pub(super) mod re_exports {
     pub use super::{
         batch::Batch,
         cam::Camera,
-        clip::Clip,
+        clip::{Clip, ClipVert},
         ctx::Context,
         light::Light,
+        prim::Primitive,
         raster::Frag,
         scene::{BBox, Obj},
         shader::{FragmentShader, VertexShader},
@@ -57,32 +51,32 @@ pub mod text;
 #[cfg(feature = "stats")]
 pub mod stats;
 
-/// Renderable geometric primitive.
-pub trait Render<V: Vary> {
-    /// The type of this primitive in clip space
-    type Clip: Clip;
+mod impls;
 
-    /// The type of this primitive in screen space.
-    type Screen;
+pub trait Render<Var: Vary + 'static, Prim: Primitive<Var>, Vert> {
+    fn to_primitives<Shd, Uni: Copy>(
+        &self,
+        shader: &Shd,
+        uniform: Uni,
+    ) -> impl Iterator<Item = Prim::Clip>
+    where
+        Shd: VertexShader<Vert, Uni, Output = Vertex<ProjVec3, Var>>;
+}
 
-    /// Maps the indexes of the argument to vertices.
-    fn inline(ixd: Self, vs: &[ClipVert<V>]) -> Self::Clip;
+pub struct Indexed<Prims, Verts> {
+    pub prims: Prims,
+    pub verts: Verts,
+}
 
-    /// Returns the (average) depth of the argument.
-    fn depth(_clip: &Self::Clip) -> f32 {
-        f32::INFINITY
-    }
+pub struct TriFan<V>(pub Vec<V>);
 
-    /// Returns whether the argument is facing away from the camera.
-    fn is_backface(_: &Self::Screen) -> bool {
-        false
-    }
+pub struct TriStrip<V>(pub Vec<V>);
 
-    /// Transforms the argument from NDC to screen space.
-    fn to_screen(clip: Self::Clip, tf: &Mat4<Ndc, Screen>) -> Self::Screen;
-
-    /// Rasterizes the argument by calling the function for each scanline.
-    fn rasterize<F: FnMut(Scanline<V>)>(scr: Self::Screen, scanline_fn: F);
+/// Alias for combined vertex+fragment shader types
+pub trait Shader<Vtx, Var, Uni>:
+    VertexShader<Vtx, Uni, Output = Vertex<ProjVec3, Var>>
+    + FragmentShader<Var, Uni>
+{
 }
 
 /// Model space coordinate basis.
@@ -105,62 +99,40 @@ pub struct Ndc;
 #[derive(Copy, Clone, Debug, Default, Eq, PartialEq)]
 pub struct Screen;
 
-// Mapping from model space to world space.
-pub type ModelToWorld = RealToReal<3, Model, World>;
-
-// Mapping from world space to view space.
-pub type WorldToView = RealToReal<3, World, View>;
-
-/// Mapping from model space to view space.
-pub type ModelToView = RealToReal<3, Model, View>;
-
-/// Mapping from model space to view space.
-pub type ModelToProj = RealToProj<Model>;
-
-/// Mapping from view space to projective space.
-pub type ViewToProj = RealToProj<View>;
-
-/// Mapping from NDC space to screen space.
-pub type NdcToScreen = RealToReal<3, Ndc, Screen>;
-
-/// Alias for combined vertex+fragment shader types
-pub trait Shader<Vtx, Var, Uni>:
-    VertexShader<Vtx, Uni, Output = Vertex<ProjVec3, Var>>
-    + FragmentShader<Var, Uni>
-{
-}
-impl<S, Vtx, Var, Uni> Shader<Vtx, Var, Uni> for S where
-    S: VertexShader<Vtx, Uni, Output = Vertex<ProjVec3, Var>>
-        + FragmentShader<Var, Uni>
-{
-}
-
 /// Renders the given primitives into `target`.
-pub fn render<Prim, Vtx: Clone, Var, Uni: Copy, Shd>(
-    prims: impl AsRef<[Prim]>,
-    verts: impl AsRef<[Vtx]>,
+pub fn render<Prim, Vert, Geom, Var, Uni, Shd>(
+    geometry: &Geom,
     shader: &Shd,
     uniform: Uni,
     to_screen: Mat4<Ndc, Screen>,
     target: &mut impl Target,
     ctx: &Context,
 ) where
-    Prim: Render<Var> + Clone,
-    Var: Vary,
-    Shd: Shader<Vtx, Var, Uni>,
+    // FIXME Primitive currently tacitly assumes indexed representation!
+    Prim: Primitive<Var> + Clone,
+    Vert: Clone,
+    Geom: Render<Var, Prim, Vert>,
+    Var: Vary + 'static,
+    Uni: Copy,
+    Shd: Shader<Vert, Var, Uni>,
 {
     // 0. Setup
-    let prims = prims.as_ref();
-    let verts = verts.as_ref();
 
-    #[cfg(feature = "stats")]
-    let stats = Stats::start_call(prims.len(), verts.len());
+    // #[cfg(feature = "stats")]
+    // let stats = Stats::start_call(
+    //     geometry.primitives().as_ref().len(),
+    //     geometry.vertices().as_ref().len(),
+    // );
 
     // 1. Vertex shader: transform vertices to clip space
-    let verts = vertex_transform(shader, uniform, verts);
+    //let verts = vertex_transform(shader, uniform, verts);
+
+    //let geom_in_clip = geometry.transform_to_clip(shader, uniform);
 
     // 2. Primitive assembly: map vertex indices to actual vertices
-    let prims = primitive_assembly(prims, &verts);
+    //let prims = primitive_assembly(prims, &verts);
+
+    let prims = geometry.to_primitives(shader, uniform);
 
     // 3. Clipping: clip against the view frustum
     let clipped = Clip::clip(prims, &view_frustum::PLANES);
@@ -181,10 +153,10 @@ pub fn render<Prim, Vtx: Clone, Var, Uni: Copy, Shd>(
         )
     };
 
-    #[cfg(feature = "stats")]
-    {
-        *ctx.stats.borrow_mut() += stats.finish_call(prims_out, verts_out);
-    }
+    // #[cfg(feature = "stats")]
+    // {
+    //     *ctx.stats.borrow_mut() += stats.finish_call(prims_out, verts_out);
+    // }
 }
 
 fn rasterize<Prim, Shd, Var, Uni>(
@@ -196,7 +168,7 @@ fn rasterize<Prim, Shd, Var, Uni>(
     ctx: &Context,
 ) -> (usize, usize)
 where
-    Prim: Render<Var>,
+    Prim: Primitive<Var>,
     Shd: FragmentShader<Var, Uni>,
     Var: Vary,
     Uni: Copy,
@@ -226,37 +198,23 @@ where
 }
 
 #[inline]
-fn primitive_assembly<Prim: Render<Var> + Clone, Var: Vary>(
-    prims: &[Prim],
-    verts: &[ClipVert<Var>],
-) -> Vec<Prim::Clip> {
-    prims
-        .iter()
-        .cloned()
-        .map(|prim| Prim::inline(prim, verts))
-        .collect::<Vec<_>>()
-}
-
-#[inline]
-fn vertex_transform<Shd, Vtx: Clone, Var: Vary, Uni: Copy>(
+fn vertex_transform<'a, Shd, Vtx: Clone + 'a, Var: Vary, Uni: Copy>(
     shader: &Shd,
     uniform: Uni,
-    verts: &[Vtx],
+    verts: impl IntoIterator<Item = &'a Vtx>,
 ) -> Vec<ClipVert<Var>>
 where
     Shd: VertexShader<Vtx, Uni, Output = Vertex<ProjVec3, Var>>,
 {
     verts
-        // verts is borrowed, can't consume
-        .iter()
+        .into_iter()
         // TODO Pass vertex as ref to shader
-        .cloned()
-        .map(|v| shader.shade_vertex(v, uniform))
+        .map(|v| shader.shade_vertex(v.clone(), uniform))
         .map(ClipVert::new)
         .collect()
 }
 
-fn depth_sort<P: Render<V>, V: Vary>(prims: &mut [P::Clip], d: DepthSort) {
+fn depth_sort<P: Primitive<V>, V: Vary>(prims: &mut [P::Clip], d: DepthSort) {
     prims.sort_unstable_by(|t, u| {
         let z = P::depth(t);
         let w = P::depth(u);
@@ -266,4 +224,10 @@ fn depth_sort<P: Render<V>, V: Vary>(prims: &mut [P::Clip], d: DepthSort) {
             w.total_cmp(&z)
         }
     });
+}
+
+impl<S, Vtx, Var, Uni> Shader<Vtx, Var, Uni> for S where
+    S: VertexShader<Vtx, Uni, Output = Vertex<ProjVec3, Var>>
+        + FragmentShader<Var, Uni>
+{
 }

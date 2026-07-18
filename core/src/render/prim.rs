@@ -6,12 +6,74 @@ use crate::{
 };
 
 use super::{
-    Ndc, Render, Screen,
+    Clip, Ndc, Screen,
     clip::ClipVert,
     raster::{Scanline, ScreenPt, line, tri_fill},
 };
 
-impl<V: Vary + 'static> Render<V> for Tri<usize> {
+/// Renderable geometric primitive.
+pub trait Primitive<V: Vary> {
+    /// The type of this primitive in clip space
+    type Clip: Clip;
+
+    /// The type of this primitive in screen space.
+    type Screen;
+
+    /// Maps the indices of the argument to vertices.
+    fn inline(ixd: Self, vs: &[ClipVert<V>]) -> Self::Clip;
+
+    /// Returns the (average) depth of the argument.
+    fn depth(_clip: &Self::Clip) -> f32 {
+        f32::INFINITY
+    }
+
+    /// Returns whether the argument is facing away from the camera.
+    fn is_backface(_: &Self::Screen) -> bool {
+        false
+    }
+
+    /// Transforms the argument from NDC to screen space.
+    fn to_screen(clip: Self::Clip, tf: &Mat4<Ndc, Screen>) -> Self::Screen;
+
+    /// Rasterizes the argument by calling the function for each scanline.
+    fn rasterize<F: FnMut(Scanline<V>)>(scr: Self::Screen, scanline_fn: F);
+}
+
+impl<V: Vary + 'static, P, A> Primitive<V> for Tri<Vertex<P, A>> {
+    type Clip = Tri<ClipVert<V>>;
+    type Screen = Tri<Vertex<ScreenPt, V>>;
+
+    fn inline(_: Self, _: &[ClipVert<V>]) -> Self::Clip {
+        unimplemented!("should never be called for this impl")
+    }
+
+    fn to_screen(clip: Self::Clip, tf: &Mat4<Ndc, Screen>) -> Self::Screen {
+        Tri(to_screen(clip.0, tf))
+    }
+
+    fn rasterize<F: FnMut(Scanline<V>)>(scr: Self::Screen, scanline_fn: F) {
+        tri_fill(scr.0, scanline_fn);
+    }
+}
+
+impl<V: Vary + 'static, P, A> Primitive<V> for Edge<Vertex<P, A>> {
+    type Clip = Edge<ClipVert<V>>;
+    type Screen = Edge<Vertex<ScreenPt, V>>;
+
+    fn inline(_: Self, _: &[ClipVert<V>]) -> Self::Clip {
+        unimplemented!("should never be called for this impl")
+    }
+
+    fn to_screen(clip: Self::Clip, tf: &Mat4<Ndc, Screen>) -> Self::Screen {
+        to_screen([clip.0, clip.1], tf).into()
+    }
+
+    fn rasterize<F: FnMut(Scanline<V>)>(scr: Self::Screen, scanline_fn: F) {
+        line([scr.0, scr.1], scanline_fn);
+    }
+}
+
+impl<V: Vary + 'static> Primitive<V> for Tri<usize> {
     type Clip = Tri<ClipVert<V>>;
     type Screen = Tri<Vertex<ScreenPt, V>>;
 
@@ -44,7 +106,7 @@ impl<V: Vary + 'static> Render<V> for Tri<usize> {
     }
 }
 
-impl<V: Vary> Render<V> for Edge<usize> {
+impl<V: Vary> Primitive<V> for Edge<usize> {
     type Clip = Edge<ClipVert<V>>;
     type Screen = Edge<Vertex<ScreenPt, V>>;
 

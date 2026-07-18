@@ -28,10 +28,6 @@ use view_frustum::{outcode, status};
 /// Trait for types that can be [clipped][self] against convex volumes.
 ///
 /// # Note to implementors
-/// This trait is primarily meant to be implemented on slices or other
-/// composites, so that several primitives can be clipped in a single call.
-/// This allows reuse of temporary buffers, for instance.
-///
 /// Implementations should avoid creating degenerate primitives, such as
 /// triangles with only two unique vertices.
 pub trait Clip {
@@ -429,7 +425,7 @@ impl<A: Lerp + 'static> Clip for Tri<ClipVert<A>> {
                 //             |.../.....\
                 //     /       |./.........\
                 //             |/............\
-                //   C  _  _  _R_______________A
+                //  C  _  _  _ R_______________A
                 //             |
                 //             |
                 //
