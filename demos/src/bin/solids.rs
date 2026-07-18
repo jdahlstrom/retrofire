@@ -1,5 +1,5 @@
 use core::ops::ControlFlow::Continue;
-use std::sync::LazyLock;
+use std::{env, sync::LazyLock};
 
 use minifb::{Key, KeyRepeat};
 
@@ -16,7 +16,7 @@ use re::geom::{io::read_obj, solids::*};
 #[derive(Default)]
 struct State {
     lod: u32,
-    objects: [Mesh<Normal3>; 14],
+    objects: [Mesh<Normal3>; N_OBJS],
     debug_mesh: DbgMesh<Normal3, Model>,
     debug_flags: [bool; 6],
 
@@ -68,6 +68,13 @@ fn main() {
     let translate = translate(-3.0 * Vec3::Z);
 
     let mut state = State::new();
+    if let Some(idx) = env::args().nth(1) {
+        let Some(idx) = idx.parse().ok().filter(|&i| i < N_OBJS) else {
+            panic!("argument must be integer in range 0..={}", N_OBJS - 1)
+        };
+        state.idx = idx;
+    }
+
     win.run(|frame| {
         let Frame { t, dt, win, .. } = frame;
 
@@ -128,9 +135,11 @@ fn main() {
     });
 }
 
+const N_OBJS: usize = 14;
+
 // Creates the 14 objects exhibited.
 #[rustfmt::skip]
-fn objects_n(res: u32) -> [Mesh<Normal3>; 14] {
+fn objects_n(res: u32) -> [Mesh<Normal3>; N_OBJS] {
     let segments = res;
     let sectors = 2 * res;
 
