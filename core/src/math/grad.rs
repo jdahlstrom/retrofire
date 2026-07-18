@@ -5,11 +5,11 @@ use super::{Lerp, Parametric, Point2, inv_lerp};
 
 /// A position-based color progression that can be used to fill a 2D surface.
 #[derive(Clone, Debug, PartialEq)]
-pub struct Gradient2<T> {
+pub struct Gradient2<Stops> {
     /// The shape of the gradient.
     pub kind: Kind<Point2>,
     /// The sequence of colors to interpolate between.
-    pub map: ColorMap<T>,
+    pub map: ColorMap<Stops>,
 }
 
 /// The shape of a gradient.
@@ -39,9 +39,9 @@ pub enum Kind<Pt> {
 /// A sequence of (number, color) pairs, mapping t values to colors.
 /// The numbers must be in a *nondecreasing* order.
 #[derive(Clone, Debug, PartialEq)]
-pub struct ColorMap<T>(Vec<(f32, T)>);
+pub struct ColorMap<Stops>(Stops);
 
-impl<T: Lerp> Gradient2<T> {
+impl<T: Lerp> Gradient2<Vec<(f32, T)>> {
     /// Creates a new gradient.
     ///
     /// # Panics
@@ -73,7 +73,7 @@ impl<T: Lerp> Gradient2<T> {
     }
 }
 
-impl<T> ColorMap<T> {
+impl<T> ColorMap<Vec<(f32, T)>> {
     /// Creates a new color map.
     ///
     /// # Panics
@@ -92,22 +92,34 @@ impl<T> ColorMap<T> {
     }
 }
 
-impl<T: Lerp> Parametric<T> for ColorMap<T> {
+impl<Stops> ColorMap<Stops> {
+    pub fn stops<T>(&self) -> &[T]
+    where
+        Stops: AsRef<[T]>,
+    {
+        self.0.as_ref()
+    }
+}
+
+impl<T: Lerp, Stops> Parametric<T> for ColorMap<Stops>
+where
+    Stops: AsRef<[(f32, T)]>,
+{
     fn eval(&self, t: f32) -> T {
-        let v = &self.0[..];
-        debug_assert!(!v.is_empty(), "failed invariant");
-        let res = v.binary_search_by(|(u, _)| u.total_cmp(&t));
+        let stops = &self.stops();
+        debug_assert!(!stops.is_empty(), "failed invariant");
+        let res = stops.binary_search_by(|(u, _)| u.total_cmp(&t));
         match res {
             // t == t_i
-            Ok(i) => v[i].1.clone(),
+            Ok(i) => stops[i].1.clone(),
             // t < t_0
-            Err(0) => v[0].1.clone(),
+            Err(0) => stops[0].1.clone(),
             // t > t_n
-            Err(i) if i == v.len() => v[i - 1].1.clone(),
+            Err(i) if i == stops.len() => stops[i - 1].1.clone(),
             // 0 < i < len
             Err(i) => {
-                let (t1, v1) = &v[i - 1]; // ok: 0 < i
-                let (t2, v2) = &v[i]; // ok: i < len
+                let (t1, v1) = &stops[i - 1]; // ok: 0 < i
+                let (t2, v2) = &stops[i]; // ok: i < len
                 // Remap t such that t=0 -> v1 and t=1 -> v2
                 v1.lerp(v2, inv_lerp(t, *t1, *t2))
             }
@@ -255,12 +267,12 @@ mod tests {
     #[test]
     #[should_panic(expected = "at least one stop is required")]
     fn stops_with_zero_entries_panics() {
-        _ = ColorMap::<()>::new([]);
+        _ = ColorMap::<Vec<(f32, ())>>::new([]);
     }
 
     #[test]
     #[should_panic(expected = "t values must be nondecreasing")]
     fn stops_with_nondecreasing_t_panics() {
-        _ = ColorMap::<()>::new([(0.8, ()), (0.2, ())]);
+        _ = ColorMap::<Vec<(f32, ())>>::new([(0.8, ()), (0.2, ())]);
     }
 }

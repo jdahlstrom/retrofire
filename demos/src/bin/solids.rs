@@ -187,7 +187,7 @@ fn lathe(secs: u32) -> Mesh<Normal3> {
     let verts = 0.0.vary_to(1.0, 2 * secs).map(|t| {
         vertex(spline.eval(t), -spline.velocity(t).normalize().perp())
     });
-    let pl = Polyline::new(verts);
+    let pl = Polyline::from_iter(verts);
     let segs = pl.0.len() as u32;
     Lathe::new(pl, secs, segs).capped(true).build()
 }

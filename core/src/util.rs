@@ -5,6 +5,7 @@ pub mod dims;
 pub mod pixfmt;
 pub mod pnm;
 mod rect;
+pub mod seq;
 
 pub(super) mod re_exports {
     pub use super::{
