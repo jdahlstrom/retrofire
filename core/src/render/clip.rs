@@ -447,7 +447,6 @@ impl<A: Lerp + 'static> Clip for Tri<ClipVert<A>> {
 }
 
 #[cfg(test)]
-#[cfg(false)] // FIXME fix tests
 mod tests {
     use alloc::vec;
 
@@ -467,6 +466,10 @@ mod tests {
 
     fn tri(a: ClipVec, b: ClipVec, c: ClipVec) -> Tri<ClipVert<f32>> {
         Tri([a, b, c]).map(vtx)
+    }
+
+    fn poly<const N: usize>(pts: [ClipVec; N]) -> [ClipVert<f32>; N] {
+        pts.map(vtx)
     }
 
     #[test]
@@ -500,278 +503,317 @@ mod tests {
         assert_eq!(outcode(&vec(-2.0, 0.0, 2.0)), 0b00_01_10);
     }
 
-    #[test]
-    fn edge_clip_inside() {
-        let e = [vec(2.0, 0.0, -1.0), vec(-1.0, 1.0, 1.0)].map(vtx);
-        let mut res = vec![];
-        FAR_PLANE.clip_simple_polygon(&e, &mut res);
-        assert_eq!(res, e);
-    }
-    #[test]
-    fn edge_clip_outside() {
-        let e = [vec(2.0, 0.0, 1.5), vec(-1.0, 1.0, 2.0)].map(vtx);
-        let mut res = vec![];
-        FAR_PLANE.clip_simple_polygon(&e, &mut res);
-        assert_eq!(res, []);
-    }
-    #[test]
-    fn edge_clip_in_out() {
-        let e = [vec(2.0, 0.0, 0.0), vec(-1.0, 1.0, 2.0)].map(vtx);
-        let mut res = vec![];
-        FAR_PLANE.clip_simple_polygon(&e, &mut res);
-        // clip_simple_polygon treats a single edge as a degenerate polygon,
-        // inserting an additional vertex
-        assert_eq!(res[..2], [e[0], vtx(vec(0.5, 0.5, 1.0))]);
-    }
-    #[test]
-    fn edge_clip_out_in() {
-        let e = [vec(2.0, 0.0, 4.0), vec(-1.0, 1.0, 0.0)].map(vtx);
-        let mut res = vec![];
-        FAR_PLANE.clip_simple_polygon(&e, &mut res);
-        // clip_simple_polygon treats a single edge as a degenerate polygon,
-        // inserting an additional vertex
-        assert_eq!(res[..2], [vtx(vec(-0.25, 0.75, 1.0)), e[1]]);
-    }
+    /// Clipping against a single plane
+    mod far_plane {
+        use super::*;
 
-    #[test]
-    fn tri_clip_fully_inside() {
-        let tri =
-            tri(vec(0.0, -1.0, 0.0), vec(2.0, 0.0, 0.5), vec(-1.0, 1.5, 0.0));
-        let res = Tri::clip([tri], &[FAR_PLANE]).collect::<Vec<_>>();
-        assert_eq!(res, &[tri]);
-    }
-    #[test]
-    fn tri_clip_fully_outside() {
-        let tri =
-            tri(vec(0.0, -1.0, 1.5), vec(2.0, 0.0, 1.5), vec(-1.0, 1.5, 2.0));
-        let res = &mut vec![];
-        //[tri].clip(&[FAR_PLANE], res);
-        assert_eq!(res, &[]);
-    }
+        // Clipping degenerate polys (single edge)
+        // TODO Probably not very useful tests, should rather test
+        //      the actual Clip impl for Edge...
 
-    #[test]
-    fn tri_clip_inside_on_on() {
-        //
-        // 1.0  --on1------------on2-- plane
-        //          \           /
-        //           \       /
-        //            \   /
-        // 0.0         ins
-        //       -1.0  0.0  1.0  2.0
-        let tri =
-            tri(vec(0.0, -1.0, 0.0), vec(2.0, 0.0, 1.0), vec(-1.0, 1.5, 1.0));
-        let res = &mut vec![];
-        //[tri].clip(&[FAR_PLANE], res);
-        assert_eq!(res, &[tri]);
-    }
+        #[test]
+        fn edge_inside() {
+            let e = [vec(2.0, 0.0, -1.0), vec(-1.0, 1.0, 1.0)].map(vtx);
+            let mut res = vec![];
+            FAR_PLANE.clip_simple_polygon(&e, &mut res);
+            assert_eq!(res, e);
+        }
+        #[test]
+        fn edge_outside() {
+            let e = poly([vec(2.0, 0.0, 1.5), vec(-1.0, 1.0, 2.0)]);
+            let mut res = vec![];
+            FAR_PLANE.clip_simple_polygon(&e, &mut res);
+            assert_eq!(res, []);
+        }
+        #[test]
+        fn edge_in_out() {
+            let e = poly([vec(2.0, 0.0, 0.0), vec(-1.0, 1.0, 2.0)]);
+            let mut res = vec![];
+            FAR_PLANE.clip_simple_polygon(&e, &mut res);
+            // clip_simple_polygon treats a single edge as a degenerate polygon,
+            // inserting an additional vertex
+            assert_eq!(res[..2], [e[0], vtx(vec(0.5, 0.5, 1.0))]);
+        }
+        #[test]
+        fn edge_out_in() {
+            let e = poly([vec(2.0, 0.0, 4.0), vec(-1.0, 1.0, 0.0)]);
+            let mut res = vec![];
+            FAR_PLANE.clip_simple_polygon(&e, &mut res);
+            // clip_simple_polygon treats a single edge as a degenerate polygon,
+            // inserting an additional vertex
+            assert_eq!(res[..2], [vtx(vec(-0.25, 0.75, 1.0)), e[1]]);
+        }
 
-    #[test]
-    fn tri_clip_outside_inside_inside() {
-        // 2.0      out
-        //           | \
-        //           |  \
-        // 1.0  -----+---+----- plane
-        //           |    \
-        //           |     \
-        // 0.0      in1----in2
-        //          0.0    1.0
-        let out = vec(0.0, 0.0, 2.0);
-        let in1 = vec(0.0, 1.0, 0.0);
-        let in2 = vec(1.0, 0.0, 0.0);
-        let tr = tri(out, in1, in2);
+        #[test]
+        fn tri_fully_inside() {
+            let tr = poly([
+                vec(0.0, -1.0, 0.0),
+                vec(2.0, 0.0, 1.0),
+                vec(-1.0, 1.5, -1.0),
+            ]);
 
-        let res = &mut vec![];
-        //[tr].clip(&[FAR_PLANE], res);
-        assert_eq!(
-            res,
-            &[
-                // Clipping `out` leaves a quadrilateral
-                tri(vec(0.0, 0.5, 1.0), in1, in2),
-                tri(vec(0.0, 0.5, 1.0), in2, vec(0.5, 0.0, 1.0))
-            ]
-        );
-    }
-    #[test]
-    fn tri_clip_outside_on_inside() {
-        // 2.0      out
-        //           | \
-        //           |   \
-        // 1.0  -----+----on--- plane
-        //           |   /
-        //           | /
-        // 0.0    . ins .  .  .
-        //          0.0   1.0
-        let out = vec(0.0, 0.0, 2.0);
-        let on = vec(1.0, 0.0, 1.0);
-        let ins = vec(0.0, -1.0, 0.0);
-        let tr = tri(out, on, ins);
+            let mut res = vec![];
+            FAR_PLANE.clip_simple_polygon(&tr, &mut res);
+            assert_eq!(res, tr);
+        }
 
-        let res = &mut vec![];
-        //[tr].clip(&[FAR_PLANE], res);
-        assert_eq!(res, &[tri(on, ins, vec(0.0, -0.5, 1.0))]);
-    }
-    #[test]
-    fn tri_clip_outside_on_on() {
-        // 2.0      out
-        //           | \
-        //           |   \
-        // 1.0   ---on2---on1-- plane
-        //           .
-        //           .
-        // 0.0    .  o  .  .  .
-        //          0.0   1.0
-        let out = vec(0.0, 0.0, 2.0);
-        let on1 = vec(1.0, 0.0, 1.0);
-        let on2 = vec(0.0, -1.0, 1.0);
-        let tr = tri(out, on1, on2);
+        #[test]
+        fn tri_fully_outside() {
+            let tr = poly([
+                vec(0.0, -1.0, 1.5),
+                vec(2.0, 0.0, 1.0 + 1e-6),
+                vec(-1.0, 1.5, 2.0),
+            ]);
 
-        let res = &mut vec![];
-        //[tr].clip(&[FAR_PLANE], res);
-        assert_eq!(res, &[]);
-    }
+            let mut res = vec![];
+            FAR_PLANE.clip_simple_polygon(&tr, &mut res);
+            assert_eq!(res, []);
+        }
 
-    #[test]
-    fn tri_clip_against_frustum_fully_inside() {
-        let tr = tri(
-            vec(-1.0, -1.0, -1.0),
-            vec(1.0, 1.0, 0.0),
-            vec(0.0, 1.0, 1.0),
-        );
-        let res = &mut vec![];
-        //[tr].clip(&PLANES, res);
-        assert_eq!(res, &[tr]);
-    }
-    #[test]
-    fn tri_clip_against_frustum_fully_outside() {
-        //    z
-        //    ^
-        //    2-------0
-        //    · \     |
-        //  --1---+   |
-        //    ·   | \ |
-        //    + - 1 - 2 - - > x
-        //        |
-        //  ------+
+        #[test]
+        fn tri_inside_on_on() {
+            //
+            // 1.0  --on1------------on2-- plane
+            //          \           /
+            //           \       /
+            //            \   /
+            // 0.0         ins
+            //       -1.0  0.0  1.0  2.0
+            let ins = vec(0.0, -1.0, 0.0);
+            let on1 = vec(2.0, 0.0, 1.0);
+            let on2 = vec(-1.0, 1.5, 1.0);
 
-        let tr =
-            tri(vec(2.0, 2.0, 2.0), vec(2.0, -2.0, 0.0), vec(0.0, -1.0, 2.0));
+            let tr = poly([ins, on1, on2]);
 
-        let res = &mut vec![];
-        //[tr].clip(&PLANES, res);
-        assert_eq!(res, &[]);
-    }
-    #[test]
-    fn tri_clip_against_frustum_result_is_quad() {
-        //    z
-        //    ^
-        //    2
-        //    | \
-        //  - 1---+
-        //    |   | \
-        //    0---1---2 - - > x
-        //        |
-        //  - ----+
+            let mut res = vec![];
+            FAR_PLANE.clip_simple_polygon(&tr, &mut res);
+            assert_eq!(res, tr);
+        }
 
-        let tr =
-            tri(vec(0.0, 0.0, 0.0), vec(2.0, 0.0, 0.0), vec(0.0, 0.0, 2.0));
+        #[test]
+        fn tri_outside_inside_inside() {
+            // 2.0      out
+            //           | \
+            //           |  \
+            // 1.0  -----p---q----- plane
+            //           |    \
+            //           |     \
+            // 0.0      in1----in2
+            //          0.0    1.0
+            let out = vec(0.0, 0.0, 2.0);
+            let in1 = vec(0.0, 1.0, 0.0);
+            let in2 = vec(1.0, 0.0, 0.0);
 
-        let res = &mut vec![];
-        //[tr].clip(&PLANES, res);
-        assert_eq!(
-            res,
-            &[
-                tri(vec(0.0, 0.0, 0.0), vec(1.0, 0.0, 0.0), vec(1.0, 0.0, 1.0)),
-                tri(vec(0.0, 0.0, 0.0), vec(1.0, 0.0, 1.0), vec(0.0, 0.0, 1.0))
-            ]
-        );
+            let tr = poly([out, in1, in2]);
+
+            let mut res = vec![];
+            FAR_PLANE.clip_simple_polygon(&tr, &mut res);
+            let p = vec(0.0, 0.5, 1.0);
+            let q = vec(0.5, 0.0, 1.0);
+            // Clipping `out` leaves a quadrilateral
+            assert_eq!(res, poly([p, in1, in2, q]));
+        }
+        #[test]
+        fn tri_outside_on_inside() {
+            // 2.0      out
+            //           | \
+            //           |   \
+            // 1.0  -----p----on--- plane
+            //           |   /
+            //           | /
+            // 0.0    . ins .  .  .
+            //          0.0   1.0
+            let out = vec(0.0, 0.0, 2.0);
+            let on = vec(1.0, 0.0, 1.0);
+            let ins = vec(0.0, -1.0, 0.0);
+
+            let tr = poly([out, on, ins]);
+
+            let mut res = vec![];
+            FAR_PLANE.clip_simple_polygon(&tr, &mut res);
+            let p = vec(0.0, -0.5, 1.0);
+            assert_eq!(res, poly([on, ins, p]));
+        }
+        #[test]
+        fn tri_outside_on_on() {
+            // 2.0      out
+            //           | \
+            //           |   \
+            // 1.0   ---on2---on1-- plane
+            //           .
+            //           .
+            // 0.0    .  o  .  .  .
+            //          0.0   1.0
+            let out = vec(0.0, 0.0, 2.0);
+            let on1 = vec(1.0, 0.0, 1.0);
+            let on2 = vec(0.0, -1.0, 1.0);
+            let tr = poly([out, on1, on2]);
+
+            let mut res = vec![];
+            FAR_PLANE.clip_simple_polygon(&tr, &mut res);
+            // Returns a degenerate poly with a single vertex, such polys are
+            // discarded by the Tri Clip impl which only returns full triangles
+            assert_eq!(res, poly([on1, on2]));
+        }
     }
 
-    #[test]
-    fn tri_clip_against_frustum_result_is_heptagon() {
-        //        z
-        //        ^       2
-        //        ·   /  /
-        //    +---/---+ /
-        //    /   ·   |/
-        //  0 | · o · / · · > x
-        //    \   ·  /|
-        //    +-\---/-+
-        //        1
+    /// Clipping against the whole view frustum (six planes)
+    mod frustum {
+        use super::*;
 
-        let tr =
-            tri(vec(-1.5, 0.0, 0.0), vec(0.0, 0.0, -1.5), vec(2.0, 0.0, 2.0));
-
-        let res = &mut vec![];
-        //[tr].clip(&PLANES, res);
-
-        // 7 intersection points -> clipped shape made of 5 triangles
-        assert_eq!(res.len(), 5);
-        assert!(res.iter().all(in_bounds));
-    }
-
-    #[test]
-    #[allow(unused)]
-    fn tri_clip_against_frustum_all_cases() {
-        // Methodically go through every possible combination of every
-        // vertex inside/outside every plane, including degenerate cases.
-
-        let xs = || (-2.0).vary(1.0, Some(5));
-
-        let pts: Vec<_> = xs()
-            .flat_map(move |x| {
-                xs().flat_map(move |y| xs().map(move |z| vec(x, y, z)))
-            })
-            .collect();
-
-        let tris = pts.iter().flat_map(|a| {
-            pts.iter()
-                .flat_map(|b| pts.iter().map(|c| tri(*a, *b, *c)))
-        });
-
-        let mut in_tris = 0;
-        let mut in_degen = 0;
-        let mut out_tris = [0; 8];
-        let mut out_degen = 0;
-        let mut out_total = 0;
-        for tr in tris {
-            let res = &mut vec![];
-            //[tr].clip(&PLANES, res);
-            assert!(
-                res.iter().all(in_bounds),
-                "clip returned oob vertex:\n\
-                    input: {:#?}\n\
-                    output: {:#?}",
-                tr,
-                &res
+        #[test]
+        fn tri_fully_inside_result_no_change() {
+            let tr = tri(
+                vec(-1.0, -1.0, -1.0),
+                vec(1.0, 1.0, 0.0),
+                vec(0.0, 1.0, 1.0),
             );
-            in_tris += 1;
-            in_degen += is_degenerate(&tr) as u32;
-            out_tris[res.len()] += 1;
-            out_total += res.len();
-            out_degen += res.iter().filter(|t| is_degenerate(t)).count();
+            let mut res = Tri::clip([tr], &PLANES);
+            assert_eq!(res.next(), Some(tr));
+            assert_eq!(res.next(), None);
         }
-        #[cfg(feature = "std")]
-        {
-            use std::dbg;
-            dbg!(in_tris);
-            dbg!(in_degen);
-            dbg!(out_degen);
-            dbg!(out_total);
+        #[test]
+        fn tri_fully_outside_result_empty() {
+            //    z
+            //    ^
+            //    2-------0
+            //    · \     |
+            //  --1---+   |
+            //    ·   | \ |
+            //    + - 1 - 2 - - > x
+            //        |
+            //  ------+
+
+            let tr = tri(
+                vec(2.0, 2.0, 2.0),
+                vec(2.0, -2.0, 0.0),
+                vec(0.0, -1.0, 2.0),
+            );
+            assert_eq!(Tri::clip([tr], &PLANES).next(), None);
         }
-        assert_eq!(in_tris, 5i32.pow(9));
-        assert_eq!(
-            out_tris,
-            [559754, 536199, 537942, 254406, 58368, 6264, 192, 0]
-        );
-    }
+        #[test]
+        fn tri_result_is_quad() {
+            //    z
+            //    ^
+            //    2
+            //    | \
+            //  - 1---+
+            //    |   | \
+            //    0---1---2 - - > x
+            //        |
+            //  - ----+
 
-    fn is_degenerate(Tri([a, b, c]): &Tri<ClipVert<f32>>) -> bool {
-        a.pos == b.pos || a.pos == c.pos || b.pos == c.pos
-    }
+            let tr =
+                tri(vec(0.0, 0.0, 0.0), vec(2.0, 0.0, 0.0), vec(0.0, 0.0, 2.0));
 
-    fn in_bounds(Tri(vs): &Tri<ClipVert<f32>>) -> bool {
-        vs.iter()
-            .flat_map(|v| (v.pos / v.pos.w()).0)
-            .all(|a| a.abs() <= 1.00001)
+            let mut res = Tri::clip([tr], &PLANES);
+            assert_eq!(
+                res.next(),
+                Some(tri(
+                    vec(0.0, 0.0, 0.0),
+                    vec(1.0, 0.0, 1.0),
+                    vec(0.0, 0.0, 1.0)
+                ))
+            );
+            assert_eq!(
+                res.next(),
+                Some(tri(
+                    vec(0.0, 0.0, 0.0),
+                    vec(1.0, 0.0, 0.0),
+                    vec(1.0, 0.0, 1.0)
+                ))
+            );
+            assert_eq!(res.next(), None);
+        }
+
+        #[test]
+        fn tri_result_is_heptagon() {
+            //        z
+            //        ^       2
+            //        ·   /  /
+            //    +---/---+ /
+            //    /   ·   |/
+            //  0 | · o · / · · > x
+            //    \   ·  /|
+            //    +-\---/-+
+            //        1
+
+            let tr = tri(
+                vec(-1.5, 0.0, 0.0),
+                vec(0.0, 0.0, -1.5),
+                vec(2.0, 0.0, 2.0),
+            );
+
+            let res = Tri::clip([tr], &PLANES).collect::<Vec<_>>();
+
+            // 7 intersection points -> clipped shape made of 5 triangles
+            assert_eq!(res.len(), 5);
+            assert!(res.iter().all(in_bounds));
+        }
+
+        #[test]
+        #[allow(unused)]
+        fn tri_all_cases() {
+            // Methodically go through every possible combination of every
+            // vertex inside/outside every plane, including degenerate cases.
+
+            let xs = || (-2.0).vary(1.0, Some(5));
+
+            let pts: Vec<_> = xs()
+                .flat_map(move |x| {
+                    xs().flat_map(move |y| xs().map(move |z| vec(x, y, z)))
+                })
+                .collect();
+
+            let tris = pts.iter().flat_map(|a| {
+                pts.iter()
+                    .flat_map(|b| pts.iter().map(|c| tri(*a, *b, *c)))
+            });
+
+            let mut in_tris = 0;
+            let mut in_degen = 0;
+            let mut out_tris = [0; 8];
+            let mut out_degen = 0;
+            let mut out_total = 0;
+            for tr in tris {
+                let res = Tri::clip([tr], &PLANES).collect::<Vec<_>>();
+                assert!(
+                    res.iter().all(in_bounds),
+                    "clip returned oob vertex:\n\
+                    input: {:?}\n\n\
+                    output: {:?}",
+                    tr,
+                    &res
+                );
+                in_tris += 1;
+                in_degen += is_degenerate(&tr) as u32;
+                out_tris[res.len()] += 1;
+                out_total += res.len();
+                out_degen += res.iter().filter(|t| is_degenerate(t)).count();
+            }
+            #[cfg(feature = "std")]
+            {
+                use std::dbg;
+                dbg!(in_tris);
+                dbg!(in_degen);
+                dbg!(out_degen);
+                dbg!(out_total);
+            }
+            assert_eq!(in_tris, 5i32.pow(9));
+            assert_eq!(
+                out_tris,
+                [559754, 536199, 537942, 254406, 58368, 6264, 192, 0]
+            );
+        }
+
+        fn is_degenerate(Tri([a, b, c]): &Tri<ClipVert<f32>>) -> bool {
+            a.pos == b.pos || a.pos == c.pos || b.pos == c.pos
+        }
+
+        fn in_bounds(Tri(vs): &Tri<ClipVert<f32>>) -> bool {
+            vs.iter()
+                .flat_map(|v| (v.pos / v.pos.w()).0)
+                .all(|a| a.abs() <= 1.00001)
+        }
     }
 }
