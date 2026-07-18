@@ -11,6 +11,7 @@ use std::time::Instant;
 use minifb::{Key, WindowOptions};
 
 use retrofire_core::{
+    math::pt3,
     render::{Colorbuf, Context, Text, target},
     util::{Buf2, Dims, MutSlice2, dims, pixfmt::Xrgb8888},
 };
@@ -132,7 +133,7 @@ impl Window {
         let mut ctx = self.ctx.clone();
 
         let mut fps = Text::new(font_6x10());
-        fps.anchor = (2.0, 2.0).into();
+        fps.anchor = pt3(2.0, 2.0, 0.0);
 
         let start = Instant::now();
         let mut last = Instant::now();

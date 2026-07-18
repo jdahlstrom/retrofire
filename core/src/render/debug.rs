@@ -2,16 +2,22 @@
 //! for debugging purposes. Includes normals, bounding boxes, and more.
 
 use alloc::vec::Vec;
+use core::fmt::Write;
 
 use crate::geom::{Edge, Mesh, Normal3, Pos, Tri, Vertex, Vertex3, vertex};
 use crate::math::{
-    Color, Color4, Color4f, Mat4, Point3, Vec3, color::gray, mat::ProjMat3,
-    pt3, vec::ProjVec3,
+    Color, Color3, Color4, Color4f, Mat4, Point3, Vec3, color::gray,
+    mat::ProjMat3, pt3, vec::ProjVec3,
+};
+use crate::util::{Dims, pnm::read_pnm};
+
+use super::{
+    Context, Frag, FragmentShader, Model, Text, VertexShader, scene::BBox,
+    tex::Atlas,
 };
 #[cfg(feature = "fp")]
 use crate::math::{Vary, polar, turns, vec3};
-
-use super::{Context, Frag, FragmentShader, VertexShader, scene::BBox};
+use crate::render::text::Align;
 
 #[derive(Copy, Clone, Default)]
 pub struct Shader;
@@ -36,6 +42,14 @@ pub type DbgBatch<B> = super::Batch<
     Context,
 >;
 
+pub static FONT_6X10: &[u8] = include_bytes!("../../assets/font_6x10.pbm");
+
+/// Returns a 6x10 bitmap font, e.g. for rendering debug messages.
+pub fn font_6x10() -> Atlas<Color3> {
+    let font = read_pnm(FONT_6X10).expect("font statically included");
+    Atlas::grid(Dims(6, 10), font.into())
+}
+
 /// Returns a color visualizing the direction of a vector.
 ///
 /// # Examples
@@ -54,6 +68,14 @@ pub fn dir_to_rgb<B>(v: Vec3<B>) -> Color4f {
     (0.5 * Color::new(v.0) + gray(0.5))
         .clamp(&gray(0.0), &gray(1.0))
         .to_rgba()
+}
+
+pub fn text(s: &str) -> Text {
+    // TODO re-reads and duplicates atlas every time...
+    let mut text = Text::new(font_6x10());
+    text.align = Align::Center;
+    text.write_str(s).expect("cannot fail");
+    text
 }
 
 /// Draws an illustration of a ray.

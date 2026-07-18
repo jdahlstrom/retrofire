@@ -1,16 +1,19 @@
 use core::fmt;
+use std::dbg;
 #[cfg(feature = "std")]
 use std::io;
 
-use crate::geom::{Mesh, Tri, Vertex3, tri, vertex};
+use crate::geom::{Mesh, Tri, Vertex, Vertex3, tri, vertex};
 use crate::math::{
-    Color3, Color4, Point2, ProjMat3, Vec2, color::gray, orthographic, pt2,
-    pt3, vec2, vec3, viewport,
+    Color3, Color4, Mat4, Point2, Point3, ProjMat3, ProjVec3, Vec2,
+    color::gray, orthographic, pt2, pt3, vec2, vec3, viewport,
 };
 use crate::util::{Buf2, Dims};
 
-use super::tex::*;
-use super::{BBox, Context, Frag, Model, Shader, Target, shader};
+use super::{
+    BBox, Context, Frag, FragmentShader, Model, Target, VertexShader, View,
+    tex::*,
+};
 
 /// Text represented as texture-mapped geometry, one quad per glyph.
 #[derive(Clone)]
@@ -18,7 +21,7 @@ pub struct Text {
     pub font: Atlas<Color3>,
     pub geom: Mesh<TexCoord>,
     pub color: Color3,
-    pub anchor: Point2,
+    pub anchor: Point3,
     pub align: Align,
     cursor: Point2<Model>,
 }
@@ -37,11 +40,13 @@ pub enum Align {
     BottomRight,
 }
 
-pub type Batch<'a, Shd> = super::Batch<
+pub struct Shader<'a>(&'a Text);
+
+pub type Batch<'a> = super::Batch<
     &'a [Tri<usize>],
     &'a [Vertex3<TexCoord>],
     (),
-    Shd,
+    Shader<'a>,
     (),
     Context,
 >;
@@ -57,7 +62,7 @@ impl Text {
             font,
             geom: Mesh::default(),
             color: gray(0xFF),
-            anchor: Point2::default(),
+            anchor: Point3::default(),
             align: Align::default(),
             cursor: Point2::default(),
         }
@@ -65,7 +70,7 @@ impl Text {
 
     /// Sets the anchor point of the text.
     #[must_use]
-    pub fn anchor(mut self, pt: impl Into<Point2>) -> Self {
+    pub fn anchor(mut self, pt: impl Into<Point3>) -> Self {
         self.anchor = pt.into();
         self
     }
@@ -78,24 +83,34 @@ impl Text {
     }
 
     /// Returns a shader for rendering text.
-    pub fn shader(
-        &self,
-    ) -> impl Shader<Vertex3<TexCoord>, TexCoord, &ProjMat3<Model>> {
-        shader::new(
-            |v: Vertex3<_>, tf: &ProjMat3<_>| {
-                vertex(tf.apply(&v.pos.to()), v.attrib)
-            },
-            |frag: Frag<TexCoord>, _| self.sample(frag.var),
-        )
+    pub fn shader(&self) -> Shader<'_> {
+        Shader(self)
     }
 
     /// Renders this text to a render target in 2D.
     ///
     /// For more customizable rendering, see the [`batch`][Self::batch] function.
     pub fn render(&self, target: &mut impl Target) {
-        let BBox(_lt, rb) = BBox::of(&self.geom);
-        let [r, b, _] = rb.0;
+        // TODO keep track of this state
+        let [right, bot, _] = BBox::of(&self.geom).1.0;
 
+        let proj: ProjMat3<View> =
+            orthographic(pt3(0.0, 0.0, -1.0), pt3(self.cursor.x(), bot, 1.0))
+                .to();
+
+        let left_top = self.left_top();
+        let left_top = pt2(left_top.x() as u32, left_top.y() as u32);
+        let right_bot = left_top + vec2(right as i32, bot as i32);
+        let viewport = viewport(left_top..right_bot);
+
+        self.batch()
+            .uniform((&Mat4::identity(), &proj))
+            .viewport(viewport)
+            .target(target)
+            .render();
+    }
+
+    pub fn left_top(&self) -> Point3<Model> {
         use Align::*;
         let off = match self.align {
             TopLeft => (0.0, 0.0),
@@ -108,29 +123,14 @@ impl Text {
             BottomCenter => (0.5, 1.0),
             BottomRight => (1.0, 1.0),
         };
-        let pos = self.anchor - Vec2::from(off) * vec2(r, b);
-
-        let proj: ProjMat3<Model> =
-            orthographic(pt3(0.0, 0.0, -1.0), pt3(self.cursor.x(), b, 1.0))
-                .to();
-        let pos = pt2(pos.x() as _, pos.y() as _);
-        let wh = vec2(r as _, b as _);
-        let viewport = viewport(pos..pos + wh);
-
-        self.batch()
-            .uniform(&proj)
-            .viewport(viewport)
-            .target(target)
-            .render();
+        let [right, bot, _] = BBox::of(&self.geom).1.0;
+        self.anchor.to() - (Vec2::from(off) * vec2(right, bot)).to_vec3()
     }
 
     /// Returns a `Batch` with the geometry and shader set to render this text.
     ///
     /// Useful for customized text rendering.
-    pub fn batch(
-        &self,
-    ) -> Batch<'_, impl Shader<Vertex3<TexCoord>, TexCoord, &ProjMat3<Model>>>
-    {
+    pub fn batch(&self) -> Batch<'_> {
         super::Batch::from(&self.geom).shader(self.shader())
     }
 
@@ -172,9 +172,76 @@ impl Text {
     }
 }
 
+/// Renders ("bakes") the byte string into a buffer.
+pub fn bake<T>(s: &[u8], font: &Atlas<T>) -> Buf2<T>
+where
+    T: Copy + Default,
+{
+    let rows = s.split(|&c| c == b'\n');
+    let (mut num_rows, mut num_cols) = (0, 0);
+
+    for row in rows.clone() {
+        num_rows += 1;
+        num_cols = num_cols.max(row.len() as u32);
+    }
+    if num_rows == 0 || num_cols == 0 {
+        return Buf2::new(Dims(0, 0));
+    }
+
+    let Layout::Grid { sub_dims: Dims(gw, gh) } = font.layout;
+    let mut buf = Buf2::new(Dims(num_cols * gw, num_rows * gh));
+
+    let (mut x, mut y) = (0, 0);
+    for row in rows {
+        for ch in row {
+            let dest = (x..x + gw, y..y + gh);
+            buf.slice_mut(dest)
+                .copy_from(*font.get((*ch).into()).data());
+            x += gw;
+        }
+        (x, y) = (0, y + gh);
+    }
+    buf
+}
+
 //
 // Trait impls
 //
+
+pub type Uniform<'a> = (&'a Mat4<Model, View>, &'a ProjMat3<View>);
+
+impl VertexShader<Vertex3<TexCoord>, Uniform<'_>> for Shader<'_> {
+    type Output = Vertex<ProjVec3, TexCoord>;
+
+    fn shade_vertex(
+        &self,
+        v: Vertex3<TexCoord>,
+        (modelview, project): Uniform,
+    ) -> Self::Output {
+        let origin = self.0.anchor.to();
+        let mut view_origin = modelview.apply(&origin);
+        view_origin[2] = 3.0;
+
+        let view_vp = (v.pos.to_vec() + self.0.left_top().to_vec())
+            * vec3(1.0, -1.0, 1.0)
+            * 0.01;
+
+        let view_pos = view_origin + view_vp.to();
+
+        let clip_pos = project.apply(&view_pos);
+
+        vertex(clip_pos, v.attrib)
+    }
+}
+impl FragmentShader<TexCoord, Uniform<'_>> for Shader<'_> {
+    fn shade_fragment(
+        &self,
+        frag: Frag<TexCoord>,
+        _: Uniform,
+    ) -> Option<Color4> {
+        self.0.sample(frag.var)
+    }
+}
 
 #[cfg(feature = "std")]
 impl io::Write for Text {
@@ -239,36 +306,4 @@ impl fmt::Write for Text {
         }
         Ok(())
     }
-}
-
-/// Renders ("bakes") the byte string into a buffer.
-pub fn bake<T>(s: &[u8], font: &Atlas<T>) -> Buf2<T>
-where
-    T: Copy + Default,
-{
-    let rows = s.split(|&c| c == b'\n');
-    let (mut num_rows, mut num_cols) = (0, 0);
-
-    for row in rows.clone() {
-        num_rows += 1;
-        num_cols = num_cols.max(row.len() as u32);
-    }
-    if num_rows == 0 || num_cols == 0 {
-        return Buf2::new(Dims(0, 0));
-    }
-
-    let Layout::Grid { sub_dims: Dims(gw, gh) } = font.layout;
-    let mut buf = Buf2::new(Dims(num_cols * gw, num_rows * gh));
-
-    let (mut x, mut y) = (0, 0);
-    for row in rows {
-        for ch in row {
-            let dest = (x..x + gw, y..y + gh);
-            buf.slice_mut(dest)
-                .copy_from(*font.get((*ch).into()).data());
-            x += gw;
-        }
-        (x, y) = (0, y + gh);
-    }
-    buf
 }
