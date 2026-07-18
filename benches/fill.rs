@@ -16,7 +16,7 @@ use retrofire_core::{
 const SIZES: [f32; 5] = [4.0, 16.0, 64.0, 256.0, 1024.0];
 
 const VERTS: [ScreenPt; 3] =
-    [pt3(0.1, 0.1, 0.0), pt3(0.9, 0.3, 0.5), pt3(0.4, 0.9, 1.0)];
+    [pt3(0.1, 0.1, 0.0), pt3(0.4, 0.9, 1.0), pt3(0.9, 0.3, 0.5)];
 
 #[divan::bench(args = SIZES)]
 fn flat(b: Bencher, sz: f32) {
@@ -30,7 +30,7 @@ fn flat(b: Bencher, sz: f32) {
             });
         });
 
-    save_ppm("benches_fill_flat.ppm", buf).unwrap();
+    save_ppm("benches/out/fill_flat.ppm", buf).unwrap();
 }
 #[divan::bench(args = SIZES)]
 fn gouraud(b: Bencher, sz: f32) {
@@ -56,11 +56,9 @@ fn gouraud(b: Bencher, sz: f32) {
         });
     });
 
-    let buf = Buf2::new_from(
-        Dims(1024, 1024),
-        buf.data().iter().map(|c| c.to_color3()),
-    );
-    save_ppm("benches_fill_color.ppm", buf).unwrap();
+    let buf =
+        Buf2::new_from(buf.dims(), buf.data().iter().map(|c| c.to_color3()));
+    save_ppm("benches/out/fill_color.ppm", buf).unwrap();
 }
 
 #[divan::bench(args = SIZES)]
@@ -93,7 +91,7 @@ fn texture(b: Bencher, sz: f32) {
         });
     });
 
-    save_ppm("benches_fill_tex.ppm", buf).unwrap();
+    save_ppm("benches/out/fill_tex.ppm", buf).unwrap();
 }
 
 fn main() {

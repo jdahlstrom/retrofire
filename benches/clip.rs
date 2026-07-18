@@ -2,17 +2,17 @@
 
 use core::{array, iter::repeat_with};
 
-use divan::{Bencher, counter::ItemsCount};
+use divan::{AllocProfiler, Bencher, counter::ItemsCount};
 
 use retrofire_core::{
     geom::{Tri, vertex},
-    math::rand::{DEFAULT_RNG, DefaultRng, Distrib},
+    math::rand::{DefaultRng, Distrib},
     math::{orthographic, pt3},
     render::clip::{ClipVert, view_frustum},
 };
 
-//#[global_allocator]
-//static ALLOC: AllocProfiler = AllocProfiler::system();
+#[global_allocator]
+static ALLOC: AllocProfiler = AllocProfiler::system();
 
 #[divan::bench(args = [1, 10, 100, 1000, 10_000])]
 fn clip_mixed(b: Bencher, n: usize) {
@@ -64,14 +64,14 @@ fn clip_all_inside(b: Bencher, n: usize) {
 
 #[divan::bench(args = [1, 10, 100, 1000, 10_000])]
 fn clip_all_outside(b: Bencher, n: usize) {
-    let mut rng = DEFAULT_RNG;
+    let rng = &mut DefaultRng::default();
     let pts = pt3(2.0, -10.0, -10.0)..pt3(10.0, 10.0, 10.0);
     let proj = orthographic(pt3(-1.0, -1.0, -1.0), pt3(1.0, 1.0, 1.0));
 
     b.with_inputs(|| {
         repeat_with(|| {
             let vs = ([pts.start; 3]..[pts.end; 3])
-                .sample(&mut rng)
+                .sample(rng)
                 .map(|pt| ClipVert::new(vertex(proj.apply(&pt), ())));
             Tri(vs)
         })
