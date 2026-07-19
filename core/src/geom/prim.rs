@@ -13,7 +13,7 @@ use crate::math::{
     vec2, vec3,
 };
 use crate::render::Model;
-use crate::util::seq::AsSlice;
+use crate::util::AsSlice;
 
 /// A trait for types that have a position. Primarily useful for APIs such as
 /// `Tri` that can handle either points or vertices.

@@ -3,10 +3,13 @@
 use alloc::vec::Vec;
 use core::borrow::Borrow;
 
+use crate::{
+    geom::{Edge, Mesh, Tri, Vertex3, mesh::VecMesh},
+    math::{Mat4, Vary},
+    util::AsSlice,
+};
+
 use super::{Clip, Context, Ndc, Render, Screen, Shader, Target};
-use crate::geom::{Edge, Mesh, Tri, Vertex3, mesh::VecMesh};
-use crate::math::{Mat4, Vary};
-use crate::util::seq::AsSlice;
 
 /// A builder for rendering a chunk of geometry as a batch.
 ///

@@ -1,14 +1,14 @@
 use core::fmt::{self, Debug, Formatter};
 
-use super::{
-    Model, World,
-    clip::{ClipVert, Status, view_frustum},
-};
-
 use crate::{
     geom::{Mesh, Pos, VecMesh, vertex},
     math::{Mat4, Point3, ProjMat3, pt3},
-    util::seq::AsSlice,
+    util::AsSlice,
+};
+
+use super::{
+    Model, World,
+    clip::{ClipVert, Status, view_frustum},
 };
 
 #[derive(Clone, Debug)]

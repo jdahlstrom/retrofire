@@ -5,13 +5,16 @@
 use alloc::vec::Vec;
 use core::{array::from_fn, fmt::Debug};
 
+use crate::{
+    geom::{Polyline, Ray},
+    mat,
+    util::AsSlice,
+};
+
 use super::{
     Affine, Lerp, Linear, Mat4, Parametric, Point, Vary, Vector, inv_lerp,
     space::Real,
 };
-use crate::geom::{Polyline, Ray};
-use crate::mat;
-use crate::util::seq::AsSlice;
 
 /// A cubic Bézier curve, defined by four control points.
 ///
