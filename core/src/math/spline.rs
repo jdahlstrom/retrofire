@@ -9,7 +9,7 @@ use crate::geom::{Polyline, Ray};
 use crate::mat;
 
 use super::{
-    Affine, Lerp, Linear, Mat4, Parametric, Point, Vary, Vector, inv_lerp,
+    Affine, Lerp, Linear, Mat4, Parametric, Point, Vector, inv_lerp,
     space::Real,
 };
 
@@ -760,7 +760,8 @@ impl<Spl> Euclidean<Spl> {
         let mut p0 = spline.eval(0.0);
 
         // TODO smarter sampling
-        for t in 0.0.vary_to(1.0, 256) {
+        use super::vary::RangeExt;
+        for t in (0.0..1.0).vary(256) {
             lut.push((s, t));
             let p1 = spline.eval(t);
             s += p1.distance(&p0);

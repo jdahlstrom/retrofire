@@ -8,8 +8,8 @@ use retrofire_core::geom::{
     vertex,
 };
 use retrofire_core::math::{
-    Angle, Lerp, Parametric, Point3, Vary, Vec3, param, polar, pt2, pt3,
-    rotate2, turns, vec2, vec3,
+    Angle, Lerp, Parametric, Point3, Vec3, polar, pt2, pt3, rotate2, turns,
+    vary::RangeExt, vec2, vec3,
 };
 use retrofire_core::render::{TexCoord, uv};
 
@@ -176,8 +176,9 @@ fn create_verts<A>(
     let start = rotate2(start);
 
     // Create vertices
-    for (v, Vertex { pos, attrib: n }) in
-        param::iter(&(0.0..1.0), verts_per_sec).map(|t| (t, pts.eval(t)))
+    for (v, Vertex { pos, attrib: n }) in (0.0..1.0)
+        .vary(verts_per_sec as u32)
+        .map(|t| (t, pts.eval(t)))
     {
         let mut pos_xz = start.apply(&pt2(pos.x(), 0.0));
         let mut n_xz = start.apply(&vec2(n.x(), 0.0));
@@ -359,9 +360,8 @@ impl Capsule {
         assert!(cap_segments > 0, "cap segments cannot be zero");
 
         // Must be collected to allow rev()
-        let bottom_pts: Vec<_> = turns(-0.25)
-            .vary_to(turns(0.0), cap_segments + 1)
-            .take(cap_segments as usize)
+        let bottom_pts: Vec<_> = (turns(-0.25)..turns(0.0))
+            .vary(cap_segments)
             .map(|alt| polar(radius, alt).to_cart())
             .map(|v| vertex(pt2(0.0, -1.0) + v, v.normalize()))
             .collect();
@@ -373,8 +373,8 @@ impl Capsule {
             })
             .rev();
 
-        let body_pts = (-1.0)
-            .vary_to(1.0, body_segments + 1)
+        let body_pts = (-1.0..=1.0)
+            .vary(body_segments + 1)
             .map(|t| vertex(pt2(radius, t), vec2(1.0, 0.0)));
 
         let pts: Vec<_> = bottom_pts

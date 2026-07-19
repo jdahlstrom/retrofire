@@ -9,7 +9,7 @@ use crate::math::{
     pt3, vec::ProjVec3,
 };
 #[cfg(feature = "fp")]
-use crate::math::{Vary, polar, turns, vec3};
+use crate::math::{polar, turns, vary::RangeExt, vec3};
 
 use super::{Context, Frag, FragmentShader, VertexShader, scene::BBox};
 
@@ -206,15 +206,18 @@ pub fn wireframe<A: Clone, B>(m: Mesh<A, B>) -> DbgBatch<B> {
 pub fn circle<B>(o: Point3<B>, r: f32) -> DbgBatch<B> {
     const RES: usize = 64; // TODO constant, use array rather than Vec
 
-    let verts: Vec<_> = 0.0
-        .vary_to(1.0, RES as u32 + 1)
+    let verts: Vec<_> = (0.0..1.0)
+        .vary(RES as u32)
         .map(|a| {
             let v = polar(r, turns(a)).to_cart().to_vec3();
             vertex(o + v, dir_to_rgb(v))
         })
         .collect();
 
-    let edges: Vec<_> = (0..RES).map(|i| Edge(i, i + 1)).collect();
+    let edges: Vec<_> = (0..RES - 1)
+        .map(|i| Edge(i, i + 1))
+        //.chain([Edge(RES - 1, 0)])
+        .collect();
 
     DbgBatch::with(edges, verts)
 }
@@ -225,10 +228,10 @@ pub fn circle<B>(o: Point3<B>, r: f32) -> DbgBatch<B> {
 /// YZ planes.
 #[cfg(feature = "fp")]
 pub fn sphere<B>(o: Point3<B>, r: f32) -> DbgBatch<B> {
-    const RES: usize = 64;
+    const RES: u32 = 64;
 
-    let verts: Vec<_> = 0.0
-        .vary_to(1.0, RES as u32 + 1)
+    let verts: Vec<_> = (0.0..=1.0)
+        .vary(RES + 1)
         .flat_map(|a| {
             let [x, y] = polar::<()>(r, turns(a)).to_cart().0;
             [vec3(x, y, 0.0), vec3(x, 0.0, y), vec3(0.0, x, y)]
@@ -238,11 +241,8 @@ pub fn sphere<B>(o: Point3<B>, r: f32) -> DbgBatch<B> {
 
     let edges: Vec<_> = (0..RES)
         .flat_map(|i| {
-            [
-                Edge(3 * i, 3 * i + 3),
-                Edge(3 * i + 1, 3 * i + 4),
-                Edge(3 * i + 2, 3 * i + 5),
-            ]
+            let i3 = 3 * i as usize;
+            [Edge(i3, i3 + 3), Edge(i3 + 1, i3 + 4), Edge(i3 + 2, i3 + 5)]
         })
         .collect();
 

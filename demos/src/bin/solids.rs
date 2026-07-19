@@ -7,7 +7,7 @@ use re::prelude::*;
 
 use re::core::{
     geom::{Polyline, Ray},
-    math::{ProjVec3, color::gray, spline::HermiteSpline},
+    math::{ProjVec3, color::gray, spline::HermiteSpline, vary::RangeExt},
     render::{Model, cam::Fov, debug, debug::DbgMesh, shader},
 };
 use re::front::{Frame, minifb::Window};
@@ -117,6 +117,12 @@ fn main() {
             .target(frame.buf)
             .render();
 
+        debug::sphere(Point3::origin(), 1.0)
+            .uniform(&model_view_project)
+            .viewport(cam.viewport)
+            .target(frame.buf)
+            .render();
+
         if state.debug_flags[0] {
             let object = state.object();
             Batch {
@@ -184,7 +190,7 @@ fn lathe(secs: u32) -> Mesh<Normal3> {
         Ray(pt2(0.0, -0.2), vec2(-1.0, 0.0)),
     ]);
 
-    let verts = 0.0.vary_to(1.0, 2 * secs).map(|t| {
+    let verts = (0.0..=1.0).vary(2 * secs).map(|t| {
         vertex(spline.eval(t), -spline.velocity(t).normalize().perp())
     });
     let pl = Polyline::new(verts);
