@@ -20,9 +20,10 @@ use core::{
 
 use crate::{
     geom::Vertex,
-    math::{Lerp, Vary, point::Point3},
-    render::Screen,
+    math::{Lerp, Vary, point::Point3, vary::RangeExt},
 };
+
+use super::Screen;
 
 /// A fragment, or a single "pixel" in a rasterized primitive.
 #[derive(Clone, Debug)]
@@ -144,7 +145,7 @@ where
         let y0 = v0.pos.y() + dy_dx * (x0 - v0.pos.x());
 
         let vs =
-            (v0.pos, v0.attrib).vary_to((v1.pos, v1.attrib), dx.abs() as u32);
+            ((v0.pos, v0.attrib)..=(v1.pos, v1.attrib)).vary(dx.abs() as u32);
 
         let (xs, mut y) = (x0 as usize..x1 as usize, y0);
         for (x, v) in zip(xs, vs) {
@@ -165,7 +166,7 @@ where
         // Adjust x0 to match the rounded y0
         let x0 = v0.pos.x() + dx_dy * (y0 - v0.pos.y());
 
-        let vs = (v0.pos, v0.attrib).vary_to((v1.pos, v1.attrib), dy as u32);
+        let vs = ((v0.pos, v0.attrib)..=(v1.pos, v1.attrib)).vary(dy as u32);
 
         let mut x = x0;
         let ys = y0 as usize..y1 as usize;

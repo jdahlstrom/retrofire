@@ -3,7 +3,10 @@
 //! Common varying types include colors, texture coordinates,
 //! and vertex normals.
 
-use core::mem;
+use core::{
+    mem,
+    ops::{Range, RangeInclusive},
+};
 
 use super::Lerp;
 
@@ -17,9 +20,9 @@ pub trait ZDiv: Sized {
 /// A trait for types that can be linearly interpolated and distributed
 /// between two endpoints.
 ///
-/// This trait is designed particularly for *varyings:* types that are
-/// meant to be interpolated across the face of a polygon when rendering,
-/// but the methods are useful for various purposes.
+/// This trait is designed particularly for *varyings:* values such as colors
+/// and texture coordinates that are meant to be interpolated across the face
+/// of a polygon when rendering, but the methods are useful for various purposes.
 pub trait Vary: Lerp + ZDiv {
     /// The iterator returned by the [vary][Self::vary] method.
     type Iter: Iterator<Item = Self>;
@@ -84,12 +87,104 @@ pub trait Vary: Lerp + ZDiv {
     fn step(&self, delta: &Self::Diff) -> Self;
 }
 
+pub trait RangeExt<T> {
+    /// Returns an iterator of values linearly distributed over a range.
+    fn vary(self, steps: u32) -> impl Iterator<Item = T>;
+}
+
+impl<T: Vary> RangeExt<T> for Range<T> {
+    /// Returns an iterator of linearly distributed values over a half-open
+    /// range.
+    ///
+    /// # Examples
+    /// ```
+    /// use retrofire_core::math::vary::RangeExt;
+    ///
+    /// // If steps = 0 or if the range is empty, returns an empty iterator.
+    ///
+    /// let mut iter = (1.0..5.0).vary(0);
+    /// assert_eq!(iter.next(), None);
+    ///
+    /// let mut iter = (1.0..1.0).vary(123);
+    /// assert_eq!(iter.next(), None);
+    ///
+    /// // If steps = 1, returns an iterator that yields one value: self.start.
+    ///
+    /// let mut iter = (1.0..5.0).vary(1);
+    /// assert_eq!(iter.next(), Some(1.0));
+    ///
+    /// // Otherwise, returns an iterator over n uniformly spaced values such
+    /// // that self.end would be the (n+1)th value.
+    ///
+    /// let mut iter = (1.0..5.0).vary(4);
+    /// assert_eq!(iter.next(), Some(1.0));
+    /// assert_eq!(iter.next(), Some(2.0));
+    /// assert_eq!(iter.next(), Some(3.0));
+    /// assert_eq!(iter.next(), Some(4.0));
+    /// assert_eq!(iter.next(), None);
+    /// ```
+    fn vary(self, steps: u32) -> impl Iterator<Item = T> {
+        let recip_dt = if steps == 0 {
+            // Dummy value, no actual steps taken if steps = 0
+            1.0
+        } else {
+            1.0 / steps as f32
+        };
+        let step = self.start.dv_dt(&self.end, recip_dt); // Borrowck...
+        self.start.clone().vary(step, Some(steps))
+    }
+}
+impl<T: Vary> RangeExt<T> for RangeInclusive<T> {
+    /// Returns an iterator of linearly distributed values over a closed range.
+    ///
+    /// # Examples
+    /// ```
+    /// use retrofire_core::math::vary::RangeExt;
+    ///
+    /// // If steps = 0 or if the range is empty, returns an empty iterator.
+    ///
+    /// let mut iter = (1.0..5.0).vary(0);
+    /// assert_eq!(iter.next(), None);
+    ///
+    /// let mut iter = (1.0..1.0).vary(123);
+    /// assert_eq!(iter.next(), None);
+    ///
+    /// // If steps = 1, returns an iterator that yields one value: self.start.
+    ///
+    /// let mut iter = (1.0..5.0).vary(1);
+    /// assert_eq!(iter.next(), Some(1.0));
+    ///
+    /// // Otherwise, returns an iterator over n uniformly spaced values such
+    /// // that self.end is the last value yielded.
+    ///
+    /// let mut iter = (1.0..5.0).vary(3);
+    /// assert_eq!(iter.next(), Some(1.0));
+    /// assert_eq!(iter.next(), Some(3.0));
+    /// assert_eq!(iter.next(), Some(5.0));
+    /// ```
+    fn vary(self, steps: u32) -> impl Iterator<Item = T> {
+        let recip_dt = if steps <= 1 {
+            // Dummy value, no actual steps taken if n is 0 or 1
+            1.0
+        } else {
+            // Fencepost problem: n - 1 steps to yield n values
+            1.0 / (steps - 1) as f32
+        };
+        let step = self.start().dv_dt(&self.end(), recip_dt); // Borrowck...
+        self.start().clone().vary(step, Some(steps))
+    }
+}
+
 #[derive(Copy, Clone, Debug)]
 pub struct Iter<T: Vary> {
     pub val: T,
     pub step: T::Diff,
     pub n: Option<u32>,
 }
+
+//
+// Trait impls
+//
 
 impl Vary for () {
     type Iter = Iter<()>;
@@ -101,7 +196,6 @@ impl Vary for () {
     fn dv_dt(&self, (): &(), _: f32) {}
     fn step(&self, (): &()) {}
 }
-impl ZDiv for () {}
 
 impl<T: Vary, U: Vary> Vary for (T, U) {
     type Iter = Iter<Self>;
@@ -125,6 +219,9 @@ impl<T: Vary, U: Vary> Vary for (T, U) {
         (self.0.step(d0), self.1.step(d1))
     }
 }
+
+impl ZDiv for () {}
+
 impl<T: ZDiv, U: ZDiv> ZDiv for (T, U) {
     #[inline]
     fn z_div(self, z: f32) -> Self {
@@ -144,13 +241,22 @@ impl<T: Vary> Iterator for Iter<T> {
 
     #[inline]
     fn next(&mut self) -> Option<T> {
-        match &mut self.n {
-            Some(0) => return None,
-            Some(n) => *n -= 1,
-            None => (),
+        if self.n == Some(0) {
+            return None;
+        }
+        if let Some(n) = &mut self.n {
+            *n -= 1;
         }
         let new = self.val.step(&self.step);
         Some(mem::replace(&mut self.val, new))
+    }
+
+    fn size_hint(&self) -> (usize, Option<usize>) {
+        if let Some(n) = self.n {
+            (n as usize, Some(n as usize))
+        } else {
+            (0, None)
+        }
     }
 }
 
@@ -186,6 +292,23 @@ mod tests {
     fn vary_to_two() {
         let mut v = 1.0.vary_to(2.0, 2);
         assert_eq!(v.next(), Some(1.0));
+        assert_eq!(v.next(), Some(2.0));
+        assert_eq!(v.next(), None);
+    }
+
+    #[test]
+    fn vary_range() {
+        let mut v = (1.0..2.0).vary(2);
+        assert_eq!(v.next(), Some(1.0));
+        assert_eq!(v.next(), Some(1.5));
+        assert_eq!(v.next(), None);
+    }
+
+    #[test]
+    fn vary_range_inclusive() {
+        let mut v = (1.0..=2.0).vary(3);
+        assert_eq!(v.next(), Some(1.0));
+        assert_eq!(v.next(), Some(1.5));
         assert_eq!(v.next(), Some(2.0));
         assert_eq!(v.next(), None);
     }
