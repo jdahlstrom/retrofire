@@ -222,6 +222,11 @@ impl<T> Buf2<T> {
         &mut self.0.data
     }
 
+    /// Returns the backing vector, consuming `self`.
+    pub fn into_inner(self) -> Vec<T> {
+        self.0.data
+    }
+
     /// Reinterprets `self` as a buffer of different dimensions but the same area.
     ///
     /// Does not reallocate or move data.
@@ -286,6 +291,14 @@ impl<'a, T> Slice2<'a, T> {
     #[inline]
     pub fn new(dims: Dims, stride: u32, data: &'a [T]) -> Self {
         Self(Inner::new(dims, stride, data))
+    }
+
+    /// Clones the contents of `self` into a new `Buf2`.
+    pub fn to_buf2(&self) -> Buf2<T>
+    where
+        T: Clone,
+    {
+        Buf2::new_from(self.dims(), self.iter().cloned())
     }
 }
 
