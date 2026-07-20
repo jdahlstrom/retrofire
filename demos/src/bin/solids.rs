@@ -148,13 +148,38 @@ fn objects_n(res: u32) -> [Mesh<Normal3>; N_OBJS] {
 
     let major_sectors = 3 * res;
     let minor_sectors = 2 * res;
+
+    let mut lat = Lattice::new(12, 6);
+    lat.topology = Topology::Spherical;
+
+    let lat = lat.builder();
+
+    eprintln!("{:?}", lat.mesh.verts.iter().map(|v| v.pos.0)
+        .collect::<Vec<_>>());
+    eprintln!("{:?}", lat.mesh.faces.iter().map(|t| t.0).collect::<Vec<_>>());
+
+    let lat = lat.warp(|v| {
+        let [phi, y, _] = v.pos.0;
+
+        let r = if y == 0.0 || y == 1.0 { 0.0 } else { 0.75 };
+
+        let [x, z] = polar::<()>(r, turns(-phi)).to_cart().0;
+
+        vertex(pt3(x, y, z), v.attrib)
+    });
+
     [
+        lat.with_vertex_normals().build(),
+
         // The five Platonic solids
-        Tetrahedron.build(),
-        Cube { side_len: 1.25 }.build(),
+        //Tetrahedron.build(),
+        //Cube { side_len: 1.25 }.build(),
         Octahedron.build(),
         Dodecahedron.build(),
         Icosahedron.build(),
+
+
+        Icosphere(1.0, res as u8 / 5 + 1).build(),
 
         // Surfaces of revolution
         lathe(sectors),
