@@ -1,15 +1,15 @@
 //! Triangle meshes.
 
+use crate::{
+    math::{Linear, Mat4, Point3},
+    render::Model,
+};
 use alloc::{vec, vec::Vec};
 use core::{
     fmt::{Debug, Formatter},
     iter::zip,
 };
-
-use crate::{
-    math::{Linear, Mat4, Point3},
-    render::Model,
-};
+use std::eprintln;
 
 use super::{Normal3, Tri, Vertex3, tri, vertex};
 
@@ -208,7 +208,7 @@ impl<A> Builder<A> {
     /// `Normal3`; the vertex type it accepts is changed accordingly.
     #[must_use]
     pub fn with_vertex_normals(self) -> Builder<Normal3> {
-        let Mesh { verts, faces } = self.mesh;
+        let Mesh { verts, faces } = self.build(); // sanity checks
 
         // Compute weighted face normals...
         let face_normals = faces.iter().map(|tri| {
@@ -230,7 +230,11 @@ impl<A> Builder<A> {
         }
         // ...and normalize to unit length.
         for v in &mut verts {
-            v.attrib = v.attrib.normalize();
+            v.attrib = v.attrib.normalize_or_zero();
+
+            if v.attrib.len() == 0.0 {
+                eprintln!("Warn: {v:?} has zero normal");
+            }
         }
 
         // No need to sanity check again

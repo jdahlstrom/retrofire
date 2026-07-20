@@ -1,15 +1,14 @@
+use super::{
+    Affine, ApproxEq, Linear, Vector,
+    space::{Hom, Real},
+    vary::ZDiv,
+};
 use core::{
     array,
     fmt::{Debug, Formatter},
     marker::PhantomData as Pd,
     ops::{Add, Div, Index, IndexMut, Mul, Neg, Sub},
     ops::{AddAssign, DivAssign, MulAssign, SubAssign},
-};
-
-use super::{
-    Affine, ApproxEq, Linear, Vector,
-    space::{Hom, Real},
-    vary::ZDiv,
 };
 
 #[repr(transparent)]
