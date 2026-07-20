@@ -55,7 +55,7 @@ impl<V: Vary> Scanline<V> {
             // TODO Optimize eg. only one div per 16 pixels
             .map(|v| Frag {
                 pos: v.pos,
-                var: v.attrib.z_div(v.pos.z()),
+                var: v.attrib, //.z_div(v.pos.z()),
             })
             .take(self.xs.len())
     }

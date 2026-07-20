@@ -4,9 +4,9 @@ use pancurses::*;
 
 use re::prelude::*;
 
-use re::core::render::{Model, render, shader};
 use re::core::render::{
-    ctx::DepthSort::BackToFront, debug::dir_to_rgb, raster::Scanline,
+    Model, ctx::DepthSort::BackToFront, debug::dir_to_rgb, raster::Scanline,
+    render, shader,
 };
 use re::geom::solids::{Build, Torus};
 

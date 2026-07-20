@@ -4,10 +4,12 @@
 //! and possible auxiliary buffers. Special render targets can be used,
 //! for example, for visibility or occlusion computations.
 
-use core::cell::RefCell;
-
-use crate::math::{Color3, Color4, Vary};
+use crate::geom::{Vertex, vertex};
+use crate::math::{Color3, Color4, Lerp, Vary};
+use crate::prelude::Frag;
 use crate::util::{AsMutSlice2, Buf2, IntoPixel, MutSlice2};
+use core::cell::RefCell;
+use std::iter::zip;
 
 use super::{Context, FragmentShader, raster::Scanline};
 
@@ -96,7 +98,7 @@ where
         let Self { color_buf, depth_buf } = self;
         let fmt = color_buf.fmt; // borrowck...
         let conv = |c: Color4| c.into_pixel(fmt);
-        rasterize_fb(color_buf, depth_buf, sl, fs, uni, conv, ctx);
+        rasterize_fb_chunked(color_buf, depth_buf, sl, fs, uni, conv, ctx);
     }
 }
 
@@ -222,9 +224,76 @@ pub fn rasterize_fb<B: AsMutSlice2, V: Vary, U: Copy>(
                 }
             }
         });
+
     #[cfg(feature = "stats")]
     {
         ctx.stats.borrow_mut().frags +=
             super::stats::Throughput { i: x1 - x0, o: frags_out };
-    };
+    }
+}
+
+pub fn rasterize_fb_chunked<B: AsMutSlice2, V: Vary, U: Copy>(
+    cbuf: &mut B,
+    zbuf: &mut impl AsMutSlice2<Elem = f32>,
+    sl: Scanline<V>,
+    fs: &impl FragmentShader<V, U>,
+    uni: U,
+    mut conv: impl FnMut(Color4) -> B::Elem,
+    ctx: &Context,
+) {
+    let x0 = sl.xs.start;
+    let x1 = sl.xs.end.max(x0);
+    let cbuf_span = &mut cbuf.as_mut_slice2()[sl.y][x0..x1];
+    let zbuf_span = &mut zbuf.as_mut_slice2()[sl.y][x0..x1];
+
+    const N: usize = 16;
+    let cbuf_span = cbuf_span.chunks_mut(N);
+    let zbuf_span = zbuf_span.chunks_mut(N);
+
+    #[cfg(feature = "stats")]
+    let mut frags_out = 0;
+
+    let mut v0 = sl.left;
+    let v1 = v0.clone().step(&sl.d_dx);
+    let mut v1 = v0.lerp(&v1, N as f32);
+    let d_dx_n = v0.dv_dt(&v1, 1.0);
+
+    for (cbuf_chunk, zbuf_chunk) in zip(cbuf_span, zbuf_span) {
+        let v0_z = vertex(v0.pos, v0.clone().attrib); //.z_div(v0.pos.z()));
+        let v1_z = vertex(v1.pos, v1.clone().attrib); //.z_div(v1.pos.z()));
+
+        let dv_dx = v0_z.dv_dt(&v1_z, 1.0 / N as f32);
+
+        let mut v = v0_z;
+        for (c, z) in zip(cbuf_chunk, zbuf_chunk) {
+            let Vertex { pos, attrib } = v.clone();
+            let frag = Frag { pos, var: attrib };
+
+            let new_z = v.pos.z();
+            if ctx.depth_test(new_z, *z)
+                && let Some(new_col) = fs.shade_fragment(frag, uni)
+            {
+                if ctx.color_write {
+                    #[cfg(feature = "stats")]
+                    {
+                        frags_out += 1;
+                    }
+                    // TODO Blending should happen here
+                    *c = conv(new_col);
+                }
+                if ctx.depth_write {
+                    *z = new_z;
+                }
+            }
+
+            v = v.step(&dv_dx);
+        }
+        (v0, v1) = (v1.clone(), v1.step(&d_dx_n));
+    }
+
+    #[cfg(feature = "stats")]
+    {
+        ctx.stats.borrow_mut().frags +=
+            super::stats::Throughput { i: x1 - x0, o: frags_out };
+    }
 }

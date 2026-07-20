@@ -88,7 +88,7 @@ pub fn to_screen<V: ZDiv, const N: usize>(
             // Viewport transform
             pos: tf.apply(&pos),
             // Perspective correction
-            attrib: v.attrib.z_div(w),
+            attrib: v.attrib, //.z_div(w),
         }
     })
 }
