@@ -1,4 +1,4 @@
-use core::ops::ControlFlow::Continue;
+use core::ops::{ControlFlow::Continue, Range};
 
 use re::prelude::*;
 
@@ -23,12 +23,12 @@ fn main() {
     let (min, max) =
         (pt2(100.0, 100.0), pt2(w as f32 - 100.0, h as f32 - 100.0));
 
-    let rng = &mut Xorshift64::from_time();
-    let pos = Uniform::<Point2>(min..max);
+    let rng = Xorshift64::from_time();
+    let pos = Uniform::<Range<Point2>>(min..max);
     let vel = VectorsOnUnitDisk;
 
     let mut pos_vels: Vec<(Point2, Vec2)> =
-        (pos, vel).samples(rng).take(32).collect();
+        (pos, vel).samples(&rng).take(32).collect();
 
     // Disable some unneeded things
     win.ctx.color_clear = None;

@@ -13,14 +13,14 @@ use retrofire_geom::Intersect;
 
 #[divan::bench]
 fn ray_plane_hit(b: Bencher) {
-    let mut rng = DefaultRng::default();
+    let rng = DefaultRng::default();
     let plane = <Plane3>::from_point_and_normal(
         pt3(0.0, 1.0, 0.0),
         vec3(1.0, 1.0, 1.0),
     );
 
     b.with_inputs(|| {
-        let v = (splat(-1.0)..splat(0.0)).sample(&mut rng);
+        let v = rng.next(splat(-1.0)..splat(0.0));
         Ray(pt3(0.0, 10.0, 0.0), 100.0 * (v - vec3(1.0, 1.0, 1.0)))
     })
     .counter(1u32)
@@ -28,14 +28,14 @@ fn ray_plane_hit(b: Bencher) {
 }
 #[divan::bench]
 fn ray_plane_miss(b: Bencher) {
-    let mut rng = DefaultRng::default();
+    let rng = DefaultRng::default();
     let plane = <Plane3>::from_point_and_normal(
         pt3(0.0, 1.0, 0.0),
         vec3(1.0, 1.0, 1.0),
     );
 
     b.with_inputs(|| {
-        let v = (splat(0.0)..splat(1.0)).sample(&mut rng);
+        let v = rng.next(splat(0.0)..splat(1.0));
         Ray(pt3(0.0, 10.0, 0.0), 100.0 * v)
     })
     .counter(1u32)
@@ -43,14 +43,14 @@ fn ray_plane_miss(b: Bencher) {
 }
 #[divan::bench]
 fn ray_plane_mixed(b: Bencher) {
-    let mut rng = DefaultRng::default();
+    let rng = DefaultRng::default();
     let plane = <Plane3>::from_point_and_normal(
         pt3(0.0, 1.0, 0.0),
         vec3(1.0, 1.0, 1.0),
     );
 
     b.with_inputs(|| {
-        let v = VectorsInUnitBall.sample(&mut rng);
+        let v = rng.next(VectorsInUnitBall);
         Ray(pt3(0.0, 10.0, 0.0), 100.0 * v)
     })
     .counter(1u32)
@@ -59,11 +59,11 @@ fn ray_plane_mixed(b: Bencher) {
 
 #[divan::bench]
 fn ray_bbox_hit(b: Bencher) {
-    let mut rng = DefaultRng::default();
+    let rng = DefaultRng::default();
     let bbox = BBox::<()>(pt3(-1.0, -1.0, -1.0), pt3(1.0, 1.0, 1.0));
 
     b.with_inputs(|| {
-        let v = VectorsInUnitBall.sample(&mut rng);
+        let v = rng.next(VectorsInUnitBall);
         Ray(v.to_pt(), 100.0 * v)
     })
     .counter(1u32)
@@ -73,7 +73,7 @@ fn ray_bbox_hit(b: Bencher) {
 }
 #[divan::bench]
 fn ray_bbox_hit_2(b: Bencher) {
-    let mut rng = DefaultRng::default();
+    let rng = DefaultRng::default();
     let bbox = BBox::<()>(pt3(-1.0, -1.0, -1.0), pt3(1.0, 1.0, 1.0));
 
     let min = spherical(0.0, degs(-180.0), degs(-90.0));
@@ -89,12 +89,12 @@ fn ray_bbox_hit_2(b: Bencher) {
 }
 #[divan::bench]
 fn ray_bbox_inside(b: Bencher) {
-    let mut rng = DefaultRng::default();
+    let rng = DefaultRng::default();
     let bbox = BBox::<()>(pt3(-1.0, -1.0, -1.0), pt3(1.0, 1.0, 1.0));
 
     b.with_inputs(|| {
-        let pt = PointsInUnitBall.sample(&mut rng);
-        let dir = VectorsInUnitBall.sample(&mut rng);
+        let pt = rng.next(PointsInUnitBall);
+        let dir = rng.next(VectorsInUnitBall);
         Ray(pt, dir)
     })
     .counter(1u32)
@@ -105,13 +105,13 @@ fn ray_bbox_inside(b: Bencher) {
 
 #[divan::bench]
 fn ray_bbox_miss(b: Bencher) {
-    let mut rng = DefaultRng::default();
+    let rng = DefaultRng::default();
     let bbox = BBox::<()>(pt3(-1.0, -1.0, -1.0), pt3(1.0, 1.0, 1.0));
 
     let min = spherical(0.0, degs(-180.0), degs(-45.0));
     let max = spherical(10.0, degs(180.0), degs(90.0));
     b.with_inputs(|| {
-        let v = (min..max).sample(&mut rng);
+        let v = rng.next(min..max);
         Ray(pt3(0.0, 3.0, 0.0), v.to_cart())
     })
     .counter(1u32)
@@ -122,14 +122,14 @@ fn ray_bbox_miss(b: Bencher) {
 
 #[divan::bench]
 fn ray_bbox_mixed(b: Bencher) {
-    let mut rng = DefaultRng::default();
+    let rng = DefaultRng::default();
     let (p, q) = (pt3(-1.0, -1.0, -1.0), pt3(1.0, 1.0, 1.0));
     let bbox = BBox::<()>(p, q);
 
     b.with_inputs(|| {
         // Approximately one third of the rays hits the box
-        let orig = (p..q).sample(&mut rng);
-        let dir = (p..q).sample(&mut rng);
+        let orig = rng.next(p..q);
+        let dir = rng.next(p..q);
         Ray(2.0 * orig, 100.0 * dir.to_vec())
     })
     .counter(1u32)
@@ -138,14 +138,14 @@ fn ray_bbox_mixed(b: Bencher) {
 
 #[divan::bench]
 fn ray_sphere_miss(b: Bencher) {
-    let mut rng = DefaultRng::default();
+    let rng = DefaultRng::default();
 
     let sphere = Sphere(<Point3>::origin(), 1.0);
 
     let min = spherical(0.0, degs(-180.0), degs(-45.0));
     let max = spherical(10.0, degs(180.0), degs(90.0));
     b.with_inputs(|| {
-        let v = (min..max).sample(&mut rng);
+        let v = rng.next(min..max);
         Ray(pt3(0.0, 3.0, 0.0), v.to_cart())
     })
     .counter(1u32)
@@ -158,7 +158,7 @@ fn ray_sphere_miss(b: Bencher) {
 
 #[divan::bench]
 fn ray_sphere_hit(b: Bencher) {
-    let mut rng = DefaultRng::default();
+    let rng = DefaultRng::default();
 
     let sphere = Sphere(<Point3>::origin(), 1.0);
 
@@ -178,7 +178,7 @@ fn ray_sphere_hit(b: Bencher) {
 
 #[divan::bench]
 fn ray_sphere_mixed(b: Bencher) {
-    let mut rng = DefaultRng::default();
+    let rng = DefaultRng::default();
 
     let sphere = Sphere(<Point3>::origin(), 1.0);
 
