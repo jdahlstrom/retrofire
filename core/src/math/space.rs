@@ -42,7 +42,7 @@ pub trait Affine: Sized {
     /// returns
     ///
     /// w<sub>1</sub> * P<sub>1</sub> + ... + w<sub>*n*</sub> * P<sub>*n*</sub>
-    fn combine<S: Copy, const N: usize>(
+    fn combine_x<S: Copy, const N: usize>(
         weights: &[S; N],
         points: &[Self; N],
     ) -> Self
@@ -55,6 +55,33 @@ pub trait Affine: Sized {
         let p0 = &points[0]; // ok, asserted N > 0
         zip(&weights[1..], &points[1..])
             .fold(p0.clone(), |res, (w, q)| res.add(&q.sub(p0).mul(*w)))
+    }
+
+    /// TODO
+    fn combine<I, W>(&self, others: I) -> Self
+    where
+        I: IntoIterator<Item = (Self, W)>,
+        Self::Diff: Linear<Scalar = W>,
+    {
+        let v = others
+            .into_iter()
+            .fold(Self::Diff::zero(), |res, (q, w)| {
+                res.add(&q.sub(self).mul(w))
+            });
+
+        self.add(&v)
+    }
+
+    fn centroid(pts: impl AsRef<[Self]>) -> Self
+    where
+        Self: Clone,
+        Self::Diff: Linear<Scalar = f32>,
+    {
+        let [pt, rest @ ..] = pts.as_ref() else {
+            panic!("Empty set has no centroid")
+        };
+        let weight = 1.0 / pts.as_ref().len() as f32;
+        pt.combine(rest.iter().cloned().map(|pt| (pt, weight)))
     }
 }
 
