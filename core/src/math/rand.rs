@@ -28,7 +28,7 @@ pub trait Distrib {
     /// // Simulate rolling a six-sided die
     /// let rng = DefaultRng::default();
     /// let d6 = Uniform(1..7).sample(&rng);
-    /// assert_eq!(d6, 3);
+    /// assert_eq!(d6, 5);
     /// ```
     fn sample(&self, rng: &DefaultRng) -> Self::Sample;
 
@@ -70,7 +70,7 @@ pub struct Xorshift64(pub Cell<u64>);
 
 /// A uniform distribution of values in a range.
 #[derive(Clone, Debug)]
-pub struct Uniform<T>(pub Range<T>);
+pub struct Uniform<Range>(pub Range);
 
 /// A uniform distribution of unit 2-vectors.
 #[derive(Copy, Clone, Debug)]
@@ -246,32 +246,44 @@ impl<D: Distrib + ?Sized> Distrib for &D {
 }
 
 /// Uniformly distributed signed integers.
-impl Distrib for Uniform<i32> {
+impl Distrib for Uniform<Range<i32>> {
     type Sample = i32;
 
     /// Returns a uniformly distributed `i32` in the range.
+    ///
+    /// # Panics
+    /// If the range is empty (start ≥ end).
     ///
     /// # Examples
     /// ```
     /// use retrofire_core::math::rand::*;
     /// let rng = DefaultRng::default();
     ///
-    /// let mut iter = (-5i32..6).samples(&rng);
-    /// assert_eq!(iter.next(), Some(0));
-    /// assert_eq!(iter.next(), Some(4));
-    /// assert_eq!(iter.next(), Some(5));
+    /// let mut iter = (-10i32..10).samples(&rng);
+    /// assert_eq!(iter.next(), Some(-6));
+    /// assert_eq!(iter.next(), Some(-9));
+    /// assert_eq!(iter.next(), Some(3));
     /// ```
     fn sample(&self, rng: &DefaultRng) -> i32 {
-        let bits = rng.next_bits() as i32;
+        assert!(!self.0.is_empty(), "cannot sample an empty range");
+        let bits = rng.next_bits().cast_signed();
+        let start = i64::from(self.0.start);
+        let end = i64::from(self.0.end);
         // TODO rem introduces slight bias
-        bits.rem_euclid(self.0.end - self.0.start) + self.0.start
+        (bits.rem_euclid(end - start) + start)
+            .try_into()
+            .expect("cannot fail")
     }
 }
+
 /// Uniformly distributed unsigned integers.
-impl Distrib for Uniform<u32> {
+impl Distrib for Uniform<Range<u32>> {
     type Sample = u32;
 
     /// Returns a uniformly distributed `u32` in the range.
+    ///
+    /// # Panics
+    /// If the range is empty (start ≥ end).
     ///
     /// # Examples
     /// ```
@@ -286,6 +298,7 @@ impl Distrib for Uniform<u32> {
     /// assert_eq!(rolls, [2, 4, 6, 6, 3, 1]);
     /// ```
     fn sample(&self, rng: &DefaultRng) -> u32 {
+        assert!(!self.0.is_empty(), "cannot sample an empty range");
         let bits = rng.next_bits() as u32;
         // TODO rem introduces slight bias
         bits.rem_euclid(self.0.end - self.0.start) + self.0.start
@@ -293,10 +306,13 @@ impl Distrib for Uniform<u32> {
 }
 
 /// Uniformly distributed indices.
-impl Distrib for Uniform<usize> {
+impl Distrib for Uniform<Range<usize>> {
     type Sample = usize;
 
     /// Returns a uniformly distributed `usize` in the range.
+    ///
+    /// # Panics
+    /// If the range is empty (start ≥ end).
     ///
     /// # Examples
     /// ```
@@ -314,6 +330,7 @@ impl Distrib for Uniform<usize> {
     /// assert_eq!(x, ["water", "tea", "Red Bull"]);
     /// ```
     fn sample(&self, rng: &DefaultRng) -> usize {
+        assert!(!self.0.is_empty(), "cannot sample an empty range");
         let bits = rng.next_bits() as usize;
         // TODO rem introduces slight bias
         bits.rem_euclid(self.0.end - self.0.start) + self.0.start
@@ -321,10 +338,13 @@ impl Distrib for Uniform<usize> {
 }
 
 /// Uniformly distributed floats.
-impl Distrib for Uniform<f32> {
+impl Distrib for Uniform<Range<f32>> {
     type Sample = f32;
 
     /// Returns a uniformly distributed `f32` in the range.
+    ///
+    /// # Panics
+    /// If the range is empty (start ≥ end) or either endpoint is nonfinite.
     ///
     /// # Examples
     /// ```
@@ -339,6 +359,7 @@ impl Distrib for Uniform<f32> {
     /// ```
     fn sample(&self, rng: &DefaultRng) -> f32 {
         let Range { start, end } = self.0;
+        assert!(start.is_finite() && end.is_finite() && start < end);
         // Bit repr of a random f32 in range 1.0..2.0
         // Leaves a lot of precision unused near zero, but it's okay.
         let (exp, mantissa) = (127 << 23, rng.next_bits() >> 41);
@@ -348,10 +369,13 @@ impl Distrib for Uniform<f32> {
 }
 
 /// Uniformly distributed angles.
-impl Distrib for Uniform<Angle> {
+impl Distrib for Uniform<Range<Angle>> {
     type Sample = Angle;
 
     /// Returns a uniformly distributed `Angle` in the range.
+    ///
+    /// # Panics
+    /// If the range is empty or either endpoint is not finite.
     ///
     /// # Examples
     /// ```
@@ -371,11 +395,11 @@ impl Distrib for Uniform<Angle> {
     }
 }
 
-impl<T: Clone, S> Distrib for Range<T>
+impl<T: Clone> Distrib for Range<T>
 where
-    Uniform<T>: Distrib<Sample = S>,
+    Uniform<Range<T>>: Distrib,
 {
-    type Sample = S;
+    type Sample = <Uniform<Range<T>> as Distrib>::Sample;
 
     #[inline]
     fn sample(&self, rng: &DefaultRng) -> Self::Sample {
@@ -405,10 +429,10 @@ impl<T: Clone> Distrib for [T] {
     }
 }
 
-impl<T, const N: usize> Distrib for Uniform<[T; N]>
+impl<T, const N: usize> Distrib for Uniform<Range<[T; N]>>
 where
     T: Copy,
-    Uniform<T>: Distrib<Sample = T>,
+    Uniform<Range<T>>: Distrib<Sample = T>,
 {
     type Sample = [T; N];
 
@@ -420,12 +444,12 @@ where
     /// use retrofire_core::math::rand::*;
     /// let rng = DefaultRng::default();
     ///
-    /// // Pairs of integers [X, Y] such that 0 <= X < 4 and -2 <= Y <= 3
+    /// // Pairs of integers [X, Y] such that 0 <= X < 4 and -2 <= Y < 3
     /// let mut int_pairs = Uniform([0, -2]..[4, 3]).samples(&rng);
     ///
     /// assert_eq!(int_pairs.next(), Some([0, -1]));
-    /// assert_eq!(int_pairs.next(), Some([1, 0]));
-    /// assert_eq!(int_pairs.next(), Some([3, 1]));
+    /// assert_eq!(int_pairs.next(), Some([1, 2]));
+    /// assert_eq!(int_pairs.next(), Some([3, 0]));
     /// ```
     #[inline]
     fn sample(&self, rng: &DefaultRng) -> [T; N] {
@@ -435,27 +459,26 @@ where
 }
 
 /// Uniformly distributed vectors within a rectangular volume.
-impl<Sc, Sp, const DIM: usize> Distrib for Uniform<Vector<[Sc; DIM], Sp>>
+impl<Sc, Sp, const DIM: usize> Distrib for Uniform<Range<Vector<[Sc; DIM], Sp>>>
 where
     Sc: Copy,
-    Uniform<[Sc; DIM]>: Distrib<Sample = [Sc; DIM]>,
+    Uniform<Range<[Sc; DIM]>>: Distrib<Sample = [Sc; DIM]>,
 {
     type Sample = Vector<[Sc; DIM], Sp>;
 
     /// Returns a vector uniformly sampled from the rectangular volume
     /// bounded by `self.0`.
     fn sample(&self, rng: &DefaultRng) -> Self::Sample {
-        Uniform(self.0.start.0..self.0.end.0)
-            .sample(rng)
-            .into()
+        let Range { start, end } = self.0;
+        Uniform(start.0..end.0).sample(rng).into()
     }
 }
 
 /// Uniformly distributed points within a rectangular volume.
-impl<Sc, Sp, const DIM: usize> Distrib for Uniform<Point<[Sc; DIM], Sp>>
+impl<Sc, Sp, const DIM: usize> Distrib for Uniform<Range<Point<[Sc; DIM], Sp>>>
 where
     Sc: Copy,
-    Uniform<[Sc; DIM]>: Distrib<Sample = [Sc; DIM]>,
+    Uniform<Range<[Sc; DIM]>>: Distrib<Sample = [Sc; DIM]>,
 {
     type Sample = Point<[Sc; DIM], Sp>;
 
@@ -467,11 +490,11 @@ where
             .into()
     }
 }
-impl<Sc, Sp, const DIM: usize> Distrib for Uniform<Color<[Sc; DIM], Sp>>
+impl<Sc, Sp, const DIM: usize> Distrib for Uniform<Range<Color<[Sc; DIM], Sp>>>
 where
     Sc: Copy,
     Sp: Clone, // TODO Color needs manual Clone etc impls like Vector
-    Uniform<[Sc; DIM]>: Distrib<Sample = [Sc; DIM]>,
+    Uniform<Range<[Sc; DIM]>>: Distrib<Sample = [Sc; DIM]>,
 {
     type Sample = Point<[Sc; DIM], Sp>;
 
@@ -645,10 +668,51 @@ mod tests {
 
     #[test]
     fn uniform_i32() {
-        let dist = Uniform(-123i32..456);
-        for r in dist.samples(&rng()).take(COUNT) {
-            assert!(-123 <= r && r < 456);
+        let dist = Uniform(-123_i32..456);
+        for i in dist.samples(&rng()).take(COUNT) {
+            assert!(-123 <= i && i < 456);
         }
+    }
+    #[test]
+    fn uniform_i32_min_max() {
+        let dist = Uniform(i32::MIN..i32::MAX);
+        assert_eq!(dist.sample(&rng()), 401525456);
+    }
+    #[test]
+    #[should_panic]
+    fn uniform_i32_empty() {
+        _ = Uniform(123i32..123).sample(&rng());
+    }
+
+    #[test]
+    fn uniform_u32() {
+        let dist = Uniform(123_u32..456);
+        for r in dist.samples(&rng()).take(COUNT) {
+            assert!(123 <= r && r < 456);
+        }
+    }
+    #[test]
+    fn uniform_u32_min_max() {
+        let dist = Uniform(u32::MIN..u32::MAX);
+        assert_eq!(dist.sample(&rng()), 4273591452);
+    }
+    #[test]
+    #[should_panic]
+    fn uniform_u32_empty() {
+        _ = Uniform(123u32..123).sample(&rng());
+    }
+
+    #[test]
+    fn uniform_usize() {
+        let dist = Uniform(123_usize..456);
+        for r in dist.samples(&rng()).take(COUNT) {
+            assert!(123 <= r && r < 456);
+        }
+    }
+    #[test]
+    #[should_panic]
+    fn uniform_usize_empty() {
+        _ = Uniform(123_usize..123).sample(&rng());
     }
 
     #[test]
@@ -660,6 +724,24 @@ mod tests {
     }
 
     #[test]
+    #[should_panic]
+    fn uniform_f32_empty() {
+        _ = Uniform(1.23_f32..1.23).sample(&rng());
+    }
+
+    #[test]
+    #[should_panic]
+    fn uniform_f32_infinite() {
+        _ = Uniform(1.23..f32::INFINITY).sample(&rng());
+    }
+
+    #[test]
+    #[should_panic]
+    fn uniform_f32_nan() {
+        _ = Uniform(1.23..f32::NAN).sample(&rng());
+    }
+
+    #[test]
     fn uniform_i32_array() {
         let dist = Uniform([0, -10]..[10, 15]);
 
@@ -668,11 +750,11 @@ mod tests {
             .take(COUNT)
             .inspect(|&[x, y]| {
                 assert!(0 <= x && x < 10);
-                assert!(-10 <= y && x < 15);
+                assert!(-10 <= y && y < 15);
             })
             .fold([0, 0], |[ax, ay], [x, y]| [ax + x, ay + y]);
 
-        assert_eq!(sum, [4531, 1652]);
+        assert_eq!(sum, [4433, 1947]);
     }
 
     #[test]

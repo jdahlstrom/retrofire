@@ -1,4 +1,4 @@
-use core::ops::ControlFlow::Continue;
+use core::ops::{ControlFlow::Continue, Range};
 
 use re::prelude::*;
 
@@ -24,7 +24,7 @@ fn main() {
         (pt2(100.0, 100.0), pt2(w as f32 - 100.0, h as f32 - 100.0));
 
     let rng = Xorshift64::from_time();
-    let pos = Uniform::<Point2>(min..max);
+    let pos = Uniform::<Range<Point2>>(min..max);
     let vel = VectorsOnUnitDisk;
 
     let mut pos_vels: Vec<(Point2, Vec2)> =
