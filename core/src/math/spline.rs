@@ -3,10 +3,13 @@
 #![allow(clippy::just_underscores_and_digits)]
 
 use alloc::vec::Vec;
-use core::{array::from_fn, fmt::Debug, marker::PhantomData};
+use core::{array::from_fn, fmt::Debug};
 
-use crate::geom::{Polyline, Ray};
-use crate::mat;
+use crate::{
+    geom::{Polyline, Ray},
+    mat,
+    util::AsSlice,
+};
 
 use super::{
     Affine, Lerp, Linear, Mat4, Parametric, Point, Vary, Vector, inv_lerp,
@@ -62,21 +65,19 @@ pub struct CubicHermite<P, D>(pub [P; 2], pub [D; 2]);
 
 /// A piecewise curve composed of concatenated [cubic Bézier curves][CubicBezier].
 #[derive(Debug, Clone, Eq, PartialEq)]
-pub struct BezierSpline<T>(Vec<T>);
+pub struct BezierSpline<Points>(Points);
 
 /// A piecewise curve composed of concatenated [cubic Hermite curves][CubicHermite].
 #[derive(Debug, Clone, Eq, PartialEq)]
-// HACK: The PhantomData field only exists to force the derive impls
-//       to include the correct `T::Diff: Trait` bounds
-pub struct HermiteSpline<T: Affine>(Vec<Ray<T>>, PhantomData<T::Diff>);
+pub struct HermiteSpline<Rays>(Rays);
 
 /// A piecewise curve composed of concatenated cubic curves.
 #[derive(Debug, Clone, Eq, PartialEq)]
-pub struct CatmullRomSpline<T>(Vec<T>);
+pub struct CatmullRomSpline<Points>(Points);
 
 /// A piecewise curve composed of concatenated cubic curves.
 #[derive(Debug, Clone, Eq, PartialEq)]
-pub struct BSpline<T>(Vec<T>);
+pub struct BSpline<Points>(Points);
 
 /// Euclidean (arc-length) parameterization for splines.
 ///
@@ -162,7 +163,7 @@ where
 pub fn approximate<T, Sp, const DIM: usize>(
     curve: &impl Parametric<T>,
     error: f32,
-) -> Polyline<T>
+) -> Polyline<Vec<T>>
 where
     T: Affine<Diff = Vector<[f32; DIM], Sp>>,
 {
@@ -212,10 +213,10 @@ where
 /// // Number of line segments used by the approximation
 /// assert_eq!(approx.0.len(), 17);
 /// ```
-pub fn approximate_with<T: Affine<Diff: Linear<Scalar = f32>>>(
-    curve: &impl Parametric<T>,
-    halt: impl Fn(&T::Diff) -> bool,
-) -> Polyline<T> {
+pub fn approximate_with<P: Affine<Diff: Linear<Scalar = f32>>>(
+    curve: &impl Parametric<P>,
+    halt: impl Fn(&P::Diff) -> bool,
+) -> Polyline<Vec<P>> {
     let mut res = Vec::new();
     do_approx(curve, 0.0, 1.0, 10, &halt, &mut res);
     res.push(curve.eval(1.0));
@@ -278,10 +279,7 @@ impl<T: Lerp> CubicBezier<T> {
     }
 }
 
-impl<T> CubicBezier<T>
-where
-    T: Affine<Diff: Linear<Scalar = f32>> + Clone,
-{
+impl<T: AffineF32> CubicBezier<T> {
     /// Returns the point of `self` at the given *t* value.
     ///
     /// Directly evaluates the cubic polynomial. Faster but possibly less
@@ -359,10 +357,7 @@ where
     }
 }
 
-impl<P> CubicHermite<P, P::Diff>
-where
-    P: Affine<Diff: Linear<Scalar = f32>> + Clone,
-{
+impl<P: AffineF32> CubicHermite<P, P::Diff> {
     // Characteristic matrix M
     //  1.0,  0.0,  0.0,  0.0;
     //  0.0,  1.0,  0.0,  0.0;
@@ -432,7 +427,7 @@ where
     }
 }
 
-impl<T: AffineF32> BezierSpline<T> {
+impl<P: AffineF32> BezierSpline<Vec<P>> {
     /// Creates a Bézier spline from the given control points.
     ///
     /// The number of elements in `pts` must be 3*n* + 1 for some positive integer
@@ -444,7 +439,7 @@ impl<T: AffineF32> BezierSpline<T> {
     ///
     /// # Panics
     /// If the number of points *n* < 4 or if *n* ≠ 1 (mod 3).
-    pub fn new(pts: impl IntoIterator<Item = T>) -> Self {
+    pub fn new(pts: impl IntoIterator<Item = P>) -> Self {
         let pts = pts.into_iter().collect::<Vec<_>>();
         let len = pts.len();
         assert!(
@@ -462,20 +457,21 @@ impl<T: AffineF32> BezierSpline<T> {
     ///
     /// # Panics
     /// If the number of rays < 2.
-    pub fn from_rays(rays: impl IntoIterator<Item = Ray<T>>) -> Self {
+    pub fn from_rays(rays: impl IntoIterator<Item = Ray<P>>) -> Self {
         let pts: Vec<_> = rays
             .into_iter()
             .flat_map(|Ray(p, d)| [p.add(&d.neg()), p.clone(), p.add(&d)])
             .collect();
         Self::new(pts[1..pts.len() - 1].iter().cloned())
     }
-
+}
+impl<Pts: AsSlice<Elem: AffineF32>> BezierSpline<Pts> {
     /// Returns the point of `self` at the given *t* value.
     ///
     /// Values of *t* outside the interval [0, 1] are accepted and extrapolate
     /// the curve beyond the control points.
     #[inline]
-    pub fn eval(&self, t: f32) -> T {
+    pub fn eval(&self, t: f32) -> Pts::Elem {
         let (u, seg) = self.segment(t);
         seg.fast_eval(u)
     }
@@ -485,20 +481,21 @@ impl<T: AffineF32> BezierSpline<T> {
     /// Values of *t* outside the interval [0, 1] are accepted and extrapolate
     /// the curve beyond the control points.
     #[inline]
-    pub fn velocity(&self, t: f32) -> T::Diff {
+    pub fn velocity(&self, t: f32) -> <Pts::Elem as Affine>::Diff {
         let (u, seg) = self.segment(t);
         seg.velocity(u)
     }
 
     /// Returns the list of control points of `self`.
-    pub fn control_points(&self) -> &[T] {
-        &self.0
+    pub fn control_points(&self) -> &[Pts::Elem] {
+        self.0.as_slice()
     }
 
     /// Returns the spline segment and local *t* value corresponding to
     /// the given global *t* value.
     ///
-    fn segment(&self, t: f32) -> (f32, CubicBezier<T>) {
+    fn segment(&self, t: f32) -> (f32, CubicBezier<Pts::Elem>) {
+        let pts = self.control_points();
         // Consecutive segments share an endpoint:
         // [B0  B1  B2  B3]
         //             [B3  B4  B5  B6]
@@ -506,7 +503,7 @@ impl<T: AffineF32> BezierSpline<T> {
         //                                     [B9 ...
         // If the number of segs is n, the number of control points is 3n + 1,
         // thus if the number of points is l, the number of segs is (l - 1) / 3.
-        let num_segs = (self.0.len() - 1) / 3;
+        let num_segs = (pts.len() - 1) / 3;
         // Rescale from [0, 1] to [0, num_segs]
         let t = t * num_segs as f32;
         // Calculate the segment index.
@@ -518,12 +515,12 @@ impl<T: AffineF32> BezierSpline<T> {
         let u = t - seg_i as f32;
         // Index of the first control point of the segment
         let i = 3 * seg_i;
-        let seg = from_fn(|j| self.0[i + j].clone());
+        let seg = from_fn(|j| pts[i + j].clone());
         (u, CubicBezier(seg))
     }
 }
 
-impl<T: AffineF32> HermiteSpline<T> {
+impl<P: AffineF32> HermiteSpline<Vec<Ray<P>>> {
     /// Creates a new Hermite spline from a sequence of rays.
     ///
     /// Each ray (P<sub>i</sub>, **v**<sub>i</sub>) makes up a point
@@ -533,40 +530,46 @@ impl<T: AffineF32> HermiteSpline<T> {
     ///
     /// # Panics
     /// If `rays` has fewer than two items.
-    pub fn new(rays: impl IntoIterator<Item = Ray<T>>) -> Self {
+    pub fn new(rays: impl IntoIterator<Item = Ray<P>>) -> Self {
         let rays: Vec<_> = rays.into_iter().collect();
         assert!(
             rays.len() >= 2,
             "a Hermite spline requires at least two points and two vectors"
         );
-        Self(rays, PhantomData)
+        Self(rays)
     }
-
+}
+impl<P, Pts> HermiteSpline<Pts>
+where
+    P: AffineF32,
+    Pts: AsSlice<Elem = Ray<P>>,
+{
     /// Returns the subsegment and local *t* value corresponding to the given
     /// global *t* value.
-    fn segment(&self, t: f32) -> (f32, CubicHermite<T, T::Diff>) {
+    fn segment(&self, t: f32) -> (f32, CubicHermite<P, P::Diff>) {
+        let rays = self.0.as_slice();
+
         // Scale from [0, 1] to [0, len-1]
-        let t = t * (self.0.len() - 1) as f32;
+        let t = t * (rays.len() - 1) as f32;
         // Calculate the index of the subsegment. There are len-1 subsegments:
         // (0, 1), (1,2), ..., (len-2, len-1).
-        let i = (t as usize).min(self.0.len() - 2);
+        let i = (t as usize).min(rays.len() - 2);
         // The leftover part is the local t value. This is the fractional part
         // for 0 <= t < len-1. t = len-1 maps to u = 1 of the last subsegment.
         // Values of t < 0 or t > len-1 result in u < 0 or u > 1 and extrapolate
         // beyond the first or last subsegment, respectively.
         let u = t - i as f32;
-        // Ok: i <= self.0.len() - 2
-        let Ray(p0, d0) = self.0[i].clone();
-        let Ray(p1, d1) = self.0[i + 1].clone();
+        // Ok: i <= pts.len() - 2
+        let Ray(p0, d0) = rays[i].clone();
+        let Ray(p1, d1) = rays[i + 1].clone();
         (u, CubicHermite([p0, p1], [d0, d1]))
     }
-
     /// Returns the point of `self` at the given *t* value.
     ///
     /// Values of *t* outside the interval [0, 1] are accepted and extrapolate
     /// the curve beyond the control points.
     #[inline]
-    pub fn eval(&self, t: f32) -> T {
+    pub fn eval(&self, t: f32) -> P {
         let (u, seg) = self.segment(t);
         seg.eval(u)
     }
@@ -577,13 +580,13 @@ impl<T: AffineF32> HermiteSpline<T> {
     /// Values of *t* outside the interval [0, 1] are accepted and extrapolate
     /// the curve beyond the control points.
     #[inline]
-    pub fn velocity(&self, t: f32) -> T::Diff {
+    pub fn velocity(&self, t: f32) -> P::Diff {
         let (u, seg) = self.segment(t);
         seg.velocity(u)
     }
 }
 
-impl<T: AffineF32> CatmullRomSpline<T> {
+impl<P: AffineF32> CatmullRomSpline<Vec<P>> {
     const _CHAR_MAT: Mat4 = mat![
          0.0,  1.0,  0.0,  0.0;
         -0.5,  0.0,  0.5,  0.0;
@@ -595,7 +598,7 @@ impl<T: AffineF32> CatmullRomSpline<T> {
     ///
     /// # Panics
     /// If `pts` has fewer than four points.
-    pub fn new(pts: impl IntoIterator<Item = T>) -> Self {
+    pub fn new(pts: impl IntoIterator<Item = P>) -> Self {
         let pts: Vec<_> = pts.into_iter().collect();
         assert!(
             pts.len() >= 4,
@@ -603,13 +606,15 @@ impl<T: AffineF32> CatmullRomSpline<T> {
         );
         Self(pts)
     }
+}
 
+impl<Pts: AsSlice<Elem: AffineF32>> CatmullRomSpline<Pts> {
     /// Returns the point of `self` at the given *t* value.
     ///
     /// Values of *t* outside the interval [0, 1] are accepted and extrapolate
     /// the curve beyond the control points.
     #[inline]
-    pub fn eval(&self, t: f32) -> T {
+    pub fn eval(&self, t: f32) -> Pts::Elem {
         let (t, [p0, p1, p2, p3]) = crb_segment(&self.0, t);
         let [_0, t1, t2, t3] = [1.0, t, t * t, t * t * t];
 
@@ -636,7 +641,7 @@ impl<T: AffineF32> CatmullRomSpline<T> {
     ///
     /// Values of *t* outside the interval [0, 1] are accepted and extrapolate
     /// the curve beyond the control points.
-    pub fn velocity(&self, t: f32) -> T::Diff {
+    pub fn velocity(&self, t: f32) -> <Pts::Elem as Affine>::Diff {
         let (t, [p0, p1, p2, p3]) = crb_segment(&self.0, t);
         let [_0, _1, t2, t3] = [0.0, 1.0, 2.0 * t, 3.0 * t * t];
 
@@ -663,7 +668,7 @@ impl<T: AffineF32> CatmullRomSpline<T> {
     }
 }
 
-impl<T: AffineF32> BSpline<T> {
+impl<P: AffineF32> BSpline<Vec<P>> {
     const _CHAR_MAT: Mat4 = {
         const _1_6: f32 = 1.0 / 6.0;
         const _2_3: f32 = 2.0 / 3.0;
@@ -679,17 +684,19 @@ impl<T: AffineF32> BSpline<T> {
     ///
     /// # Panics
     /// If `pts` has fewer than four points.
-    pub fn new(pts: impl IntoIterator<Item = T>) -> Self {
+    pub fn new(pts: impl IntoIterator<Item = P>) -> Self {
         let pts: Vec<_> = pts.into_iter().collect();
         assert!(pts.len() >= 4, "a B-spline requires at least four points");
         Self(pts)
     }
+}
 
+impl<Pts: AsSlice<Elem: AffineF32>> BSpline<Pts> {
     /// Returns the point of `self` at the given *t* value.
     ///
     /// Values of *t* outside the interval [0, 1] are accepted and extrapolate
     /// the curve beyond the control points.
-    pub fn eval(&self, t: f32) -> T {
+    pub fn eval(&self, t: f32) -> Pts::Elem {
         let (t, [p0, p1, p2, p3]) = crb_segment(&self.0, t);
         let [_0, t1, t2, t3] = [1.0, t, t * t, t * t * t];
 
@@ -708,7 +715,7 @@ impl<T: AffineF32> BSpline<T> {
     ///
     /// Values of *t* outside the interval [0, 1] are accepted and extrapolate
     /// the curve beyond the control points.
-    pub fn velocity(&self, t: f32) -> T::Diff {
+    pub fn velocity(&self, t: f32) -> <Pts::Elem as Affine>::Diff {
         let (t, [p0, p1, p2, p3]) = crb_segment(&self.0, t);
         let [_0, _1, t2, t3] = [0.0, 1.0, 2.0 * t, 3.0 * t * t];
 
@@ -738,7 +745,12 @@ impl<T: AffineF32> BSpline<T> {
 /// Returns the curve segment and local *t* value corresponding to
 /// the global *t* value of a Catmull–Rom or B-spline.
 #[inline]
-fn crb_segment<T: Clone>(pts: &[T], t: f32) -> (f32, &[T; 4]) {
+fn crb_segment<Pts: AsSlice<Elem: Clone>>(
+    pts: &Pts,
+    t: f32,
+) -> (f32, &[Pts::Elem; 4]) {
+    let pts = pts.as_slice();
+
     let t = 1.0 + t * (pts.len() as f32 - 3.0);
 
     let i = (t as usize).clamp(1, pts.len() - 3);
@@ -813,44 +825,57 @@ impl<T: AffineF32> Parametric<T> for CubicBezier<T> {
     }
 }
 
-impl<T: AffineF32> Parametric<T> for CubicHermite<T, T::Diff> {
+impl<P: AffineF32> Parametric<P> for CubicHermite<P, P::Diff> {
     #[inline]
-    fn eval(&self, t: f32) -> T {
+    fn eval(&self, t: f32) -> P {
         self.eval(t)
     }
 }
 
-impl<T: AffineF32> Parametric<T> for BezierSpline<T> {
+impl<Pts> Parametric<Pts::Elem> for BezierSpline<Pts>
+where
+    Pts: AsSlice<Elem: AffineF32>,
+{
     #[inline]
-    fn eval(&self, t: f32) -> T {
+    fn eval(&self, t: f32) -> Pts::Elem {
         self.eval(t)
     }
 }
 
-impl<T: AffineF32> Parametric<T> for HermiteSpline<T> {
+impl<P, Pts> Parametric<P> for HermiteSpline<Pts>
+where
+    P: AffineF32,
+    Pts: AsSlice<Elem = Ray<P>>,
+{
     #[inline]
-    fn eval(&self, t: f32) -> T {
+    fn eval(&self, t: f32) -> P {
         self.eval(t)
     }
 }
 
-impl<T: AffineF32> Parametric<T> for CatmullRomSpline<T> {
+impl<Pts> Parametric<Pts::Elem> for CatmullRomSpline<Pts>
+where
+    Pts: AsSlice<Elem: AffineF32>,
+{
     #[inline]
-    fn eval(&self, t: f32) -> T {
+    fn eval(&self, t: f32) -> Pts::Elem {
         self.eval(t)
     }
 }
 
-impl<T: AffineF32> Parametric<T> for BSpline<T> {
+impl<Pts> Parametric<Pts::Elem> for BSpline<Pts>
+where
+    Pts: AsSlice<Elem: AffineF32>,
+{
     #[inline]
-    fn eval(&self, t: f32) -> T {
+    fn eval(&self, t: f32) -> Pts::Elem {
         self.eval(t)
     }
 }
 
-impl<T, Spl: Parametric<T>> Parametric<T> for Euclidean<Spl> {
+impl<P, Spl: Parametric<P>> Parametric<P> for Euclidean<Spl> {
     #[inline]
-    fn eval(&self, s: f32) -> T {
+    fn eval(&self, s: f32) -> P {
         self.eval(s)
     }
 }
@@ -1044,10 +1069,10 @@ mod tests {
     #[test]
     fn bezier_spline_point2_from_rays() {
         #[rustfmt::skip]
-        let expected = BezierSpline::<Point2>::new([
+        let expected = BezierSpline::<Vec<Point2>>::new([
             pt2(0.0, 0.0),pt2(0.0, 2.0),pt2(1.0, -1.0),pt2(1.0, 1.0)
         ]);
-        let actual = BezierSpline::<Point2>::from_rays([
+        let actual = BezierSpline::<Vec<Point2>>::from_rays([
             Ray(pt2(0.0, 0.0), vec2(0.0, 2.0)),
             Ray(pt2(1.0, 1.0), vec2(0.0, 2.0)),
         ]);
@@ -1061,8 +1086,9 @@ mod tests {
     #[test]
     fn bezier_spline_point2_velocity() {
         #[rustfmt::skip]
-        let b = BezierSpline::<Point2>::new([
-            pt2(0.0, 0.0), pt2(0.0, 1.0), pt2(1.0, 0.0), pt2(1.0, 1.0),
+        let b = BezierSpline::new([
+            pt2::<f32, ()>(0.0, 0.0), pt2(0.0, 1.0),
+            pt2(1.0, 0.0), pt2(1.0, 1.0),
         ]);
         #[rustfmt::skip]
         let expected = [
@@ -1091,8 +1117,8 @@ mod tests {
 
     #[test]
     fn hermite_spline_point2_eval() {
-        let h = HermiteSpline::<Point2>::new([
-            Ray(pt2(0.0, 0.0), vec2(1.0, 0.0)),
+        let h = HermiteSpline::new([
+            Ray(pt2::<_, ()>(0.0, 0.0), vec2(1.0, 0.0)),
             Ray(pt2(1.0, 1.0), vec2(1.0, 0.0)),
         ]);
 
@@ -1108,8 +1134,8 @@ mod tests {
 
     #[test]
     fn hermite_spline_point2_velocity() {
-        let h = HermiteSpline::<Point2>::new([
-            Ray(pt2(0.0, 0.0), vec2(1.0, 0.0)),
+        let h = HermiteSpline::new([
+            Ray(pt2::<_, ()>(0.0, 0.0), vec2(1.0, 0.0)),
             Ray(pt2(1.0, 1.0), vec2(1.0, 0.0)),
         ]);
 
@@ -1126,8 +1152,8 @@ mod tests {
     #[test]
     fn catmull_rom_spline_point2_eval() {
         #[rustfmt::skip]
-        let c = CatmullRomSpline::<Point2>::new([
-            pt2(-1.0, 0.0), pt2(0.0, 0.0), pt2(1.0, 0.0),
+        let c = CatmullRomSpline::new([
+            pt2::<_,()>(-1.0, 0.0), pt2(0.0, 0.0), pt2(1.0, 0.0),
             pt2(0.0, 1.0), pt2(1.0, 1.0), pt2(2.0, 1.0),
         ]);
 
@@ -1144,8 +1170,8 @@ mod tests {
     #[test]
     fn catmull_rom_spline_point2_gradient() {
         #[rustfmt::skip]
-        let c = CatmullRomSpline::<Point2>::new([
-            pt2(-1.0, 0.0), pt2(0.0, 0.0), pt2(1.0, 0.0),
+        let c = CatmullRomSpline::new([
+            pt2::<_, ()>(-1.0, 0.0), pt2(0.0, 0.0), pt2(1.0, 0.0),
             pt2(0.0, 1.0), pt2(1.0, 1.0), pt2(2.0, 1.0),
         ]);
 
@@ -1162,8 +1188,8 @@ mod tests {
     #[test]
     fn b_spline_point2_eval() {
         #[rustfmt::skip]
-        let b = BSpline::<Point2>::new([
-            pt2(-1.0, 0.0), pt2(0.0, 0.0), pt2(1.0, 0.0),
+        let b = BSpline::new([
+            pt2::<_, ()>(-1.0, 0.0), pt2(0.0, 0.0), pt2(1.0, 0.0),
             pt2(0.0, 1.0), pt2(1.0, 1.0), pt2(2.0, 1.0),
         ]);
 
@@ -1180,8 +1206,8 @@ mod tests {
     #[test]
     fn b_spline_point2_gradient() {
         #[rustfmt::skip]
-        let b = BSpline::<Point2>::new([
-            pt2(-1.0, 0.0), pt2(0.0, 0.0), pt2(1.0, 0.0),
+        let b = BSpline::new([
+            pt2::<_, ()>(-1.0, 0.0), pt2(0.0, 0.0), pt2(1.0, 0.0),
             pt2(0.0, 1.0), pt2(1.0, 1.0), pt2(2.0, 1.0),
         ]);
 

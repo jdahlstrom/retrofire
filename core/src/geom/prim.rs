@@ -3,10 +3,7 @@
 //! Includes vertices, polygons, planes, rays, and more.
 
 use alloc::vec::Vec;
-use core::{
-    fmt::{self, Debug, Formatter},
-    ops::Index,
-};
+use core::fmt::{self, Debug, Formatter};
 
 use crate::math::{
     Affine, ApproxEq, Lerp, Linear, Mat4, Parametric, Point, Point2, Point3,
@@ -16,6 +13,7 @@ use crate::math::{
     vec2, vec3,
 };
 use crate::render::Model;
+use crate::util::AsSlice;
 
 /// A trait for types that have a position. Primarily useful for APIs such as
 /// `Tri` that can handle either points or vertices.
@@ -65,14 +63,14 @@ pub type Ray3<B = ()> = Ray<Point3<B>>;
 /// The polyline is represented as a list of points, or vertices, with each
 /// pair of consecutive vertices sharing an edge.
 #[derive(Clone, Debug, Default, Eq, PartialEq)]
-pub struct Polyline<T>(pub Vec<T>);
+pub struct Polyline<Verts>(pub Verts);
 
 /// A closed curve composed of a chain of line segments.
 ///
 /// The polygon is represented as a list of points, or vertices, with each pair
 /// of consecutive vertices, as well as the first and last vertex, sharing an edge.
 #[derive(Clone, Debug, Default, Eq, PartialEq)]
-pub struct Polygon<T>(pub Vec<T>);
+pub struct Polygon<Verts>(pub Verts);
 
 /// A line segment between two vertices.
 #[derive(Copy, Clone, Debug, Default, Eq, PartialEq)]
@@ -557,10 +555,15 @@ impl<B> Plane3<B> {
     }
 }
 
-impl<T> Polyline<T> {
-    /// Creates a new polyline from an iterator of vertex points.
-    pub fn new(verts: impl IntoIterator<Item = T>) -> Self {
-        Self(verts.into_iter().collect())
+impl<Verts: AsSlice> Polyline<Verts> {
+    /// Creates a new polyline from a sequence of vertices.
+    pub fn new(verts: Verts) -> Self {
+        Self(verts)
+    }
+
+    #[inline]
+    pub fn vertices(&self) -> &[Verts::Elem] {
+        self.0.as_slice()
     }
 
     /// Returns an iterator over the line segments of `self`.
@@ -579,8 +582,8 @@ impl<T> Polyline<T> {
     /// assert_eq!(edges.next(), Some(Edge(&pts[1], &pts[2])));
     /// assert_eq!(edges.next(), None);
     /// ```
-    pub fn edges(&self) -> impl Iterator<Item = Edge<&T>> + '_ {
-        self.0.array_windows().map(Edge::from)
+    pub fn edges(&self) -> impl Iterator<Item = Edge<&Verts::Elem>> + '_ {
+        self.vertices().array_windows().map(Edge::from)
     }
 
     /// Returns the sum of the lengths of the edges using a custom metric.
@@ -604,12 +607,13 @@ impl<T> Polyline<T> {
     ///
     /// assert_eq!(pline.len_by(taxicab), 9.0);
     /// ```
-    pub fn len_by(&self, mut m: impl FnMut(&T, &T) -> f32) -> f32 {
-        self.edges().map(|e| m(e.0, e.1)).sum()
+    pub fn len_by(
+        &self,
+        mut metric: impl FnMut(&Verts::Elem, &Verts::Elem) -> f32,
+    ) -> f32 {
+        self.edges().map(|e| metric(e.0, e.1)).sum()
     }
-}
 
-impl<const N: usize, B> Polyline<Point<[f32; N], Real<N, B>>> {
     /// Returns the sum of the lengths of the edges of `self`.
     ///
     /// # Examples
@@ -622,15 +626,18 @@ impl<const N: usize, B> Polyline<Point<[f32; N], Real<N, B>>> {
     ///
     /// assert_eq!(pline.len(), 4.0);
     /// ```
-    pub fn len(&self) -> f32 {
-        self.len_by(Point::distance)
+    pub fn len<B, const N: usize>(&self) -> f32
+    where
+        Verts::Elem: Pos<Type = Point<[f32; N], Real<N, B>>>,
+    {
+        self.len_by(|p, q| p.pos().distance(q.pos()))
     }
 }
 
-impl<T> Polygon<T> {
-    /// Creates a new polygon from an iterator of vertex points.
-    pub fn new(verts: impl IntoIterator<Item = T>) -> Self {
-        Self(verts.into_iter().collect())
+impl<Verts: AsSlice> Polygon<Verts> {
+    /// Creates a new polygon from a sequence of vertices.
+    pub fn new(verts: Verts) -> Self {
+        Self(verts)
     }
 
     /// Returns an iterator over the edges of `self`.
@@ -653,16 +660,45 @@ impl<T> Polygon<T> {
     /// assert_eq!(edges.next(), Some(Edge(&pts[2], &pts[0])));
     /// assert_eq!(edges.next(), None);
     /// ```
-    pub fn edges(&self) -> impl Iterator<Item = Edge<&T>> + '_ {
-        let last_first = if let [fst, .., lst] = &self.0[..] {
+    pub fn edges(&self) -> impl Iterator<Item = Edge<&Verts::Elem>> + '_ {
+        let vs = self.vertices();
+        let last_first = if let [fst, .., lst] = vs {
             Some(Edge(lst, fst))
         } else {
             None
         };
-        self.0
-            .array_windows()
+        vs.array_windows()
             .map(|[a, b]| Edge(a, b))
             .chain(last_first)
+    }
+
+    /// Returns the vertex at an index modulo the number of vertices.
+    ///
+    /// # Examples
+    /// ```
+    /// use retrofire_core::geom::Polygon;
+    /// use retrofire_core::math::{pt2, Point2};
+    ///
+    /// let poly = Polygon::<Point2>::new([
+    ///     pt2(0.0, 0.0),
+    ///     pt2(1.0, 0.0),
+    ///     pt2(0.0, 1.0)
+    /// ]);
+    ///
+    /// assert_eq!(poly[1], pt2(1.0, 0.0));
+    /// // Out-of-range indices "wrap around":
+    /// assert_eq!(poly[-1], pt2(0.0, 1.0));
+    /// assert_eq!(poly[3], pt2(0.0, 0.0));
+    /// ```
+    #[inline]
+    pub fn index(&self, index: isize) -> &Verts::Elem {
+        let vs = self.vertices();
+        &vs[index.rem_euclid(vs.len() as isize) as usize]
+    }
+
+    #[inline]
+    pub fn vertices(&self) -> &[Verts::Elem] {
+        self.0.as_slice()
     }
 }
 
@@ -761,7 +797,7 @@ where
     }
 }
 
-impl<T: Lerp> Parametric<T> for Polyline<T> {
+impl<Verts: AsSlice<Elem: Lerp>> Parametric<Verts::Elem> for Polyline<Verts> {
     /// Returns the point on `self` at the given *t* value.
     ///
     /// If the number of vertices in `self` is *n* > 1, the vertex at index
@@ -794,24 +830,24 @@ impl<T: Lerp> Parametric<T> for Polyline<T> {
     /// assert_eq!(pl.eval(-1.23), pl.eval(0.0));
     /// assert_eq!(pl.eval(7.68), pl.eval(1.0));
     /// ```
-    fn eval(&self, t: f32) -> T {
-        let pts = &self.0;
-        assert!(!pts.is_empty(), "cannot eval an empty polyline");
+    fn eval(&self, t: f32) -> Verts::Elem {
+        let vs = &self.vertices();
+        assert!(!vs.is_empty(), "cannot eval an empty polyline");
 
-        let max = pts.len() - 1;
+        let max = vs.len() - 1;
         let i = t.clamp(0.0, 1.0) * max as f32;
         let t_rem = i % 1.0;
         let i = i as usize;
 
         if i == max {
-            pts[i].clone()
+            vs[i].clone()
         } else {
-            pts[i].lerp(&pts[i + 1], t_rem)
+            vs[i].lerp(&vs[i + 1], t_rem)
         }
     }
 }
 
-impl<T: Lerp> Parametric<T> for Polygon<T> {
+impl<Verts: AsSlice<Elem: Lerp>> Parametric<Verts::Elem> for Polygon<Verts> {
     /// Returns the point on `self` at the given *t* value.
     ///
     /// If the number of vertices in `self` is *n* > 1, the vertex at index
@@ -844,16 +880,18 @@ impl<T: Lerp> Parametric<T> for Polygon<T> {
     /// assert_eq!(pl.eval(-1.25), pl.eval(0.75));
     /// assert_eq!(pl.eval(3.0), pl.eval(0.0));
     /// ```
-    fn eval(&self, t: f32) -> T {
+    fn eval(&self, t: f32) -> Verts::Elem {
         use crate::math::float::f32;
-        assert!(!self.0.is_empty(), "cannot eval an empty polygon");
 
-        let t = t * self.0.len() as f32;
+        let vs = self.vertices();
+        assert!(!vs.is_empty(), "cannot eval an empty polygon");
+
+        let t = t * vs.len() as f32;
         let t_int = f32::floor(t);
         let t_fract = t - t_int;
         let i = t_int as isize;
 
-        self[i].lerp(&self[i + 1], t_fract)
+        self.index(i).lerp(&self.index(i + 1), t_fract)
     }
 }
 
@@ -968,13 +1006,11 @@ impl<'a, T> From<&'a [T; 2]> for Edge<&'a T> {
     }
 }
 
-impl<P: Affine> FromIterator<P> for Polygon<P> {
-    fn from_iter<I: IntoIterator<Item = P>>(it: I) -> Self {
-        Self::new(it)
-    }
-}
-
-impl<V> Index<isize> for Polygon<V> {
+/*
+impl<V, Verts> Index<isize> for Polygon<Verts>
+where
+    Verts: AsRef<[V]>,
+{
     type Output = V;
 
     /// Returns the vertex at an index modulo the number of vertices.
@@ -999,11 +1035,17 @@ impl<V> Index<isize> for Polygon<V> {
     fn index(&self, index: isize) -> &Self::Output {
         &self.0[index.rem_euclid(self.0.len() as isize) as usize]
     }
+}*/
+
+impl<V> FromIterator<V> for Polyline<Vec<V>> {
+    fn from_iter<I: IntoIterator<Item = V>>(it: I) -> Self {
+        Self::new(Vec::from_iter(it))
+    }
 }
 
-impl<P: Affine> FromIterator<P> for Polyline<P> {
-    fn from_iter<I: IntoIterator<Item = P>>(it: I) -> Self {
-        Self::new(it)
+impl<V> FromIterator<V> for Polygon<Vec<V>> {
+    fn from_iter<I: IntoIterator<Item = V>>(it: I) -> Self {
+        Self::new(Vec::from_iter(it))
     }
 }
 
@@ -1223,7 +1265,7 @@ mod tests {
     #[test]
     #[should_panic]
     fn empty_polyline_eval() {
-        Polyline::<f32>(vec![]).eval(0.5);
+        Polyline(Vec::<()>::new()).eval(0.5);
     }
 
     #[test]
