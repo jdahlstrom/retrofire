@@ -87,9 +87,9 @@ use core::{
 };
 
 use super::{
-    Affine, ApproxEq, Linear, Point,
+    Affine, ApproxEq, Linear, Point, PolarVec,
     float::fast_recip_sqrt,
-    pt3,
+    polar, pt3,
     space::{Hom, Proj3, Real},
     vary::ZDiv,
 };
@@ -206,7 +206,7 @@ impl<R, Sp> Vector<R, Sp> {
 }
 
 // TODO Many of these functions could be more generic
-impl<Sp, const N: usize> Vector<[f32; N], Sp> {
+impl<B, const N: usize> Vector<[f32; N], Real<N, B>> {
     /// Returns the length (magnitude) of `self`.
     #[inline]
     pub fn len(&self) -> f32 {
@@ -368,7 +368,7 @@ where
         .fold(Sc::zero(), |acc, x| acc.add(&x))
 }
 
-impl<Sc, Sp, const N: usize> Vector<[Sc; N], Sp>
+impl<Sc, B, const N: usize> Vector<[Sc; N], Real<N, B>>
 where
     Self: Linear<Scalar = Sc>,
     Sc: Linear<Scalar = Sc> + Copy,
@@ -491,6 +491,39 @@ where
             (x, y) = (a, b);
         }
         true
+    }
+}
+
+impl<Sc, B> PolarVec<B> {
+    pub fn len(&self) -> f32 {
+        self.r()
+    }
+
+    #[must_use]
+    pub fn normalize(&self) -> Self {
+        polar(1.0, self.az())
+    }
+
+    pub fn angle(&self, other: &Self) -> Angle {
+        todo!()
+    }
+
+    #[must_use]
+    pub fn scale(&self, factor: f32) -> Self {
+        if factor < 0.0 {
+            polar(self.r() * factor.abs(), -self.az())
+        } else {
+            polar(self.r() * factor, self.az())
+        }
+    }
+
+    #[must_use]
+    pub fn rotate(&self, angle: Angle) -> Self {
+        polar(self.r(), self.az() + angle)
+    }
+
+    pub fn dot(&self, other: &Self) -> f32 {
+        self.r().abs() * other.r().abs() * self.angle(other).cos()
     }
 }
 
@@ -778,11 +811,11 @@ impl<Sc: Copy> Vector<[Sc; 4], Proj3> {
 // Local trait impls
 //
 
-impl<Sc, Sp, const DIM: usize> Affine for Vector<[Sc; DIM], Sp>
+impl<Sc, B, const DIM: usize> Affine for Vector<[Sc; DIM], Real<DIM, B>>
 where
     Sc: Linear<Scalar = Sc> + Copy,
 {
-    type Space = Sp;
+    type Space = Real<DIM, B>;
     type Diff = Self;
 
     /// The dimension (number of components) of `Self`.
@@ -799,7 +832,7 @@ where
     }
 }
 
-impl<Sc, Sp, const DIM: usize> Linear for Vector<[Sc; DIM], Sp>
+impl<Sc, B, const DIM: usize> Linear for Vector<[Sc; DIM], Real<DIM, B>>
 where
     Sc: Linear<Scalar = Sc> + Copy,
 {
@@ -979,7 +1012,6 @@ impl<Sc, Sp> From<Vector<[Sc; 3], Sp>> for (Sc, Sc, Sc) {
 
 impl<R, Sp> Index<usize> for Vector<R, Sp>
 where
-    Self: Affine,
     R: Index<usize>,
 {
     type Output = R::Output;
@@ -991,14 +1023,14 @@ where
     /// Note that `Self::DIM` can be less than the number of elements in `R`.
     #[inline]
     fn index(&self, i: usize) -> &Self::Output {
-        debug_assert!(i < Self::DIM, "index {i} out of bounds ({})", Self::DIM);
+        //debug_assert!(i < Self::DIM, "index {i} out of bounds ({})",
+        //Self::DIM);
         &self.0[i]
     }
 }
 
 impl<R, Sp> IndexMut<usize> for Vector<R, Sp>
 where
-    Self: Affine,
     R: IndexMut<usize>,
 {
     /// Returns a mutable reference to the component of `self` with index `i`.
@@ -1008,7 +1040,8 @@ where
     /// Note that `Self::DIM` can be less than the number of elements in `R`.
     #[inline]
     fn index_mut(&mut self, i: usize) -> &mut Self::Output {
-        debug_assert!(i < Self::DIM, "index {i} out of bounds ({})", Self::DIM);
+        //debug_assert!(i < Self::DIM, "index {i} out of bounds ({})",
+        //               Self::DIM);
         &mut self.0[i]
     }
 }

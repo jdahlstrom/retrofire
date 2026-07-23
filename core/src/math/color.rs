@@ -1,5 +1,7 @@
 //! Colors and color spaces.
 
+use super::{Affine, Linear, Vector, vary::ZDiv};
+use crate::math::space::Real;
 use core::{
     array,
     fmt::{self, Debug, Display, Formatter},
@@ -8,8 +10,6 @@ use core::{
     ops::{Add, Div, Index, IndexMut, Mul, Neg, Sub},
     ops::{AddAssign, DivAssign, MulAssign, SubAssign},
 };
-
-use super::{Affine, Linear, Vector, vary::ZDiv};
 
 //
 // Types
@@ -729,7 +729,7 @@ where
 impl<Sp: Debug + Default, const DIM: usize> Affine for Color<[u8; DIM], Sp> {
     type Space = Sp;
     // Color<i32> is currently not Linear, so use Vector for now
-    type Diff = Vector<[i32; DIM], Sp>;
+    type Diff = Vector<[i32; DIM], Real<DIM, Self>>;
 
     const DIM: usize = DIM;
 

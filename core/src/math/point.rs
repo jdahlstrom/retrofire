@@ -260,13 +260,14 @@ impl<B> Point3<B> {
 // Local trait impls
 //
 
-impl<ScSelf, ScDiff, Sp, const N: usize> Affine for Point<[ScSelf; N], Sp>
+impl<ScSelf, ScDiff, B, const N: usize> Affine
+    for Point<[ScSelf; N], Real<N, B>>
 where
     ScSelf: Affine<Diff = ScDiff> + Copy,
     ScDiff: Linear<Scalar = ScDiff> + Copy,
 {
-    type Space = Sp;
-    type Diff = Vector<[ScDiff; N], Sp>;
+    type Space = Real<N, B>;
+    type Diff = Vector<[ScDiff; N], Self::Space>;
     const DIM: usize = N;
 
     #[inline]

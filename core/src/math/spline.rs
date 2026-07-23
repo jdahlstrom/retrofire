@@ -159,12 +159,12 @@ where
 ///
 /// # Panics
 /// If `err` ≤ 0.
-pub fn approximate<T, Sp, const DIM: usize>(
+pub fn approximate<T, B, const DIM: usize>(
     curve: &impl Parametric<T>,
     error: f32,
 ) -> Polyline<T>
 where
-    T: Affine<Diff = Vector<[f32; DIM], Sp>>,
+    T: Affine<Diff = Vector<[f32; DIM], Real<DIM, B>>>,
 {
     assert!(error > 0.0);
     approximate_with(curve, &|e: &T::Diff| e.len_sqr() < error * error)

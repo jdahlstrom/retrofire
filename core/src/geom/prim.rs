@@ -399,8 +399,8 @@ impl<B> Plane3<B> {
     ///
     /// ```
     pub fn from_point_and_normal(pt: Point3<B>, n: Normal3) -> Self {
-        let mut n = n.to().normalize().to_hom();
-        n[3] = -n.dot(&pt.to_hom());
+        let mut n = (-n).to().normalize().to_hom();
+        n[3] = dot(&n.0, &pt.to_hom().0);
         Self(n)
     }
 
@@ -491,7 +491,7 @@ impl<B> Plane3<B> {
     /// ```
     #[inline]
     pub fn signed_dist(&self, pt: Point3<B>) -> f32 {
-        self.0.dot(&pt.to_hom())
+        dot(&self.0.0, &pt.to_hom().0)
     }
 
     /// Returns whether a point is in the half-space that the normal of `self`

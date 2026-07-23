@@ -23,6 +23,7 @@ use core::{
 use crate::geom::{Edge, Tri, Vertex, vertex};
 use crate::math::{Lerp, ProjVec3};
 
+use crate::math::vec::dot;
 use view_frustum::{outcode, status};
 
 /// Trait for types that can be [clipped][self] against convex volumes.
@@ -110,7 +111,7 @@ impl ClipPlane {
     /// ```
     #[inline]
     pub fn signed_dist(&self, pt: &ClipVec) -> f32 {
-        self.0.dot(pt)
+        dot(&self.0.0, &pt.0)
     }
 
     /// Computes this plane's outcode bit for a point.
@@ -148,10 +149,11 @@ impl ClipPlane {
             // point. If condition guarantees that `d1 - d0` is nonzero.
             let t = -d0 / (d1 - d0);
 
-            ClipVert::new(vertex(
-                v0.pos.lerp(&v1.pos, t),
-                v0.attrib.lerp(&v1.attrib, t),
-            ))
+            // ClipVert::new(vertex(
+            //     v0.pos.lerp(&v1.pos, t),
+            //     v0.attrib.lerp(&v1.attrib, t),
+            // ))
+            todo!()
         })
     }
 

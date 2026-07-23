@@ -1128,12 +1128,14 @@ impl<Src, Dst> Mat4<Src, Dst> {
         // Elementary row operation subtracting one row,
         // multiplied by a scalar, from another
         fn sub_row(m: &mut Mat4, from: usize, to: usize, mul: f32) {
-            m.0[to] = (m.row_vec(to) - m.row_vec(from) * mul).0;
+            //m.0[to] = (m.row_vec(to) - m.row_vec(from) * mul).0;
+            todo!()
         }
 
         // Elementary row operation multiplying one row with a scalar
         fn mul_row(m: &mut Mat4, row: usize, mul: f32) {
-            m.0[row] = (m.row_vec(row) * mul).0;
+            //m.0[row] = (m.row_vec(row) * mul).0;
+            todo!()
         }
 
         // Elementary row operation swapping two rows
