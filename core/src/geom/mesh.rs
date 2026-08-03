@@ -27,12 +27,66 @@ pub enum TriIndices {
     Usize(Vec<Tri<usize>>),
 }
 
+#[derive(Copy, Clone, Debug, Eq, PartialEq, Ord, PartialOrd)]
 pub enum IndexType {
     U8,
     U16,
     U32,
     U64,
     Usize,
+}
+
+impl IndexType {
+    /// Returns the smallest index type that can hold the argument.
+    ///
+    /// # Examples
+    /// ```
+    /// use retrofire_core::geom::mesh::IndexType;
+    ///
+    /// assert_eq!(IndexType::of(0), IndexType::U8);
+    /// assert_eq!(IndexType::of(u8::MAX as usize), IndexType::U8);
+    /// assert_eq!(IndexType::of(u8::MAX as usize + 1), IndexType::U16);
+    /// assert_eq!(IndexType::of(u16::MAX as usize), IndexType::U16);
+    /// assert_eq!(IndexType::of(u16::MAX as usize + 1), IndexType::U32);
+    /// assert_eq!(IndexType::of(u32::MAX as usize), IndexType::U32);
+    /// assert_eq!(IndexType::of(u32::MAX as usize + 1), IndexType::U64);
+    /// assert_eq!(IndexType::of(u64::MAX as usize), IndexType::U64);
+    /// ```
+    pub fn of(i: usize) -> Self {
+        use IndexType::*;
+        let width_bytes = i.bit_width().div_ceil(8);
+        match width_bytes {
+            0..=1 => U8,
+            2 => U16,
+            3..=4 => U32,
+            5..=8 => U64,
+            _ => Usize,
+        }
+    }
+
+    /// Returns the maximum value that can be held by this index type.
+    pub fn max(self) -> usize {
+        use IndexType::*;
+        match self {
+            U8 => u8::MAX as usize,
+            U16 => u16::MAX as usize,
+            U32 => u32::MAX as usize,
+            U64 => u64::MAX as usize,
+            Usize => usize::MAX,
+        }
+    }
+
+    /// Returns the size of this index type in bytes.
+    pub fn size(self) -> usize {
+        use IndexType::*;
+        match self {
+            U8 => 1,
+            U16 => 2,
+            U32 => 4,
+            U64 => 8,
+            Usize => size_of::<usize>(),
+        }
+    }
 }
 
 macro_rules! mi {
@@ -60,46 +114,29 @@ impl TriIndices {
         }
     }
 
+    /// Returns a `TriIndices` that can hold indices of at least the given
+    /// value, with the given capacity.
     pub fn with_max_and_capacity(max: usize, cap: usize) -> Self {
-        use TriIndices::*;
-        let log = max.ilog2() / 8;
-        match log {
-            0 => U8(Vec::with_capacity(cap)),
-            1 => U16(Vec::with_capacity(cap)),
-            2 => U32(Vec::with_capacity(cap)),
-            3 => U64(Vec::with_capacity(cap)),
-            _ => Usize(Vec::with_capacity(cap)),
-        }
+        let mut res = Self::new(IndexType::of(max));
+        res.reserve(cap);
+        res
     }
 
-    fn max(&self) -> usize {
+    fn index_type(&self) -> IndexType {
         use TriIndices::*;
         match self {
-            U8(_) => u8::MAX as usize,
-            U16(_) => u16::MAX as usize,
-            U32(_) => u32::MAX as usize,
-            U64(_) => u64::MAX as usize,
-            Usize(_) => usize::MAX,
+            U8(_) => IndexType::U8,
+            U16(_) => IndexType::U16,
+            U32(_) => IndexType::U32,
+            U64(_) => IndexType::U64,
+            Usize(_) => IndexType::Usize,
         }
     }
 
-    fn expand(&mut self) {
-        use TriIndices::*;
-        *self = match self {
-            U8(v) => U16(v
-                .into_iter()
-                .map(|tri| tri.map(Into::into))
-                .collect()),
-            U16(v) => U32(v
-                .into_iter()
-                .map(|tri| tri.map(Into::into))
-                .collect()),
-            U32(v) => U64(v
-                .into_iter()
-                .map(|tri| tri.map(Into::into))
-                .collect()),
-            _ => panic!("cannot expand further"),
-        }
+    pub fn expand(&mut self, new_max: usize) {
+        let mut new = Self::with_max_and_capacity(new_max, self.capacity());
+        new.extend(self.into_iter());
+        *self = new;
     }
 
     /// Inserts an index triple into `self`.
@@ -107,15 +144,14 @@ impl TriIndices {
     /// # Panics
     /// If any of the indices is outside the range of the index type of `self`.
     pub fn push(&mut self, Tri([i, j, k]): Tri<usize>) {
-        // TODO error handling
-        let max = self.max();
-        if i > max || j > max || k > max {
-            self.expand();
+        let max = i.max(j).max(k);
+        if max > self.index_type().max() {
+            self.expand(max);
         }
         mi! { self, v => v.push(tri(
-            i.try_into().unwrap(),
-            j.try_into().unwrap(),
-            k.try_into().unwrap()
+            i.try_into().expect("cannot fail"),
+            j.try_into().expect("cannot fail"),
+            k.try_into().expect("cannot fail")
         ))}
     }
 
@@ -130,6 +166,11 @@ impl TriIndices {
     #[inline]
     pub fn clear(&mut self) {
         mi! { self, v => v.clear() }
+    }
+
+    #[inline]
+    pub fn reserve(&mut self, additional: usize) {
+        mi! { self, v => v.reserve(additional) }
     }
 
     /// Returns the number of entries (index triples) that `self` contains.
@@ -148,6 +189,10 @@ impl TriIndices {
     #[inline]
     pub fn is_empty(&self) -> bool {
         mi! { self, v => v.is_empty() }
+    }
+
+    pub fn get(&self, i: usize) -> Option<Tri<usize>> {
+        mi! { self, v => v.get(i).map(|tri| tri.map(|i| i as usize)) }
     }
 
     /// Returns an iterator over the triangles contained by `self`.
@@ -172,8 +217,8 @@ impl<'a> Iterator for TriIndicesIter<'a> {
 
     fn next(&mut self) -> Option<Self::Item> {
         let tri = mi!(self.0, v => {
-             let [i, j, k] = v.get(self.1)?.0;
-                tri(i as _, j as _, k as _)
+            let [i, j, k] = v.get(self.1)?.0;
+            tri(i as _, j as _, k as _)
         });
         self.1 += 1;
         Some(tri)
@@ -200,6 +245,38 @@ impl<'a> IntoIterator for &'a TriIndices {
 
     fn into_iter(self) -> Self::IntoIter {
         self.iter()
+    }
+}
+
+impl Extend<usize> for TriIndices {
+    fn extend<I: IntoIterator<Item = usize>>(&mut self, iter: I) {
+        self.extend(iter)
+    }
+}
+
+impl FromIterator<u8> for TriIndices {
+    fn from_iter<I: IntoIterator<Item = u8>>(iter: I) -> Self {
+        Self::U8(iter.into_iter().collect())
+    }
+}
+impl FromIterator<u16> for TriIndices {
+    fn from_iter<I: IntoIterator<Item = u16>>(iter: I) -> Self {
+        Self::U16(iter.into_iter().collect())
+    }
+}
+impl FromIterator<u32> for TriIndices {
+    fn from_iter<I: IntoIterator<Item = u32>>(iter: I) -> Self {
+        Self::U32(iter.into_iter().collect())
+    }
+}
+impl FromIterator<u64> for TriIndices {
+    fn from_iter<I: IntoIterator<Item = u64>>(iter: I) -> Self {
+        Self::U64(iter.into_iter().collect())
+    }
+}
+impl FromIterator<usize> for TriIndices {
+    fn from_iter<I: IntoIterator<Item = usize>>(iter: I) -> Self {
+        Self::Usize(iter.into_iter().collect())
     }
 }
 
