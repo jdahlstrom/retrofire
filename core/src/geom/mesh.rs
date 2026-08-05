@@ -248,34 +248,34 @@ impl<'a> IntoIterator for &'a TriIndices {
     }
 }
 
-impl Extend<usize> for TriIndices {
-    fn extend<I: IntoIterator<Item = usize>>(&mut self, iter: I) {
+impl Extend<Tri<usize>> for TriIndices {
+    fn extend<I: IntoIterator<Item = Tri<usize>>>(&mut self, iter: I) {
         self.extend(iter)
     }
 }
 
-impl FromIterator<u8> for TriIndices {
-    fn from_iter<I: IntoIterator<Item = u8>>(iter: I) -> Self {
+impl FromIterator<Tri<u8>> for TriIndices {
+    fn from_iter<I: IntoIterator<Item = Tri<u8>>>(iter: I) -> Self {
         Self::U8(iter.into_iter().collect())
     }
 }
-impl FromIterator<u16> for TriIndices {
-    fn from_iter<I: IntoIterator<Item = u16>>(iter: I) -> Self {
+impl FromIterator<Tri<u16>> for TriIndices {
+    fn from_iter<I: IntoIterator<Item = Tri<u16>>>(iter: I) -> Self {
         Self::U16(iter.into_iter().collect())
     }
 }
-impl FromIterator<u32> for TriIndices {
-    fn from_iter<I: IntoIterator<Item = u32>>(iter: I) -> Self {
+impl FromIterator<Tri<u32>> for TriIndices {
+    fn from_iter<I: IntoIterator<Item = Tri<u32>>>(iter: I) -> Self {
         Self::U32(iter.into_iter().collect())
     }
 }
-impl FromIterator<u64> for TriIndices {
-    fn from_iter<I: IntoIterator<Item = u64>>(iter: I) -> Self {
+impl FromIterator<Tri<u64>> for TriIndices {
+    fn from_iter<I: IntoIterator<Item = Tri<u64>>>(iter: I) -> Self {
         Self::U64(iter.into_iter().collect())
     }
 }
-impl FromIterator<usize> for TriIndices {
-    fn from_iter<I: IntoIterator<Item = usize>>(iter: I) -> Self {
+impl FromIterator<Tri<usize>> for TriIndices {
+    fn from_iter<I: IntoIterator<Item = Tri<usize>>>(iter: I) -> Self {
         Self::Usize(iter.into_iter().collect())
     }
 }
@@ -358,11 +358,7 @@ impl<A, B> Mesh<A, B> {
             })
             .map(|(tri, _)| tri);
 
-        let mut faces = TriIndices::with_max_and_capacity(
-            verts_len,
-            faces_iter.size_hint().0,
-        );
-        faces.extend(faces_iter);
+        let faces = faces_iter.collect();
 
         Self { faces, verts }
     }
